@@ -10,6 +10,8 @@ class LucidBot(sc2.BotAI):
     await self.nexus_command()
     # build supply
     await self.build_pylons()
+    # build army
+    await self.build_army()
     # scout
     # await self.scout()
 
@@ -25,19 +27,33 @@ class LucidBot(sc2.BotAI):
         if not nexus.has_buff(BuffId.CHRONOBOOSTENERGYCOST):
             await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, nexus))
 
-  # async def build_workers(self):
-  #   for nexus in self.units(NEXUS).ready.noqueue:
-  #     if self.can_afford(PROBE):
-  #       await self.do(nexus.train(PROBE))
-
-  # async def chronoboosting(self):
-    
-
-
   async def build_pylons(self):
     if self.supply_left < self.supply_cap * 0.15:
       if self.can_afford(PYLON):
         if not self.already_pending(PYLON):
           nexuses = self.units(NEXUS)
           await self.build(PYLON, near=random.choice(nexuses))
+
+  async def build_army(self):
+    # build zealots
+    await self.build_zealots()
+    # build when resource are available, time point or supply
+    # resouces available for now.
+    # if self.units(PYLON).ready.exists:
+    #   if self.can_afford(GATEWAY):
+    #     if not self.already_pending(GATEWAY):
+    #       pylons = self.units(PYLON)
+    #       await self.build(GATEWAY, near=random.choice(pylons))
         
+  async def build_zealots(self):
+    readyNoQueueGateways = self.units(GATEWAY).ready.noqueue
+    if readyNoQueueGateways:
+      for gateway in readyNoQueueGateways:
+        if self.can_afford(ZEALOT) and self.supply_left > 1:
+          await self.do(gateway.train(ZEALOT))
+    else:
+      if self.units(PYLON).ready.exists:
+        if self.can_afford(GATEWAY):
+          if not self.already_pending(GATEWAY):
+            pylons = self.units(PYLON)
+            await self.build(GATEWAY, near=random.choice(pylons))
