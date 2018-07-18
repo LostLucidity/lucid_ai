@@ -3,6 +3,7 @@ import sc2
 from sc2.constants import *
 
 class LucidBot(sc2.BotAI):
+  attackThreshold = 1
   async def on_step(self, iteration):
     # gather resource
     await self.distribute_workers()
@@ -27,9 +28,14 @@ class LucidBot(sc2.BotAI):
       # use chronoboost
       abilities = await self.get_available_abilities(nexus)
       if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:
-        if not nexus.has_buff(BuffId.CHRONOBOOSTENERGYCOST):
-          if not nexus.noqueue:
-            await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, nexus))
+        # collect nexuses and gateways
+        nexuses = self.units(NEXUS).ready
+        gateways = self.units(GATEWAY).ready
+        merged_buildings = nexuses + gateways
+        random_building = random.choice(merged_buildings)
+        if not random_building.has_buff(BuffId.CHRONOBOOSTENERGYCOST):
+          if not random_building.noqueue:
+            await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, random_building))
       # recall army
 
   async def increase_supply(self):
