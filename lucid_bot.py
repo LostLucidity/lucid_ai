@@ -17,15 +17,19 @@ class LucidBot(sc2.BotAI):
 
   async def nexus_command(self):
     for nexus in self.units(NEXUS).ready:
-      # build workers
-      if nexus.noqueue:
-        if self.can_afford(PROBE):
-          await self.do(nexus.train(PROBE))
+      # build workers when there is a shortage at the nexus.    
+      ideal_harvesters = nexus.ideal_harvesters
+      assigned_harvesters = nexus.assigned_harvesters
+      if ideal_harvesters > assigned_harvesters:
+        if nexus.noqueue:
+          if self.can_afford(PROBE):
+            await self.do(nexus.train(PROBE))
       # use chronoboost
       abilities = await self.get_available_abilities(nexus)
       if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:
         if not nexus.has_buff(BuffId.CHRONOBOOSTENERGYCOST):
-            await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, nexus))
+          await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, nexus))
+      # recall army
 
   async def build_pylons(self):
     if self.supply_left < self.supply_cap * 0.15:
