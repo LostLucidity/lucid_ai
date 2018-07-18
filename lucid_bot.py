@@ -9,7 +9,7 @@ class LucidBot(sc2.BotAI):
     # build workers, chronoboosting
     await self.nexus_command()
     # build supply
-    await self.build_pylons()
+    await self.increase_supply()
     # build army
     await self.build_army()
     # scout
@@ -32,12 +32,14 @@ class LucidBot(sc2.BotAI):
             await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, nexus))
       # recall army
 
-  async def build_pylons(self):
+  async def increase_supply(self):
     if self.supply_left < self.supply_cap * 0.15:
       if self.can_afford(PYLON):
         if not self.already_pending(PYLON):
           nexuses = self.units(NEXUS)
-          await self.build(PYLON, near=random.choice(nexuses))
+          nexus = random.choice(nexuses)
+          location = await self.find_placement(PYLON, nexus.position, 26, False, 6)
+          await self.build(PYLON, near=location)
 
   async def build_army(self):
     # build zealots
