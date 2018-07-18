@@ -28,7 +28,8 @@ class LucidBot(sc2.BotAI):
       abilities = await self.get_available_abilities(nexus)
       if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:
         if not nexus.has_buff(BuffId.CHRONOBOOSTENERGYCOST):
-          await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, nexus))
+          if not nexus.noqueue:
+            await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, nexus))
       # recall army
 
   async def build_pylons(self):
