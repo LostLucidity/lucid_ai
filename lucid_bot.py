@@ -43,8 +43,10 @@ class LucidBot(sc2.BotAI):
       # recall army
 
   async def increase_supply(self):
-    if self.supply_left < self.supply_cap * 0.15:
+    if self.supply_left < self.supply_cap * 0.20:
       if self.can_afford(PYLON):
+        print(self.supply_left)
+        print(self.supply_cap)        
         if not self.already_pending(PYLON):
           nexuses = self.units(NEXUS)
           nexus = random.choice(nexuses)
