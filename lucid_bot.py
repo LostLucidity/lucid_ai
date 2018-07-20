@@ -7,6 +7,9 @@ class LucidBot(sc2.BotAI):
   async def on_step(self, iteration):
     if iteration == 0:
       self.attackThreshold = 1
+    if len(self.known_enemy_units) > self.attackThreshold:
+      self.attackThreshold = len(self.known_enemy_units)
+      print(self.attackThreshold)
     # gather resource
     await self.distribute_workers()
     # build workers, chronoboosting
@@ -16,7 +19,7 @@ class LucidBot(sc2.BotAI):
     # build army
     await self.build_army()
     # send army out.
-    await self.send_army()
+    await self.command_army()
     # scout
     # await self.scout()
 
@@ -44,9 +47,7 @@ class LucidBot(sc2.BotAI):
 
   async def increase_supply(self):
     if self.supply_left < self.supply_cap * 0.20:
-      if self.can_afford(PYLON):
-        print(self.supply_left)
-        print(self.supply_cap)        
+      if self.can_afford(PYLON):     
         if not self.already_pending(PYLON):
           nexuses = self.units(NEXUS)
           nexus = random.choice(nexuses)
@@ -77,11 +78,26 @@ class LucidBot(sc2.BotAI):
             pylons = self.units(PYLON)
             await self.build(GATEWAY, near=random.choice(pylons))
 
-  async def send_army(self):
+  async def command_army(self):
     # If army meets threshhold, attack.
     zealots = self.units(ZEALOT)
-    if len(zealots) == self.attackThreshold:
+    if len(zealots) > self.attackThreshold:
       # attack!
       for zealot in zealots:
-        await self.do(zealot(AbilityId.PATROL, self.enemy_start_locations[0]))
-        # await self.do(zealot.patrol(self.enemy_start_locations[0]))
+        # if zealot is idle or on move, patrol
+        if zealot.is_idle:
+          await self.do(zealot(AbilityId.PATROL, self.enemy_start_locations[0]))
+        if len(zealot.orders) > 0:
+          if not zealot.orders[0].ability.id in [AbilityId.PATROL]:
+            await self.do(zealot(AbilityId.PATROL, self.enemy_start_locations[0]))
+    else:
+      # retreat
+      for zealot in zealots:
+        if zealot.position.distance_to(self.start_location) > 10:
+          if zealot.is_idle:         
+            await self.do(zealot(AbilityId.MOVE, self.start_location))
+          if len(zealot.orders) > 0:
+            if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
+              await self.do(zealot(AbilityId.MOVE, self.start_location))
+
+# UnitOrder(AbilityData(name=MovePatrol)
