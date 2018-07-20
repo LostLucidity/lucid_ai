@@ -1,3 +1,4 @@
+import math
 import random
 import sc2
 from sc2.constants import *
@@ -10,6 +11,7 @@ class LucidBot(sc2.BotAI):
     if len(self.known_enemy_units) > self.attack_threshold:
       self.attack_threshold = len(self.known_enemy_units)
       print(self.attack_threshold)
+    self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
     await self.distribute_workers()
     # build workers, chronoboosting
@@ -24,7 +26,7 @@ class LucidBot(sc2.BotAI):
     # await self.scout()
 
   async def nexus_command(self):
-    for nexus in self.units(NEXUS).ready:
+    for nexus in self.ready_nexuses:
       # build workers when there is a shortage at the nexus.    
       ideal_harvesters = nexus.ideal_harvesters
       assigned_harvesters = nexus.assigned_harvesters
@@ -66,15 +68,20 @@ class LucidBot(sc2.BotAI):
     #       await self.build(GATEWAY, near=random.choice(pylons))
         
   async def build_zealots(self):
-    readyNoQueueGateways = self.units(GATEWAY).ready.noqueue
+    total_harvesters = 0
+    for nexus in self.ready_nexuses:
+      total_harvesters = total_harvesters + nexus.ideal_harvesters
+    gateways = self.units(GATEWAY)
+    readyNoQueueGateways = gateways.ready.noqueue
     if readyNoQueueGateways:
       for gateway in readyNoQueueGateways:
         if self.can_afford(ZEALOT) and self.supply_left > 1:
           await self.do(gateway.train(ZEALOT))
     else:
       if self.units(PYLON).ready.exists:
-        if self.can_afford(GATEWAY):
-          if not self.already_pending(GATEWAY):
+        if len(gateways) < math.floor(total_harvesters / 5):
+          if self.can_afford(GATEWAY):
+            # if not self.already_pending(GATEWAY):
             pylons = self.units(PYLON)
             await self.build(GATEWAY, near=random.choice(pylons))
 
