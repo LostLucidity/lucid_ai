@@ -6,10 +6,10 @@ class LucidBot(sc2.BotAI):
   
   async def on_step(self, iteration):
     if iteration == 0:
-      self.attackThreshold = 1
-    if len(self.known_enemy_units) > self.attackThreshold:
-      self.attackThreshold = len(self.known_enemy_units)
-      print(self.attackThreshold)
+      self.attack_threshold = 0
+    if len(self.known_enemy_units) > self.attack_threshold:
+      self.attack_threshold = len(self.known_enemy_units)
+      print(self.attack_threshold)
     # gather resource
     await self.distribute_workers()
     # build workers, chronoboosting
@@ -81,7 +81,7 @@ class LucidBot(sc2.BotAI):
   async def command_army(self):
     # If army meets threshhold, attack.
     zealots = self.units(ZEALOT)
-    if len(zealots) > self.attackThreshold:
+    if len(zealots) > self.attack_threshold:
       # attack!
       for zealot in zealots:
         # if zealot is idle or on move, patrol
