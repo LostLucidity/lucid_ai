@@ -8,6 +8,8 @@ class LucidBot(sc2.BotAI):
   async def on_step(self, iteration):
     if iteration == 0:
       self.attack_threshold = 0
+      self.rally_point = self.start_location
+      self.enemy_target = self.enemy_start_locations[0]
     self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
     await self.distribute_workers()
@@ -102,33 +104,40 @@ class LucidBot(sc2.BotAI):
 
 
   async def command_army(self):
+    self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
+    if self.known_enemy_structures:
+      self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
     total_enemy_fighters = len(self.known_enemy_units) - len(self.known_enemy_structures)
     if total_enemy_fighters > self.attack_threshold:
       self.attack_threshold = total_enemy_fighters
       print(self.attack_threshold)
-    rally_point = self.start_location
     # If army meets threshhold, attack.
     zealots = self.units(ZEALOT)
-    groupedZealots = zealots.closer_than(10, rally_point)
+    groupedZealots = zealots.closer_than(10, self.rally_point)
     if len(zealots) >= self.attack_threshold:
-      # attack when mass
+      # attack when mass at rally point
       if len(groupedZealots) >= self.attack_threshold:
-      # attack!
         for zealot in zealots:
           # if zealot is idle or on move, wait until mass, then patrol
           if zealot.is_idle:
-            await self.do(zealot(AbilityId.PATROL, self.enemy_start_locations[0]))
+            await self.do(zealot(AbilityId.PATROL, self.enemy_target))
           if len(zealot.orders) > 0:
             if not zealot.orders[0].ability.id in [AbilityId.PATROL]:
-              await self.do(zealot(AbilityId.PATROL, self.enemy_start_locations[0]))
+              await self.do(zealot(AbilityId.PATROL, self.enemy_target))
     else:
-      # retreat to rally point.
+      # got to rally point.
       for zealot in zealots:
-        if zealot.position.distance_to(rally_point) > 5:
-          if zealot.is_idle:         
-            await self.do(zealot(AbilityId.MOVE, rally_point))
-          if len(zealot.orders) > 0:
-            if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
-              await self.do(zealot(AbilityId.MOVE, rally_point))
+        if len(zealot.orders) > 0:
+          if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
+            await self.do(zealot(AbilityId.MOVE, self.rally_point))
+    for zealot in zealots:
+      if zealot.position.distance_to(self.rally_point) > 5:
+        if zealot.is_idle:         
+          await self.do(zealot(AbilityId.MOVE, self.rally_point))
+        # if len(zealot.orders) > 0:
+        #   if not zealot.orders[0].ability.id in [AbilityId.ATTACK]:
+        #     await self.do(zealot(AbilityId.MOVE, self.rally_point))
+# if not attack and idle go to rally point.
+      
 
 # UnitOrder(AbilityData(name=MovePatrol)
