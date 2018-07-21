@@ -53,7 +53,7 @@ class LucidBot(sc2.BotAI):
         if not self.already_pending(PYLON):
           nexuses = self.units(NEXUS)
           nexus = random.choice(nexuses)
-          location = await self.find_placement(PYLON, nexus.position, 26, False, 6)
+          location = await self.find_placement(PYLON, nexus.position, 28, False, 6)
           await self.build(PYLON, near=location)
 
   async def build_army(self):
@@ -86,21 +86,24 @@ class LucidBot(sc2.BotAI):
             await self.build(GATEWAY, near=random.choice(pylons))
 
   async def command_army(self):
+    rally_point = self.start_location
     # If army meets threshhold, attack.
     zealots = self.units(ZEALOT)
     if len(zealots) > self.attack_threshold:
       # attack!
-      for zealot in zealots:
-        # if zealot is idle or on move, patrol
-        if zealot.is_idle:
-          await self.do(zealot(AbilityId.PATROL, self.enemy_start_locations[0]))
-        if len(zealot.orders) > 0:
-          if not zealot.orders[0].ability.id in [AbilityId.PATROL]:
+      groupedZealots = zealots.closer_than(10, self.start_location)
+      if len(groupedZealots) >= len(zealots):
+        for zealot in zealots:
+          # if zealot is idle or on move, wait until mass, then patrol
+          if zealot.is_idle:
             await self.do(zealot(AbilityId.PATROL, self.enemy_start_locations[0]))
+          if len(zealot.orders) > 0:
+            if not zealot.orders[0].ability.id in [AbilityId.PATROL]:
+              await self.do(zealot(AbilityId.PATROL, self.enemy_start_locations[0]))
     else:
-      # retreat
+      # retreat to rally point.
       for zealot in zealots:
-        if zealot.position.distance_to(self.start_location) > 10:
+        if zealot.position.distance_to(self.start_location) > 5:
           if zealot.is_idle:         
             await self.do(zealot(AbilityId.MOVE, self.start_location))
           if len(zealot.orders) > 0:
