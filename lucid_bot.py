@@ -8,9 +8,6 @@ class LucidBot(sc2.BotAI):
   async def on_step(self, iteration):
     if iteration == 0:
       self.attack_threshold = 0
-    if len(self.known_enemy_units) > self.attack_threshold:
-      self.attack_threshold = len(self.known_enemy_units)
-      print(self.attack_threshold)
     self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
     await self.distribute_workers()
@@ -18,12 +15,16 @@ class LucidBot(sc2.BotAI):
     await self.nexus_command()
     # build supply
     await self.increase_supply()
+    # expand
+    await self.expand()
     # build army
     await self.build_army()
     # send army out.
     await self.command_army()
     # scout
     # await self.scout()
+
+  
 
   async def nexus_command(self):
     for nexus in self.ready_nexuses:
@@ -67,6 +68,20 @@ class LucidBot(sc2.BotAI):
     #       pylons = self.units(PYLON)
     #       await self.build(GATEWAY, near=random.choice(pylons))
         
+  async def expand(self):
+    # collect all ideal and assigned harvesters.
+    ideal_harvesters = 0
+    assigned_harvesters = 0
+    for nexus in self.ready_nexuses:
+      ideal_harvesters = ideal_harvesters + nexus.ideal_harvesters
+      assigned_harvesters = assigned_harvesters + nexus.assigned_harvesters
+
+    for nexus in self.ready_nexuses:
+      if ideal_harvesters <= assigned_harvesters:
+        if self.can_afford(NEXUS):
+          if not self.already_pending(NEXUS):
+            await self.expand_now()
+      
   async def build_zealots(self):
     total_harvesters = 0
     for nexus in self.ready_nexuses:
@@ -85,14 +100,19 @@ class LucidBot(sc2.BotAI):
             pylons = self.units(PYLON)
             await self.build(GATEWAY, near=random.choice(pylons))
 
+
   async def command_army(self):
+    if len(self.known_enemy_units) > self.attack_threshold:
+      self.attack_threshold = len(self.known_enemy_units)
+      print(self.attack_threshold)
     rally_point = self.start_location
     # If army meets threshhold, attack.
     zealots = self.units(ZEALOT)
-    if len(zealots) > self.attack_threshold:
+    groupedZealots = zealots.closer_than(10, rally_point)
+    if len(zealots) >= self.attack_threshold:
+      # attack when mass
+      if len(groupedZealots) >= self.attack_threshold:
       # attack!
-      groupedZealots = zealots.closer_than(10, self.start_location)
-      if len(groupedZealots) >= len(zealots):
         for zealot in zealots:
           # if zealot is idle or on move, wait until mass, then patrol
           if zealot.is_idle:
@@ -103,11 +123,11 @@ class LucidBot(sc2.BotAI):
     else:
       # retreat to rally point.
       for zealot in zealots:
-        if zealot.position.distance_to(self.start_location) > 5:
+        if zealot.position.distance_to(rally_point) > 5:
           if zealot.is_idle:         
-            await self.do(zealot(AbilityId.MOVE, self.start_location))
+            await self.do(zealot(AbilityId.MOVE, rally_point))
           if len(zealot.orders) > 0:
             if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
-              await self.do(zealot(AbilityId.MOVE, self.start_location))
+              await self.do(zealot(AbilityId.MOVE, rally_point))
 
 # UnitOrder(AbilityData(name=MovePatrol)
