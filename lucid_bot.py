@@ -102,8 +102,9 @@ class LucidBot(sc2.BotAI):
 
 
   async def command_army(self):
-    if len(self.known_enemy_units) > self.attack_threshold:
-      self.attack_threshold = len(self.known_enemy_units)
+    total_enemy_fighters = len(self.known_enemy_units) - len(self.known_enemy_structures)
+    if total_enemy_fighters > self.attack_threshold:
+      self.attack_threshold = total_enemy_fighters
       print(self.attack_threshold)
     rally_point = self.start_location
     # If army meets threshhold, attack.
