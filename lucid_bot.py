@@ -10,7 +10,7 @@ class LucidBot(sc2.BotAI):
       self.attack_threshold = 0
       self.rally_point = self.start_location
       self.enemy_target = self.enemy_start_locations[0]
-      self.worker_cap = 28
+      self.worker_cap = 29
     self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
     await self.distribute_workers()
@@ -28,16 +28,21 @@ class LucidBot(sc2.BotAI):
     # await self.scout()
 
   async def nexus_command(self):
+    ideal_harvesters = 0
+    assigned_harvesters = 0
+    for nexus in self.ready_nexuses:
+      ideal_harvesters = ideal_harvesters + nexus.ideal_harvesters
+      assigned_harvesters = assigned_harvesters + nexus.assigned_harvesters
+
     for nexus in self.ready_nexuses:
       # build workers when there is a shortage at the nexus.    
-      ideal_harvesters = nexus.ideal_harvesters
-      assigned_harvesters = nexus.assigned_harvesters
       probes = self.units(PROBE)
       if len(probes) <= self.worker_cap:
         if ideal_harvesters > assigned_harvesters:
           if nexus.noqueue:
-            if self.can_afford(PROBE):
-              await self.do(nexus.train(PROBE))
+            if self.supply_left >= 1:
+              if self.can_afford(PROBE):
+                await self.do(nexus.train(PROBE))
       # use chronoboost
       abilities = await self.get_available_abilities(nexus)
       if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:
@@ -62,7 +67,8 @@ class LucidBot(sc2.BotAI):
 
   async def build_army(self):
     # build zealots
-    await self.build_zealots()
+    if self.supply_left >= 2:
+      await self.build_zealots()
     # build when resource are available, time point or supply
     # resouces available for now.
     # if self.units(PYLON).ready.exists:
