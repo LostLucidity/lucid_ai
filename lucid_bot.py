@@ -10,6 +10,7 @@ class LucidBot(sc2.BotAI):
       self.attack_threshold = 0
       self.rally_point = self.start_location
       self.enemy_target = self.enemy_start_locations[0]
+      self.worker_cap = 28
     self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
     await self.distribute_workers()
@@ -26,17 +27,17 @@ class LucidBot(sc2.BotAI):
     # scout
     # await self.scout()
 
-  
-
   async def nexus_command(self):
     for nexus in self.ready_nexuses:
       # build workers when there is a shortage at the nexus.    
       ideal_harvesters = nexus.ideal_harvesters
       assigned_harvesters = nexus.assigned_harvesters
-      if ideal_harvesters > assigned_harvesters:
-        if nexus.noqueue:
-          if self.can_afford(PROBE):
-            await self.do(nexus.train(PROBE))
+      probes = self.units(PROBE)
+      if len(probes) <= self.worker_cap:
+        if ideal_harvesters > assigned_harvesters:
+          if nexus.noqueue:
+            if self.can_afford(PROBE):
+              await self.do(nexus.train(PROBE))
       # use chronoboost
       abilities = await self.get_available_abilities(nexus)
       if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:
