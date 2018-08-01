@@ -8,9 +8,18 @@ class LucidBot(sc2.BotAI):
   async def on_step(self, iteration):
     if iteration == 0:
       self.attack_threshold = 0
+      self.food_threshhold = 0
       self.rally_point = self.start_location
       self.enemy_target = self.enemy_start_locations[0]
-      self.worker_cap = 29
+      self.worker_cap = 31
+      probes = self.units(PROBE)
+      probes_data = self._game_data.units[PROBE.value]
+      print (f"Tag is {probes.first.tag}")
+      print (probes.first._type_data._proto)
+      # print(vars(probes_data))
+      food_required = probes_data._proto.food_required
+      name = probes_data._proto.name
+      print(f"{name} require {food_required} food.")
     self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
     await self.distribute_workers()
@@ -112,14 +121,21 @@ class LucidBot(sc2.BotAI):
 
   async def command_army(self):
     self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
-    total_enemy_fighters = len(self.known_enemy_units) - len(self.known_enemy_structures)
-    if total_enemy_fighters > self.attack_threshold:
-      self.attack_threshold = total_enemy_fighters
-      print(self.attack_threshold)
+    total_size_of_enemy_fighters = len(self.known_enemy_units) - len(self.known_enemy_structures)
+    no_structure_enemy_units = [unit for unit in self.known_enemy_units if unit not in set(self.known_enemy_structures)]
+    total_enemy_food_cost = self.get_food_cost(no_structure_enemy_units)
+    # print (total_enemy_food_cost)
+    if total_size_of_enemy_fighters > self.attack_threshold:
+      self.attack_threshold = total_size_of_enemy_fighters
+      print(f"Attack Threshold {self.attack_threshold}")
+    if total_enemy_food_cost > self.food_threshhold:
+      self.food_threshhold = total_enemy_food_cost
+      print(f"Food Threshold {self.food_threshhold}")
     # If army meets threshhold, attack.
     zealots = self.units(ZEALOT)
+    total_army_food_cost = self.get_food_cost(zealots)
     groupedZealots = zealots.closer_than(10, self.rally_point)
-    if len(zealots) >= self.attack_threshold:
+    if total_army_food_cost >= self.food_threshhold:
       if self.known_enemy_structures: 
         if not self.enemy_target == self.known_enemy_structures.closest_to(self.rally_point).position:
           print('new enemy_target')
@@ -129,7 +145,8 @@ class LucidBot(sc2.BotAI):
               if zealot.orders[0].ability.id in [AbilityId.PATROL]:
                 await self.do(zealot(AbilityId.PATROL, self.enemy_target))
       # attack when mass at rally point
-      if len(groupedZealots) >= self.attack_threshold:
+      grouped_zealots_cost = self.get_food_cost(groupedZealots)
+      if grouped_zealots_cost >= self.food_threshhold:
         for zealot in zealots:
           # if zealot is idle or on move, wait until mass, then patrol
           if zealot.is_idle:
@@ -148,3 +165,10 @@ class LucidBot(sc2.BotAI):
       if zealot.position.distance_to(self.rally_point) > 5:
         if zealot.is_idle:         
           await self.do(zealot(AbilityId.MOVE, self.rally_point))
+
+  def get_food_cost(self, no_structure_units):
+    food_count = 0
+    if len(no_structure_units) > 0:
+      for unit in no_structure_units:
+        food_count += unit._type_data._proto.food_required
+    return food_count
