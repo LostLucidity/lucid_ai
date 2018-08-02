@@ -14,12 +14,12 @@ class LucidBot(sc2.BotAI):
       self.worker_cap = 32
       probes = self.units(PROBE)
       probes_data = self._game_data.units[PROBE.value]
-      print (f"Tag is {probes.first.tag}")
-      print (probes.first._type_data._proto)
+      # print (f"Tag is {probes.first.tag}")
+      # print (probes.first._type_data._proto)
       # print(vars(probes_data))
       food_required = probes_data._proto.food_required
       name = probes_data._proto.name
-      print(f"{name} require {food_required} food.")
+      # print(f"{name} require {food_required} food.")
     self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
     await self.distribute_workers()
@@ -123,14 +123,18 @@ class LucidBot(sc2.BotAI):
     self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
     total_size_of_enemy_fighters = len(self.known_enemy_units) - len(self.known_enemy_structures)
     no_structure_enemy_units = [unit for unit in self.known_enemy_units if unit not in set(self.known_enemy_structures)]
-    total_enemy_food_cost = self.get_food_cost(no_structure_enemy_units)
+    defense_structures = self.get_defense_structures()
+    total_enemy_food_cost = self.get_food_cost(no_structure_enemy_units) + defense_structures
     # print (total_enemy_food_cost)
     if total_size_of_enemy_fighters > self.attack_threshold:
       self.attack_threshold = total_size_of_enemy_fighters
-      print(f"Attack Threshold {self.attack_threshold}")
+      print(f"Attack Threshold: {self.attack_threshold}")
+      print(f"Known Enemy Structures: {self.known_enemy_structures}")
+      if len(self.known_enemy_structures) > 0:
+        print(f"First Enemy Structure: {self.known_enemy_structures.first._type_data._proto}")
     if total_enemy_food_cost > self.food_threshhold:
       self.food_threshhold = total_enemy_food_cost
-      print(f"Food Threshold {self.food_threshhold}")
+      print(f"Food Threshold: {self.food_threshhold}")
     # If army meets threshhold, attack.
     zealots = self.units(ZEALOT)
     total_army_food_cost = self.get_food_cost(zealots)
@@ -179,3 +183,11 @@ class LucidBot(sc2.BotAI):
       for unit in no_structure_units:
         food_count += unit._type_data._proto.food_required
     return food_count
+
+  def get_defense_structures(self):
+    defense_structures_count = 0
+    for structure in self.known_enemy_structures:
+      if structure._type_data._proto.name == 'PhotonCannon':
+        defense_structures_count += 3
+    return defense_structures_count
+        
