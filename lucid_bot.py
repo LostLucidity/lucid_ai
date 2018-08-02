@@ -11,7 +11,7 @@ class LucidBot(sc2.BotAI):
       self.food_threshhold = 0
       self.rally_point = self.start_location
       self.enemy_target = self.enemy_start_locations[0]
-      self.worker_cap = 31
+      self.worker_cap = 32
       probes = self.units(PROBE)
       probes_data = self._game_data.units[PROBE.value]
       print (f"Tag is {probes.first.tag}")
@@ -154,17 +154,24 @@ class LucidBot(sc2.BotAI):
           if len(zealot.orders) > 0:
             if not zealot.orders[0].ability.id in [AbilityId.PATROL]:
               await self.do(zealot(AbilityId.PATROL, self.enemy_target))
-
     else:
-      # got to rally point.
+      # get to rally point.
       for zealot in zealots:
         if len(zealot.orders) > 0:
           if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
             await self.do(zealot(AbilityId.MOVE, self.rally_point))
+          if zealot.position.distance_to(self.rally_point) < 5:
+            if zealot.orders[0].ability.id in [AbilityId.MOVE]:
+              await self.do(zealot(AbilityId.STOP))
+    # move new zealots to rally point
     for zealot in zealots:
       if zealot.position.distance_to(self.rally_point) > 5:
         if zealot.is_idle:         
           await self.do(zealot(AbilityId.MOVE, self.rally_point))
+        if len(zealot.orders) > 0:
+          if zealot.position.distance_to(self.rally_point) < 5:
+            if zealot.orders[0].ability.id in [AbilityId.MOVE]:
+              await self.do(zealot(AbilityId.STOP))
 
   def get_food_cost(self, no_structure_units):
     food_count = 0
