@@ -10,16 +10,11 @@ class LucidBot(sc2.BotAI):
       self.attack_threshold = 0
       self.food_threshhold = 0
       self.rally_point = self.start_location
-      self.enemy_target = self.enemy_start_locations[0]
+      self.enemy_target = None
       self.worker_cap = 32
-      probes = self.units(PROBE)
-      probes_data = self._game_data.units[PROBE.value]
-      # print (f"Tag is {probes.first.tag}")
-      # print (probes.first._type_data._proto)
-      # print(vars(probes_data))
-      food_required = probes_data._proto.food_required
-      name = probes_data._proto.name
-      # print(f"{name} require {food_required} food.")
+      self.probe_scout = None
+      self.scout_number = random.randrange(23)
+      # self.scout_number = 24
     self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
     await self.distribute_workers()
@@ -34,7 +29,7 @@ class LucidBot(sc2.BotAI):
     # send army out.
     await self.command_army()
     # scout
-    # await self.scout()
+    await self.scout()
 
   async def nexus_command(self):
     ideal_harvesters = 0
@@ -120,62 +115,59 @@ class LucidBot(sc2.BotAI):
 
 
   async def command_army(self):
-    self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
-    total_size_of_enemy_fighters = len(self.known_enemy_units) - len(self.known_enemy_structures)
-    no_structure_enemy_units = [unit for unit in self.known_enemy_units if unit not in set(self.known_enemy_structures)]
-    defense_structures = self.get_defense_structures()
-    total_enemy_food_cost = self.get_food_cost(no_structure_enemy_units) + defense_structures
-    # print (total_enemy_food_cost)
-    if total_size_of_enemy_fighters > self.attack_threshold:
-      self.attack_threshold = total_size_of_enemy_fighters
-      print(f"Attack Threshold: {self.attack_threshold}")
-      print(f"Known Enemy Structures: {self.known_enemy_structures}")
-      if len(self.known_enemy_structures) > 0:
-        print(f"First Enemy Structure: {self.known_enemy_structures.first._type_data._proto}")
-    if total_enemy_food_cost > self.food_threshhold:
-      self.food_threshhold = total_enemy_food_cost
-      print(f"Food Threshold: {self.food_threshhold}")
-    # If army meets threshhold, attack.
-    zealots = self.units(ZEALOT)
-    total_army_food_cost = self.get_food_cost(zealots)
-    groupedZealots = zealots.closer_than(10, self.rally_point)
-    if total_army_food_cost >= self.food_threshhold:
-      if self.known_enemy_structures: 
-        if not self.enemy_target == self.known_enemy_structures.closest_to(self.rally_point).position:
-          print('new enemy_target')
-          self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
+    if self.enemy_target:
+      self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
+      total_size_of_enemy_fighters = len(self.known_enemy_units) - len(self.known_enemy_structures)
+      no_structure_enemy_units = [unit for unit in self.known_enemy_units if unit not in set(self.known_enemy_structures)]
+      defense_structures = self.get_defense_structures()
+      total_enemy_food_cost = self.get_food_cost(no_structure_enemy_units) + defense_structures
+      # print (total_enemy_food_cost)
+      if total_size_of_enemy_fighters > self.attack_threshold:
+        self.attack_threshold = total_size_of_enemy_fighters
+      if total_enemy_food_cost > self.food_threshhold:
+        self.food_threshhold = total_enemy_food_cost
+        print(f"Food Threshold: {self.food_threshhold}")
+      # If army meets threshhold, attack.
+      zealots = self.units(ZEALOT)
+      total_army_food_cost = self.get_food_cost(zealots)
+      groupedZealots = zealots.closer_than(10, self.rally_point)
+      if total_army_food_cost >= self.food_threshhold:
+        if self.known_enemy_structures: 
+          if not self.enemy_target == self.known_enemy_structures.closest_to(self.rally_point).position:
+            print('new enemy_target')
+            self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
+            for zealot in zealots:
+              if len(zealot.orders) > 0:
+                if zealot.orders[0].ability.id in [AbilityId.PATROL]:
+                  await self.do(zealot(AbilityId.PATROL, self.enemy_target))
+        # attack when mass at rally point
+        grouped_zealots_cost = self.get_food_cost(groupedZealots)
+        if grouped_zealots_cost >= self.food_threshhold:
           for zealot in zealots:
-            if len(zealot.orders) > 0:
-              if zealot.orders[0].ability.id in [AbilityId.PATROL]:
-                await self.do(zealot(AbilityId.PATROL, self.enemy_target))
-      # attack when mass at rally point
-      grouped_zealots_cost = self.get_food_cost(groupedZealots)
-      if grouped_zealots_cost >= self.food_threshhold:
-        for zealot in zealots:
-          # if zealot is idle or on move, wait until mass, then patrol
-          if zealot.is_idle:
-            await self.do(zealot(AbilityId.PATROL, self.enemy_target))
-          if len(zealot.orders) > 0:
-            if not zealot.orders[0].ability.id in [AbilityId.PATROL]:
+            # if zealot is idle or on move, wait until mass, then patrol
+            if zealot.is_idle:
               await self.do(zealot(AbilityId.PATROL, self.enemy_target))
-    else:
-      # get to rally point.
+            if len(zealot.orders) > 0:
+              if not zealot.orders[0].ability.id in [AbilityId.PATROL]:
+                await self.do(zealot(AbilityId.PATROL, self.enemy_target))
+      else:
+        # get to rally point.
+        for zealot in zealots:
+          if len(zealot.orders) > 0:
+            if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
+              await self.do(zealot(AbilityId.MOVE, self.rally_point))
+            if zealot.position.distance_to(self.rally_point) < 5:
+              if zealot.orders[0].ability.id in [AbilityId.MOVE]:
+                await self.do(zealot(AbilityId.STOP))
+      # move new zealots to rally point
       for zealot in zealots:
-        if len(zealot.orders) > 0:
-          if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
+        if zealot.position.distance_to(self.rally_point) > 10:
+          if zealot.is_idle:         
             await self.do(zealot(AbilityId.MOVE, self.rally_point))
-          if zealot.position.distance_to(self.rally_point) < 5:
-            if zealot.orders[0].ability.id in [AbilityId.MOVE]:
-              await self.do(zealot(AbilityId.STOP))
-    # move new zealots to rally point
-    for zealot in zealots:
-      if zealot.position.distance_to(self.rally_point) > 5:
-        if zealot.is_idle:         
-          await self.do(zealot(AbilityId.MOVE, self.rally_point))
-        if len(zealot.orders) > 0:
-          if zealot.position.distance_to(self.rally_point) < 5:
-            if zealot.orders[0].ability.id in [AbilityId.MOVE]:
-              await self.do(zealot(AbilityId.STOP))
+          if len(zealot.orders) > 0:
+            if zealot.position.distance_to(self.rally_point) < 10:
+              if zealot.orders[0].ability.id in [AbilityId.MOVE]:
+                await self.do(zealot(AbilityId.STOP))
 
   def get_food_cost(self, no_structure_units):
     food_count = 0
@@ -190,4 +182,20 @@ class LucidBot(sc2.BotAI):
       if structure._type_data._proto.name == 'PhotonCannon':
         defense_structures_count += 3
     return defense_structures_count
+
+  async def scout(self):
+    probes = self.units(PROBE)
+    # if there are no known enemy structures
+    if len(self.known_enemy_structures) == 0:
+      # grab random scout and send out to different starting locations.
+      if len(probes) >= self.scout_number:
+        if not self.probe_scout:
+          print(f"Scout number: {self.scout_number}")
+          self.probe_scout = random.choice(probes)
+          await self.do(self.probe_scout.move(random.choice(self.enemy_start_locations)))
+        if self.probe_scout.is_idle:
+          if len(self.known_enemy_structures) == 0:
+            await self.do(self.probe_scout.move(random.choice(self.enemy_start_locations)))
+    else:
+      self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
         
