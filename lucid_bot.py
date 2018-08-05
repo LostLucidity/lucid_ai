@@ -159,13 +159,14 @@ class LucidBot(sc2.BotAI):
                 await self.do(zealot(AbilityId.PATROL, self.enemy_target))
       else:
         # get to rally point.
-        for zealot in zealots:
-          if len(zealot.orders) > 0:
-            if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
-              await self.do(zealot(AbilityId.MOVE, self.rally_point))
-            if zealot.position.distance_to(self.rally_point) < 5:
-              if zealot.orders[0].ability.id in [AbilityId.MOVE]:
-                await self.do(zealot(AbilityId.STOP))
+        if total_army_food_cost >= self.food_threshhold * 0.9: 
+          for zealot in zealots:
+            if len(zealot.orders) > 0:
+              if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
+                await self.do(zealot(AbilityId.MOVE, self.rally_point))
+              if zealot.position.distance_to(self.rally_point) < 5:
+                if zealot.orders[0].ability.id in [AbilityId.MOVE]:
+                  await self.do(zealot(AbilityId.STOP))
       # move new zealots to rally point
       for zealot in zealots:
         if zealot.position.distance_to(self.rally_point) > 10:
