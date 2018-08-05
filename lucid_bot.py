@@ -31,10 +31,12 @@ class LucidBot(sc2.BotAI):
     self.worker_cap = 34
     self.probe_scout = None
     self.probe_scout_tag = None
+    self.expansion_locations_keys = list(self.expansion_locations.keys())
     self.probe_scout_targets = self.enemy_start_locations
+    random.shuffle(self.probe_scout_targets)
+    self.probe_scout_targets += self.expansion_locations
     self.enemy_target = self.probe_scout_targets[0]
     print(f"enemy_start_locations {self.enemy_start_locations}")
-    random.shuffle(self.probe_scout_targets)
     print(f"probe_scout_targets {self.probe_scout_targets}")
     self.scout_number = random.randrange(23)
 
@@ -159,7 +161,7 @@ class LucidBot(sc2.BotAI):
                 await self.do(zealot(AbilityId.PATROL, self.enemy_target))
       else:
         # get to rally point.
-        if total_army_food_cost >= self.food_threshhold * 0.9: 
+        if total_army_food_cost >= self.food_threshhold * 0.8: 
           for zealot in zealots:
             if len(zealot.orders) > 0:
               if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
@@ -188,7 +190,7 @@ class LucidBot(sc2.BotAI):
     defense_structures_count = 0
     for structure in self.known_enemy_structures:
       if structure._type_data._proto.name == 'PhotonCannon':
-        defense_structures_count += 4
+        defense_structures_count += 3
     return defense_structures_count
 
   async def scout(self):
@@ -201,13 +203,16 @@ class LucidBot(sc2.BotAI):
           print(f"Scout number: {self.scout_number}")
           self.probe_scout_tag = random.choice(probes).tag
           self.probe_scout = self.units.find_by_tag(self.probe_scout_tag)
+          print(f"probe_scout", self.probe_scout)
           await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
         else:
           self.probe_scout = self.units.find_by_tag(self.probe_scout_tag)
           # if scout finds nothing at that location, search another 
           if len(self.known_enemy_structures) == 0:
+            print(f"probe_scout", self.probe_scout)
             if self.probe_scout.position.distance_to(self.probe_scout_targets[0]) < 5:
               self.probe_scout_targets.pop(0)
+              print('probe_scout_targets', self.probe_scout_targets)
               await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
     else:
       self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
