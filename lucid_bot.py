@@ -28,11 +28,11 @@ class LucidBot(sc2.BotAI):
     self.attack_threshold = 0
     self.food_threshhold = 0
     self.rally_point = self.start_location
-    self.enemy_target = None
     self.worker_cap = 34
     self.probe_scout = None
     self.probe_scout_tag = None
     self.probe_scout_targets = self.enemy_start_locations
+    self.enemy_target = self.probe_scout_targets[0]
     print(f"enemy_start_locations {self.enemy_start_locations}")
     random.shuffle(self.probe_scout_targets)
     print(f"probe_scout_targets {self.probe_scout_targets}")
