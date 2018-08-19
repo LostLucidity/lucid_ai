@@ -207,12 +207,18 @@ class LucidBot(sc2.BotAI):
           await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
         else:
           self.probe_scout = self.units.find_by_tag(self.probe_scout_tag)
-          # if scout finds nothing at that location, search another 
-          if len(self.known_enemy_structures) == 0:
+          # If probe was destroyed.
+          if not self.probe_scout:
+            print(f"Scout number: {self.scout_number}")
+            self.probe_scout_tag = random.choice(probes).tag
+            self.probe_scout = self.units.find_by_tag(self.probe_scout_tag)
             print(f"probe_scout", self.probe_scout)
-            if self.probe_scout.position.distance_to(self.probe_scout_targets[0]) < 5:
-              self.probe_scout_targets.pop(0)
-              print('probe_scout_targets', self.probe_scout_targets)
-              await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
+            await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
+          # if scout finds nothing at that location, search another 
+          if self.probe_scout.position.distance_to(self.probe_scout_targets[0]) < 5:
+            self.probe_scout_targets.pop(0)
+            print('probe_scout_targets', self.probe_scout_targets)
+            await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
     else:
       self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
+      self.probe_scout = None
