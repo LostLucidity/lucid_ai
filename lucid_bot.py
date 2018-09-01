@@ -19,6 +19,8 @@ class LucidBot(sc2.BotAI):
     await self.increase_supply()
     # expand
     await self.expand()
+    # 
+    await self.assess_opponent()
     # build army
     await self.build_army()
     # send army out.
@@ -132,7 +134,6 @@ class LucidBot(sc2.BotAI):
     if self.enemy_target:
       self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
       total_size_of_enemy_fighters = len(self.known_enemy_units) - len(self.known_enemy_structures)
-      no_structure_enemy_units = [unit for unit in self.known_enemy_units if unit not in set(self.known_enemy_structures)]
       defense_structures = self.get_defense_structures()
       total_enemy_food_cost = self.get_food_cost(no_structure_enemy_units) + defense_structures
       # print (total_enemy_food_cost)
@@ -227,3 +228,14 @@ class LucidBot(sc2.BotAI):
     else:
       self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
       self.probe_scout = None
+
+  async def assess_opponent(self):
+    self.no_structure_enemy_units = [unit for unit in self.known_enemy_units if unit not in set(self.known_enemy_structures)]
+    self.enemy_flying_units = []
+    for unit in self.no_structure_enemy_units:
+      if unit.is_flying:
+        # Add to list of flying units and check food cost.
+        self.enemy_flying_units.append(unit)
+    flying_enemy_food_cost = self.get_food_cost(self.enemy_flying_units)
+    if flying_enemy_food_cost > self.enemy_flying_max:
+      self.enemy_flying_max = flying_enemy_food_cost
