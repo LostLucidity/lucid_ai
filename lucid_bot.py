@@ -13,6 +13,8 @@ class LucidBot(sc2.BotAI):
     self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
     await self.distribute_workers()
+    # collect gas
+    await self.collect_gas()
     # build workers, chronoboosting
     await self.nexus_command()
     # build supply
@@ -29,8 +31,8 @@ class LucidBot(sc2.BotAI):
     await self.scout()
 
   async def on_first_step(self):
-    self.attack_threshold = 0
-    self.food_threshhold = 0
+    self.assimilator_limit = 0
+    self.food_threshold = 0
     self.rally_point = self.start_location
     self.worker_cap = 34
     self.probe_scout = None
@@ -77,6 +79,26 @@ class LucidBot(sc2.BotAI):
           if not random_building.noqueue:
             await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, random_building))
       # recall army
+
+  async def collect_gas(self):
+    assimilators = len(self.units(ASSIMILATOR)) + self.already_pending(ASSIMILATOR)
+    # Build Cybernetics Core for Stalker
+    cyberneticscore = len(self.units(CYBERNETICSCORE)) + self.already_pending(CYBERNETICSCORE)
+    vespene_deposits = []
+    if self.assimilator_limit > assimilators:
+      for nexus in self.ready_nexuses:
+        vespene_deposits += self.state.vespene_geyser.closer_than(20.0, nexus)
+      if self.can_afford(ASSIMILATOR):
+        vespene_deposit = random.choice(vespene_deposits)
+        probe = self.select_build_worker(vespene_deposit.position)
+        print('Build assimilator')
+        await self.do(probe.build(ASSIMILATOR, vespene_deposit))
+    if cyberneticscore < 1 and assimilators > 0:
+      if self.can_afford(CYBERNETICSCORE):
+        if len(self.units(CYBERNETICSCORE)) < 1:
+          pylons = self.units(PYLON)
+          print('Build cyberneticscore')
+          await self.build(CYBERNETICSCORE, near=random.choice(pylons))
 
   async def increase_supply(self):
     if self.supply_left < self.supply_cap * 0.20:
