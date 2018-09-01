@@ -7,7 +7,9 @@ class LucidBot(sc2.BotAI):
   
   async def on_step(self, iteration):
     if iteration == 0:
-      await self.on_first_step()      
+      await self.on_first_step()
+    if iteration % 100 == 0:
+      await self.display_data()
     self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
     await self.distribute_workers()
@@ -40,6 +42,9 @@ class LucidBot(sc2.BotAI):
     print(f"probe_scout_targets {self.probe_scout_targets}")
     self.scout_number = random.randrange(23)
 
+  async def display_data(self):
+    print('self.state.score.collection_rate_minerals', self.state.score.collection_rate_minerals)
+    print('self.state.score.collection_rate_vespene', self.state.score.collection_rate_vespene)
   async def nexus_command(self):
     ideal_harvesters = 0
     assigned_harvesters = 0
