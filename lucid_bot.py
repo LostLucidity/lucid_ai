@@ -40,6 +40,8 @@ class LucidBot(sc2.BotAI):
     random.shuffle(self.probe_scout_targets)
     self.probe_scout_targets += self.expansion_locations
     self.enemy_target = self.probe_scout_targets[0]
+    self.no_structure_enemy_units = None
+    self.enemy_flying_units = []
     print(f"enemy_start_locations {self.enemy_start_locations}")
     print(f"probe_scout_targets {self.probe_scout_targets}")
     self.scout_number = random.randrange(23)
