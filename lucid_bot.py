@@ -176,57 +176,59 @@ class LucidBot(sc2.BotAI):
   async def command_army(self):
     if self.enemy_target:
       self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
-      total_size_of_enemy_fighters = len(self.known_enemy_units) - len(self.known_enemy_structures)
       defense_structures = self.get_defense_structures()
-      total_enemy_food_cost = self.get_food_cost(no_structure_enemy_units) + defense_structures
+      total_enemy_food_cost = self.get_food_cost(self.no_structure_enemy_units) + defense_structures
       # print (total_enemy_food_cost)
-      if total_size_of_enemy_fighters > self.attack_threshold:
-        self.attack_threshold = total_size_of_enemy_fighters
-      if total_enemy_food_cost > self.food_threshhold:
-        self.food_threshhold = total_enemy_food_cost
-        print(f"Food Threshold: {self.food_threshhold}")
+      if total_enemy_food_cost > self.food_threshold:
+        self.food_threshold = total_enemy_food_cost
+        print(f"Food Threshold: {self.food_threshold}")
       # If army meets threshhold, attack.
+      # army = Unit(self.units(ZEALOT) + self.units(STALKER), self._game_data)
       zealots = self.units(ZEALOT)
-      total_army_food_cost = self.get_food_cost(zealots)
+      stalkers = self.units(STALKER)
+      army = zealots + stalkers
+      total_army_food_cost = self.get_food_cost(army)
       groupedZealots = zealots.closer_than(10, self.rally_point)
-      if total_army_food_cost >= self.food_threshhold:
+      groupedStalkers = zealots.closer_than(10, self.rally_point)
+      groupedArmy = groupedZealots + groupedStalkers
+      if total_army_food_cost >= self.food_threshold:
         if self.known_enemy_structures: 
           if not self.enemy_target == self.known_enemy_structures.closest_to(self.rally_point).position:
             print('new enemy_target')
             self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
-            for zealot in zealots:
-              if len(zealot.orders) > 0:
-                if zealot.orders[0].ability.id in [AbilityId.PATROL]:
-                  await self.do(zealot(AbilityId.PATROL, self.enemy_target))
+            for unit in army:
+              if len(unit.orders) > 0:
+                if unit.orders[0].ability.id in [AbilityId.PATROL]:
+                  await self.do(unit(AbilityId.PATROL, self.enemy_target))
         # attack when mass at rally point
-        grouped_zealots_cost = self.get_food_cost(groupedZealots)
-        if grouped_zealots_cost >= self.food_threshhold:
-          for zealot in zealots:
+        grouped_army_cost = self.get_food_cost(groupedArmy)
+        if grouped_army_cost >= self.food_threshold:
+          for unit in army:
             # if zealot is idle or on move, wait until mass, then patrol
-            if zealot.is_idle:
-              await self.do(zealot(AbilityId.PATROL, self.enemy_target))
-            if len(zealot.orders) > 0:
-              if not zealot.orders[0].ability.id in [AbilityId.PATROL]:
-                await self.do(zealot(AbilityId.PATROL, self.enemy_target))
+            if unit.is_idle:
+              await self.do(unit(AbilityId.PATROL, self.enemy_target))
+            if len(unit.orders) > 0:
+              if not unit.orders[0].ability.id in [AbilityId.PATROL]:
+                await self.do(unit(AbilityId.PATROL, self.enemy_target))
       else:
         # get to rally point.
-        if total_army_food_cost >= self.food_threshhold * 0.8: 
-          for zealot in zealots:
-            if len(zealot.orders) > 0:
-              if not zealot.orders[0].ability.id in [AbilityId.MOVE]:
-                await self.do(zealot(AbilityId.MOVE, self.rally_point))
-              if zealot.position.distance_to(self.rally_point) < 5:
-                if zealot.orders[0].ability.id in [AbilityId.MOVE]:
-                  await self.do(zealot(AbilityId.STOP))
-      # move new zealots to rally point
-      for zealot in zealots:
-        if zealot.position.distance_to(self.rally_point) > 10:
-          if zealot.is_idle:         
-            await self.do(zealot(AbilityId.MOVE, self.rally_point))
-          if len(zealot.orders) > 0:
-            if zealot.position.distance_to(self.rally_point) < 10:
-              if zealot.orders[0].ability.id in [AbilityId.MOVE]:
-                await self.do(zealot(AbilityId.STOP))
+        if total_army_food_cost >= self.food_threshold * 0.8: 
+          for unit in army:
+            if len(unit.orders) > 0:
+              if not unit.orders[0].ability.id in [AbilityId.MOVE]:
+                await self.do(unit(AbilityId.MOVE, self.rally_point))
+              if unit.position.distance_to(self.rally_point) < 5:
+                if unit.orders[0].ability.id in [AbilityId.MOVE]:
+                  await self.do(unit(AbilityId.STOP))
+      # move new army to rally point
+      for unit in army:
+        if unit.position.distance_to(self.rally_point) > 10:
+          if unit.is_idle:         
+            await self.do(unit(AbilityId.MOVE, self.rally_point))
+          if len(unit.orders) > 0:
+            if unit.position.distance_to(self.rally_point) < 10:
+              if unit.orders[0].ability.id in [AbilityId.MOVE]:
+                await self.do(unit(AbilityId.STOP))
 
   def get_food_cost(self, no_structure_units):
     food_count = 0
