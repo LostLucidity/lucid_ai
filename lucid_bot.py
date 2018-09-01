@@ -21,18 +21,19 @@ class LucidBot(sc2.BotAI):
     await self.increase_supply()
     # expand
     await self.expand()
+    # scout
+    await self.scout()
     # 
     await self.assess_opponent()
     # build army
     await self.build_army()
     # send army out.
     await self.command_army()
-    # scout
-    await self.scout()
 
   async def on_first_step(self):
     self.assimilator_limit = 0
     self.food_threshold = 0
+    self.enemy_flying_max = 0
     self.rally_point = self.start_location
     self.worker_cap = 34
     self.probe_scout = None
@@ -110,9 +111,11 @@ class LucidBot(sc2.BotAI):
           await self.build(PYLON, near=location)
 
   async def build_army(self):
-    # build zealots
-    if self.supply_left >= 2:
-      await self.build_zealots()
+    # build army units
+    # Decide what to build.
+    chosen_unit = self.choose_unit()
+    if self.supply_left >= self._game_data.units[chosen_unit.value]._proto.food_required:
+      await self.build_army_units(chosen_unit)
     # build when resource are available, time point or supply
     # resouces available for now.
     # if self.units(PYLON).ready.exists:
@@ -120,6 +123,17 @@ class LucidBot(sc2.BotAI):
     #     if not self.already_pending(GATEWAY):
     #       pylons = self.units(PYLON)
     #       await self.build(GATEWAY, near=random.choice(pylons))
+
+  def choose_unit(self):
+    chosen_unit = ZEALOT
+    stalker_count = len(self.units(STALKER))
+    if self._game_data.units[STALKER.value]._proto.food_required * stalker_count < self.enemy_flying_max:
+      if self.can_afford(STALKER):
+        chosen_unit = STALKER
+      else: 
+        self.assimilator_limit = len(self.ready_nexuses) * 2
+        self.worker_cap = 34 + (self.assimilator_limit * 3)
+    return chosen_unit
         
   async def expand(self):
     # collect all ideal and assigned harvesters.
@@ -135,23 +149,28 @@ class LucidBot(sc2.BotAI):
           if not self.already_pending(NEXUS):
             await self.expand_now()
       
-  async def build_zealots(self):
+  async def build_army_units(self, chosen_unit):
     total_harvesters = 0
     for nexus in self.ready_nexuses:
       total_harvesters = total_harvesters + nexus.ideal_harvesters
-    gateways = self.units(GATEWAY)
-    readyNoQueueGateways = gateways.ready.noqueue
-    if readyNoQueueGateways:
-      for gateway in readyNoQueueGateways:
-        if self.can_afford(ZEALOT) and self.supply_left > 1:
-          await self.do(gateway.train(ZEALOT))
+      gateways = self.units(GATEWAY)
+      readyNoQueueGateways = gateways.ready.noqueue
+      if readyNoQueueGateways:
+        for gateway in readyNoQueueGateways:
+          if self.can_afford(chosen_unit):
+            print('self._game_data.units[chosen_unit.value].creation_ability.id', self._game_data.units[chosen_unit.value].creation_ability.id)
+            ability_id = self._game_data.units[chosen_unit.value].creation_ability.id
+            abilities = await self.get_available_abilities(gateway)
+            if ability_id in abilities:
+              await self.do(gateway.train(chosen_unit))
     else:
       if self.units(PYLON).ready.exists:
-        if len(gateways) < math.floor(total_harvesters / 5):
+        if len(gateways) < math.floor(self.state.score.collection_rate_minerals / 300):
           if self.can_afford(GATEWAY):
             # if not self.already_pending(GATEWAY):
             pylons = self.units(PYLON)
             await self.build(GATEWAY, near=random.choice(pylons))
+      
 
 
   async def command_army(self):
