@@ -1,10 +1,9 @@
-
 import argparse
 
 import sys
 import asyncio
 import logging
-import websockets
+import aiohttp
 
 import sc2
 from sc2 import Race, Difficulty
@@ -35,6 +34,9 @@ def run_ladder_game(bot):
 
     host_port = args.GamePort
     lan_port = args.StartPort
+
+    # Add opponent_id to the bot class (accessed through self.opponent_id)
+    bot.ai.opponent_id = args.OpponentId
 
     # Versus Computer doesn't work yet
     computer_opponent = False
@@ -67,7 +69,7 @@ def run_ladder_game(bot):
 # Modified version of sc2.main._join_game to allow custom host and port, and to not spawn an additional sc2process (thanks to alkurbatov for fix)
 async def join_ladder_game(host, port, players, realtime, portconfig, save_replay_as=None, step_time_limit=None, game_time_limit=None):
     ws_url = "ws://{}:{}/sc2api".format(host, port)
-    ws_connection = await websockets.connect(ws_url, timeout=120)
+    ws_connection = await aiohttp.ClientSession().ws_connect(ws_url, timeout=120)
     client = Client(ws_connection)
 
     try:
