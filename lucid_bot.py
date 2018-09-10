@@ -23,15 +23,23 @@ class LucidBot(sc2.BotAI):
     await self.expand()
     # scout
     await self.scout()
-    # 
+    # assess opponent
     await self.assess_opponent()
     # build army
     await self.build_army()
     # send army out.
-    await self.command_army()
+    await self.command_army(iteration)
+    # combined actions
+    await self.execute_actions()
 
   async def on_first_step(self):
     self.assimilator_limit = 0
+    self.attack_units = []
+    self.mineral_to_unit_build_rate = 264
+    self.non_attack_units = []
+    self.attack_units_tags = []
+    self.non_attack_unit_tags = []
+    self.collectedActions = []
     self.food_threshold = 0
     self.enemy_flying_max = 0
     self.rally_point = self.start_location
@@ -131,7 +139,7 @@ class LucidBot(sc2.BotAI):
       if self.can_afford(STALKER):
         chosen_unit = STALKER
       else: 
-        self.assimilator_limit = len(self.ready_nexuses) * 2
+        self.assimilator_limit = len(self.ready_nexuses) * 1
         self.worker_cap = 34 + (self.assimilator_limit * 3)
     return chosen_unit
         
@@ -150,30 +158,29 @@ class LucidBot(sc2.BotAI):
             await self.expand_now()
       
   async def build_army_units(self, chosen_unit):
-    total_harvesters = 0
-    for nexus in self.ready_nexuses:
-      total_harvesters = total_harvesters + nexus.ideal_harvesters
-      gateways = self.units(GATEWAY)
+    gateways = self.units(GATEWAY)
+    # check for idle gateways.
+    readyNoQueueGateways = gateways.ready.noqueue
+    for gateway in readyNoQueueGateways:
       readyNoQueueGateways = gateways.ready.noqueue
-      if readyNoQueueGateways:
-        for gateway in readyNoQueueGateways:
-          if self.can_afford(chosen_unit):
-            print('self._game_data.units[chosen_unit.value].creation_ability.id', self._game_data.units[chosen_unit.value].creation_ability.id)
-            ability_id = self._game_data.units[chosen_unit.value].creation_ability.id
-            abilities = await self.get_available_abilities(gateway)
-            if ability_id in abilities:
-              await self.do(gateway.train(chosen_unit))
-    else:
-      if self.units(PYLON).ready.exists:
-        if len(gateways) < math.floor(self.state.score.collection_rate_minerals / 300):
-          if self.can_afford(GATEWAY):
-            # if not self.already_pending(GATEWAY):
-            pylons = self.units(PYLON)
-            await self.build(GATEWAY, near=random.choice(pylons))
+      if self.can_afford(chosen_unit):
+        amountOfPendingGateways = len(gateways) - len(readyNoQueueGateways)
+        if amountOfPendingGateways < math.floor(self.state.score.collection_rate_minerals / self.mineral_to_unit_build_rate):
+          ability_id = self._game_data.units[chosen_unit.value].creation_ability.id
+          abilities = await self.get_available_abilities(gateway)
+          if ability_id in abilities:
+            # print('training unit')
+            await self.do(gateway.train(chosen_unit))
+    # Build gateways.
+    if self.units(PYLON).ready.exists:
+      if len(gateways) < math.floor(self.state.score.collection_rate_minerals / self.mineral_to_unit_build_rate):
+        if self.can_afford(GATEWAY):
+          pylons = self.units(PYLON)
+          await self.build(GATEWAY, near=random.choice(pylons))
       
 
 
-  async def command_army(self):
+  async def command_army(self, iteration):
     if self.enemy_target:
       self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
       defense_structures = self.get_defense_structures()
@@ -187,48 +194,85 @@ class LucidBot(sc2.BotAI):
       zealots = self.units(ZEALOT)
       stalkers = self.units(STALKER)
       army = zealots + stalkers
+      self.non_attack_units = []
+      self.non_attack_unit_tags = []
+      self.attack_units = []
+      for tag in self.attack_units_tags:
+        found_unit = self.units.find_by_tag(tag)
+        if found_unit:
+          self.attack_units.append(found_unit)
+          if iteration % 30 == 0:
+            self.collectedActions.append(found_unit(AbilityId.PATROL, self.enemy_target))
+      for army_unit in army:
+        if len(self.attack_units) > 0:
+          found_army_unit = False
+          for tag in self.attack_units_tags:
+            if tag == army_unit.tag:
+              found_army_unit = True
+              break
+          if not found_army_unit:
+            self.non_attack_units.append(army_unit)
+            self.non_attack_unit_tags.append(army_unit.tag)
+            self.collectedActions.append(army_unit(AbilityId.PATROL, self.rally_point))
+        else:
+          self.non_attack_units = army
       total_army_food_cost = self.get_food_cost(army)
-      groupedZealots = zealots.closer_than(10, self.rally_point)
-      groupedStalkers = zealots.closer_than(10, self.rally_point)
-      groupedArmy = groupedZealots + groupedStalkers
+      grouped_zealots = zealots.closer_than(10, self.rally_point)
+      grouped_stalkers = stalkers.closer_than(10, self.rally_point)
+      grouped_army = grouped_zealots + grouped_stalkers
+      grouped_army_cost = self.get_food_cost(grouped_army)
+      if iteration % 30 == 0:
+        print('*******************')
+        print('len(army)', len(army))
+        print('len(self.attack_units)', len(self.attack_units))
+        print('len(self.non_attack_units)', len(self.non_attack_units))
+        print('total_army_food_cost', total_army_food_cost)
+        print('self.food_threshold', self.food_threshold)
+        print('grouped_army_cost', grouped_army_cost)
       if total_army_food_cost >= self.food_threshold:
         if self.known_enemy_structures: 
           if not self.enemy_target == self.known_enemy_structures.closest_to(self.rally_point).position:
             print('new enemy_target')
             self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
             for unit in army:
-              if len(unit.orders) > 0:
-                if unit.orders[0].ability.id in [AbilityId.PATROL]:
-                  await self.do(unit(AbilityId.PATROL, self.enemy_target))
-        # attack when mass at rally point
-        grouped_army_cost = self.get_food_cost(groupedArmy)
-        if grouped_army_cost >= self.food_threshold:
-          for unit in army:
-            # if zealot is idle or on move, wait until mass, then patrol
-            if unit.is_idle:
-              await self.do(unit(AbilityId.PATROL, self.enemy_target))
-            if len(unit.orders) > 0:
-              if not unit.orders[0].ability.id in [AbilityId.PATROL]:
-                await self.do(unit(AbilityId.PATROL, self.enemy_target))
-      else:
-        # get to rally point.
-        if total_army_food_cost >= self.food_threshold * 0.8: 
-          for unit in army:
-            if len(unit.orders) > 0:
-              if not unit.orders[0].ability.id in [AbilityId.MOVE]:
-                await self.do(unit(AbilityId.MOVE, self.rally_point))
-              if unit.position.distance_to(self.rally_point) < 5:
-                if unit.orders[0].ability.id in [AbilityId.MOVE]:
-                  await self.do(unit(AbilityId.STOP))
-      # move new army to rally point
-      for unit in army:
-        if unit.position.distance_to(self.rally_point) > 10:
-          if unit.is_idle:         
-            await self.do(unit(AbilityId.MOVE, self.rally_point))
-          if len(unit.orders) > 0:
-            if unit.position.distance_to(self.rally_point) < 10:
-              if unit.orders[0].ability.id in [AbilityId.MOVE]:
-                await self.do(unit(AbilityId.STOP))
+              self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
+        if len(self.attack_units) == 0:
+          if grouped_army_cost >= self.food_threshold:
+            self.attack_units_tags = []
+            for unit in grouped_army:
+              self.attack_units_tags.append(unit.tag)
+              self.attack_units.append(self.units.find_by_tag(unit.tag))
+              self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
+          else:
+            for unit in self.non_attack_units:
+              self.collectedActions.append(unit(AbilityId.PATROL, self.rally_point))
+        else:
+          if grouped_army_cost >= self.food_threshold:
+            for grouped_unit in grouped_army:
+              found_grouped_unit = False
+              for tag in self.attack_units_tags:
+                if tag == grouped_unit.tag:
+                  found_grouped_unit = True
+                  break
+              # if not already in attack_units, add
+              if not found_grouped_unit:
+                self.attack_units_tags.append(grouped_unit.tag)
+                self.attack_units.append(self.units.find_by_tag(grouped_unit.tag))
+                self.collectedActions.append(grouped_unit(AbilityId.PATROL, self.enemy_target))
+            for unit in self.non_attack_units:
+              self.collectedActions.append(unit(AbilityId.PATROL, self.rally_point))
+
+      # # move new army to rally point
+      # else:
+      #   for unit in self.non_attack_units:
+      #     if unit.position.distance_to(self.rally_point) > 10:
+      #       if unit.is_idle:        
+      #         self.collectedActions.append(unit(AbilityId.PATROL, self.rally_point))
+      #       if len(unit.orders) > 0:
+      #         if unit.position.distance_to(self.rally_point) < 10:
+      #           if unit.orders[0].ability.id in [AbilityId.PATROL]:
+      #             self.collectedActions.append(unit(AbilityId.STOP))
+      #             await self.do(unit(AbilityId.STOP))
 
   def get_food_cost(self, no_structure_units):
     food_count = 0
@@ -267,7 +311,8 @@ class LucidBot(sc2.BotAI):
             await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
           # if scout finds nothing at that location, search another 
           if self.probe_scout.position.distance_to(self.probe_scout_targets[0]) < 5:
-            self.probe_scout_targets.pop(0)
+            self.probe_scout_targets.append(self.probe_scout_targets.pop(0))
+            self.enemy_target = self.probe_scout_targets[0]
             print('probe_scout_targets', self.probe_scout_targets)
             await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
     else:
@@ -284,3 +329,6 @@ class LucidBot(sc2.BotAI):
     flying_enemy_food_cost = self.get_food_cost(self.enemy_flying_units)
     if flying_enemy_food_cost > self.enemy_flying_max:
       self.enemy_flying_max = flying_enemy_food_cost
+
+  async def execute_actions(self):
+    await self.do_actions(self.collectedActions)

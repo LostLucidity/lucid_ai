@@ -23,5 +23,5 @@ if __name__ == '__main__':
 			bot,
 			# Computer(Race.Protoss, Difficulty.Medium)
 			# Computer(Race.Random, Difficulty.Hard)
-			Computer(Race.Terran, Difficulty.VeryHard)
+			Computer(Race.Random, Difficulty.VeryHard)
 ], realtime=False)
