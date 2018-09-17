@@ -8,7 +8,7 @@ class LucidBot(sc2.BotAI):
   async def on_step(self, iteration):
     if iteration == 0:
       await self.on_first_step()
-    if iteration % 100 == 0:
+    if iteration % 30 == 0:
       await self.display_data()
     self.ready_nexuses = self.units(NEXUS).ready
     # gather resource
@@ -35,9 +35,12 @@ class LucidBot(sc2.BotAI):
   async def on_first_step(self):
     self.assimilator_limit = 0
     self.attack_units = []
+    self.attack_units_tags = []
+    self.defending_probes = []
+    self.defending_probes_tags = []
+    self.defense_mode = False
     self.mineral_to_unit_build_rate = 264
     self.non_attack_units = []
-    self.attack_units_tags = []
     self.non_attack_unit_tags = []
     self.collectedActions = []
     self.food_threshold = 0
@@ -181,6 +184,23 @@ class LucidBot(sc2.BotAI):
 
 
   async def command_army(self, iteration):
+    if self.defense_mode == False:
+      if len(self.defending_probes) > 0:
+        for probe in self.defending_probes:
+          self.collectedActions.append(probe(AbilityId.STOP))
+    # check for units near base.
+    nexuses = self.units(NEXUS)
+    forward_enemy_units_by_nexus = []
+    for nexus in nexuses:
+      forward_enemy_units = {'nexus': nexus, 'units': []}
+      for unit in self.no_structure_enemy_units:
+        if unit.distance_to(nexus.position) < 10:
+          forward_enemy_units['units'].append(unit)
+      if forward_enemy_units:
+        forward_enemy_units_by_nexus.append(forward_enemy_units)
+    if iteration % 30 == 0:
+      print('forward_enemy_units_by_nexus', forward_enemy_units_by_nexus)
+
     if self.enemy_target:
       self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
       defense_structures = self.get_defense_structures()
@@ -194,6 +214,8 @@ class LucidBot(sc2.BotAI):
       zealots = self.units(ZEALOT)
       stalkers = self.units(STALKER)
       army = zealots + stalkers
+      self.defending_probes = []
+      self.defending_probes_tags = []
       self.non_attack_units = []
       self.non_attack_unit_tags = []
       self.attack_units = []
@@ -203,19 +225,70 @@ class LucidBot(sc2.BotAI):
           self.attack_units.append(found_unit)
           if iteration % 30 == 0:
             self.collectedActions.append(found_unit(AbilityId.PATROL, self.enemy_target))
-      for army_unit in army:
-        if len(self.attack_units) > 0:
+      if len(self.attack_units) > 0:
+        for army_unit in army:
           found_army_unit = False
           for tag in self.attack_units_tags:
             if tag == army_unit.tag:
               found_army_unit = True
               break
           if not found_army_unit:
-            self.non_attack_units.append(army_unit)
-            self.non_attack_unit_tags.append(army_unit.tag)
-            self.collectedActions.append(army_unit(AbilityId.PATROL, self.rally_point))
-        else:
-          self.non_attack_units = army
+            # if iteration % 30 == 0:
+            if len(forward_enemy_units_by_nexus) > 0:
+              invading_units = 0
+              for enemy_units in forward_enemy_units_by_nexus:
+                if len(enemy_units['units']) > 0:
+                  invading_units = invading_units + len(enemy_units['units'])
+                  self.defense_rally_point = enemy_units['units'][0].position
+                  invaded_nexus = enemy_units['nexus']
+              if invading_units > 0:
+                self.defense_mode = True
+                self.non_attack_units.append(army_unit)
+                self.non_attack_unit_tags.append(army_unit.tag)
+                self.collectedActions.append(army_unit(AbilityId.PATROL, self.defense_rally_point))
+                defense_cost = self.get_food_cost(self.non_attack_units)
+                invasion_cost = self.get_food_cost(enemy_units['units'])
+                if defense_cost < invasion_cost:
+                  for probe in self.units(PROBE):
+                    if probe.position.distance_to(invaded_nexus.position) < 20:
+                      if defense_cost < invasion_cost:
+                        self.defending_probes.append(probe)
+                        self.defending_probes_tags.append(probe.tag)
+                        self.collectedActions.append(probe(AbilityId.ATTACK, self.defense_rally_point))
+                        defense_cost = self.get_food_cost(self.non_attack_units)
+                      else:
+                        break
+              else:
+                self.defense_mode = False
+      else:
+        self.non_attack_units = army
+        # if iteration % 30 == 0:
+        if len(forward_enemy_units_by_nexus) > 0:
+          invading_units = 0
+          for enemy_units in forward_enemy_units_by_nexus:
+            if len(enemy_units['units']) > 0:
+              invading_units = invading_units + len(enemy_units['units'])
+              invaded_nexus = enemy_units['nexus']
+              self.defense_rally_point = enemy_units['units'][0].position
+          if invading_units > 0:
+            self.defense_mode = True
+            for unit in army:
+              self.collectedActions.append(unit(AbilityId.PATROL, self.defense_rally_point))
+            defense_cost = self.get_food_cost(self.non_attack_units)
+            invasion_cost = self.get_food_cost(enemy_units['units'])
+            if defense_cost < invasion_cost:
+              for probe in self.units(PROBE):
+                if probe.position.distance_to(invaded_nexus.position) < 20:
+                  if defense_cost < invasion_cost:
+                    self.defending_probes.append(probe)
+                    self.defending_probes_tags.append(probe.tag)
+                    self.collectedActions.append(probe(AbilityId.ATTACK, self.defense_rally_point))
+                    defense_cost = self.get_food_cost(self.non_attack_units)
+                  else:
+                    break
+          else:
+            self.defense_mode = False
+
       total_army_food_cost = self.get_food_cost(army)
       grouped_zealots = zealots.closer_than(10, self.rally_point)
       grouped_stalkers = stalkers.closer_than(10, self.rally_point)
@@ -229,6 +302,9 @@ class LucidBot(sc2.BotAI):
         print('total_army_food_cost', total_army_food_cost)
         print('self.food_threshold', self.food_threshold)
         print('grouped_army_cost', grouped_army_cost)
+        print('self.defense_mode', self.defense_mode)
+        print('len(self.defending_probes)', len(self.defending_probes))
+        print(f"probe_scout", self.probe_scout)
       if total_army_food_cost >= self.food_threshold:
         if self.known_enemy_structures: 
           if not self.enemy_target == self.known_enemy_structures.closest_to(self.rally_point).position:
@@ -262,18 +338,6 @@ class LucidBot(sc2.BotAI):
             for unit in self.non_attack_units:
               self.collectedActions.append(unit(AbilityId.PATROL, self.rally_point))
 
-      # # move new army to rally point
-      # else:
-      #   for unit in self.non_attack_units:
-      #     if unit.position.distance_to(self.rally_point) > 10:
-      #       if unit.is_idle:        
-      #         self.collectedActions.append(unit(AbilityId.PATROL, self.rally_point))
-      #       if len(unit.orders) > 0:
-      #         if unit.position.distance_to(self.rally_point) < 10:
-      #           if unit.orders[0].ability.id in [AbilityId.PATROL]:
-      #             self.collectedActions.append(unit(AbilityId.STOP))
-      #             await self.do(unit(AbilityId.STOP))
-
   def get_food_cost(self, no_structure_units):
     food_count = 0
     if len(no_structure_units) > 0:
@@ -299,7 +363,7 @@ class LucidBot(sc2.BotAI):
           self.probe_scout_tag = random.choice(probes).tag
           self.probe_scout = self.units.find_by_tag(self.probe_scout_tag)
           print(f"probe_scout", self.probe_scout)
-          await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
+          await self.do(self.probe_scout(AbilityId.PATROL, self.probe_scout_targets[0]))
         else:
           self.probe_scout = self.units.find_by_tag(self.probe_scout_tag)
           # If probe was destroyed.
@@ -308,13 +372,13 @@ class LucidBot(sc2.BotAI):
             self.probe_scout_tag = random.choice(probes).tag
             self.probe_scout = self.units.find_by_tag(self.probe_scout_tag)
             print(f"probe_scout", self.probe_scout)
-            await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
+            await self.do(self.probe_scout(AbilityId.PATROL, self.probe_scout_targets[0]))
           # if scout finds nothing at that location, search another 
           if self.probe_scout.position.distance_to(self.probe_scout_targets[0]) < 5:
             self.probe_scout_targets.append(self.probe_scout_targets.pop(0))
             self.enemy_target = self.probe_scout_targets[0]
             print('probe_scout_targets', self.probe_scout_targets)
-            await self.do(self.probe_scout.move(self.probe_scout_targets[0]))
+            await self.do(self.probe_scout(AbilityId.PATROL, self.probe_scout_targets[0]))
     else:
       self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
       self.probe_scout = None
