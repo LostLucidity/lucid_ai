@@ -1,16 +1,20 @@
 import math
 import random
 import sc2
+import time
+
 from sc2.constants import *
 
 class LucidBot(sc2.BotAI):
   
   async def on_step(self, iteration):
+    self.iteration = iteration
     if iteration == 0:
       await self.on_first_step()
     if iteration % 30 == 0:
       await self.display_data()
     self.ready_nexuses = self.units(NEXUS).ready
+    self.collectedActions = []
     # gather resource
     await self.distribute_workers()
     # collect gas
@@ -28,7 +32,7 @@ class LucidBot(sc2.BotAI):
     # build army
     await self.build_army()
     # send army out.
-    await self.command_army(iteration)
+    await self.command_army()
     # combined actions
     await self.execute_actions()
 
@@ -46,6 +50,7 @@ class LucidBot(sc2.BotAI):
     self.food_threshold = 0
     self.enemy_flying_max = 0
     self.rally_point = self.start_location
+    self.start_time = time.time()
     self.worker_cap = 34
     self.probe_scout = None
     self.probe_scout_tag = None
@@ -59,10 +64,14 @@ class LucidBot(sc2.BotAI):
     print(f"enemy_start_locations {self.enemy_start_locations}")
     print(f"probe_scout_targets {self.probe_scout_targets}")
     self.scout_number = random.randrange(23)
+    await self.chat_send("LucidBot 1.2.1")
 
   async def display_data(self):
+    print('time per step', time.time() - self.start_time)
+    self.start_time = time.time()
     print('self.state.score.collection_rate_minerals', self.state.score.collection_rate_minerals)
     print('self.state.score.collection_rate_vespene', self.state.score.collection_rate_vespene)
+    print('self.iteration', self.iteration)
   async def nexus_command(self):
     ideal_harvesters = 0
     assigned_harvesters = 0
@@ -119,6 +128,7 @@ class LucidBot(sc2.BotAI):
           nexuses = self.units(NEXUS)
           nexus = random.choice(nexuses)
           location = await self.find_placement(PYLON, nexus.position, 28, False, 6)
+          print('Build pylon')
           await self.build(PYLON, near=location)
 
   async def build_army(self):
@@ -183,160 +193,68 @@ class LucidBot(sc2.BotAI):
       
 
 
-  async def command_army(self, iteration):
-    if self.defense_mode == False:
-      if len(self.defending_probes) > 0:
-        for probe in self.defending_probes:
-          self.collectedActions.append(probe(AbilityId.STOP))
-    # check for units near base.
-    nexuses = self.units(NEXUS)
-    forward_enemy_units_by_nexus = []
-    for nexus in nexuses:
-      forward_enemy_units = {'nexus': nexus, 'units': []}
-      for unit in self.no_structure_enemy_units:
-        if unit.distance_to(nexus.position) < 10:
-          forward_enemy_units['units'].append(unit)
-      if forward_enemy_units:
-        forward_enemy_units_by_nexus.append(forward_enemy_units)
-    if iteration % 30 == 0:
-      print('forward_enemy_units_by_nexus', forward_enemy_units_by_nexus)
-
+  async def command_army(self):
     if self.enemy_target:
-      self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
+      # Set rally point exists.
+      if self.ready_nexuses:
+        self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
       defense_structures = self.get_defense_structures()
       total_enemy_food_cost = self.get_food_cost(self.no_structure_enemy_units) + defense_structures
-      # print (total_enemy_food_cost)
       if total_enemy_food_cost > self.food_threshold:
         self.food_threshold = total_enemy_food_cost
         print(f"Food Threshold: {self.food_threshold}")
-      # If army meets threshhold, attack.
-      # army = Unit(self.units(ZEALOT) + self.units(STALKER), self._game_data)
-      zealots = self.units(ZEALOT)
-      stalkers = self.units(STALKER)
-      army = zealots + stalkers
-      self.defending_probes = []
-      self.defending_probes_tags = []
       self.non_attack_units = []
       self.non_attack_unit_tags = []
       self.attack_units = []
-      for tag in self.attack_units_tags:
-        found_unit = self.units.find_by_tag(tag)
+      zealots = self.units(ZEALOT)
+      stalkers = self.units(STALKER)
+      army = zealots + stalkers
+      for unit in army:
+        found_unit = False
+        for tag in self.attack_units_tags:
+          if tag == unit.tag:
+            found_unit = True
+            break
         if found_unit:
-          self.attack_units.append(found_unit)
-          if iteration % 30 == 0:
-            self.collectedActions.append(found_unit(AbilityId.PATROL, self.enemy_target))
-      if len(self.attack_units) > 0:
-        for army_unit in army:
-          found_army_unit = False
-          for tag in self.attack_units_tags:
-            if tag == army_unit.tag:
-              found_army_unit = True
-              break
-          if not found_army_unit:
-            # if iteration % 30 == 0:
-            if len(forward_enemy_units_by_nexus) > 0:
-              invading_units = 0
-              for enemy_units in forward_enemy_units_by_nexus:
-                if len(enemy_units['units']) > 0:
-                  invading_units = invading_units + len(enemy_units['units'])
-                  self.defense_rally_point = enemy_units['units'][0].position
-                  invaded_nexus = enemy_units['nexus']
-              if invading_units > 0:
-                self.defense_mode = True
-                self.non_attack_units.append(army_unit)
-                self.non_attack_unit_tags.append(army_unit.tag)
-                self.collectedActions.append(army_unit(AbilityId.PATROL, self.defense_rally_point))
-                defense_cost = self.get_food_cost(self.non_attack_units)
-                invasion_cost = self.get_food_cost(enemy_units['units'])
-                if defense_cost < invasion_cost:
-                  for probe in self.units(PROBE):
-                    if probe.position.distance_to(invaded_nexus.position) < 20:
-                      if defense_cost < invasion_cost:
-                        self.defending_probes.append(probe)
-                        self.defending_probes_tags.append(probe.tag)
-                        self.collectedActions.append(probe(AbilityId.ATTACK, self.defense_rally_point))
-                        defense_cost = self.get_food_cost(self.non_attack_units)
-                      else:
-                        break
-              else:
-                self.defense_mode = False
-      else:
-        self.non_attack_units = army
-        # if iteration % 30 == 0:
-        if len(forward_enemy_units_by_nexus) > 0:
-          invading_units = 0
-          for enemy_units in forward_enemy_units_by_nexus:
-            if len(enemy_units['units']) > 0:
-              invading_units = invading_units + len(enemy_units['units'])
-              invaded_nexus = enemy_units['nexus']
-              self.defense_rally_point = enemy_units['units'][0].position
-          if invading_units > 0:
-            self.defense_mode = True
-            for unit in army:
-              self.collectedActions.append(unit(AbilityId.PATROL, self.defense_rally_point))
-            defense_cost = self.get_food_cost(self.non_attack_units)
-            invasion_cost = self.get_food_cost(enemy_units['units'])
-            if defense_cost < invasion_cost:
-              for probe in self.units(PROBE):
-                if probe.position.distance_to(invaded_nexus.position) < 20:
-                  if defense_cost < invasion_cost:
-                    self.defending_probes.append(probe)
-                    self.defending_probes_tags.append(probe.tag)
-                    self.collectedActions.append(probe(AbilityId.ATTACK, self.defense_rally_point))
-                    defense_cost = self.get_food_cost(self.non_attack_units)
-                  else:
-                    break
-          else:
-            self.defense_mode = False
+          self.attack_units.append(unit)
+          self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
+        else:               
+          self.non_attack_units.append(unit)
+          self.non_attack_unit_tags.append(unit.tag)
+          # self.collectedActions.append(unit(AbilityId.PATROL, self.rally_point))
 
       total_army_food_cost = self.get_food_cost(army)
-      grouped_zealots = zealots.closer_than(10, self.rally_point)
-      grouped_stalkers = stalkers.closer_than(10, self.rally_point)
-      grouped_army = grouped_zealots + grouped_stalkers
-      grouped_army_cost = self.get_food_cost(grouped_army)
-      if iteration % 30 == 0:
+      if self.iteration % 30 == 0:
         print('*******************')
         print('len(army)', len(army))
         print('len(self.attack_units)', len(self.attack_units))
+        print('len(self.attack_units_tags)', len(self.attack_units_tags))
         print('len(self.non_attack_units)', len(self.non_attack_units))
+        print('len(self.non_attack_unit_tags)', len(self.non_attack_unit_tags))
         print('total_army_food_cost', total_army_food_cost)
         print('self.food_threshold', self.food_threshold)
-        print('grouped_army_cost', grouped_army_cost)
         print('self.defense_mode', self.defense_mode)
         print('len(self.defending_probes)', len(self.defending_probes))
         print(f"probe_scout", self.probe_scout)
-      if total_army_food_cost >= self.food_threshold:
-        if self.known_enemy_structures: 
-          if not self.enemy_target == self.known_enemy_structures.closest_to(self.rally_point).position:
-            print('new enemy_target')
-            self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
-            for unit in army:
-              self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
-        if len(self.attack_units) == 0:
-          if grouped_army_cost >= self.food_threshold:
-            self.attack_units_tags = []
-            for unit in grouped_army:
-              self.attack_units_tags.append(unit.tag)
-              self.attack_units.append(self.units.find_by_tag(unit.tag))
-              self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
-          else:
-            for unit in self.non_attack_units:
-              self.collectedActions.append(unit(AbilityId.PATROL, self.rally_point))
-        else:
-          if grouped_army_cost >= self.food_threshold:
-            for grouped_unit in grouped_army:
-              found_grouped_unit = False
-              for tag in self.attack_units_tags:
-                if tag == grouped_unit.tag:
-                  found_grouped_unit = True
-                  break
-              # if not already in attack_units, add
-              if not found_grouped_unit:
-                self.attack_units_tags.append(grouped_unit.tag)
-                self.attack_units.append(self.units.find_by_tag(grouped_unit.tag))
-                self.collectedActions.append(grouped_unit(AbilityId.PATROL, self.enemy_target))
-            for unit in self.non_attack_units:
-              self.collectedActions.append(unit(AbilityId.PATROL, self.rally_point))
+        # assert(len(army) - len(self.attack_units) - len(self.non_attack_units))
+      if self.known_enemy_structures: 
+        if not self.enemy_target == self.known_enemy_structures.closest_to(self.rally_point).position:
+          print('new enemy_target')
+          self.enemy_target = self.known_enemy_structures.closest_to(self.rally_point).position
+          for unit in self.attack_units:
+            self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
+      else:
+        self.enemy_target = self.probe_scout_targets[0]
+
+      if not self.defense_mode:
+        self.attack_enemy()
+      self.defend_base()
+      # clean tags.
+      self.attack_units_tags = []
+      for unit in self.attack_units:
+        self.attack_units_tags.append(unit.tag)
+    else:
+      self.enemy_target = self.probe_scout_targets[0]
 
   def get_food_cost(self, no_structure_units):
     food_count = 0
@@ -396,3 +314,96 @@ class LucidBot(sc2.BotAI):
 
   async def execute_actions(self):
     await self.do_actions(self.collectedActions)
+
+  def attack_enemy(self):
+    # compare enemy threshhold with rallied army.
+    zealots = self.units(ZEALOT)
+    stalkers = self.units(STALKER)
+    grouped_zealots = zealots.closer_than(10, self.rally_point)
+    grouped_stalkers = stalkers.closer_than(10, self.rally_point)
+    grouped_army = grouped_zealots + grouped_stalkers
+    grouped_army_cost = self.get_food_cost(grouped_army)
+    if self.iteration % 30 == 0:
+      print('grouped_army_cost', grouped_army_cost)
+      print('len(grouped_army)', len(grouped_army))
+    # if rallied army is larger or pop is max, attack.
+    if grouped_army_cost >= self.food_threshold or self.supply_used == 200:
+      # print('attack enemy')
+      for unit in grouped_army:
+        self.attack_units.append(unit)
+        self.attack_units_tags.append(unit.tag)
+        self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
+    else:
+      # print('rally non_attack_units home')
+      for unit in self.non_attack_units:
+        self.collectedActions.append(unit(AbilityId.PATROL, self.rally_point))
+    
+
+  def defend_base(self):
+    # assess invading enemy
+    # check for units near base.
+    invaded_nexus = None
+    nexuses = self.units(NEXUS)
+    forward_enemy_units_by_nexus = []
+    for nexus in nexuses:
+      forward_enemy_units = {'nexus': nexus, 'units': []}
+      for unit in self.no_structure_enemy_units:
+        if unit.distance_to(nexus.position) < 10:
+          forward_enemy_units['units'].append(unit)
+      if forward_enemy_units:
+        forward_enemy_units_by_nexus.append(forward_enemy_units)
+    if self.iteration % 30 == 0:
+      print('forward_enemy_units_by_nexus', forward_enemy_units_by_nexus)
+    if len(forward_enemy_units_by_nexus) > 0:
+      largest_enemy = 0
+      for enemy_units in forward_enemy_units_by_nexus:
+        # defend against larget threat
+        if len(enemy_units['units']) > 0:
+          if self.get_food_cost(enemy_units['units']) > largest_enemy:
+            largest_enemy = self.get_food_cost(enemy_units['units'])
+            self.defense_rally_point = enemy_units['units'][0].position
+            invaded_nexus = enemy_units['nexus']
+    if invaded_nexus:
+      self.defense_mode = True
+      if self.iteration % 30 == 0:
+        print('invaded_nexus')
+      # assign units to defend.
+      stalkers = self.units(STALKER)
+      zealots = self.units(ZEALOT)
+      grouped_zealots = zealots.closer_than(10, self.rally_point)
+      grouped_stalkers = stalkers.closer_than(10, self.rally_point)
+      grouped_army = grouped_zealots + grouped_stalkers
+      grouped_army_cost = self.get_food_cost(grouped_army) + self.get_food_cost(self.defending_probes)
+      if self.iteration % 30 == 0:
+        print('len(grouped_army)', len(grouped_army))
+        print('largest_enemy', largest_enemy)
+        print('grouped_army_cost', grouped_army_cost)
+        print('self.defending_probes', self.defending_probes)
+      if (len(grouped_army) + len(self.defending_probes)) == 0:
+        for unit in grouped_army:
+          self.collectedActions.append(unit(AbilityId.PATROL, self.defense_rally_point))
+        # pull probes if too few defending.
+        if grouped_army_cost < largest_enemy:
+          for probe in self.units(PROBE):
+            print('probe.position.distance_to(invaded_nexus.position)', probe.position.distance_to(invaded_nexus.position))
+            if probe.position.distance_to(invaded_nexus.position) < 10:
+              if grouped_army_cost < largest_enemy:
+                grouped_army_cost = grouped_army_cost + self.get_food_cost([probe])
+                self.defending_probes.append(probe)
+                self.defending_probes_tags.append(probe.tag)
+                self.collectedActions.append(probe(AbilityId.ATTACK, self.defense_rally_point))
+                print('self.defending_probes', self.defending_probes)
+              else:
+                break              
+    else:
+      self.defense_mode = False
+      if self.iteration % 30 == 0:
+        print('no invaded_nexus')
+      # stop attacking probes when threat is gone.
+      if len(self.defending_probes) and self.iteration % len(self.defending_probes) == 0:
+        for probe in self.defending_probes:
+          mineral_field = self.state.mineral_field.closest_to(probe)
+          self.collectedActions.append(probe.gather(mineral_field))
+          self.collectedActions.append(probe(AbilityId.HARVEST_GATHER, mineral_field))
+        self.defending_probes = []
+        self.defending_probes_tags = []
