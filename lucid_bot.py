@@ -13,8 +13,7 @@ class LucidBot(sc2.BotAI):
       await self.on_first_step()
     if iteration % 30 == 0:
       await self.display_data()
-    self.ready_nexuses = self.units(NEXUS).ready
-    self.collectedActions = []
+    await self.on_every_step()
     # gather resource
     await self.distribute_workers()
     # collect gas
@@ -29,6 +28,8 @@ class LucidBot(sc2.BotAI):
     await self.scout()
     # assess opponent
     await self.assess_opponent()
+    # determine army composition
+    await self.set_army_composition()
     # build army
     await self.build_army()
     # send army out.
@@ -64,7 +65,16 @@ class LucidBot(sc2.BotAI):
     print(f"enemy_start_locations {self.enemy_start_locations}")
     print(f"probe_scout_targets {self.probe_scout_targets}")
     self.scout_number = random.randrange(23)
-    await self.chat_send("LucidBot 1.2.1")
+    self.stalkers = []
+    self.zealots = []
+    await self.chat_send("LucidBot 1.3.0")
+  
+  async def on_every_step(self):
+    self.zealots = self.units(ZEALOT)
+    self.stalkers = self.units(STALKER)
+    self.army = self.zealots + self.stalkers
+    self.collectedActions = []
+    self.ready_nexuses = self.units(NEXUS).ready
 
   async def display_data(self):
     print('time per step', time.time() - self.start_time)
@@ -72,6 +82,9 @@ class LucidBot(sc2.BotAI):
     print('self.state.score.collection_rate_minerals', self.state.score.collection_rate_minerals)
     print('self.state.score.collection_rate_vespene', self.state.score.collection_rate_vespene)
     print('self.iteration', self.iteration)
+    print('zealot count:', len(self.zealots))
+    print('stalker count:', len(self.stalkers))
+
   async def nexus_command(self):
     ideal_harvesters = 0
     assigned_harvesters = 0
@@ -113,7 +126,8 @@ class LucidBot(sc2.BotAI):
         vespene_deposit = random.choice(vespene_deposits)
         probe = self.select_build_worker(vespene_deposit.position)
         print('Build assimilator')
-        await self.do(probe.build(ASSIMILATOR, vespene_deposit))
+        if probe:
+          await self.do(probe.build(ASSIMILATOR, vespene_deposit))
     if cyberneticscore < 1 and assimilators > 0:
       if self.can_afford(CYBERNETICSCORE):
         if len(self.units(CYBERNETICSCORE)) < 1:
@@ -128,8 +142,10 @@ class LucidBot(sc2.BotAI):
           nexuses = self.units(NEXUS)
           nexus = random.choice(nexuses)
           location = await self.find_placement(PYLON, nexus.position, 28, False, 6)
+          probe = self.select_build_worker(location)
           print('Build pylon')
-          await self.build(PYLON, near=location)
+          if probe:
+            await self.do(probe.build(PYLON, location))
 
   async def build_army(self):
     # build army units
@@ -137,18 +153,17 @@ class LucidBot(sc2.BotAI):
     chosen_unit = self.choose_unit()
     if self.supply_left >= self._game_data.units[chosen_unit.value]._proto.food_required:
       await self.build_army_units(chosen_unit)
-    # build when resource are available, time point or supply
-    # resouces available for now.
-    # if self.units(PYLON).ready.exists:
-    #   if self.can_afford(GATEWAY):
-    #     if not self.already_pending(GATEWAY):
-    #       pylons = self.units(PYLON)
-    #       await self.build(GATEWAY, near=random.choice(pylons))
+
 
   def choose_unit(self):
     chosen_unit = ZEALOT
+    # stalker
     stalker_count = len(self.units(STALKER))
-    if self._game_data.units[STALKER.value]._proto.food_required * stalker_count < self.enemy_flying_max:
+    if self.enemy_flying_max > self.stalker_limit:
+      stalker_limit = self.enemy_flying_max
+    else:
+      stalker_limit = self.stalker_limit
+    if self._game_data.units[STALKER.value]._proto.food_required * stalker_count < stalker_limit:
       if self.can_afford(STALKER):
         chosen_unit = STALKER
       else: 
@@ -191,8 +206,6 @@ class LucidBot(sc2.BotAI):
           pylons = self.units(PYLON)
           await self.build(GATEWAY, near=random.choice(pylons))
       
-
-
   async def command_army(self):
     if self.enemy_target:
       # Set rally point exists.
@@ -312,6 +325,10 @@ class LucidBot(sc2.BotAI):
     if flying_enemy_food_cost > self.enemy_flying_max:
       self.enemy_flying_max = flying_enemy_food_cost
 
+  async def set_army_composition(self):
+    # print out army composition
+    self.stalker_limit = len(self.army) / 2
+    
   async def execute_actions(self):
     await self.do_actions(self.collectedActions)
 
@@ -378,23 +395,22 @@ class LucidBot(sc2.BotAI):
         print('len(grouped_army)', len(grouped_army))
         print('largest_enemy', largest_enemy)
         print('grouped_army_cost', grouped_army_cost)
-        print('self.defending_probes', self.defending_probes)
-      if (len(grouped_army) + len(self.defending_probes)) == 0:
-        for unit in grouped_army:
-          self.collectedActions.append(unit(AbilityId.PATROL, self.defense_rally_point))
-        # pull probes if too few defending.
-        if grouped_army_cost < largest_enemy:
-          for probe in self.units(PROBE):
-            print('probe.position.distance_to(invaded_nexus.position)', probe.position.distance_to(invaded_nexus.position))
-            if probe.position.distance_to(invaded_nexus.position) < 10:
-              if grouped_army_cost < largest_enemy:
-                grouped_army_cost = grouped_army_cost + self.get_food_cost([probe])
-                self.defending_probes.append(probe)
-                self.defending_probes_tags.append(probe.tag)
-                self.collectedActions.append(probe(AbilityId.ATTACK, self.defense_rally_point))
-                print('self.defending_probes', self.defending_probes)
-              else:
-                break              
+        print('self.defending_probes', self.defending_probes)      
+      for unit in grouped_army:
+        self.collectedActions.append(unit(AbilityId.PATROL, self.defense_rally_point))
+      # pull probes if too few defending.
+      if grouped_army_cost < largest_enemy:
+        for probe in self.units(PROBE):
+          print('probe.position.distance_to(invaded_nexus.position)', probe.position.distance_to(invaded_nexus.position))
+          if probe.position.distance_to(invaded_nexus.position) < 10:
+            if grouped_army_cost < largest_enemy:
+              grouped_army_cost = grouped_army_cost + self.get_food_cost([probe])
+              self.defending_probes.append(probe)
+              self.defending_probes_tags.append(probe.tag)
+              self.collectedActions.append(probe(AbilityId.ATTACK, self.defense_rally_point))
+              print('self.defending_probes', self.defending_probes)
+            else:
+              break              
     else:
       self.defense_mode = False
       if self.iteration % 30 == 0:
