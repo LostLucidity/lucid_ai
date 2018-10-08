@@ -67,7 +67,7 @@ class LucidBot(sc2.BotAI):
     self.scout_number = random.randrange(23)
     self.stalkers = []
     self.zealots = []
-    await self.chat_send("LucidBot 1.3.0")
+    await self.chat_send("LucidBot 1.4.0")
   
   async def on_every_step(self):
     self.zealots = self.units(ZEALOT)
@@ -279,7 +279,7 @@ class LucidBot(sc2.BotAI):
   def get_defense_structures(self):
     defense_structures_count = 0
     for structure in self.known_enemy_structures:
-      if structure._type_data._proto.name == 'PhotonCannon':
+      if structure._type_data._proto.name == 'PhotonCannon' or structure._type_data._proto.name == 'SpineCrawler':
         defense_structures_count += 3
     return defense_structures_count
 
