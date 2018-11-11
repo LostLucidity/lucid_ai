@@ -21,7 +21,9 @@ if __name__ == '__main__':
 		map_name = random.choice(["Abyssal Reef LE", "BelShirVestigeLE", "CactusValleyLE", "HonorgroundsLE", "NewkirkPrecinctTE", "PaladinoTerminalLE", "ProximaStationLE"])
 		sc2.run_game(sc2.maps.get(map_name), [
 			bot,
+			# bot
 			# Computer(Race.Protoss, Difficulty.Medium)
 			# Computer(Race.Random, Difficulty.Hard)
-			Computer(Race.Random, Difficulty.VeryHard)
+			# Computer(Race.Random, Difficulty.VeryHard)
+			Computer(Race.Random, Difficulty.CheatVision)
 ], realtime=False)

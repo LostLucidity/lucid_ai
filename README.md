@@ -4,6 +4,6 @@ Current folder structure follows [python-sc2-ladder](https://github.com/Hannessa
 
 python run.py to run bot.
 
-Bot currently just uses a zealot army.
+Bot attacks early and often with zealots and stalkers.
 Currently assesses enemy army population size and attacks if it is larger else retreats to closest rally point.
     
