@@ -44,6 +44,7 @@ class LucidBot(sc2.BotAI):
     self.defending_probes = []
     self.defending_probes_tags = []
     self.defense_mode = False
+    self.enemy_defense_structures = []
     self.mineral_to_unit_build_rate = 264
     self.non_attack_units = []
     self.non_attack_unit_tags = []
@@ -211,8 +212,8 @@ class LucidBot(sc2.BotAI):
       # Set rally point exists.
       if self.ready_nexuses:
         self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
-      defense_structures = self.get_defense_structures()
-      total_enemy_food_cost = self.get_food_cost(self.no_structure_enemy_units) + defense_structures
+      defense_structures_cost = self.get_defense_structures_cost()
+      total_enemy_food_cost = self.get_food_cost(self.no_structure_enemy_units) + defense_structures_cost
       if total_enemy_food_cost > self.food_threshold:
         self.food_threshold = total_enemy_food_cost
         print(f"Food Threshold: {self.food_threshold}")
@@ -230,11 +231,28 @@ class LucidBot(sc2.BotAI):
             break
         if found_unit:
           self.attack_units.append(unit)
-          self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
+          # assess group army versus any enemy army.
+          grouped_zealots = zealots.closer_than(10, unit.position)
+          grouped_stalkers = stalkers.closer_than(10, unit.position)
+          grouped_army = grouped_zealots + grouped_stalkers
+          grouped_army_cost = self.get_food_cost(grouped_army)
+          enemy_army = []
+          grouped_enemy_cost = 0
+          if grouped_army_cost:
+            for enemy_unit in self.no_structure_enemy_units:
+              if unit.distance_to(enemy_unit.position) < 13:
+                enemy_army.append(enemy_unit)
+            for defense_structure in self.enemy_defense_structures:
+              if unit.distance_to(defense_structure.position) < 13:
+                grouped_enemy_cost += 3
+          grouped_enemy_cost += self.get_food_cost(enemy_army)
+          if (grouped_army_cost >= grouped_enemy_cost):
+            self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
+          else:
+            self.collectedActions.append(unit(AbilityId.MOVE, self.rally_point))
         else:               
           self.non_attack_units.append(unit)
           self.non_attack_unit_tags.append(unit.tag)
-          # self.collectedActions.append(unit(AbilityId.PATROL, self.rally_point))
 
       total_army_food_cost = self.get_food_cost(army)
       if self.iteration % 30 == 0:
@@ -276,10 +294,11 @@ class LucidBot(sc2.BotAI):
         food_count += unit._type_data._proto.food_required
     return food_count
 
-  def get_defense_structures(self):
+  def get_defense_structures_cost(self):
     defense_structures_count = 0
     for structure in self.known_enemy_structures:
       if structure._type_data._proto.name == 'PhotonCannon' or structure._type_data._proto.name == 'SpineCrawler':
+        self.enemy_defense_structures.append(structure)
         defense_structures_count += 3
     return defense_structures_count
 
@@ -401,14 +420,12 @@ class LucidBot(sc2.BotAI):
       # pull probes if too few defending.
       if grouped_army_cost < largest_enemy:
         for probe in self.units(PROBE):
-          print('probe.position.distance_to(invaded_nexus.position)', probe.position.distance_to(invaded_nexus.position))
           if probe.position.distance_to(invaded_nexus.position) < 10:
             if grouped_army_cost < largest_enemy:
               grouped_army_cost = grouped_army_cost + self.get_food_cost([probe])
               self.defending_probes.append(probe)
               self.defending_probes_tags.append(probe.tag)
               self.collectedActions.append(probe(AbilityId.ATTACK, self.defense_rally_point))
-              print('self.defending_probes', self.defending_probes)
             else:
               break              
     else:
