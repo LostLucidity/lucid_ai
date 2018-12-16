@@ -68,7 +68,7 @@ class LucidBot(sc2.BotAI):
     self.scout_number = random.randrange(23)
     self.stalkers = []
     self.zealots = []
-    await self.chat_send("LucidBot 1.4.0")
+    await self.chat_send("LucidBot 1.5.0")
   
   async def on_every_step(self):
     self.zealots = self.units(ZEALOT)
