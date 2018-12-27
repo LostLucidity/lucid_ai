@@ -68,13 +68,14 @@ class LucidBot(sc2.BotAI):
     self.scout_number = random.randrange(23)
     self.stalkers = []
     self.zealots = []
-    await self.chat_send("LucidBot 1.5.0")
+    await self.chat_send("LucidBot 1.5.1")
   
   async def on_every_step(self):
     self.zealots = self.units(ZEALOT)
     self.stalkers = self.units(STALKER)
     self.army = self.zealots + self.stalkers
     self.collectedActions = []
+    self.enemy_defense_structures = []
     self.ready_nexuses = self.units(NEXUS).ready
 
   async def display_data(self):
@@ -85,6 +86,7 @@ class LucidBot(sc2.BotAI):
     print('self.iteration', self.iteration)
     print('zealot count:', len(self.zealots))
     print('stalker count:', len(self.stalkers))
+    print('self.enemy_defense_structures', self.enemy_defense_structures)
 
   async def nexus_command(self):
     ideal_harvesters = 0
@@ -232,19 +234,23 @@ class LucidBot(sc2.BotAI):
         if found_unit:
           self.attack_units.append(unit)
           # assess group army versus any enemy army.
-          grouped_zealots = zealots.closer_than(10, unit.position)
-          grouped_stalkers = stalkers.closer_than(10, unit.position)
+          grouped_zealots = zealots.closer_than(15, unit.position)
+          grouped_stalkers = stalkers.closer_than(15, unit.position)
           grouped_army = grouped_zealots + grouped_stalkers
           grouped_army_cost = self.get_food_cost(grouped_army)
           enemy_army = []
           grouped_enemy_cost = 0
           if grouped_army_cost:
             for enemy_unit in self.no_structure_enemy_units:
-              if unit.distance_to(enemy_unit.position) < 13:
+              if unit.distance_to(enemy_unit.position) < 15:
                 enemy_army.append(enemy_unit)
             for defense_structure in self.enemy_defense_structures:
-              if unit.distance_to(defense_structure.position) < 13:
+              if unit.distance_to(defense_structure.position) < 15:
                 grouped_enemy_cost += 3
+          if self.iteration % 30 == 0:
+            print('grouped_army_cost', grouped_army_cost)
+            print('grouped_enemy_cost', grouped_enemy_cost)
+            print('self.enemy_defense_structures', self.enemy_defense_structures)
           grouped_enemy_cost += self.get_food_cost(enemy_army)
           if (grouped_army_cost >= grouped_enemy_cost):
             self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
