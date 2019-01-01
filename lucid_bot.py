@@ -36,6 +36,8 @@ class LucidBot(sc2.BotAI):
     await self.command_army()
     # combined actions
     await self.execute_actions()
+    # track enemy units
+    await self.track_enemy_units()
 
   async def on_first_step(self):
     self.assimilator_limit = 0
@@ -45,6 +47,8 @@ class LucidBot(sc2.BotAI):
     self.defending_probes_tags = []
     self.defense_mode = False
     self.enemy_defense_structures = []
+    self.enemy_units = []
+    self.enemy_units_cost = 0
     self.mineral_to_unit_build_rate = 264
     self.non_attack_units = []
     self.non_attack_unit_tags = []
@@ -68,15 +72,16 @@ class LucidBot(sc2.BotAI):
     self.scout_number = random.randrange(23)
     self.stalkers = []
     self.zealots = []
-    await self.chat_send("LucidBot 1.5.1")
+    await self.chat_send("LucidBot 1.5.2")
   
   async def on_every_step(self):
     self.zealots = self.units(ZEALOT)
     self.stalkers = self.units(STALKER)
     self.army = self.zealots + self.stalkers
     self.collectedActions = []
-    self.enemy_defense_structures = []
     self.ready_nexuses = self.units(NEXUS).ready
+    self.enemy_units_cost = self.get_food_cost(self.enemy_units) + self.get_food_cost(self.enemy_defense_structures)
+    self.enemy_defense_structures = []
 
   async def display_data(self):
     print('time per step', time.time() - self.start_time)
@@ -87,6 +92,9 @@ class LucidBot(sc2.BotAI):
     print('zealot count:', len(self.zealots))
     print('stalker count:', len(self.stalkers))
     print('self.enemy_defense_structures', self.enemy_defense_structures)
+    print('self.enemy_units', self.enemy_units)
+    print('self.known_enemy_structures', self.known_enemy_structures)
+    print('self.enemy_units_cost', self.enemy_units_cost)
 
   async def nexus_command(self):
     ideal_harvesters = 0
@@ -214,11 +222,6 @@ class LucidBot(sc2.BotAI):
       # Set rally point exists.
       if self.ready_nexuses:
         self.rally_point = self.ready_nexuses.closest_to(self.enemy_target).position
-      defense_structures_cost = self.get_defense_structures_cost()
-      total_enemy_food_cost = self.get_food_cost(self.no_structure_enemy_units) + defense_structures_cost
-      if total_enemy_food_cost > self.food_threshold:
-        self.food_threshold = total_enemy_food_cost
-        print(f"Food Threshold: {self.food_threshold}")
       self.non_attack_units = []
       self.non_attack_unit_tags = []
       self.attack_units = []
@@ -234,28 +237,31 @@ class LucidBot(sc2.BotAI):
         if found_unit:
           self.attack_units.append(unit)
           # assess group army versus any enemy army.
-          grouped_zealots = zealots.closer_than(15, unit.position)
-          grouped_stalkers = stalkers.closer_than(15, unit.position)
+          grouped_zealots = zealots.closer_than(16, unit.position)
+          grouped_stalkers = stalkers.closer_than(16, unit.position)
           grouped_army = grouped_zealots + grouped_stalkers
           grouped_army_cost = self.get_food_cost(grouped_army)
-          enemy_army = []
-          grouped_enemy_cost = 0
-          if grouped_army_cost:
-            for enemy_unit in self.no_structure_enemy_units:
-              if unit.distance_to(enemy_unit.position) < 15:
-                enemy_army.append(enemy_unit)
-            for defense_structure in self.enemy_defense_structures:
-              if unit.distance_to(defense_structure.position) < 15:
-                grouped_enemy_cost += 3
+          #  For each enemy unit, assign a enemy army cost.
+          #  If unit army cost is larger than closest enemy army continue patrolling.
+          total_enemy_units = self.enemy_units + self.enemy_defense_structures
+          enemy_army_cost = 0
+          if len(total_enemy_units):
+            closest_enemy = min(total_enemy_units, key=lambda x: x.position.distance_to(unit))
+            close_enemy_units = list(filter(lambda x: x.position.distance_to(closest_enemy) < 12, total_enemy_units))
+            close_defense_structures = list(filter(lambda x: x.position.distance_to(closest_enemy) < 12, self.enemy_defense_structures))
+            enemy_army_cost = self.get_food_cost(close_enemy_units)
+            enemy_army_cost = enemy_army_cost + self.get_food_cost(close_defense_structures)
           if self.iteration % 30 == 0:
             print('grouped_army_cost', grouped_army_cost)
-            print('grouped_enemy_cost', grouped_enemy_cost)
+            print('enemy_army_cost', enemy_army_cost)
             print('self.enemy_defense_structures', self.enemy_defense_structures)
-          grouped_enemy_cost += self.get_food_cost(enemy_army)
-          if (grouped_army_cost >= grouped_enemy_cost):
+          if (grouped_army_cost > enemy_army_cost * .7):
             self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
           else:
-            self.collectedActions.append(unit(AbilityId.MOVE, self.rally_point))
+            if unit.position.distance_to(closest_enemy) < 20:
+              self.collectedActions.append(unit(AbilityId.MOVE, self.rally_point))
+            else:
+              self.collectedActions.append(unit(AbilityId.PATROL, self.enemy_target))
         else:               
           self.non_attack_units.append(unit)
           self.non_attack_unit_tags.append(unit.tag)
@@ -293,20 +299,20 @@ class LucidBot(sc2.BotAI):
     else:
       self.enemy_target = self.probe_scout_targets[0]
 
-  def get_food_cost(self, no_structure_units):
+  def get_food_cost(self, units):
     food_count = 0
-    if len(no_structure_units) > 0:
-      for unit in no_structure_units:
-        food_count += unit._type_data._proto.food_required
+    if len(units) > 0:
+      for unit in units:
+        if unit._type_data._proto.name == 'PhotonCannon' or unit._type_data._proto.name == 'SpineCrawler':
+          food_count += 3
+        else:
+          food_count += unit._type_data._proto.food_required
     return food_count
 
-  def get_defense_structures_cost(self):
-    defense_structures_count = 0
+  def get_defense_structures(self):
     for structure in self.known_enemy_structures:
       if structure._type_data._proto.name == 'PhotonCannon' or structure._type_data._proto.name == 'SpineCrawler':
         self.enemy_defense_structures.append(structure)
-        defense_structures_count += 3
-    return defense_structures_count
 
   async def scout(self):
     probes = self.units(PROBE)
@@ -369,7 +375,7 @@ class LucidBot(sc2.BotAI):
       print('grouped_army_cost', grouped_army_cost)
       print('len(grouped_army)', len(grouped_army))
     # if rallied army is larger or pop is max, attack.
-    if grouped_army_cost >= self.food_threshold or self.supply_used == 200:
+    if grouped_army_cost >= self.enemy_units_cost or self.supply_used == 200:
       # print('attack enemy')
       for unit in grouped_army:
         self.attack_units.append(unit)
@@ -446,3 +452,23 @@ class LucidBot(sc2.BotAI):
           self.collectedActions.append(probe(AbilityId.HARVEST_GATHER, mineral_field))
         self.defending_probes = []
         self.defending_probes_tags = []
+
+  async def track_enemy_units(self):
+    self.get_defense_structures()
+    # collect enemy units in array.
+    # make sure tags aren't repeated.
+    for unit in self.no_structure_enemy_units:
+      if unit._type_data._proto.name == 'AdeptPhaseShift':
+        continue
+      found_index = next((index for (index, d) in enumerate(self.enemy_units) if d.tag == unit.tag), -1)
+    # found_unit = self.enemy_units.find_by_tag(unit.tag)
+      if found_index < 0:
+        self.enemy_units.append(unit)
+      else:
+        # replace found
+        self.enemy_units[found_index] = unit
+  
+  async def on_unit_destroyed(self, unit_tag):
+    found_index = next((index for (index, d) in enumerate(self.enemy_units) if d.tag == unit_tag), -1)
+    if found_index >= 0:
+      del self.enemy_units[found_index]
