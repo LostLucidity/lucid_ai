@@ -100,6 +100,8 @@ async def build_army(self):
     actions.extend(await build_basic_structure(self, UnitTypeId.SPAWNINGPOOL, 1, [UnitTypeId.HATCHERY], AbilityId.ZERGBUILD_SPAWNINGPOOL))
   if AbilityId.ZERGBUILD_ROACHWARREN in worker_abilities:
     actions.extend(await build_basic_structure(self, UnitTypeId.ROACHWARREN, 1, [UnitTypeId.HATCHERY], AbilityId.ZERGBUILD_ROACHWARREN))
+  if AbilityId.ZERGBUILD_BANELINGNEST in worker_abilities:
+    actions.extend(await build_basic_structure(self, UnitTypeId.BANELINGNEST, 1, [UnitTypeId.HATCHERY], AbilityId.ZERGBUILD_BANELINGNEST))
   return actions if not actions else [ random.choice(actions) ]
 
 async def build_upgrade(self, worker_abilities):
@@ -117,18 +119,18 @@ async def build_upgrade(self, worker_abilities):
 async def build_defensive_structure(self, worker_abilities):
   actions = []
   if AbilityId.PROTOSSBUILD_PHOTONCANNON in worker_abilities:
-    actions.extend(await build_basic_structure(self, UnitTypeId.PHOTONCANNON, len(self.townhalls), [random.choice(self.structures).type_id], AbilityId.PROTOSSBUILD_PHOTONCANNON))
+    actions.extend(await build_basic_structure(self, UnitTypeId.PHOTONCANNON, 1, [random.choice(self.structures).type_id], AbilityId.PROTOSSBUILD_PHOTONCANNON))
   if AbilityId.BUILD_SHIELDBATTERY in worker_abilities:
     actions.extend(await build_basic_structure(self, UnitTypeId.SHIELDBATTERY, 1, [random.choice(self.structures).type_id], AbilityId.BUILD_SHIELDBATTERY))
   if AbilityId.TERRANBUILD_MISSILETURRET in worker_abilities:
-    actions.extend(await build_basic_structure(self, UnitTypeId.MISSILETURRET, len(self.townhalls), [random.choice(self.structures).type_id], AbilityId.TERRANBUILD_MISSILETURRET))
+    actions.extend(await build_basic_structure(self, UnitTypeId.MISSILETURRET, 1, [random.choice(self.structures).type_id], AbilityId.TERRANBUILD_MISSILETURRET))
   if AbilityId.TERRANBUILD_SENSORTOWER in worker_abilities:
     # add logic for no overlap.
     actions.extend(await build_basic_structure(self, UnitTypeId.SENSORTOWER, 1, [random.choice(self.structures).type_id], AbilityId.TERRANBUILD_SENSORTOWER))
   if AbilityId.ZERGBUILD_SPINECRAWLER in worker_abilities:
-    actions.extend(await build_basic_structure(self, UnitTypeId.SPINECRAWLER, len(self.townhalls), [random.choice(self.structures).type_id], AbilityId.ZERGBUILD_SPINECRAWLER))
+    actions.extend(await build_basic_structure(self, UnitTypeId.SPINECRAWLER, 1, [random.choice(self.structures).type_id], AbilityId.ZERGBUILD_SPINECRAWLER))
   if AbilityId.ZERGBUILD_SPORECRAWLER in worker_abilities:
-    actions.extend(await build_basic_structure(self, UnitTypeId.SPORECRAWLER, len(self.townhalls), [random.choice(self.structures).type_id], AbilityId.ZERGBUILD_SPORECRAWLER))    
+    actions.extend(await build_basic_structure(self, UnitTypeId.SPORECRAWLER, 1, [random.choice(self.structures).type_id], AbilityId.ZERGBUILD_SPORECRAWLER))    
   return actions
 
 async def build_basic_structure(self, to_build, count, near, action):
