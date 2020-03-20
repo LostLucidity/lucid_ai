@@ -136,6 +136,8 @@ async def build_defensive_structure(self, worker_abilities):
   if AbilityId.TERRANBUILD_SENSORTOWER in worker_abilities:
     # add logic for no overlap.
     actions.extend(await build_basic_structure(self, UnitTypeId.SENSORTOWER, 1, [random.choice(self.structures).type_id], AbilityId.TERRANBUILD_SENSORTOWER))
+  if AbilityId.TERRANBUILD_BUNKER in worker_abilities:
+    actions.extend(await build_basic_structure(self, UnitTypeId.BUNKER, 1, [random.choice(self.structures).type_id], AbilityId.TERRANBUILD_BUNKER))
   if AbilityId.ZERGBUILD_SPINECRAWLER in worker_abilities:
     actions.extend(await build_basic_structure(self, UnitTypeId.SPINECRAWLER, 1, [random.choice(self.structures).type_id], AbilityId.ZERGBUILD_SPINECRAWLER))
   if AbilityId.ZERGBUILD_SPORECRAWLER in worker_abilities:
