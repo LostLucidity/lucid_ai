@@ -89,7 +89,7 @@ async def boost_production(self):
         return [ random_townhall(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, random_building) ]
   return []
 
-async def build_army(self):
+async def build_army_buildings(self):
   actions = []
   worker_abilities = await self.get_available_abilities(random.choice(self.workers))
   if AbilityId.PROTOSSBUILD_GATEWAY in worker_abilities:
@@ -103,6 +103,15 @@ async def build_army(self):
   if AbilityId.ZERGBUILD_BANELINGNEST in worker_abilities:
     actions.extend(await build_basic_structure(self, UnitTypeId.BANELINGNEST, 1, [UnitTypeId.HATCHERY], AbilityId.ZERGBUILD_BANELINGNEST))
   return actions if not actions else [ random.choice(actions) ]
+
+async def train_army_units(self):
+  if self.larva:
+    random_larva = random.choice(self.larva)
+    larvaAbilities = await self.get_available_abilities(random_larva)
+    if AbilityId.LARVATRAIN_ZERGLING in larvaAbilities:
+      return [ random_larva(AbilityId.LARVATRAIN_ZERGLING) ]
+  return []
+
 
 async def build_upgrade(self, worker_abilities):
   actions = []
