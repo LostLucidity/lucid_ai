@@ -90,22 +90,31 @@ async def boost_production(self):
   return []
 
 async def build_army(self):
+  actions = []
   worker_abilities = await self.get_available_abilities(random.choice(self.workers))
   if AbilityId.PROTOSSBUILD_GATEWAY in worker_abilities:
     return await build_basic_structure(self, UnitTypeId.GATEWAY, 3, [UnitTypeId.PYLON, UnitTypeId.GATEWAY], AbilityId.PROTOSSBUILD_GATEWAY)
   if AbilityId.TERRANBUILD_BARRACKS in worker_abilities:
     return await build_basic_structure(self, UnitTypeId.BARRACKS, 3, [UnitTypeId.COMMANDCENTER, UnitTypeId.BARRACKS], AbilityId.TERRANBUILD_BARRACKS)
   if AbilityId.ZERGBUILD_SPAWNINGPOOL in worker_abilities:
-    return await build_basic_structure(self, UnitTypeId.SPAWNINGPOOL, 1, [UnitTypeId.HATCHERY], AbilityId.ZERGBUILD_SPAWNINGPOOL)
+    actions.extend(await build_basic_structure(self, UnitTypeId.SPAWNINGPOOL, 1, [UnitTypeId.HATCHERY], AbilityId.ZERGBUILD_SPAWNINGPOOL))
   if AbilityId.ZERGBUILD_ROACHWARREN in worker_abilities:
-    return await build_basic_structure(self, UnitTypeId.ROACHWARREN, 1, [UnitTypeId.HATCHERY], AbilityId.ZERGBUILD_ROACHWARREN)
-  return []
+    actions.extend(await build_basic_structure(self, UnitTypeId.ROACHWARREN, 1, [UnitTypeId.HATCHERY], AbilityId.ZERGBUILD_ROACHWARREN))
+  return actions
 
 async def build_upgrade(self, worker_abilities):
+  actions = []
   if AbilityId.PROTOSSBUILD_FORGE in worker_abilities:
-    return await build_basic_structure(self, UnitTypeId.FORGE, 1, [random.choice(self.structures).type_id], AbilityId.PROTOSSBUILD_FORGE)
+    actions.extend(await build_basic_structure(self, UnitTypeId.FORGE, 1, [random.choice(self.structures).type_id], AbilityId.PROTOSSBUILD_FORGE))
+  if AbilityId.PROTOSSBUILD_CYBERNETICSCORE in worker_abilities:
+    actions.extend(await build_basic_structure(self, UnitTypeId.CYBERNETICSCORE, 1, [random.choice(self.structures).type_id], AbilityId.PROTOSSBUILD_CYBERNETICSCORE))
   if AbilityId.ZERGBUILD_EVOLUTIONCHAMBER in worker_abilities:
     return await build_basic_structure(self, UnitTypeId.EVOLUTIONCHAMBER, 1, [random.choice(self.structures).type_id], AbilityId.ZERGBUILD_EVOLUTIONCHAMBER)
+  return actions
+
+async def build_defensive_structure(self, worker_abilities):
+  if AbilityId.ZERGBUILD_SPINECRAWLER in worker_abilities:
+    return await build_basic_structure(self, UnitTypeId.SPINECRAWLER, len(self.townhalls), [random.choice(self.structures).type_id], AbilityId.ZERGBUILD_SPINECRAWLER)
   return []
 
 async def build_basic_structure(self, to_build, count, near, action):

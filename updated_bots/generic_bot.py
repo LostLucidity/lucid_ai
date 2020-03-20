@@ -1,6 +1,6 @@
 import sc2, random
 
-from basic import build_worker, should_increase_supply, build_supply, should_expand, build_army, send_scout, decide_action, should_build_workers, collect_gas, boost_production, build_upgrade
+from basic import build_worker, should_increase_supply, build_supply, should_expand, build_army, send_scout, decide_action, should_build_workers, collect_gas, boost_production, build_upgrade, build_defensive_structure
 
 class GenericBot(sc2.BotAI):
   async def on_step(self, iteration):
@@ -28,6 +28,7 @@ class GenericBot(sc2.BotAI):
     self.actions.extend(await collect_gas(self, worker_abilities))
     self.actions.extend(await build_army(self))
     self.actions.extend(await build_upgrade(self, worker_abilities))
+    self.actions.extend(await build_defensive_structure(self, worker_abilities))
 
     own_units = self.units + self.structures
     random_unit = random.choice(own_units)
