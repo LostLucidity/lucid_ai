@@ -118,9 +118,13 @@ async def build_defensive_structure(self, worker_abilities):
   actions = []
   if AbilityId.PROTOSSBUILD_PHOTONCANNON in worker_abilities:
     actions.extend(await build_basic_structure(self, UnitTypeId.PHOTONCANNON, len(self.townhalls), [random.choice(self.structures).type_id], AbilityId.PROTOSSBUILD_PHOTONCANNON))
+  if AbilityId.TERRANBUILD_MISSILETURRET in worker_abilities:
+    actions.extend(await build_basic_structure(self, UnitTypeId.MISSILETURRET, len(self.townhalls), [random.choice(self.structures).type_id], AbilityId.TERRANBUILD_MISSILETURRET))
   if AbilityId.ZERGBUILD_SPINECRAWLER in worker_abilities:
-    return await build_basic_structure(self, UnitTypeId.SPINECRAWLER, len(self.townhalls), [random.choice(self.structures).type_id], AbilityId.ZERGBUILD_SPINECRAWLER)
-  return []
+    actions.extend(await build_basic_structure(self, UnitTypeId.SPINECRAWLER, len(self.townhalls), [random.choice(self.structures).type_id], AbilityId.ZERGBUILD_SPINECRAWLER))
+  if AbilityId.ZERGBUILD_SPORECRAWLER in worker_abilities:
+    actions.extend(await build_basic_structure(self, UnitTypeId.SPORECRAWLER, len(self.townhalls), [random.choice(self.structures).type_id], AbilityId.ZERGBUILD_SPORECRAWLER))    
+  return actions
 
 async def build_basic_structure(self, to_build, count, near, action):
   if (len(self.structures(to_build)) + self.already_pending(to_build) < count):
