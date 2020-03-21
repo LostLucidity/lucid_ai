@@ -30,6 +30,8 @@ class GenericBot(sc2.BotAI):
     self.actions.extend(await train_army_units(self))
     self.actions.extend(await build_upgrade(self, worker_abilities))
     self.actions.extend(await build_defensive_structure(self, worker_abilities))
+    self.actions.extend(await attack(self))
+    self.actions.extend(scan_surroundings(self))
 
     own_units = self.units + self.structures
     random_unit = random.choice(own_units)

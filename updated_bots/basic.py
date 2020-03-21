@@ -105,13 +105,27 @@ async def build_army_buildings(self):
   return actions if not actions else [ random.choice(actions) ]
 
 async def train_army_units(self):
+  barracks = self.structures(UnitTypeId.BARRACKS).ready
+  if barracks:
+    barrack = random.choice(barracks)
+    abilities = await self.get_available_abilities(barrack)
+    if AbilityId.BARRACKSTRAIN_MARINE in abilities:
+      if barrack.is_idle:
+        return [ barrack(AbilityId.BARRACKSTRAIN_MARINE) ]
   if self.larva:
-    random_larva = random.choice(self.larva)
-    larvaAbilities = await self.get_available_abilities(random_larva)
-    if AbilityId.LARVATRAIN_ZERGLING in larvaAbilities:
-      return [ random_larva(AbilityId.LARVATRAIN_ZERGLING) ]
+    larva = random.choice(self.larva)
+    abilities = await self.get_available_abilities(larva)
+    if AbilityId.LARVATRAIN_ZERGLING in abilities:
+      return [ larva(AbilityId.LARVATRAIN_ZERGLING) ]
   return []
 
+async def attack(self):
+  if self.units(UnitTypeId.ZERGLING):
+    unit = random.choice(self.units(UnitTypeId.ZERGLING))
+    abilities = await self.get_available_abilities(unit)
+    if AbilityId.PATROL_PATROL in abilities:
+      return [ unit(AbilityId.PATROL_PATROL, self.enemy_structures.closest_to(unit).position) ]
+  return []        
 
 async def build_upgrade(self, worker_abilities):
   actions = []
