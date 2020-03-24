@@ -6,18 +6,19 @@ from sc2.position import Point2
 
 from helper import select_random_point, short_on_workers
 
-
 def should_build_workers(self):
   return short_on_workers(self)
   
 async def build_worker(self):
   collectedActions = []
-  units_abilities = await self.get_available_abilities(self.townhalls)
-  for index, abilities in enumerate(units_abilities):
-    if AbilityId.NEXUSTRAIN_PROBE in abilities:
-      collectedActions.append(self.townhalls[index](AbilityId.NEXUSTRAIN_PROBE))
-    if AbilityId.COMMANDCENTERTRAIN_SCV in abilities:
-      collectedActions.append(self.townhalls[index](AbilityId.COMMANDCENTERTRAIN_SCV))
+  idle_townhalls = self.townhalls.idle
+  if (idle_townhalls):
+    units_abilities = await self.get_available_abilities(idle_townhalls)
+    for index, abilities in enumerate(units_abilities):
+      if AbilityId.NEXUSTRAIN_PROBE in abilities:
+        collectedActions.append(idle_townhalls[index](AbilityId.NEXUSTRAIN_PROBE))
+      if AbilityId.COMMANDCENTERTRAIN_SCV in abilities:
+        collectedActions.append(idle_townhalls[index](AbilityId.COMMANDCENTERTRAIN_SCV))
   if self.larva:
     units_abilities = await self.get_available_abilities(self.larva)
     for index, abilities in enumerate(units_abilities):
@@ -27,19 +28,19 @@ async def build_worker(self):
 
 async def build_supply(self, abilities):
   collectedActions = []
-  random_townhall = random.choice(self.townhalls)
-  if AbilityId.PROTOSSBUILD_PYLON in abilities:
-    return await build_structure(self, UnitTypeId.PYLON, random_townhall.position, AbilityId.PROTOSSBUILD_PYLON, True)
-  if AbilityId.TERRANBUILD_SUPPLYDEPOT in abilities:
-    position = await self.find_placement(UnitTypeId.SUPPLYDEPOT, random_townhall.position, 28, False, 6)
-    worker = self.select_build_worker(position, True)
-    collectedActions.append(worker(AbilityId.TERRANBUILD_SUPPLYDEPOT, position))
-  if self.larva:
-    random_larva = random.choice(self.larva)
-    larvaAbilities = await self.get_available_abilities(random_larva)
-    if AbilityId.LARVATRAIN_OVERLORD in larvaAbilities:
-      collectedActions.append(random_larva(AbilityId.LARVATRAIN_OVERLORD))
-
+  if (self.townhalls):
+    random_townhall = random.choice(self.townhalls)
+    if AbilityId.PROTOSSBUILD_PYLON in abilities:
+      return await build_structure(self, UnitTypeId.PYLON, random_townhall.position, AbilityId.PROTOSSBUILD_PYLON, True)
+    if AbilityId.TERRANBUILD_SUPPLYDEPOT in abilities:
+      position = await self.find_placement(UnitTypeId.SUPPLYDEPOT, random_townhall.position, 28, False, 6)
+      worker = self.select_build_worker(position, True)
+      collectedActions.append(worker(AbilityId.TERRANBUILD_SUPPLYDEPOT, position))
+    if self.larva:
+      random_larva = random.choice(self.larva)
+      larvaAbilities = await self.get_available_abilities(random_larva)
+      if AbilityId.LARVATRAIN_OVERLORD in larvaAbilities:
+        collectedActions.append(random_larva(AbilityId.LARVATRAIN_OVERLORD))
   return collectedActions
 
 async def build_structure(self, structure, position, ability, find_placement=False):
@@ -75,18 +76,20 @@ async def collect_gas(self, abilities):
   return []
 
 def get_vespene_geysers(self):
-  vespene_geysers = self.vespene_geyser.closer_than(14.5, random.choice(self.townhalls))
-  if (vespene_geysers):
-    return random.choice(vespene_geysers)
+  if (self.townhalls):
+    vespene_geysers = self.vespene_geyser.closer_than(14.5, random.choice(self.townhalls))
+    if (vespene_geysers):
+      return random.choice(vespene_geysers)
 
 async def boost_production(self):
-  random_townhall = random.choice(self.townhalls)
-  townhall_abilities = await self.get_available_abilities(random_townhall)
-  if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in townhall_abilities:
-    random_building = random.choice(self.structures)
-    if not random_building.has_buff(BuffId.CHRONOBOOSTENERGYCOST):
-      if not random_building.is_idle:
-        return [ random_townhall(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, random_building) ]
+  if (self.townhalls):
+    random_townhall = random.choice(self.townhalls)
+    townhall_abilities = await self.get_available_abilities(random_townhall)
+    if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in townhall_abilities:
+      random_building = random.choice(self.structures)
+      if not random_building.has_buff(BuffId.CHRONOBOOSTENERGYCOST):
+        if not random_building.is_idle:
+          return [ random_townhall(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, random_building) ]
   return []
 
 async def build_army_buildings(self):
