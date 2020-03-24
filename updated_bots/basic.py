@@ -130,12 +130,16 @@ async def train_army_units(self):
   return []
 
 async def attack(self):
-  if self.units(UnitTypeId.ZERGLING):
-    unit = random.choice(self.units(UnitTypeId.ZERGLING))
-    abilities = await self.get_available_abilities(unit)
-    if AbilityId.PATROL_PATROL in abilities:
-      return [ unit(AbilityId.PATROL_PATROL, self.enemy_structures.closest_to(unit).position) ]
-  return []        
+  actions = []
+  if self.units:
+    for unit in self.units.idle:
+      abilities = await self.get_available_abilities(unit)
+      ability = AbilityId.ATTACK_ATTACK
+      if ability in abilities:
+        enemy_targets = self.enemy_structures + self.enemy_units
+        enemy_target = enemy_targets.closest_to(unit).position if enemy_targets else self.enemy_start_locations[0]
+        actions += [ unit(ability, enemy_target) ]
+  return actions        
 
 async def build_upgrade(self, worker_abilities):
   actions = []
