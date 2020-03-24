@@ -1,6 +1,7 @@
 import sc2, random
 
-from basic import build_worker, should_increase_supply, build_supply, should_expand, build_army_buildings, send_scout, decide_action, should_build_workers, collect_gas, boost_production, build_upgrade, build_defensive_structure, train_army_units
+from basic import build_worker, should_increase_supply, build_supply, should_expand, build_army_buildings, send_scout, decide_action, should_build_workers, collect_gas, boost_production, build_upgrade, build_defensive_structure, train_army_units, attack
+from behavior import scan_surroundings, analyze_units
 
 class GenericBot(sc2.BotAI):
   async def on_step(self, iteration):
@@ -10,10 +11,11 @@ class GenericBot(sc2.BotAI):
     if iteration % 10 == 0:
       await self.on_ten_steps()
       await self.distribute_workers()
+    analyze_units(self)
+    self.actions.extend(scan_surroundings(self))
 
   async def on_first_step(self):
     self.abilities = []    
-    self.unit_types = []
 
   async def on_ten_steps(self):
     if (self.workers):
