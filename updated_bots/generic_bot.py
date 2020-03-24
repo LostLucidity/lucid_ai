@@ -8,30 +8,30 @@ class GenericBot(sc2.BotAI):
       await self.on_first_step()
       self.actions.extend(send_scout(self))
     if iteration % 10 == 0:
-      await self.on_every_step()
+      await self.on_ten_steps()
       await self.distribute_workers()
 
   async def on_first_step(self):
     self.abilities = []    
     self.unit_types = []
 
-  async def on_every_step(self):
-    random_worker = random.choice(self.workers)
-    worker_abilities = await self.get_available_abilities(random_worker)
+  async def on_ten_steps(self):
+    if (self.workers):
+      random_worker = random.choice(self.workers)
+      worker_abilities = await self.get_available_abilities(random_worker)
+      if (should_increase_supply(self)):
+        self.actions.extend(await build_supply(self, worker_abilities))
+      self.actions.extend(await collect_gas(self, worker_abilities))
+      self.actions.extend(await build_upgrade(self, worker_abilities))
+      self.actions.extend(await build_defensive_structure(self, worker_abilities))
+      self.actions.extend(await build_army_buildings(self))
     if (should_build_workers(self)):
       self.actions.extend(await build_worker(self))
-    if (should_increase_supply(self)):
-      self.actions.extend(await build_supply(self, worker_abilities))
     self.actions.extend(await boost_production(self))
     if (should_expand(self)):
       await self.expand_now()
-    self.actions.extend(await collect_gas(self, worker_abilities))
-    self.actions.extend(await build_army_buildings(self))
     self.actions.extend(await train_army_units(self))
-    self.actions.extend(await build_upgrade(self, worker_abilities))
-    self.actions.extend(await build_defensive_structure(self, worker_abilities))
     self.actions.extend(await attack(self))
-    self.actions.extend(scan_surroundings(self))
 
     own_units = self.units + self.structures
     random_unit = random.choice(own_units)
