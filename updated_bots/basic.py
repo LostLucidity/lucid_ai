@@ -108,6 +108,13 @@ async def build_army_buildings(self):
   return actions if not actions else [ random.choice(actions) ]
 
 async def train_army_units(self):
+  gateways = self.structures(UnitTypeId.GATEWAY).ready
+  if gateways:
+    gateway = random.choice(gateways)
+    abilities = await self.get_available_abilities(gateway)
+    if AbilityId.GATEWAYTRAIN_ZEALOT in abilities:
+      if gateway.is_idle:
+        return [ gateway(AbilityId.GATEWAYTRAIN_ZEALOT) ]
   barracks = self.structures(UnitTypeId.BARRACKS).ready
   if barracks:
     barrack = random.choice(barracks)
