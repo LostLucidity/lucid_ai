@@ -28,8 +28,9 @@ async def build_worker(self):
 
 async def build_supply(self, abilities):
   collectedActions = []
-  if (self.townhalls):
-    random_townhall = random.choice(self.townhalls)
+  idle_townhalls = self.townhalls.idle
+  if (idle_townhalls):
+    random_townhall = random.choice(idle_townhalls)
     if AbilityId.PROTOSSBUILD_PYLON in abilities:
       return await build_structure(self, UnitTypeId.PYLON, random_townhall.position, AbilityId.PROTOSSBUILD_PYLON, True)
     if AbilityId.TERRANBUILD_SUPPLYDEPOT in abilities:
