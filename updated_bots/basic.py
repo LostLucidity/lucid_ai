@@ -4,7 +4,7 @@ from sc2.constants import AbilityId, BuffId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
-from helper import select_random_point, short_on_workers
+from helper import select_random_point, short_on_workers, calculate_building_amount
 
 def should_build_workers(self):
   return short_on_workers(self)
@@ -97,9 +97,11 @@ async def build_army_buildings(self):
   actions = []
   worker_abilities = await self.get_available_abilities(random.choice(self.workers))
   if AbilityId.PROTOSSBUILD_GATEWAY in worker_abilities:
-    return await build_basic_structure(self, UnitTypeId.GATEWAY, 3, [UnitTypeId.PYLON, UnitTypeId.GATEWAY], AbilityId.PROTOSSBUILD_GATEWAY)
+    amount = calculate_building_amount(self, UnitTypeId.GATEWAY, 264)
+    return await build_basic_structure(self, UnitTypeId.GATEWAY, amount, [UnitTypeId.PYLON, UnitTypeId.GATEWAY], AbilityId.PROTOSSBUILD_GATEWAY)
   if AbilityId.TERRANBUILD_BARRACKS in worker_abilities:
-    return await build_basic_structure(self, UnitTypeId.BARRACKS, 3, [UnitTypeId.COMMANDCENTER, UnitTypeId.BARRACKS], AbilityId.TERRANBUILD_BARRACKS)
+    amount = calculate_building_amount(self, UnitTypeId.BARRACKS, 264)
+    return await build_basic_structure(self, UnitTypeId.BARRACKS, amount, [UnitTypeId.COMMANDCENTER, UnitTypeId.BARRACKS], AbilityId.TERRANBUILD_BARRACKS)
   if AbilityId.ZERGBUILD_SPAWNINGPOOL in worker_abilities:
     actions.extend(await build_basic_structure(self, UnitTypeId.SPAWNINGPOOL, 1, [UnitTypeId.HATCHERY], AbilityId.ZERGBUILD_SPAWNINGPOOL))
   if AbilityId.ZERGBUILD_ROACHWARREN in worker_abilities:
