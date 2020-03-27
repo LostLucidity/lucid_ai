@@ -32,7 +32,7 @@ class GenericBot(sc2.BotAI):
       self.actions.extend(await build_upgrade(self, worker_abilities))
       self.actions.extend(await build_defensive_structure(self, worker_abilities))
       self.actions.extend(await build_army_buildings(self))
-    if (should_build_workers(self)):
+    if should_build_workers(self):
       self.actions.extend(await build_worker(self))
     self.actions.extend(await boost_production(self))
     if should_expand(self):

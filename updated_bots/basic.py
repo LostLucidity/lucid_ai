@@ -7,7 +7,7 @@ from sc2.position import Point2
 from helper import select_random_point, short_on_workers, calculate_building_amount
 
 def should_build_workers(self):
-  return short_on_workers(self)
+  return True if short_on_workers(self) and self.minerals < 1250 else False
   
 async def build_worker(self):
   collectedActions = []
