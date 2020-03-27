@@ -134,13 +134,16 @@ async def train_army_units(self):
 
 async def attack(self):
   actions = []
-  if self.units:
-    for unit in self.units.idle:
+  # idle and attacking units.
+  attacking_units = self.units.filter(lambda unit: unit.is_attacking)
+  units_idle_or_attacking_units = self.units.idle + attacking_units
+  if units_idle_or_attacking_units:
+    for unit in units_idle_or_attacking_units:
       abilities = await self.get_available_abilities(unit)
       ability = AbilityId.ATTACK_ATTACK
       if ability in abilities:
-        enemy_targets = self.enemy_structures + self.enemy_units
-        enemy_target = enemy_targets.closest_to(unit).position if enemy_targets else self.enemy_start_locations[0]
+        enemy_targets = self.enemy_structures + self.enemy_units + self.out_of_vision_units
+        enemy_target = enemy_targets.closest_to(Point2(unit.position)).position if enemy_targets else self.enemy_start_locations[0]
         actions += [ unit(ability, enemy_target) ]
   return actions        
 
