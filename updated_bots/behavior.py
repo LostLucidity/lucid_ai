@@ -1,7 +1,7 @@
 from sc2.constants import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 
-from helper import get_closest_unit
+from helper import get_closest_unit, assign_damage_vs_target
 
 def scan_surroundings(self):
   actions = []
@@ -14,10 +14,8 @@ def scan_surroundings(self):
   return actions
 
 def attack_or_regroup(self, unit, enemy_unit, _range):
-  # print('unit.army_size', unit.army_size)
-  # print('enemy_unit.army_size', enemy_unit.army_size)
-  if unit.army_size > enemy_unit.army_size:
-    # check how orders look like
+  assign_damage_vs_target(self, unit, enemy_unit)
+  if unit.group_damage_vs_target > enemy_unit.group_damage_vs_target:
     return [ unit(AbilityId.ATTACK_ATTACK, enemy_unit)]
   else:
     closest_ally = get_closest_unit(self, enemy_unit, self.units, _range)

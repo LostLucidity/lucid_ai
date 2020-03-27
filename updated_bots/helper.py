@@ -25,26 +25,17 @@ def get_closest_unit(self, unit, units, _range=0):
       units_in_range.append(_unit)
   if units_in_range:
     return min(units_in_range, key=lambda _unit: _unit.distance)
-  # max_result = max(units_in_range, key=lambda _unit: _unit.distance)
-  # if self.iteration % 10 == 0:
-  #   print('units_in_range', units_in_range)
-  #   print('units_in_range[0]', units_in_range[0].distance)
-  #   print('units_in_range[len(units_in_range) - 1]', units_in_range[len(units_in_range) - 1].distance)
-  # print('min_result', min_result)
-  # print('min_result.distance', min_result.distance)
-  # print('max_result', max_result)
-  # print('max_result.distance', max_result.distance)
   return []
-  # return min(((unit, dist) for unit, dist in zip(self, distances)), key=lambda my_tuple: my_tuple[1])[0]
-# def track_enemy_units(self):
-#   for unit in self.previous_enemy_units:
-#     found_index = next((index for (index, d) in enumerate(self.enemy_units) if d.tag == unit.tag), -1)
-#     if found_index < 0:
-#       self.missing_enemy_units.append(unit)
 
-# async def on_unit_destroyed(self, unit_tag):
-#   print('on_unit_destroyed', unit_tag)
-#   print('self.missing_enemy_units', self.missing_enemy_units)
-#   found_index = next((index for (index, d) in enumerate(self.missing_enemy_units) if d.tag == unit_tag), -1)
-#   if found_index >= 0:
-#     del self.missing_enemy_units[found_index]
+def assign_damage_vs_target(self, unit, enemy_unit):
+  grouped_units = self.units.closer_than(16, unit.position)
+  calculate_group_damage_vs_target(grouped_units, unit, enemy_unit)
+  grouped_units = self.enemy_units.closer_than(16, enemy_unit.position)
+  calculate_group_damage_vs_target(grouped_units, enemy_unit, unit)
+
+def calculate_group_damage_vs_target(grouped_units, unit, enemy_unit):
+  group_damage_vs_target = 0
+  for grouped_unit in grouped_units:
+    damage_vs_target = grouped_unit.calculate_damage_vs_target(enemy_unit)
+    group_damage_vs_target += damage_vs_target[0] * damage_vs_target[1]
+  unit.group_damage_vs_target = group_damage_vs_target
