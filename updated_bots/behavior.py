@@ -28,12 +28,11 @@ def attack_or_regroup(self, unit, enemy_unit, _range):
       return [ unit(AbilityId.MOVE_MOVE, closest_structure.position) ]
   return []
 
-def analyze_units(self):
-  for unit in self.units:
-    grouped_units = self.units.closer_than(16, unit.position)
-    unit.army_size = len(grouped_units)
-  for unit in self.enemy_units:
-    grouped_units = self.enemy_units.closer_than(16, unit.position)
-    unit.army_size = len(grouped_units)
-  
-# analyze groups of units for attack/defense ratio. 
+async def check_if_expansion_is_safe(self):
+  expansion_location = await self.get_next_expansion()
+  if expansion_location:
+    if (self.enemy_units):
+      closest_enemy = self.enemy_units.closest_to(expansion_location)
+      _range = closest_enemy.ground_range + 3
+      if expansion_location.distance_to(closest_enemy) > _range:
+        await self.expand_now()

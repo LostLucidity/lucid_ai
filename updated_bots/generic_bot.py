@@ -1,7 +1,7 @@
 import sc2, random
 
 from basic import build_worker, should_increase_supply, build_supply, should_expand, build_army_buildings, send_scout, decide_action, should_build_workers, collect_gas, boost_production, build_upgrade, build_defensive_structure, train_army_units, attack
-from behavior import scan_surroundings, analyze_units
+from behavior import scan_surroundings, check_if_expansion_is_safe
 from track_enemy_units import check_and_remove, scan_vision
 
 class GenericBot(sc2.BotAI):
@@ -35,8 +35,8 @@ class GenericBot(sc2.BotAI):
     if (should_build_workers(self)):
       self.actions.extend(await build_worker(self))
     self.actions.extend(await boost_production(self))
-    if (should_expand(self)):
-      await self.expand_now()
+    if should_expand(self):
+      await check_if_expansion_is_safe(self)
     self.actions.extend(await train_army_units(self))
     self.actions.extend(await attack(self))
 
