@@ -6,24 +6,89 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
 from helper import get_closest_unit, assign_damage_vs_target_and_group_health, attackable_target, reachable_target, select_random_point, can_attack, short_on_workers, get_range, get_best_target_in_range, iteration_adjuster, get_closest_attackable_enemy, closest_enemy_in_range, get_larger_sight_range
+from specific_unit import adept, adept_phase_shift, observer, sentry, barracks, bunker, orbital_command, reaper, supply_depot, queen, roach, spine_crawler, spine_crawler_uprooted, spore_crawler, spore_crawler_uprooted
 
-def decide_action(self):
+async def decide_action(self):
   t0 = time.process_time()
   actions = []
   for unit in self.units_and_structures:
+    if unit.type_id == UnitTypeId.ADEPT:
+      actions += adept(self, unit)
+      if not actions:
+        actions += battle_decision(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.ADEPTPHASESHIFT:
+      actions += adept_phase_shift(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.OBSERVER:
+      actions += observer(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.SENTRY:
+      actions += battle_decision(self, unit)
+      if hasattr(unit, 'is_retreating'):
+        actions += sentry(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.ZEALOT:
+      actions += battle_decision(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.BARRACKS:
+      actions += barracks(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.BUNKER:
+      actions += bunker(self, unit)
+      continue    
+    if unit.type_id == UnitTypeId.MARINE:
+      actions += battle_decision(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.ORBITALCOMMAND:
+      actions += orbital_command(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.REAPER:
+      actions += battle_decision(self, unit)
+      if hasattr(unit, 'is_retreating'):
+        actions += reaper(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.SUPPLYDEPOT:
+      actions += supply_depot(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.BROODLING:
+      actions += attack(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.QUEEN:
+      if not hasattr(unit, 'reserved_for_task') or not unit.reserved_for_task:
+        actions += await queen(self, unit)
+        if not actions:
+          actions += battle_decision(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.ROACH:
+      actions += roach(self, unit)
+      if not actions:
+        actions += battle_decision(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.SPINECRAWLER:
+      actions += spine_crawler(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.SPINECRAWLERUPROOTED:
+      actions += await spine_crawler_uprooted(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.SPORECRAWLER:
+      actions += spore_crawler(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.SPORECRAWLERUPROOTED:
+      actions += spore_crawler_uprooted(self, unit)
+      continue
     if unit.can_attack:
-      if unit.type_id == UnitTypeId.BROODLING:
-        actions += attack(self, unit)
-      elif self.all_enemy_units_and_structures:
+      if self.all_enemy_units_and_structures:
         closest_attackable_enemy = get_closest_attackable_enemy(self, unit)
         if closest_attackable_enemy:
           current_distance = unit.position.distance_to(closest_attackable_enemy)
           larger_sight_range = get_larger_sight_range(unit, closest_attackable_enemy)
           if not unit.type_id == race_worker[self.race]:
-            if current_distance <= larger_sight_range and unit.can_attack:
-              actions += micro_units(self, unit, closest_attackable_enemy, current_distance)
-            if current_distance > larger_sight_range:
-              actions += attack_or_regroup(self, unit, closest_attackable_enemy, larger_sight_range)
+            if not hasattr(unit, 'reserved_for_task') or not unit.reserved_for_task:
+              if current_distance <= larger_sight_range and unit.can_attack:
+                actions += micro_units(self, unit, closest_attackable_enemy, current_distance)
+              if current_distance > larger_sight_range:
+                actions += attack_or_regroup(self, unit, closest_attackable_enemy, larger_sight_range)
           else:
             true_ground_range = unit.ground_range + unit.radius + closest_attackable_enemy.radius
             true_enemy_ground_range = closest_attackable_enemy.ground_range + closest_attackable_enemy.radius + unit.radius
@@ -34,10 +99,12 @@ def decide_action(self):
               actions += attack_or_regroup(self, unit, closest_attackable_enemy, larger_sight_range)
         else:
           if not unit.type_id == race_worker[self.race]:
-            actions += attack(self, unit)        
+            if not hasattr(unit, 'reserved_for_task') or not unit.reserved_for_task:
+              actions += attack(self, unit)
       else:
         if not unit.type_id == race_worker[self.race]:
-          actions += attack(self, unit)
+          if not hasattr(unit, 'reserved_for_task') or not unit.reserved_for_task:
+            actions += attack(self, unit)
     else:
       if unit.movement_speed:
         enemy_in_range = closest_enemy_in_range(self, unit)
@@ -49,12 +116,27 @@ def decide_action(self):
           if closest_enemy_in_range(self, unit):
             actions += [ unit(AbilityId.CANCEL) ]
         else:
-          actions += [ unit(AbilityId.LIFT_COMMANDCENTER) ]
+          if closest_enemy_in_range(self, unit):
+            actions += [ unit(AbilityId.LIFT_COMMANDCENTER) ]
 
   # if self.iteration % 32 == 0:
     # print('decide_action time', time.process_time() - t0)
   time_elapse = time.process_time() - t0
   self.decide_action_iteration = iteration_adjuster(time_elapse)
+  return actions
+
+def battle_decision(self, unit):
+  actions = []
+  closest_attackable_enemy = get_closest_attackable_enemy(self, unit)
+  if closest_attackable_enemy:
+    current_distance = unit.position.distance_to(closest_attackable_enemy)
+    larger_sight_range = get_larger_sight_range(unit, closest_attackable_enemy)
+    if current_distance <= larger_sight_range and unit.can_attack:
+      actions += micro_units(self, unit, closest_attackable_enemy, current_distance)
+    elif current_distance > larger_sight_range:
+      actions += attack_or_regroup(self, unit, closest_attackable_enemy, larger_sight_range)
+  else:
+    actions += [ unit(AbilityId.ATTACK_ATTACK, self.enemy_start_locations[0]) ]
   return actions
 
 def attack_or_regroup(self, unit, enemy_unit, _range):
@@ -65,30 +147,20 @@ def attack_or_regroup(self, unit, enemy_unit, _range):
       return attack(self, unit)
   elif enemy_unit.group_damage_vs_target:
     if unit.can_attack:
-      assign_damage_vs_target_and_group_health(self, unit, enemy_unit)
+      # assign_damage_vs_target_and_group_health(self, unit, enemy_unit)
       return retreat(self, unit, enemy_unit, _range)
   return []
 
-async def check_if_expansion_is_safe(self):
-  expansion_location = await self.get_next_expansion()
-  if expansion_location:
-    if (self.enemy_units):
-      closest_enemy = self.enemy_units.closest_to(expansion_location)
-      _range = closest_enemy.ground_range + closest_enemy.radius
-      if expansion_location.distance_to(closest_enemy) > _range:
-        await self.expand_now()
-
 def micro_units(self, unit, enemy_unit, current_distance):
   actions = []
-  if (unit.type_id == UnitTypeId.BROODLING):
-    attack(self, unit)
   in_range_enemy = get_range(self, unit)
   if can_attack(in_range_enemy, unit): 
     enemy_range = in_range_enemy.ground_range + in_range_enemy.radius + unit.radius
     unit_range = unit.ground_range + unit.radius + enemy_unit.radius
     larger_sight_range = unit.sight_range if unit.sight_range > enemy_unit.sight_range else enemy_unit.sight_range
     speed = unit.movement_speed
-    enemy_speed = enemy_unit.movement_speed
+    # enemy_speed = enemy_unit.movement_speed
+    enemy_speed = in_range_enemy.movement_speed
     closest_ally = get_closest_unit(self, unit, self.units_and_structures, enemy_unit.sight_range)
     closest_enemy = get_closest_unit(self, unit, self.enemy_units_and_structures)
     if larger_sight_range > current_distance:
@@ -102,15 +174,15 @@ def micro_units(self, unit, enemy_unit, current_distance):
           actions += attack(self, unit)
         if current_distance < unit_range:
           actions += micro(self, unit, closest_ally, enemy_unit)
-        if current_distance <= enemy_range:
+        if current_distance <= enemy_range + 1:
           if speed > enemy_speed:
-            actions += [ unit(AbilityId.MOVE_MOVE, enemy_unit)]
+            actions += retreat(self, unit, enemy_unit, larger_sight_range)
           if speed == enemy_speed:
-            assign_damage_vs_target_and_group_health(self, unit, enemy_unit)
-            if unit.group_damage_vs_target * unit.group_health > enemy_unit.group_damage_vs_target * enemy_unit.group_health:
-              actions += micro(self, unit, closest_ally, enemy_unit)
-            else:
-              actions += retreat(self, unit, enemy_unit, larger_sight_range)
+            # assign_damage_vs_target_and_group_health(self, unit, enemy_unit)
+            # if unit.group_damage_vs_target * unit.group_health > enemy_unit.group_damage_vs_target * enemy_unit.group_health:
+            #   actions += micro(self, unit, closest_ally, enemy_unit)
+            # else:
+            actions += retreat(self, unit, enemy_unit, larger_sight_range)
           if speed < enemy_speed:
             actions += micro(self, unit, closest_ally, enemy_unit)
       elif unit_range == enemy_range:
@@ -141,7 +213,7 @@ def micro_units(self, unit, enemy_unit, current_distance):
             if speed == enemy_speed:
               actions += attack_or_regroup(self, unit, enemy_unit, larger_sight_range)
             if speed < enemy_speed:
-              actions += retreat(self, unit, enemy_unit, larger_sight_range)
+              actions += micro(self, unit, closest_enemy, enemy_unit)
           if current_distance <= unit_range:
             if speed > enemy_speed:
               actions += attack_or_regroup(self, unit, enemy_unit, larger_sight_range)
@@ -164,26 +236,45 @@ def update_attack_and_retreat(self):
   attacking_units = self.units.filter(lambda unit: unit.is_attacking)
   retreating_units = self.units.filter(lambda unit: hasattr(unit, 'is_retreating') and unit.is_retreating)
   if attacking_units:
-    for unit in attacking_units:
-      actions += attack(self, unit)
+      for unit in attacking_units:
+        if not hasattr(unit, 'reserved_for_task') or not unit.reserved_for_task:
+          actions += attack(self, unit)
   if retreating_units:
     for unit in retreating_units:
       closest_enemy = get_closest_unit(self, unit, self.enemy_units_and_structures)
       _range = unit.sight_range if unit.sight_range > closest_enemy.sight_range else closest_enemy.sight_range
       actions += retreat(self, unit, closest_enemy, _range)
-  return actions       
+  return actions 
 
 def retreat(self, unit, enemy_unit, _range):
-  action = []
+  actions = []
   unit.is_retreating = True
   assign_damage_vs_target_and_group_health(self, unit, enemy_unit)
   stronger_army = self.units.filter(lambda _unit: hasattr(_unit, 'total_strength') and _unit.total_strength > unit.total_strength)
-  closest_unit_or_structure = get_closest_unit(self, unit, stronger_army, _range)
-  if not closest_unit_or_structure:
-    closest_unit_or_structure = get_closest_unit(self, unit, self.structures, _range)
-  if closest_unit_or_structure:
-    action += [ unit(AbilityId.MOVE_MOVE, closest_unit_or_structure.position) ]
-  return action
+  target = get_closest_unit(self, unit, stronger_army, _range)
+  closest_bunker = get_closest_unit(self, unit, self.units(UnitTypeId.BUNKER))
+  closest_command_center = get_closest_unit(self, unit, self.units(UnitTypeId.COMMANDCENTER))
+  if closest_bunker and closest_bunker.distance_to(unit) < unit.sight_range:
+    if unit.type_id in [UnitTypeId.SCV, UnitTypeId.MARINES, UnitTypeId.REAPER, UnitTypeId.MARAUDER]:
+      ability = AbilityId.LOAD_BUNKER
+      if ability in unit.abilities:
+        return [ closest_bunker(ability, unit) ]
+  if closest_command_center and closest_command_center.distance_to(unit) < unit.sight_range:
+    if unit.type_id in [UnitTypeId.SCV]:
+      ability = AbilityId.LOADALL_COMMANDCENTER
+      if ability in unit.abilities:
+        return [ closest_command_center(ability, unit) ]
+  if not target:
+    target = get_closest_unit(self, unit, self.units_that_can_attack, _range)
+    if not target:
+      target = get_closest_unit(self, unit, self.structures, _range)
+      if not target:
+        target = get_closest_unit(self, unit, self.units_and_structures, _range)
+        if not target:
+          return attack(self, unit)
+      
+  actions += [ unit(AbilityId.MOVE_MOVE, target.position) ]
+  return actions
 
 async def assign_actions_to_idle(self):
   actions = []
@@ -210,7 +301,16 @@ def attack(self, unit):
     else:
         pass
   else:
-    actions += [ unit(AbilityId.ATTACK_ATTACK, self.enemy_start_locations[0]) ]
+    actions += find_enemy(self, unit)
+  return actions
+
+def find_enemy(self, unit):
+  actions = []
+   # if scout finds nothing at that location, search another 
+  if unit.position.distance_to(self.scout_targets[0]) < 5:
+    self.scout_targets.append(self.scout_targets.pop(0))
+    self.enemy_target = self.scout_targets[0]
+    actions += [ unit(AbilityId.ATTACK_ATTACK, self.scout_targets[0]) ]
   return actions
 
 def compare_combatants(self, unit, unit_type, unit_range, enemy_unit, enemy_unit_type, enemy_range):
