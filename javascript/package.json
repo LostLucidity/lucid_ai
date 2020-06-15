@@ -1,0 +1,18 @@
+{
+  "name": "sc2-core-alpha",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "dependencies": {
+    "@node-sc2/core": "^0.9.0-alpha.5",
+    "@node-sc2/system-protoss-supply": "^0.7.0-alpha.0"
+  },
+  "devDependencies": {
+    "pkg": "^4.4.8"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
