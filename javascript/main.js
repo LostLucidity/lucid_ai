@@ -12,15 +12,35 @@ const {
 } = require('@node-sc2/core/constants/enums');
 
 const maps = require('./maps')
+const macro = require('./systems/macro');
 
 const eightGateAllIn = require('./builds/eight-gate-all-in');
-const macro = require('./systems/macro');
 const macroColossus = require('./builds/macro-colossus');
 const protoss = require('./builds/protoss');
+const terran = require('./builds/terran');
+const zerg = require('./builds/zerg');
+
 const protossSupplySystem = require('@node-sc2/system-protoss-supply');
 
 const wallBuilderSystem = require('./systems/wall-builder-system');
 const workerBalanceSystem = require('./systems/worker-balance-system');
+
+const protossBuilds = [
+  protoss,
+  protossSupplySystem({ firstPylon: { location: 'natural' } }),
+  wallBuilderSystem,
+  workerBalanceSystem,
+];
+
+const terranBuilds = [
+  terran,
+  workerBalanceSystem,
+]
+
+const zergBuilds = [
+  zerg,
+  workerBalanceSystem,
+]
 
 const settings = {
   type: PlayerType.PARTICIPANT,
@@ -31,20 +51,25 @@ console.log('settings', settings);
 
 const bot1 = createAgent(settings);
 // const bot2 = createAgent(settings);
-bot1.use(protoss);
+// protossBuild.forEach(system => {
+//   bot1.use(system);
+// });
+// loadBuilds(Race.PROTOSS, protossBuilds, bot1);
+loadBuilds(Race.TERRAN, terranBuilds, bot1);
+// loadBuilds(Race.ZERG, zergBuilds, bot1);
+function loadBuilds(race, builds, bot) {
+  settings.race = race;
+  builds.forEach(build => {
+    bot.use(build);
+  })
+}
+
+// bot1.use(zerg);
 // bot2.use(protoss);
 
 const map = maps[Math.floor(Math.random() * maps.length)];
 // bot1.use(eightGateAllIn);
 // bot.use(macroColossus);
-bot1.use(protossSupplySystem({
-  firstPylon: {
-    location: 'natural',
-    supply: 14,
-  }
-}));
-bot1.use(wallBuilderSystem);
-bot1.use(workerBalanceSystem);
 
 const engine = createEngine();
 // const engine1 = createEngine(
@@ -108,8 +133,8 @@ engine.connect().then(async () => {
   return engine.runGame(
     map,
     [
-      createPlayer({ race: Race.PROTOSS }, bot1),
-      createPlayer({ race: Race.RANDOM, difficulty: Difficulty.CHEATMONEY }),
+      createPlayer({ race: settings.race }, bot1),
+      createPlayer({ race: Race.RANDOM, difficulty: Difficulty.VERYHARD }),
     ]
   );
 }).then(async ([world, results]) => {

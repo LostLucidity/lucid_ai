@@ -5,40 +5,65 @@ from sc2.data import race_worker
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
-from helper import get_closest_unit, assign_damage_vs_target_and_group_health, attackable_target, reachable_target, select_random_point, can_attack, short_on_workers, get_range, get_best_target_in_range, iteration_adjuster, get_closest_attackable_enemy, closest_enemy_in_range, get_larger_sight_range
-from specific_unit import adept, adept_phase_shift, observer, sentry, barracks, bunker, orbital_command, reaper, supply_depot, queen, roach, spine_crawler, spine_crawler_uprooted, spore_crawler, spore_crawler_uprooted
+from helper import attack_or_regroup, get_closest_unit, assign_damage_vs_target_and_group_health, attackable_target, reachable_target, select_random_point, can_attack, short_on_workers, get_range, get_best_target_in_range, iteration_adjuster, get_closest_attackable_enemy, closest_enemy_in_range, get_larger_sight_range
+from specific_unit import adept, adept_phase_shift, high_templar, observer, observer_siege_mode, sentry, warp_prism, barracks, barracks_flying, bunker, hellion, marine, orbital_command, reaper, supply_depot, widow_mine, widow_mine_burrowed, baneling, baneling_burrowed, drone, queen, roach, ravager, spine_crawler, spine_crawler_uprooted, spore_crawler, spore_crawler_uprooted, zergling
 
 async def decide_action(self):
   t0 = time.process_time()
   actions = []
   for unit in self.units_and_structures:
     if unit.type_id == UnitTypeId.ADEPT:
-      actions += adept(self, unit)
-      if not actions:
+      action = adept(self, unit)
+      actions += action
+      if not action:
         actions += battle_decision(self, unit)
       continue
     if unit.type_id == UnitTypeId.ADEPTPHASESHIFT:
       actions += adept_phase_shift(self, unit)
       continue
+    if unit.type_id == UnitTypeId.HIGHTEMPLAR:
+      action = high_templar(self, unit)
+      actions += action
+      if not action:
+        actions += battle_decision(self, unit)
     if unit.type_id == UnitTypeId.OBSERVER:
       actions += observer(self, unit)
       continue
+    if unit.type_id == UnitTypeId.OBSERVERSIEGEMODE:
+      actions += observer_siege_mode(self, unit)
+      continue    
     if unit.type_id == UnitTypeId.SENTRY:
       actions += battle_decision(self, unit)
+      if unit.can_attack:
+        actions += []
       if hasattr(unit, 'is_retreating'):
         actions += sentry(self, unit)
       continue
+    if unit.type_id == UnitTypeId.STALKER:
+      actions += battle_decision(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.WARPPRISM:
+      actions += warp_prism(self, unit)
+      continue    
     if unit.type_id == UnitTypeId.ZEALOT:
       actions += battle_decision(self, unit)
       continue
     if unit.type_id == UnitTypeId.BARRACKS:
       actions += barracks(self, unit)
       continue
+    if unit.type_id == UnitTypeId.BARRACKSFLYING:
+      actions += await barracks_flying(self, unit)
+      continue
     if unit.type_id == UnitTypeId.BUNKER:
       actions += bunker(self, unit)
-      continue    
+      continue
+    if unit.type_id == UnitTypeId.HELLION:
+      actions += hellion(self, unit)
+      actions += battle_decision(self, unit)
+      continue      
     if unit.type_id == UnitTypeId.MARINE:
       actions += battle_decision(self, unit)
+      actions += marine(self, unit)
       continue
     if unit.type_id == UnitTypeId.ORBITALCOMMAND:
       actions += orbital_command(self, unit)
@@ -51,19 +76,37 @@ async def decide_action(self):
     if unit.type_id == UnitTypeId.SUPPLYDEPOT:
       actions += supply_depot(self, unit)
       continue
+    if unit.type_id == UnitTypeId.WIDOWMINE:
+      actions += widow_mine(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.WIDOWMINEBURROWED:
+      actions += widow_mine_burrowed(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.BANELING:
+      actions += baneling(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.BANELINGBURROWED:
+      actions += baneling_burrowed(self, unit)
+      continue
     if unit.type_id == UnitTypeId.BROODLING:
       actions += attack(self, unit)
       continue
+    if unit.type_id == UnitTypeId.DRONE:
+      actions += drone(self, unit)
+      continue    
     if unit.type_id == UnitTypeId.QUEEN:
       if not hasattr(unit, 'reserved_for_task') or not unit.reserved_for_task:
-        actions += await queen(self, unit)
-        if not actions:
+        action = await queen(self, unit)
+        actions += action
+        if not action:
           actions += battle_decision(self, unit)
       continue
     if unit.type_id == UnitTypeId.ROACH:
-      actions += roach(self, unit)
-      if not actions:
-        actions += battle_decision(self, unit)
+      actions += battle_decision(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.RAVAGER:
+      actions += ravager(self, unit)
+      actions += battle_decision(self, unit)
       continue
     if unit.type_id == UnitTypeId.SPINECRAWLER:
       actions += spine_crawler(self, unit)
@@ -76,6 +119,11 @@ async def decide_action(self):
       continue
     if unit.type_id == UnitTypeId.SPORECRAWLERUPROOTED:
       actions += spore_crawler_uprooted(self, unit)
+      continue
+    if unit.type_id == UnitTypeId.ZERGLING:
+      actions += battle_decision(self, unit)
+      if hasattr(unit, 'is_retreating'):
+        actions += zergling(self, unit)
       continue
     if unit.can_attack:
       if self.all_enemy_units_and_structures:
@@ -119,10 +167,9 @@ async def decide_action(self):
           if closest_enemy_in_range(self, unit):
             actions += [ unit(AbilityId.LIFT_COMMANDCENTER) ]
 
-  # if self.iteration % 32 == 0:
-    # print('decide_action time', time.process_time() - t0)
-  time_elapse = time.process_time() - t0
-  self.decide_action_iteration = iteration_adjuster(time_elapse)
+  if self.iteration % 32 == 0:
+    print('decide_action time', time.process_time() - t0)
+
   return actions
 
 def battle_decision(self, unit):
@@ -138,18 +185,6 @@ def battle_decision(self, unit):
   else:
     actions += [ unit(AbilityId.ATTACK_ATTACK, self.enemy_start_locations[0]) ]
   return actions
-
-def attack_or_regroup(self, unit, enemy_unit, _range):
-  assign_damage_vs_target_and_group_health(self, unit, enemy_unit)
-  higher_total_strength = unit.group_damage_vs_target * unit.group_health > enemy_unit.group_damage_vs_target * enemy_unit.group_health
-  if higher_total_strength:
-    if can_attack(unit, enemy_unit):
-      return attack(self, unit)
-  elif enemy_unit.group_damage_vs_target:
-    if unit.can_attack:
-      # assign_damage_vs_target_and_group_health(self, unit, enemy_unit)
-      return retreat(self, unit, enemy_unit, _range)
-  return []
 
 def micro_units(self, unit, enemy_unit, current_distance):
   actions = []
@@ -178,10 +213,6 @@ def micro_units(self, unit, enemy_unit, current_distance):
           if speed > enemy_speed:
             actions += retreat(self, unit, enemy_unit, larger_sight_range)
           if speed == enemy_speed:
-            # assign_damage_vs_target_and_group_health(self, unit, enemy_unit)
-            # if unit.group_damage_vs_target * unit.group_health > enemy_unit.group_damage_vs_target * enemy_unit.group_health:
-            #   actions += micro(self, unit, closest_ally, enemy_unit)
-            # else:
             actions += retreat(self, unit, enemy_unit, larger_sight_range)
           if speed < enemy_speed:
             actions += micro(self, unit, closest_ally, enemy_unit)
@@ -272,7 +303,6 @@ def retreat(self, unit, enemy_unit, _range):
         target = get_closest_unit(self, unit, self.units_and_structures, _range)
         if not target:
           return attack(self, unit)
-      
   actions += [ unit(AbilityId.MOVE_MOVE, target.position) ]
   return actions
 

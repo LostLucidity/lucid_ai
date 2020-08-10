@@ -79,32 +79,32 @@ module.exports = createSystem({
 
     return placeables.filter(placement => placement.coverage && remaining.length !== placement.coverage);
   },
-  // async onStep({ resources }) {
-  //   // manage keeping a dude on hold position here
-  //   const { units, map, frame, actions } = resources.get();
-  //   if (units.getBases().filter(u => u.isFinished()).length <= 1) {
-  //     const [buildy] = units.withLabel('builder');
-  //     const natPlacements = avgPoints(map.getNatural().getWall());
-  //     if (!buildy && frame.timeInSeconds() > 5) {
-  //       const builder = getRandom(units.getMineralWorkers());
-  //       if (!builder) return;
-  //       builder.labels.set('builder', { idle: natPlacements });
-  //     } else if (buildy) {
-  //       if (distance(buildy.pos, natPlacements) > 6) {
-  //         if (buildy.noQueue || !buildy.isConstructing()) {
-  //           await actions.move(buildy, buildy.labels.get('builder').idle);
-  //         }
-  //       }
-  //     }
-  //   }
-  // },
-  // async onUnitCreated({ resources }, unit) {
-  //   const { units, map } = resources.get();
-  //   if (unit.is(PYLON) && distance(avgPoints(map.getNatural().getWall()), unit.pos) < 6.5) {
-  //     const [buildy] = units.withLabel('builder');
-  //     buildy.addLabel('builder', { idle: unit.pos });
-  //   }
-  // },
+  async onStep({ resources }) {
+    // manage keeping a dude on hold position here
+    const { units, map, frame, actions } = resources.get();
+    if (units.getBases().filter(u => u.isFinished()).length <= 1) {
+      const [buildy] = units.withLabel('builder');
+      const natPlacements = avgPoints(map.getNatural().getWall());
+      if (!buildy && frame.timeInSeconds() > 5) {
+        const builder = getRandom(units.getMineralWorkers());
+        if (!builder) return;
+        builder.labels.set('builder', { idle: natPlacements });
+      } else if (buildy) {
+        if (distance(buildy.pos, natPlacements) > 6) {
+          if (buildy.noQueue || !buildy.isConstructing()) {
+            await actions.move(buildy, buildy.labels.get('builder').idle);
+          }
+        }
+      }
+    }
+  },
+  async onUnitCreated({ resources }, unit) {
+    const { units, map } = resources.get();
+    if (unit.is(PYLON) && distance(avgPoints(map.getNatural().getWall()), unit.pos) < 6.5) {
+      const [buildy] = units.withLabel('builder');
+      buildy.addLabel('builder', { idle: unit.pos });
+    }
+  },
 });
 
 function findSupplyPositions(resources) {

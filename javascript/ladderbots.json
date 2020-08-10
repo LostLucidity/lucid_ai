@@ -1,0 +1,11 @@
+{
+  "Bots": {
+    "LucidJS": {
+      "Race": "Protoss",
+      "Type": "Javascript",
+      "RootPath": "./dist",
+      "FileName": "lucid-js.exe",
+      "Debug": false
+    }
+  }
+}
