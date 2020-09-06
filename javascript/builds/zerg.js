@@ -31,7 +31,6 @@ const {
   upgrade,
 } = taskFunctions;
 
-const defend = require('../helper/defend');
 const rallyUnits = require('../helper/rally-units');
 const workerSetup = require('../helper/worker-setup');
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
@@ -42,8 +41,8 @@ const continuouslyBuild = require("../helper/continuously-build");
 const range = require("../helper/range");
 const expand = require("../helper/expand");
 const shortOnWorkers = require("../helper/short-on-workers");
-const attack = require("../helper/attack");
 const canAfford = require("../helper/can-afford");
+const { attack, defend } = require("../helper/army-behavior");
 
 const ATTACKFOOD = 194;
 const RALLYFOOD = 31;
@@ -140,7 +139,7 @@ const zerg = createSystem({
     } = agent;
     const { actions } = resources.get();
     let collectedActions = [];
-    if (foodUsed >= 194) {
+    if (foodUsed >= ATTACKFOOD) {
       collectedActions.push(...attack(resources))
     }
     await baseThreats(resources, this.state);
@@ -173,7 +172,7 @@ const zerg = createSystem({
     }
     collectedActions.push(...overlordCoverage(resources))
     if (!this.state.defenseMode && foodUsed < ATTACKFOOD && foodUsed >= RALLYFOOD) {
-      await rallyUnits(agent, resources, []);
+      collectedActions.push(rallyUnits(agent, []));
     }
     collectedActions.push(...await spreadCreep(resources));
     collectedActions.push(...shadowEnemy(resources, this.state));

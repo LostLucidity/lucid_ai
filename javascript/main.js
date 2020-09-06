@@ -54,8 +54,8 @@ const bot1 = createAgent(settings);
 // protossBuild.forEach(system => {
 //   bot1.use(system);
 // });
-// loadBuilds(Race.PROTOSS, protossBuilds, bot1);
-loadBuilds(Race.TERRAN, terranBuilds, bot1);
+loadBuilds(Race.PROTOSS, protossBuilds, bot1);
+// loadBuilds(Race.TERRAN, terranBuilds, bot1);
 // loadBuilds(Race.ZERG, zergBuilds, bot1);
 function loadBuilds(race, builds, bot) {
   settings.race = race;

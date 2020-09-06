@@ -1,24 +1,25 @@
 //@ts-check
 "use strict"
 
-const { distance } = require("@node-sc2/core/utils/geometry/point");
-
 const { LOAD_BUNKER, MOVE, ATTACK_ATTACK, SMART } = require("@node-sc2/core/constants/ability");
 const { BUNKER } = require("@node-sc2/core/constants/unit-type");
+const { tankBehavior } = require("./unit-behavior");
 
-function rallyUnits(resources, supportUnitTypes) {
+function rallyUnits(resources, supportUnitTypes, rallyPoint=null) {
   const {
     map,
     units,
   } = resources.get();
   const collectedActions = [];
-  const combatUnits = units.getCombatUnits();
+  const combatUnits = units.getCombatUnits().filter(unit => !unit.labels.get('harasser') && !unit.labels.get('scout'));
   if (combatUnits.length > 0) {
-    let rallyPoint = map.getCombatRally();
+    if (!rallyPoint) {
+      rallyPoint = map.getCombatRally();
+    }
     const supportUnits = [];
     supportUnitTypes.forEach(type => {
-      supportUnits.concat(units.getById(type));
-    })
+      supportUnits.concat(units.getById(type).filter(unit => !unit.labels.get('scout')));
+    });
     if (units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1).length > 0) {
       const [ bunker ] = units.getById(BUNKER);
       rallyPoint = bunker.pos;
@@ -34,7 +35,7 @@ function rallyUnits(resources, supportUnitTypes) {
         const unitCommand = {
           abilityId: MOVE,
           targetWorldSpacePos: rallyPoint,
-          unitTags: combatUnits.map(unit => unit.tag)
+          unitTags: combatUnits.map(unit => unit.tag),
         }
         collectedActions.push(unitCommand);
       }
@@ -42,7 +43,7 @@ function rallyUnits(resources, supportUnitTypes) {
         const unitCommand = {
           abilityId: MOVE,
           targetWorldSpacePos: rallyPoint,
-          unitTags: supportUnits.map(unit => unit.tag)
+          unitTags: supportUnits.map(unit => unit.tag),
         }
         collectedActions.push(unitCommand);
       }
@@ -50,19 +51,20 @@ function rallyUnits(resources, supportUnitTypes) {
       const unitCommand = {
         abilityId: ATTACK_ATTACK,
         targetWorldSpacePos: rallyPoint,
-        unitTags: combatUnits.map(unit => unit.tag)
+        unitTags: combatUnits.map(unit => unit.tag),
       }
       collectedActions.push(unitCommand);
       if (supportUnits.length > 0) {
         const unitCommand = {
           abilityId: MOVE,
           targetWorldSpacePos: rallyPoint,
-          unitTags: supportUnits.map(unit => unit.tag)
+          unitTags: supportUnits.map(unit => unit.tag),
         }
         collectedActions.push(unitCommand);
       }
     }
   }
+  collectedActions.push(...tankBehavior(resources, rallyPoint));
   return collectedActions;
 }
 

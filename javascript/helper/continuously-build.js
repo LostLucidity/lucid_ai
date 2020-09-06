@@ -26,7 +26,7 @@ async function continuouslyBuild(agent, data, resources, unitTypes, addOn=false)
       const abilityId = data.getUnitTypeData(unitType).abilityId;
       let trainer = null;
       if (addOn) {
-        trainer = units.getProductionUnits(unitType).find(unit => unit.hasReactor() && unit.orders.length < 2);
+        trainer = units.getProductionUnits(unitType).find(unit => (unit.noQueue && unit.hasTechLab()) || (unit.hasReactor() && unit.orders.length < 2));
       } else {
         trainer = units.getProductionUnits(unitType).find(unit => unit.noQueue || (unit.hasReactor() && unit.orders.length < 2));
       }

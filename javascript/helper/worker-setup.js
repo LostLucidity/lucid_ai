@@ -11,7 +11,7 @@ const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 let totalFoodUsed = 0;
 
-function workerSetup(agent, resources, newUnit, buildPoints, expansionPoints, totalFoodUsed) {
+async function workerSetup(agent, resources, newUnit, buildPoints, expansionPoints, totalFoodUsed) {
   const {
     actions,
     map,
@@ -34,7 +34,7 @@ function workerSetup(agent, resources, newUnit, buildPoints, expansionPoints, to
       unit = getUnit(units, labels, newUnit, position, townhallTypes);
     }
     if (unit) {
-      actions.move(unit, position);
+      await actions.move(unit, position);
     }
   }
 }
