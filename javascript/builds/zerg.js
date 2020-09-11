@@ -10,9 +10,9 @@ const {
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const {
   LAIR,
-  OVERLORD, HATCHERY, EXTRACTOR, SPAWNINGPOOL, QUEEN, ZERGLING, ROACHWARREN, EVOLUTIONCHAMBER, SPORECRAWLER, ROACH, HYDRALISKDEN, HYDRALISK, OVERSEER, INFESTATIONPIT, HIVE, CREEPTUMOR, CREEPTUMORBURROWED, LARVA,
+  OVERLORD, HATCHERY, EXTRACTOR, SPAWNINGPOOL, QUEEN, ZERGLING, ROACHWARREN, EVOLUTIONCHAMBER, SPORECRAWLER, ROACH, HYDRALISKDEN, HYDRALISK, OVERSEER, INFESTATIONPIT, HIVE, CREEPTUMOR, CREEPTUMORBURROWED, LARVA, SPINECRAWLER, OVERLORDCOCOON,
 } = require("@node-sc2/core/constants/unit-type");
-const { RESEARCH_ZERGLINGMETABOLICBOOST, MORPH_LAIR, MORPH_OVERSEER, RESEARCH_GROOVEDSPINES, RESEARCH_MUSCULARAUGMENTS, EFFECT_INJECTLARVA, HARVEST_GATHER, STOP, MOVE, BUILD_CREEPTUMOR, BUILD_CREEPTUMOR_QUEEN, BUILD_CREEPTUMOR_TUMOR } = require("@node-sc2/core/constants/ability");
+const { RESEARCH_ZERGLINGMETABOLICBOOST, MORPH_LAIR, MORPH_OVERSEER, RESEARCH_GROOVEDSPINES, RESEARCH_MUSCULARAUGMENTS, EFFECT_INJECTLARVA, HARVEST_GATHER, MOVE, BUILD_CREEPTUMOR_QUEEN, BUILD_CREEPTUMOR_TUMOR, MORPH_HIVE } = require("@node-sc2/core/constants/ability");
 const {
   GLIALRECONSTITUTION,
   ZERGGROUNDARMORSLEVEL1,
@@ -20,7 +20,7 @@ const {
   ZERGMISSILEWEAPONSLEVEL1,
   ZERGMISSILEWEAPONSLEVEL2,
 } = require("@node-sc2/core/constants/upgrade");
-const { workerTypes, constructionAbilities } = require("@node-sc2/core/constants/groups");
+const { workerTypes } = require("@node-sc2/core/constants/groups");
 
 const isSupplyNeeded = require("../helper/supply");
 
@@ -43,11 +43,21 @@ const expand = require("../helper/expand");
 const shortOnWorkers = require("../helper/short-on-workers");
 const canAfford = require("../helper/can-afford");
 const { attack, defend } = require("../helper/army-behavior");
+const balanceResources = require("../helper/balance-resources");
+const { checkEnemyBuild, defenseSetup } = require("../helper/defense-setup");
+const placementConfigs = require("../helper/placement-configs");
+const { abilityOrder, checkBuildingCount, buildBuilding, findPlacements, upgradeOrder } = require("../helper/build-building");
 
 const ATTACKFOOD = 194;
+const MINERALTOGASRATIO = 2.4;
 const RALLYFOOD = 31;
+
+let pauseBuilding = false;
 let supplyLost = 0;
 let totalFoodUsed = 0;
+
+let mainCombatTypes = [ ZERGLING, ROACH, HYDRALISK ];
+let supportUnitTypes = [ OVERSEER ];
 
 const zerg = createSystem({
   name: 'Zerg',
@@ -55,61 +65,37 @@ const zerg = createSystem({
   defaultOptions: {
     state: {
       buildComplete: false,
+      enemyBuildType: 'standard',
       paused: false,
       // buildComplete: true,
     }
   },
   buildOrder: [
-    [13, train(OVERLORD)],
-    [17, build(HATCHERY)],
-    [17, build(EXTRACTOR)],
-    [18, build(SPAWNINGPOOL)],
-    [21, train(OVERLORD)],
-    [21, train(QUEEN, 2)],
-    [25, ability(RESEARCH_ZERGLINGMETABOLICBOOST)],
-    [25, train(ZERGLING, 4)],
-    [32, train(OVERLORD)],
-    [34, ability(MORPH_LAIR)],
-    [34, train(QUEEN)],
-    [36, build(ROACHWARREN)],
-    [35, train(OVERLORD)],
-    [35, build(EVOLUTIONCHAMBER)],
-    [38, train(OVERLORD)],
-    [40, build(SPORECRAWLER, 2)],
-    [42, upgrade(ZERGMISSILEWEAPONSLEVEL1)],
-    [42, upgrade(GLIALRECONSTITUTION)],
-    [42, build(EXTRACTOR, 2)],
-    [42, train(ROACH)],
-    [45, train(ROACH, 5)],
-    [58, train(ROACH, 4)],
-    [58, build(HATCHERY)],
-    [68, build(EVOLUTIONCHAMBER)],
-    [74, build(EXTRACTOR)],
-    [78, upgrade(ZERGMISSILEWEAPONSLEVEL2)],
-    [78, upgrade(ZERGGROUNDARMORSLEVEL1)],
-    [78, build(HYDRALISKDEN)],
-    [87, build(EXTRACTOR, 2)],
-    [97, train(HYDRALISK, 2)],
-    [101, ability(MORPH_OVERSEER)],
-    [101, train(HYDRALISK, 4)],
-    [105, train(HYDRALISK, 2)],
-    [113, train(HYDRALISK, 2)],
-    [119, ability(RESEARCH_GROOVEDSPINES)],
-    [119, build(HYDRALISKDEN)],
-    [120, upgrade(ZERGGROUNDARMORSLEVEL2)],
-    [120, ability(RESEARCH_MUSCULARAUGMENTS)],
-    [120, build(INFESTATIONPIT)],
-    [120, train(ZERGLING, 6)],
-    [121, upgrade(HIVE)],
-    // [138, build(HYDRALISKDEN)],
-    // [149, upgrade(ZERGGROUNDARMORSLEVEL2)],
-    // [149, ability(RESEARCH_MUSCULARAUGMENTS)],
-    // [165, build(INFESTATIONPIT)],
-    // [164, build(HATCHERY)],
-    // [164, train(QUEEN)],
-    // [191, train(ZERGLING, 6)],
-    // [200, upgrade(HIVE)],
+    [13, train(OVERLORD)],                          //  0:12
+    [17, build(HATCHERY)],                          //  0:53
+    [18, build(EXTRACTOR)],                         //  1:02
+    [18, build(SPAWNINGPOOL)],                      //  1:20
+    [21, train(OVERLORD)],                          //  2:03
+    [21, train(QUEEN, 2)],                          //  2:06
+    [25, ability(RESEARCH_ZERGLINGMETABOLICBOOST)], //  2:09
+    [25, train(ZERGLING, 2)],                       //  2:11
+    [31, train(OVERLORD)],                          //  2:49
+    [33, ability(MORPH_LAIR)],                      //  2:58
+    [33, train(QUEEN)],                             //  3:03
+    [35, build(ROACHWARREN)],                       //  3:10
+    [34, train(OVERLORD)],                          //  3:12
+    [34, build(EVOLUTIONCHAMBER)],                  //  3:13
+    [37, train(OVERLORD)],                          //  3:29  38
+    [39, build(SPORECRAWLER, 2)],                   //  3:36  40
+    [41, upgrade(ZERGMISSILEWEAPONSLEVEL1)],        //  3:56  42
+    [41, upgrade(GLIALRECONSTITUTION)],             //  3:57  42
+    [41, build(EXTRACTOR)],                         //  4:03  42
+    [42, train(ROACH)],                             //  4:09  42
+    [45, train(ROACH, 5)],                          //  4:40  45
   ],
+  async buildComplete() {
+    this.setState({ buildComplete: true });
+  },
   async onGameStart({ resources }){
     const {
       actions,
@@ -137,47 +123,65 @@ const zerg = createSystem({
       foodUsed,
       minerals,
     } = agent;
-    const { actions } = resources.get();
+    const { actions, map, units } = resources.get();
     let collectedActions = [];
+    const zergSystem = agent.systems.find(system => system._system.name === "Zerg")._system;
+    pauseBuilding ? zergSystem.pauseBuild() : zergSystem.resumeBuild();
     if (foodUsed >= ATTACKFOOD) {
-      collectedActions.push(...attack(resources))
+      collectedActions.push(...attack(resources, mainCombatTypes, supportUnitTypes))
     }
-    await baseThreats(resources, this.state);
+    if (foodUsed >= 58) { collectedActions.push(...await tryBuilding(agent, data, resources, 2, placementConfigs.HATCHERY, [ map.getAvailableExpansions()[0].townhallPosition ])); }
+    if (foodUsed >= 68) { collectedActions.push(...await tryBuilding(agent, data, resources, 1, placementConfigs.EVOLUTIONCHAMBER)); }
+    if (foodUsed >= 78) { collectedActions.push(...upgradeOrder(data, resources, ZERGMISSILEWEAPONSLEVEL2)); }
+    if (foodUsed >= 78) { collectedActions.push(...upgradeOrder(data, resources, ZERGGROUNDARMORSLEVEL1)); }
+    if (foodUsed >= 78) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.HYDRALISKDEN)); }
+    if (foodUsed >= 101) { collectedActions.push(...abilityOrder(data, resources, MORPH_OVERSEER, 0, [OVERSEER, OVERLORDCOCOON])); }
+    if (foodUsed >= 119) { collectedActions.push(...abilityOrder(data, resources, RESEARCH_GROOVEDSPINES)); }
+    if (foodUsed >= 138) { collectedActions.push(...await tryBuilding(agent, data, resources, 1, placementConfigs.HYDRALISKDEN)); }
+    if (foodUsed >= 149) { collectedActions.push(...upgradeOrder(data, resources, ZERGGROUNDARMORSLEVEL2)); }
+    if (foodUsed >= 149) { collectedActions.push(...abilityOrder(data, resources, RESEARCH_MUSCULARAUGMENTS)); }
+    if (foodUsed >= 165) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.INFESTATIONPIT)); }
+    if (foodUsed >= 198) { collectedActions.push(...abilityOrder(data, resources, MORPH_HIVE, 0, [HIVE])); }
+    
+    baseThreats(resources, this.state);
+    checkEnemyBuild(resources, this.state);
     if (this.state.rushDetected === true) {
-      const unitTypes = [ZERGLING, ROACH, HYDRALISK];
-      try { await continuouslyBuild(agent, data, resources, unitTypes); } catch (error) { console.log('continuouslyBuild error', error)}
+      try { await continuouslyBuild(agent, data, resources, mainCombatTypes); } catch (error) { console.log('continuouslyBuild error', error)}
     }
     if (this.state.defenseMode && foodUsed < ATTACKFOOD) {
-      await defend(resources);
-      const unitTypes = [ZERGLING, ROACH, HYDRALISK];
-      await continuouslyBuild(agent, data, resources, unitTypes);
+      collectedActions.push(...defend(resources, mainCombatTypes, supportUnitTypes));
+      try { await continuouslyBuild(agent, data, resources, mainCombatTypes); } catch (error) { console.log('continuouslyBuild error', error)}
     }
     if (minerals > 512) {
-      const unitTypes = [ZERGLING, ROACH, HYDRALISK];
-      await continuouslyBuild(agent, data, resources, unitTypes);
+      try { await balanceResources(agent, data, resources, MINERALTOGASRATIO); } catch(error) { }
+      try { await continuouslyBuild(agent, data, resources, mainCombatTypes); } catch (error) { console.log('continuouslyBuild error', error)}
     }
-    if (foodUsed >= 122) {
-      if (!shortOnWorkers(resources)) {
-        await expand(agent, data, resources);
-      } else {
-        if (minerals <= 512) {
-          try { await buildWorkers(agent, data, resources); } catch (error) { console.log(error); }
-        }
-      }
+    collectedActions.push(...await defenseSetup(data, resources, this.state, SPINECRAWLER));
+    if (this.state.buildComplete && !shortOnWorkers(resources)) {
+      await expand(agent, data, resources);
+    }
+    if (shortOnWorkers(resources) && !this.state.defenseMode && this.state.buildComplete && minerals <= 512) {
+      try { await buildWorkers(agent, data, resources); } catch (error) { console.log(error); }
     }
     collectedActions.push(...inject(resources));
     await increaseSupply(agent, data, resources);
+    // lightPush(resources, this.state);
     if (totalFoodUsed > 42) {
       await maintainQueens(agent, data, resources);
     }
     collectedActions.push(...overlordCoverage(resources))
     if (!this.state.defenseMode && foodUsed < ATTACKFOOD && foodUsed >= RALLYFOOD) {
-      collectedActions.push(rallyUnits(agent, []));
+      let rallyPosition = null;
+      const [ spinecrawler ] = units.getById(SPINECRAWLER);
+      if (spinecrawler) {
+        rallyPosition = spinecrawler.pos;
+      }
+      collectedActions.push(...rallyUnits(resources, [], rallyPosition));
     }
     collectedActions.push(...await spreadCreep(resources));
     collectedActions.push(...shadowEnemy(resources, this.state));
     if (collectedActions.length > 0) {
-      actions.sendAction(collectedActions);
+      await actions.sendAction(collectedActions);
     }
   },
   async onUnitCreated({ agent, data, resources }, newUnit) {
@@ -260,6 +264,17 @@ const zerg = createSystem({
   },
 });
 
+function armyCompositionAndBuild(agent, data, resources) {
+  const {
+    minerals,
+    vespene,
+  } = agent;
+  const unitTypes = [HYDRALISK];
+  if ((minerals / vespene) > 2) { unitTypes.push(ROACH); }
+  if ((minerals / vespene) > (175 / 75)) { unitTypes.push(ZERGLING); }
+  return unitTypes;
+}
+
 function detectRush(map, units, state) {
   // if enemy natural overlord is killed
   const enemyBases = units.getBases(Alliance.ENEMY);
@@ -300,6 +315,24 @@ async function increaseSupply(agent, data, resources) {
   }
 }
 
+function lightPush(resources, state) {
+  const { units } = resources.get();
+  const label = 'lightPushOn';
+  const collectedActions = [];
+  const combatUnits = [];
+  mainCombatTypes.forEach(type => {
+    combatUnits.push(...units.getById(type).filter(unit => !unit.labels.get('scout')));
+  });
+  if (totalFoodUsed >= 71 && units.withLabel(label).length === 0) {
+    state.lightPushOn = true;
+    combatUnits.forEach(unit => unit.labels.set(label, true));
+  }
+  if (state.lightPushOn === true && units.withLabel(label).filter(pusher => pusher.labels.get(label)).length >= 0) {
+    const pushers = units.withLabel(label);
+    collectedActions.push(...attack(resources, mainCombatTypes, supportUnitTypes));
+  }
+}
+
 function inject(resources) {
   const {
     actions,
@@ -307,9 +340,10 @@ function inject(resources) {
   } = resources.get();
   const collectedActions = []
   // for each townhall, grab and label queen.
-  const queen = units.withLabel('injector').find(injector => injector.energy >= 25 && injector.orders.length === 0);
+  const queen = units.withLabel('injector').find(injector => injector.energy >= 25);
   if (queen) {
-    const [ townhall ] = units.getClosest(queen.pos, units.getClosest(queen.pos, units.getBases().filter(base => !base.buffIds.includes(11))));
+    const nonInjectedBases = units.getBases().filter(base => !base.buffIds.includes(11));
+    const [ townhall ] = units.getClosest(queen.pos, units.getClosest(queen.pos, nonInjectedBases));
     if (townhall) {
       const unitCommand = {
         abilityId: EFFECT_INJECTLARVA,
@@ -536,6 +570,16 @@ function goToRandomPoint(map, unit) {
     unitTags: [ unit.tag ],
   }
   collectedActions.push(unitCommand);
+  return collectedActions;
+}
+
+async function tryBuilding(agent, data, resources, targetCount, placementConfig, candidatePositions=null) {
+  const collectedActions = [];
+  if (checkBuildingCount(data, resources, targetCount, placementConfig)) {
+    if (!candidatePositions) { candidatePositions = findPlacements(agent, resources)}
+    collectedActions.push(...await buildBuilding(agent, data, resources, placementConfig, candidatePositions));
+    pauseBuilding = collectedActions.length === 0;
+  }
   return collectedActions;
 }
 

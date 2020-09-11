@@ -175,10 +175,7 @@ const protoss = createSystem({
     if (this.state.enemyBuildType === 'standard') {
       await harass(this.state, resources);
     }
-    if (
-      this.state.defenseMode ||
-      minerals > 512
-    ) {
+    if (this.state.defenseMode || minerals > 512 ) {
       try { await balanceResources(agent, data, resources, MINERALTOGASRATIO); } catch(error) { }
       try { await continuouslyBuild(agent, data, resources); } catch(error) { console.log(error); }
     } else if (
@@ -273,7 +270,6 @@ function checkEnemyBuild(state, resources) {
   } = resources.get();
   // if scouting probe and time is greater than 2 minutes. If no base, stay defensive.
   if (
-    units.withLabel('scout').length == 1 &&
     frame.timeInSeconds() > 132
     && frame.timeInSeconds() <= 240
   ) {

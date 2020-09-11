@@ -1,8 +1,10 @@
 //@ts-check
+"use strict"
+
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 
-async function baseThreats(resources, state) {
+function baseThreats(resources, state) {
   const { units } = resources.get();
   // check for enemy worker near townhall.
   const townhalls = units.getBases();

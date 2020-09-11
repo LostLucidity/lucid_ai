@@ -57,6 +57,7 @@ module.exports = {
     } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+    // let [ closestEnemyUnit ] = getClosestByPath(map, map.getCombatRally(), enemyUnits, 1);
     let [ closestEnemyUnit ] = units.getClosest(map.getCombatRally(), enemyUnits, 1);
     const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
     if (closestEnemyUnit) {
@@ -67,8 +68,8 @@ module.exports = {
           supportUnits.push(...units.getById(QUEEN));
         }
       }
-      const [ combatPoint ] = getClosestByPath(map, closestEnemyUnit.pos, combatUnits, 1);
-      // const [ combatPoint ] = units.getClosest(closestEnemyUnit.pos, combatUnits, 1);
+      // const [ combatPoint ] = getClosestByPath(map, closestEnemyUnit.pos, combatUnits, 1);
+      const [ combatPoint ] = units.getClosest(closestEnemyUnit.pos, combatUnits, 1);
       if (combatPoint) {
         collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, closestEnemyUnit));
       }
