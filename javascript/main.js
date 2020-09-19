@@ -16,7 +16,7 @@ const macro = require('./systems/macro');
 
 const eightGateAllIn = require('./builds/eight-gate-all-in');
 const macroColossus = require('./builds/macro-colossus');
-const protoss = require('./builds/protoss');
+const protoss = require('./builds/protoss/protoss');
 const terran = require('./builds/terran');
 const zerg = require('./builds/zerg');
 
@@ -24,13 +24,20 @@ const protossSupplySystem = require('@node-sc2/system-protoss-supply');
 
 const wallBuilderSystem = require('./systems/wall-builder-system');
 const workerBalanceSystem = require('./systems/worker-balance-system');
+const proxyVoidRay = require('./builds/protoss/proxy-void-ray');
 
-const protossBuilds = [
-  protoss,
-  protossSupplySystem({ firstPylon: { location: 'natural' } }),
-  wallBuilderSystem,
-  workerBalanceSystem,
-];
+const protossBuilds = {
+  protoss: [
+    protoss,
+    protossSupplySystem({ firstPylon: { location: 'natural' } }),
+    wallBuilderSystem,
+    workerBalanceSystem,
+  ],
+  proxyVoidRay: [
+    proxyVoidRay,
+    workerBalanceSystem
+  ]
+};
 
 const terranBuilds = [
   terran,
@@ -54,14 +61,14 @@ const bot1 = createAgent(settings);
 // protossBuild.forEach(system => {
 //   bot1.use(system);
 // });
-// loadBuilds(Race.PROTOSS, protossBuilds, bot1);
+loadBuilds(Race.PROTOSS, protossBuilds.proxyVoidRay, bot1);
 // loadBuilds(Race.TERRAN, terranBuilds, bot1);
-loadBuilds(Race.ZERG, zergBuilds, bot1);
+// loadBuilds(Race.ZERG, zergBuilds, bot1);
 function loadBuilds(race, builds, bot) {
   settings.race = race;
   builds.forEach(build => {
     bot.use(build);
-  })
+  });
 }
 
 // bot1.use(zerg);
