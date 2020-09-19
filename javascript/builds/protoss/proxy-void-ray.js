@@ -11,7 +11,7 @@ const buildWorkers = require("../../helper/build-workers");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { WARPGATERESEARCH } = require("@node-sc2/core/constants/upgrade");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { attack } = require("../../helper/army-behavior");
+const { attack, defend } = require("../../helper/army-behavior");
 
 let ATTACKFOOD = 34;
 let mainCombatTypes = [ VOIDRAY ];
@@ -45,7 +45,7 @@ const proxyVoidRay = createSystem({
     if (foodUsed == 21) { collectedActions.push(...await trainOrder(data, units, ADEPT)); }
     if (foodUsed == 23) { collectedActions.push(...await abilityOrder(data, resources, EFFECT_CHRONOBOOSTENERGYCOST, 1, NEXUS, GATEWAY)); }
     if (foodUsed >= 23) { collectedActions.push(...await upgradeOrder(data, resources, WARPGATERESEARCH)); }
-    if (foodUsed >= 23) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.PYLON, [ await getThirdPylonPosition(resources, this.state) ])); }
+    if (foodUsed >= 23) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.PYLON, [ this.state.thirdPylonPosition || await getThirdPylonPosition(resources, this.state) ])); }
     if (foodUsed == 23) { collectedActions.push(...await trainOrder(data, units, STALKER)); }
     if (foodUsed == 25 && !this.state.pauseBuilding) { await buildWorkers(agent, data, resources); }
     if (foodUsed == 26) { collectedActions.push(...await trainOrder(data, units, VOIDRAY)); }
@@ -56,7 +56,7 @@ const proxyVoidRay = createSystem({
     if (foodUsed >= 34) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.SHIELDBATTERY, gridsInCircle(this.state.thirdPylonPosition, 6.5))); }
     if (foodUsed >= 34) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.SHIELDBATTERY, gridsInCircle(this.state.thirdPylonPosition, 6.5))); }
     if (foodUsed == 34) { collectedActions.push(...await trainOrder(data, units, VOIDRAY)); }
-    if (foodUsed < ATTACKFOOD) { collectedActions.push(...attack(resources, mainCombatTypes, supportUnitTypes)); }
+    if (foodUsed < ATTACKFOOD) { collectedActions.push(...defend(resources, mainCombatTypes, supportUnitTypes)); }
     if (foodUsed >= ATTACKFOOD) { collectedActions.push(...attack(resources, mainCombatTypes, supportUnitTypes)); }
     // state proxy position.
     if (foodUsed < 21 && !this.state.pauseBuilding) { await buildWorkers(agent, data, resources); }
@@ -127,6 +127,7 @@ async function getThirdPylonPosition(resources, state) {
     })
   let position = await actions.canPlace(PYLON, placementGrids);
   state.thirdPylonPosition = position;
+  console.log('state.thirdPylonPosition', state.thirdPylonPosition);
   return position;
 }
 
