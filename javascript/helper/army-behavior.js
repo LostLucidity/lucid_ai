@@ -21,6 +21,7 @@ module.exports = {
     const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
     if (closestEnemyBase || closestEnemyUnit) {
       const enemyTarget = closestEnemyBase || closestEnemyUnit;
+      // const [ combatPoint ] = getClosestByPath(map, enemyTarget.pos, combatUnits, 1);
       const [ combatPoint ] = units.getClosest(enemyTarget.pos, combatUnits, 1);
       if (combatPoint) {
         collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, enemyTarget));
@@ -31,22 +32,24 @@ module.exports = {
       const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
       const randomExpansion = expansions[Math.floor(Math.random() * expansions.length)];
       const [ combatPoint ] = units.getClosest(randomExpansion.townhallPosition, combatUnits, 1);
-      if (supportUnits.length > 1) {
-        const supportUnitTags = supportUnits.map(unit => unit.tag);
+      if (combatPoint) {
+        if (supportUnits.length > 1) {
+          const supportUnitTags = supportUnits.map(unit => unit.tag);
+          let unitCommand = {
+            abilityId: MOVE,
+            targetWorldSpacePos: combatPoint.pos,
+            unitTags: [ ...supportUnitTags ],
+          }
+          collectedActions.push(unitCommand);
+        }
+        const idleCombatUnitTags = idleCombatUnits.map(unit => unit.tag);
         let unitCommand = {
-          abilityId: MOVE,
-          targetWorldSpacePos: combatPoint.pos,
-          unitTags: [ ...supportUnitTags ],
+          abilityId: ATTACK_ATTACK,
+          targetWorldSpacePos: randomExpansion.townhallPosition,
+          unitTags: [ ...idleCombatUnitTags ],
         }
         collectedActions.push(unitCommand);
       }
-      const idleCombatUnitTags = idleCombatUnits.map(unit => unit.tag);
-      let unitCommand = {
-        abilityId: ATTACK_ATTACK,
-        targetWorldSpacePos: randomExpansion.townhallPosition,
-        unitTags: [ ...idleCombatUnitTags ],
-      }
-      collectedActions.push(unitCommand);
     }
     return collectedActions;
   },
