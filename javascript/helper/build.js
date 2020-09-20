@@ -5,6 +5,7 @@ const { distance, distanceX, distanceY } = require("@node-sc2/core/utils/geometr
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { PYLON, ASSIMILATOR } = require("@node-sc2/core/constants/unit-type");
 const { getOccupiedExpansions } = require("./expansions");
+const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
 module.exports = {
   abilityOrder: async (data, resources, abilityId, targetCount, unitTypes, unitTypeTarget) => {
@@ -97,9 +98,12 @@ module.exports = {
         const pylonsNearProduction = units.getById(PYLON)
           .filter(u => u.buildProgress >= 1)
           .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
-        getOccupiedExpansions(resources).forEach(expansion => {
-          placements.push(...expansion.areas.placementGrid);
-        });
+        pylonsNearProduction.forEach(pylon => {
+          placements.push(...gridsInCircle(pylon.pos, 6.5));
+        })
+        // getOccupiedExpansions(resources).forEach(expansion => {
+        //   placements.push(...expansion.areas.placementGrid);
+        // });
         placements.filter((point) => {
           return (
             (distance(natural.townhallPosition, point) > 4.5) &&

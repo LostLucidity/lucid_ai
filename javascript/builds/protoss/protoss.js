@@ -9,7 +9,7 @@ const {
 
 const { WarpUnitAbility } = require('@node-sc2/core/constants');
 const {
-  EFFECT_CHRONOBOOSTENERGYCOST: CHRONOBOOST, MOVE,
+  EFFECT_CHRONOBOOSTENERGYCOST: CHRONOBOOST, MOVE, EFFECT_CHRONOBOOSTENERGYCOST,
 } = require('@node-sc2/core/constants/ability');
 const unitTypes = require("@node-sc2/core/constants/unit-type");
 const {
@@ -23,9 +23,7 @@ const {
   NEXUS,
   OBSERVER,
   PHOTONCANNON,
-  PROBE,
   PYLON,
-  ROBOTICSBAY,
   ROBOTICSFACILITY,
   STALKER,
   WARPPRISM,
@@ -52,14 +50,6 @@ let pauseBuilding = false;
 let mainCombatTypes = [ STALKER, COLOSSUS, IMMORTAL ];
 let supportUnitTypes = [ OBSERVER, WARPPRISM ];
 
-const {
-  ability,
-  build,
-  train,
-  upgrade
-} = taskFunctions;
-
-const workerSetup = require('../../helper/worker-setup');
 const baseThreats = require("../../helper/base-threats");
 const rallyUnits = require("../../helper/rally-units");
 const range = require("../../helper/range");
@@ -67,9 +57,10 @@ const shadowUnit = require("../../helper/shadow-unit");
 const balanceResources = require("../../helper/balance-resources");
 const canAfford = require("../../helper/can-afford");
 const { defend, attack } = require("../../helper/army-behavior");
-const { checkBuildingCount, buildBuilding } = require("../../helper/build");
+const { tryBuilding, abilityOrder } = require("../../helper/build");
 const buildWorkers = require("../../helper/build-workers");
 const placementConfigs = require("../../helper/placement-configs");
+const { frontOfGrid } = require("@node-sc2/core/utils/map/region");
 
 let supplyLost = 0;
 let totalFoodUsed = 0;
@@ -101,25 +92,7 @@ const protoss = createSystem({
       enemyBuildType: 'standard',
     },
   },  
-  buildOrder: [
-    [14, build(PYLON)], // at natural wall, scout,
-    [15, build(GATEWAY)], // at wall,             
-    [16, ability(CHRONOBOOST, { target: NEXUS })],
-    [19, build(ASSIMILATOR)], //                  
-    [19, build(GATEWAY)], // at wall,             
-    [20, build(CYBERNETICSCORE)], // at wall      
-    [20, build(ASSIMILATOR)], //                  
-    [23, train(STALKER, 2)], // chronoboost       
-    [27, upgrade(WARPGATERESEARCH)], //           
-    [27, train(STALKER, 2)], //                   
-    [31, build(NEXUS)], //                        
-    [32, build(ROBOTICSFACILITY)],                
-    [36, train(OBSERVER)], // chronoboost, scout  
-    [37, build(ROBOTICSBAY)],                     
-    [37, train(STALKER, 2)],                      
-    [45, train(IMMORTAL)], // for defense         
-    [53, train(COLOSSUS)], // chronoboost         
-    [61, upgrade(EXTENDEDTHERMALLANCE)],          
+  buildOrder: [                                                                                                      
   ],
   async buildComplete() {
       this.setState({ buildComplete: true });
@@ -140,35 +113,54 @@ const protoss = createSystem({
     const supplySystem = agent.systems.find(system => system._system.name === "SupplySystem")._system;
     pauseBuilding ? protossSystem.pauseBuild() : protossSystem.resumeBuild();
     pauseBuilding ? supplySystem.pause() : supplySystem.unpause();
-    if (foodUsed >= ATTACKFOOD) { collectedActions.push(...attack(resources, mainCombatTypes, supportUnitTypes)); }
-    if (totalFoodUsed >= 35) { collectedActions.push(...await tryBuilding(agent, data, resources, 2, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 64) { collectedActions.push(...await tryBuilding(agent, data, resources, 2, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
-    if (foodUsed >= 74) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.FORGE)); }
-    if (foodUsed >= 80) { collectedActions.push(...await tryBuilding(agent, data, resources, 3, placementConfigs.GATEWAY)); }
+    if (foodUsed >= 14) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.PYLON, [...findSupplyPositions(resources)])); }
+    if (foodUsed >= 15) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.GATEWAY)); }
+    if (foodUsed == 16) { collectedActions.push(...await abilityOrder(data, resources, EFFECT_CHRONOBOOSTENERGYCOST, 1, NEXUS, NEXUS)); }
+    if (foodUsed >= 19) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.ASSIMILATOR)); }
+    if (foodUsed >= 19) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.GATEWAY)); }
+    if (foodUsed >= 20) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.CYBERNETICSCORE)); }
+    if (foodUsed >= 20) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.ASSIMILATOR)); }
+    if (foodUsed < 20) { try { await buildWorkers(agent, data, resources); } catch(error) { console.log(error); } }
+    if (foodUsed >= 23) { collectedActions.push(...tryTraining(agent, data, resources, 0, STALKER)); }
+    if (foodUsed >= 23) { collectedActions.push(...tryTraining(agent, data, resources, 1, STALKER)); }
+    if (foodUsed >= 27) { collectedActions.push(...tryUpgrade(data, resources, WARPGATERESEARCH)); }
+    if (foodUsed >= 27) { collectedActions.push(...tryTraining(agent, data, resources, 2, STALKER)); }
+    if (foodUsed >= 27) { collectedActions.push(...tryTraining(agent, data, resources, 3, STALKER)); }
+    if (foodUsed >= 31) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
+    if (foodUsed >= 32) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.ROBOTICSFACILITY)); }
+    if (foodUsed >= 35) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.GATEWAY)); }
+    if (foodUsed >= 36) { collectedActions.push(...tryTraining(agent, data, resources, 0, OBSERVER)); }
+    if (foodUsed >= 37) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.ROBOTICSBAY)); }
+    if (foodUsed >= 37) { collectedActions.push(...tryTraining(agent, data, resources, 4, STALKER)); }
+    if (foodUsed >= 37) { collectedActions.push(...tryTraining(agent, data, resources, 5, STALKER)); }
+    if (foodUsed >= 45) { collectedActions.push(...tryTraining(agent, data, resources, 0, IMMORTAL)); }
+    if (foodUsed >= 53) { collectedActions.push(...tryTraining(agent, data, resources, 0, COLOSSUS)); }
+    if (foodUsed >= 61) { collectedActions.push(...tryUpgrade(data, resources, EXTENDEDTHERMALLANCE)); }
+    if (foodUsed >= 64) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
+    if (foodUsed >= 74) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.FORGE)); }
+    if (foodUsed >= 80) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 3, placementConfigs.GATEWAY)); }
     if (foodUsed >= 80) { collectedActions.push(...tryUpgrade(data, resources, PROTOSSGROUNDWEAPONSLEVEL1)); }
-    if (foodUsed >= 91) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.TWILIGHTCOUNCIL)); }
-    if (foodUsed >= 101) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.PHOTONCANNON)); }
-    if (foodUsed >= 101) { collectedActions.push(...await tryBuilding(agent, data, resources, 1, placementConfigs.PHOTONCANNON)); }
-    if (foodUsed >= 110) { collectedActions.push(...tryUpgrade(data, resources, PROTOSSGROUNDWEAPONSLEVEL2)); }
-    if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, 4, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, 5, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, 6, placementConfigs.GATEWAY)); }
+    if (foodUsed >= 91) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.TWILIGHTCOUNCIL)); }
+    if (foodUsed >= 101) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.PHOTONCANNON)); }
+    if (foodUsed >= 101) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.PHOTONCANNON)); }
+    if (foodUsed >= 110) { collectedActions.push(...tryUpgrade(data, resources, CHARGE)); }
+    if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 4, placementConfigs.GATEWAY)); }
+    if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 5, placementConfigs.GATEWAY)); }
+    if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 6, placementConfigs.GATEWAY)); }
     if (foodUsed >= 120) { collectedActions.push(...tryTraining(agent, data, resources, 1, OBSERVER)); }
     if (foodUsed >= 126) { collectedActions.push(...tryUpgrade(data, resources, PROTOSSGROUNDWEAPONSLEVEL2)); }
-    if (foodUsed >= 132) { collectedActions.push(...await tryBuilding(agent, data, resources, 2, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
+    if (foodUsed >= 132) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
     if (foodUsed >= 151) { collectedActions.push(...tryTraining(agent, data, resources, 0, WARPPRISM)); }
-    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, 7, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.TEMPLARARCHIVE)); }
-    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, 8, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, 9, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 200) { collectedActions.push(...tryTraining(agent, data, resources, 0, OBSERVER)); }
+    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 7, placementConfigs.GATEWAY)); }
+    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.TEMPLARARCHIVE)); }
+    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 8, placementConfigs.GATEWAY)); }
+    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 9, placementConfigs.GATEWAY)); }
+    if (this.state.defenseMode && foodUsed < ATTACKFOOD) { collectedActions.push(...defend(resources, mainCombatTypes, supportUnitTypes)); }
+    if (foodUsed >= ATTACKFOOD) { collectedActions.push(...attack(resources, mainCombatTypes, supportUnitTypes)); }
     checkEnemyBuild(this.state, resources)
     collectedActions.push(...await chronoboost(resources));
-    if (this.state.defenseMode && foodUsed < ATTACKFOOD) {
-      collectedActions.push(...defend(resources, mainCombatTypes, supportUnitTypes));
-    }
     await defenseSetup(this.state, data, resources);
-    if (this.state.buildComplete && !shortOnWorkers(resources)) {
+    if (foodUsed >= 132 && !shortOnWorkers(resources)) {
       await expand(agent, data, resources);
     }
     triggerSupplySystem(agent);
@@ -192,7 +184,7 @@ const protoss = createSystem({
     if (!this.state.defenseMode && foodUsed < ATTACKFOOD && foodUsed >= RALLYFOOD) {
       const [ shieldBattery ] = units.getById(SHIELDBATTERY);
       let rallyPosition = null;
-      if (shieldBattery) {
+      if (shieldBattery && foodUsed <= 134) {
         rallyPosition = shieldBattery.pos;
       }
       collectedActions.push(...rallyUnits(resources, supportUnitTypes, rallyPosition));
@@ -213,8 +205,8 @@ const protoss = createSystem({
     } = resources.get();
     const collectedActions = [];
     totalFoodUsed = foodUsed + supplyLost;
-    const expansionPoints = [...range(29, 34), ...range(57, 67), ...range(130, 133)];
-    await workerSetup(agent, resources, newUnit, [], expansionPoints, totalFoodUsed);
+    // const expansionPoints = [...range(29, 34), ...range(57, 67), ...range(130, 133)];
+    // await workerSetup(agent, resources, newUnit, [], expansionPoints, totalFoodUsed);
     // first observer move to enemy
     if (newUnit.unitType === OBSERVER && units.getById(OBSERVER).length === 1) {
       if (totalFoodUsed < 46) {
@@ -250,24 +242,8 @@ const protoss = createSystem({
   },
 });
 
-function buildProbes(resources) {
-  const {
-    actions,
-    units,
-  } = resources.get();
-  const idleNexuses = units.getById(NEXUS, { noQueue: true, buildProgress: 1 });
-  if (idleNexuses.length > 0) {
-    return Promise.all(idleNexuses.map(nexus => actions.train(PROBE, nexus)));
-  } 
-}
-
 function checkEnemyBuild(state, resources) {
-  const {
-    actions,
-    frame,
-    map,
-    units,
-  } = resources.get();
+  const { frame, units, } = resources.get();
   // if scouting probe and time is greater than 2 minutes. If no base, stay defensive.
   if (
     frame.timeInSeconds() > 132
@@ -330,7 +306,7 @@ async function continuouslyBuild(agent, data, resources) {
   if (qtyToWarp > 0) {
     const warpGates = units.getById(WARPGATE).filter(wg => wg.abilityAvailable(abilityId)).slice(0, qtyToWarp);
     if (warpGates.length > 0 && foodUsed <= 198) {
-      await actions.warpIn(unitToWarpIn);
+      try { await actions.warpIn(unitToWarpIn) } catch (error) { console.log(error); }
     }
   }
   const idleRoboticsFacility = units.getById(ROBOTICSFACILITY, { noQueue: true, buildProgress: 1 });
@@ -358,7 +334,7 @@ async function defenseSetup(state, data, resources) {
       const filteredPoints = points.filter(point => {
         return (
           distance(avg, point) > 3.25 &&
-          distance(natural.townhallPosition, point) > 3.25
+          distance(natural.townhallPosition, point) > 3.75
         );
       });
       // pick 10 random positions from the list
@@ -387,6 +363,33 @@ async function expand(agent, data, resources) {
   if ((units.inProgress(NEXUS).length + units.withCurrentOrders(buildAbilityId).length) < 1 ) {
     return actions.build(NEXUS, foundPosition)
   }
+}
+
+function findSupplyPositions(resources) {
+  const { map } = resources.get();
+  const myExpansions = map.getOccupiedExpansions(Alliance.SELF);
+  // front of natural pylon for great justice
+  const naturalWall = map.getNatural().getWall();
+  let possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
+      .filter(point => naturalWall.every(wallCell => (
+          (distance(wallCell, point) <= 6.5) &&
+          (distance(wallCell, point) >= 3)
+      )));
+
+  if (possiblePlacements.length <= 0) {
+      possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
+          .map(point => {
+              point.coverage = naturalWall.filter(wallCell => (
+                  (distance(wallCell, point) <= 6.5) &&
+                  (distance(wallCell, point) >= 1)
+              )).length;
+              return point;
+          })
+          .sort((a, b) => b.coverage - a.coverage)
+          .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
+  }
+
+  return possiblePlacements;
 }
 
 function triggerSupplySystem(agent) {
@@ -573,16 +576,6 @@ function shortOnWorkers(resources) {
       assignedHarvesters += townhall.assignedHarvesters
     });
   return idealHarvesters >= assignedHarvesters;
-}
-
-async function tryBuilding(agent, data, resources, targetCount, placementConfig, candidatePositions=null) {
-  const collectedActions = [];
-  if (checkBuildingCount(data, resources, targetCount, placementConfig)) {
-    if (!candidatePositions) { candidatePositions = findPlacements(resources)}
-    collectedActions.push(...await buildBuilding(agent, data, resources, placementConfig, candidatePositions));
-    pauseBuilding = collectedActions.length === 0;
-  }
-  return collectedActions;
 }
 
 function tryTraining(agent, data, resources, targetCount, unitType) {
