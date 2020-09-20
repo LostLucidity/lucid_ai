@@ -4,7 +4,6 @@
 // https://lotv.spawningtool.com/build/115726/
 const {
   createSystem,
-  taskFunctions,
 } = require("@node-sc2/core");
 
 const { WarpUnitAbility } = require('@node-sc2/core/constants');
@@ -13,9 +12,7 @@ const {
 } = require('@node-sc2/core/constants/ability');
 const unitTypes = require("@node-sc2/core/constants/unit-type");
 const {
-  ASSIMILATOR,
   COLOSSUS,
-  CYBERNETICSCORE,
   FORGE,
   GATEWAY,
   IMMORTAL,
@@ -60,27 +57,13 @@ const { defend, attack } = require("../../helper/army-behavior");
 const { tryBuilding, abilityOrder } = require("../../helper/build");
 const buildWorkers = require("../../helper/build-workers");
 const placementConfigs = require("../../helper/placement-configs");
-const { frontOfGrid } = require("@node-sc2/core/utils/map/region");
+const { AssemblePlan } = require("../../helper/assemblePlan");
 
 let supplyLost = 0;
 let totalFoodUsed = 0;
 const ATTACKFOOD = 194;
 const RALLYFOOD = 31;
 const MINERALTOGASRATIO = 2.4;
-const buildingCounts = {};
-const buildings = [
-  'GATEWAY',
-  'CYBERNETICSCORE',
-  'ROBOTICSFACILITY',
-  'ROBOTICSBAY',
-  'FORGE',
-  'TWILIGHTCOUNCIL',
-  'WARPGATE',
-];
-buildings.forEach(building => {
-  buildingCounts[unitTypes[building]] = 0
-});
-buildingCounts['totalGates'] = 0
 
 const protoss = createSystem({
   name: 'Protoss',
@@ -97,23 +80,26 @@ const protoss = createSystem({
   async buildComplete() {
       this.setState({ buildComplete: true });
   },
-  async onGameStart({ agent }) {
+  async onGameStart(world) {
+    const assemblePlan = new AssemblePlan(economicStalkerColossi);
     const { foodUsed } = agent;
     totalFoodUsed = foodUsed;
   },
-  async onStep({agent, data, resources}) {
+  async onStep(world) {
+    const { agent, data, resources } = world;
     const { foodUsed, minerals } = agent;
     const {
       actions,
       map,
       units,
-    } = resources.get();
+    } = world.resources.get();
+    assemblePlan.onStep(world, this.state)
     const collectedActions = [];
-    const protossSystem = agent.systems.find(system => system._system.name === "Protoss")._system;
-    const supplySystem = agent.systems.find(system => system._system.name === "SupplySystem")._system;
+    const protossSystem = world.agent.systems.find(system => system._system.name === "Protoss")._system;
+    const supplySystem = world.agent.systems.find(system => system._system.name === "SupplySystem")._system;
     pauseBuilding ? protossSystem.pauseBuild() : protossSystem.resumeBuild();
     pauseBuilding ? supplySystem.pause() : supplySystem.unpause();
-    if (foodUsed >= 14) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.PYLON, [...findSupplyPositions(resources)])); }
+    // if (foodUsed >= 14) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.PYLON, [...findSupplyPositions(resources)])); }
     if (foodUsed >= 15) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.GATEWAY)); }
     if (foodUsed == 16) { collectedActions.push(...await abilityOrder(data, resources, EFFECT_CHRONOBOOSTENERGYCOST, 1, NEXUS, NEXUS)); }
     if (foodUsed >= 19) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.ASSIMILATOR)); }
@@ -363,33 +349,6 @@ async function expand(agent, data, resources) {
   if ((units.inProgress(NEXUS).length + units.withCurrentOrders(buildAbilityId).length) < 1 ) {
     return actions.build(NEXUS, foundPosition)
   }
-}
-
-function findSupplyPositions(resources) {
-  const { map } = resources.get();
-  const myExpansions = map.getOccupiedExpansions(Alliance.SELF);
-  // front of natural pylon for great justice
-  const naturalWall = map.getNatural().getWall();
-  let possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
-      .filter(point => naturalWall.every(wallCell => (
-          (distance(wallCell, point) <= 6.5) &&
-          (distance(wallCell, point) >= 3)
-      )));
-
-  if (possiblePlacements.length <= 0) {
-      possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
-          .map(point => {
-              point.coverage = naturalWall.filter(wallCell => (
-                  (distance(wallCell, point) <= 6.5) &&
-                  (distance(wallCell, point) >= 1)
-              )).length;
-              return point;
-          })
-          .sort((a, b) => b.coverage - a.coverage)
-          .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
-  }
-
-  return possiblePlacements;
 }
 
 function triggerSupplySystem(agent) {

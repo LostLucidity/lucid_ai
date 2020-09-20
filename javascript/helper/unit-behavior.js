@@ -2,8 +2,8 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { SIEGETANK, SIEGETANKSIEGED, LARVA, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER } = require("@node-sc2/core/constants/unit-type");
-const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN } = require("@node-sc2/core/constants/ability");
+const { SIEGETANK, SIEGETANKSIEGED, LARVA, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED } = require("@node-sc2/core/constants/unit-type");
+const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getBase } = require("./expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
@@ -105,16 +105,21 @@ module.exports = {
     });
     return collectedActions;
   },
-  supplyBehavior: (resources) => {
+  supplyDepotBehavior: (resources) => {
     const {
       units,
     } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-    units.getByType(SUPPLYDEPOT).filter(depot => {
+    units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).filter(depot => {
+      const unitCommand = { unitTags: [ depot.tag ], }
       let [ closestEnemyUnit ] = units.getClosest(depot.pos, enemyUnits, 1);
-      if (closestEnemyUnit) {
-        collectedActions.push(...triggerAbilityByDistance(depot, closestEnemyUnit.pos, '<', 16, MORPH_SUPPLYDEPOT_LOWER));
+      if (closestEnemyUnit && distance(closestEnemyUnit.pos, depot.pos) < 16) {
+        unitCommand.abilityId = MORPH_SUPPLYDEPOT_RAISE
+        collectedActions.push(unitCommand);
+      } else {
+        unitCommand.abilityId = MORPH_SUPPLYDEPOT_LOWER
+        collectedActions.push(unitCommand);
       }
     });
     return collectedActions;
@@ -149,32 +154,6 @@ module.exports = {
     }
     return collectedActions;
   }
-}
-
-function mule(resources) {
-  const {
-    units,
-  } = resources.get();
-  const collectedActions = [];
-  const orbitalCommand = units.getById(ORBITALCOMMAND).find(n => n.energy > 50);
-  if (orbitalCommand) {
-    const expansions = getOccupiedExpansions(resources).filter(expansion => getBase(resources, expansion).buildProgress >= 1);
-    if (expansions.length >= 0) {
-      const randomExpansion = getRandom(expansions);
-      if (randomExpansion) {
-        const [ closestMineralField ] = units.getClosest(randomExpansion.townhallPosition, units.getMineralFields());
-        if (closestMineralField) {
-          const unitCommand = {
-            abilityId: EFFECT_CALLDOWNMULE,
-            targetUnitTag: closestMineralField.tag,
-            unitTags: [ orbitalCommand.tag ],
-          }
-          collectedActions.push(unitCommand)
-        }
-      }
-    }
-  }
-  return collectedActions;
 }
 
 function triggerAbilityByDistance(unit, target, operator, range, abilityId, pointType) {

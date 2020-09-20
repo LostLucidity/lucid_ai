@@ -2,10 +2,10 @@
 "use strict"
 
 
-const { FACTORYTECHLAB, SUPPLYDEPOT, BARRACKS, REFINERY, BARRACKSREACTOR, COMMANDCENTER, FACTORY, MARINE, GATEWAY, HATCHERY, BUNKER, ORBITALCOMMAND, STARPORT, CYCLONE, VIKINGFIGHTER, SIEGETANK, STARPORTREACTOR, ENGINEERINGBAY, BARRACKSTECHLAB, SCV, STARPORTFLYING, ARMORY, ORBITALCOMMANDFLYING, MEDIVAC, LIBERATOR, MISSILETURRET, MARAUDER } = require("@node-sc2/core/constants/unit-type");
+const { FACTORYTECHLAB, SUPPLYDEPOT, BARRACKS, REFINERY, BARRACKSREACTOR, COMMANDCENTER, FACTORY, MARINE, GATEWAY, HATCHERY, BUNKER, ORBITALCOMMAND, STARPORT, CYCLONE, VIKINGFIGHTER, SIEGETANK, STARPORTREACTOR, ENGINEERINGBAY, BARRACKSTECHLAB, SCV, STARPORTFLYING, ARMORY, ORBITALCOMMANDFLYING, MEDIVAC, LIBERATOR, MISSILETURRET, MARAUDER, SIEGETANKSIEGED } = require("@node-sc2/core/constants/unit-type");
 const { createSystem, taskFunctions } = require("@node-sc2/core");
 const {
-  CANCEL_QUEUE5, CANCEL_QUEUECANCELTOSELECTION, MOVE, MORPH_ORBITALCOMMAND, EFFECT_CALLDOWNMULE, EFFECT_REPAIR, RESEARCH_STIMPACK, RESEARCH_COMBATSHIELD, EFFECT_SALVAGE, UNLOADALL_BUNKER, LAND, LAND_BARRACKS, EFFECT_SCAN, LIFT_STARPORT, SMART,
+  CANCEL_QUEUE5, CANCEL_QUEUECANCELTOSELECTION, MOVE, MORPH_ORBITALCOMMAND, EFFECT_CALLDOWNMULE, EFFECT_REPAIR, RESEARCH_STIMPACK, RESEARCH_COMBATSHIELD, EFFECT_SALVAGE, UNLOADALL_BUNKER, LAND_BARRACKS, EFFECT_SCAN, LIFT_STARPORT, SMART, BUILD_REACTOR_BARRACKS, BUILD_REACTOR_STARPORT, BUILD_TECHLAB_BARRACKS,
 } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require('@node-sc2/core/constants/enums');
 
@@ -17,7 +17,6 @@ const workerSetup = require("../helper/worker-setup");
 
 const Ability = require("@node-sc2/core/constants/ability");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const getRandom = require('@node-sc2/core/utils/get-random');
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const baseThreats = require('../helper/base-threats');
 const isSupplyNeeded = require('../helper/supply');
@@ -28,14 +27,16 @@ const expand = require('../helper/expand');
 const buildWorkers = require('../helper/build-workers');
 const shortOnWorkers = require('../helper/short-on-workers');
 const balanceResources = require('../helper/balance-resources');
-const { marineBehavior, tankBehavior, liberatorBehavior, supplyBehavior, orbitalCommandCenterBehavior } = require("../helper/unit-behavior");
-const { getOccupiedExpansions, getAvailableExpansions, getBase } = require("../helper/expansions");
+const { marineBehavior, tankBehavior, liberatorBehavior, supplyDepotBehavior, orbitalCommandCenterBehavior } = require("../helper/unit-behavior");
+const { getOccupiedExpansions, getAvailableExpansions } = require("../helper/expansions");
+const { buildBuilding, checkBuildingCount, findPlacements, upgradeOrder, abilityOrder } = require("../helper/build");
+const placementConfigs = require("../helper/placement-configs");
 
 let ATTACKFOOD = 194;
 let pauseBuilding = false;
 let RALLYFOOD = 23
 let supplyLost = 0;
-let mainCombatTypes = [CYCLONE, MARINE, MARAUDER, SIEGETANK];
+let mainCombatTypes = [CYCLONE, MARINE, MARAUDER, SIEGETANK, SIEGETANKSIEGED];
 let supportUnitTypes = [LIBERATOR, MEDIVAC, VIKINGFIGHTER];
 let totalFoodUsed = 0;
 
@@ -43,7 +44,6 @@ const {
   ability,
   build,
   train,
-  upgrade,
 } = taskFunctions;
 
 const terran = createSystem({
@@ -65,73 +65,56 @@ const terran = createSystem({
     [28, train(CYCLONE)],                       // 38,38,38,38,39,39,40,40,40,40,40,38,38 vs 40-14
     [28, build(SUPPLYDEPOT, 2)],                // 41,41,43,42,42,44,43,45,43,43,41,41 vs 42+5
     [28, train(VIKINGFIGHTER)],                 // 43,43,45,44,44,47,47,47,47,45,45,43,45 vs 44+13
-    [33, build(SUPPLYDEPOT, 2)],                // 48,50 vs 49+-/2
-    // [34, build(SUPPLYDEPOT, 2)],                // 51 vs 49+2
-    [37, build(BARRACKS, 2)],                   // 58,56 vs 58-2/2
-    // [38, build(BARRACKS, 2)],                   // 60 vs 58+2
-    [41, build(STARPORTREACTOR)],               // 63,61,68 vs 62+6/3
-    // 55, commandCenter                        // 61,59,56 vs 62-10
-    // 56, engineering bay1                     // 63,62,57 vs 62-4
-    // 56, engineering bay2                     // 63,62,58 vs 62-3
-    [43, build(BARRACKSTECHLAB)],               // 70,68,74 vs 69+5/3
-    // SwapBuildings                            // 71 vs 71
-    [45, build(REFINERY, 2)],                   // 72,70 vs 71+-
-    [46, ability(RESEARCH_STIMPACK)],           // 76,74 vs 75+-
-    // 74 barracks                              // 79,82 vs 77+7
-    [48, build(STARPORTREACTOR)],               // 81,81
-    [50, upgrade(TERRANINFANTRYWEAPONSLEVEL1)], // 86,86 vs 86+-
-    [50, upgrade(TERRANINFANTRYARMORSLEVEL1)],  // 86,87 vs 86+-
-    [50, ability(MORPH_ORBITALCOMMAND)],        // 89,88 vs 87+3
-    // 89, barracks                                // 90 vs 91
-    [56, build(BARRACKSREACTOR, 2)],               // 105,107 vs 105+2
-    [57, ability(RESEARCH_COMBATSHIELD)],       // 107,120 vs 117-7
-    [57, build(ARMORY)],                        // 116,120 vs 117+2
-    [57, upgrade(TERRANINFANTRYWEAPONSLEVEL2)],   // 141
-    [57, upgrade(TERRANINFANTRYARMORSLEVEL2)],    // 141
-    // complete incomplete buildings
-    // liberators staying sieged with no enemy.
+    // [33, build(SUPPLYDEPOT, 2)],                // 48,50 vs 49+-/2
     // scan, when damage an no enemy detected.
     // army stuck when trying to reach cc, following closest backfiring. Should follow closest by path.
+    // worker trying to finish addons.
   ],
-  async onStep({
-    agent,
-    data,
-    resources,
-  }) {
-    const {
-      foodUsed,
-      minerals
-    } = agent;
-    const {
-      actions,
-      map,
-      units,
-    } = resources.get();
+  async buildComplete() {
+    this.setState({ buildComplete: true });
+  },
+  async onStep({ agent, data, resources }, gameLoop) {
+    const { foodUsed, minerals } = agent;
+    const { actions, units } = resources.get();
     const collectedActions = [];
     let placementConfig = {};
-    await baseThreats(resources, this.state);
+    baseThreats(resources, this.state);
     if (this.state.bunker) {
       const bunkerLocations = getBunkerLocation(resources);
       placementConfig = { toBuild: BUNKER, placement: BUNKER, countTypes: [ BUNKER ] };
-      totalFoodUsed >= 24 ? collectedActions.push(...await buildBuilding(agent, data, resources, 0, placementConfig, bunkerLocations)) : false;
+      totalFoodUsed >= 24 ? collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfig, bunkerLocations)) : false;
     }
     const basesPlacementGrid = [];
     getOccupiedExpansions(resources).forEach(expansion => {
       basesPlacementGrid.push(...expansion.areas.placementGrid);
     });
-    placementConfig = { toBuild: COMMANDCENTER, placement: COMMANDCENTER, countTypes: [ COMMANDCENTER, ORBITALCOMMAND, ORBITALCOMMANDFLYING ] };
-    if (totalFoodUsed >= 55) { await tryBuilding(agent, data, resources, 2, placementConfig, map.getMain().areas.placementGrid); }
-    placementConfig = { toBuild: ENGINEERINGBAY, placement: ENGINEERINGBAY, countTypes: [ ENGINEERINGBAY ] };
-    if (totalFoodUsed >= 56) { await tryBuilding(agent, data, resources, 0, placementConfig, basesPlacementGrid); }
-    if (totalFoodUsed >= 56) { await tryBuilding(agent, data, resources, 1, placementConfig, basesPlacementGrid); }
-    placementConfig = { toBuild: BARRACKS, placement: BARRACKSREACTOR, countTypes: [ BARRACKS ] };
-    if (totalFoodUsed >= 74) { await tryBuilding(agent, data, resources, 3, placementConfig, basesPlacementGrid); }
-    if (totalFoodUsed >= 89) { await tryBuilding(agent, data, resources, 4, placementConfig, basesPlacementGrid); }
-    placementConfig = { toBuild: MISSILETURRET, placement: MISSILETURRET, countTypes: [ MISSILETURRET ] };
-    if (totalFoodUsed >= 131) { await tryBuilding(agent, data, resources, 0, placementConfig, basesPlacementGrid); }
-    if (totalFoodUsed >= 131) { await tryBuilding(agent, data, resources, 1, placementConfig, basesPlacementGrid); }
-    if (totalFoodUsed >= 131) { await tryBuilding(agent, data, resources, 2, placementConfig, basesPlacementGrid); }
-    if (totalFoodUsed >= 131) { await tryBuilding(agent, data, resources, 3, placementConfig, basesPlacementGrid); }
+    // if (foodUsed >= 49) { collectedActions.push(...await tryBuilding(agent, data, resources, 1, placementConfigs.SUPPLYDEPOT, basesPlacementGrid)); }
+    if (foodUsed >= 58) { collectedActions.push(...await tryBuilding(agent, data, resources, 1, placementConfigs.BARRACKSREACTOR, basesPlacementGrid)); }
+    if (foodUsed >= 58) { collectedActions.push(...await tryBuilding(agent, data, resources, 2, placementConfigs.BARRACKSREACTOR, basesPlacementGrid)); }
+    if (foodUsed >= 62) { collectedActions.push(...await abilityOrder(data, resources, BUILD_REACTOR_STARPORT, 0, [STARPORTREACTOR])); }
+    if (foodUsed >= 62) { collectedActions.push(...await tryBuilding(agent, data, resources, 2, placementConfigs.COMMANDCENTER, basesPlacementGrid)); }
+    if (foodUsed >= 62) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.ENGINEERINGBAY, basesPlacementGrid)); }
+    if (foodUsed >= 62) { collectedActions.push(...await tryBuilding(agent, data, resources, 1, placementConfigs.ENGINEERINGBAY, basesPlacementGrid)); }
+    if (foodUsed >= 69) { await actions.sendAction(await abilityOrder(data, resources, BUILD_TECHLAB_BARRACKS, 0, [BARRACKSTECHLAB])); }
+    if (foodUsed >= 69) { await swapBuilding(resources); }
+    if (foodUsed >= 71) { collectedActions.push(...await abilityOrder(data, resources, BUILD_REACTOR_STARPORT, 0, [STARPORTREACTOR])); }
+    if (foodUsed >= 75) { collectedActions.push(...await abilityOrder(data, resources, RESEARCH_STIMPACK)); }
+    if (foodUsed >= 77) { collectedActions.push(...await tryBuilding(agent, data, resources, 3, placementConfigs.BARRACKSREACTOR, basesPlacementGrid)); }
+    if (foodUsed >= 86) { collectedActions.push(...await upgradeOrder(data, resources, TERRANINFANTRYWEAPONSLEVEL1, true)); }
+    if (foodUsed >= 86) { collectedActions.push(...await upgradeOrder(data, resources, TERRANINFANTRYARMORSLEVEL1)); }
+    if (foodUsed >= 87) { collectedActions.push(...await abilityOrder(data, resources, MORPH_ORBITALCOMMAND, 2, [ORBITALCOMMAND, ORBITALCOMMANDFLYING])); }
+    if (foodUsed >= 91) { collectedActions.push(...await tryBuilding(agent, data, resources, 4, placementConfigs.BARRACKSREACTOR, basesPlacementGrid)); }
+    if (foodUsed >= 105) { collectedActions.push(...await abilityOrder(data, resources, BUILD_REACTOR_BARRACKS, 2, [BARRACKSREACTOR])); }
+    if (foodUsed >= 105) { collectedActions.push(...await abilityOrder(data, resources, BUILD_REACTOR_BARRACKS, 3, [BARRACKSREACTOR])); }
+    if (foodUsed >= 113) { await liftToThird(resources); }
+    if (foodUsed >= 117) { collectedActions.push(...await abilityOrder(data, resources, RESEARCH_COMBATSHIELD)); }
+    if (foodUsed >= 117) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.ARMORY, basesPlacementGrid)); }
+    if (foodUsed >= 131) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.MISSILETURRET, basesPlacementGrid)); }
+    if (foodUsed >= 131) { collectedActions.push(...await tryBuilding(agent, data, resources, 1, placementConfigs.MISSILETURRET, basesPlacementGrid)); }
+    if (foodUsed >= 131) { collectedActions.push(...await tryBuilding(agent, data, resources, 2, placementConfigs.MISSILETURRET, basesPlacementGrid)); }
+    if (foodUsed >= 131) { collectedActions.push(...await tryBuilding(agent, data, resources, 3, placementConfigs.MISSILETURRET, basesPlacementGrid)); }
+    if (foodUsed >= 141) { collectedActions.push(...await upgradeOrder(data, resources, TERRANINFANTRYWEAPONSLEVEL2, true)); }
+    if (foodUsed >= 141) { collectedActions.push(...await upgradeOrder(data, resources, TERRANINFANTRYARMORSLEVEL2)); }
     await findAddonPlacement(data, resources, BARRACKS, 1, BARRACKSREACTOR, 0);
     await findAddonPlacement(data, resources, BARRACKS, 2, BARRACKSREACTOR, 0);
     await findAddonPlacement(data, resources, BARRACKS, 3, BARRACKSTECHLAB, 0);
@@ -139,24 +122,28 @@ const terran = createSystem({
     await findAddonPlacement(data, resources, BARRACKS, 3, BARRACKSTECHLAB, 1);
     await findAddonPlacement(data, resources, BARRACKS, 4, BARRACKSREACTOR, 2);
     await findAddonPlacement(data, resources, BARRACKS, 5, BARRACKSREACTOR, 2);
+    await findAddonPlacement(data, resources, BARRACKS, 5, BARRACKSREACTOR, 3);
+    await findAddonPlacement(data, resources, FACTORY, 1, FACTORYTECHLAB, 0);
     await findAddonPlacement(data, resources, FACTORY, 1, FACTORYTECHLAB, 0);
     if (totalFoodUsed >= 61 && units.getById(VIKINGFIGHTER).length === 1) {
       await findAddonPlacement(data, resources, STARPORT, 1, STARPORTREACTOR, 0);
     }
-    if (units.getById(BARRACKS, { buildProgress: 1 }).length > 0 && !pauseBuilding) {
-      await continuouslyBuild(agent, data, resources, [ MARINE ], true);
-      await continuouslyBuild(agent, data, resources, [ MARAUDER, MARINE ], true,);
-    }
-    if (totalFoodUsed >= 46 && !pauseBuilding) {
-      const unitTypes = [ SIEGETANK ];
-      await continuouslyBuild(agent, data, resources, unitTypes);
-    }
-    if (totalFoodUsed >= 105 && !pauseBuilding) {
-      let unitTypes = [ LIBERATOR ];
-      if (units.getById(MEDIVAC).length < 6) {
-        unitTypes = [ MEDIVAC ];
+    if (minerals > 512 || (this.state.defenseMode && foodUsed < ATTACKFOOD)) {
+      if (units.getById(BARRACKS, { buildProgress: 1 }).length > 0) {
+        await continuouslyBuild(agent, data, resources, [ MARINE ], true);
+        await continuouslyBuild(agent, data, resources, [ MARAUDER, MARINE ], true,);
       }
-      await continuouslyBuild(agent, data, resources, unitTypes, true);
+      if (totalFoodUsed >= 46) {
+        const unitTypes = [ SIEGETANK ];
+        await continuouslyBuild(agent, data, resources, unitTypes);
+      }
+      if (totalFoodUsed >= 105) {
+        let unitTypes = [ LIBERATOR ];
+        if (units.getById(MEDIVAC).length < 6) {
+          unitTypes = [ MEDIVAC ];
+        }
+        await continuouslyBuild(agent, data, resources, unitTypes, true);
+      }
     }
     if (this.state.defenseMode && foodUsed < ATTACKFOOD) {
       collectedActions.push(...defend(resources, mainCombatTypes, supportUnitTypes));
@@ -165,69 +152,42 @@ const terran = createSystem({
       collectedActions.push(...tankBehavior(resources));
     }
     if (!this.state.defenseMode) {
-      completeBuilding(resources)
-    }
-    await increaseSupply(agent, data, resources);
-    if (totalFoodUsed >= 113) {
-      await liftToThird(resources);
+      collectedActions.push(...completeBuilding(resources));
     }
     if (foodUsed >= 118) {
       this.state.bunker = false;
       collectedActions.push(...salvageBunker(resources));
-      try { await balanceResources(agent, data, resources, 2.4); } catch(error) { }
       if (!shortOnWorkers(resources)) {
         try { await expand(agent, data, resources); } catch(error) { }
-      } else {
-        if (minerals <= 512) {
-          try { await buildWorkers(agent, data, resources); } catch (error) { }
-        }
       }
     }
     if (minerals <= 512) {
       collectedActions.push(...orbitalCommandCenterBehavior(resources, EFFECT_CALLDOWNMULE));
+      if (this.state.buildComplete) {
+        await increaseSupply(agent, data, resources);
+        if (shortOnWorkers(resources)) { try { await buildWorkers(agent, data, resources); } catch (error) { } }
+      }
     } else {
+      try { await balanceResources(agent, data, resources, 2.4); } catch(error) { }
       pauseBuilding = false;
     }
     if (foodUsed >= ATTACKFOOD) {
-      collectedActions.push(...attack(resources, mainCombatTypes, supportUnitTypes));
+      if (gameLoop % 8 === 0) { collectedActions.push(...attack(resources, mainCombatTypes, supportUnitTypes)); }
       collectedActions.push(...liberatorBehavior(resources));
       collectedActions.push(...marineBehavior(resources));
       collectedActions.push(...tankBehavior(resources));
     }
     if (!this.state.defenseMode && foodUsed < ATTACKFOOD && foodUsed >= RALLYFOOD) {
       collectedActions.push(...rallyUnits(resources, []));
+      collectedActions.push(...liberatorBehavior(resources));
+      collectedActions.push(...marineBehavior(resources));
     }
     collectedActions.push(...repairBurningStructures(resources));
     collectedActions.push(...repairDamagedMechUnits(resources));
-    if (units.getById(BARRACKS).filter(barracks => barracks.buildProgress >= 1).length === 3) {
-      if (totalFoodUsed >= 71 && units.getById(STARPORTREACTOR).filter(reactor => reactor.buildProgress >= 1).length === 1) {
-        const [ starport ] = units.getById(STARPORT).filter(starport => starport.hasReactor() && starport.abilityAvailable(LIFT_STARPORT));
-        const [ barracks ] = units.getClosest(starport.pos, units.getById(BARRACKS).filter(barracks => barracks.buildProgress >= 1 && !barracks.hasReactor() && !barracks.hasTechLab()));
-        if (starport && barracks) {
-          if (barracks.abilityAvailable(CANCEL_QUEUE5)) {
-            const unitCommand = {
-              abilityId: CANCEL_QUEUE5,
-              unitTags: [ barracks.tag ],
-            }
-            await actions.sendAction(unitCommand);
-          }
-          try { await actions.swapBuildings(starport, barracks); } 
-          catch (error) {
-            if (barracks.abilityAvailable(LAND_BARRACKS)) {
-              const unitCommand = {
-                abilityId: LAND_BARRACKS,
-                unitTags: [ barracks.tag ],
-              }
-              await actions.sendAction(unitCommand);
-            }
-          }
-        }
-      }
-    }
     if (this.state.earlyScout) {
       collectedActions.push(...scoutMain(this.state, resources));
     }
-    collectedActions.push(...supplyBehavior(resources));
+    collectedActions.push(...supplyDepotBehavior(resources));
     await actions.sendAction(collectedActions);
   },
   async onGameStart({ agent }) {
@@ -303,32 +263,6 @@ const terran = createSystem({
   }
 });
 
-// async function buildBuilding(agent, data, resources, food, targetCount, placementConfig, candidatePositions) {
-//   const {
-//     actions,
-//     units,
-//   } = resources.get();
-//   if (totalFoodUsed >= food) {
-//     const buildAbilityId = data.getUnitTypeData(placementConfig.toBuild).abilityId;
-//     let count = 0;
-//     placementConfig.countTypes.forEach(type => {
-//       count += units.getById(type).filter(type => type.buildProgress >= 1).length + units.withCurrentOrders(buildAbilityId).length;
-//     });
-//     if (count === targetCount) {
-//       // find placement on main
-//       if (agent.canAfford(placementConfig.toBuild)) {
-//         const foundPosition = await findPosition(actions, placementConfig.placement, candidatePositions);
-//         if (foundPosition) {
-//           await actions.build(placementConfig.toBuild, foundPosition);
-//           pauseBuilding = false;
-//         }
-//       } else {
-//         pauseBuilding = true;
-//       }
-//     }
-//   }
-// }
-
 async function checkPlacement(data, resources, building, unitTypeAddOn) {
   const {
     actions,
@@ -377,21 +311,8 @@ function completeBuilding(resources) {
         collectedActions.push(unitCommand);
       }
     })
-    // find lonely structure
-    // let difference = mappedStructureTags.filter(tag => !targetConstructingTargetTags.includes(tag));
-
   };
-  
-  // [...new Set(units.getStructures(structure => structure.buildProgress < 1).map(incomplete => incomplete.unitType))]
-}
-
-async function findPosition(actions, unitType, candidatePositions) {
-  const randomPositions = candidatePositions
-    .map(pos => ({ pos, rand: Math.random() }))
-    .sort((a, b) => a.rand - b.rand)
-    .map(a => a.pos)
-    .slice(0, 20);
-  return await actions.canPlace(unitType, randomPositions);
+  return collectedActions;
 }
 
 async function findAddonPlacement(data, resources, buildingType, buildingCount, addonType, addonCount) {
@@ -400,10 +321,12 @@ async function findAddonPlacement(data, resources, buildingType, buildingCount, 
     units
   } = resources.get();
   if (units.getById(buildingType).length === buildingCount && units.getById(addonType).length === addonCount) {
-    const [ building ] = units.getById(buildingType);
-    const foundPosition = await checkPlacement(data, resources, building, addonType);
-    if (foundPosition) {
-      liftMoveLand(actions, building, foundPosition);
+    const [ building ] = units.getById(buildingType).filter(unit => unit.addOnTag === '0');
+    if (building) {
+      const foundPosition = await checkPlacement(data, resources, building, addonType);
+      if (foundPosition) {
+        liftMoveLand(actions, building, foundPosition);
+      }
     }
   }
 }
@@ -461,51 +384,23 @@ async function increaseSupply(agent, data, resources) {
     actions,
     units,
   } = resources.get();
-  if (foodUsed >= 65) {
-    if (isSupplyNeeded(agent, data, resources)) {
-      const placementGrids = [];
-      getOccupiedExpansions(resources).forEach(expansion => {
-        placementGrids.push(...expansion.areas.placementGrid);
-      });
-      const randomPositions = placementGrids
-        .map(pos => ({ pos, rand: Math.random() }))
-        .sort((a, b) => a.rand - b.rand)
-        .map(a => a.pos)
-        .slice(0, 20); 
-      const foundPosition = await actions.canPlace(SUPPLYDEPOT, randomPositions);
-      if (foundPosition) {
-        if (agent.canAfford(SUPPLYDEPOT) && units.getById(SCV).length > 0) {
-          await actions.build(SUPPLYDEPOT, foundPosition);
-        }
+  if (isSupplyNeeded(agent, data, resources)) {
+    const placementGrids = [];
+    getOccupiedExpansions(resources).forEach(expansion => {
+      placementGrids.push(...expansion.areas.placementGrid);
+    });
+    const randomPositions = placementGrids
+      .map(pos => ({ pos, rand: Math.random() }))
+      .sort((a, b) => a.rand - b.rand)
+      .map(a => a.pos)
+      .slice(0, 20); 
+    const foundPosition = await actions.canPlace(SUPPLYDEPOT, randomPositions);
+    if (foundPosition) {
+      if (agent.canAfford(SUPPLYDEPOT) && units.getById(SCV).length > 0) {
+        await actions.build(SUPPLYDEPOT, foundPosition);
       }
     }
   }
-}
-
-function mule(resources) {
-  const {
-    units,
-  } = resources.get();
-  const collectedActions = [];
-  const orbitalCommand = units.getById(ORBITALCOMMAND).find(n => n.energy > 50);
-  if (orbitalCommand) {
-    const expansions = getOccupiedExpansions(resources).filter(expansion => getBase(resources, expansion).buildProgress >= 1);
-    if (expansions.length >= 0) {
-      const randomExpansion = getRandom(expansions);
-      if (randomExpansion) {
-        const [ closestMineralField ] = units.getClosest(randomExpansion.townhallPosition, units.getMineralFields());
-        if (closestMineralField) {
-          const unitCommand = {
-            abilityId: EFFECT_CALLDOWNMULE,
-            targetUnitTag: closestMineralField.tag,
-            unitTags: [ orbitalCommand.tag ],
-          }
-          collectedActions.push(unitCommand)
-        }
-      }
-    }
-  }
-  return collectedActions;
 }
 
 function repairBurningStructures(resources) {
@@ -541,7 +436,7 @@ function repairDamagedMechUnits(resources) {
   } = resources.get();
   const collectedActions = [];
   // get burning structure.
-  const [ damagedMechUnit ] = units.getById([ CYCLONE, LIBERATOR, MEDIVAC, SIEGETANK, VIKINGFIGHTER]).filter(unit => unit.health / unit.healthMax < 1 / 3);
+  const [ damagedMechUnit ] = units.getById([ CYCLONE, LIBERATOR, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER]).filter(unit => unit.health / unit.healthMax < 1 / 3);
   if (damagedMechUnit) {
     // select worker and repair stucture
     const [ closestWorker ] = units.getClosest(damagedMechUnit.pos, units.getWorkers());
@@ -642,10 +537,45 @@ function scoutMain(state, resources) {
   return collectedActions;
 }
 
+async function swapBuilding(resources) {
+  const { actions, units } = resources.get();
+  if (units.getById(BARRACKS).filter(barracks => barracks.buildProgress >= 1).length === 3) {
+    if (units.getById(STARPORTREACTOR).filter(reactor => reactor.buildProgress >= 1).length === 1) {
+      const [ starport ] = units.getById(STARPORT).filter(starport => starport.hasReactor() && starport.abilityAvailable(LIFT_STARPORT));
+      let barracks;
+      if (starport) {
+        [ barracks ] = units.getClosest(starport.pos, units.getById(BARRACKS).filter(barracks => barracks.buildProgress >= 1 && !barracks.hasReactor() && !barracks.hasTechLab()));
+      }
+      if (starport && barracks) {
+        if (barracks.abilityAvailable(CANCEL_QUEUE5)) {
+          const unitCommand = {
+            abilityId: CANCEL_QUEUE5,
+            unitTags: [ barracks.tag ],
+          }
+          await actions.sendAction(unitCommand);
+        }
+        try { await actions.swapBuildings(starport, barracks); } 
+        catch (error) {
+          if (barracks.abilityAvailable(LAND_BARRACKS)) {
+            const unitCommand = {
+              abilityId: LAND_BARRACKS,
+              unitTags: [ barracks.tag ],
+            }
+            await actions.sendAction(unitCommand);
+          }
+        }
+      }
+    }
+  }
+}
+
 async function tryBuilding(agent, data, resources, targetCount, placementConfig, candidatePositions) {
   const collectedActions = [];
-  collectedActions.push(...await buildBuilding(agent, data, resources, targetCount, placementConfig, candidatePositions));
-  pauseBuilding = collectedActions.length > 0 ? true : false;
+  if (checkBuildingCount(agent, data, resources, targetCount, placementConfig)) {
+    if (!candidatePositions) { candidatePositions = findPlacements(agent, resources)}
+    collectedActions.push(...await buildBuilding(agent, data, resources, placementConfig, candidatePositions));
+    pauseBuilding = collectedActions.length === 0;
+  }
   return collectedActions;
 }
 

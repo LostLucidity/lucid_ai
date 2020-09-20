@@ -10,7 +10,7 @@ const {
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const {
   LAIR,
-  OVERLORD, HATCHERY, EXTRACTOR, SPAWNINGPOOL, QUEEN, ZERGLING, ROACHWARREN, EVOLUTIONCHAMBER, SPORECRAWLER, ROACH, HYDRALISKDEN, HYDRALISK, OVERSEER, INFESTATIONPIT, HIVE, CREEPTUMOR, CREEPTUMORBURROWED, LARVA, SPINECRAWLER, OVERLORDCOCOON,
+  OVERLORD, HATCHERY, EXTRACTOR, SPAWNINGPOOL, QUEEN, ZERGLING, ROACHWARREN, EVOLUTIONCHAMBER, SPORECRAWLER, ROACH, HYDRALISK, OVERSEER, HIVE, CREEPTUMOR, CREEPTUMORBURROWED, LARVA, SPINECRAWLER, OVERLORDCOCOON,
 } = require("@node-sc2/core/constants/unit-type");
 const { RESEARCH_ZERGLINGMETABOLICBOOST, MORPH_LAIR, MORPH_OVERSEER, RESEARCH_GROOVEDSPINES, RESEARCH_MUSCULARAUGMENTS, EFFECT_INJECTLARVA, HARVEST_GATHER, MOVE, BUILD_CREEPTUMOR_QUEEN, BUILD_CREEPTUMOR_TUMOR, MORPH_HIVE } = require("@node-sc2/core/constants/ability");
 const {
@@ -46,7 +46,7 @@ const { attack, defend } = require("../helper/army-behavior");
 const balanceResources = require("../helper/balance-resources");
 const { checkEnemyBuild, defenseSetup } = require("../helper/defense-setup");
 const placementConfigs = require("../helper/placement-configs");
-const { abilityOrder, checkBuildingCount, buildBuilding, findPlacements, upgradeOrder } = require("../helper/build-building");
+const { abilityOrder, checkBuildingCount, buildBuilding, findPlacements, upgradeOrder } = require("../helper/build");
 
 const ATTACKFOOD = 194;
 const MINERALTOGASRATIO = 2.4;
@@ -132,16 +132,16 @@ const zerg = createSystem({
     }
     if (foodUsed >= 58) { collectedActions.push(...await tryBuilding(agent, data, resources, 2, placementConfigs.HATCHERY, [ map.getAvailableExpansions()[0].townhallPosition ])); }
     if (foodUsed >= 68) { collectedActions.push(...await tryBuilding(agent, data, resources, 1, placementConfigs.EVOLUTIONCHAMBER)); }
-    if (foodUsed >= 78) { collectedActions.push(...upgradeOrder(data, resources, ZERGMISSILEWEAPONSLEVEL2)); }
-    if (foodUsed >= 78) { collectedActions.push(...upgradeOrder(data, resources, ZERGGROUNDARMORSLEVEL1)); }
+    if (foodUsed >= 78) { collectedActions.push(...await upgradeOrder(data, resources, ZERGMISSILEWEAPONSLEVEL2)); }
+    if (foodUsed >= 78) { collectedActions.push(...await upgradeOrder(data, resources, ZERGGROUNDARMORSLEVEL1)); }
     if (foodUsed >= 78) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.HYDRALISKDEN)); }
-    if (foodUsed >= 101) { collectedActions.push(...abilityOrder(data, resources, MORPH_OVERSEER, 0, [OVERSEER, OVERLORDCOCOON])); }
-    if (foodUsed >= 119) { collectedActions.push(...abilityOrder(data, resources, RESEARCH_GROOVEDSPINES)); }
+    if (foodUsed >= 101) { collectedActions.push(...await abilityOrder(data, resources, MORPH_OVERSEER, 0, [OVERSEER, OVERLORDCOCOON])); }
+    if (foodUsed >= 119) { collectedActions.push(...await abilityOrder(data, resources, RESEARCH_GROOVEDSPINES)); }
     if (foodUsed >= 138) { collectedActions.push(...await tryBuilding(agent, data, resources, 1, placementConfigs.HYDRALISKDEN)); }
-    if (foodUsed >= 149) { collectedActions.push(...upgradeOrder(data, resources, ZERGGROUNDARMORSLEVEL2)); }
-    if (foodUsed >= 149) { collectedActions.push(...abilityOrder(data, resources, RESEARCH_MUSCULARAUGMENTS)); }
+    if (foodUsed >= 149) { collectedActions.push(...await upgradeOrder(data, resources, ZERGGROUNDARMORSLEVEL2)); }
+    if (foodUsed >= 149) { collectedActions.push(...await abilityOrder(data, resources, RESEARCH_MUSCULARAUGMENTS)); }
     if (foodUsed >= 165) { collectedActions.push(...await tryBuilding(agent, data, resources, 0, placementConfigs.INFESTATIONPIT)); }
-    if (foodUsed >= 198) { collectedActions.push(...abilityOrder(data, resources, MORPH_HIVE, 0, [HIVE])); }
+    if (foodUsed >= 198) { collectedActions.push(...await abilityOrder(data, resources, MORPH_HIVE, 0, [HIVE])); }
     
     baseThreats(resources, this.state);
     checkEnemyBuild(resources, this.state);
