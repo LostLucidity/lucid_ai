@@ -5,7 +5,7 @@ const { Alliance } = require('@node-sc2/core/constants/enums');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
-module.exports = {
+modules.export = {
   findSupplyPositions: (resources) => {
     const { map } = resources.get();
     const myExpansions = map.getOccupiedExpansions(Alliance.SELF);

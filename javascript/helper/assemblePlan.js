@@ -1,26 +1,60 @@
 //@ts-check
 "use strict"
 
-import { ASSIMILATOR, PYLON } from "@node-sc2/core/constants/unit-type";
-import { gridsInCircle } from "@node-sc2/core/utils/geometry/angle";
-import { distance } from "@node-sc2/core/utils/geometry/point";
-import { getOccupiedExpansions } from "./expansions";
-import placementConfigs from "./placement-configs";
+const { ASSIMILATOR, PYLON } = require("@node-sc2/core/constants/unit-type");
+const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { getOccupiedExpansions } = require("./expansions");
+const placementConfigs = require("./placement-configs");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
+const { frontOfGrid } = require("@node-sc2/core/utils/map/region");
+const buildWorkers = require("./build-workers");
 
-export class AssemblePlan {
-  constructor(plan) {}
+let actions;
+let race;
+
+class AssemblePlan {
+  constructor(plan) {
+    this.plan = plan;
+  }
   onGameStart(world) {
-    this.actions = world.resources.get().actions;
-    this.race = world.agent.race;
+    actions = world.resources.get().actions;
+    race = world.agent.race;
   }
   onStep(world, state) {
     this.collectedActions = [];
     this.state = state;
     this.units = world.resources.get().units;
+    this.resources = world.resources;
     this.world = world;
+    this.runPlan();
   }
-  async build(food, targetCount, unitType, candidatePositions) {
+  async ability(food, abilityId, targetCount, unitTypes, unitTypeTarget) {
+    if (foodUsed == food)
+    const collectedActions = [];
+    const { units } = this.resources.get();
+    if (typeof targetCount !== 'undefined') {
+      if (units.getById(unitTypes).length !== targetCount) {
+        return collectedActions;
+      } 
+    }
+    let canDoTypes = this.world.data.findUnitTypesWithAbility(abilityId);
+    if (canDoTypes.length === 0) {
+      canDoTypes = units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
+    }
+    const unitsCanDo = units.getByType(canDoTypes).filter(u => u.abilityAvailable(abilityId));
+    let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+    if (unitCanDo) {
+      const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
+      if (unitTypeTarget) {
+        const [ target ] = units.getById(unitTypeTarget);
+        unitCommand.targetUnitTag = target.tag;
+      }
+      collectedActions.push(unitCommand);
+    }
+    return collectedActions;
+  }
+  async build(food, unitType, targetCount, candidatePositions) {
     const { actions } = this.world.resources.get();
     const { foodUsed } = this.world.agent;
     const placementConfig = placementConfigs[unitType];
@@ -35,11 +69,14 @@ export class AssemblePlan {
       }
     }
   }
+  async buildWorkers() {
+    try { await buildWorkers(this.world.agent, this.world.data, this.world.resources); } catch(error) { console.log(error); }
+  }
   async buildBuilding(placementConfig, candidatePositions) {
     const collectedActions = [];
     // find placement on main
     if (this.world.agent.canAfford(placementConfig.toBuild)) {
-      const foundPosition = await this.findPosition(this.actions, placementConfig.placement, candidatePositions);
+      const foundPosition = await this.findPosition(actions, placementConfig.placement, candidatePositions);
       if (foundPosition) {
         const builders = [
           ...this.units.getMineralWorkers(),
@@ -65,7 +102,7 @@ export class AssemblePlan {
     let count = this.units.withCurrentOrders(buildAbilityId).length;
     placementConfig.countTypes.forEach(type => {
       let unitsToCount = this.units.getById(type);
-      if (this.race === Race.TERRAN) {
+      if (race === Race.TERRAN) {
         unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= 1);
       }
       count += unitsToCount.length;
@@ -77,7 +114,7 @@ export class AssemblePlan {
     const [main, natural] = map.getExpansions();
     const mainMineralLine = main.areas.mineralLine;
     let placements = [];
-    if (this.race === Race.PROTOSS) {
+    if (race === Race.PROTOSS) {
       if (placementConfig.toBuild === PYLON) {
         placements = [...main.areas.placementGrid, ...natural.areas.placementGrid]
           .filter((point) => {
@@ -112,7 +149,7 @@ export class AssemblePlan {
           );
         });
       }
-    } else if (this.race === Race.TERRAN) {
+    } else if (race === Race.TERRAN) {
       // placements = main.areas.placementGrid
       //   .filter((point) => {
       //     return (
@@ -141,7 +178,7 @@ export class AssemblePlan {
         .sort((a, b) => a.rand - b.rand)
         .map(a => a.pos)
         .slice(0, 20); 
-    } else if (this.race === Race.ZERG) {
+    } else if (race === Race.ZERG) {
       placements = map.getCreep()
         .filter((point) => {
           return (
@@ -154,6 +191,32 @@ export class AssemblePlan {
     }
     return placements;
   }
+  findSupplyPositions() {
+    const { map } = this.resources.get();
+    const myExpansions = map.getOccupiedExpansions(Alliance.SELF);
+    // front of natural pylon for great justice
+    const naturalWall = map.getNatural().getWall();
+    let possiblePlacements = frontOfGrid(this.world, map.getNatural().areas.areaFill)
+        .filter(point => naturalWall.every(wallCell => (
+            (distance(wallCell, point) <= 6.5) &&
+            (distance(wallCell, point) >= 3)
+        )));
+  
+    if (possiblePlacements.length <= 0) {
+        possiblePlacements = frontOfGrid(this.resources, map.getNatural().areas.areaFill)
+            .map(point => {
+                point.coverage = naturalWall.filter(wallCell => (
+                    (distance(wallCell, point) <= 6.5) &&
+                    (distance(wallCell, point) >= 1)
+                )).length;
+                return point;
+            })
+            .sort((a, b) => b.coverage - a.coverage)
+            .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
+    }
+  
+    return possiblePlacements;
+  }
   async findPosition(actions, unitType, candidatePositions) {
     const randomPositions = candidatePositions
       .map(pos => ({ pos, rand: Math.random() }))
@@ -162,4 +225,16 @@ export class AssemblePlan {
       .slice(0, 20);
     return await actions.canPlace(unitType, randomPositions);
   }
+  async runPlan() {
+    for (let step = 0; step < this.plan.length; step++) {
+      const planStep = this.plan[step];
+      const targetCount = planStep[3];
+      const foodTarget = planStep[0];
+      const unitType = planStep[2];
+      await this[planStep[1]](foodTarget, unitType, targetCount, planStep[4] ? this[planStep[4]]() : null);
+    }
+    await actions.sendAction(this.collectedActions);
+  }
 }
+
+module.exports = AssemblePlan;

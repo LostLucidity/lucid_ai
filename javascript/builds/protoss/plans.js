@@ -1,10 +1,18 @@
 //@ts-check
 "use strict"
 
-const { findSupplyPositions } = require('./helper')
+const { PYLON } = require('@node-sc2/core/constants/unit-type');
 
 const plans = {
-  economicStalkerColossi: [
-    ['build', 'PYLON', 0, 14, [...findSupplyPositions()]]
-  ],
+  1: {},
+  2: {},
+  3: {
+    economicStalkerColossi: [
+      [0, 'buildWorkers'],
+      [14, 'build', 'PYLON', 0, 'findSupplyPositions'],
+      [15, 'build', 'GATEWAY', 0]
+    ],
+  } 
 }
+
+module.exports = plans;

@@ -25,6 +25,7 @@ const protossSupplySystem = require('@node-sc2/system-protoss-supply');
 const wallBuilderSystem = require('./systems/wall-builder-system');
 const workerBalanceSystem = require('./systems/worker-balance-system');
 const proxyVoidRay = require('./builds/protoss/proxy-void-ray');
+const entry = require('./builds/entry');
 
 const protossBuilds = {
   protoss: [
@@ -61,15 +62,17 @@ const bot1 = createAgent(settings);
 // protossBuild.forEach(system => {
 //   bot1.use(system);
 // });
-loadBuilds(Race.PROTOSS, protossBuilds.protoss, bot1);
+// loadBuilds(Race.PROTOSS, protossBuilds.protoss, bot1);
 // loadBuilds(Race.TERRAN, terranBuilds, bot1);
 // loadBuilds(Race.ZERG, zergBuilds, bot1);
-function loadBuilds(race, builds, bot) {
-  settings.race = race;
-  builds.forEach(build => {
-    bot.use(build);
-  });
-}
+// function loadBuilds(race, builds, bot) {
+//   settings.race = race;
+//   builds.forEach(build => {
+//     bot.use(build);
+//   });
+// }
+
+bot1.use(entry);
 
 // bot1.use(zerg);
 // bot2.use(protoss);

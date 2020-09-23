@@ -57,7 +57,7 @@ const { defend, attack } = require("../../helper/army-behavior");
 const { tryBuilding, abilityOrder } = require("../../helper/build");
 const buildWorkers = require("../../helper/build-workers");
 const placementConfigs = require("../../helper/placement-configs");
-const { AssemblePlan } = require("../../helper/assemblePlan");
+// const { AssemblePlan } = require("../../helper/assemblePlan");
 
 let supplyLost = 0;
 let totalFoodUsed = 0;
@@ -81,7 +81,7 @@ const protoss = createSystem({
       this.setState({ buildComplete: true });
   },
   async onGameStart(world) {
-    const assemblePlan = new AssemblePlan(economicStalkerColossi);
+    // const assemblePlan = new AssemblePlan(economicStalkerColossi);
     const { foodUsed } = agent;
     totalFoodUsed = foodUsed;
   },
@@ -93,7 +93,7 @@ const protoss = createSystem({
       map,
       units,
     } = world.resources.get();
-    assemblePlan.onStep(world, this.state)
+    // assemblePlan.onStep(world, this.state)
     const collectedActions = [];
     const protossSystem = world.agent.systems.find(system => system._system.name === "Protoss")._system;
     const supplySystem = world.agent.systems.find(system => system._system.name === "SupplySystem")._system;
