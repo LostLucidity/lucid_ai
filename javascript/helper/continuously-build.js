@@ -1,9 +1,10 @@
 //@ts-check
 "use strict"
 
-const { LARVA, ZERGLING } = require("@node-sc2/core/constants/unit-type");
+const { LARVA, ZERGLING, WARPGATE } = require("@node-sc2/core/constants/unit-type");
 const canAfford = require("./can-afford");
 const { Race } = require("@node-sc2/core/constants/enums");
+const { WarpUnitAbility } = require("@node-sc2/core/constants");
 
 async function continuouslyBuild(agent, data, resources, unitTypes, addOn=false) {
   const {
@@ -23,12 +24,12 @@ async function continuouslyBuild(agent, data, resources, unitTypes, addOn=false)
     const affordableTypes = unitTypes.filter(type => !(type == ZERGLING && minerals < 50) && canAfford(agent, data, type));
     if (affordableTypes.length > 0) {
       const unitType = affordableTypes[Math.floor(Math.random() * affordableTypes.length)];
-      const abilityId = data.getUnitTypeData(unitType).abilityId;
+      let abilityId = data.getUnitTypeData(unitType).abilityId;
       let trainer = null;
       if (addOn) {
-        trainer = units.getProductionUnits(unitType).find(unit => (unit.noQueue && unit.hasTechLab()) || (unit.hasReactor() && unit.orders.length < 2));
+        trainer = units.getProductionUnits(unitType).find(unit => (!unit.isEnemy() && (unit.noQueue && unit.hasTechLab()) || (unit.hasReactor() && unit.orders.length < 2)));
       } else {
-        trainer = units.getProductionUnits(unitType).find(unit => unit.noQueue || (unit.hasReactor() && unit.orders.length < 2));
+        trainer = units.getProductionUnits(unitType).find(unit => (!unit.isEnemy() && (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2))));
       }
       if (trainer) {
         const unitCommand = {
@@ -37,8 +38,13 @@ async function continuouslyBuild(agent, data, resources, unitTypes, addOn=false)
         }
         collectedActions.push(unitCommand);
         try { await actions.sendAction(collectedActions); } 
-        // try { await actions.train(unitType); } 
         catch (error) { console.log(error)}
+      } else {
+        abilityId = WarpUnitAbility[unitType];
+        const warpGates = units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
+        if (warpGates.length > 0) {
+          try { await actions.warpIn(unitType) } catch (error) { console.log(error); }
+        }
       }
     }
   }

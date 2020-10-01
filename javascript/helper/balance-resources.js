@@ -3,7 +3,7 @@
 
 const { GasMineRace } = require("@node-sc2/core/constants/race-map");
 
-async function balanceResources(agent, data, resources, ratio) {
+async function balanceResources(agent, data, resources, ratio=2.4) {
   const {
     actions,
     map,

@@ -54,7 +54,7 @@ const shadowUnit = require("../../helper/shadow-unit");
 const balanceResources = require("../../helper/balance-resources");
 const canAfford = require("../../helper/can-afford");
 const { defend, attack } = require("../../helper/army-behavior");
-const { tryBuilding, abilityOrder } = require("../../helper/build");
+const { tryBuilding } = require("../../helper/build");
 const buildWorkers = require("../../helper/build-workers");
 const placementConfigs = require("../../helper/placement-configs");
 // const { AssemblePlan } = require("../../helper/assemblePlan");
@@ -82,7 +82,7 @@ const protoss = createSystem({
   },
   async onGameStart(world) {
     // const assemblePlan = new AssemblePlan(economicStalkerColossi);
-    const { foodUsed } = agent;
+    const { foodUsed } = world.agent;
     totalFoodUsed = foodUsed;
   },
   async onStep(world) {
@@ -100,54 +100,54 @@ const protoss = createSystem({
     pauseBuilding ? protossSystem.pauseBuild() : protossSystem.resumeBuild();
     pauseBuilding ? supplySystem.pause() : supplySystem.unpause();
     // if (foodUsed >= 14) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.PYLON, [...findSupplyPositions(resources)])); }
-    if (foodUsed >= 15) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.GATEWAY)); }
-    if (foodUsed == 16) { collectedActions.push(...await abilityOrder(data, resources, EFFECT_CHRONOBOOSTENERGYCOST, 1, NEXUS, NEXUS)); }
-    if (foodUsed >= 19) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.ASSIMILATOR)); }
-    if (foodUsed >= 19) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 20) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.CYBERNETICSCORE)); }
-    if (foodUsed >= 20) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.ASSIMILATOR)); }
-    if (foodUsed < 20) { try { await buildWorkers(agent, data, resources); } catch(error) { console.log(error); } }
-    if (foodUsed >= 23) { collectedActions.push(...tryTraining(agent, data, resources, 0, STALKER)); }
-    if (foodUsed >= 23) { collectedActions.push(...tryTraining(agent, data, resources, 1, STALKER)); }
-    if (foodUsed >= 27) { collectedActions.push(...tryUpgrade(data, resources, WARPGATERESEARCH)); }
-    if (foodUsed >= 27) { collectedActions.push(...tryTraining(agent, data, resources, 2, STALKER)); }
-    if (foodUsed >= 27) { collectedActions.push(...tryTraining(agent, data, resources, 3, STALKER)); }
-    if (foodUsed >= 31) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
-    if (foodUsed >= 32) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.ROBOTICSFACILITY)); }
-    if (foodUsed >= 35) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 36) { collectedActions.push(...tryTraining(agent, data, resources, 0, OBSERVER)); }
-    if (foodUsed >= 37) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.ROBOTICSBAY)); }
-    if (foodUsed >= 37) { collectedActions.push(...tryTraining(agent, data, resources, 4, STALKER)); }
-    if (foodUsed >= 37) { collectedActions.push(...tryTraining(agent, data, resources, 5, STALKER)); }
-    if (foodUsed >= 45) { collectedActions.push(...tryTraining(agent, data, resources, 0, IMMORTAL)); }
-    if (foodUsed >= 53) { collectedActions.push(...tryTraining(agent, data, resources, 0, COLOSSUS)); }
-    if (foodUsed >= 61) { collectedActions.push(...tryUpgrade(data, resources, EXTENDEDTHERMALLANCE)); }
-    if (foodUsed >= 64) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
-    if (foodUsed >= 74) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.FORGE)); }
-    if (foodUsed >= 80) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 3, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 80) { collectedActions.push(...tryUpgrade(data, resources, PROTOSSGROUNDWEAPONSLEVEL1)); }
-    if (foodUsed >= 91) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.TWILIGHTCOUNCIL)); }
-    if (foodUsed >= 101) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.PHOTONCANNON)); }
-    if (foodUsed >= 101) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.PHOTONCANNON)); }
-    if (foodUsed >= 110) { collectedActions.push(...tryUpgrade(data, resources, CHARGE)); }
-    if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 4, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 5, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 6, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 120) { collectedActions.push(...tryTraining(agent, data, resources, 1, OBSERVER)); }
-    if (foodUsed >= 126) { collectedActions.push(...tryUpgrade(data, resources, PROTOSSGROUNDWEAPONSLEVEL2)); }
-    if (foodUsed >= 132) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
-    if (foodUsed >= 151) { collectedActions.push(...tryTraining(agent, data, resources, 0, WARPPRISM)); }
-    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 7, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.TEMPLARARCHIVE)); }
-    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 8, placementConfigs.GATEWAY)); }
-    if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 9, placementConfigs.GATEWAY)); }
+    // if (foodUsed >= 15) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.GATEWAY)); }
+    // if (foodUsed == 16) { collectedActions.push(...await abilityOrder(data, resources, EFFECT_CHRONOBOOSTENERGYCOST, 1, NEXUS, NEXUS)); }
+    // if (foodUsed >= 19) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.ASSIMILATOR)); }
+    // if (foodUsed >= 19) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.GATEWAY)); }
+    // if (foodUsed >= 20) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.CYBERNETICSCORE)); }
+    // if (foodUsed >= 20) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.ASSIMILATOR)); }
+    // if (foodUsed < 20) { try { await buildWorkers(agent, data, resources); } catch(error) { console.log(error); } }
+    // if (foodUsed >= 23) { collectedActions.push(...tryTraining(agent, data, resources, 0, STALKER)); }
+    // if (foodUsed >= 23) { collectedActions.push(...tryTraining(agent, data, resources, 1, STALKER)); }
+    // if (foodUsed >= 27) { collectedActions.push(...tryUpgrade(data, resources, WARPGATERESEARCH)); }
+    // if (foodUsed >= 27) { collectedActions.push(...tryTraining(agent, data, resources, 2, STALKER)); }
+    // if (foodUsed >= 27) { collectedActions.push(...tryTraining(agent, data, resources, 3, STALKER)); }
+    // if (foodUsed >= 31) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
+    // if (foodUsed >= 32) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.ROBOTICSFACILITY)); }
+    // if (foodUsed >= 35) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.GATEWAY)); }
+    // if (foodUsed >= 36) { collectedActions.push(...tryTraining(agent, data, resources, 0, OBSERVER)); }
+    // if (foodUsed >= 37) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.ROBOTICSBAY)); }
+    // if (foodUsed >= 37) { collectedActions.push(...tryTraining(agent, data, resources, 4, STALKER)); }
+    // if (foodUsed >= 37) { collectedActions.push(...tryTraining(agent, data, resources, 5, STALKER)); }
+    // if (foodUsed >= 45) { collectedActions.push(...tryTraining(agent, data, resources, 0, IMMORTAL)); }
+    // if (foodUsed >= 53) { collectedActions.push(...tryTraining(agent, data, resources, 0, COLOSSUS)); }
+    // if (foodUsed >= 61) { collectedActions.push(...tryUpgrade(data, resources, EXTENDEDTHERMALLANCE)); }
+    // if (foodUsed >= 64) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
+    // if (foodUsed >= 74) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.FORGE)); }
+    // if (foodUsed >= 80) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 3, placementConfigs.GATEWAY)); }
+    // if (foodUsed >= 80) { collectedActions.push(...tryUpgrade(data, resources, PROTOSSGROUNDWEAPONSLEVEL1)); }
+    // if (foodUsed >= 91) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.TWILIGHTCOUNCIL)); }
+    // if (foodUsed >= 101) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.PHOTONCANNON)); }
+    // if (foodUsed >= 101) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 1, placementConfigs.PHOTONCANNON)); }
+    // if (foodUsed >= 110) { collectedActions.push(...tryUpgrade(data, resources, CHARGE)); }
+    // if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 4, placementConfigs.GATEWAY)); }
+    // if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 5, placementConfigs.GATEWAY)); }
+    // if (foodUsed >= 110) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 6, placementConfigs.GATEWAY)); }
+    // if (foodUsed >= 120) { collectedActions.push(...tryTraining(agent, data, resources, 1, OBSERVER)); }
+    // if (foodUsed >= 126) { collectedActions.push(...tryUpgrade(data, resources, PROTOSSGROUNDWEAPONSLEVEL2)); }
+    // if (foodUsed >= 132) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 2, placementConfigs.NEXUS, [ map.getAvailableExpansions()[0].townhallPosition ])); }
+    // if (foodUsed >= 151) { collectedActions.push(...tryTraining(agent, data, resources, 0, WARPPRISM)); }
+    // if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 7, placementConfigs.GATEWAY)); }
+    // if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 0, placementConfigs.TEMPLARARCHIVE)); }
+    // if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 8, placementConfigs.GATEWAY)); }
+    // if (foodUsed >= 151) { collectedActions.push(...await tryBuilding(agent, data, resources, this.state, 9, placementConfigs.GATEWAY)); }
     if (this.state.defenseMode && foodUsed < ATTACKFOOD) { collectedActions.push(...defend(resources, mainCombatTypes, supportUnitTypes)); }
     if (foodUsed >= ATTACKFOOD) { collectedActions.push(...attack(resources, mainCombatTypes, supportUnitTypes)); }
     checkEnemyBuild(this.state, resources)
     collectedActions.push(...await chronoboost(resources));
     await defenseSetup(this.state, data, resources);
     if (foodUsed >= 132 && !shortOnWorkers(resources)) {
-      await expand(agent, data, resources);
+      await expand(data, resources);
     }
     triggerSupplySystem(agent);
     if (this.state.enemyBuildType === 'standard') {
@@ -336,8 +336,7 @@ async function defenseSetup(state, data, resources) {
   }
 }
 
-async function expand(agent, data, resources) {
-  const { foodUsed } = agent;
+async function expand(data, resources) {
   const {
     actions,
     map,
@@ -353,7 +352,7 @@ async function expand(agent, data, resources) {
 
 function triggerSupplySystem(agent) {
   const { foodUsed } = agent;
-  const supplyPoints = [19, ...range(21, 31), ...range(21, 31), 32, ...range(34, 61)];
+  const supplyPoints = [19, ...range(21, 31), 32, ...range(34, 61)];
   if (supplyPoints.indexOf(foodUsed) > -1) {
     const foundSystem = agent.systems.find(system => system._system.name === "SupplySystem");
     foundSystem._system.pause();

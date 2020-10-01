@@ -19,49 +19,20 @@ function rallyUnits(resources, supportUnitTypes, rallyPoint=null) {
     const supportUnits = [];
     supportUnitTypes.forEach(type => {
       supportUnits.concat(units.getById(type).filter(unit => !unit.labels.get('scout')));
-    });
-    if (units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1).length > 0) {
-      const [ bunker ] = units.getById(BUNKER);
-      rallyPoint = bunker.pos;
-      const closestCombatUnitTags = units.getClosest(bunker.pos, combatUnits, combatUnits.length, bunker.cargoSpaceMax - bunker.cargoSpaceTaken).map(unit => unit.tag);
-      if (bunker.abilityAvailable(LOAD_BUNKER)) {
-        const unitCommand = {
-          abilityId: SMART,
-          targetUnitTag: bunker.tag,
-          unitTags: closestCombatUnitTags,
-        }
-        collectedActions.push(unitCommand);
-      } else {
-        const unitCommand = {
-          abilityId: MOVE,
-          targetWorldSpacePos: rallyPoint,
-          unitTags: combatUnits.map(unit => unit.tag),
-        }
-        collectedActions.push(unitCommand);
-      }
-      if (supportUnits.length > 0) {
-        const unitCommand = {
-          abilityId: MOVE,
-          targetWorldSpacePos: rallyPoint,
-          unitTags: supportUnits.map(unit => unit.tag),
-        }
-        collectedActions.push(unitCommand);
-      }
-    } else {
+    });    
+    const unitCommand = {
+      abilityId: ATTACK_ATTACK,
+      targetWorldSpacePos: rallyPoint,
+      unitTags: combatUnits.map(unit => unit.tag),
+    }
+    collectedActions.push(unitCommand);
+    if (supportUnits.length > 0) {
       const unitCommand = {
-        abilityId: ATTACK_ATTACK,
+        abilityId: MOVE,
         targetWorldSpacePos: rallyPoint,
-        unitTags: combatUnits.map(unit => unit.tag),
+        unitTags: supportUnits.map(unit => unit.tag),
       }
       collectedActions.push(unitCommand);
-      if (supportUnits.length > 0) {
-        const unitCommand = {
-          abilityId: MOVE,
-          targetWorldSpacePos: rallyPoint,
-          unitTags: supportUnits.map(unit => unit.tag),
-        }
-        collectedActions.push(unitCommand);
-      }
     }
   }
   collectedActions.push(...tankBehavior(resources, rallyPoint));

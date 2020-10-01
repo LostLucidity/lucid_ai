@@ -5,7 +5,7 @@ const { Alliance } = require('@node-sc2/core/constants/enums');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
-modules.export = {
+module.exports = {
   findSupplyPositions: (resources) => {
     const { map } = resources.get();
     const myExpansions = map.getOccupiedExpansions(Alliance.SELF);
@@ -31,5 +31,27 @@ modules.export = {
     }
   
     return possiblePlacements;
+  },
+  workerSendOrBuild: (units, ability, position) => {
+    const collectedActions = [];
+    const builders = [
+      ...units.getMineralWorkers(),
+      ...units.getWorkers().filter(w => w.noQueue),
+      ...units.withLabel('builder').filter(w => !w.isConstructing()),
+      ...units.withLabel('proxy').filter(w => !w.isConstructing()),
+    ];
+    const [ builder ] = units.getClosest(position, builders);
+    if (builder) {
+      builder.labels.set('builder', true);
+      if (builder) {
+        const unitCommand = {
+          abilityId: ability,
+          unitTags: [builder.tag],
+          targetWorldSpacePos: position,
+        };
+        collectedActions.push(unitCommand);
+      }
+    }
+    return collectedActions;
   }
 }

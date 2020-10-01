@@ -52,7 +52,7 @@ const zergBuilds = [
 
 const settings = {
   type: PlayerType.PARTICIPANT,
-  race: Race.PROTOSS,
+  race: Race.RANDOM,
 }
 
 console.log('settings', settings);
@@ -73,6 +73,7 @@ const bot1 = createAgent(settings);
 // }
 
 bot1.use(entry);
+bot1.use(workerBalanceSystem);
 
 // bot1.use(zerg);
 // bot2.use(protoss);
