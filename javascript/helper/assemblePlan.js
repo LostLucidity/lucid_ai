@@ -302,11 +302,11 @@ class AssemblePlan {
       }
     }
   }
-  scout(foodRanges, unitType, targetLocation, targetCount, ) {
+  scout(foodRanges, unitType, targetLocation, conditions, ) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const label = 'scout';
       if (this.units.withLabel(label).length === 0) {
-        if (targetCount && this.units.getByType(unitType).length === targetCount) {
+        if (conditions && this.units.getByType(unitType).length === conditions.unitCount) {
           this.setScout(unitType, label, this.map[targetLocation]());
         } else {
           this.setScout(unitType, label, this.map[targetLocation]());
@@ -394,8 +394,8 @@ class AssemblePlan {
         case 'scout':
           unitType = planStep[2];
           const targetLocation = planStep[3];
-          targetCount = planStep[4];
-          this.scout(foodTarget, unitType, targetLocation, targetCount, );
+          const conditions = planStep[4];
+          this.scout(foodTarget, unitType, targetLocation, conditions, );
           break;
         case 'upgrade':
           const upgradeId = planStep[2];

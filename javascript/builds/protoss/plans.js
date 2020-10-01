@@ -2,7 +2,7 @@
 "use strict"
 
 const { EFFECT_CHRONOBOOSTENERGYCOST, MORPH_ORBITALCOMMAND, BUILD_REACTOR_BARRACKS } = require('@node-sc2/core/constants/ability');
-const { NEXUS, PYLON, STALKER, GATEWAY, COLOSSUS, IMMORTAL, OBSERVER, WARPPRISM, ROBOTICSFACILITY, OVERLORD, ZERGLING, ROACH, HYDRALISK, OVERSEER, CYCLONE, MARINE, MARAUDER, SIEGETANK, SIEGETANKSIEGED, LIBERATOR, MEDIVAC, VIKINGFIGHTER, HATCHERY, REFINERY, SCV, EXTRACTOR } = require('@node-sc2/core/constants/unit-type');
+const { NEXUS, PYLON, STALKER, GATEWAY, COLOSSUS, IMMORTAL, OBSERVER, WARPPRISM, ROBOTICSFACILITY, OVERLORD, ZERGLING, ROACH, HYDRALISK, OVERSEER, CYCLONE, MARINE, MARAUDER, SIEGETANK, SIEGETANKSIEGED, LIBERATOR, MEDIVAC, VIKINGFIGHTER, HATCHERY, REFINERY, SCV, EXTRACTOR, PROBE } = require('@node-sc2/core/constants/unit-type');
 const { WARPGATERESEARCH, EXTENDEDTHERMALLANCE, PROTOSSGROUNDWEAPONSLEVEL1, CHARGE, PROTOSSGROUNDWEAPONSLEVEL2 } = require('@node-sc2/core/constants/upgrade');
 const range = require('../../helper/range');
 
@@ -38,9 +38,11 @@ const plans = {
         [[...range(0, 200)], 'buildWorkers', true],
         [[...range(12, 14)], 'scout', OVERLORD, 'getEnemyMain',],
         [13, 'train', OVERLORD, 1],
+        // scout logic for rest of overlords
         [17, 'build', 'HATCHERY', 1],
         [17, 'build', 'EXTRACTOR', 0],
         [18, 'build', 'SPAWNINGPOOL', 0],
+        // build workers.
         [21, 'train', OVERLORD, 2],
       ]
     }
@@ -55,14 +57,14 @@ const plans = {
       order: [
         [[...range(0, 23), ...range(31, 36)], 'buildWorkers'],
         [14, 'build', 'PYLON', 0, 'findSupplyPositions'],
-        [[...range(14, 19)], 'scout', 'getEnemyMain', PYLON, 1,],
+        [[...range(14, 19)], 'scout', PROBE, 'getEnemyMain', { unitType: PYLON, unitCount: 1 }],
         [15, 'build', 'GATEWAY', 0],
         [[16], 'ability', EFFECT_CHRONOBOOSTENERGYCOST, NEXUS, 1, NEXUS, ],
         [19, 'build', 'ASSIMILATOR', 0],
         [19, 'build', 'GATEWAY', 1],
         [20, 'build', 'CYBERNETICSCORE', 0],
         [20, 'build', 'ASSIMILATOR', 1],
-        [[...range(20, 26)], 'scout', 'getEnemyNatural'],
+        [[...range(20, 26)], 'scout', PROBE, 'getEnemyNatural'],
         [[21, 31, 33, ...range(61, 200)], 'manageSupply'],
         [23, 'train', STALKER, 0],
         [[25], 'ability', EFFECT_CHRONOBOOSTENERGYCOST, GATEWAY, 1, NEXUS, ],
