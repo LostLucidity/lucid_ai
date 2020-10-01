@@ -35,8 +35,16 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
           .slice(0, 20);
         // see if any of them are good    
         const foundPosition = await actions.canPlace(SHIELDBATTERY, randomPositions);
-        await actions.build(SHIELDBATTERY, foundPosition);
+        try {
+          await actions.build(SHIELDBATTERY, foundPosition);
+        } catch (error) {
+          console.log(error);
+        }
       }
     }
+  }
+  const [ shieldBattery ] = units.getById(SHIELDBATTERY);
+  if (shieldBattery) {
+    state.defenseLocation = shieldBattery.pos;
   }
 }

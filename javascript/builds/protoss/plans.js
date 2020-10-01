@@ -72,10 +72,8 @@ const plans = {
         [[27], 'ability', EFFECT_CHRONOBOOSTENERGYCOST, GATEWAY, 1, NEXUS, ],
         [27, 'upgrade', WARPGATERESEARCH],
         [27, 'train', STALKER, 2],
-        // build shield battery if cheese
         [29, 'train', STALKER, 3],
         [31, 'build', 'NEXUS', 1],
-        // defend
         // [31, 'harass', STALKER, 4],
         [32, 'build', 'ROBOTICSFACILITY', 0],
         [[...range(32, 200)], 'ability', EFFECT_CHRONOBOOSTENERGYCOST, ROBOTICSFACILITY ],

@@ -14,6 +14,7 @@ const entry = createSystem({
   defaultOptions: {
     state: {
       defenseMode: false,
+      defenseLocation: null,
       enemyBuildType: 'standard',
     },
   },
