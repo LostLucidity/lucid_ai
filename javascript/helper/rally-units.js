@@ -1,8 +1,7 @@
 //@ts-check
 "use strict"
 
-const { LOAD_BUNKER, MOVE, ATTACK_ATTACK, SMART } = require("@node-sc2/core/constants/ability");
-const { BUNKER } = require("@node-sc2/core/constants/unit-type");
+const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { tankBehavior } = require("./unit-behavior");
 
 function rallyUnits(resources, supportUnitTypes, rallyPoint=null) {
@@ -14,7 +13,9 @@ function rallyUnits(resources, supportUnitTypes, rallyPoint=null) {
   const combatUnits = units.getCombatUnits().filter(unit => !unit.labels.get('harasser') && !unit.labels.get('scout'));
   if (combatUnits.length > 0) {
     if (!rallyPoint) {
-      rallyPoint = map.getCombatRally();
+      if (map.getNatural().getWall()) {
+        rallyPoint = map.getCombatRally();
+      }
     }
     const supportUnits = [];
     supportUnitTypes.forEach(type => {

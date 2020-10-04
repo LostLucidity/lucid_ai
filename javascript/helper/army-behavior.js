@@ -6,6 +6,7 @@ const { LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK } = require("@node-sc2/core/constants/ability");
 
 const getClosestByPath = require("./get-closest-by-path");
+const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
 module.exports = {
   attack: (resources, mainCombatTypes, supportUnitTypes) => {
@@ -61,20 +62,29 @@ module.exports = {
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
     // let [ closestEnemyUnit ] = getClosestByPath(map, map.getCombatRally(), enemyUnits, 1);
-    let [ closestEnemyUnit ] = units.getClosest(map.getCombatRally(), enemyUnits, 1);
-    const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
-    if (closestEnemyUnit) {
-      if (closestEnemyUnit.isFlying) {
-        // if no anti air in combat, use Queens.
-        const findAntiAir = combatUnits.find(unit => unit.canShootUp());
-        if (!findAntiAir) {
-          supportUnits.push(...units.getById(QUEEN));
+    const averageBasePosition = avgPoints(units.getBases().map(base => base.pos))
+    let [ closestEnemyBase ] = units.getClosest(averageBasePosition, units.getBases(Alliance.ENEMY), 1);
+    let rallyPointByBases;
+    if (closestEnemyBase) {
+      rallyPointByBases = avgPoints([...units.getBases().map(base => base.pos), closestEnemyBase && closestEnemyBase.pos]);
+    }
+    const rallyPoint = map.getNatural().getWall() || rallyPointByBases;
+    if (rallyPoint) {
+      let [ closestEnemyUnit ] = units.getClosest(rallyPoint, enemyUnits, 1);
+      const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+      if (closestEnemyUnit) {
+        if (closestEnemyUnit.isFlying) {
+          // if no anti air in combat, use Queens.
+          const findAntiAir = combatUnits.find(unit => unit.canShootUp());
+          if (!findAntiAir) {
+            supportUnits.push(...units.getById(QUEEN));
+          }
         }
-      }
-      // const [ combatPoint ] = getClosestByPath(map, closestEnemyUnit.pos, combatUnits, 1);
-      const [ combatPoint ] = units.getClosest(closestEnemyUnit.pos, combatUnits, 1);
-      if (combatPoint) {
-        collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, closestEnemyUnit));
+        // const [ combatPoint ] = getClosestByPath(map, closestEnemyUnit.pos, combatUnits, 1);
+        const [ combatPoint ] = units.getClosest(closestEnemyUnit.pos, combatUnits, 1);
+        if (combatPoint) {
+          collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, closestEnemyUnit));
+        }
       }
     }
     return collectedActions;

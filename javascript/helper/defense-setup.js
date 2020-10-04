@@ -9,7 +9,6 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 module.exports = {
   defenseSetup: async (data, resources, state, defenseType) => {
     const {
-      actions,
       map,
       units,
     } = resources.get();

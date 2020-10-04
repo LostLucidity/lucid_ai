@@ -335,7 +335,6 @@ function lightPush(resources, state) {
 
 function inject(resources) {
   const {
-    actions,
     units,
   } = resources.get();
   const collectedActions = []

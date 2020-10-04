@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { ASSIMILATOR, PYLON, WARPGATE } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getAvailableExpansions } = require("./expansions");
@@ -9,7 +9,7 @@ const placementConfigs = require("./placement-configs");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { frontOfGrid } = require("@node-sc2/core/utils/map/region");
 const buildWorkers = require("./build-workers");
-const { MOVE } = require("@node-sc2/core/constants/ability");
+const { MOVE, CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
 const canAfford = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
@@ -21,9 +21,14 @@ const balanceResources = require("./balance-resources");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack } = require("./army-behavior");
 const baseThreats = require("./base-threats");
-const defenseSetup = require("../builds/protoss/defense-setup");
+const defenseSetup = require("../builds/defense-setup");
+const { generalScouting } = require("../builds/scouting");
+const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
+const { overlordCoverage } = require("../builds/zerg/overlord-management");
+const { shadowEnemy } = require("../builds/helper");
 
 let actions;
+let opponentRace;
 let race;
 let ATTACKFOOD = 194;
 
@@ -33,11 +38,16 @@ class AssemblePlan {
     this.planOrder = plan.order;
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
     this.defenseTypes = plan.unitTypes.defenseTypes;
+    this.scoutTypes = plan.unitTypes.scoutTypes;
     this.supportUnitTypes = plan.unitTypes.supportUnitTypes;
+  }
+  onEnemyFirstSeen(seenEnemyUnit) {
+    opponentRace = seenEnemyUnit.data().race
   }
   onGameStart(world) {
     actions = world.resources.get().actions;
     race = world.agent.race;
+    opponentRace = world.agent.opponent.race;
   }
   async onStep(world, state) {
     this.collectedActions = [];
@@ -53,17 +63,22 @@ class AssemblePlan {
     await this.runPlan();
     this.collectedActions.push(...rallyUnits(this.resources, this.supportUnitTypes, this.state.defenseLocation));
     if (this.state.defenseMode && this.foodUsed < ATTACKFOOD) { this.collectedActions.push(...defend(this.resources, this.mainCombatTypes, this.supportUnitTypes)); }
-    if (this.agent.minerals > 512) { balanceResources(world.agent, world.data, world.resources); }
+    if (this.agent.minerals > 512) {
+      balanceResources(world.agent, world.data, world.resources);
+      this.state.pauseBuilding = false;
+    }
     if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { await this.expand(); }
     if (this.foodUsed >= ATTACKFOOD) { this.collectedActions.push(...attack(this.resources, this.mainCombatTypes, this.supportUnitTypes)); }
-    defenseSetup(world, this.state);
     this.checkEnemyBuild();
+    defenseSetup(world, this.state);
+    await this.raceSpecificManagement();
+    this.collectedActions.push(...shadowEnemy(this.map, this.units, this.state, this.scoutTypes));
     await actions.sendAction(this.collectedActions);
   }
-  ability(foodRanges, abilityId, unitTypeTarget, targetCount, unitTypes) {
+  ability(foodRanges, abilityId, conditions) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
-      if (typeof targetCount !== 'undefined') {
-        if (this.units.getById(unitTypes).length !== targetCount) {
+      if (conditions && typeof conditions.targetCount !== 'undefined') {
+        if (this.units.getById(conditions.countType).length !== conditions.countType) {
           return;
         } 
       }
@@ -75,8 +90,8 @@ class AssemblePlan {
       let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
       if (unitCanDo) {
         const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
-        if (unitTypeTarget) {
-          const targets = this.units.getById(unitTypeTarget).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
+        if (conditions && conditions.targetType) {
+          const targets = this.units.getById(conditions.targetType).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
           let target = targets[Math.floor(Math.random() * targets.length)];
           if (target) { unitCommand.targetUnitTag = target.tag; }
         }
@@ -142,11 +157,19 @@ class AssemblePlan {
   }
   checkEnemyBuild() {
     const { frame, } = this.resources.get();
+    // on first scout:
+    if (frame.timeInSeconds() > 75 && frame.timeInSeconds() <= 90) {
+      switch (race) {
+        case Race.PROTOSS:
+          // protoss: two gateways
+        case Race.TERRAN:
+          // terran: 1 barracks and 1 gas.
+        case Race.ZERG:
+          // zerg: natural before pool
+      }
+    }
     // if scouting probe and time is greater than 2 minutes. If no base, stay defensive.
-    if (
-      frame.timeInSeconds() > 132
-      && frame.timeInSeconds() <= 240
-    ) {
+    if (frame.timeInSeconds() > 132 && frame.timeInSeconds() <= 240) {
       if (this.units.getBases(Alliance.ENEMY).length < 2) {
         this.state.enemyBuildType = 'cheese';
       };
@@ -214,25 +237,6 @@ class AssemblePlan {
         });
       }
     } else if (race === Race.TERRAN) {
-      // placements = main.areas.placementGrid
-      //   .filter((point) => {
-      //     return (
-      //       (mainMineralLine.every((mlp) => {
-      //         return ((distanceX(mlp, point) >= 5 || distanceY(mlp, point) >= 1.5)); // for addon room
-      //       })) &&
-      //       (main.areas.hull.every((hp) => {
-      //         return ((distanceX(hp, point) >= 3.5 || distanceY(hp, point) >= 1.5));
-      //       })) &&
-      //       (units.getStructures({ alliance: Alliance.SELF })
-      //         .map(u => u.pos)
-      //         .every((eb) => {
-      //           return (
-      //             (distanceX(eb, point) >= 5 || distanceY(eb, point) >= 3) // for addon room
-      //           );
-      //         })
-      //       )
-      //     );
-      // });
       const placementGrids = [];
       getOccupiedExpansions(this.world.resources).forEach(expansion => {
         placementGrids.push(...expansion.areas.placementGrid);
@@ -296,13 +300,33 @@ class AssemblePlan {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.agent, this.data, this.resources)) {
         switch (race) {
+          case Race.TERRAN:
+            await this.build(this.foodUsed, 'SUPPLYDEPOT', this.units.getById(SUPPLYDEPOT).length)
           case Race.PROTOSS:
-            await this.build(this.foodUsed, 'PYLON', this.units.getById(PYLON).length)
+            await this.build(this.foodUsed, 'PYLON', this.units.getById(PYLON).length);
+            break;
+          case Race.ZERG:
+            await this.train(this.foodUsed, OVERLORD);
+            break;
         }
       }
     }
   }
-  scout(foodRanges, unitType, targetLocation, conditions, ) {
+
+  async onUnitCreated(world, createdUnit) {
+    this.collectedActions && this.collectedActions.push(...generalScouting(world, createdUnit));
+    await world.resources.get().actions.sendAction(this.collectedActions);
+  }
+  async raceSpecificManagement() {
+    if (race === Race.ZERG) {
+      labelQueens(this.units);
+      maintainQueens(this.resources, this.data, this.agent);
+      this.collectedActions.push(...inject(this.units));
+      this.collectedActions.push(...overlordCoverage(this.units));
+      this.collectedActions.push(...await spreadCreep(this.resources, this.units));
+    }
+  }
+  scout(foodRanges, unitType, targetLocation, conditions ) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const label = 'scout';
       if (this.units.withLabel(label).length === 0) {
@@ -323,11 +347,42 @@ class AssemblePlan {
       }
     }
   }
-
+  async swapBuildings(foodTarget, conditions) {
+    if (this.foodUsed >= foodTarget) {
+      if (this.units.getById(conditions[1].building).filter(building => building.buildProgress >= 1).length === conditions[1].count) {
+        if (this.units.getById(conditions[0].building).filter(reactor => reactor.buildProgress >= 1).length === 1) {
+          const [ firstBuilding ] = this.units.getById(conditions[0].addOn).filter(starport => starport.hasReactor() && starport.abilityAvailable(conditions[0].ability));
+          let secondBuilding;
+          if (firstBuilding) {
+            [ secondBuilding ] = this.units.getClosest(firstBuilding.pos, this.units.getById(conditions[1].building).filter(building => building.buildProgress >= 1 && !building.hasReactor() && !building.hasTechLab()));
+          }
+          if (firstBuilding && secondBuilding) {
+            if (secondBuilding.abilityAvailable(CANCEL_QUEUE5)) {
+              const unitCommand = {
+                abilityId: CANCEL_QUEUE5,
+                unitTags: [ secondBuilding.tag ],
+              }
+              await actions.sendAction(unitCommand);
+            }
+            try { await actions.swapBuildings(firstBuilding, secondBuilding); } 
+            catch (error) {
+              if (secondBuilding.abilityAvailable(conditions[1].ability)) {
+                const unitCommand = {
+                  abilityId: conditions[1].ability,
+                  unitTags: [ secondBuilding.tag ],
+                }
+                await actions.sendAction(unitCommand);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
   setScout(unitType, label, location) {
     const [ unit ] = this.units.getById(unitType);
     if (unit) {
-      let [ scout ] = this.units.getClosest(location, this.units.getById(unitType).filter(w => w.noQueue));
+      let [ scout ] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.noQueue || unit.orders.findIndex(order => order.abilityId === 16) > -1));
       if (!scout) { [ scout ] = this.units.getClosest(location, this.units.getById(unitType)) }
       if (scout) {
         scout.labels.clear();
@@ -339,7 +394,7 @@ class AssemblePlan {
     if (this.foodUsed >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
       const unitCount = this.units.getById(unitType).length + this.units.withCurrentOrders(abilityId).length
-      if (unitCount === targetCount) {
+      if (!targetCount || unitCount === targetCount) {
         if (canAfford(this.agent, this.world.data, unitType)) {
           const trainer = this.units.getProductionUnits(unitType).find(unit => unit.noQueue);
           if (trainer) {
@@ -355,8 +410,10 @@ class AssemblePlan {
               try { await actions.warpIn(unitType) } catch (error) { console.log(error); }
             }
           }
+          this.state.pauseBuilding = false;
+        } else {
+          this.state.pauseBuilding = true;
         }
-        this.state.pauseBuilding = this.collectedActions.length === 0;
       }
     }
   }
@@ -375,11 +432,13 @@ class AssemblePlan {
       const planStep = this.planOrder[step];
       let targetCount = planStep[3];
       const foodTarget = planStep[0];
+      let conditions;
       let unitType;
       switch (planStep[1]) {
         case 'ability':
           const abilityId = planStep[2];
-          this.ability(foodTarget, abilityId, targetCount, planStep[4], planStep[5]);
+          conditions = planStep[3];
+          this.ability(foodTarget, abilityId, conditions);
           break;
         case 'build':
           unitType = planStep[2];
@@ -394,9 +453,12 @@ class AssemblePlan {
         case 'scout':
           unitType = planStep[2];
           const targetLocation = planStep[3];
-          const conditions = planStep[4];
-          this.scout(foodTarget, unitType, targetLocation, conditions, );
+          conditions = planStep[4];
+          this.scout(foodTarget, unitType, targetLocation, conditions );
           break;
+        case 'swapBuildings':
+          conditions = planStep[2];
+          this.swapBuildings(foodTarget, conditions);
         case 'upgrade':
           const upgradeId = planStep[2];
           this.upgrade(foodTarget, upgradeId);
