@@ -34,12 +34,16 @@ module.exports = {
   },
   workerSendOrBuild: (units, ability, position) => {
     const collectedActions = [];
-    const builders = [
-      ...units.getMineralWorkers(),
-      ...units.getWorkers().filter(w => w.noQueue),
+    let builders = [
       ...units.withLabel('builder').filter(w => !w.isConstructing()),
       ...units.withLabel('proxy').filter(w => !w.isConstructing()),
     ];
+    if (builders.length === 0) {
+      builders = [
+        ...units.getMineralWorkers(),
+        ...units.getWorkers().filter(w => w.noQueue),
+      ]
+    }
     const [ builder ] = units.getClosest(position, builders);
     if (builder) {
       builder.labels.set('builder', true);
