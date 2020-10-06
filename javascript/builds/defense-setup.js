@@ -35,6 +35,7 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
             console.log(error);
           }
         }
+        break;
       case Race.PROTOSS:
         buildAbilityId = data.getUnitTypeData(SHIELDBATTERY).abilityId;
         if ((units.getById(SHIELDBATTERY).length + units.withCurrentOrders(buildAbilityId)) < 1 ) {
@@ -64,32 +65,33 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
           }
         }
         break;
-        case Race.ZERG:
-          buildAbilityId = data.getUnitTypeData(SPINECRAWLER).abilityId;
-          if ((units.getById(SPINECRAWLER).length + units.withCurrentOrders(buildAbilityId)) < 1 ) {
-            const natural = map.getNatural();
-            const naturalWall = natural.getWall();
-            const avg = avgPoints(naturalWall);
-            const points = gridsInCircle(avg, 1);
-            const filteredPoints = points.filter(point => {
-              return (
-                distance(natural.townhallPosition, point) > 3.75
-              );
-            });
-            // pick 10 random positions from the list
-            const randomPositions = filteredPoints
-              .map(pos => ({ pos, rand: Math.random() }))
-              .sort((a, b) => a.rand - b.rand)
-              .map(a => a.pos)
-              .slice(0, 20);
-            // see if any of them are good    
-            const foundPosition = await actions.canPlace(SPINECRAWLER, randomPositions);
-            try {
-              await actions.build(SPINECRAWLER, foundPosition);
-            } catch (error) {
-              console.log(error);
-            }
+      case Race.ZERG:
+        buildAbilityId = data.getUnitTypeData(SPINECRAWLER).abilityId;
+        if ((units.getById(SPINECRAWLER).length + units.withCurrentOrders(buildAbilityId)) < 1 ) {
+          const natural = map.getNatural();
+          const naturalWall = natural.getWall();
+          const avg = avgPoints(naturalWall);
+          const points = gridsInCircle(avg, 1);
+          const filteredPoints = points.filter(point => {
+            return (
+              distance(natural.townhallPosition, point) > 3.75
+            );
+          });
+          // pick 10 random positions from the list
+          const randomPositions = filteredPoints
+            .map(pos => ({ pos, rand: Math.random() }))
+            .sort((a, b) => a.rand - b.rand)
+            .map(a => a.pos)
+            .slice(0, 20);
+          // see if any of them are good    
+          const foundPosition = await actions.canPlace(SPINECRAWLER, randomPositions);
+          try {
+            await actions.build(SPINECRAWLER, foundPosition);
+          } catch (error) {
+            console.log(error);
           }
+        }
+        break;
     }
   }
   const [ defenseStructure ] = units.getById(state.defenseStructure);
