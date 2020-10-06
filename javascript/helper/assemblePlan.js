@@ -99,7 +99,7 @@ class AssemblePlan {
       }
     }
   }
-  async build(food, unitType, targetCount, candidatePositions) {
+  async build(food, unitType, targetCount, candidatePositions=[]) {
     const placementConfig = placementConfigs[unitType];
     if (this.foodUsed >= food) {
       if (this.checkBuildingCount(targetCount, placementConfig)) {
@@ -107,7 +107,7 @@ class AssemblePlan {
         if (GasMineRace[race] === toBuild && this.agent.canAfford(toBuild)) { await actions.buildGasMine(); }
         else if (TownhallRace[race].indexOf(toBuild) > -1 ) { await this.expand(); } 
         else {
-          if (!candidatePositions) { candidatePositions = this.findPlacements(placementConfig) }
+          if (candidatePositions.length === 0 ) { candidatePositions = this.findPlacements(placementConfig); }
           await this.buildBuilding(placementConfig, candidatePositions);
         }
       }
@@ -446,7 +446,7 @@ class AssemblePlan {
           break;
         case 'build':
           unitType = planStep[2];
-          await this.build(foodTarget, unitType, targetCount, planStep[4] ? this[planStep[4]]() : null);
+          await this.build(foodTarget, unitType, targetCount, planStep[4] ? this[planStep[4]]() : []);
           break;
         case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
         case 'continuouslyBuild': if (this.agent.minerals > 512) { await continuouslyBuild(this.agent, this.data, this.resources, this.mainCombatTypes); } break;
