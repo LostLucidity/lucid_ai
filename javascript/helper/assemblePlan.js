@@ -78,7 +78,7 @@ class AssemblePlan {
   ability(foodRanges, abilityId, conditions) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       if (conditions && typeof conditions.targetCount !== 'undefined') {
-        if (this.units.getById(conditions.countType).length !== conditions.countType) {
+        if (this.units.getById(conditions.countType).length !== conditions.targetCount) {
           return;
         } 
       }
