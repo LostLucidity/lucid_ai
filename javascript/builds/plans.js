@@ -22,7 +22,7 @@ const plans = {
         [16, 'build', 'REFINERY', 0],
         [[...range(17, 21)], 'scout', SCV, 'getEnemyNatural',],
         [[...range(19, 200)], 'ability', MORPH_ORBITALCOMMAND, { targetCount: 0, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ],
-        [[...range(19, 21)], 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 0, countType: BARRACKSREACTOR } ],
+        [[...range(19, 200)], 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 0, countType: BARRACKSREACTOR } ],
         [[...range(19, 21)], 'scout', SCV, 'getEnemyMain',],
         [19, 'build', 'COMMANDCENTER', 1],
         [20, 'build', 'SUPPLYDEPOT', 1],
