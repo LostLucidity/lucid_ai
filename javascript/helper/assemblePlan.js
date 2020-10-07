@@ -334,8 +334,10 @@ class AssemblePlan {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const label = 'scout';
       if (this.units.withLabel(label).length === 0) {
-        if (conditions && this.units.getByType(unitType).length === conditions.unitCount) {
-          this.setScout(unitType, label, this.map[targetLocation]());
+        if (conditions) {
+          if (this.units.getByType(conditions.unitType).length === conditions.unitCount) {
+            this.setScout(unitType, label, this.map[targetLocation]());
+          }
         } else {
           this.setScout(unitType, label, this.map[targetLocation]());
         }
