@@ -28,7 +28,7 @@ module.exports = {
   },
   shadowEnemy(map, units, state, unitTypes) {
     const collectedActions = [];
-    const scoutingUnits = [...units.getById(unitTypes)];
+    const scoutingUnits = [...units.getById(unitTypes), ...units.withLabel('scout')];
     scoutingUnits.forEach(scoutingUnit => {
       // follow drones outside of overlord of natural expansion scout
       const [ closestEnemy ] = units.getClosest(scoutingUnit.pos, units.getAlive(Alliance.ENEMY).filter(unit => {
