@@ -15,6 +15,10 @@ maps = [
   "EverDreamLE",
   "EternalEmpireLE",
   "DeathAuraLE",
+  "JagannathaLE",
+  "LightshadeLE",
+  "OxideLE",
+  "RomanticideLE",
 ]
 
 module.exports = maps;
