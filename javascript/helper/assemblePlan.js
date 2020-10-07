@@ -34,6 +34,7 @@ let ATTACKFOOD = 194;
 
 class AssemblePlan {
   constructor(plan) {
+    this.continueBuild = null;
     this.foundPosition = null;
     this.planOrder = plan.order;
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
@@ -104,7 +105,17 @@ class AssemblePlan {
     if (this.foodUsed >= food) {
       if (this.checkBuildingCount(targetCount, placementConfig)) {
         const toBuild = placementConfigs[unitType].toBuild;
-        if (GasMineRace[race] === toBuild && this.agent.canAfford(toBuild)) { await actions.buildGasMine(); }
+        if (GasMineRace[race] === toBuild && this.agent.canAfford(toBuild)) {
+          try {
+            await actions.buildGasMine();
+            this.state.pauseBuilding = false;
+          }
+          catch(error) {
+            console.log(error);
+            this.state.pauseBuilding = true;
+            this.continueBuild = false;
+          }
+        }
         else if (TownhallRace[race].indexOf(toBuild) > -1 ) { await this.expand(); } 
         else {
           if (candidatePositions.length === 0 ) { candidatePositions = this.findPlacements(placementConfig); }
@@ -134,12 +145,14 @@ class AssemblePlan {
       } else {
         this.collectedActions.push(...workerSendOrBuild(this.units, MOVE, this.foundPosition));
         this.state.pauseBuilding = true;
+        this.continueBuild = false;
       }
     } else {
       const [ pylon ] = this.units.getById(PYLON);
       if (pylon) {
         this.collectedActions.push(...workerSendOrBuild(this.units, MOVE, pylon.pos));
         this.state.pauseBuilding = true;
+        this.continueBuild = false;
       }
     }
   }
@@ -190,6 +203,7 @@ class AssemblePlan {
     } else {
       this.collectedActions.push(...workerSendOrBuild(this.units, MOVE, expansionLocation));
       this.state.pauseBuilding = true;
+      this.continueBuild = false;
     }
   }
   findPlacements(placementConfig) {
@@ -419,6 +433,7 @@ class AssemblePlan {
           this.state.pauseBuilding = false;
         } else {
           this.state.pauseBuilding = true;
+          this.continueBuild = false;
         }
       }
     }
@@ -434,41 +449,45 @@ class AssemblePlan {
   }
   
   async runPlan() {
+    this.continueBuild = true;
     for (let step = 0; step < this.planOrder.length; step++) {
-      const planStep = this.planOrder[step];
-      let targetCount = planStep[3];
-      const foodTarget = planStep[0];
-      let conditions;
-      let unitType;
-      switch (planStep[1]) {
-        case 'ability':
-          const abilityId = planStep[2];
-          conditions = planStep[3];
-          this.ability(foodTarget, abilityId, conditions);
-          break;
-        case 'build':
-          unitType = planStep[2];
-          await this.build(foodTarget, unitType, targetCount, planStep[4] ? this[planStep[4]]() : []);
-          break;
-        case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
-        case 'continuouslyBuild': if (this.agent.minerals > 512) { await continuouslyBuild(this.agent, this.data, this.resources, this.mainCombatTypes); } break;
-        case 'manageSupply': await this.manageSupply(planStep[0]); break;
-        case 'train':
-          unitType = planStep[2];
-          try { await this.train(foodTarget, unitType, targetCount); } catch(error) { console.log(error) } break;
-        case 'scout':
-          unitType = planStep[2];
-          const targetLocation = planStep[3];
-          conditions = planStep[4];
-          this.scout(foodTarget, unitType, targetLocation, conditions );
-          break;
-        case 'swapBuildings':
-          conditions = planStep[2];
-          this.swapBuildings(foodTarget, conditions);
-        case 'upgrade':
-          const upgradeId = planStep[2];
-          this.upgrade(foodTarget, upgradeId);
-          break;
+      if (this.continueBuild) {
+        const planStep = this.planOrder[step];
+        let targetCount = planStep[3];
+        const foodTarget = planStep[0];
+        let conditions;
+        let unitType;
+        switch (planStep[1]) {
+          case 'ability':
+            const abilityId = planStep[2];
+            conditions = planStep[3];
+            this.ability(foodTarget, abilityId, conditions);
+            break;
+          case 'build':
+            unitType = planStep[2];
+            await this.build(foodTarget, unitType, targetCount, planStep[4] ? this[planStep[4]]() : []);
+            break;
+          case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
+          case 'continuouslyBuild': if (this.agent.minerals > 512) { await continuouslyBuild(this.agent, this.data, this.resources, planStep[2], planStep[3]); } break;
+          case 'manageSupply': await this.manageSupply(planStep[0]); break;
+          case 'train':
+            unitType = planStep[2];
+            try { await this.train(foodTarget, unitType, targetCount); } catch(error) { console.log(error) } break;
+          case 'scout':
+            unitType = planStep[2];
+            const targetLocation = planStep[3];
+            conditions = planStep[4];
+            this.scout(foodTarget, unitType, targetLocation, conditions );
+            break;
+          case 'swapBuildings':
+            conditions = planStep[2];
+            this.swapBuildings(foodTarget, conditions);
+            break;
+          case 'upgrade':
+            const upgradeId = planStep[2];
+            this.upgrade(foodTarget, upgradeId);
+            break;
+        }
       }
     }
   }
