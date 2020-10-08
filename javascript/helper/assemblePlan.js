@@ -196,7 +196,7 @@ class AssemblePlan {
       if (foundPosition) {
         const buildAbilityId = this.data.getUnitTypeData(townhallType).abilityId;
         if ((this.units.inProgress(townhallType).length + this.units.withCurrentOrders(buildAbilityId).length) < 1 ) {
-          this.collectedActions.push(...workerSendOrBuild(this.units, this.data.getUnitTypeData(townhallType).abilityId, expansionLocation));
+          await actions.sendAction(workerSendOrBuild(this.units, this.data.getUnitTypeData(townhallType).abilityId, expansionLocation));
           this.state.pauseBuilding = false;
         }
       }
