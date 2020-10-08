@@ -10,10 +10,10 @@ const plans = {
   1: {
     oneOneOne: {
       unitTypes: {
+        defenseStructures: [ BUNKER ],
+        defenseTypes: [ MARAUDER, MARINE ],
         mainCombatTypes: [ MARINE, MARAUDER, SIEGETANK, SIEGETANKSIEGED ],
-        defenseTypes: [ CYCLONE ],
-        defenseStructure: [ BUNKER ],
-        supportUnitTypes: [ LIBERATOR, MEDIVAC, VIKINGFIGHTER ],
+        supportUnitTypes: [ CYCLONE, LIBERATOR, MEDIVAC, VIKINGFIGHTER ],
       },
       order: [
         [[...range(0, 200)], 'buildWorkers', true],
@@ -55,8 +55,9 @@ const plans = {
   2: {
     lingRoachHydra: {
       unitTypes: {
-        mainCombatTypes: [ ZERGLING, ROACH, HYDRALISK ],
         defenseTypes: [ ],
+        defenseStructures: [ SPINECRAWLER ],
+        mainCombatTypes: [ ZERGLING, ROACH, HYDRALISK ],
         scoutTypes: [ OVERLORD, OVERSEER ],
         supportUnitTypes: [ OVERSEER ],
       },
@@ -110,9 +111,9 @@ const plans = {
   3: {
     economicStalkerColossi: {
       unitTypes: {
-        mainCombatTypes: [ STALKER, COLOSSUS ],
-        defenseStructure: [ SHIELDBATTERY ],
+        defenseStructures: [ SHIELDBATTERY ],
         defenseTypes: [ IMMORTAL ],
+        mainCombatTypes: [ STALKER, COLOSSUS ],
         scoutTypes: [ OBSERVER ],
         supportUnitTypes: [ OBSERVER, WARPPRISM ],
       },

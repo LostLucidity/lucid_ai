@@ -40,6 +40,7 @@ class AssemblePlan {
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
     this.defenseTypes = plan.unitTypes.defenseTypes;
     this.scoutTypes = plan.unitTypes.scoutTypes;
+    this.defenseStructures = plan.unitTypes.defenseStructures;
     this.supportUnitTypes = plan.unitTypes.supportUnitTypes;
   }
   onEnemyFirstSeen(seenEnemyUnit) {
@@ -53,6 +54,7 @@ class AssemblePlan {
   async onStep(world, state) {
     this.collectedActions = [];
     this.state = state;
+    this.state.defenseStructures = this.defenseStructures;
     this.world = world;
     this.agent = world.agent;
     this.data = world.data;

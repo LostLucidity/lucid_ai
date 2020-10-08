@@ -109,7 +109,7 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
         break;
     }
   }
-  const [ defenseStructure ] = units.getById(state.defenseStructure);
+  const [ defenseStructure ] = units.getById(state.defenseStructures);
   if (defenseStructure) {
     state.defenseLocation = defenseStructure.pos;
   }
