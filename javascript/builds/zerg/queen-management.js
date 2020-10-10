@@ -42,7 +42,10 @@ module.exports = {
     const baseCount = units.getBases().length;
     if (queenCount <= baseCount) {
       if (canAfford(agent, data, QUEEN)) {
-        try { await actions.train(QUEEN); } catch (error) { console.log(error) }
+        const trainer = units.getProductionUnits(QUEEN).find(unit => unit.noQueue);
+        if (trainer) {
+          try { await actions.train(QUEEN); } catch (error) { console.log(error) }
+        }
       }
     }
   },
