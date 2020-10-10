@@ -44,11 +44,29 @@ const plans = {
         [62, 'build', 'ENGINEERINGBAY', 0],
         [62, 'build', 'ENGINEERINGBAY', 1],
         [[...range(69, 200)], 'ability', BUILD_TECHLAB_BARRACKS, { targetCount: 0, countType: BARRACKSTECHLAB } ],
-        [69, 'swapBuildings', [
+        [71, 'swapBuildings', [
           { ability: LIFT_STARPORT, addOn: STARPORTREACTOR, building: STARPORT, count: 1 },
           { ability: LAND_BARRACKS, building: BARRACKS, count: 3 }
         ]],
         [[...range(71, 200)], 'ability', BUILD_REACTOR_STARPORT, { targetCount: 0, countType: STARPORTREACTOR } ],
+        [[...range(75, 200)], 'ability', RESEARCH_STIMPACK],
+        [77, 'build', 'BARRACKSREACTOR', 3],
+        [86, 'upgrade', TERRANINFANTRYWEAPONSLEVEL1],
+        [86, 'upgrade', TERRANINFANTRYARMORSLEVEL1],
+        [[...range(87, 200)], 'ability', MORPH_ORBITALCOMMAND, { targetCount: 2, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ],
+        [91, 'build', 'BARRACKSREACTOR', 4],
+        [[...range(104, 200)], 'continuouslyBuild', [MEDIVAC, LIBERATOR], true],
+        [[...range(105, 200)], 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 2, countType: BARRACKSREACTOR } ],
+        [[...range(105, 200)], 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 3, countType: BARRACKSREACTOR } ],
+        [[...range(105, 200)], 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 3, countType: BARRACKSREACTOR } ],
+        [[...range(117, 200)], 'ability', RESEARCH_COMBATSHIELD],
+        [117, 'build', 'ARMORY', 0],
+        [131, 'build', 'MISSILETURRET', 0],
+        [131, 'build', 'MISSILETURRET', 1],
+        [131, 'build', 'MISSILETURRET', 2],
+        [131, 'build', 'MISSILETURRET', 3],
+        [141, 'upgrade', TERRANINFANTRYWEAPONSLEVEL2],
+        [141, 'upgrade', TERRANINFANTRYARMORSLEVEL2],
       ]
     }
   },
