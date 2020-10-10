@@ -373,7 +373,7 @@ class AssemblePlan {
     if (this.foodUsed >= foodTarget) {
       if (this.units.getById(conditions[1].building).filter(building => building.buildProgress >= 1).length === conditions[1].count) {
         if (this.units.getById(conditions[0].building).filter(reactor => reactor.buildProgress >= 1).length === 1) {
-          const [ firstBuilding ] = this.units.getById(conditions[0].addOn).filter(starport => starport.hasReactor() && starport.abilityAvailable(conditions[0].ability));
+          const [ firstBuilding ] = this.units.getById(conditions[0].building).filter(starport => starport.hasReactor() && starport.abilityAvailable(conditions[0].ability));
           let secondBuilding;
           if (firstBuilding) {
             [ secondBuilding ] = this.units.getClosest(firstBuilding.pos, this.units.getById(conditions[1].building).filter(building => building.buildProgress >= 1 && !building.hasReactor() && !building.hasTechLab()));
