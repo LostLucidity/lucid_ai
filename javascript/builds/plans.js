@@ -130,8 +130,8 @@ const plans = {
     economicStalkerColossi: {
       unitTypes: {
         defenseStructures: [ SHIELDBATTERY ],
-        defenseTypes: [ IMMORTAL ],
-        mainCombatTypes: [ STALKER, COLOSSUS ],
+        defenseTypes: [ STALKER, IMMORTAL ],
+        mainCombatTypes: [ STALKER, COLOSSUS, IMMORTAL ],
         scoutTypes: [ OBSERVER ],
         supportUnitTypes: [ OBSERVER, WARPPRISM ],
       },
