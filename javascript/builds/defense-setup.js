@@ -33,7 +33,9 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
             const foundPosition = await actions.canPlace(BUNKER, sampledPoints);
             if (foundPosition) {
               try {
-                await actions.build(BUNKER, foundPosition);
+                if (canAfford(agent, data, BUNKER)) {
+                  await actions.build(BUNKER, foundPosition);
+                }
               } catch (error) {
                 console.log(error);
               }
@@ -66,7 +68,9 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
             const foundPosition = await actions.canPlace(SHIELDBATTERY, randomPositions);
             if (foundPosition) {
               try {
-                await actions.build(SHIELDBATTERY, foundPosition);
+                if (canAfford(agent, data, SHIELDBATTERY)) {
+                  await actions.build(SHIELDBATTERY, foundPosition);
+                }
               } catch (error) {
                 console.log(error);
               }
