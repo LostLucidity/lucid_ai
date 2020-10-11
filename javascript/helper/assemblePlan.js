@@ -26,6 +26,7 @@ const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { shadowEnemy } = require("../builds/helper");
+const { liberatorBehavior, marineBehavior, tankBehavior, supplyDepotBehavior } = require("./unit-behavior");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 
 let actions;
@@ -82,6 +83,9 @@ class AssemblePlan {
     if (completedBases.length >= 3) { this.collectedActions.push(...salvageBunker(this.units)); }
     await this.raceSpecificManagement();
     this.collectedActions.push(...shadowEnemy(this.map, this.units, this.state, this.scoutTypes));
+    this.collectedActions.push(...liberatorBehavior(this.resources));
+    this.collectedActions.push(...marineBehavior(this.resources));
+    this.collectedActions.push(...supplyDepotBehavior(this.resources));
     await actions.sendAction(this.collectedActions);
   }
   ability(foodRanges, abilityId, conditions) {
