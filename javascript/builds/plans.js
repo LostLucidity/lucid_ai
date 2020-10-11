@@ -37,6 +37,7 @@ const plans = {
         [42, 'build', 'SUPPLYDEPOT', 3],
         [44, 'train', VIKINGFIGHTER, 0],
         [[...range(49, 200)], 'manageSupply'],
+        [[...range(53, 200)], 'continuouslyBuild', [SIEGETANK], true],
         [58, 'build', 'BARRACKSREACTOR', 1],
         [58, 'build', 'BARRACKSREACTOR', 2],
         [[...range(62, 200)], 'ability', BUILD_REACTOR_STARPORT, { targetCount: 0, countType: STARPORTREACTOR } ],
