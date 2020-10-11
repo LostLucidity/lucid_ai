@@ -26,6 +26,7 @@ const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { shadowEnemy } = require("../builds/helper");
+const { salvageBunker } = require("../builds/terran/salvage-bunker");
 
 let actions;
 let opponentRace;
@@ -77,6 +78,8 @@ class AssemblePlan {
     if (this.foodUsed >= ATTACKFOOD) { this.collectedActions.push(...attack(this.resources, this.mainCombatTypes, this.supportUnitTypes)); }
     this.checkEnemyBuild();
     defenseSetup(world, this.state);
+    let completedBases = this.units.getBases().filter(base => base.buildProgress >= 1);
+    if (completedBases.length >= 3) { this.collectedActions.push(...salvageBunker(this.units)); }
     await this.raceSpecificManagement();
     this.collectedActions.push(...shadowEnemy(this.map, this.units, this.state, this.scoutTypes));
     await actions.sendAction(this.collectedActions);
@@ -191,6 +194,8 @@ class AssemblePlan {
       if (this.units.getBases(Alliance.ENEMY).length < 2) {
         this.state.enemyBuildType = 'cheese';
       };
+    } else {
+      this.state.enemyBuildType = 'complete';
     }
   }
   async expand() {
