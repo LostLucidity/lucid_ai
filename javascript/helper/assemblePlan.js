@@ -66,11 +66,12 @@ class AssemblePlan {
     this.units = this.resources.get().units;
     baseThreats(this.resources, this.state);
     await this.runPlan();
-    this.collectedActions.push(...rallyUnits(this.resources, this.supportUnitTypes, this.state.defenseLocation));
-    if (this.state.defenseMode && this.foodUsed < ATTACKFOOD) {
-      this.collectedActions.push(...defend(this.resources, this.mainCombatTypes, this.supportUnitTypes));
-      await continuouslyBuild(this.agent, this.data, this.resources, this.defenseTypes);
-    }
+    if (this.foodUsed < ATTACKFOOD) {
+      if (this.state.defenseMode) {
+        this.collectedActions.push(...defend(this.resources, this.mainCombatTypes, this.supportUnitTypes));
+        await continuouslyBuild(this.agent, this.data, this.resources, this.defenseTypes);
+      } else { this.collectedActions.push(...rallyUnits(this.resources, this.supportUnitTypes, this.state.defenseLocation)); }
+    } else { this.collectedActions.push(...attack(this.resources, this.mainCombatTypes, this.supportUnitTypes)); }
     if (this.agent.minerals > 512) {
       balanceResources(world.agent, world.data, world.resources);
       this.state.pauseBuilding = false;

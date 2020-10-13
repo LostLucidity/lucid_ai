@@ -121,7 +121,7 @@ const plans = {
         [129, 'build', 'HATCHERY', 3],
         [138, 'build', 'HYDRALISKDEN', 1],
         [149, 'upgrade', ZERGGROUNDARMORSLEVEL2],
-        [149, 'upgrade', RESEARCH_MUSCULARAUGMENTS],
+        [[...range(149, 200)], 'ability', RESEARCH_MUSCULARAUGMENTS],
         [165, 'build', 'INFESTATIONPIT', 0],
         [[200], 'ability', MORPH_HIVE, { targetCount: 0, countType: HIVE } ],
       ]

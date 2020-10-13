@@ -114,7 +114,9 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
     }
   }
   const [ defenseStructure ] = units.getById(state.defenseStructures);
-  if (defenseStructure) {
+  if (defenseStructure && state.defendNatural) {
     state.defenseLocation = defenseStructure.pos;
+  } else {
+    state.defenseLocation = null;
   }
 }
