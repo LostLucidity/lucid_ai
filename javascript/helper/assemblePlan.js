@@ -359,16 +359,16 @@ class AssemblePlan {
       this.collectedActions.push(...await spreadCreep(this.resources, this.units));
     }
   }
-  scout(foodRanges, unitType, targetLocation, conditions ) {
+  scout(foodRanges, unitType, targetLocation, conditions) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const label = 'scout';
-      if (this.units.withLabel(label).length === 0) {
+      if (this.units.withLabel(label).filter(unit => unit.unitType === unitType).length === 0) {
         if (conditions) {
           if (this.units.getByType(conditions.unitType).length === conditions.unitCount) {
-            this.setScout(unitType, label, this.map[targetLocation]());
+            this.setScout(unitType, label, this.map[targetLocation]().townhallPosition);
           }
         } else {
-          this.setScout(unitType, label, this.map[targetLocation]());
+          this.setScout(unitType, label, this.map[targetLocation]().townhallPosition);
         }
       }
       const [ scout ] = this.units.withLabel(label);
