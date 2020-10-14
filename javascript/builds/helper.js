@@ -32,13 +32,15 @@ module.exports = {
     scoutingUnits.forEach(scoutingUnit => {
       // follow drones outside of overlord of natural expansion scout
       const [ closestEnemy ] = units.getClosest(scoutingUnit.pos, units.getAlive(Alliance.ENEMY).filter(unit => {
-        const [ closestOverlordToEnemyNatural ] = units.getClosest(map.getEnemyNatural().centroid, scoutingUnits);
-        if (scoutingUnit.tag === closestOverlordToEnemyNatural.tag) {
-          return !workerTypes.includes(unit.unitType)
-        } else {
-          // count enemy units outside their range
-          detectRush(map, units, state);
-          return true;
+        if (map.getEnemyNatural()) {
+          const [ closestOverlordToEnemyNatural ] = units.getClosest(map.getEnemyNatural().centroid, scoutingUnits);
+          if (scoutingUnit.tag === closestOverlordToEnemyNatural.tag) {
+            return !workerTypes.includes(unit.unitType)
+          } else {
+            // count enemy units outside their range
+            detectRush(map, units, state);
+            return true;
+          }
         }
       }));
       if (closestEnemy) {
