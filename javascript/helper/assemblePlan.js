@@ -31,6 +31,7 @@ const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { harass } = require("../builds/harass");
 const { expand } = require("./general-actions");
 const { swapBuildings } = require("../builds/terran/swap-buildings");
+const { getRallyPointByBases } = require("./location");
 
 let actions;
 let opponentRace;
@@ -355,7 +356,8 @@ class AssemblePlan {
   scout(foodRanges, unitType, targetLocation, conditions) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const label = 'scout';
-      if (this.units.withLabel(label).filter(unit => unit.unitType === unitType).length === 0) {
+      const labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType)
+      if (labelledScouts.length === 0) {
         if (conditions) {
           if (this.units.getByType(conditions.unitType).length === conditions.unitCount) {
             this.setScout(unitType, label, this.map[targetLocation]().townhallPosition);
@@ -364,7 +366,7 @@ class AssemblePlan {
           this.setScout(unitType, label, this.map[targetLocation]().townhallPosition);
         }
       }
-      const [ scout ] = this.units.withLabel(label);
+      const [ scout ] = labelledScouts;
       if (scout) { 
         const unitCommand = {
           abilityId: MOVE,
@@ -444,7 +446,7 @@ class AssemblePlan {
             abilityId = WarpUnitAbility[unitType]
             const warpGates = this.units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
             if (warpGates.length > 0) {
-              try { await actions.warpIn(unitType) } catch (error) { console.log(error); }
+              try { await actions.warpIn(unitType, { nearPosition: this.map.getNatural() ? this.map.getCombatRally() : getRallyPointByBases(this.map, this.units) }) } catch (error) { console.log(error); }
             }
           }
           this.state.pauseBuilding = false;
