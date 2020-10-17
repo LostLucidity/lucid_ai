@@ -207,8 +207,11 @@ class AssemblePlan {
     if (frame.timeInSeconds() > 132 && frame.timeInSeconds() <= 240) {
       if (this.units.getBases(Alliance.ENEMY).length < 2) {
         this.state.enemyBuildType = 'cheese';
+      } else {
+        this.state.enemyBuildType = 'standard';
       };
-    } else {
+    } 
+    if (frame.timeInSeconds() > 240) {
       this.state.enemyBuildType = 'complete';
     }
   }
