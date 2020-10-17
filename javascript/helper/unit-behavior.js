@@ -124,10 +124,7 @@ module.exports = {
     });
     return collectedActions;
   },
-  tankBehavior: (resources, target) => {
-    const {
-      units,
-    } = resources.get();
+  tankBehavior: (units, target) => {
     const collectedActions = [];
     // get siege tanks
     if (target) {

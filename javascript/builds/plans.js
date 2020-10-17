@@ -1,9 +1,9 @@
 //@ts-check
 "use strict"
 
-const { EFFECT_CHRONOBOOSTENERGYCOST, MORPH_ORBITALCOMMAND, BUILD_REACTOR_BARRACKS, RESEARCH_ZERGLINGMETABOLICBOOST, BUILD_TECHLAB_FACTORY, MORPH_LAIR, MORPH_OVERSEER, RESEARCH_GROOVEDSPINES, RESEARCH_MUSCULARAUGMENTS, MORPH_HIVE, BUILD_REACTOR_STARPORT, BUILD_TECHLAB_BARRACKS, LIFT_STARPORT, LAND_BARRACKS } = require('@node-sc2/core/constants/ability');
-const { NEXUS, PYLON, STALKER, GATEWAY, COLOSSUS, IMMORTAL, OBSERVER, WARPPRISM, ROBOTICSFACILITY, OVERLORD, ZERGLING, ROACH, HYDRALISK, OVERSEER, CYCLONE, MARINE, MARAUDER, SIEGETANK, SIEGETANKSIEGED, LIBERATOR, MEDIVAC, VIKINGFIGHTER, HATCHERY, REFINERY, SCV, EXTRACTOR, PROBE, QUEEN, BUNKER, SHIELDBATTERY, LAIR, HIVE, ORBITALCOMMAND, ORBITALCOMMANDFLYING, BARRACKSREACTOR, FACTORYTECHLAB, STARPORTREACTOR, BARRACKSTECHLAB, STARPORT, BARRACKS, SPINECRAWLER } = require('@node-sc2/core/constants/unit-type');
-const { WARPGATERESEARCH, EXTENDEDTHERMALLANCE, PROTOSSGROUNDWEAPONSLEVEL1, CHARGE, PROTOSSGROUNDWEAPONSLEVEL2, GLIALRECONSTITUTION, ZERGMISSILEWEAPONSLEVEL2, ZERGMISSILEWEAPONSLEVEL1, ZERGGROUNDARMORSLEVEL1, ZERGGROUNDARMORSLEVEL2 } = require('@node-sc2/core/constants/upgrade');
+const { EFFECT_CHRONOBOOSTENERGYCOST, MORPH_ORBITALCOMMAND, BUILD_REACTOR_BARRACKS, RESEARCH_ZERGLINGMETABOLICBOOST, BUILD_TECHLAB_FACTORY, MORPH_LAIR, MORPH_OVERSEER, RESEARCH_GROOVEDSPINES, RESEARCH_MUSCULARAUGMENTS, MORPH_HIVE, BUILD_REACTOR_STARPORT, BUILD_TECHLAB_BARRACKS, LIFT_STARPORT, LAND_BARRACKS, RESEARCH_STIMPACK, RESEARCH_COMBATSHIELD, LIFT_BARRACKS, LAND_STARPORT } = require('@node-sc2/core/constants/ability');
+const { NEXUS, PYLON, STALKER, GATEWAY, COLOSSUS, IMMORTAL, OBSERVER, WARPPRISM, ROBOTICSFACILITY, OVERLORD, ZERGLING, ROACH, HYDRALISK, OVERSEER, CYCLONE, MARINE, MARAUDER, SIEGETANK, SIEGETANKSIEGED, LIBERATOR, MEDIVAC, VIKINGFIGHTER, HATCHERY, REFINERY, SCV, EXTRACTOR, PROBE, QUEEN, BUNKER, SHIELDBATTERY, LAIR, HIVE, ORBITALCOMMAND, ORBITALCOMMANDFLYING, BARRACKSREACTOR, FACTORYTECHLAB, STARPORTREACTOR, BARRACKSTECHLAB, STARPORT, BARRACKS, SPINECRAWLER, OVERLORDCOCOON } = require('@node-sc2/core/constants/unit-type');
+const { WARPGATERESEARCH, EXTENDEDTHERMALLANCE, PROTOSSGROUNDWEAPONSLEVEL1, CHARGE, PROTOSSGROUNDWEAPONSLEVEL2, GLIALRECONSTITUTION, ZERGMISSILEWEAPONSLEVEL2, ZERGMISSILEWEAPONSLEVEL1, ZERGGROUNDARMORSLEVEL1, ZERGGROUNDARMORSLEVEL2, TERRANINFANTRYWEAPONSLEVEL1, TERRANINFANTRYARMORSLEVEL1, TERRANINFANTRYWEAPONSLEVEL2, TERRANINFANTRYARMORSLEVEL2 } = require('@node-sc2/core/constants/upgrade');
 const range = require('../helper/range');
 
 const plans = {
@@ -46,8 +46,8 @@ const plans = {
         [62, 'build', 'ENGINEERINGBAY', 1],
         [[...range(69, 200)], 'ability', BUILD_TECHLAB_BARRACKS, { targetCount: 0, countType: BARRACKSTECHLAB } ],
         [71, 'swapBuildings', [
-          { ability: LIFT_STARPORT, addOn: STARPORTREACTOR, building: STARPORT, count: 1 },
-          { ability: LAND_BARRACKS, building: BARRACKS, count: 3 }
+          { liftAbility: LIFT_STARPORT, landAbility: LAND_STARPORT, addOn: 'hasReactor', building: STARPORT, count: 1 },
+          { liftAbility: LIFT_BARRACKS, landAbility: LAND_BARRACKS, building: BARRACKS, count: 3 }
         ]],
         [[...range(71, 200)], 'ability', BUILD_REACTOR_STARPORT, { targetCount: 0, countType: STARPORTREACTOR } ],
         [[...range(75, 200)], 'ability', RESEARCH_STIMPACK],
@@ -87,16 +87,16 @@ const plans = {
         [17, 'build', 'HATCHERY', 1],
         [17, 'build', 'EXTRACTOR', 0],
         [18, 'build', 'SPAWNINGPOOL', 0],
-        [[...range(21, 200)], 'buildWorkers', true],
         [21, 'train', OVERLORD, 2],
         [21, 'train', QUEEN, 0],
         [21, 'train', QUEEN, 1],
+        [[...range(25, 200)], 'buildWorkers', true],
         [[...range(25, 200)], 'ability', RESEARCH_ZERGLINGMETABOLICBOOST],
         [25, 'train', ZERGLING, 0],
         [25, 'train', ZERGLING, 1],
         [[...range(29, 200)], 'continuouslyBuild', [ ZERGLING, ROACH, HYDRALISK ]],
         [32, 'train', OVERLORD, 3],
-        [[...range(34, 200)], 'ability', MORPH_LAIR, { targetCount: 0, countType: LAIR } ],
+        [[...range(34, 48)], 'ability', MORPH_LAIR, { targetCount: 0, countType: LAIR } ],
         [34, 'train', QUEEN, 2],
         [36, 'build', 'ROACHWARREN', 0],
         [35, 'train', OVERLORD, 4],
@@ -116,7 +116,7 @@ const plans = {
         [78, 'upgrade', ZERGMISSILEWEAPONSLEVEL2],
         [78, 'upgrade', ZERGGROUNDARMORSLEVEL1],
         [78, 'build', 'HYDRALISKDEN', 0],
-        [[...range(101, 200)], 'ability', MORPH_OVERSEER, { targetCount: 0, countType: OVERSEER }],
+        [[...range(101, 200)], 'ability', MORPH_OVERSEER, { targetCount: 0, countType: [OVERSEER, OVERLORDCOCOON] }],
         [[...range(119, 200)], 'ability', RESEARCH_GROOVEDSPINES],
         [129, 'build', 'HATCHERY', 3],
         [138, 'build', 'HYDRALISKDEN', 1],
@@ -137,7 +137,7 @@ const plans = {
         supportUnitTypes: [ OBSERVER, WARPPRISM ],
       },
       order: [
-        [[...range(0, 23), ...range(31, 36)], 'buildWorkers'],
+        [[...range(0, 27), ...range(31, 41)], 'buildWorkers'],
         [14, 'build', 'PYLON', 0, 'findSupplyPositions'],
         [[...range(14, 19)], 'scout', PROBE, 'getEnemyMain', { unitType: PYLON, unitCount: 1 }],
         [15, 'build', 'GATEWAY', 0],
@@ -145,9 +145,9 @@ const plans = {
         [19, 'build', 'ASSIMILATOR', 0],
         [19, 'build', 'GATEWAY', 1],
         [20, 'build', 'CYBERNETICSCORE', 0],
+        [20, 'build', 'PYLON', 1],
         [20, 'build', 'ASSIMILATOR', 1],
         [[...range(20, 26)], 'scout', PROBE, 'getEnemyNatural'],
-        [[21, 31, 33, ...range(61, 200)], 'manageSupply'],
         [23, 'train', STALKER, 0],
         [[25], 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: GATEWAY } ],
         [25, 'train', STALKER, 1],
@@ -155,9 +155,12 @@ const plans = {
         [27, 'upgrade', WARPGATERESEARCH],
         [27, 'train', STALKER, 2],
         [29, 'train', STALKER, 3],
+        [31, 'harass'],
+        [31, 'build', 'PYLON', 2],
         [31, 'build', 'NEXUS', 1],
         // [31, 'harass', STALKER, 4],
         [32, 'build', 'ROBOTICSFACILITY', 0],
+        [33, 'build', 'PYLON', 3],
         [[...range(32, 200)], 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: ROBOTICSFACILITY} ],
         [35, 'build', 'GATEWAY', 2],
         [36, 'train', OBSERVER, 0],
@@ -166,10 +169,10 @@ const plans = {
         [[...range(37, 44)], 'scout', OBSERVER, 'getEnemyNatural'],
         [39, 'train', STALKER, 5],
         [[...range(41, 200)], 'continuouslyBuild', [ STALKER, COLOSSUS ]],
-        [[...range(40, 200)], 'buildWorkers', true],
+        [[...range(41, 200)], 'buildWorkers', true],
         [45, 'train', IMMORTAL, 0],
-        [53, 'train', COLOSSUS, 0],
         [61, 'upgrade', EXTENDEDTHERMALLANCE],
+        [[...range(61, 200)], 'manageSupply'],
         [64, 'build', 'NEXUS', 2],
         [74, 'build', 'FORGE', 0],
         [80, 'build', 'GATEWAY', 3],

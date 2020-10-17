@@ -250,17 +250,6 @@ const protoss = createSystem({
   },
 });
 
-function buildProbes(resources) {
-  const {
-    actions,
-    units,
-  } = resources.get();
-  const idleNexuses = units.getById(NEXUS, { noQueue: true, buildProgress: 1 });
-  if (idleNexuses.length > 0) {
-    return Promise.all(idleNexuses.map(nexus => actions.train(PROBE, nexus)));
-  } 
-}
-
 function checkEnemyBuild(state, resources) {
   const {
     actions,

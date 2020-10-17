@@ -3,6 +3,7 @@
 
 const { townhallTypes } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { Alliance } = require('@node-sc2/core/constants/enums');
 
 module.exports = {
   getAvailableExpansions: (resources) => {
@@ -11,9 +12,9 @@ module.exports = {
       units
     } = resources.get();
     // get Expansion and filter by bases near townhall position.
-    const allbases = units.getById(townhallTypes);
+    const allBases = units.getById(townhallTypes);
     const availableExpansions = map.getExpansions().filter(expansion => {
-      const [ closestBase ] = units.getClosest(expansion.townhallPosition, allbases);
+      const [ closestBase ] = units.getClosest(expansion.townhallPosition, allBases);
       if (closestBase) {
         return distance(expansion.townhallPosition, closestBase.pos) > 1;
       }
@@ -43,5 +44,16 @@ module.exports = {
       }
     });
     return occupiedExpansions;
+  },
+  getNextSafeExpansion: (units, expansions) => {
+    // sort expansions by closest to enemy units
+    if (units.getAlive(Alliance.ENEMY).length > 0) {
+      expansions.sort((a, b) => {
+        const [ closestEnemyToA ] = units.getClosest(a.townhallPosition, units.getAlive(Alliance.ENEMY));
+        const [ closestEnemyToB ] = units.getClosest(b.townhallPosition, units.getAlive(Alliance.ENEMY));
+        distance(a.townhallPosition, closestEnemyToA.pos) - distance(b.townhallPosition, closestEnemyToB.pos);
+      });
+    }
+    return expansions.shift();
   }
 }

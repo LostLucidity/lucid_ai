@@ -4,9 +4,8 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK } = require("@node-sc2/core/constants/ability");
-
-const getClosestByPath = require("./get-closest-by-path");
-const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
+const { getRallyPointByBases, getRandomPoint } = require("./location");
+const { tankBehavior } = require("./unit-behavior");
 
 module.exports = {
   attack: (resources, mainCombatTypes, supportUnitTypes) => {
@@ -32,24 +31,27 @@ module.exports = {
       const expansions = map.getAvailableExpansions().concat(map.getEnemyMain());
       const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
       const randomExpansion = expansions[Math.floor(Math.random() * expansions.length)];
-      const [ combatPoint ] = units.getClosest(randomExpansion.townhallPosition, combatUnits, 1);
-      if (combatPoint) {
-        if (supportUnits.length > 1) {
-          const supportUnitTags = supportUnits.map(unit => unit.tag);
+      const randomPosition = randomExpansion ? randomExpansion.townhallPosition : getRandomPoint(map)
+      if (randomPosition) {
+        const [ combatPoint ] = units.getClosest(randomPosition, combatUnits, 1);
+        if (combatPoint) {
+          if (supportUnits.length > 1) {
+            const supportUnitTags = supportUnits.map(unit => unit.tag);
+            let unitCommand = {
+              abilityId: MOVE,
+              targetWorldSpacePos: combatPoint.pos,
+              unitTags: [ ...supportUnitTags ],
+            }
+            collectedActions.push(unitCommand);
+          }
+          const idleCombatUnitTags = idleCombatUnits.map(unit => unit.tag);
           let unitCommand = {
-            abilityId: MOVE,
-            targetWorldSpacePos: combatPoint.pos,
-            unitTags: [ ...supportUnitTags ],
+            abilityId: ATTACK_ATTACK,
+            targetWorldSpacePos: randomPosition,
+            unitTags: [ ...idleCombatUnitTags ],
           }
           collectedActions.push(unitCommand);
         }
-        const idleCombatUnitTags = idleCombatUnits.map(unit => unit.tag);
-        let unitCommand = {
-          abilityId: ATTACK_ATTACK,
-          targetWorldSpacePos: randomExpansion.townhallPosition,
-          unitTags: [ ...idleCombatUnitTags ],
-        }
-        collectedActions.push(unitCommand);
       }
     }
     return collectedActions;
@@ -62,13 +64,7 @@ module.exports = {
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
     // let [ closestEnemyUnit ] = getClosestByPath(map, map.getCombatRally(), enemyUnits, 1);
-    const averageBasePosition = avgPoints(units.getBases().map(base => base.pos))
-    let [ closestEnemyBase ] = units.getClosest(averageBasePosition, units.getBases(Alliance.ENEMY), 1);
-    let rallyPointByBases;
-    if (closestEnemyBase) {
-      rallyPointByBases = avgPoints([...units.getBases().map(base => base.pos), closestEnemyBase && closestEnemyBase.pos]);
-    }
-    const rallyPoint = map.getNatural().getWall() || rallyPointByBases;
+    const rallyPoint = map.getNatural().getWall() ? map.getCombatRally() : getRallyPointByBases(map, units);
     if (rallyPoint) {
       let [ closestEnemyUnit ] = units.getClosest(rallyPoint, enemyUnits, 1);
       const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
@@ -141,5 +137,6 @@ function attackWithArmy(combatPoint, units, combatUnits, supportUnits, enemyTarg
     }
     collectedActions.push(unitCommand);
   }
+  collectedActions.push(...tankBehavior(units));
   return collectedActions;
 }
