@@ -4,9 +4,10 @@
 const { CANCEL_QUEUE5, LIFT, LAND } = require("@node-sc2/core/constants/ability");
 
 module.exports = {
-  swapBuildings: async (foodTarget, actions, conditions) => {
-    const firstBuildingTypes = this.units.getById(conditions[0].building).filter(building => building[conditions[0].addOn]() && building.abilityAvailable(conditions[0].liftAbility));
-    const secondBuildingTypes = this.units.getById(conditions[1].building).filter(building => building.buildProgress >= 1)
+  swapBuildings: async (resources, conditions) => {
+    const { actions, units } = resources.get();
+    const firstBuildingTypes = units.getById(conditions[0].building).filter(building => building[conditions[0].addOn]() && building.abilityAvailable(conditions[0].liftAbility));
+    const secondBuildingTypes = units.getById(conditions[1].building).filter(building => building.buildProgress >= 1)
     if (firstBuildingTypes.length === conditions[0].count && secondBuildingTypes.length === conditions[1].count) {
       const [ firstBuilding ] = firstBuildingTypes;
       const [ secondBuilding ] = secondBuildingTypes;
