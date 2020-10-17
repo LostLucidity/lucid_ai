@@ -76,6 +76,7 @@ class AssemblePlan {
     } else { this.collectedActions.push(...attack(this.resources, this.mainCombatTypes, this.supportUnitTypes)); }
     if (this.agent.minerals > 512) {
       balanceResources(world.agent, world.data, world.resources);
+      this.manageSupply([this.foodUsed]);
       this.state.pauseBuilding = false;
     }
     if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { await expand(this.agent, this.data, this.resources, this.state); }
@@ -497,7 +498,7 @@ class AssemblePlan {
             break;
           case 'swapBuildings':
             conditions = planStep[2];
-            swapBuildings(foodTarget, conditions);
+            if (this.foodUsed >= foodTarget) { swapBuildings(this.resources, conditions); }
             break;
           case 'upgrade':
             const upgradeId = planStep[2];
