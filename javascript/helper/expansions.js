@@ -51,7 +51,7 @@ module.exports = {
       expansions.sort((a, b) => {
         const [ closestEnemyToA ] = units.getClosest(a.townhallPosition, units.getAlive(Alliance.ENEMY));
         const [ closestEnemyToB ] = units.getClosest(b.townhallPosition, units.getAlive(Alliance.ENEMY));
-        return distance(a.townhallPosition, closestEnemyToA.pos) - distance(b.townhallPosition, closestEnemyToB.pos);
+        return distance(b.townhallPosition, closestEnemyToB.pos) - distance(a.townhallPosition, closestEnemyToA.pos);
       });
     }
     return expansions.shift();
