@@ -64,7 +64,7 @@ module.exports = {
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
     // let [ closestEnemyUnit ] = getClosestByPath(map, map.getCombatRally(), enemyUnits, 1);
-    const rallyPoint = map.getNatural().getWall() ? map.getCombatRally() : getRallyPointByBases(map, units);
+    const rallyPoint = map.getNatural() && map.getNatural().getWall() ? map.getCombatRally() : getRallyPointByBases(map, units);
     if (rallyPoint) {
       let [ closestEnemyUnit ] = units.getClosest(rallyPoint, enemyUnits, 1);
       const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
