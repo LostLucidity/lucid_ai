@@ -12,7 +12,7 @@ module.exports = {
     let collectedActions = [];
     const { actions, units } = resources.get();
     const availableExpansions = getAvailableExpansions(resources);
-    const expansionLocation = availableExpansions.length > 0 ? getNextSafeExpansion(units, availableExpansions).townhallPosition : null;
+    const expansionLocation = availableExpansions.length > 0 ? getNextSafeExpansion(resources, availableExpansions).townhallPosition : null;
     if (expansionLocation) {
       const townhallType = TownhallRace[agent.race][0];
       if (canAfford(agent, data, townhallType)) {

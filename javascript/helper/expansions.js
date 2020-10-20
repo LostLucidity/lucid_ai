@@ -4,6 +4,7 @@
 const { townhallTypes } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
+const { getRallyPointByBases } = require("./location");
 
 module.exports = {
   getAvailableExpansions: (resources) => {
@@ -45,13 +46,18 @@ module.exports = {
     });
     return occupiedExpansions;
   },
-  getNextSafeExpansion: (units, expansions) => {
+  getNextSafeExpansion: (resources, expansions) => {
+    const { map, units } = resources.get();
     // sort expansions by closest to enemy units
-    if (units.getAlive(Alliance.ENEMY).length > 0) {
+    const enemyStructures = units.getStructures(Alliance.ENEMY)
+    if (enemyStructures.length > 0) {
       expansions.sort((a, b) => {
-        const [ closestEnemyToA ] = units.getClosest(a.townhallPosition, units.getAlive(Alliance.ENEMY));
-        const [ closestEnemyToB ] = units.getClosest(b.townhallPosition, units.getAlive(Alliance.ENEMY));
-        return distance(b.townhallPosition, closestEnemyToB.pos) - distance(a.townhallPosition, closestEnemyToA.pos);
+        const rallyPoint = map.getNatural() ? map.getCombatRally() : getRallyPointByBases(map, units);
+        const [ closestEnemyToA ] = units.getClosest(a.townhallPosition, enemyStructures);
+        const calculatedDistanceA = distance(a.townhallPosition, closestEnemyToA.pos) - distance(a.townhallPosition, rallyPoint);
+        const [ closestEnemyToB ] = units.getClosest(b.townhallPosition, enemyStructures);
+        const calculatedDistanceB = distance(b.townhallPosition, closestEnemyToB.pos) - distance(b.townhallPosition, rallyPoint);
+        return calculatedDistanceB - calculatedDistanceA;
       });
     }
     return expansions.shift();
