@@ -32,6 +32,7 @@ const { harass } = require("../builds/harass");
 const { expand } = require("./general-actions");
 const { swapBuildings } = require("../builds/terran/swap-buildings");
 const { getRallyPointByBases } = require("./location");
+const { repairBurningStructures } = require("../builds/terran/repair");
 
 let actions;
 let opponentRace;
@@ -92,6 +93,7 @@ class AssemblePlan {
       this.state.defendNatural = true;
     }
     await this.raceSpecificManagement();
+    this.collectedActions.push(...repairBurningStructures(this.resources));
     this.collectedActions.push(...shadowEnemy(this.map, this.units, this.state, this.scoutTypes));
     this.collectedActions.push(...liberatorBehavior(this.resources));
     this.collectedActions.push(...marineBehavior(this.resources));
