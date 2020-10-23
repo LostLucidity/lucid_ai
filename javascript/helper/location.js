@@ -9,10 +9,7 @@ module.exports = {
     const averageBasePosition = avgPoints(units.getBases().map(base => base.pos))
     let [ closestEnemyBase ] = units.getClosest(averageBasePosition, units.getBases(Alliance.ENEMY), 1);
     let enemyBaseLocation = closestEnemyBase ? closestEnemyBase.pos : map.getEnemyMain() ? map.getEnemyMain().townhallPosition : module.exports.getRandomPoint;
-    let rallyPointByBases;
-    if (closestEnemyBase) {
-      rallyPointByBases = avgPoints([...units.getBases().map(base => base.pos), enemyBaseLocation]);
-    }
+    const rallyPointByBases = avgPoints([...units.getBases().map(base => base.pos), enemyBaseLocation]);
     return rallyPointByBases;
   },
   getRandomPoint: (map) => {
