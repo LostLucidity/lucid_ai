@@ -329,13 +329,15 @@ class AssemblePlan {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.agent, this.data, this.resources)) {
         switch (race) {
+          // TODO: remove third parameter and handle undefined in train function.
           case Race.TERRAN:
             await this.build(this.foodUsed, 'SUPPLYDEPOT', this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length)
           case Race.PROTOSS:
             await this.build(this.foodUsed, 'PYLON', this.units.getById(PYLON).length);
             break;
           case Race.ZERG:
-            await this.train(this.foodUsed, OVERLORD, this.units.getById(OVERLORD).length);
+            let abilityId = this.data.getUnitTypeData(OVERLORD).abilityId;
+            await this.train(this.foodUsed, OVERLORD, this.units.getById(OVERLORD).length + this.units.withCurrentOrders(abilityId).length);
             break;
         }
       }
