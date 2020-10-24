@@ -72,7 +72,7 @@ async function findAndPlaceCreepTumor(resources, spreaders, ability) {
   } = resources.get();
   let collectedActions = [];
   let creepPoints = []
-  const pointLimit = 1000;
+  const pointLimit = 500;
   if (map.getCreep().length > pointLimit) {
     creepPoints = getRandomWithLimit(map.getCreep(), pointLimit);
   } else {
