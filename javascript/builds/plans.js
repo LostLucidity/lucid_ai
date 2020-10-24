@@ -46,8 +46,8 @@ const plans = {
         [62, 'build', 'ENGINEERINGBAY', 1],
         [[...range(69, 200)], 'ability', BUILD_TECHLAB_BARRACKS, { targetCount: 0, countType: BARRACKSTECHLAB } ],
         [71, 'swapBuildings', [
-          { liftAbility: LIFT_STARPORT, landAbility: LAND_STARPORT, addOn: 'hasReactor', building: STARPORT, count: 1 },
-          { liftAbility: LIFT_BARRACKS, landAbility: LAND_BARRACKS, building: BARRACKS, count: 3 }
+          { liftAbility: LIFT_STARPORT, landAbility: LAND_STARPORT, addOn: 'hasReactor', buildings: [STARPORT, STARPORTFLYING], count: 1 },
+          { liftAbility: LIFT_BARRACKS, landAbility: LAND_BARRACKS, buildings: [BARRACKS, BARRACKSFLYING], count: 3 }
         ]],
         [[...range(71, 200)], 'ability', BUILD_REACTOR_STARPORT, { targetCount: 0, countType: STARPORTREACTOR } ],
         [[...range(75, 200)], 'ability', RESEARCH_STIMPACK],
