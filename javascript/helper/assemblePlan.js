@@ -4,12 +4,12 @@
 const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getOccupiedExpansions, getAvailableExpansions } = require("./expansions");
+const { getOccupiedExpansions } = require("./expansions");
 const placementConfigs = require("./placement-configs");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { frontOfGrid } = require("@node-sc2/core/utils/map/region");
 const buildWorkers = require("./build-workers");
-const { MOVE, CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
+const { MOVE, BUILD_REACTOR_STARPORT, LIFT } = require("@node-sc2/core/constants/ability");
 const canAfford = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
@@ -26,13 +26,13 @@ const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { shadowEnemy } = require("../builds/helper");
-const { liberatorBehavior, marineBehavior, tankBehavior, supplyDepotBehavior } = require("./unit-behavior");
+const { liberatorBehavior, marineBehavior, supplyDepotBehavior } = require("./unit-behavior");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { harass } = require("../builds/harass");
 const { expand } = require("./general-actions");
-const { swapBuildings } = require("../builds/terran/swap-buildings");
+const { swapBuildings, checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { getRallyPointByBases } = require("./location");
-const { repairBurningStructures } = require("../builds/terran/repair");
+const { repairBurningStructures, repairDamagedMechUnits } = require("../builds/terran/repair");
 
 let actions;
 let opponentRace;
@@ -93,14 +93,13 @@ class AssemblePlan {
       this.state.defendNatural = true;
     }
     await this.raceSpecificManagement();
-    this.collectedActions.push(...repairBurningStructures(this.resources));
     this.collectedActions.push(...shadowEnemy(this.map, this.units, this.state, this.scoutTypes));
     this.collectedActions.push(...liberatorBehavior(this.resources));
     this.collectedActions.push(...marineBehavior(this.resources));
     this.collectedActions.push(...supplyDepotBehavior(this.resources));
     await actions.sendAction(this.collectedActions);
   }
-  ability(foodRanges, abilityId, conditions) {
+  async ability(foodRanges, abilityId, conditions) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       if (conditions && typeof conditions.targetCount !== 'undefined') {
         if (this.units.getById(conditions.countType).length !== conditions.targetCount) {
@@ -120,7 +119,12 @@ class AssemblePlan {
           let target = targets[Math.floor(Math.random() * targets.length)];
           if (target) { unitCommand.targetUnitTag = target.tag; }
         }
-        this.collectedActions.push(unitCommand);
+        await actions.sendAction([unitCommand]);
+        if ([BUILD_REACTOR_STARPORT].indexOf(abilityId) > -1 && unitCanDo.abilityAvailable(abilityId)) {
+          const foundPosition = await checkAddOnPlacement(this.world, unitCanDo, conditions.countType);
+          try { await actions.do(LIFT, unitCanDo.tag); } catch(error) { console.log(error); }
+          try { await actions.do(BUILD_REACTOR_STARPORT, unitCanDo.tag, { target: foundPosition, queue: true }); } catch(error) { console.log(error); }
+        }
       }
     }
   }
@@ -219,13 +223,18 @@ class AssemblePlan {
     }
   }
   findPlacements(placementConfig) {
-    const { map } = this.world.resources.get();
+    const { map } = this.resources.get();
     const [main, natural] = map.getExpansions();
     const mainMineralLine = main.areas.mineralLine;
     let placements = [];
     if (race === Race.PROTOSS) {
       if (placementConfig.toBuild === PYLON) {
-        placements = [...main.areas.placementGrid, ...natural.areas.placementGrid]
+        const occupiedExpansions = getOccupiedExpansions(this.resources);
+        const occupiedExpansionsPlacementGrid = [...occupiedExpansions.map(expansion => expansion.areas.placementGrid)];
+        const placementGrids = [];
+        occupiedExpansionsPlacementGrid.forEach(grid => placementGrids.push(...grid));
+        // placements = [...main.areas.placementGrid, ...natural.areas.placementGrid, ...occupiedExpansions]
+        placements = placementGrids
           .filter((point) => {
             return (
               (distance(natural.townhallPosition, point) > 4.5) &&
@@ -349,12 +358,18 @@ class AssemblePlan {
     await world.resources.get().actions.sendAction(this.collectedActions);
   }
   async raceSpecificManagement() {
-    if (race === Race.ZERG) {
-      labelQueens(this.units);
-      maintainQueens(this.resources, this.data, this.agent);
-      this.collectedActions.push(...inject(this.units));
-      this.collectedActions.push(...overlordCoverage(this.units));
-      this.collectedActions.push(...await spreadCreep(this.resources, this.units));
+    switch (race) {
+      case Race.ZERG:
+        labelQueens(this.units);
+        maintainQueens(this.resources, this.data, this.agent);
+        this.collectedActions.push(...inject(this.units));
+        this.collectedActions.push(...overlordCoverage(this.units));
+        this.collectedActions.push(...await spreadCreep(this.resources, this.units));
+        break;
+      case Race.TERRAN:
+        this.collectedActions.push(...repairBurningStructures(this.resources));
+        this.collectedActions.push(...repairDamagedMechUnits(this.resources));
+        break;
     }
   }
   scout(foodRanges, unitType, targetLocation, conditions) {
@@ -484,7 +499,7 @@ class AssemblePlan {
           case 'ability':
             const abilityId = planStep[2];
             conditions = planStep[3];
-            this.ability(foodTarget, abilityId, conditions);
+            await this.ability(foodTarget, abilityId, conditions);
             break;
           case 'build':
             unitType = planStep[2];

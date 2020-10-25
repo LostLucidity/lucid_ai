@@ -65,7 +65,7 @@ function rallyUnits(resources, supportUnitTypes, rallyPoint=null) {
       }
     }
   }
-  collectedActions.push(...tankBehavior(units, rallyPoint));
+  collectedActions.push(...tankBehavior(units));
   return collectedActions;
 }
 

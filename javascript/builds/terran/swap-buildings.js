@@ -2,8 +2,13 @@
 "use strict"
 
 const { CANCEL_QUEUE5, LIFT, LAND } = require("@node-sc2/core/constants/ability");
+const { BARRACKSREACTOR } = require("@node-sc2/core/constants/unit-type");
+const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
 module.exports = {
+  handleOrphanReactor: () => {
+    // find orphan reactors
+  },
   swapBuildings: async (resources, conditions) => {
     const { actions, units } = resources.get();
     let firstBuildingTypes = units.getById(conditions[0].buildings).filter(building => building[conditions[0].addOn]() && building.abilityAvailable(conditions[0].liftAbility));
@@ -34,6 +39,20 @@ module.exports = {
       }
     }
   },
+  checkAddOnPlacement: async ({ data, resources }, building, unitTypeAddOn) => {
+    const { actions } = resources.get();
+    const abilityId = data.getUnitTypeData(unitTypeAddOn).abilityId;
+    if (building.abilityAvailable(abilityId)) {
+      const nearPoints = gridsInCircle(building.pos, 4);
+      const randomPositions = nearPoints
+          .map(pos => ({ pos, rand: Math.random() }))
+          .sort((a, b) => a.rand - b.rand)
+          .map(a => a.pos)
+          .slice(0, 20);
+      // see if any of them are good    
+      return await actions.canPlace(BARRACKSREACTOR, randomPositions);
+    } else {
+      return;
     }
   }
 }

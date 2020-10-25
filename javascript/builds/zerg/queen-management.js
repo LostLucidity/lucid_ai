@@ -64,6 +64,8 @@ module.exports = {
   }
 }
 
+let longestTime = 0;
+
 async function findAndPlaceCreepTumor(resources, spreaders, ability) {
   const {
     actions,
@@ -78,9 +80,13 @@ async function findAndPlaceCreepTumor(resources, spreaders, ability) {
   } else {
     creepPoints = map.getCreep();
   }
+  const t0 = new Date().getTime();
   const creepCandidates = creepPoints.filter(point => {
     return filterPlacementsByRange(map, units, [ HATCHERY, LAIR, CREEPTUMORBURROWED, ], point, 9);
   });
+  const t1 = new Date().getTime();
+  longestTime = (t1 - t0) > longestTime ? t1 - t0 : longestTime;
+  console.log(`creepPoints.filter(point${t1 - t0} milliseconds. Longest Time ${longestTime}`);
   if (creepCandidates.length > 0) {
     // for every creepCandidate filter by finding at least one spreader less than 10.5 distance
     // no test for queens.

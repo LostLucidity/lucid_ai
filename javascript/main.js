@@ -52,7 +52,7 @@ const zergBuilds = [
 
 const settings = {
   type: PlayerType.PARTICIPANT,
-  race: Race.RANDOM,
+  race: Race.PROTOSS,
 }
 
 console.log('settings', settings);

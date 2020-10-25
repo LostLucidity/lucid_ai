@@ -9,6 +9,7 @@ const plans = require("./plans");
 const { onEnemyFirstSeen, onUnitCreated } = require("./terran");
 
 let assemblePlan = null;
+let longestTime = 0;
 
 const entry = createSystem({
   name: 'main',
@@ -35,7 +36,11 @@ const entry = createSystem({
     this.state.enemyBuildType = 'standard';
   },
   async onStep(world) {
+    const t0 = new Date().getTime();
     await assemblePlan.onStep(world, this.state);
+    const t1 = new Date().getTime();
+    longestTime = (t1 - t0) > longestTime ? t1 - t0 : longestTime;
+    console.log(`Call to assemblePlan.onStep took ${t1 - t0} milliseconds. Longest Time ${longestTime}`);
   },
   async onUnitCreated(world, createdUnit) {
     await assemblePlan.onUnitCreated(world, createdUnit)
