@@ -74,7 +74,7 @@ async function findAndPlaceCreepTumor(resources, spreaders, ability) {
   } = resources.get();
   let collectedActions = [];
   let creepPoints = []
-  const pointLimit = 500;
+  const pointLimit = 250;
   if (map.getCreep().length > pointLimit) {
     creepPoints = getRandomWithLimit(map.getCreep(), pointLimit);
   } else {
@@ -132,14 +132,14 @@ function getRandomWithLimit(array, limit) {
   var result = new Array(limit),
   len = array.length,
   taken = new Array(len);
-if (limit > len)
-  throw new RangeError("getRandom: more elements taken than available");
-while (limit--) {
-  var x = Math.floor(Math.random() * len);
-  result[limit] = array[x in taken ? taken[x] : x];
-  taken[x] = --len in taken ? taken[len] : len;
-}
-return result;
+  if (limit > len)
+    throw new RangeError("getRandom: more elements taken than available");
+  while (limit--) {
+    var x = Math.floor(Math.random() * len);
+    result[limit] = array[x in taken ? taken[x] : x];
+    taken[x] = --len in taken ? taken[len] : len;
+  }
+  return result;
 }
 
 function setLabel(units, label) {
