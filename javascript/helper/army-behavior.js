@@ -4,7 +4,7 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK } = require("@node-sc2/core/constants/ability");
-const { getRallyPointByBases, getRandomPoint } = require("./location");
+const { getRandomPoint, getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
 
 module.exports = {
@@ -15,9 +15,9 @@ module.exports = {
     } = resources.get();
     const collectedActions = [];
     // closest enemy base
-    let [ closestEnemyBase ] = units.getClosest(map.getNatural() && map.getNatural().getWall() ? map.getCombatRally() : getRallyPointByBases(map, units), units.getBases(Alliance.ENEMY), 1);
+    let [ closestEnemyBase ] = units.getClosest(getCombatRally(map, units), units.getBases(Alliance.ENEMY), 1);
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-    let [ closestEnemyUnit ] = units.getClosest(map.getNatural() && map.getNatural().getWall() ? map.getCombatRally() : getRallyPointByBases(map, units), enemyUnits, 1);
+    let [ closestEnemyUnit ] = units.getClosest(getCombatRally(map, units), enemyUnits, 1);
     const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
     if (closestEnemyBase || closestEnemyUnit) {
       const enemyTarget = closestEnemyBase || closestEnemyUnit;
@@ -64,7 +64,7 @@ module.exports = {
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
     // let [ closestEnemyUnit ] = getClosestByPath(map, map.getCombatRally(), enemyUnits, 1);
-    const rallyPoint = map.getNatural() && map.getNatural().getWall() ? map.getCombatRally() : getRallyPointByBases(map, units);
+    const rallyPoint = getCombatRally(map, units);
     if (rallyPoint) {
       let [ closestEnemyUnit ] = units.getClosest(rallyPoint, enemyUnits, 1);
       const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);

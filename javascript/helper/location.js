@@ -5,6 +5,9 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
 module.exports = {
+  getCombatRally: (map, units) => {
+    return map.getNatural() && map.getNatural().getWall() ? map.getCombatRally() : module.exports.getRallyPointByBases(map, units);
+  },
   getRallyPointByBases: (map, units) => {
     const averageBasePosition = avgPoints(units.getBases().map(base => base.pos))
     let [ closestEnemyBase ] = units.getClosest(averageBasePosition, units.getBases(Alliance.ENEMY), 1);

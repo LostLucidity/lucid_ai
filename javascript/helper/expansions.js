@@ -4,7 +4,7 @@
 const { townhallTypes } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
-const { getRallyPointByBases } = require("./location");
+const { getRallyPointByBases, getCombatRally } = require("./location");
 
 module.exports = {
   getAvailableExpansions: (resources) => {
@@ -52,7 +52,7 @@ module.exports = {
     const enemyStructures = units.getStructures(Alliance.ENEMY)
     if (enemyStructures.length > 0) {
       expansions.sort((a, b) => {
-        const rallyPoint = map.getNatural() && map.getNatural().getWall() ? map.getCombatRally() : getRallyPointByBases(map, units);
+        const rallyPoint = getCombatRally(map, units);
         const [ closestEnemyToA ] = units.getClosest(a.townhallPosition, enemyStructures);
         const calculatedDistanceA = distance(a.townhallPosition, closestEnemyToA.pos) - distance(a.townhallPosition, rallyPoint);
         const [ closestEnemyToB ] = units.getClosest(b.townhallPosition, enemyStructures);

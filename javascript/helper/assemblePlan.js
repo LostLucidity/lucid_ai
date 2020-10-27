@@ -31,7 +31,7 @@ const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { harass } = require("../builds/harass");
 const { expand } = require("./general-actions");
 const { swapBuildings, checkAddOnPlacement } = require("../builds/terran/swap-buildings");
-const { getRallyPointByBases } = require("./location");
+const { getCombatRally } = require("./location");
 const { repairBurningStructures, repairDamagedMechUnits } = require("../builds/terran/repair");
 
 let actions;
@@ -465,7 +465,7 @@ class AssemblePlan {
             abilityId = WarpUnitAbility[unitType]
             const warpGates = this.units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
             if (warpGates.length > 0) {
-              try { await actions.warpIn(unitType, { nearPosition: this.map.getNatural() ? this.map.getCombatRally() : getRallyPointByBases(this.map, this.units) }) } catch (error) { console.log(error); }
+              try { await actions.warpIn(unitType, { nearPosition: getCombatRally(this.map, this.units) }) } catch (error) { console.log(error); }
             }
           }
           this.state.pauseBuilding = false;
