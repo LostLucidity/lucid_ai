@@ -511,15 +511,15 @@ class AssemblePlan {
             if (this.agent.minerals > 512 && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.agent, this.data, this.resources, planStep[2], planStep[3]); } break;
           case 'harass': if (this.state.enemyBuildType === 'standard') { harass(this.resources, this.state); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
-          case 'train':
-            unitType = planStep[2];
-            try { await this.train(foodTarget, unitType, targetCount); } catch(error) { console.log(error) } break;
           case 'scout':
             unitType = planStep[2];
             const targetLocation = planStep[3];
             conditions = planStep[4];
             this.scout(foodTarget, unitType, targetLocation, conditions );
             break;
+          case 'train':
+            unitType = planStep[2];
+            try { await this.train(foodTarget, unitType, targetCount); } catch(error) { console.log(error) } break;
           case 'swapBuildings':
             conditions = planStep[2];
             if (this.foodUsed >= foodTarget) { swapBuildings(this.resources, conditions); }
