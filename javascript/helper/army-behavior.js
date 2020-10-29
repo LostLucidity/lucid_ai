@@ -67,13 +67,13 @@ module.exports = {
     const rallyPoint = getCombatRally(map, units);
     if (rallyPoint) {
       let [ closestEnemyUnit ] = units.getClosest(rallyPoint, enemyUnits, 1);
-      const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
       if (closestEnemyUnit) {
+        const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
         if (closestEnemyUnit.isFlying) {
           // if no anti air in combat, use Queens.
           const findAntiAir = combatUnits.find(unit => unit.canShootUp());
           if (!findAntiAir) {
-            supportUnits.push(...units.getById(QUEEN));
+            combatUnits.push(...units.getById(QUEEN));
           }
         }
         // const [ combatPoint ] = getClosestByPath(map, closestEnemyUnit.pos, combatUnits, 1);
