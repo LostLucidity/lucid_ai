@@ -95,7 +95,7 @@ const plans = {
         [[...range(25, 200)], 'ability', RESEARCH_ZERGLINGMETABOLICBOOST],
         [25, 'train', ZERGLING, 0],
         [25, 'train', ZERGLING, 1],
-        [[...range(29, 200)], 'continuouslyBuild', [ ZERGLING, ROACH, HYDRALISK ]],
+        [[...range(26, 200)], 'continuouslyBuild', [ ZERGLING, ROACH, HYDRALISK ]],
         [32, 'train', OVERLORD, 3],
         [[...range(34, 48)], 'ability', MORPH_LAIR, { targetCount: 0, countType: LAIR } ],
         [34, 'train', QUEEN, 2],
