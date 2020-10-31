@@ -361,7 +361,6 @@ class AssemblePlan {
     switch (race) {
       case Race.ZERG:
         labelQueens(this.units);
-        maintainQueens(this.resources, this.data, this.agent);
         this.collectedActions.push(...inject(this.units));
         this.collectedActions.push(...overlordCoverage(this.units));
         this.collectedActions.push(...await spreadCreep(this.resources, this.units));
@@ -510,6 +509,7 @@ class AssemblePlan {
             const foodRanges = planStep[0];
             if (this.agent.minerals > 512 && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.agent, this.data, this.resources, planStep[2], planStep[3]); } break;
           case 'harass': if (this.state.enemyBuildType === 'standard') { harass(this.resources, this.state); } break;
+          case 'maintainQueens': if (this.foodUsed >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
           case 'scout':
             unitType = planStep[2];

@@ -99,6 +99,7 @@ const plans = {
         [32, 'train', OVERLORD, 3],
         [[...range(34, 48)], 'ability', MORPH_LAIR, { targetCount: 0, countType: LAIR } ],
         [34, 'train', QUEEN, 2],
+        [36, 'maintainQueens'],
         [36, 'build', 'ROACHWARREN', 0],
         [35, 'train', OVERLORD, 4],
         [35, 'build', 'EVOLUTIONCHAMBER', 0],
