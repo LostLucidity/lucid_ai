@@ -30,5 +30,6 @@ module.exports = {
         state.continueBuild = false;
       }
     }
+    return collectedActions;
   }
 }

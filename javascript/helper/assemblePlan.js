@@ -81,7 +81,7 @@ class AssemblePlan {
       this.manageSupply([this.foodUsed]);
       this.state.pauseBuilding = false;
     }
-    if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { await expand(this.agent, this.data, this.resources, this.state); }
+    if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(this.agent, this.data, this.resources, this.state)); }
     if (this.foodUsed >= ATTACKFOOD) {  }
     this.checkEnemyBuild();
     defenseSetup(world, this.state);
@@ -144,7 +144,7 @@ class AssemblePlan {
             this.state.continueBuild = false;
           }
         }
-        else if (TownhallRace[race].indexOf(toBuild) > -1 ) { await expand(this.agent, this.data, this.resources, this.state); } 
+        else if (TownhallRace[race].indexOf(toBuild) > -1 ) { this.collectedActions.push(...await expand(this.agent, this.data, this.resources, this.state)); } 
         else {
           if (candidatePositions.length === 0 ) { candidatePositions = this.findPlacements(placementConfig); }
           await this.buildBuilding(placementConfig, candidatePositions);
