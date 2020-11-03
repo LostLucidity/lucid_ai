@@ -22,7 +22,7 @@ async function balanceResources(agent, data, resources, ratio=2.4) {
     geyser,
   ];
   if (conditions.every(c => c)) {
-    try { await actions.buildGasMine(); } catch(error) { console.log(error); }
+    try { await actions.buildGasMine(); } catch(error) { console.log(error.message); }
   }
 }
 
