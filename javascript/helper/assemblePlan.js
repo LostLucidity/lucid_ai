@@ -475,12 +475,19 @@ class AssemblePlan {
       }
     }
   }
-  upgrade(food, upgradeId) {
+  async upgrade(food, upgradeId) {
     if (this.foodUsed >= food) {
       const { abilityId } = this.data.getUpgradeData(upgradeId);
       const upgrader = this.units.getUpgradeFacilities(upgradeId).find(u => u.noQueue && u.availableAbilities(abilityId));
       if (upgrader) {
-        this.collectedActions.push({ abilityId, unitTags: [upgrader.tag] });
+        if (this.agent.canAffordUpgrade(upgradeId)) {
+          const unitCommand = { abilityId, unitTags: [upgrader.tag] };
+          await actions.sendAction([unitCommand]);
+          this.state.pauseBuilding = false;
+        } else {
+          this.state.pauseBuilding = true;
+          this.state.continueBuild = false;
+        }
       }
     }
   }
