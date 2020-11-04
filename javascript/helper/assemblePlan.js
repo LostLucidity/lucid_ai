@@ -212,7 +212,7 @@ class AssemblePlan {
     }
     // if scouting probe and time is greater than 2 minutes. If no base, stay defensive.
     if (frame.timeInSeconds() > 132 && frame.timeInSeconds() <= 240) {
-      if (this.units.getBases(Alliance.ENEMY).length < 2) {
+      if (this.map.getNatural().getBase() === undefined) {
         this.state.enemyBuildType = 'cheese';
       } else {
         this.state.enemyBuildType = 'standard';
