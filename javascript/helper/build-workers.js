@@ -12,12 +12,15 @@ async function buildWorkers(agent, data, resources) {
   } = resources.get();
   const workerType = WorkerRace[agent.race];
   if (canAfford(agent, data, workerType)) {
-    const idleTownhalls = units.getById(townhallTypes, { noQueue: true, buildProgress: 1 }).filter(townhall => !townhall.isEnemy());
-    if (idleTownhalls.length > 0) {
-      if (agent.race === Race.ZERG && units.getById(LARVA).length === 0) {
-        return;
+    if (agent.race === Race.ZERG) {
+      if (units.getById(LARVA).length > 0) {
+        try { await actions.train(workerType); } catch (error) { console.log(error) }
       }
-      try { await actions.train(workerType); } catch (error) { console.log(error) }
+    } else {
+      const idleTownhalls = units.getById(townhallTypes, { noQueue: true, buildProgress: 1 }).filter(townhall => !townhall.isEnemy());
+      if (idleTownhalls.length > 0) {
+        try { await actions.train(workerType); } catch (error) { console.log(error) }
+      }
     }
   }
 }
