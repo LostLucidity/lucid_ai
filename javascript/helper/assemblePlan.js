@@ -478,7 +478,7 @@ class AssemblePlan {
   async upgrade(food, upgradeId) {
     if (this.foodUsed >= food) {
       const { abilityId } = this.data.getUpgradeData(upgradeId);
-      const upgrader = this.units.getUpgradeFacilities(upgradeId).find(u => u.noQueue && u.availableAbilities(abilityId));
+      const upgrader = this.units.getUpgradeFacilities(upgradeId).find(u => u.noQueue && u.abilityAvailable(abilityId));
       if (upgrader) {
         if (this.agent.canAffordUpgrade(upgradeId)) {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
