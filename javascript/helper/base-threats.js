@@ -11,7 +11,7 @@ function baseThreats(resources, state) {
   const enemyPush = [];
   townhalls.forEach(async townhall => {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
-    const inRange = enemyUnits.filter(unit => distance(unit.pos, townhall.pos) < 22);
+    const inRange = enemyUnits.filter(unit => unit.unitType !== 106 && distance(unit.pos, townhall.pos) < 22);
     const enemyCount = inRange.length;
     if (enemyCount > 0) {
       enemyPush.push(true);
