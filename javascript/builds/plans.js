@@ -106,7 +106,7 @@ const plans = {
         [38, 'train', OVERLORD, 5],
         // manage overlord scouting, retreat, move towards
         [40, 'build', 'SPORECRAWLER', 0],
-        [40, 'build', 'SPORECRAWLER', 1],
+        [39, 'build', 'SPORECRAWLER', 1],
         [42, 'upgrade', ZERGMISSILEWEAPONSLEVEL1],
         [42, 'upgrade', GLIALRECONSTITUTION],
         [42, 'build', 'EXTRACTOR', 1],
