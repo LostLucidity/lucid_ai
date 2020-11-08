@@ -502,10 +502,12 @@ class AssemblePlan {
   }
   async upgrade(food, upgradeId) {
     if (this.foodUsed >= food) {
+      const upgraders = this.units.getUpgradeFacilities(upgradeId);
       const { abilityId } = this.data.getUpgradeData(upgradeId);
-      const upgrader = this.units.getUpgradeFacilities(upgradeId).find(u => u.noQueue && u.abilityAvailable(abilityId));
-      if (upgrader) {
-        if (this.agent.canAffordUpgrade(upgradeId)) {
+      const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
+      if (!this.agent.upgradeIds.includes(upgradeId) && foundUpgradeInProgress === undefined) {
+        const upgrader = this.units.getUpgradeFacilities(upgradeId).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
+        if (upgrader) {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
           this.state.pauseBuilding = false;
