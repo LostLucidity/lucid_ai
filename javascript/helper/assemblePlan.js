@@ -99,31 +99,56 @@ class AssemblePlan {
     this.collectedActions.push(...supplyDepotBehavior(this.resources));
     await actions.sendAction(this.collectedActions);
   }
-  async ability(foodRanges, abilityId, conditions) {
-    if (foodRanges.indexOf(this.foodUsed) > -1) {
-      if (conditions && typeof conditions.targetCount !== 'undefined') {
-        if (this.units.getById(conditions.countType).length !== conditions.targetCount) {
-          return;
-        } 
-      }
-      let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
-      if (canDoTypes.length === 0) {
-        canDoTypes = this.units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
-      }
-      const unitsCanDo = this.units.getByType(canDoTypes).filter(u => u.abilityAvailable(abilityId));
-      let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-      if (unitCanDo) {
-        const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
-        if (conditions && conditions.targetType) {
-          const targets = this.units.getById(conditions.targetType).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
-          let target = targets[Math.floor(Math.random() * targets.length)];
-          if (target) { unitCommand.targetUnitTag = target.tag; }
+  // async ability(food, abilityId, conditions) {
+  //   if (this.foodUsed >= food) {
+  //     if (conditions && typeof conditions.targetCount !== 'undefined') {
+  //       if (this.units.getById(conditions.countType).length !== conditions.targetCount) {
+  //         return;
+  //       } 
+  //     }
+  //     let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
+  //     if (canDoTypes.length === 0) {
+  //       canDoTypes = this.units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
+  //     }
+  //     const unitsCanDo = this.units.getByType(canDoTypes).filter(units => units.abilityAvailable(abilityId));
+  //     let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+  //     if (unitCanDo) {
+  //       const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
+  //       if (conditions && conditions.targetType) {
+  //         const targets = this.units.getById(conditions.targetType).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
+  //         let target = targets[Math.floor(Math.random() * targets.length)];
+  //         if (target) { unitCommand.targetUnitTag = target.tag; }
+  //       }
+  //       await actions.sendAction([unitCommand]);
+  //       if ([BUILD_REACTOR_STARPORT].indexOf(abilityId) > -1 && unitCanDo.abilityAvailable(abilityId)) {
+  //         const foundPosition = await checkAddOnPlacement(this.world, unitCanDo, conditions.countType);
+  //         try { await actions.do(LIFT, unitCanDo.tag); } catch(error) { console.log(error); }
+  //         try { await actions.do(BUILD_REACTOR_STARPORT, unitCanDo.tag, { target: foundPosition, queue: true }); } catch(error) { console.log(error); }
+  //       }
+  //     }
+  //   }
+  // }
+  async ability(food, abilityId, conditions) {
+    if (this.foodUsed >= food) {
+      if (conditions === undefined || conditions.targetCount === this.units.getById(conditions.countType).length + this.units.withCurrentOrders(abilityId).length) {
+        let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
+        if (canDoTypes.length === 0) {
+          canDoTypes = this.units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
         }
-        await actions.sendAction([unitCommand]);
-        if ([BUILD_REACTOR_STARPORT].indexOf(abilityId) > -1 && unitCanDo.abilityAvailable(abilityId)) {
-          const foundPosition = await checkAddOnPlacement(this.world, unitCanDo, conditions.countType);
-          try { await actions.do(LIFT, unitCanDo.tag); } catch(error) { console.log(error); }
-          try { await actions.do(BUILD_REACTOR_STARPORT, unitCanDo.tag, { target: foundPosition, queue: true }); } catch(error) { console.log(error); }
+        const unitsCanDo = this.units.getByType(canDoTypes).filter(units => units.abilityAvailable(abilityId));
+        let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+        if (unitCanDo) {
+          const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
+          if (conditions && conditions.targetType) {
+            const targets = this.units.getById(conditions.targetType).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
+            let target = targets[Math.floor(Math.random() * targets.length)];
+            if (target) { unitCommand.targetUnitTag = target.tag; }
+          }
+          await actions.sendAction([unitCommand]);
+          this.state.pauseBuilding = false;
+        } else {
+          this.state.pauseBuilding = true;
+          this.state.continueBuild = false;
         }
       }
     }
