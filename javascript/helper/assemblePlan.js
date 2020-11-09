@@ -196,6 +196,7 @@ class AssemblePlan {
         // this.collectedActions.push(...workerSendOrBuild(this.units, this.data.getUnitTypeData(placementConfig.toBuild).abilityId, this.foundPosition));
         await actions.sendAction(workerSendOrBuild(this.units, this.data.getUnitTypeData(placementConfig.toBuild).abilityId, this.foundPosition));
         this.state.pauseBuilding = false;
+        this.state.continueBuild = false;
       } else {
         this.collectedActions.push(...workerSendOrBuild(this.units, MOVE, this.foundPosition));
         this.state.pauseBuilding = true;
