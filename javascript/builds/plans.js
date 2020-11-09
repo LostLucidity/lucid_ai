@@ -11,25 +11,27 @@ const plans = {
     oneOneOne: {
       unitTypes: {
         defenseStructures: [ BUNKER ],
-        defenseTypes: [ MARAUDER, MARINE ],
+        defenseTypes: [ MARAUDER, MARINE, SIEGETANK ],
         mainCombatTypes: [ MARINE, MARAUDER, SIEGETANK, SIEGETANKSIEGED ],
         supportUnitTypes: [ CYCLONE, LIBERATOR, MEDIVAC, VIKINGFIGHTER ],
       },
       order: [
         [[...range(0, 200)], 'buildWorkers', true],
-        [14, 'build', 'SUPPLYDEPOT', 0],
-        [16, 'build', 'BARRACKSREACTOR', 0],
-        [16, 'build', 'REFINERY', 0],
+        [14, 'build', 'SUPPLYDEPOT', 0],  //  0:20 vs 0:23
+        [16, 'build', 'BARRACKSREACTOR', 0],  //  0:46 vs 0:49
+        [16, 'build', 'REFINERY', 0], //  0:51 vs 0:48
         [[...range(17, 21)], 'scout', SCV, 'getEnemyNatural',],
-        [[...range(19, 200)], 'ability', MORPH_ORBITALCOMMAND, { targetCount: 0, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ],
-        [[...range(19, 200)], 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 0, countType: BARRACKSREACTOR } ],
+        [19, 'ability', MORPH_ORBITALCOMMAND, { targetCount: 0, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ], //  1:34 vs 1:36
+        [19, 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 0, countType: BARRACKSREACTOR } ],  //  1:37 vs 1:36
         [[...range(19, 21)], 'scout', SCV, 'getEnemyMain',],
-        [19, 'build', 'COMMANDCENTER', 1],
-        [20, 'build', 'SUPPLYDEPOT', 1],
-        [20, 'build', 'FACTORY', 0],
+        [19, 'build', 'COMMANDCENTER', 1],  //  1:48 vs 1:44
+        [20, 'build', 'SUPPLYDEPOT', 1],  //  2:05 vs 2:07
+        [20, 'build', 'FACTORY', 0],  //  2:15 vs 2:13
+        // [21, 'train', MARINE, 0],
+        // [21, 'train', MARINE, 1],
         [[...range(0, 200)], 'continuouslyBuild', [MARINE, MARAUDER], true],
-        [[...range(31, 200)], 'ability', MORPH_ORBITALCOMMAND, { targetCount: 1, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ],
-        [[...range(31, 33)], 'ability', BUILD_TECHLAB_FACTORY, { targetCount: 0, countType: [FACTORYTECHLAB] } ],
+        [31, 'ability', MORPH_ORBITALCOMMAND, { targetCount: 1, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ],  //  
+        [31, 'ability', BUILD_TECHLAB_FACTORY, { targetCount: 0, countType: [FACTORYTECHLAB] } ],
         [33, 'build', 'STARPORT', 0],
         [34, 'build', 'REFINERY', 1],
         [40, 'train', CYCLONE, 0],
@@ -40,28 +42,28 @@ const plans = {
         [[...range(49, 200)], 'manageSupply'],
         [58, 'build', 'BARRACKSREACTOR', 1],
         [58, 'build', 'BARRACKSREACTOR', 2],
-        [[...range(62, 200)], 'ability', BUILD_REACTOR_STARPORT, { targetCount: 0, countType: STARPORTREACTOR } ],
+        [62, 'ability', BUILD_REACTOR_STARPORT, { targetCount: 0, countType: STARPORTREACTOR } ],
         [62, 'build', 'COMMANDCENTER', 2],
         [62, 'build', 'ENGINEERINGBAY', 0],
         [62, 'build', 'ENGINEERINGBAY', 1],
-        [[...range(69, 200)], 'ability', BUILD_TECHLAB_BARRACKS, { targetCount: 0, countType: BARRACKSTECHLAB } ],
+        [69, 'ability', BUILD_TECHLAB_BARRACKS, { targetCount: 0, countType: BARRACKSTECHLAB } ],
         [71, 'swapBuildings', [
           { liftAbility: LIFT_STARPORT, landAbility: LAND_STARPORT, addOn: 'hasReactor', buildings: [STARPORT, STARPORTFLYING], count: 1 },
           { liftAbility: LIFT_BARRACKS, landAbility: LAND_BARRACKS, buildings: [BARRACKS, BARRACKSFLYING], count: 3 }
         ]],
-        [[...range(71, 200)], 'ability', BUILD_REACTOR_STARPORT, { targetCount: 0, countType: STARPORTREACTOR } ],
-        [[...range(75, 200)], 'ability', RESEARCH_STIMPACK],
+        [71, 'ability', BUILD_REACTOR_STARPORT, { targetCount: 0, countType: STARPORTREACTOR } ],
+        [75, 'ability', RESEARCH_STIMPACK],
         [77, 'build', 'BARRACKSREACTOR', 3],
         [86, 'upgrade', TERRANINFANTRYWEAPONSLEVEL1],
         [86, 'upgrade', TERRANINFANTRYARMORSLEVEL1],
-        [[...range(87, 200)], 'ability', MORPH_ORBITALCOMMAND, { targetCount: 2, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ],
+        [87, 'ability', MORPH_ORBITALCOMMAND, { targetCount: 2, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ],
         [91, 'build', 'BARRACKSREACTOR', 4],
-        [[...range(104, 200)], 'continuouslyBuild', [MEDIVAC], true],
+        [[...range(104, 193)], 'continuouslyBuild', [MEDIVAC], true],
         [[...range(193, 200)], 'continuouslyBuild', [LIBERATOR], true],
-        [[...range(105, 200)], 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 2, countType: BARRACKSREACTOR } ],
-        [[...range(105, 200)], 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 3, countType: BARRACKSREACTOR } ],
-        [[...range(105, 200)], 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 3, countType: BARRACKSREACTOR } ],
-        [[...range(117, 200)], 'ability', RESEARCH_COMBATSHIELD],
+        [105, 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 2, countType: BARRACKSREACTOR } ],
+        [105, 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 3, countType: BARRACKSREACTOR } ],
+        [105, 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 3, countType: BARRACKSREACTOR } ],
+        [117, 'ability', RESEARCH_COMBATSHIELD],
         [117, 'build', 'ARMORY', 0],
         [131, 'build', 'MISSILETURRET', 0],
         [131, 'build', 'MISSILETURRET', 1],
