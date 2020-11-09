@@ -2,8 +2,8 @@
 "use strict"
 
 const { EFFECT_CHRONOBOOSTENERGYCOST, MORPH_ORBITALCOMMAND, BUILD_REACTOR_BARRACKS, RESEARCH_ZERGLINGMETABOLICBOOST, BUILD_TECHLAB_FACTORY, MORPH_LAIR, MORPH_OVERSEER, RESEARCH_GROOVEDSPINES, RESEARCH_MUSCULARAUGMENTS, MORPH_HIVE, BUILD_REACTOR_STARPORT, BUILD_TECHLAB_BARRACKS, LIFT_STARPORT, LAND_BARRACKS, RESEARCH_STIMPACK, RESEARCH_COMBATSHIELD, LIFT_BARRACKS, LAND_STARPORT } = require('@node-sc2/core/constants/ability');
-const { NEXUS, PYLON, STALKER, GATEWAY, COLOSSUS, IMMORTAL, OBSERVER, WARPPRISM, ROBOTICSFACILITY, OVERLORD, ZERGLING, ROACH, HYDRALISK, OVERSEER, CYCLONE, MARINE, MARAUDER, SIEGETANK, SIEGETANKSIEGED, LIBERATOR, MEDIVAC, VIKINGFIGHTER, HATCHERY, REFINERY, SCV, EXTRACTOR, PROBE, QUEEN, BUNKER, SHIELDBATTERY, LAIR, HIVE, ORBITALCOMMAND, ORBITALCOMMANDFLYING, BARRACKSREACTOR, FACTORYTECHLAB, STARPORTREACTOR, BARRACKSTECHLAB, STARPORT, BARRACKS, SPINECRAWLER, OVERLORDCOCOON, STARPORTFLYING, BARRACKSFLYING, ZEALOT } = require('@node-sc2/core/constants/unit-type');
-const { WARPGATERESEARCH, EXTENDEDTHERMALLANCE, PROTOSSGROUNDWEAPONSLEVEL1, CHARGE, PROTOSSGROUNDWEAPONSLEVEL2, GLIALRECONSTITUTION, ZERGMISSILEWEAPONSLEVEL2, ZERGMISSILEWEAPONSLEVEL1, ZERGGROUNDARMORSLEVEL1, ZERGGROUNDARMORSLEVEL2, TERRANINFANTRYWEAPONSLEVEL1, TERRANINFANTRYARMORSLEVEL1, TERRANINFANTRYWEAPONSLEVEL2, TERRANINFANTRYARMORSLEVEL2 } = require('@node-sc2/core/constants/upgrade');
+const { NEXUS, PYLON, STALKER, GATEWAY, COLOSSUS, IMMORTAL, OBSERVER, WARPPRISM, ROBOTICSFACILITY, OVERLORD, ZERGLING, ROACH, HYDRALISK, OVERSEER, CYCLONE, MARINE, MARAUDER, SIEGETANK, SIEGETANKSIEGED, LIBERATOR, MEDIVAC, VIKINGFIGHTER, SCV, PROBE, QUEEN, BUNKER, SHIELDBATTERY, LAIR, HIVE, ORBITALCOMMAND, ORBITALCOMMANDFLYING, BARRACKSREACTOR, FACTORYTECHLAB, STARPORTREACTOR, BARRACKSTECHLAB, STARPORT, BARRACKS, SPINECRAWLER, OVERLORDCOCOON, STARPORTFLYING, BARRACKSFLYING, ZEALOT } = require('@node-sc2/core/constants/unit-type');
+const { WARPGATERESEARCH, EXTENDEDTHERMALLANCE, PROTOSSGROUNDWEAPONSLEVEL1, CHARGE, PROTOSSGROUNDWEAPONSLEVEL2, GLIALRECONSTITUTION, ZERGMISSILEWEAPONSLEVEL2, ZERGMISSILEWEAPONSLEVEL1, ZERGGROUNDARMORSLEVEL1, ZERGGROUNDARMORSLEVEL2, TERRANINFANTRYWEAPONSLEVEL1, TERRANINFANTRYARMORSLEVEL1, TERRANINFANTRYWEAPONSLEVEL2, TERRANINFANTRYARMORSLEVEL2, ZERGLINGMOVEMENTSPEED } = require('@node-sc2/core/constants/upgrade');
 const range = require('../helper/range');
 
 const plans = {
@@ -112,6 +112,9 @@ const plans = {
         [42, 'upgrade', ZERGMISSILEWEAPONSLEVEL1],
         [42, 'upgrade', GLIALRECONSTITUTION],
         [42, 'build', 'EXTRACTOR', 1],
+        [41, 'build', 'EXTRACTOR', 2],
+        [42, 'train', ROACH, 0],
+        [45, 'train', ROACH, 1],
         // spread creep
         [58, 'build', 'HATCHERY', 2],
         // @ 5:43, 16 zerglings vs 10 stalkers
@@ -148,31 +151,31 @@ const plans = {
         [14, 'build', 'PYLON', 0, 'findSupplyPositions'],
         [[...range(14, 19)], 'scout', PROBE, 'getEnemyMain', { unitType: PYLON, unitCount: 1 }],
         [15, 'build', 'GATEWAY', 0],
-        [[16], 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: NEXUS } ],
+        [16, 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: NEXUS } ],
         [19, 'build', 'ASSIMILATOR', 0],
         [19, 'build', 'GATEWAY', 1],
-        [20, 'build', 'CYBERNETICSCORE', 0],
-        [20, 'build', 'PYLON', 1],
-        [20, 'build', 'ASSIMILATOR', 1],
+        [20, 'build', 'CYBERNETICSCORE', 0],  // 1:28 vs 1:31
+        [20, 'build', 'PYLON', 1],  //  1:37 vs 1:28
+        [20, 'build', 'ASSIMILATOR', 1], 
         [[...range(20, 26)], 'scout', PROBE, 'getEnemyNatural'],
-        [23, 'train', STALKER, 0],
-        [[25], 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: GATEWAY } ],
-        [25, 'train', STALKER, 1],
-        [[27], 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: GATEWAY } ],
-        [27, 'upgrade', WARPGATERESEARCH],
-        [27, 'train', STALKER, 2],
-        [29, 'train', STALKER, 3],
+        [23, 'train', STALKER, 0],  //  2:02 vs 2:06
+        [25, 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: GATEWAY } ],
+        [25, 'train', STALKER, 1],  //  2:02 vs 2:09
+        [27, 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: GATEWAY } ],
+        [27, 'upgrade', WARPGATERESEARCH],  //  2:08 vs 2:19
+        [27, 'train', STALKER, 2],  //  2:24 vs 2:27
+        [29, 'train', STALKER, 3],  //  2:24 vs 2:37
         [31, 'harass'],
-        [31, 'build', 'PYLON', 2],
-        [31, 'build', 'NEXUS', 1],
+        [31, 'build', 'PYLON', 2],  //  2:36 vs 2:41
+        [31, 'build', 'NEXUS', 1],  //  2:56 vs 3:02
         // [31, 'harass', STALKER, 4],
-        [32, 'build', 'ROBOTICSFACILITY', 0],
-        [33, 'build', 'PYLON', 3],
-        [[...range(32, 200)], 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: ROBOTICSFACILITY} ],
-        [35, 'build', 'GATEWAY', 2],
-        [36, 'train', OBSERVER, 0],
-        [37, 'build', 'ROBOTICSBAY', 0],
-        [37, 'train', STALKER, 4],
+        [32, 'build', 'ROBOTICSFACILITY', 0], //  3:10 vs 3:17
+        [33, 'build', 'PYLON', 3],  //  3:22 vs 3:26
+        [32, 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: ROBOTICSFACILITY} ],
+        [35, 'build', 'GATEWAY', 2],  //  3:48 vs 3:50
+        [36, 'train', OBSERVER, 0], //  3:57 vs 4:01
+        [37, 'build', 'ROBOTICSBAY', 0],  //  4:00 vs 4:10
+        [37, 'train', STALKER, 4],  
         [[...range(37, 44)], 'scout', OBSERVER, 'getEnemyNatural'],
         [39, 'train', STALKER, 5],
         [[...range(41, 180)], 'continuouslyBuild', [ STALKER, COLOSSUS ]],
