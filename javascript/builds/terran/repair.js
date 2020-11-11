@@ -2,7 +2,7 @@
 "use strict"
 
 const { EFFECT_REPAIR } = require("@node-sc2/core/constants/ability");
-const { CYCLONE, LIBERATOR, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER } = require("@node-sc2/core/constants/unit-type");
+const { CYCLONE, LIBERATOR, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER, LIBERATORAG } = require("@node-sc2/core/constants/unit-type");
 
 module.exports = {
   repairBurningStructures: (resources) => {
@@ -37,7 +37,7 @@ module.exports = {
     } = resources.get();
     const collectedActions = [];
     // get burning structure.
-    const [ damagedMechUnit ] = units.getById([ CYCLONE, LIBERATOR, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER]).filter(unit => unit.health / unit.healthMax < 1 / 3);
+    const [ damagedMechUnit ] = units.getById([ CYCLONE, LIBERATOR, LIBERATORAG, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER]).filter(unit => unit.health / unit.healthMax < 1 / 3);
     if (damagedMechUnit) {
       // select worker and repair stucture
       const [ closestWorker ] = units.getClosest(damagedMechUnit.pos, units.getWorkers());
