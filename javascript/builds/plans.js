@@ -113,9 +113,10 @@ const plans = {
         [42, 'upgrade', GLIALRECONSTITUTION],
         [42, 'build', 'EXTRACTOR', 1],
         [41, 'build', 'EXTRACTOR', 2],
+        // spread creep
         [42, 'train', ROACH, 0],
         [45, 'train', ROACH, 1],
-        // spread creep
+        [47, 'train', ROACH, 2],
         [58, 'build', 'HATCHERY', 2],
         // @ 5:43, 16 zerglings vs 10 stalkers
         [[...range(55, 200)], 'manageSupply'],
