@@ -130,7 +130,8 @@ class AssemblePlan {
   // }
   async ability(food, abilityId, conditions) {
     if (this.foodUsed >= food) {
-      if (conditions === undefined || conditions.targetCount === this.units.getById(conditions.countType).length + this.units.withCurrentOrders(abilityId).length) {
+      if (conditions === undefined || conditions.targetType || conditions.targetCount === this.units.getById(conditions.countType).length + this.units.withCurrentOrders(abilityId).length) {
+        if (conditions.targetType && conditions.continuous === false) { if (this.foodUsed !== food) { return; } }
         let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
         if (canDoTypes.length === 0) {
           canDoTypes = this.units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
