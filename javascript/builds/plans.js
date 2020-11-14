@@ -17,16 +17,18 @@ const plans = {
       },
       order: [
         [[...range(0, 200)], 'buildWorkers', true],
-        [14, 'build', 'SUPPLYDEPOT', 0],  //  0:20 vs 0:23
-        [16, 'build', 'BARRACKSREACTOR', 0],  //  0:46 vs 0:49
-        [16, 'build', 'REFINERY', 0], //  0:51 vs 0:48
+        [14, 'build', 'SUPPLYDEPOT', 0],
+        [16, 'build', 'BARRACKSREACTOR', 0],
+        [16, 'build', 'REFINERY', 0],
         [[...range(17, 21)], 'scout', SCV, 'getEnemyNatural',],
-        [19, 'ability', MORPH_ORBITALCOMMAND, { targetCount: 0, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ], //  1:34 vs 1:36
-        [19, 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 0, countType: BARRACKSREACTOR } ],  //  1:37 vs 1:36
+        [19, 'ability', MORPH_ORBITALCOMMAND, { targetCount: 0, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ],
+        [19, 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 0, countType: BARRACKSREACTOR } ],
         [[...range(19, 21)], 'scout', SCV, 'getEnemyMain',],
-        [19, 'build', 'COMMANDCENTER', 1],  //  1:48 vs 1:44
-        [20, 'build', 'SUPPLYDEPOT', 1],  //  2:05 vs 2:07
-        [20, 'build', 'FACTORY', 0],  //  2:15 vs 2:13
+        [19, 'build', 'COMMANDCENTER', 1],
+        [19, 'ability', EFFECT_CALLDOWNMULE, { targetType: MINERALFIELD, continuous: true, controlled: true } ],
+        // 19 mule.
+        [20, 'build', 'SUPPLYDEPOT', 1],
+        [20, 'build', 'FACTORY', 0],
         // [21, 'train', MARINE, 0],
         // [21, 'train', MARINE, 1],
         [[...range(0, 200)], 'continuouslyBuild', [MARINE, MARAUDER], true],
