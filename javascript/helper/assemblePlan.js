@@ -131,7 +131,7 @@ class AssemblePlan {
   async ability(food, abilityId, conditions) {
     if (this.foodUsed >= food) {
       if (conditions === undefined || conditions.targetType || conditions.targetCount === this.units.getById(conditions.countType).length + this.units.withCurrentOrders(abilityId).length) {
-        if (conditions.targetType && conditions.continuous === false) { if (this.foodUsed !== food) { return; } }
+        if (conditions && conditions.targetType && conditions.continuous === false) { if (this.foodUsed !== food) { return; } }
         let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
         if (canDoTypes.length === 0) {
           canDoTypes = this.units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
@@ -141,15 +141,24 @@ class AssemblePlan {
         if (unitCanDo) {
           const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
           if (conditions && conditions.targetType) {
-            const targets = this.units.getById(conditions.targetType).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
-            let target = targets[Math.floor(Math.random() * targets.length)];
+            let target;
+            if (conditions.targetType === MINERALFIELD) {
+              if ((conditions.controlled && this.agent.minerals <= 512) || !conditions.controlled) {
+                target = getMineralFieldTarget(this.resources);
+              }
+            } else {
+              const targets = this.units.getById(conditions.targetType).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
+              target = targets[Math.floor(Math.random() * targets.length)];
+            }
             if (target) { unitCommand.targetUnitTag = target.tag; }
           }
           await actions.sendAction([unitCommand]);
           this.state.pauseBuilding = false;
         } else {
-          this.state.pauseBuilding = true;
-          this.state.continueBuild = false;
+          if (conditions === undefined || conditions.targetType === undefined) {
+            this.state.pauseBuilding = true;
+            this.state.continueBuild = false;
+          }
         }
       }
     }
