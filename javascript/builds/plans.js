@@ -119,10 +119,16 @@ const plans = {
         // spread creep
         [42, 'train', ROACH, 0],
         [45, 'train', ROACH, 1],
-        [47, 'train', ROACH, 2],
-        [58, 'build', 'HATCHERY', 2],
-        // @ 5:43, 16 zerglings vs 10 stalkers
+        [45, 'train', ROACH, 2],
+        [45, 'train', ROACH, 3],
+        [45, 'train', ROACH, 4],
+        [45, 'train', ROACH, 5],
         [[...range(55, 200)], 'manageSupply'],
+        [55, 'build', 'HATCHERY', 2],
+        [58, 'train', ROACH, 6],
+        [58, 'train', ROACH, 7],
+        [58, 'train', ROACH, 8],
+        [58, 'train', ROACH, 9],
         [68, 'build', 'EVOLUTIONCHAMBER', 1],
         // 71, light push, 38/33
         [[...range(71, 200)], 'push'],
