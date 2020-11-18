@@ -80,7 +80,7 @@ const plans = {
   2: {
     lingRoachHydra: {
       unitTypes: {
-        defenseTypes: [ ],
+        defenseTypes: [ ZERGLING, ROACH, HYDRALISK ],
         defenseStructures: [ SPINECRAWLER ],
         mainCombatTypes: [ ZERGLING, ROACH, HYDRALISK ],
         scoutTypes: [ OVERLORD, OVERSEER ],
