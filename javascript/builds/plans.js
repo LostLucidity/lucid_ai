@@ -109,7 +109,7 @@ const plans = {
         [35, 'train', OVERLORD, 4],
         [35, 'build', 'EVOLUTIONCHAMBER', 0],
         [38, 'train', OVERLORD, 5],
-        // manage overlord scouting, retreat, move towards
+        [[...range(39, 200)], 'manageSupply'],
         [40, 'build', 'SPORECRAWLER', 0],
         [39, 'build', 'SPORECRAWLER', 1],
         [42, 'upgrade', ZERGMISSILEWEAPONSLEVEL1],
@@ -123,7 +123,6 @@ const plans = {
         [45, 'train', ROACH, 3],
         [45, 'train', ROACH, 4],
         [45, 'train', ROACH, 5],
-        [[...range(55, 200)], 'manageSupply'],
         [55, 'build', 'HATCHERY', 2],
         [58, 'train', ROACH, 6],
         [58, 'train', ROACH, 7],
