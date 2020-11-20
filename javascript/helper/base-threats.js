@@ -2,6 +2,8 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { workerTypes } = require("@node-sc2/core/constants/groups");
+const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 
 function baseThreats(resources, state) {
@@ -11,7 +13,8 @@ function baseThreats(resources, state) {
   const enemyPush = [];
   townhalls.forEach(async townhall => {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
-    const inRange = enemyUnits.filter(unit => unit.unitType !== 106 && distance(unit.pos, townhall.pos) < 22);
+    const ignoreTypes = [ ...workerTypes, OVERLORD ]
+    const inRange = enemyUnits.filter(unit => ignoreTypes.includes(unit.unitType) === false && distance(unit.pos, townhall.pos) < 22);
     const enemyCount = inRange.length;
     if (enemyCount > 0) {
       enemyPush.push(true);
