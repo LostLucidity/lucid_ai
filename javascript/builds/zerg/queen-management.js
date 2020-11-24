@@ -60,7 +60,7 @@ module.exports = {
     const idleCreeperQueens = units.withLabel(label).filter(unit => unit.abilityAvailable(BUILD_CREEPTUMOR_QUEEN) && unit.orders.length === 0);
     const activeCreepTumors = [...units.getById(CREEPTUMORBURROWED) ].filter(unit => unit.availableAbilities().length > 0 && !unit.labels.get('stuck'));
     if (idleCreeperQueens.length > 0) {
-      if (units.getById(CREEPTUMORBURROWED).length === 0) {
+      if (units.getById(CREEPTUMORBURROWED).length <= 2) {
         // get creep natural closest to enemy
         const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
         const [ closestTownhallPositionToEnemy ] = getClosestUnitByPath(map, map.getEnemyMain().townhallPosition, occupiedTownhalls).map(unit => unit.pos);
