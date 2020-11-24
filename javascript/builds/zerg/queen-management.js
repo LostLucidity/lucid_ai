@@ -143,15 +143,15 @@ async function findAndPlaceCreepTumor(resources, spreaders, ability, candidates)
 function filterPlacementsByRange(map, units, unitType, point, range) {
   return [...units.getById(unitType), ...map.getAvailableExpansions()]
     .map(creepGenerator => creepGenerator.pos || creepGenerator.townhallPosition)
-    .every(creepPosition => {
-      const [ closestEnemyStructure ] = units.getClosest(creepPosition, units.getStructures(Alliance.ENEMY));
+    .every(position => {
+      const [ closestEnemyStructure ] = units.getClosest(position, units.getStructures(Alliance.ENEMY));
       if (closestEnemyStructure) {
         return (
-          distance(creepPosition, point) >= range &&
+          distance(position, point) >= range &&
           map.getOccupiedExpansions(Alliance.ENEMY).every(expansion => distance(point, expansion.townhallPosition) > 11.5)
         )
       } else {
-        return distance(creepPosition, point) >= range;
+        return distance(position, point) >= range;
       }
     });
 }
