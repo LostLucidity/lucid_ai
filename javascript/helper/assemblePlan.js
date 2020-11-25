@@ -33,6 +33,7 @@ const { expand } = require("./general-actions");
 const { swapBuildings, checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { getCombatRally } = require("./location");
 const { repairBurningStructures, repairDamagedMechUnits } = require("../builds/terran/repair");
+const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 
 let actions;
 let opponentRace;
@@ -144,7 +145,7 @@ class AssemblePlan {
             let target;
             if (conditions.targetType === MINERALFIELD) {
               if ((conditions.controlled && this.agent.minerals <= 512) || !conditions.controlled) {
-                target = getMineralFieldTarget(this.resources);
+                target = getMineralFieldTarget(this.units, unitCanDo);
               }
             } else {
               const targets = this.units.getById(conditions.targetType).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
