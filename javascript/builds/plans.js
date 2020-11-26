@@ -164,26 +164,26 @@ const plans = {
         [18, 'build', 'ASSIMILATOR', 0],
         [19, 'build', 'GATEWAY', 1],
         [20, 'build', 'ASSIMILATOR', 1], 
-        [20, 'build', 'CYBERNETICSCORE', 0],  // 1:28 vs 1:31
-        [20, 'build', 'PYLON', 1],  //  1:37 vs 1:28
+        [20, 'build', 'CYBERNETICSCORE', 0],
+        [20, 'build', 'PYLON', 1],
         [[...range(20, 26)], 'scout', PROBE, 'getEnemyNatural'],
-        [23, 'train', STALKER, 0],  //  2:02 vs 2:06
+        [23, 'train', STALKER, 0],
         [25, 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: GATEWAY, continuous: false  } ],
-        [25, 'train', STALKER, 1],  //  2:02 vs 2:09
+        [25, 'train', STALKER, 1],
         [27, 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: GATEWAY, continuous: false  } ],
-        [27, 'upgrade', WARPGATERESEARCH],  //  2:08 vs 2:19
-        [27, 'train', STALKER, 2],  //  2:24 vs 2:27
-        [29, 'train', STALKER, 3],  //  2:24 vs 2:37
+        [27, 'upgrade', WARPGATERESEARCH],
+        [27, 'train', STALKER, 2],
+        [29, 'train', STALKER, 3],
         [31, 'harass'],
-        [31, 'build', 'PYLON', 2],  //  2:36 vs 2:41
-        [31, 'build', 'NEXUS', 1],  //  2:56 vs 3:02
+        [31, 'build', 'PYLON', 2],
+        [31, 'build', 'NEXUS', 1],
         // [31, 'harass', STALKER, 4],
-        [32, 'build', 'ROBOTICSFACILITY', 0], //  3:10 vs 3:17
-        [33, 'build', 'PYLON', 3],  //  3:22 vs 3:26
+        [32, 'build', 'ROBOTICSFACILITY', 0],
+        [33, 'build', 'PYLON', 3],
         [32, 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: ROBOTICSFACILITY, continuous: true } ],
-        [35, 'build', 'GATEWAY', 2],  //  3:48 vs 3:50
-        [36, 'train', OBSERVER, 0], //  3:57 vs 4:01
-        [37, 'build', 'ROBOTICSBAY', 0],  //  4:00 vs 4:10
+        [35, 'build', 'GATEWAY', 2],
+        [36, 'train', OBSERVER, 0],
+        [37, 'build', 'ROBOTICSBAY', 0],
         [37, 'train', STALKER, 4],  
         [[...range(37, 44)], 'scout', OBSERVER, 'getEnemyNatural'],
         [39, 'train', STALKER, 5],
