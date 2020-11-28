@@ -6,6 +6,10 @@ const { LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
+const { moveAway } = require("../builds/helper");
+const getClosestByPath = require("./get-closest-by-path");
+const { getClosestUnitByPath } = require("./get-closest-by-path");
+const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
 module.exports = {
   attack: (resources, mainCombatTypes, supportUnitTypes) => {
@@ -56,11 +60,12 @@ module.exports = {
     }
     return collectedActions;
   },
-  defend: (resources, mainCombatTypes, supportUnitTypes) => {
+  defend: (world, mainCombatTypes, supportUnitTypes) => {
+    const data = world.data;
     const {
       map,
       units,
-    } = resources.get();
+    } = world.resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
     // let [ closestEnemyUnit ] = getClosestByPath(map, map.getCombatRally(), enemyUnits, 1);
@@ -69,20 +74,44 @@ module.exports = {
       let [ closestEnemyUnit ] = units.getClosest(rallyPoint, enemyUnits, 1);
       if (closestEnemyUnit) {
         const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
-        if (closestEnemyUnit.isFlying) {
-          // if no anti air in combat, use Queens.
-          const findAntiAir = combatUnits.find(unit => unit.canShootUp());
-          if (!findAntiAir) {
-            combatUnits.push(...units.getById(QUEEN));
-          }
-        }
-        // const [ combatPoint ] = getClosestByPath(map, closestEnemyUnit.pos, combatUnits, 1);
         const [ combatPoint ] = units.getClosest(closestEnemyUnit.pos, combatUnits, 1);
         if (combatPoint) {
-          collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, closestEnemyUnit));
+          const attackingEnemyUnits = enemyUnits.filter(unit => distance(unit.pos, closestEnemyUnit.pos) < 11);
+          const enemySupply = attackingEnemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
+          const allyUnits = [ ...combatUnits, ...supportUnits ];
+          const allySupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
+          if (allySupply > enemySupply) {
+            console.log('Defend', allySupply, enemySupply);
+            if (closestEnemyUnit.isFlying) {
+              // if no anti air in combat, use Queens.
+              const findAntiAir = combatUnits.find(unit => unit.canShootUp());
+              if (!findAntiAir) {
+                combatUnits.push(...units.getById(QUEEN));
+              }
+            }
+            // const [ combatPoint ] = getClosestByPath(map, closestEnemyUnit.pos, combatUnits, 1);
+            collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, closestEnemyUnit));
+          } else {
+            console.log('Retreat', allySupply, enemySupply);
+            collectedActions.push(...module.exports.retreat(map, units, allyUnits, avgPoints(attackingEnemyUnits.map(unit => unit.pos))));
+          }
         }
       }
     }
+    return collectedActions;
+  },
+  retreat: (map, units, allyUnits, position) => {
+    const collectedActions = [];
+    allyUnits.forEach(unit => {
+      // const [ closestMineralField ] = getClosestUnitByPath(map, unit.pos, units.getMineralFields());
+      const [ closestMineralField ] = units.getClosest(unit.pos, units.getMineralFields(), 16).filter(field => distance(field.pos, position) > 11);
+      const unitCommand = {
+        abilityId: MOVE,
+        targetUnitTag: closestMineralField.tag,
+        unitTags: [ unit.tag ],
+      }
+      collectedActions.push(unitCommand);
+    })
     return collectedActions;
   }
 };
