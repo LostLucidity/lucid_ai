@@ -78,7 +78,7 @@ module.exports = {
         if (combatPoint) {
           const attackingEnemyUnits = enemyUnits.filter(unit => distance(unit.pos, closestEnemyUnit.pos) < 11);
           const enemySupply = attackingEnemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
-          const allyUnits = [ ...combatUnits, ...supportUnits ];
+          let allyUnits = [ ...combatUnits, ...supportUnits ];
           const allySupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
           if (allySupply > enemySupply) {
             console.log('Defend', allySupply, enemySupply);
@@ -93,6 +93,7 @@ module.exports = {
             collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, closestEnemyUnit));
           } else {
             console.log('Retreat', allySupply, enemySupply);
+            allyUnits = [...allyUnits, ...units.getById(QUEEN)];
             collectedActions.push(...module.exports.retreat(map, units, allyUnits, avgPoints(attackingEnemyUnits.map(unit => unit.pos))));
           }
         }
