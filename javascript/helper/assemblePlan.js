@@ -411,7 +411,7 @@ class AssemblePlan {
   scout(foodRanges, unitType, targetLocation, conditions) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const label = 'scout';
-      const labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType)
+      const labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
         if (conditions) {
           if (this.units.getByType(conditions.unitType).length === conditions.unitCount) {
@@ -477,7 +477,7 @@ class AssemblePlan {
     const [ unit ] = this.units.getById(unitType);
     if (unit) {
       let [ scout ] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.noQueue || unit.orders.findIndex(order => order.abilityId === 16) > -1));
-      if (!scout) { [ scout ] = this.units.getClosest(location, this.units.getById(unitType)) }
+      if (!scout) { [ scout ] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing())) }
       if (scout) {
         scout.labels.clear();
         scout.labels.set(label, true);
