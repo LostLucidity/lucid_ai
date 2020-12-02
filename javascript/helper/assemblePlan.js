@@ -403,47 +403,6 @@ class AssemblePlan {
       }
     }
   }
-  // async swapBuildings(foodTarget, conditions) {
-  //   if (this.foodUsed >= foodTarget) {
-  //     if (this.units.getById(conditions[1].building).filter(building => building.buildProgress >= 1).length === conditions[1].count) {
-  //       if (this.units.getById(conditions[0].building).filter(reactor => reactor.buildProgress >= 1).length === 1) {
-  //         const [ firstBuilding ] = this.units.getById(conditions[0].building).filter(building => building.hasReactor() && building.abilityAvailable(conditions[0].liftAbility));
-  //         let secondBuilding;
-  //         if (firstBuilding) {
-  //           [ secondBuilding ] = this.units.getClosest(firstBuilding.pos, this.units.getById(conditions[1].building)
-  //             .filter(building => building.buildProgress >= 1 && !building.hasReactor() && !building.hasTechLab() && building.abilityAvailable(conditions[1].liftAbility)));
-  //         }
-  //         if (firstBuilding && secondBuilding) {
-  //           if (secondBuilding.abilityAvailable(CANCEL_QUEUE5)) {
-  //             const unitCommand = {
-  //               abilityId: CANCEL_QUEUE5,
-  //               unitTags: [ secondBuilding.tag ],
-  //             }
-  //             await actions.sendAction(unitCommand);
-  //           }
-  //           try { await actions.swapBuildings(firstBuilding, secondBuilding); } 
-  //           catch (error) {
-  //             console.log(error);
-  //             if (firstBuilding.abilityAvailable(conditions[0].landAbility)) {
-  //               const unitCommand = {
-  //                 abilityId: conditions[1].landAbility,
-  //                 unitTags: [ secondBuilding.tag ],
-  //               }
-  //               await actions.sendAction(unitCommand);
-  //             }
-  //             if (secondBuilding.abilityAvailable(conditions[1].landAbility)) {
-  //               const unitCommand = {
-  //                 abilityId: conditions[1].landAbility,
-  //                 unitTags: [ secondBuilding.tag ],
-  //               }
-  //               await actions.sendAction(unitCommand);
-  //             }
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
   setScout(unitType, label, location) {
     const [ unit ] = this.units.getById(unitType);
     if (unit) {
