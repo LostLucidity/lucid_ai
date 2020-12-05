@@ -12,52 +12,31 @@ const {
 } = require('@node-sc2/core/constants/enums');
 
 const maps = require('./maps')
-const macro = require('./systems/macro');
 
-const eightGateAllIn = require('./builds/eight-gate-all-in');
-const macroColossus = require('./builds/macro-colossus');
-const protoss = require('./builds/protoss/protoss');
-const terran = require('./builds/terran');
-const zerg = require('./builds/zerg');
-
-const protossSupplySystem = require('@node-sc2/system-protoss-supply');
-
-const wallBuilderSystem = require('./systems/wall-builder-system');
 const workerBalanceSystem = require('./systems/worker-balance-system');
-const proxyVoidRay = require('./builds/protoss/proxy-void-ray');
 const entry = require('./builds/entry');
-
-const protossBuilds = {
-  protoss: [
-    protoss,
-    protossSupplySystem({ firstPylon: { location: 'natural' } }),
-    wallBuilderSystem,
-    workerBalanceSystem,
-  ],
-  proxyVoidRay: [
-    proxyVoidRay,
-    workerBalanceSystem
-  ]
-};
-
-const terranBuilds = [
-  terran,
-  workerBalanceSystem,
-]
-
-const zergBuilds = [
-  zerg,
-  workerBalanceSystem,
-]
-
+const race = Race.ZERG;
+const opponentRace = Race.ZERG;
+const map = maps[Math.floor(Math.random() * maps.length)];
+const difficulty = Difficulty.CHEATVISION;
+const aiBuild = AIBuild.RandomBuild;
 const settings = {
   type: PlayerType.PARTICIPANT,
-  race: Race.PROTOSS,
+  race: race,
 }
 
-console.log('settings', settings);
+const blueprint = {
+  settings: {
+    type: PlayerType.PARTICIPANT,
+    race: race,
+  },
+}
 
-const bot1 = createAgent(settings);
+
+
+console.log('blueprint', blueprint);
+
+const bot1 = createAgent(blueprint);
 // const bot2 = createAgent(settings);
 // protossBuild.forEach(system => {
 //   bot1.use(system);
@@ -77,8 +56,6 @@ bot1.use(workerBalanceSystem);
 
 // bot1.use(zerg);
 // bot2.use(protoss);
-
-const map = maps[Math.floor(Math.random() * maps.length)];
 // bot1.use(eightGateAllIn);
 // bot.use(macroColossus);
 
