@@ -1,6 +1,7 @@
 //@ts-check
 "use strict"
 
+const { MOVE } = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
@@ -38,11 +39,11 @@ module.exports = {
       ...units.withLabel('builder').filter(w => !w.isConstructing()),
       ...units.withLabel('proxy').filter(w => !w.isConstructing()),
     ];
-    if (builders.length === 0) {
-      builders = [
+    if (ability !== MOVE || builders.length === 0) {
+      builders.push(
         ...units.getMineralWorkers(),
-        ...units.getWorkers().filter(w => w.noQueue),
-      ]
+        ...units.getWorkers().filter(w => w.noQueue)
+      );
     }
     const [ builder ] = units.getClosest(position, builders);
     if (builder) {
