@@ -76,11 +76,10 @@ module.exports = {
         const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
         const [ combatPoint ] = units.getClosest(closestEnemyUnit.pos, combatUnits, 1);
         if (combatPoint) {
-          const attackingEnemyUnits = enemyUnits.filter(unit => distance(unit.pos, closestEnemyUnit.pos) < 11);
-          const enemySupply = attackingEnemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
+          const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
           let allyUnits = [ ...combatUnits, ...supportUnits ];
           const allySupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
-          if (allySupply > enemySupply) {
+          if (allySupply >= enemySupply) {
             console.log('Defend', allySupply, enemySupply);
             if (closestEnemyUnit.isFlying) {
               // if no anti air in combat, use Queens.
@@ -94,24 +93,37 @@ module.exports = {
           } else {
             console.log('Retreat', allySupply, enemySupply);
             allyUnits = [...allyUnits, ...units.getById(QUEEN)];
-            collectedActions.push(...module.exports.retreat(map, units, allyUnits, avgPoints(attackingEnemyUnits.map(unit => unit.pos))));
+            collectedActions.push(...module.exports.engageOrRetreat(data, units, allyUnits, enemyUnits));
           }
         }
       }
     }
     return collectedActions;
   },
-  retreat: (map, units, allyUnits, position) => {
+  engageOrRetreat: (data, units, allyUnits, enemyUnits) => {
     const collectedActions = [];
     allyUnits.forEach(unit => {
-      // const [ closestMineralField ] = getClosestUnitByPath(map, unit.pos, units.getMineralFields());
-      const [ closestMineralField ] = units.getClosest(unit.pos, units.getMineralFields(), 16).filter(field => distance(field.pos, position) > 11);
-      const unitCommand = {
-        abilityId: MOVE,
-        targetUnitTag: closestMineralField.tag,
-        unitTags: [ unit.tag ],
+      const [ closestEnemyUnit ] = units.getClosest(unit.pos, enemyUnits);
+      const enemySupply = enemyUnits.filter(enemyUnit => distance(closestEnemyUnit.pos, enemyUnit.pos) < 8).map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+      const allySupply = allyUnits.filter(allyUnit => distance(unit.pos, allyUnit.pos) < 8).map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+      if (enemySupply > allySupply) {
+        const candidateMineralFields = units.getMineralFields().filter(field => distance(field.pos, unit.pos) < distance(field.pos, closestEnemyUnit.pos))
+        const [ closestMineralField ] = units.getClosest(unit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distance(field.pos, closestEnemyUnit.pos) > 16);
+        const unitCommand = {
+          abilityId: MOVE,
+          targetUnitTag: closestMineralField.tag,
+          unitTags: [ unit.tag ],
+        }
+        collectedActions.push(unitCommand);
+        // collectedActions.push(moveAway(unit, closestEnemyUnit));
+      } else {
+        const unitCommand = {
+          abilityId: ATTACK_ATTACK,
+          targetUnitTag: closestEnemyUnit.tag,
+          unitTags: [ unit.tag ],
+        }
+        collectedActions.push(unitCommand);
       }
-      collectedActions.push(unitCommand);
     })
     return collectedActions;
   }
