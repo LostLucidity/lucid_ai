@@ -73,8 +73,7 @@ class AssemblePlan {
     await this.runPlan();
     if (this.foodUsed < ATTACKFOOD) {
       if (this.state.defenseMode) {
-        this.collectedActions.push(...defend(this.resources, this.mainCombatTypes, this.supportUnitTypes));
-        await continuouslyBuild(this.agent, this.data, this.resources, this.defenseTypes);
+        this.collectedActions.push(...await defend(world, this.mainCombatTypes, this.supportUnitTypes));
       } else { this.collectedActions.push(...rallyUnits(this.resources, this.supportUnitTypes, this.state.defenseLocation)); }
     } else { this.collectedActions.push(...attack(this.resources, this.mainCombatTypes, this.supportUnitTypes)); }
     if (this.agent.minerals > 512) {

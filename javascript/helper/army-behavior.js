@@ -10,6 +10,7 @@ const { moveAway } = require("../builds/helper");
 const getClosestByPath = require("./get-closest-by-path");
 const { getClosestUnitByPath } = require("./get-closest-by-path");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
+const continuouslyBuild = require("./continuously-build");
 
 module.exports = {
   attack: (resources, mainCombatTypes, supportUnitTypes) => {
@@ -60,7 +61,7 @@ module.exports = {
     }
     return collectedActions;
   },
-  defend: (world, mainCombatTypes, supportUnitTypes) => {
+  defend: async (world, mainCombatTypes, supportUnitTypes) => {
     const data = world.data;
     const {
       map,
@@ -78,9 +79,13 @@ module.exports = {
         if (combatPoint) {
           const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
           let allyUnits = [ ...combatUnits, ...supportUnits ];
-          const allySupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
-          if (allySupply >= enemySupply) {
-            console.log('Defend', allySupply, enemySupply);
+          const selfSupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
+          if ((selfSupply <= enemySupply)) {
+            console.log('building defensive units');
+            await continuouslyBuild(world, mainCombatTypes);
+          }
+          if (selfSupply >= enemySupply) {
+            console.log('Defend', selfSupply, enemySupply);
             if (closestEnemyUnit.isFlying) {
               // if no anti air in combat, use Queens.
               const findAntiAir = combatUnits.find(unit => unit.canShootUp());
@@ -91,7 +96,7 @@ module.exports = {
             // const [ combatPoint ] = getClosestByPath(map, closestEnemyUnit.pos, combatUnits, 1);
             collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, closestEnemyUnit));
           } else {
-            console.log('Retreat', allySupply, enemySupply);
+            console.log('engageOrRetreat', selfSupply, enemySupply);
             allyUnits = [...allyUnits, ...units.getById(QUEEN)];
             collectedActions.push(...module.exports.engageOrRetreat(data, units, allyUnits, enemyUnits));
           }

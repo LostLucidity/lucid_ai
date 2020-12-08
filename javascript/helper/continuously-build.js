@@ -7,7 +7,7 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const { WarpUnitAbility } = require("@node-sc2/core/constants");
 const { getRallyPoint, getRallyPointByBases, getCombatRally } = require("./location");
 
-async function continuouslyBuild(agent, data, resources, unitTypes, addOn=false) {
+async function continuouslyBuild({ agent, data, resources }, unitTypes, addOn=false) {
   const {
     foodUsed,
     minerals,
