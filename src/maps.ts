@@ -1,4 +1,4 @@
-maps = [
+export const maps = [
   "Season9Maps/Ephemeron",
   "Season9Maps/EternalEmpireLE",
   "Season9Maps/NightshadeLE",
@@ -18,7 +18,5 @@ maps = [
   "JagannathaLE",
   "LightshadeLE",
   "OxideLE",
-  "RomanticideLE",
+  "RomanticideLE"
 ]
-
-module.exports = maps;

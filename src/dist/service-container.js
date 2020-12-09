@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var Bottle = require("bottlejs");
+var action_service_1 = require("./services/action-service");
+var build_service_1 = require("./services/build-service");
+var plan_service_1 = require("./services/plan-service");
+var bottle = new Bottle();
+bottle.service('build_service', build_service_1.default);
+bottle.service('plan_service', plan_service_1.default);
+bottle.service('action_service', action_service_1.default, 'build_service');
+exports.default = bottle;
