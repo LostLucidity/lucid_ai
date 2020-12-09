@@ -1,0 +1,11 @@
+{
+  "Bots": {
+    "Paul_2.0": {
+      "Race": "Zerg",
+      "Type": "Python",
+      "RootPath": "./",
+      "FileName": "run.py",
+      "Debug": false
+    }
+  }
+}
