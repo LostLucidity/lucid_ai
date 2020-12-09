@@ -13,7 +13,7 @@ const { MOVE, BUILD_REACTOR_STARPORT, LIFT } = require("@node-sc2/core/constants
 const canAfford = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
-const { workerSendOrBuild } = require("../builds/protoss/helper");
+const { workerSendOrBuild, getSupply } = require("../helper");
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
@@ -70,6 +70,12 @@ class AssemblePlan {
     this.map = this.resources.get().map;
     this.units = this.resources.get().units;
     baseThreats(this.resources, this.state);
+    const enemySupply = getSupply(this.data, this.units.getCombatUnits(Alliance.ENEMY));
+    const selfSupply = getSupply(this.data, this.units.getCombatUnits());
+    if (enemySupply > selfSupply) {
+      await continuouslyBuild(this.world, this.defenseTypes); 
+    }
+    
     await this.runPlan();
     if (this.foodUsed < ATTACKFOOD) {
       if (this.state.defenseMode) {
