@@ -84,7 +84,7 @@ const plans = {
         defenseStructures: [ SPINECRAWLER ],
         mainCombatTypes: [ ZERGLING, ROACH, HYDRALISK ],
         scoutTypes: [ OVERLORD, OVERSEER ],
-        supportUnitTypes: [ OVERSEER ],
+        supportUnitTypes: [ OVERSEER, QUEEN ],
       },
       order: [
         [[...range(0, 21)], 'buildWorkers'],

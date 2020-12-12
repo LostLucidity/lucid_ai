@@ -105,27 +105,41 @@ module.exports = {
     }
     return collectedActions;
   },
-  engageOrRetreat: (data, units, allyUnits, enemyUnits) => {
+  engageOrRetreat: (data, units, selfUnits, enemyUnits, position) => {
     const collectedActions = [];
-    allyUnits.forEach(unit => {
-      const [ closestEnemyUnit ] = units.getClosest(unit.pos, enemyUnits);
-      const enemySupply = enemyUnits.filter(enemyUnit => distance(closestEnemyUnit.pos, enemyUnit.pos) < 8).map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-      const allySupply = allyUnits.filter(allyUnit => distance(unit.pos, allyUnit.pos) < 8).map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-      if (enemySupply > allySupply) {
-        const candidateMineralFields = units.getMineralFields().filter(field => distance(field.pos, unit.pos) < distance(field.pos, closestEnemyUnit.pos))
-        const [ closestMineralField ] = units.getClosest(unit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distance(field.pos, closestEnemyUnit.pos) > 16);
-        const unitCommand = {
-          abilityId: MOVE,
-          targetUnitTag: closestMineralField.tag,
-          unitTags: [ unit.tag ],
-        }
-        collectedActions.push(unitCommand);
-        // collectedActions.push(moveAway(unit, closestEnemyUnit));
+    selfUnits.forEach(selfUnit => {
+      const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits).filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 8);
+      if (closestEnemyUnit) {
+        const positionIsTooClose = position ? distance(selfUnit.pos, position) < 8 : false;
+        const enemySupply = enemyUnits.filter(enemyUnit => distance(closestEnemyUnit.pos, enemyUnit.pos) < 8).map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+        const inRangeSelfUnits = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) < 8)
+        const selfSupply = inRangeSelfUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+        if (enemySupply > selfSupply) {
+          if (!position || positionIsTooClose) {
+            const candidateMineralFields = units.getMineralFields().filter(field => distance(field.pos, selfUnit.pos) < distance(field.pos, closestEnemyUnit.pos))
+            const [ closestMineralField ] = units.getClosest(selfUnit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distance(field.pos, closestEnemyUnit.pos) > 16);
+            position = closestMineralField.pos;
+          }
+          const unitCommand = {
+            abilityId: MOVE,
+            targetWorldSpacePos: position,
+            unitTags: inRangeSelfUnits.map(unit => unit.tag),
+          }
+          collectedActions.push(unitCommand);
+          // collectedActions.push(moveAway(unit, closestEnemyUnit));
+        } else {
+          const unitCommand = {
+            abilityId: ATTACK_ATTACK,
+            targetUnitTag: closestEnemyUnit.tag,
+            unitTags: inRangeSelfUnits.map(unit => unit.tag),
+          }
+          collectedActions.push(unitCommand);
+        } 
       } else {
         const unitCommand = {
           abilityId: ATTACK_ATTACK,
-          targetUnitTag: closestEnemyUnit.tag,
-          unitTags: [ unit.tag ],
+          targetWorldSpacePos: position,
+          unitTags: [ selfUnit.tag ],
         }
         collectedActions.push(unitCommand);
       }
@@ -141,7 +155,7 @@ function groupUnits(units, mainCombatTypes, supportUnitTypes) {
   });
   const supportUnits = [];
   supportUnitTypes.forEach(type => {
-    supportUnits.push(...units.getById(type).filter(unit => !unit.labels.get('scout')));
+    supportUnits.push(...units.getById(type).filter(unit => !unit.labels.get('scout') && !unit.labels.get('creeper') && !unit.labels.get('injector')));
   });
   return [ combatUnits, supportUnits ];
 }

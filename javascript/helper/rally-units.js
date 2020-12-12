@@ -2,11 +2,13 @@
 "use strict"
 
 const { MOVE, ATTACK_ATTACK, LOAD_BUNKER, SMART } = require("@node-sc2/core/constants/ability");
-const { BUNKER } = require("@node-sc2/core/constants/unit-type");
+const { BUNKER, QUEEN, LARVA } = require("@node-sc2/core/constants/unit-type");
+const { engageOrRetreat } = require("./army-behavior");
 const { getRallyPointByBases, getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 
-function rallyUnits(resources, supportUnitTypes, rallyPoint=null) {
+function rallyUnits({data, resources}, supportUnitTypes, rallyPoint=null) {
   const {
     map,
     units,
@@ -49,20 +51,9 @@ function rallyUnits(resources, supportUnitTypes, rallyPoint=null) {
         collectedActions.push(unitCommand);
       }
     } else {
-      const unitCommand = {
-        abilityId: ATTACK_ATTACK,
-        targetWorldSpacePos: rallyPoint,
-        unitTags: combatUnits.map(unit => unit.tag),
-      }
-      collectedActions.push(unitCommand);
-      if (supportUnits.length > 0) {
-        const unitCommand = {
-          abilityId: MOVE,
-          targetWorldSpacePos: rallyPoint,
-          unitTags: supportUnits.map(unit => unit.tag),
-        }
-        collectedActions.push(unitCommand);
-      }
+      const selfUnits = [...combatUnits, ...supportUnits];
+      const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+      collectedActions.push(...engageOrRetreat(data, units, selfUnits, enemyUnits, rallyPoint))
     }
   }
   collectedActions.push(...tankBehavior(units));
