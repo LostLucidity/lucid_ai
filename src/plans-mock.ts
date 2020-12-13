@@ -1,27 +1,21 @@
-
-export interface IPlan = {
-
-}
-
-export interface IPlans {
-  <string>: IPlan[]
-}
 export const plans = {
-  protos: [
+  protoss: [
     {
       id: 1,
       name: 'general',
       actions: [
         {
           supply: [0, 200],
-          action: 'buildWorkers',
+          system: 'build',
+          action: 'workers',
           options: {
             controlled: true
           }
         },
         {
           supply: 14,
-          action: 'build',
+          system: 'build',
+          action: 'unit',
           options: {
             type: 'unit_types',
             unit: 'SUPPLYDEPOT',

@@ -1,11 +1,14 @@
 import BuildService from "./build-service";
+import PlanService from "./plan-service";
 
 export default class ActionService {
 
   constructor(
+    public plan_service: PlanService,
     public build_service: BuildService
   ) {
     console.log('ActionService constructed');
+    this.plan_service = plan_service;
     this.build_service = build_service
   }
 
@@ -13,9 +16,6 @@ export default class ActionService {
     
   }
 
-  async build(supply, options) {
-
-  }
 
   async train(supply, options) {
 

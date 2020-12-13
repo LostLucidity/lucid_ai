@@ -3,7 +3,8 @@ import path from 'path';
 import {
   createAgent, 
   createEngine, 
-  createPlayer
+  createPlayer,
+  createSystem
 } from '@node-sc2/core';
 
 import {
@@ -26,7 +27,7 @@ const bot = createAgent({
 });
 
 for(let system of systems) {
-  bot.use(system.createSystem());
+  bot.use(createSystem(system));
 }
 
 const engine = createEngine();
