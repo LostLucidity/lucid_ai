@@ -33,6 +33,17 @@ module.exports = {
   
     return possiblePlacements;
   },
+  getTrainingSupply: (unitTypes, data, units) => {
+    const trainingUnitTypes = [];
+    unitTypes.forEach(type => {
+      let abilityId = data.getUnitTypeData(type).abilityId;
+      trainingUnitTypes.push(...units.withCurrentOrders(abilityId).map(() => type));
+    });
+    return trainingUnitTypes.map(unitType => data.getUnitTypeData(unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  },
+  getSupply: (units, data) => {
+    return units.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  },
   workerSendOrBuild: (units, ability, position) => {
     const collectedActions = [];
     let builders = [
