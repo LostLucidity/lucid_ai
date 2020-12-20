@@ -6,6 +6,7 @@ const path = require('path');
 // main.js
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const {
+  AIBuild,
   Difficulty,
   PlayerType,
   Race,
@@ -18,8 +19,8 @@ const entry = require('./builds/entry');
 const race = Race.ZERG;
 const opponentRace = Race.ZERG;
 const map = maps[Math.floor(Math.random() * maps.length)];
-const difficulty = Difficulty.CHEATVISION;
-const aiBuild = AIBuild.RandomBuild;
+const difficulty = Difficulty.CHEATMONEY;
+const aiBuild = AIBuild.Rush;
 const settings = {
   type: PlayerType.PARTICIPANT,
   race: race,
@@ -122,7 +123,7 @@ engine.connect().then(async () => {
     map,
     [
       createPlayer({ race: settings.race }, bot1),
-      createPlayer({ race: Race.RANDOM, difficulty: Difficulty.VERYHARD }),
+      createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild }),
     ]
   );
 }).then(async ([world, results]) => {

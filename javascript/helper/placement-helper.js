@@ -1,17 +1,14 @@
 //@ts-check
 "use strict"
 
-const { distance } = require('@node-sc2/core/utils/geometry/point');
+const { distance, avgPoints } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
 const { Alliance } = require('@node-sc2/core/constants/enums');
+const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 
-class PlacementHelper {
-  constructor() {}
-  onStep(world) {
-    this.resources = world.resources;
-  }
-  findSupplyPositions() {
+module.exports = {
+  findSupplyPositions: () => {
     const { map } = this.resources.get();
     const myExpansions = map.getOccupiedExpansions(Alliance.SELF);
     // front of natural pylon for great justice
@@ -36,7 +33,19 @@ class PlacementHelper {
     }
   
     return possiblePlacements;
+  },
+  getBetweenBaseAndWall: async (resources, unitType) => {
+    const { actions, map } = resources.get();
+    const natural = map.getNatural();
+    const naturalWall = natural.getWall();
+    const avg = avgPoints(naturalWall);
+    const avgWallAndNatural = avgPoints([avg, natural.townhallPosition]);
+    const nearPoints = gridsInCircle(avgWallAndNatural, 4);
+    const sampledPoints = nearPoints
+      .map(pos => ({ pos, rand: Math.random() }))
+      .sort((a, b) => a.rand - b.rand)
+      .map(a => a.pos)
+      .slice(0, 20);
+    return await actions.canPlace(unitType, sampledPoints);
   }
 }
-
-module.exports = PlacementHelper;

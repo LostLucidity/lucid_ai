@@ -6,6 +6,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { Race } = require('@node-sc2/core/constants/enums');
 const canAfford = require("../helper/can-afford");
+const { getBetweenBaseAndWall } = require("../helper/placement-helper");
 
 module.exports = async function defenseSetup({ agent, data, resources }, state) {
   const {
@@ -22,15 +23,7 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
           const natural = map.getNatural();
           const naturalWall = natural.getWall();
           if (naturalWall) {
-            const avg = avgPoints(naturalWall);
-            const avgWallAndNatural = avgPoints([avg, natural.townhallPosition]);
-            const nearPoints = gridsInCircle(avgWallAndNatural, 4);
-            const sampledPoints = nearPoints
-              .map(pos => ({ pos, rand: Math.random() }))
-              .sort((a, b) => a.rand - b.rand)
-              .map(a => a.pos)
-              .slice(0, 20);
-            const foundPosition = await actions.canPlace(BUNKER, sampledPoints);
+            const foundPosition = getBetweenBaseAndWall(resources, BUNKER);
             if (foundPosition) {
               try {
                 if (canAfford(agent, data, BUNKER)) {
