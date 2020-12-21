@@ -121,8 +121,8 @@ class AssemblePlan {
           canDoTypes = this.units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
         }
         const unitsCanDo = this.units.getByType(canDoTypes).filter(units => units.abilityAvailable(abilityId));
-        let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-        if (unitCanDo) {
+        if (unitsCanDo.length > 0) {
+          let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
           const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
           if (conditions && conditions.targetType) {
             let target;
