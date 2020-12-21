@@ -55,7 +55,7 @@ const plans = {
           { liftAbility: LIFT_BARRACKS, landAbility: LAND_BARRACKS, buildings: [BARRACKS, BARRACKSFLYING], count: 3 }
         ]],
         [71, 'ability', BUILD_REACTOR_STARPORT, { targetCount: 0, countType: STARPORTREACTOR } ],
-        [75, 'ability', RESEARCH_STIMPACK],
+        [75, 'upgrade', STIMPACK],
         [77, 'build', 'BARRACKSREACTOR', 3],
         [86, 'upgrade', TERRANINFANTRYWEAPONSLEVEL1],
         [86, 'upgrade', TERRANINFANTRYARMORSLEVEL1],
