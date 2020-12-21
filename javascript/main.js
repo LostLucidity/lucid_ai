@@ -31,6 +31,11 @@ const blueprint = {
     type: PlayerType.PARTICIPANT,
     race: race,
   },
+  interface: {
+    raw: true,
+    rawCropToPlayableArea: true,
+    showCloaked: true
+  }
 }
 
 
