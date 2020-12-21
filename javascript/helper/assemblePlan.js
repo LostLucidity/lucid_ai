@@ -105,6 +105,13 @@ class AssemblePlan {
     this.collectedActions.push(...supplyDepotBehavior(this.resources));
     await actions.sendAction(this.collectedActions);
   }
+
+  async onUnitDestroyed(world, destroyedUnit) {
+    if (destroyedUnit.isWorker()) {
+      this.state.pauseBuilding = false;
+    }
+  }
+  
   async ability(food, abilityId, conditions) {
     if (this.foodUsed >= food) {
       if (conditions === undefined || conditions.targetType || conditions.targetCount === this.units.getById(conditions.countType).length + this.units.withCurrentOrders(abilityId).length) {

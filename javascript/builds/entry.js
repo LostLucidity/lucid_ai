@@ -5,6 +5,7 @@ const { createSystem } = require("@node-sc2/core");
 const { CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const AssemblePlan = require("../helper/assemblePlan");
+const { onUnitDestroyed } = require("../systems/worker-balance-system");
 const plans = require("./plans");
 const { onEnemyFirstSeen, onUnitCreated } = require("./terran");
 
@@ -60,6 +61,9 @@ const entry = createSystem({
         actions.sendAction(unitCommand);
       }
     }
+  },
+  async onUnitDestroyed(world, destroyedUnit) {
+    await assemblePlan.onUnitDestroyed(world, destroyedUnit)
   },
   async onUnitIdle(world, idleUnit) {
     if (idleUnit.isWorker()) {
