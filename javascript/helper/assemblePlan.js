@@ -391,6 +391,24 @@ class AssemblePlan {
         break;
     }
   }
+  push(foodRanges) {
+    const label = 'pusher';
+    if (foodRanges.indexOf(this.foodUsed) > -1) {
+      if (this.state.pushMode === false && this.state.pushed === false) {
+        [...this.mainCombatTypes, ...this.supportUnitTypes].forEach(type => {
+          this.units.getById(type).filter(unit => !unit.labels.get('scout') && !unit.labels.get('creeper') && !unit.labels.get('injector')).forEach(unit => unit.labels.set(label, true));
+        });
+        console.log('getSupply(this.units.withLabel(label), this.data)', getSupply(this.units.withLabel(label), this.data));
+        this.state.pushMode = true;
+      }
+    }
+    if (this.units.withLabel(label).length > 0) {
+      this.collectedActions.push(...attack(this.resources, this.mainCombatTypes, this.supportUnitTypes));
+    } else if (this.state.pushMode === true) {
+      this.state.pushMode = false;
+      this.state.pushed = true;
+    }
+  }
   scout(foodRanges, unitType, targetLocation, conditions) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const label = 'scout';

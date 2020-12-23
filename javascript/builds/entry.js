@@ -20,6 +20,8 @@ const entry = createSystem({
       defenseMode: false,
       defenseLocation: null,
       enemyBuildType: 'standard',
+      pushed: false,
+      pushMode: false,
     },
   },
   async onEnemyFirstSeen({}, seenEnemyUnit) {
