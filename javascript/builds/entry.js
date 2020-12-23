@@ -28,6 +28,8 @@ const entry = createSystem({
     assemblePlan.onEnemyFirstSeen(seenEnemyUnit);
   },
   async onGameStart(world) {
+    const { frame } = world.resources.get();
+    console.log('frame.getGameInfo().playerInfo', frame.getGameInfo().playerInfo);
     // get race.
     const race = world.agent.race;
     // get build
