@@ -6,11 +6,10 @@ const { LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
-const { moveAway } = require("../builds/helper");
-const getClosestByPath = require("./get-closest-by-path");
-const { getClosestUnitByPath } = require("./get-closest-by-path");
-const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
+const { getClosestUnitByPath, distanceByPath } = require("./get-closest-by-path");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
 const continuouslyBuild = require("./continuously-build");
+const { moveAway } = require("../builds/helper");
 
 module.exports = {
   attack: (resources, mainCombatTypes, supportUnitTypes) => {
@@ -98,14 +97,15 @@ module.exports = {
           } else {
             console.log('engageOrRetreat', selfSupply, enemySupply);
             allyUnits = [...allyUnits, ...units.getById(QUEEN)];
-            collectedActions.push(...module.exports.engageOrRetreat(data, units, allyUnits, enemyUnits));
+            collectedActions.push(...module.exports.engageOrRetreat(world, units, allyUnits, enemyUnits));
           }
         }
       }
     }
     return collectedActions;
   },
-  engageOrRetreat: (data, units, selfUnits, enemyUnits, position) => {
+  engageOrRetreat: ({ data, resources}, units, selfUnits, enemyUnits, position) => {
+    const { map } = resources.get();
     const collectedActions = [];
     selfUnits.forEach(selfUnit => {
       const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits).filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 8);
@@ -117,8 +117,9 @@ module.exports = {
         if (enemySupply > selfSupply) {
           if (!position || positionIsTooClose) {
             const candidateMineralFields = units.getMineralFields().filter(field => distance(field.pos, selfUnit.pos) < distance(field.pos, closestEnemyUnit.pos))
-            const [ closestMineralField ] = units.getClosest(selfUnit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distance(field.pos, closestEnemyUnit.pos) > 16);
-            position = closestMineralField.pos;
+            // const [ closestMineralField ] = units.getClosest(selfUnit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distance(field.pos, closestEnemyUnit.pos) > 16);
+            const [ closestMineralFieldByPath ] = getClosestUnitByPath(map, selfUnit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distanceByPath(map, field.pos, closestEnemyUnit.pos) > 16);
+            position = closestMineralFieldByPath ? closestMineralFieldByPath.pos : moveAway(selfUnit, closestEnemyUnit);
           }
           const unitCommand = {
             abilityId: MOVE,

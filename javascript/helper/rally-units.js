@@ -8,7 +8,7 @@ const { getRallyPointByBases, getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
-function rallyUnits({data, resources}, supportUnitTypes, rallyPoint=null) {
+function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint=null) {
   const {
     map,
     units,
@@ -53,7 +53,7 @@ function rallyUnits({data, resources}, supportUnitTypes, rallyPoint=null) {
     } else {
       const selfUnits = [...combatUnits, ...supportUnits];
       const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-      collectedActions.push(...engageOrRetreat(data, units, selfUnits, enemyUnits, rallyPoint))
+      collectedActions.push(...engageOrRetreat({ data, resources }, units, selfUnits, enemyUnits, rallyPoint))
     }
   }
   collectedActions.push(...tankBehavior(units));
