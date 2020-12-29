@@ -119,7 +119,6 @@ const plans = {
         [42, 'upgrade', GLIALRECONSTITUTION],
         [42, 'build', 'EXTRACTOR', 1],
         [41, 'build', 'EXTRACTOR', 2],
-        // spread creep
         [42, 'train', ROACH, 0],
         [45, 'train', ROACH, 1],
         [45, 'train', ROACH, 2],
@@ -132,7 +131,6 @@ const plans = {
         [58, 'train', ROACH, 8],
         [58, 'train', ROACH, 9],
         [68, 'build', 'EVOLUTIONCHAMBER', 1],
-        // 71, light push, 38/33
         [[...range(71, 200)], 'push'],
         [74, 'build', 'EXTRACTOR', 3],
         [78, 'upgrade', ZERGMISSILEWEAPONSLEVEL2],
