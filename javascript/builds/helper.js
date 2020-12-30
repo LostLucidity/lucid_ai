@@ -6,10 +6,20 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { retreatMineralPosition } = require("../helper/army-behavior");
 
 module.exports = {
   moveAway(unit, targetUnit) {
-    // move away
+    const awayPoint = module.exports.moveAwayPosition(targetUnit, unit);
+    const unitCommand = {
+      abilityId: MOVE,
+      targetWorldSpacePos: awayPoint,
+      unitTags: [ unit.tag ]
+    }
+    return unitCommand;
+  },
+  moveAwayPosition(targetUnit, unit) {
+        // move away
     // angle of enemy in grid.
     const angle = toDegrees(Math.atan2(targetUnit.pos.y - unit.pos.y, targetUnit.pos.x - unit.pos.x));
     const oppositeAngle = angle + 180 % 360;
@@ -19,12 +29,7 @@ module.exports = {
     }
     // Get opposite angle of enemy.
     // move to point with opposite angle and distance
-    const unitCommand = {
-      abilityId: MOVE,
-      targetWorldSpacePos: awayPoint,
-      unitTags: [ unit.tag ]
-    }
-    return unitCommand;
+    return awayPoint;
   },
   shadowEnemy(map, units, state, unitTypes) {
     const collectedActions = [];
@@ -62,20 +67,17 @@ module.exports = {
             collectedActions.push(unitCommand);
           }
         } else if (distanceToEnemy < enemySightRange) {
-          // move away
-          // angle of enemy in grid.
-          const angle = toDegrees(Math.atan2(closestEnemy.pos.y - scoutingUnit.pos.y, closestEnemy.pos.x - scoutingUnit.pos.x));
-          const oppositeAngle = angle + 180 % 360;
-          const awayPoint = {
-            x: Math.cos(oppositeAngle * Math.PI / 180) * 2 + scoutingUnit.pos.x,
-            y: Math.sin(oppositeAngle * Math.PI / 180) * 2 + scoutingUnit.pos.y
+          const isFlying = scoutingUnit.isFlying;
+          let position;
+          if (isFlying) {
+            position = module.exports.moveAwayPosition(closestEnemy, scoutingUnit);
+          } else {
+            position = retreatMineralPosition(resources, scoutingUnit, closestEnemy);
           }
-          // Get opposite angle of enemy.
-          // move to point with opposite angle and distance
           const unitCommand = {
             abilityId: MOVE,
-            targetWorldSpacePos: awayPoint,
-            unitTags: [ scoutingUnit.tag ]
+            targetWorldSpacePos: position,
+            unitTags: scoutingUnit.tag,
           }
           collectedActions.push(unitCommand);
         }

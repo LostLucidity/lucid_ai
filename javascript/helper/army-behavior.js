@@ -9,7 +9,7 @@ const { tankBehavior } = require("./unit-behavior");
 const { getClosestUnitByPath, distanceByPath } = require("./get-closest-by-path");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const continuouslyBuild = require("./continuously-build");
-const { moveAway } = require("../builds/helper");
+const { moveAwayPosition } = require("../builds/helper");
 
 module.exports = {
   attack: (resources, mainCombatTypes, supportUnitTypes) => {
@@ -116,10 +116,12 @@ module.exports = {
         const selfSupply = inRangeSelfUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
         if (enemySupply > selfSupply) {
           if (!position || positionIsTooClose) {
-            const candidateMineralFields = units.getMineralFields().filter(field => distance(field.pos, selfUnit.pos) < distance(field.pos, closestEnemyUnit.pos))
-            // const [ closestMineralField ] = units.getClosest(selfUnit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distance(field.pos, closestEnemyUnit.pos) > 16);
-            const [ closestMineralFieldByPath ] = getClosestUnitByPath(map, selfUnit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distanceByPath(map, field.pos, closestEnemyUnit.pos) > 16);
-            position = closestMineralFieldByPath ? closestMineralFieldByPath.pos : moveAway(selfUnit, closestEnemyUnit);
+            const isFlying = selfUnit.isFlying;
+            if (isFlying) {
+              position = moveAwayPosition(closestEnemyUnit, selfUnit);
+            } else {
+              position = module.exports.retreatMineralPosition(resources, selfUnit, closestEnemyUnit)
+            }
           }
           const unitCommand = {
             abilityId: MOVE,
@@ -127,7 +129,6 @@ module.exports = {
             unitTags: inRangeSelfUnits.map(unit => unit.tag),
           }
           collectedActions.push(unitCommand);
-          // collectedActions.push(moveAway(unit, closestEnemyUnit));
         } else {
           const unitCommand = {
             abilityId: ATTACK_ATTACK,
@@ -146,6 +147,12 @@ module.exports = {
       }
     })
     return collectedActions;
+  },
+  retreatMineralPosition: (resources, unit, targetUnit) => {
+    const { units, map } = resources.get();
+    const candidateMineralFields = units.getMineralFields().filter(field => distance(field.pos, unit.pos) < distance(field.pos, targetUnit.pos))
+    const [ closestMineralFieldByPath ] = getClosestUnitByPath(map, unit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distanceByPath(map, field.pos, targetUnit.pos) > 16);
+    return closestMineralFieldByPath ? closestMineralFieldByPath.pos : moveAwayPosition(targetUnit, unit);
   }
 };
 
