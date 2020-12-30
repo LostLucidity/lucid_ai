@@ -17,7 +17,7 @@ const { workerSendOrBuild, getSupply, getTrainingSupply } = require("../helper")
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
-const balanceResources = require("./balance-resources");
+const { gasMineCheckAndBuild, excessGasCheck } = require("./balance-resources");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack } = require("./army-behavior");
 const baseThreats = require("./base-threats");
@@ -69,6 +69,8 @@ class AssemblePlan {
     this.resources = world.resources;
     this.map = this.resources.get().map;
     this.units = this.resources.get().units;
+    const workerBalanceSystem = this.agent.systems.find(system => system._system.name === "WorkerBalanceSystem")._system;
+    excessGasCheck(this.agent) ? workerBalanceSystem.pause() : workerBalanceSystem.unpause();
     baseThreats(this.resources, this.state);
     const enemySupply = getSupply(this.units.getCombatUnits(Alliance.ENEMY), this.data);
     const selfSupply = getSupply(this.units.getCombatUnits(), this.data) + getTrainingSupply(this.defenseTypes, this.data, this.units);
@@ -83,8 +85,10 @@ class AssemblePlan {
       } else { this.collectedActions.push(...rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation)); }
     } else { this.collectedActions.push(...attack(this.resources, this.mainCombatTypes, this.supportUnitTypes)); }
     if (this.agent.minerals > 512) {
-      balanceResources(world.agent, world.data, world.resources);
       this.manageSupply([this.foodUsed]);
+      if (this.state.pauseBuilding === false) {
+        gasMineCheckAndBuild(world);
+      }
       this.state.pauseBuilding = false;
     }
     if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(this.agent, this.data, this.resources, this.state)); }
