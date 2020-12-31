@@ -49,7 +49,7 @@ let supportUnitTypes = [ OBSERVER, WARPPRISM ];
 
 const baseThreats = require("../../helper/base-threats");
 const rallyUnits = require("../../helper/rally-units");
-const range = require("../../helper/range");
+const { range } = require("../../helper/utilities");
 const shadowUnit = require("../../helper/shadow-unit");
 const balanceResources = require("../../helper/balance-resources");
 const canAfford = require("../../helper/can-afford");
