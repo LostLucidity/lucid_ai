@@ -18,7 +18,7 @@ const entry = createSystem({
       defenseMode: false,
       defenseLocation: null,
       enemyBuildType: 'standard',
-      pushed: false,
+      cancelPush: false,
       pushMode: false,
     },
   },

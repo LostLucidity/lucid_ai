@@ -67,14 +67,17 @@ class AssemblePlan {
     this.data = world.data;
     this.foodUsed = this.world.agent.foodUsed
     this.resources = world.resources;
+    this.frame = this.resources.get().frame;
     this.map = this.resources.get().map;
     this.units = this.resources.get().units;
     const workerBalanceSystem = this.agent.systems.find(system => system._system.name === "WorkerBalanceSystem")._system;
     excessGasCheck(this.agent) ? workerBalanceSystem.pause() : workerBalanceSystem.unpause();
     baseThreats(this.resources, this.state);
-    const enemySupply = getSupply(this.units.getCombatUnits(Alliance.ENEMY), this.data);
-    const selfSupply = getSupply(this.units.getCombatUnits(), this.data) + getTrainingSupply(this.defenseTypes, this.data, this.units);
-    if (enemySupply > selfSupply) {
+    this.enemySupply = getSupply(this.units.getCombatUnits(Alliance.ENEMY), this.data);
+    this.selfSupply = getSupply(this.units.getCombatUnits(), this.data) + getTrainingSupply(this.defenseTypes, this.data, this.units);
+    if (this.enemySupply > this.selfSupply) {
+      console.log('Scouted higher supply', this.selfSupply, this.enemySupply);
+      console.log(this.frame.timeInSeconds());
       await continuouslyBuild(this.world, this.defenseTypes); 
     }
     
@@ -406,11 +409,16 @@ class AssemblePlan {
         this.state.pushMode = true;
       }
     }
-    if (this.units.withLabel(label).length > 0) {
-      this.collectedActions.push(...attack(this.resources, this.mainCombatTypes, this.supportUnitTypes));
+    if (this.units.withLabel(label).length > 0 && !this.state.cancelPush) {
+      if (this.enemySupply > this.selfSupply) {
+        this.state.cancelPush = true;
+        console.log('cancelPush');
+      } else {
+        this.collectedActions.push(...attack(this.resources, this.mainCombatTypes, this.supportUnitTypes));
+      }
     } else if (this.state.pushMode === true) {
       this.state.pushMode = false;
-      this.state.pushed = true;
+      this.state.cancelPush = true;
     }
   }
   scout(foodRanges, unitType, targetLocation, conditions) {
