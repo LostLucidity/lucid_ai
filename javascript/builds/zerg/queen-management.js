@@ -46,7 +46,7 @@ module.exports = {
     const baseCount = units.getBases().length;
     if (queenCount <= baseCount) {
       if (canAfford(agent, data, QUEEN)) {
-        const trainer = units.getProductionUnits(QUEEN).find(unit => unit.noQueue);
+        const trainer = units.getProductionUnits(QUEEN).find(unit => unit.noQueue && unit.buildProgress >= 1);
         if (trainer) {
           try { await actions.train(QUEEN); } catch (error) { console.log(error) }
         }
