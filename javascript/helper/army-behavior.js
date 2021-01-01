@@ -2,8 +2,8 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
-const { MOVE, ATTACK_ATTACK, ATTACK } = require("@node-sc2/core/constants/ability");
+const { LARVA, QUEEN, ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
+const { MOVE, ATTACK_ATTACK, ATTACK, EFFECT_SCAN } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
@@ -24,6 +24,17 @@ module.exports = {
     const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
     if (closestEnemyBase || closestEnemyUnit) {
       const enemyTarget = closestEnemyBase || closestEnemyUnit;
+      if (enemyTarget.cloak === 1) {
+        const orbitalCommand = units.getById(ORBITALCOMMAND).find(n => n.energy > 50);
+        if (orbitalCommand) {
+          const unitCommand = {
+            abilityId: EFFECT_SCAN,
+            targetWorldSpacePos: closestEnemyUnit.pos,
+            unitTags: [ orbitalCommand.tag ],
+          }
+          collectedActions.push(unitCommand);
+        }
+      }
       // const [ combatPoint ] = getClosestByPath(map, enemyTarget.pos, combatUnits, 1);
       const [ combatPoint ] = units.getClosest(enemyTarget.pos, combatUnits, 1);
       if (combatPoint) {
