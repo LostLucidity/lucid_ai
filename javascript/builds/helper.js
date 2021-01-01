@@ -6,9 +6,15 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { retreatMineralPosition } = require("../helper/army-behavior");
+const { getClosestUnitByPath, distanceByPath } = require("../helper/get-closest-by-path");
 
 module.exports = {
+  mineralPosition: (resources, unit, targetUnit) => {
+    const { units, map } = resources.get();
+    const candidateMineralFields = units.getMineralFields().filter(field => distanceByPath(map, field.pos, unit.pos) < distanceByPath(map, field.pos, targetUnit.pos))
+    const [ closestMineralFieldByPath ] = getClosestUnitByPath(map, unit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distanceByPath(map, field.pos, targetUnit.pos) > 16);
+    return closestMineralFieldByPath ? closestMineralFieldByPath.pos : module.exports.moveAwayPosition(targetUnit, unit);
+  },
   moveAway(unit, targetUnit) {
     const awayPoint = module.exports.moveAwayPosition(targetUnit, unit);
     const unitCommand = {
@@ -31,7 +37,8 @@ module.exports = {
     // move to point with opposite angle and distance
     return awayPoint;
   },
-  shadowEnemy(map, units, state, unitTypes) {
+  shadowEnemy(resources, state, unitTypes) {
+    const { map, units } = resources.get();
     const collectedActions = [];
     const scoutingUnits = [...units.getById(unitTypes), ...units.withLabel('scout')];
     scoutingUnits.forEach(scoutingUnit => {
@@ -72,12 +79,12 @@ module.exports = {
           if (isFlying) {
             position = module.exports.moveAwayPosition(closestEnemy, scoutingUnit);
           } else {
-            position = retreatMineralPosition(resources, scoutingUnit, closestEnemy);
+            position = module.exports.mineralPosition(resources, scoutingUnit, closestEnemy);
           }
           const unitCommand = {
             abilityId: MOVE,
             targetWorldSpacePos: position,
-            unitTags: scoutingUnit.tag,
+            unitTags: [ scoutingUnit.tag ],
           }
           collectedActions.push(unitCommand);
         }

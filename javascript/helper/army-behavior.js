@@ -6,10 +6,9 @@ const { LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
-const { getClosestUnitByPath, distanceByPath } = require("./get-closest-by-path");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const continuouslyBuild = require("./continuously-build");
-const { moveAwayPosition } = require("../builds/helper");
+const { moveAwayPosition, mineralPosition } = require("../builds/helper");
 
 module.exports = {
   attack: (resources, mainCombatTypes, supportUnitTypes) => {
@@ -120,7 +119,7 @@ module.exports = {
             if (isFlying) {
               position = moveAwayPosition(closestEnemyUnit, selfUnit);
             } else {
-              position = module.exports.retreatMineralPosition(resources, selfUnit, closestEnemyUnit)
+              position = mineralPosition(resources, selfUnit, closestEnemyUnit)
             }
           }
           const unitCommand = {
@@ -147,12 +146,6 @@ module.exports = {
       }
     })
     return collectedActions;
-  },
-  retreatMineralPosition: (resources, unit, targetUnit) => {
-    const { units, map } = resources.get();
-    const candidateMineralFields = units.getMineralFields().filter(field => distance(field.pos, unit.pos) < distance(field.pos, targetUnit.pos))
-    const [ closestMineralFieldByPath ] = getClosestUnitByPath(map, unit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distanceByPath(map, field.pos, targetUnit.pos) > 16);
-    return closestMineralFieldByPath ? closestMineralFieldByPath.pos : moveAwayPosition(targetUnit, unit);
   }
 };
 
