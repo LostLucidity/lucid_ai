@@ -33,7 +33,13 @@ module.exports = {
           }
           const reverseStep = buildings.length - 1;
           if (building.abilityAvailable(conditions[step].landAbility) && building.isIdle()) {
-            try { await actions.do(conditions[step].landAbility, building.tag, { target: buildings[reverseStep - step].pos, queue: true }); } catch(error) { console.log(error); }
+            // building position for first building should be based on it's addon.
+            console.log(firstBuilding.pos);
+            const [ addOnTarget ] = units.getClosest({x: firstBuilding.pos.x + 2.5, y: firstBuilding.pos.y -0.5}, units.getStructures());
+            firstBuilding.landingTarget =  { x: addOnTarget.pos.x - 2.5, y: addOnTarget.pos.y + 0.5 };
+            secondBuilding.landingTarget = secondBuilding.pos;
+            console.log(firstBuilding.landingTarget);
+            try { await actions.do(conditions[step].landAbility, building.tag, { target: buildings[reverseStep - step].landingTarget, queue: true }); } catch(error) { console.log(error); }
           }
         }
       }
