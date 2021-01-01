@@ -1,7 +1,7 @@
 const { MOVE } = require("@node-sc2/core/constants/ability");
 //@ts-check
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
-const { workerSendOrBuild } = require("../builds/protoss/helper");
+const { workerSendOrBuild } = require("../helper");
 const canAfford = require("./can-afford");
 const { getAvailableExpansions } = require("./expansions");
 
