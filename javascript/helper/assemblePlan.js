@@ -530,6 +530,7 @@ class AssemblePlan {
           case 'harass': if (this.state.enemyBuildType === 'standard') { harass(this.resources, this.state); } break;
           case 'maintainQueens': if (this.foodUsed >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
+          case 'push': this.push(foodTarget); break;
           case 'scout':
             unitType = planStep[2];
             const targetLocation = planStep[3];
