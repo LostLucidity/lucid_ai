@@ -41,12 +41,14 @@ module.exports = {
     if (damagedMechUnit) {
       // select worker and repair stucture
       const [ closestWorker ] = units.getClosest(damagedMechUnit.pos, units.getWorkers());
-      const unitCommand = {
-        abilityId: EFFECT_REPAIR,
-        targetUnitTag: damagedMechUnit.tag,
-        unitTags: [ closestWorker.tag ]
+      if (closestWorker) {
+        const unitCommand = {
+          abilityId: EFFECT_REPAIR,
+          targetUnitTag: damagedMechUnit.tag,
+          unitTags: [ closestWorker.tag ]
+        }
+        collectedActions.push(unitCommand);
       }
-      collectedActions.push(unitCommand);
     }
     return collectedActions;
   }
