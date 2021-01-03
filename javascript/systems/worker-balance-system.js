@@ -1,3 +1,6 @@
+//@ts-check
+"use strict"
+
 const debugDebug = require('debug')('sc2:debug:WorkerBalance');
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 const { createSystem } = require('@node-sc2/core');
