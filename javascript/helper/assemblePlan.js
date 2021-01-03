@@ -80,9 +80,8 @@ class AssemblePlan {
       console.log(this.frame.timeInSeconds());
       await continuouslyBuild(this.world, this.defenseTypes); 
     }
-    
     await this.runPlan();
-    if (this.foodUsed < ATTACKFOOD) {
+    if (this.foodUsed < ATTACKFOOD && this.state.pushMode === false) {
       if (this.state.defenseMode) {
         this.collectedActions.push(...await defend(world, this.mainCombatTypes, this.supportUnitTypes));
       } else { this.collectedActions.push(...rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation)); }
