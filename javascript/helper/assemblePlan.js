@@ -17,7 +17,7 @@ const { workerSendOrBuild, getSupply, getTrainingSupply } = require("../helper")
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
-const { gasMineCheckAndBuild, excessGasCheck } = require("./balance-resources");
+const { gasMineCheckAndBuild, gasShortage } = require("./balance-resources");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack } = require("./army-behavior");
 const baseThreats = require("./base-threats");
@@ -71,7 +71,7 @@ class AssemblePlan {
     this.map = this.resources.get().map;
     this.units = this.resources.get().units;
     const workerBalanceSystem = this.agent.systems.find(system => system._system.name === "WorkerBalanceSystem")._system;
-    excessGasCheck(this.agent) ? workerBalanceSystem.pause() : workerBalanceSystem.unpause();
+    gasShortage(this.agent) ? workerBalanceSystem.unpause() : workerBalanceSystem.pause();
     baseThreats(this.resources, this.state);
     this.enemySupply = getSupply(this.units.getCombatUnits(Alliance.ENEMY), this.data);
     this.selfSupply = getSupply(this.units.getCombatUnits(), this.data) + getTrainingSupply(this.defenseTypes, this.data, this.units);

@@ -27,11 +27,10 @@ async function balanceResources(agent, data, resources, ratio=2.4) {
 }
 
 module.exports = {
-  excessGasCheck: (agent, ratio=2.4) => {
+  gasShortage: (agent, ratio=2.4) => {
     const { minerals, vespene } = agent;
     const resourceRatio = minerals / vespene;
-    resourceRatio > ratio
-    return resourceRatio < ratio;
+    return resourceRatio > ratio;
   },
   gasMineCheckAndBuild: async ({ agent, data, resources}, ratio=2.4) => {
     const {
