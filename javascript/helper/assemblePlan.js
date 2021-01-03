@@ -88,10 +88,8 @@ class AssemblePlan {
       } else { this.collectedActions.push(...rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation)); }
     } else { this.collectedActions.push(...attack(this.resources, this.mainCombatTypes, this.supportUnitTypes)); }
     if (this.agent.minerals > 512) {
-      this.manageSupply([this.foodUsed]);
-      if (this.state.pauseBuilding === false) {
-        gasMineCheckAndBuild(world);
-      }
+      gasMineCheckAndBuild(world);
+      this.manageSupply();
       this.state.pauseBuilding = false;
     }
     if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(this.agent, this.data, this.resources, this.state)); }
