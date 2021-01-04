@@ -2,7 +2,7 @@
 "use strict"
 
 const { CANCEL_QUEUE5, LIFT, LAND } = require("@node-sc2/core/constants/ability");
-const { BARRACKSREACTOR } = require("@node-sc2/core/constants/unit-type");
+const { BARRACKSREACTOR, REACTOR } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
 module.exports = {
@@ -45,11 +45,11 @@ module.exports = {
       }
     }
   },
-  checkAddOnPlacement: async ({ data, resources }, building, unitTypeAddOn) => {
+  checkAddOnPlacement: async ({ data, resources }, building, unitTypeAddOn = REACTOR) => {
     const { actions } = resources.get();
     const abilityId = data.getUnitTypeData(unitTypeAddOn).abilityId;
     if (building.abilityAvailable(abilityId)) {
-      const nearPoints = gridsInCircle(building.pos, 4);
+      const nearPoints = gridsInCircle(building.pos, 6);
       const randomPositions = nearPoints
           .map(pos => ({ pos, rand: Math.random() }))
           .sort((a, b) => a.rand - b.rand)
