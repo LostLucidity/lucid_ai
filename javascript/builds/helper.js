@@ -6,14 +6,14 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getClosestUnitByPath, distanceByPath } = require("../helper/get-closest-by-path");
+const { distanceByPath, getClosestPositionByPath } = require("../helper/get-closest-by-path");
 
 module.exports = {
-  mineralPosition: (resources, unit, targetUnit) => {
-    const { units, map } = resources.get();
-    const candidateMineralFields = units.getMineralFields().filter(field => distanceByPath(map, field.pos, unit.pos) < distanceByPath(map, field.pos, targetUnit.pos))
-    const [ closestMineralFieldByPath ] = getClosestUnitByPath(map, unit.pos, candidateMineralFields, candidateMineralFields.length).filter(field => distanceByPath(map, field.pos, targetUnit.pos) > 16);
-    return closestMineralFieldByPath ? closestMineralFieldByPath.pos : module.exports.moveAwayPosition(targetUnit, unit);
+  retreatToExpansion: (resources, unit, targetUnit) => {
+    const { map } = resources.get();
+    const candidateExpansionsCentroid = map.getExpansions().filter(expansion => distanceByPath(map, expansion.centroid, unit.pos) < distanceByPath(map, expansion.centroid, targetUnit.pos)).map(expansion => expansion.centroid);
+    const [ closestExpansionCentroidByPath ] = getClosestPositionByPath(map, unit.pos, candidateExpansionsCentroid, candidateExpansionsCentroid.length).filter(centroid => distanceByPath(map, centroid, targetUnit.pos) > 16);
+    return closestExpansionCentroidByPath ? closestExpansionCentroidByPath : module.exports.moveAwayPosition(targetUnit, unit);
   },
   moveAway(unit, targetUnit) {
     const awayPoint = module.exports.moveAwayPosition(targetUnit, unit);
@@ -79,7 +79,7 @@ module.exports = {
           if (isFlying) {
             position = module.exports.moveAwayPosition(closestEnemy, scoutingUnit);
           } else {
-            position = module.exports.mineralPosition(resources, scoutingUnit, closestEnemy);
+            position = module.exports.retreatToExpansion(resources, scoutingUnit, closestEnemy);
           }
           const unitCommand = {
             abilityId: MOVE,

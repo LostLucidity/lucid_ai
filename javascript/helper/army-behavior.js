@@ -8,7 +8,7 @@ const { getRandomPoint, getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const continuouslyBuild = require("./continuously-build");
-const { moveAwayPosition, mineralPosition } = require("../builds/helper");
+const { moveAwayPosition, retreatToExpansion } = require("../builds/helper");
 
 module.exports = {
   attack: (resources, mainCombatTypes, supportUnitTypes) => {
@@ -130,7 +130,7 @@ module.exports = {
             if (isFlying) {
               position = moveAwayPosition(closestEnemyUnit, selfUnit);
             } else {
-              position = mineralPosition(resources, selfUnit, closestEnemyUnit)
+              position = retreatToExpansion(resources, selfUnit, closestEnemyUnit)
             }
           }
           const unitCommand = {
