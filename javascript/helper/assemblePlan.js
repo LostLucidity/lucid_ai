@@ -398,7 +398,7 @@ class AssemblePlan {
   push(foodRanges) {
     const label = 'pusher';
     if (foodRanges.indexOf(this.foodUsed) > -1) {
-      if (this.state.pushMode === false && this.state.pushed === false) {
+      if (this.state.pushMode === false && !this.state.cancelPush) {
         [...this.mainCombatTypes, ...this.supportUnitTypes].forEach(type => {
           this.units.getById(type).filter(unit => !unit.labels.get('scout') && !unit.labels.get('creeper') && !unit.labels.get('injector')).forEach(unit => unit.labels.set(label, true));
         });
