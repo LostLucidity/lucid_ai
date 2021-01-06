@@ -15,7 +15,8 @@ module.exports = {
       .slice(0, n);
   },
   getClosestUnitByPath: (map, position, units, n = 1) => {
-    return units.map(unit => ({ unit, distance: module.exports.distanceByPath(map, position, add(unit.pos, unit.radius)) }))
+    return units.map(unit => ({ unit, distance: module.exports.distanceByPath(map, add(unit.pos, unit.radius), position) }))
+      .filter(pointObject => pointObject.distance > 0)
       .sort((a, b) => a.distance - b.distance)
       .map(u => u.unit)
       .slice(0, n);
