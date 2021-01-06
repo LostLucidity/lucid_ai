@@ -42,7 +42,7 @@ module.exports = {
       }
     } else {
       // order to location,
-      const expansions = map.getAvailableExpansions().concat(map.getEnemyMain());
+      const expansions = [...map.getAvailableExpansions(), ...map.getOccupiedExpansions(4)];
       const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
       const randomExpansion = expansions[Math.floor(Math.random() * expansions.length)];
       const randomPosition = randomExpansion ? randomExpansion.townhallPosition : getRandomPoint(map)
