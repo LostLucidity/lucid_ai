@@ -91,7 +91,7 @@ const plans = {
       },
       order: [
         [[...range(0, 21)], 'buildWorkers'],
-        [[...range(12, 14)], 'scout', OVERLORD, 'getEnemyNatural',],
+        // [[...range(12, 14)], 'scout', OVERLORD, 'getEnemyNatural',],
         [13, 'train', OVERLORD, 1],
         [17, 'build', 'HATCHERY', 1],
         [17, 'build', 'EXTRACTOR', 0],
