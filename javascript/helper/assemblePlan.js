@@ -416,6 +416,7 @@ class AssemblePlan {
     } else if (this.state.pushMode === true) {
       this.state.pushMode = false;
       this.state.cancelPush = true;
+      console.log('cancelPush');
     }
   }
   scout(foodRanges, unitType, targetLocation, conditions) {
