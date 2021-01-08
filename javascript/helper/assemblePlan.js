@@ -71,7 +71,7 @@ class AssemblePlan {
     this.map = this.resources.get().map;
     this.units = this.resources.get().units;
     const workerBalanceSystem = this.agent.systems.find(system => system._system.name === "WorkerBalanceSystem")._system;
-    gasShortage(this.agent) ? workerBalanceSystem.unpause() : workerBalanceSystem.pause();
+    // gasShortage(this.agent) ? workerBalanceSystem.unpause() : workerBalanceSystem.pause();
     baseThreats(this.resources, this.state);
     this.enemySupply = getSupply(this.units.getCombatUnits(Alliance.ENEMY), this.data);
     this.selfSupply = getSupply(this.units.getCombatUnits(), this.data) + getTrainingSupply(this.defenseTypes, this.data, this.units);

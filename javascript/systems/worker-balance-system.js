@@ -14,8 +14,11 @@ module.exports = createSystem({
         stepIncrement: 50,
         state: {},
     },
-    async onStep({ resources }) {
+    async onStep({ agent, resources }) {
         const { units, actions } = resources.get();
+        const { minerals, vespene } = agent;
+        const resourceRatio = minerals / vespene;
+        const surplusMinerals = resourceRatio > 2.4;
 
         const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
 
@@ -24,10 +27,12 @@ module.exports = createSystem({
 
         const needyGasMine = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
 
-        if (needyGasMine) {
-            const possibleDonerThs = townhalls.filter(u => u.assignedHarvesters / u.idealHarvesters * 100 > 50);
-            debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
-            const [givingTownhall] = units.getClosest(needyGasMine.pos, possibleDonerThs);
+        if (needyGasMine && surplusMinerals) {
+            // const possibleDonerThs = townhalls.filter(u => u.assignedHarvesters / u.idealHarvesters * 100 > 50);
+            // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
+            // const [givingTownhall] = units.getClosest(needyGasMine.pos, possibleDonerThs);
+            debugSilly('possible ths', townhalls.map(th => th.tag));
+            const [givingTownhall] = units.getClosest(needyGasMine.pos, townhalls);
 
             const donateableWorkers = workers.filter(w => w.isGathering('minerals'));
             debugSilly('possible doners', donateableWorkers.map(th => th.tag));
@@ -36,16 +41,16 @@ module.exports = createSystem({
                 debugSilly('chosen closest th', givingTownhall.tag);
                 const [donatingWorker] = units.getClosest(givingTownhall.pos, donateableWorkers);
                 debugSilly('chosen worker', donatingWorker.tag);
-                return actions.mine(donatingWorker, needyGasMine, false);
+                return actions.mine([donatingWorker], needyGasMine, false);
             }
         }
 
         const needyTownhall = units.getBases(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
 
-        if (needyTownhall) {
-            const possibleDonerThs = townhalls.filter(u => u.assignedHarvesters / u.idealHarvesters * 100 > 115);
-            debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
-            const [givingTownhall] = units.getClosest(needyTownhall.pos, possibleDonerThs);
+        if (needyTownhall && !surplusMinerals) {
+            // const possibleDonerThs = townhalls.filter(u => u.assignedHarvesters / u.idealHarvesters * 100 > 115);
+            // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
+            const [givingTownhall] = units.getClosest(needyTownhall.pos, townhalls);
 
             const donateableWorkers = workers.filter(w => w.isGathering('minerals'));
             debugSilly('possible doners', donateableWorkers.map(th => th.tag));
