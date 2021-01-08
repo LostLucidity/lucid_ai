@@ -63,12 +63,12 @@ module.exports = {
       if (units.getById(CREEPTUMORBURROWED).length <= 2) {
         // get creep natural closest to enemy
         const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
-        const [ closestTownhallPositionToEnemy ] = getClosestUnitByPath(map, map.getEnemyMain().townhallPosition, occupiedTownhalls).map(unit => unit.pos);
+        const [ closestTownhallPositionToEnemy ] = getClosestUnitByPath(resources, map.getEnemyMain().townhallPosition, occupiedTownhalls).map(unit => unit.pos);
         const pathToEnemyMain = map.path(add(closestTownhallPositionToEnemy, 3), add(map.getEnemyMain().townhallPosition, 3))
           .map(step => ({ x: step[0], y: step[1] }))
           .filter(point => map.getOccupiedExpansions(Alliance.ENEMY).every(expansion => distance(point, expansion.townhallPosition) > 11.5));
         const intersectedPoints = intersectionOfPoints(map.getCreep(), pathToEnemyMain);
-        const closestCreepToEnemy = getClosestPositionByPath(map, map.getEnemyMain().townhallPosition, intersectedPoints, 4);
+        const closestCreepToEnemy = getClosestPositionByPath(resources, map.getEnemyMain().townhallPosition, intersectedPoints, 4);
         collectedActions.push(...await findAndPlaceCreepTumor(resources, idleCreeperQueens, BUILD_CREEPTUMOR_QUEEN, closestCreepToEnemy));
       } else {
         collectedActions.push(...await findAndPlaceCreepTumor(resources, idleCreeperQueens, BUILD_CREEPTUMOR_QUEEN, map.getCreep()));

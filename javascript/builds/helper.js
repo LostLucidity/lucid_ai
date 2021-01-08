@@ -11,8 +11,8 @@ const { distanceByPath, getClosestPositionByPath } = require("../helper/get-clos
 module.exports = {
   retreatToExpansion: (resources, unit, targetUnit) => {
     const { map } = resources.get();
-    const candidateExpansionsCentroid = map.getExpansions().filter(expansion => distanceByPath(map, expansion.centroid, unit.pos) < distanceByPath(map, expansion.centroid, targetUnit.pos)).map(expansion => expansion.centroid);
-    const [ closestExpansionCentroidByPath ] = getClosestPositionByPath(map, unit.pos, candidateExpansionsCentroid, candidateExpansionsCentroid.length).filter(centroid => distanceByPath(map, centroid, targetUnit.pos) > 16);
+    const candidateExpansionsCentroid = map.getExpansions().filter(expansion => distanceByPath(resources, expansion.centroid, unit.pos) < distanceByPath(resources, expansion.centroid, targetUnit.pos)).map(expansion => expansion.centroid);
+    const [ closestExpansionCentroidByPath ] = getClosestPositionByPath(resources, unit.pos, candidateExpansionsCentroid, candidateExpansionsCentroid.length).filter(centroid => distanceByPath(resources, centroid, targetUnit.pos) > 16);
     return closestExpansionCentroidByPath ? closestExpansionCentroidByPath : module.exports.moveAwayPosition(targetUnit, unit);
   },
   moveAway(unit, targetUnit) {
