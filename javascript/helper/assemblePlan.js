@@ -460,13 +460,12 @@ class AssemblePlan {
       const unitCount = this.units.getById(unitType).length + this.units.withCurrentOrders(abilityId).length
       if (unitCount === targetCount) {
         if (canAfford(this.agent, this.world.data, unitType)) {
-          const trainer = this.units.getProductionUnits(unitType).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
+          const trainer = this.units.getProductionUnits(unitType).find(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId));
           if (trainer) {
             const unitCommand = {
               abilityId,
               unitTags: [ trainer.tag ],
             }
-            // this.collectedActions.push(unitCommand);
             await actions.sendAction([unitCommand]);
           } else {
             abilityId = WarpUnitAbility[unitType]
