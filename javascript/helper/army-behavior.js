@@ -136,14 +136,14 @@ module.exports = {
           const unitCommand = {
             abilityId: MOVE,
             targetWorldSpacePos: position,
-            unitTags: inRangeSelfUnits.map(unit => unit.tag),
+            unitTags: [selfUnit.tag],
           }
           collectedActions.push(unitCommand);
         } else {
           const unitCommand = {
             abilityId: ATTACK_ATTACK,
             targetUnitTag: closestEnemyUnit.tag,
-            unitTags: inRangeSelfUnits.map(unit => unit.tag),
+            unitTags: [selfUnit.tag],
           }
           collectedActions.push(unitCommand);
         } 
