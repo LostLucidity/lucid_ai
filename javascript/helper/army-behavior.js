@@ -193,7 +193,7 @@ function attackWithArmy(combatPoint, units, combatUnits, supportUnits, enemyTarg
     }
     collectedActions.push(unitCommand);
   }
-  const changelings = [14, 15, 16];
+  const changelings = [13, 14, 15, 16];
   const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
   if (changelings.includes(enemyTarget.unitType)) {
     const killChanglingCommand = {
