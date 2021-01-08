@@ -149,7 +149,7 @@ const plans = {
         [105, 'train', HYDRALISK, 7],
         [113, 'train', HYDRALISK, 8],
         [113, 'train', HYDRALISK, 9],
-        [119, 'ability', RESEARCH_GROOVEDSPINES],
+        [119, 'upgrade', EVOLVEGROOVEDSPINES],
         [129, 'build', 'HATCHERY', 3],
         [138, 'build', 'HYDRALISKDEN', 1],
         [149, 'upgrade', ZERGGROUNDARMORSLEVEL2],
