@@ -9,6 +9,7 @@ const { tankBehavior } = require("./unit-behavior");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const continuouslyBuild = require("./continuously-build");
 const { moveAwayPosition, retreatToExpansion } = require("../builds/helper");
+const { getClosestUnitByPath } = require("./get-closest-by-path");
 
 module.exports = {
   attack: (resources, mainCombatTypes, supportUnitTypes) => {
@@ -35,8 +36,7 @@ module.exports = {
           collectedActions.push(unitCommand);
         }
       }
-      // const [ combatPoint ] = getClosestByPath(map, enemyTarget.pos, combatUnits, 1);
-      const [ combatPoint ] = units.getClosest(enemyTarget.pos, combatUnits, 1);
+      const [ combatPoint ] = getClosestUnitByPath(resources, enemyTarget.pos, combatUnits, 1);
       if (combatPoint) {
         collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, enemyTarget));
       }
