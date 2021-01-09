@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, STARPORTREACTOR } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions } = require("./expansions");
@@ -139,6 +139,14 @@ class AssemblePlan {
               target = targets[Math.floor(Math.random() * targets.length)];
             }
             if (target) { unitCommand.targetUnitTag = target.tag; }
+          }
+          if (abilityId === 488 && !unitCanDo.isFlying) {
+            const addOnTarget = {x: unitCanDo.pos.x + 2.5, y: unitCanDo.pos.y - 0.5};
+            const canPlace = await actions.canPlace(STARPORTREACTOR, [ addOnTarget ]);
+            if (!canPlace) {
+              const foundPosition = await checkAddOnPlacement(this.world, unitCanDo, STARPORTREACTOR)
+              if (foundPosition) { unitCommand.targetWorldSpacePos = foundPosition; } else { return; }
+            }
           }
           await actions.sendAction([unitCommand]);
           this.state.pauseBuilding = false;
