@@ -6,8 +6,6 @@ const { QUEEN, CREEPTUMORBURROWED, CREEPTUMOR, HATCHERY, LAIR } = require("@node
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance, add } = require("@node-sc2/core/utils/geometry/point");
 const canAfford = require("../../helper/can-afford");
-const getClosestByPath = require("../../helper/get-closest-by-path");
-const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { getClosestPositionByPath, getClosestUnitByPath } = require("../../helper/get-closest-by-path");
 const {  intersectionOfPoints } = require("../../helper/utilities");
 
