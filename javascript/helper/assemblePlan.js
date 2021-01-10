@@ -375,7 +375,7 @@ class AssemblePlan {
     
   }
   async manageSupply(foodRanges) {
-    if (foodRanges.indexOf(this.foodUsed) > -1) {
+    if (!foodRanges || foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.agent, this.data, this.resources)) {
         switch (race) {
           // TODO: remove third parameter and handle undefined in train function.
