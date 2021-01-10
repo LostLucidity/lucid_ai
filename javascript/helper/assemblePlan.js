@@ -394,7 +394,7 @@ class AssemblePlan {
   }
 
   async onUnitCreated(world, createdUnit) {
-    this.collectedActions && this.collectedActions.push(...generalScouting(world, createdUnit));
+    await generalScouting(world, createdUnit);
     await world.resources.get().actions.sendAction(this.collectedActions);
   }
   async raceSpecificManagement() {
