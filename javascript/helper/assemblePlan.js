@@ -403,7 +403,7 @@ class AssemblePlan {
         labelQueens(this.units);
         this.collectedActions.push(...inject(this.units));
         this.collectedActions.push(...overlordCoverage(this.units));
-        this.collectedActions.push(...await spreadCreep(this.resources, this.units));
+        this.collectedActions.push(...await spreadCreep(this.resources));
         break;
       case Race.TERRAN:
         this.collectedActions.push(...repairBurningStructures(this.resources));
