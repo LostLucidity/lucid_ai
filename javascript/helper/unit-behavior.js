@@ -3,10 +3,12 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { SIEGETANK, SIEGETANKSIEGED, LARVA, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED } = require("@node-sc2/core/constants/unit-type");
-const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN } = require("@node-sc2/core/constants/ability");
+const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getBase } = require("./expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
+const { WorkerRace } = require("@node-sc2/core/constants/race-map");
+const { retreatToExpansion } = require("../builds/helper");
 
 
 module.exports = {
@@ -149,6 +151,24 @@ module.exports = {
         }
       });
     }
+    return collectedActions;
+  },
+  workerBehavior: ({ agent, resources }) => {
+    const { units} = resources.get();
+    const collectedActions = [];
+    const enemyCombatUnits = units.getCombatUnits(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+    units.getByType(WorkerRace[agent.race]).forEach(worker => {
+      let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyCombatUnits, 1);
+      if (closestEnemyUnit && distance(worker.pos, closestEnemyUnit.pos) < 8) {
+        const position = retreatToExpansion(resources, worker, closestEnemyUnit);
+        const unitCommand = {
+          abilityId: MOVE,
+          targetWorldSpacePos: position,
+          unitTags: [ worker.tag ],
+        }
+        collectedActions.push(unitCommand);
+      }
+    });
     return collectedActions;
   }
 }
