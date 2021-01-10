@@ -115,7 +115,6 @@ module.exports = {
     return collectedActions;
   },
   engageOrRetreat: ({ data, resources}, units, selfUnits, enemyUnits, position) => {
-    const { map } = resources.get();
     const collectedActions = [];
     selfUnits.forEach(selfUnit => {
       const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits).filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 8);
