@@ -167,8 +167,10 @@ class AssemblePlan {
         const toBuild = placementConfigs[unitType].toBuild;
         if (GasMineRace[race] === toBuild && this.agent.canAfford(toBuild)) {
           try {
-            await actions.buildGasMine();
-            this.state.pauseBuilding = false;
+            if (this.map.freeGasGeysers().length > 0) {
+              await actions.buildGasMine();
+              this.state.pauseBuilding = false;
+            }
           }
           catch(error) {
             console.log(error);
