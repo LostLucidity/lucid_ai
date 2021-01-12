@@ -27,7 +27,7 @@ const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { shadowEnemy } = require("../builds/helper");
-const { liberatorBehavior, marineBehavior, supplyDepotBehavior } = require("./unit-behavior");
+const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior } = require("./unit-behavior");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { harass } = require("../builds/harass");
 const { expand } = require("./general-actions");
@@ -108,6 +108,7 @@ class AssemblePlan {
     this.collectedActions.push(...liberatorBehavior(this.resources));
     this.collectedActions.push(...marineBehavior(this.resources));
     this.collectedActions.push(...supplyDepotBehavior(this.resources));
+    this.collectedActions.push(...workerBehavior(world));
     await actions.sendAction(this.collectedActions);
   }
 
