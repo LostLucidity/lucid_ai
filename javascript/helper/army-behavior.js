@@ -72,19 +72,19 @@ module.exports = {
   },
   defend: async (world, mainCombatTypes, supportUnitTypes) => {
     const data = world.data;
+    const resources = world.resources;
     const {
       map,
       units,
-    } = world.resources.get();
+    } = resources.get();
     const collectedActions = [];
-    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-    // let [ closestEnemyUnit ] = getClosestByPath(map, map.getCombatRally(), enemyUnits, 1);
+    const enemyUnits = units.getCombatUnits(Alliance.ENEMY);
     const rallyPoint = getCombatRally(map, units);
     if (rallyPoint) {
-      let [ closestEnemyUnit ] = units.getClosest(rallyPoint, enemyUnits, 1);
+      let [ closestEnemyUnit ] = getClosestUnitByPath(resources, rallyPoint, enemyUnits, 1);
       if (closestEnemyUnit) {
         const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
-        const [ combatPoint ] = units.getClosest(closestEnemyUnit.pos, combatUnits, 1);
+        const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
         if (combatPoint) {
           const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
           let allyUnits = [ ...combatUnits, ...supportUnits ];
