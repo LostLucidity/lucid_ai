@@ -159,10 +159,14 @@ module.exports = {
   }
 };
 
+function filterLabels(unit, labels) {
+  return labels.every(label => !unit.labels.get(label))
+}
+
 function groupUnits(units, mainCombatTypes, supportUnitTypes) {
   const combatUnits = [];
   mainCombatTypes.forEach(type => {
-    combatUnits.push(...units.getById(type).filter(unit => !unit.labels.get('scout')));
+    combatUnits.push(...units.getById(type).filter(unit => filterLabels(unit, ['scout', 'harasser'])));
   });
   const supportUnits = [];
   supportUnitTypes.forEach(type => {

@@ -29,12 +29,12 @@ const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { shadowEnemy } = require("../builds/helper");
 const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior } = require("./unit-behavior");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
-const { harass } = require("../builds/harass");
 const { expand } = require("./general-actions");
 const { swapBuildings, checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { getCombatRally } = require("./location");
 const { repairBurningStructures, repairDamagedMechUnits } = require("../builds/terran/repair");
 const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
+const { harass } = require("../builds/harass");
 
 let actions;
 let opponentRace;
@@ -234,29 +234,54 @@ class AssemblePlan {
     return count === targetCount;
   }
   checkEnemyBuild() {
-    const { frame, } = this.resources.get();
+    const { frame } = this.resources.get();
     // on first scout:
-    if (frame.timeInSeconds() > 75 && frame.timeInSeconds() <= 90) {
-      switch (race) {
+    if (frame.timeInSeconds() > 51 && frame.timeInSeconds() <= 72) {
+      let conditions = [];
+      switch (opponentRace) {
         case Race.PROTOSS:
           // protoss: two gateways
+          conditions = [
+            this.units.getById(GATEWAY, Alliance.ENEMY).length === 2,
+          ];
+          if (!conditions.every(c => c)) {
+            if (this.state.enemyBuildType === 'standard') { console.log('cheese detected'); }
+            this.state.enemyBuildType = 'cheese';
+          }
+          break;
         case Race.TERRAN:
-          // terran: 1 barracks and 1 gas.
+          // scout alive, more than 1 barracks.
+          // 1 barracks and 1 gas, second command center
+          conditions = [
+            this.units.getById(BARRACKS, Alliance.ENEMY).length === 1,
+            this.units.getById(GasMineRace[this.agent.race], Alliance.ENEMY).length === 1,
+          ];
+          if (!conditions.every(c => c)) {
+            if (this.state.enemyBuildType === 'standard') { console.log('cheese detected'); }
+            this.state.enemyBuildType = 'cheese';
+          }
+          break;
         case Race.ZERG:
           // zerg: natural before pool
+          conditions = [
+            this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length === 1,
+            !this.map.getEnemyNatural().getBase()
+          ];
+          this.state.enemyBuildType = conditions.every(c => c) ? 'cheese' : 'standard';
+          break;
       }
     }
     // if scouting probe and time is greater than 2 minutes. If no base, stay defensive.
-    if (frame.timeInSeconds() > 132 && frame.timeInSeconds() <= 240) {
-      if (this.map.getEnemyNatural().getBase() === undefined) {
-        this.state.enemyBuildType = 'cheese';
-      } else {
-        this.state.enemyBuildType = 'standard';
-      };
-    } 
-    if (frame.timeInSeconds() > 240) {
-      this.state.enemyBuildType = 'complete';
-    }
+    // if (frame.timeInSeconds() > 132 && frame.timeInSeconds() <= 240) {
+    //   if (this.map.getEnemyNatural().getBase() === undefined) {
+    //     this.state.enemyBuildType = 'cheese';
+    //   } else {
+    //     this.state.enemyBuildType = 'standard';
+    //   };
+    // } 
+    // if (frame.timeInSeconds() > 240) {
+    //   this.state.enemyBuildType = 'complete';
+    // }
   }
   findPlacements(placementConfig) {
     const { map } = this.resources.get();
@@ -542,8 +567,8 @@ class AssemblePlan {
           case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
-            if (this.agent.minerals > 512 && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.agent, this.data, this.resources, planStep[2], planStep[3]); } break;
-          case 'harass': if (this.state.enemyBuildType === 'standard') { harass(this.resources, this.state); } break;
+            if (this.agent.minerals > 512 && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, planStep[2], planStep[3]); } break;
+          case 'harass': if (this.state.enemyBuildType === 'standard') { await harass(this.resources, this.state); } break;
           case 'maintainQueens': if (this.foodUsed >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
           case 'push': this.push(foodTarget); break;

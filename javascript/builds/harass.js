@@ -6,7 +6,7 @@ const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
 
 module.exports = {
-  harass: (resources, state) => {
+  harass: async (resources, state) => {
     const {
       actions,
       map,
@@ -33,19 +33,18 @@ module.exports = {
           !(unit.unitType === NEXUS)
         )
       });
-      let closestEnemyUnit = units.getClosest(averagePoints, enemyUnits, 1)[0];
+      let [ closestEnemyUnit ] = units.getClosest(averagePoints, enemyUnits, 1);
       if (units.withLabel(label).filter(harasser => harasser.labels.get(label)).length === 4) {
-        if (closestEnemyUnit) {
-          if (distance(closestEnemyUnit.pos, averagePoints) <= 10) {
-            return actions.attack(harassers, closestEnemyUnit);
-          } else {
-            return actions.attackMove(harassers, map.getEnemyNatural().townhallPosition);
-          }
+        if (closestEnemyUnit && distance(closestEnemyUnit.pos, averagePoints) <= 8) {
+          return actions.attack(harassers, closestEnemyUnit);
+        } else {
+          return actions.attackMove(harassers, map.getEnemyNatural().townhallPosition);
         }
       } else {
-        state.harassOn = false;
-        const stalkers = units.getById(STALKER);
-        stalkers.forEach(stalker => stalker.labels.set(label, false));
+        if (!closestEnemyUnit || distance(closestEnemyUnit.pos, averagePoints) > 8) {
+          state.harassOn = false;
+          harassers.forEach(harasser => harasser.labels.set(label, false));
+        }
         return actions.move(harassers, map.getCombatRally());
       }
     }

@@ -190,7 +190,7 @@ const plans = {
         [31, 'harass'],
         [31, 'build', 'PYLON', 2],
         [31, 'build', 'NEXUS', 1],
-        // [31, 'harass', STALKER, 4],
+        [31, 'harass', STALKER, 4],
         [32, 'build', 'ROBOTICSFACILITY', 0],
         [33, 'build', 'PYLON', 3],
         [35, 'build', 'GATEWAY', 2],
