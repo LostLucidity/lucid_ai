@@ -135,7 +135,7 @@ class AssemblePlan {
             if (conditions.targetType === MINERALFIELD) {
               if ((conditions.controlled && this.agent.minerals <= 512) || !conditions.controlled) {
                 target = getMineralFieldTarget(this.units, unitCanDo);
-              }
+              } else { return; }
             } else {
               const targets = this.units.getById(conditions.targetType).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
               target = targets[Math.floor(Math.random() * targets.length)];
