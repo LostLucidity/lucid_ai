@@ -43,6 +43,7 @@ let ATTACKFOOD = 194;
 
 class AssemblePlan {
   constructor(plan) {
+    this.collectedActions = [];
     this.foundPosition = null;
     this.planOrder = plan.order;
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
