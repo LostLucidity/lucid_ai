@@ -105,7 +105,7 @@ class AssemblePlan {
       this.state.defendNatural = true;
     }
     await this.raceSpecificManagement();
-    this.collectedActions.push(...shadowEnemy(this.map, this.units, this.state, this.scoutTypes));
+    this.collectedActions.push(...shadowEnemy(this.resources, this.state, this.scoutTypes));
     this.collectedActions.push(...liberatorBehavior(this.resources));
     this.collectedActions.push(...marineBehavior(this.resources));
     this.collectedActions.push(...supplyDepotBehavior(this.resources));
