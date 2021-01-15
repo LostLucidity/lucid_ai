@@ -517,6 +517,9 @@ class AssemblePlan {
             const warpGates = this.units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
             if (warpGates.length > 0) {
               try { await actions.warpIn(unitType, { nearPosition: getCombatRally(this.map, this.units) }) } catch (error) { console.log(error); }
+            } else {
+              this.state.pauseBuilding = true;
+              return;
             }
           }
           this.state.pauseBuilding = false;
