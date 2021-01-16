@@ -159,7 +159,7 @@ module.exports = {
     const { units} = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-    const workers = units.getByType(WorkerRace[agent.race]);
+    const workers = units.getById(WorkerRace[agent.race]);
     if (enemyUnits.length > 0) {
       workers.forEach(worker => {
         const inRangeSelfCombatUnits = getInRangeUnits(worker, units.getCombatUnits(Alliance.SELF));
