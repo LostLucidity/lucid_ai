@@ -3,7 +3,6 @@
 
 const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, STARPORTREACTOR } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions } = require("./expansions");
 const placementConfigs = require("./placement-configs");
