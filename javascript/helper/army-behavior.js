@@ -36,9 +36,11 @@ module.exports = {
           collectedActions.push(unitCommand);
         }
       }
+      const advanceUnit = getAdvance(resources, combatUnits, enemyTarget);
       const [ combatPoint ] = getClosestUnitByPath(resources, enemyTarget.pos, combatUnits, 1);
       if (combatPoint) {
-        collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, enemyTarget));
+        const army = { combatPoint, advanceUnit, combatUnits, supportUnits, enemyTarget}
+        collectedActions.push(...attackWithArmy(units, army));
       }
     } else {
       // order to location,
@@ -102,8 +104,12 @@ module.exports = {
                 combatUnits.push(...units.getById(QUEEN));
               }
             }
-            // const [ combatPoint ] = getClosestByPath(map, closestEnemyUnit.pos, combatUnits, 1);
-            collectedActions.push(...attackWithArmy(combatPoint, units, combatUnits, supportUnits, closestEnemyUnit));
+            const advanceUnit = getAdvance(resources, combatUnits, closestEnemyUnit);
+            const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
+            if (combatPoint) {
+              const army = { combatPoint, advanceUnit, combatUnits, supportUnits, enemyTarget: closestEnemyUnit}
+              collectedActions.push(...attackWithArmy(units, army));
+            }
           } else {
             console.log('engageOrRetreat', selfSupply, enemySupply);
             allyUnits = [...allyUnits, ...units.getById(QUEEN)];
@@ -163,6 +169,18 @@ function filterLabels(unit, labels) {
   return labels.every(label => !unit.labels.get(label))
 }
 
+function getAdvance(resources, units, target) {
+  const label = 'point';
+  const point = units.find(unit => unit.labels.get(label))
+  if (point) {
+    return point;
+  } else {
+    const closestUnit = getClosestUnitByPath(resources, target.pos, units, 1)[0];
+    closestUnit.labels.set(label, true);
+    return closestUnit;
+  }
+}
+
 function groupUnits(units, mainCombatTypes, supportUnitTypes) {
   const combatUnits = [];
   mainCombatTypes.forEach(type => {
@@ -175,41 +193,41 @@ function groupUnits(units, mainCombatTypes, supportUnitTypes) {
   return [ combatUnits, supportUnits ];
 }
 
-function attackWithArmy(combatPoint, units, combatUnits, supportUnits, enemyTarget) {
+function attackWithArmy(units, army) {
   const collectedActions = [];
-  const pointType = combatPoint.unitType;
+  const pointType = army.combatPoint.unitType;
   const pointTypeUnits = units.getById(pointType);
-  const nonPointTypeUnits = combatUnits.filter(unit => !(unit.unitType === pointType));
+  const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType));
   const nonPointTypeUnitTags = nonPointTypeUnits.map(unit => unit.tag);
   let unitCommand = {
     abilityId: ATTACK_ATTACK,
-    targetWorldSpacePos: combatPoint.pos,
+    targetWorldSpacePos: army.combatPoint.pos,
     unitTags: [ ...nonPointTypeUnitTags ],
   }
   collectedActions.push(unitCommand);
-  if (supportUnits.length > 0) {
-    const supportUnitTags = supportUnits.map(unit => unit.tag);
+  if (army.supportUnits.length > 0) {
+    const supportUnitTags = army.supportUnits.map(unit => unit.tag);
     let unitCommand = {
       abilityId: MOVE,
-      targetWorldSpacePos: combatPoint.pos,
+      targetWorldSpacePos: army.combatPoint.pos,
       unitTags: [ ...supportUnitTags ],
     }
     collectedActions.push(unitCommand);
   }
   const changelings = [13, 14, 15, 16];
   const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
-  if (changelings.includes(enemyTarget.unitType)) {
+  if (changelings.includes(army.enemyTarget.unitType)) {
     const killChanglingCommand = {
       abilityId: ATTACK,
-      targetUnitTag: enemyTarget.tag,
+      targetUnitTag: army.enemyTarget.tag,
       unitTags: [ ...pointTypeUnitTags ],
     }
     collectedActions.push(killChanglingCommand);
   } else {
     unitCommand = {
       abilityId: ATTACK_ATTACK,
-      targetWorldSpacePos: enemyTarget.pos,
-      unitTags: [ ...pointTypeUnitTags ],
+      targetWorldSpacePos: army.enemyTarget.pos,
+      unitTags: [ ...pointTypeUnitTags, army.advanceUnit.tag ],
     }
     collectedActions.push(unitCommand);
   }
