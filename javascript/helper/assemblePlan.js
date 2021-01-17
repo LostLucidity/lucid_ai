@@ -284,7 +284,7 @@ class AssemblePlan {
     // }
   }
   findPlacements(placementConfig) {
-    const { map } = this.resources.get();
+    const { map, units } = this.resources.get();
     const [main, natural] = map.getExpansions();
     const mainMineralLine = main.areas.mineralLine;
     let placements = [];
@@ -347,9 +347,8 @@ class AssemblePlan {
         .filter((point) => {
           return (
             (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
-            (this.units.getStructures({ alliance: Alliance.SELF })
-              .map(u => u.pos)
-              .every(eb => distance(eb, point) > 3))
+            (this.units.getStructures({ alliance: Alliance.SELF }).map(u => u.pos).every(eb => distance(eb, point) > 3)) &&
+            (distance(point, units.getClosest(point, units.getStructures({ alliance: Alliance.SELF }))[0].pos) <= 12.5)
           );
         });
     }
