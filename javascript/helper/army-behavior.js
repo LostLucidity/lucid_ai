@@ -36,10 +36,9 @@ module.exports = {
           collectedActions.push(unitCommand);
         }
       }
-      const advanceUnit = getAdvance(resources, combatUnits, enemyTarget);
-      const [ combatPoint ] = getClosestUnitByPath(resources, enemyTarget.pos, combatUnits, 1);
+      const combatPoint = getCombatPoint(resources, combatUnits, enemyTarget);
       if (combatPoint) {
-        const army = { combatPoint, advanceUnit, combatUnits, supportUnits, enemyTarget}
+        const army = { combatPoint, combatUnits, supportUnits, enemyTarget}
         collectedActions.push(...attackWithArmy(units, army));
       }
     } else {
@@ -91,11 +90,7 @@ module.exports = {
           const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
           let allyUnits = [ ...combatUnits, ...supportUnits ];
           const selfSupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
-          if ((selfSupply <= enemySupply)) {
-            console.log('building defensive units');
-            await continuouslyBuild(world, mainCombatTypes);
-          }
-          if (selfSupply >= enemySupply) {
+          if (selfSupply > enemySupply) {
             console.log('Defend', selfSupply, enemySupply);
             if (closestEnemyUnit.isFlying) {
               // if no anti air in combat, use Queens.
@@ -104,16 +99,19 @@ module.exports = {
                 combatUnits.push(...units.getById(QUEEN));
               }
             }
-            const advanceUnit = getAdvance(resources, combatUnits, closestEnemyUnit);
-            const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
+            const combatPoint = getCombatPoint(resources, combatUnits, closestEnemyUnit);
             if (combatPoint) {
-              const army = { combatPoint, advanceUnit, combatUnits, supportUnits, enemyTarget: closestEnemyUnit}
+              const army = { combatPoint, combatUnits, supportUnits, enemyTarget: closestEnemyUnit}
               collectedActions.push(...attackWithArmy(units, army));
             }
-          } else {
-            console.log('engageOrRetreat', selfSupply, enemySupply);
-            allyUnits = [...allyUnits, ...units.getById(QUEEN)];
-            collectedActions.push(...module.exports.engageOrRetreat(world, units, allyUnits, enemyUnits));
+          } else if ((selfSupply <= enemySupply)) {
+            console.log('building defensive units');
+            await continuouslyBuild(world, mainCombatTypes);
+            if (selfSupply < enemySupply) {
+              console.log('engageOrRetreat', selfSupply, enemySupply);
+              allyUnits = [...allyUnits, ...units.getById(QUEEN)];
+              collectedActions.push(...module.exports.engageOrRetreat(world, units, allyUnits, enemyUnits));
+            }
           }
         }
       }
@@ -170,7 +168,7 @@ function filterLabels(unit, labels) {
   return labels.every(label => !unit.labels.get(label))
 }
 
-function getAdvance(resources, units, target) {
+function getCombatPoint(resources, units, target) {
   const label = 'point';
   const point = units.find(unit => unit.labels.get(label))
   if (point) {
@@ -201,9 +199,10 @@ function attackWithArmy(units, army) {
   const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType));
   const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
   const nonPointTypeUnitTags = nonPointTypeUnits.map(unit => unit.tag);
+  const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > 13 ? army.combatPoint.pos : army.enemyTarget.pos;
   let unitCommand = {
     abilityId: ATTACK_ATTACK,
-    targetWorldSpacePos: army.combatPoint.pos,
+    targetWorldSpacePos: targetWorldSpacePos,
     unitTags: [ ...pointTypeUnitTags, ...nonPointTypeUnitTags ],
   }
   collectedActions.push(unitCommand);
@@ -217,7 +216,6 @@ function attackWithArmy(units, army) {
     collectedActions.push(unitCommand);
   }
   const changelings = [13, 14, 15, 16];
-  const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
   if (changelings.includes(army.enemyTarget.unitType)) {
     const killChanglingCommand = {
       abilityId: ATTACK,
@@ -229,7 +227,7 @@ function attackWithArmy(units, army) {
     unitCommand = {
       abilityId: ATTACK_ATTACK,
       targetWorldSpacePos: army.enemyTarget.pos,
-      unitTags: [ ...pointTypeUnitTags, army.advanceUnit.tag ],
+      unitTags: [ army.combatPoint.tag ],
     }
     collectedActions.push(unitCommand);
   }
