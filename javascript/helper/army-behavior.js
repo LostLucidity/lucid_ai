@@ -198,11 +198,12 @@ function attackWithArmy(units, army) {
   const pointType = army.combatPoint.unitType;
   const pointTypeUnits = units.getById(pointType);
   const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType));
+  const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
   const nonPointTypeUnitTags = nonPointTypeUnits.map(unit => unit.tag);
   let unitCommand = {
     abilityId: ATTACK_ATTACK,
     targetWorldSpacePos: army.combatPoint.pos,
-    unitTags: [ ...nonPointTypeUnitTags ],
+    unitTags: [ ...pointTypeUnitTags, ...nonPointTypeUnitTags ],
   }
   collectedActions.push(unitCommand);
   if (army.supportUnits.length > 0) {
