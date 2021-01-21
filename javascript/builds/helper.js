@@ -6,12 +6,29 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { distanceByPath, getClosestPositionByPath } = require("../helper/get-closest-by-path");
+const { distanceByPath, getClosestPositionByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
 
 module.exports = {
   retreatToExpansion: (resources, unit, targetUnit) => {
     const { map } = resources.get();
-    const candidateExpansionsCentroid = map.getExpansions().filter(expansion => distanceByPath(resources, expansion.centroid, unit.pos) < distanceByPath(resources, expansion.centroid, targetUnit.pos)).map(expansion => expansion.centroid);
+    if (!unit.expansions) { unit.expansions = new Map(); }
+    if (!targetUnit.expansions) { targetUnit.expansions = new Map(); }
+    const candidateExpansionsCentroid = map.getExpansions().filter(expansion => {
+      const centroidString = expansion.centroid.x.toString() + expansion.centroid.y.toString();
+      if (!targetUnit.expansions.has(centroidString)) {
+        let [ closestToExpansion ] = getClosestUnitByPath(resources, expansion.centroid, targetUnit.inRangeUnits);
+        targetUnit.expansions.set(centroidString, {
+          'closestToExpansion': closestToExpansion,
+          'distanceByPath': distanceByPath(resources, closestToExpansion.pos, expansion.centroid),
+        });
+      }
+      if (!unit.expansions.has(centroidString)) {
+        unit.expansions.set(centroidString, {
+          'distanceByPath': distanceByPath(resources, unit.pos, expansion.centroid),
+        });
+      }
+      return unit.expansions.get(centroidString).distanceByPath < targetUnit.expansions.get(centroidString).distanceByPath;
+    }).map(expansion => expansion.centroid);
     const [ closestExpansionCentroidByPath ] = getClosestPositionByPath(resources, unit.pos, candidateExpansionsCentroid, candidateExpansionsCentroid.length).filter(centroid => distanceByPath(resources, centroid, targetUnit.pos) > 16);
     return closestExpansionCentroidByPath ? closestExpansionCentroidByPath : module.exports.moveAwayPosition(targetUnit, unit);
   },
