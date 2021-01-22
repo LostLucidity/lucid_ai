@@ -129,17 +129,18 @@ module.exports = {
         const inRangeSelfUnits = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) < 8)
         selfUnit.selfSupply = inRangeSelfUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
         if (enemySupply > selfUnit.selfSupply) {
+          let targetWorldSpacePos = position;
           if (!position || positionIsTooClose) {
             const isFlying = selfUnit.isFlying;
             if (isFlying) {
-              position = moveAwayPosition(closestEnemyUnit, selfUnit);
+              targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
             } else {
-              position = retreatToExpansion(resources, selfUnit, closestEnemyUnit)
+              targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestEnemyUnit)
             }
           }
           const unitCommand = {
             abilityId: MOVE,
-            targetWorldSpacePos: position,
+            targetWorldSpacePos: targetWorldSpacePos,
             unitTags: [selfUnit.tag],
           }
           collectedActions.push(unitCommand);
@@ -152,12 +153,14 @@ module.exports = {
           collectedActions.push(unitCommand);
         } 
       } else {
-        const unitCommand = {
-          abilityId: ATTACK_ATTACK,
-          targetWorldSpacePos: position,
-          unitTags: [ selfUnit.tag ],
+        if (position) {
+          const unitCommand = {
+            abilityId: ATTACK_ATTACK,
+            targetWorldSpacePos: position,
+            unitTags: [ selfUnit.tag ],
+          }
+          collectedActions.push(unitCommand);
         }
-        collectedActions.push(unitCommand);
       }
     })
     return collectedActions;
