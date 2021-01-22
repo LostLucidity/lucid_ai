@@ -96,6 +96,8 @@ module.exports = {
           if (isFlying) {
             position = module.exports.moveAwayPosition(closestEnemy, scoutingUnit);
           } else {
+            const enemyUnits = units.getAlive(Alliance.ENEMY);
+            closestEnemy.inRangeUnits = enemyUnits.filter(enemyUnit => distance(closestEnemy.pos, enemyUnit.pos) < 8);
             position = module.exports.retreatToExpansion(resources, scoutingUnit, closestEnemy);
           }
           const unitCommand = {
