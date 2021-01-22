@@ -104,7 +104,7 @@ module.exports = {
               const army = { combatPoint, combatUnits, supportUnits, enemyTarget: closestEnemyUnit}
               collectedActions.push(...attackWithArmy(units, army));
             }
-          } else if ((selfSupply <= enemySupply)) {
+          } else {
             console.log('building defensive units');
             await continuouslyBuild(world, mainCombatTypes);
             if (selfSupply < enemySupply) {
