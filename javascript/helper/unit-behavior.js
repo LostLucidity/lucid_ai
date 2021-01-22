@@ -10,8 +10,6 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { retreatToExpansion } = require("../builds/helper");
 const { calculateNearSupply, getInRangeUnits } = require("./battle-analysis");
-const { getClosestUnitByPath } = require("./get-closest-by-path");
-
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action, position) => {
