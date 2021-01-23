@@ -200,13 +200,13 @@ class AssemblePlan {
   }
   async buildBuilding(placementConfig, candidatePositions) {
     // find placement on main
-    this.foundPosition = await this.findPosition(actions, placementConfig.placement, candidatePositions);
-    if (this.foundPosition ) {
+    this.foundPosition = this.foundPosition ? this.foundPosition : await this.findPosition(actions, placementConfig.placement, candidatePositions);
+    if (this.foundPosition) {
       if (this.agent.canAfford(placementConfig.toBuild)) {
-        // this.collectedActions.push(...workerSendOrBuild(this.units, this.data.getUnitTypeData(placementConfig.toBuild).abilityId, this.foundPosition));
         await actions.sendAction(workerSendOrBuild(this.units, this.data.getUnitTypeData(placementConfig.toBuild).abilityId, this.foundPosition));
         this.state.pauseBuilding = false;
         this.state.continueBuild = false;
+        this.foundPosition = null;
       } else {
         this.collectedActions.push(...workerSendOrBuild(this.units, MOVE, this.foundPosition));
         this.state.pauseBuilding = true;
