@@ -144,7 +144,7 @@ module.exports = {
           collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit.pos, '<', 13, MORPH_SIEGEMODE));
         }
       });
-      units.getByType(SIEGETANKSIEGED).filter(tank => {
+      units.getById(SIEGETANKSIEGED).filter(tank => {
         let [ closestEnemyUnit ] = units.getClosest(tank.pos, enemyUnits, 1);
         if (closestEnemyUnit) {
           collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit.pos, '>', 13, MORPH_UNSIEGE));
