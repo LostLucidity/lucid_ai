@@ -1,11 +1,9 @@
 //@ts-check
 "use strict"
 
-const { distance, avgPoints } = require('@node-sc2/core/utils/geometry/point');
+const { distance, add } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
-
 const { Alliance } = require('@node-sc2/core/constants/enums');
-const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 
 module.exports = {
   findSupplyPositions: () => {
@@ -36,16 +34,7 @@ module.exports = {
   },
   getBetweenBaseAndWall: async (resources, unitType) => {
     const { actions, map } = resources.get();
-    const natural = map.getNatural();
-    const naturalWall = natural.getWall();
-    const avg = avgPoints(naturalWall);
-    const avgWallAndNatural = avgPoints([avg, natural.townhallPosition]);
-    const nearPoints = gridsInCircle(avgWallAndNatural, 4);
-    const sampledPoints = nearPoints
-      .map(pos => ({ pos, rand: Math.random() }))
-      .sort((a, b) => a.rand - b.rand)
-      .map(a => a.pos)
-      .slice(0, 20);
-    return await actions.canPlace(unitType, sampledPoints);
+    const pathCandidates = map.path(add(map.getNatural().townhallPosition, 3), add(map.getEnemyMain().townhallPosition, 3)).slice(0, 10).map(pathItem => ({ 'x': pathItem[0], 'y': pathItem[1] }));
+    return [ await actions.canPlace(unitType, pathCandidates) ];
   }
 }

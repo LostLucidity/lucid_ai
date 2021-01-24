@@ -32,6 +32,7 @@ const plans = {
         [20, 'build', 'FACTORY', 0],
         [21, 'train', MARINE, 0],
         [21, 'train', MARINE, 1],
+        [24, 'build', 'BUNKER', 0, 'getBetweenBaseAndWall', 'cheese'],
         [[...range(0, 200)], 'continuouslyBuild', [MARINE, MARAUDER], true],
         [31, 'ability', MORPH_ORBITALCOMMAND, { targetCount: 1, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ],  //  
         [31, 'ability', BUILD_TECHLAB_FACTORY, { targetCount: 0, countType: [FACTORYTECHLAB] } ],

@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, STARPORTREACTOR, BARRACKS, SPAWNINGPOOL, GATEWAY } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, STARPORTREACTOR, BARRACKS, SPAWNINGPOOL, GATEWAY, ZERGLING } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions } = require("./expansions");
@@ -21,7 +21,6 @@ const { gasMineCheckAndBuild, gasShortage } = require("./balance-resources");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack } = require("./army-behavior");
 const baseThreats = require("./base-threats");
-const defenseSetup = require("../builds/defense-setup");
 const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
@@ -34,6 +33,7 @@ const { getCombatRally } = require("./location");
 const { repairBurningStructures, repairDamagedMechUnits } = require("../builds/terran/repair");
 const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
+const { getBetweenBaseAndWall } = require("./placement-helper");
 
 let actions;
 let opponentRace;
@@ -95,11 +95,11 @@ class AssemblePlan {
     if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(this.agent, this.data, this.resources, this.state)); }
     if (this.foodUsed >= ATTACKFOOD) {  }
     this.checkEnemyBuild();
-    defenseSetup(world, this.state);
     let completedBases = this.units.getBases().filter(base => base.buildProgress >= 1);
     if (completedBases.length >= 3) {
       this.collectedActions.push(...salvageBunker(this.units));
       this.state.defendNatural = false;
+      this.state.enemyBuildType = 'midgame';
     } else {
       this.state.defendNatural = true;
     }
@@ -161,7 +161,7 @@ class AssemblePlan {
       }
     }
   }
-  async build(food, unitType, targetCount, candidatePositions=[]) {
+  async build(food, unitType, targetCount, candidatePositions=[], enemyBuild) {
     const placementConfig = placementConfigs[unitType];
     if (this.foodUsed >= food) {
       if (this.checkBuildingCount(targetCount, placementConfig)) {
@@ -236,7 +236,9 @@ class AssemblePlan {
   checkEnemyBuild() {
     const { frame } = this.resources.get();
     // on first scout:
-    if (frame.timeInSeconds() > 51 && frame.timeInSeconds() <= 72) {
+    if (frame.timeInSeconds() > 51 && frame.timeInSeconds() <= 120) {
+      this.earlyScoutActive = true;
+      console.log(frame.timeInSeconds());
       let conditions = [];
       switch (opponentRace) {
         case Race.PROTOSS:
@@ -263,13 +265,25 @@ class AssemblePlan {
           break;
         case Race.ZERG:
           // zerg: natural before pool
-          conditions = [
-            this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length === 1,
-            !this.map.getEnemyNatural().getBase()
-          ];
-          this.state.enemyBuildType = conditions.every(c => c) ? 'cheese' : 'standard';
+          const spawningPoolDetected = this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length > 0 || this.units.getById(ZERGLING, Alliance.ENEMY).length > 0;
+          const enemyNaturalDetected = this.map.getEnemyNatural().getBase();
+          if (this.state.enemyBuildType !== 'cheese') {
+            if (spawningPoolDetected && !enemyNaturalDetected) {
+              console.log('Pool before natural. Cheese detected');
+              this.state.enemyBuildType = 'cheese';
+              console.log('Spawning Pool Count:', this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length);
+              console.log('Zergling Count:', this.units.getById(ZERGLING, Alliance.ENEMY).length);
+              console.log('Enemy Natural detected', !!this.map.getEnemyNatural().getBase());
+            }
+            if (!enemyNaturalDetected && !!this.map.getNatural().getBase()) {
+              console.log('Enemy expanding slower. Cheese detected');
+              this.state.enemyBuildType = 'cheese';
+            }
+          }
           break;
       }
+    } else {
+      this.earlyScoutActive = false;
     }
     // if scouting probe and time is greater than 2 minutes. If no base, stay defensive.
     // if (frame.timeInSeconds() > 132 && frame.timeInSeconds() <= 240) {
@@ -398,9 +412,9 @@ class AssemblePlan {
       .slice(0, 20);
     return await actions.canPlace(unitType, randomPositions);
   }
-  getBuilders() {
-    
-  }
+  async getBetweenBaseAndWall() {
+    return await getBetweenBaseAndWall(this.resources, this.unitType)
+  };
   async manageSupply(foodRanges) {
     if (!foodRanges || foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.agent, this.data, this.resources)) {
@@ -564,7 +578,10 @@ class AssemblePlan {
             break;
           case 'build':
             unitType = planStep[2];
-            await this.build(foodTarget, unitType, targetCount, planStep[4] ? this[planStep[4]]() : []);
+            this.unitType = placementConfigs[unitType].toBuild;
+            const enemyBuild = planStep[5];
+            if (enemyBuild && this.state.enemyBuildType !== enemyBuild && !this.earlyScoutActive) { break; }
+            await this.build(foodTarget, unitType, targetCount, planStep[4] ? await this[planStep[4]]() : [], enemyBuild);
             break;
           case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
           case 'continuouslyBuild':
