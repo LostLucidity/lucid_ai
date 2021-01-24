@@ -162,7 +162,8 @@ module.exports = {
           collectedActions.push(unitCommand);
         }
       }
-    })
+    });
+    [...enemyUnits, ...selfUnits].forEach(unit => delete unit.expansions);
     return collectedActions;
   }
 };
