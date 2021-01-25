@@ -174,10 +174,20 @@ function filterLabels(unit, labels) {
 }
 
 function getCombatPoint(resources, units, target) {
-  const label = 'point';
-  const point = units.find(unit => unit.labels.get(label))
-  if (point) {
-    return point;
+  const label = 'combatPoint';
+  const combatPoint = units.find(unit => unit.labels.get(label));
+  if (combatPoint) {
+    let sameTarget = false;
+    if (combatPoint.orders[0]) {
+      const filteredOrder = combatPoint.orders.filter(order => !!order.targetWorldSpacePos)[0];
+      sameTarget = filteredOrder && (Math.round(filteredOrder.targetWorldSpacePos.x * 2) / 2) === target.pos.x && (Math.round(filteredOrder.targetWorldSpacePos.y * 2) / 2) === target.pos.y;
+    }
+    const newTarget = combatPoint.orders[0] && combatPoint.orders[0].targetWorldSpacePos && combatPoint.orders[0].targetWorldSpacePos.x === target.pos.x && combatPoint.orders[0].targetWorldSpacePos.y === target.pos.y;
+    if (sameTarget) {
+      return combatPoint;
+    } else {
+      combatPoint.labels.set(label, false);
+    }
   } else {
     const closestUnit = getClosestUnitByPath(resources, target.pos, units, 1)[0];
     closestUnit.labels.set(label, true);
