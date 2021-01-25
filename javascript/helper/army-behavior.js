@@ -26,6 +26,11 @@ module.exports = {
     if (closestEnemyBase || closestEnemyUnit) {
       const enemyTarget = closestEnemyBase || closestEnemyUnit;
       if (enemyTarget.cloak === 1) {
+      const combatPoint = getCombatPoint(resources, combatUnits, enemyTarget);
+      if (combatPoint) {
+        const army = { combatPoint, combatUnits, supportUnits, enemyTarget}
+        collectedActions.push(...attackWithArmy(data, units, army));
+      }
         const orbitalCommand = units.getById(ORBITALCOMMAND).find(n => n.energy > 50);
         if (orbitalCommand) {
           const unitCommand = {
@@ -35,11 +40,6 @@ module.exports = {
           }
           collectedActions.push(unitCommand);
         }
-      }
-      const combatPoint = getCombatPoint(resources, combatUnits, enemyTarget);
-      if (combatPoint) {
-        const army = { combatPoint, combatUnits, supportUnits, enemyTarget}
-        collectedActions.push(...attackWithArmy(units, army));
       }
     } else {
       // order to location,
@@ -102,7 +102,7 @@ module.exports = {
             const combatPoint = getCombatPoint(resources, combatUnits, closestEnemyUnit);
             if (combatPoint) {
               const army = { combatPoint, combatUnits, supportUnits, enemyTarget: closestEnemyUnit}
-              collectedActions.push(...attackWithArmy(units, army));
+              collectedActions.push(...attackWithArmy(data, units, army));
             }
           } else {
             console.log('building defensive units');
@@ -196,14 +196,15 @@ function groupUnits(units, mainCombatTypes, supportUnitTypes) {
   return [ combatUnits, supportUnits ];
 }
 
-function attackWithArmy(units, army) {
+function attackWithArmy(data, units, army) {
   const collectedActions = [];
   const pointType = army.combatPoint.unitType;
   const pointTypeUnits = units.getById(pointType);
   const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType));
   const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
   const nonPointTypeUnitTags = nonPointTypeUnits.map(unit => unit.tag);
-  const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > 13 ? army.combatPoint.pos : army.enemyTarget.pos;
+  const range = Math.max.apply(Math, data.getUnitTypeData(32).weapons.map(weapon => { return weapon.range; }))
+  const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
   let unitCommand = {
     abilityId: ATTACK_ATTACK,
     targetWorldSpacePos: targetWorldSpacePos,
