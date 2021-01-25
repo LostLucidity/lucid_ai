@@ -12,7 +12,7 @@ const { moveAwayPosition, retreatToExpansion } = require("../builds/helper");
 const { getClosestUnitByPath } = require("./get-closest-by-path");
 
 module.exports = {
-  attack: (resources, mainCombatTypes, supportUnitTypes) => {
+  attack: ({data, resources}, mainCombatTypes, supportUnitTypes) => {
     const {
       map,
       units
