@@ -6,7 +6,7 @@ const { LARVA, QUEEN, ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-
 const { MOVE, ATTACK_ATTACK, ATTACK, EFFECT_SCAN } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const continuouslyBuild = require("./continuously-build");
 const { moveAwayPosition, retreatToExpansion } = require("../builds/helper");
 const { getClosestUnitByPath } = require("./get-closest-by-path");
@@ -21,8 +21,9 @@ module.exports = {
     // closest enemy base
     let [ closestEnemyBase ] = getClosestUnitByPath(resources, getCombatRally(map, units), units.getBases(Alliance.ENEMY), 1);
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-    let [ closestEnemyUnit ] = units.getClosest(getCombatRally(map, units), enemyUnits, 1);
     const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+    const avgCombatUnitsPoint = avgPoints(combatUnits.map(unit => unit.pos));
+    let [ closestEnemyUnit ] = units.getClosest(avgCombatUnitsPoint, enemyUnits, 1);
     if (closestEnemyBase || closestEnemyUnit) {
       const enemyTarget = closestEnemyBase || closestEnemyUnit;
       if (enemyTarget.cloak === 1) {
