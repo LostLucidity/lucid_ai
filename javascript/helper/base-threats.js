@@ -11,22 +11,24 @@ function baseThreats(resources, state) {
   // check for enemy worker near townhall.
   const townhalls = units.getBases();
   const enemyPush = [];
+  const threats = [];
   townhalls.forEach(async townhall => {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
-    const ignoreTypes = [ ...workerTypes, OVERLORD ]
-    const inRange = enemyUnits.filter(unit => ignoreTypes.includes(unit.unitType) === false && distance(unit.pos, townhall.pos) < 22);
+    const inRange = enemyUnits.filter(unit => distance(unit.pos, townhall.pos) < 22);
     const enemyCount = inRange.length;
     if (enemyCount > 0) {
       enemyPush.push(true);
     } else {
       enemyPush.push(false);
     }
+    threats.push(...inRange);
   });
   if (enemyPush.some(c => c)) {
     state.defenseMode = true;
   } else {
     state.defenseMode = false;
   }
+  return threats;
 }
 
 module.exports = baseThreats;

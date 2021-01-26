@@ -73,10 +73,11 @@ class AssemblePlan {
     this.units = this.resources.get().units;
     const workerBalanceSystem = this.agent.systems.find(system => system._system.name === "WorkerBalanceSystem")._system;
     // gasShortage(this.agent) ? workerBalanceSystem.unpause() : workerBalanceSystem.pause();
-    baseThreats(this.resources, this.state);
+    this.threats = baseThreats(this.resources, this.state);
     this.enemySupply = getSupply(this.units.getCombatUnits(Alliance.ENEMY), this.data);
     this.selfSupply = getSupply(this.units.getCombatUnits(), this.data) + getTrainingSupply(this.defenseTypes, this.data, this.units);
-    if (this.enemySupply > this.selfSupply) {
+    this.outSupplied = this.enemySupply > this.selfSupply;
+    if (this.outSupplied) {
       console.log('Scouted higher supply', this.selfSupply, this.enemySupply);
       console.log(this.frame.timeInSeconds());
       await continuouslyBuild(this.world, this.defenseTypes); 
@@ -84,7 +85,7 @@ class AssemblePlan {
     await this.runPlan();
     if (this.foodUsed < ATTACKFOOD && this.state.pushMode === false) {
       if (this.state.defenseMode) {
-        this.collectedActions.push(...await defend(world, this.mainCombatTypes, this.supportUnitTypes));
+        this.collectedActions.push(...await defend(world, this.mainCombatTypes, this.supportUnitTypes, this.threats));
       } else { this.collectedActions.push(...rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation)); }
     } else { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
     if (this.agent.minerals > 512) {
@@ -190,7 +191,7 @@ class AssemblePlan {
   async buildWorkers(foodRanges, controlled=false) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       if (controlled) {
-        if (!this.state.defenseMode && this.agent.minerals < 512 && shortOnWorkers(this.resources)) {
+        if (!this.outSupplied && this.agent.minerals < 512 && shortOnWorkers(this.resources)) {
           try { await buildWorkers(this.agent, this.data, this.world.resources); } catch(error) { console.log(error); }
         }
       } else {
@@ -464,7 +465,7 @@ class AssemblePlan {
       }
     }
     if (this.units.withLabel(label).length > 0 && !this.state.cancelPush) {
-      if (this.enemySupply > this.selfSupply) {
+      if (this.outSupplied) {
         this.state.cancelPush = true;
         console.log('cancelPush');
       } else {

@@ -68,11 +68,12 @@ module.exports = {
           unitTags: [ ...idleCombatUnitTags ],
         }
         collectedActions.push(unitCommand);
+
       }
     }
     return collectedActions;
   },
-  defend: async (world, mainCombatTypes, supportUnitTypes) => {
+  defend: async (world, mainCombatTypes, supportUnitTypes, threats) => {
     const data = world.data;
     const resources = world.resources;
     const {
@@ -83,7 +84,7 @@ module.exports = {
     const enemyUnits = units.getCombatUnits(Alliance.ENEMY);
     const rallyPoint = getCombatRally(map, units);
     if (rallyPoint) {
-      let [ closestEnemyUnit ] = getClosestUnitByPath(resources, rallyPoint, enemyUnits, 1);
+      let [ closestEnemyUnit ] = getClosestUnitByPath(resources, rallyPoint, threats, 1);
       if (closestEnemyUnit) {
         const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
         const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
