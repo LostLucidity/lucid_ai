@@ -26,17 +26,26 @@ module.exports = {
     let [ closestEnemyUnit ] = units.getClosest(avgCombatUnitsPoint, enemyUnits, 1);
     if (closestEnemyBase || closestEnemyUnit) {
       const enemyTarget = closestEnemyBase || closestEnemyUnit;
-      if (enemyTarget.cloak === 1) {
       const combatPoint = getCombatPoint(resources, combatUnits, enemyTarget);
       if (combatPoint) {
         const army = { combatPoint, combatUnits, supportUnits, enemyTarget}
         collectedActions.push(...attackWithArmy(data, units, army));
       }
+      if (enemyTarget.cloak === 1 || (combatPoint && map.hasCreep(combatPoint.pos))) {
+        let position = null;
+        if (enemyTarget.cloak === 1) {
+          const closestToCloak = units.getClosest(enemyTarget.pos, combatUnits);
+          if (distance(closestToCloak.pos, enemyTarget.cloak) < 4) {
+            position = enemyTarget.pos;
+          }
+        } else {
+          position = combatPoint.pos;
+        }
         const orbitalCommand = units.getById(ORBITALCOMMAND).find(n => n.energy > 50);
-        if (orbitalCommand) {
+        if (position && orbitalCommand) {
           const unitCommand = {
             abilityId: EFFECT_SCAN,
-            targetWorldSpacePos: closestEnemyUnit.pos,
+            targetWorldSpacePos: position,
             unitTags: [ orbitalCommand.tag ],
           }
           collectedActions.push(unitCommand);
