@@ -1,10 +1,10 @@
 //@ts-check
 "use strict"
 
-const { MOVE, ATTACK_ATTACK, LOAD_BUNKER, SMART } = require("@node-sc2/core/constants/ability");
-const { BUNKER, QUEEN, LARVA } = require("@node-sc2/core/constants/unit-type");
+const { MOVE, LOAD_BUNKER, SMART } = require("@node-sc2/core/constants/ability");
+const { BUNKER, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { engageOrRetreat } = require("./army-behavior");
-const { getRallyPointByBases, getCombatRally } = require("./location");
+const { getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 

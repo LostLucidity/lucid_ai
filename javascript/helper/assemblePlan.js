@@ -9,7 +9,7 @@ const placementConfigs = require("./placement-configs");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { frontOfGrid } = require("@node-sc2/core/utils/map/region");
 const buildWorkers = require("./build-workers");
-const { MOVE } = require("@node-sc2/core/constants/ability");
+const { MOVE, BUILD_REACTOR_STARPORT } = require("@node-sc2/core/constants/ability");
 const canAfford = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
@@ -71,8 +71,6 @@ class AssemblePlan {
     this.frame = this.resources.get().frame;
     this.map = this.resources.get().map;
     this.units = this.resources.get().units;
-    const workerBalanceSystem = this.agent.systems.find(system => system._system.name === "WorkerBalanceSystem")._system;
-    // gasShortage(this.agent) ? workerBalanceSystem.unpause() : workerBalanceSystem.pause();
     this.threats = baseThreats(this.resources, this.state);
     this.enemySupply = getSupply(this.units.getCombatUnits(Alliance.ENEMY), this.data);
     this.selfSupply = getSupply(this.units.getCombatUnits(), this.data) + getTrainingSupply(this.defenseTypes, this.data, this.units);
