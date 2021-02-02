@@ -15,19 +15,19 @@ module.exports = {
     if (!targetUnit.expansions) { targetUnit.expansions = new Map(); }
     const candidateExpansionsCentroid = map.getExpansions().filter(expansion => {
       const centroidString = expansion.centroid.x.toString() + expansion.centroid.y.toString();
-      if (!targetUnit.expansions.has(centroidString)) {
+      if (!(centroidString in targetUnit.expansions)) {
         let [ closestToExpansion ] = getClosestUnitByPath(resources, expansion.centroid, targetUnit.inRangeUnits);
-        targetUnit.expansions.set(centroidString, {
+        targetUnit.expansions[centroidString] = {
           'closestToExpansion': closestToExpansion,
           'distanceByPath': distanceByPath(resources, closestToExpansion.pos, expansion.centroid),
-        });
+        }
       }
-      if (!unit.expansions.has(centroidString)) {
-        unit.expansions.set(centroidString, {
+      if (!(centroidString in unit.expansions)) {
+        unit.expansions[centroidString] = {
           'distanceByPath': distanceByPath(resources, unit.pos, expansion.centroid),
-        });
+        }
       }
-      return unit.expansions.get(centroidString).distanceByPath < targetUnit.expansions.get(centroidString).distanceByPath;
+      return unit.expansions[centroidString].distanceByPath < targetUnit.expansions[centroidString].distanceByPath;
     }).map(expansion => expansion.centroid);
     const [ closestExpansionCentroidByPath ] = getClosestPositionByPath(resources, unit.pos, candidateExpansionsCentroid, candidateExpansionsCentroid.length).filter(centroid => distanceByPath(resources, centroid, targetUnit.pos) > 16);
     return closestExpansionCentroidByPath ? closestExpansionCentroidByPath : module.exports.moveAwayPosition(targetUnit, unit);
