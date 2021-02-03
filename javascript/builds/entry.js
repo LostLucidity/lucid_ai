@@ -68,8 +68,8 @@ const entry = createSystem({
       }
     }
   },
-  async onUnitDestroyed(world, destroyedUnit) {
-    await assemblePlan.onUnitDestroyed(world, destroyedUnit);
+  async onUnitDestroyed({}, destroyedUnit) {
+    await assemblePlan.onUnitDestroyed(destroyedUnit);
   },
   async onUnitIdle(world, idleUnit) {
     if (idleUnit.isWorker()) {
