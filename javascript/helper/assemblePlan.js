@@ -111,7 +111,7 @@ class AssemblePlan {
     await actions.sendAction(this.collectedActions);
   }
 
-  async onUnitDestroyed(world, destroyedUnit) {
+  async onUnitDestroyed(destroyedUnit) {
     if (destroyedUnit.isWorker()) {
       this.state.pauseBuilding = false;
     }
