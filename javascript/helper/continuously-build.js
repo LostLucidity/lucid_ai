@@ -3,9 +3,10 @@
 
 const { LARVA, ZERGLING, WARPGATE } = require("@node-sc2/core/constants/unit-type");
 const canAfford = require("./can-afford");
-const { Race } = require("@node-sc2/core/constants/enums");
+const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { WarpUnitAbility } = require("@node-sc2/core/constants");
-const { getRallyPoint, getRallyPointByBases, getCombatRally } = require("./location");
+const { getCombatRally } = require("./location");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
 
 async function continuouslyBuild({ agent, data, resources }, unitTypes, addOn=false) {
   const {
@@ -28,11 +29,7 @@ async function continuouslyBuild({ agent, data, resources }, unitTypes, addOn=fa
       const unitType = affordableTypes[Math.floor(Math.random() * affordableTypes.length)];
       let abilityId = data.getUnitTypeData(unitType).abilityId;
       let trainer = null;
-      if (addOn) {
-        trainer = units.getProductionUnits(unitType).find(unit => unit.buildProgress >= 1 && (!unit.isEnemy() && (unit.noQueue && unit.hasTechLab()) || (unit.hasReactor() && unit.orders.length < 2)));
-      } else {
-        trainer = units.getProductionUnits(unitType).find(unit => unit.buildProgress >= 1 && (!unit.isEnemy() && (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2))));
-      }
+      [ trainer ] = filterTrainers(units.getProductionUnits(unitType), addOn, units);
       if (trainer) {
         const unitCommand = {
           abilityId,
@@ -49,6 +46,27 @@ async function continuouslyBuild({ agent, data, resources }, unitTypes, addOn=fa
         }
       }
     }
+  }
+}
+
+function filterTrainers(trainers, addOn, units) {
+  let ownCompleteTrainers = trainers.filter(trainer => {
+    const [ closestEnemy ] = units.getClosest(trainer.pos, units.getCombatUnits(Alliance.ENEMY));
+    return (
+      trainer.buildProgress >= 1 &&
+      !trainer.isEnemy() &&
+      (closestEnemy ? distance(trainer.pos, closestEnemy.pos) > 8 : true)
+    )
+  });
+  if (addOn) {
+    return ownCompleteTrainers.filter(trainer => {
+      return (
+        (trainer.noQueue && trainer.hasTechLab()) ||
+        (trainer.hasReactor() && trainer.orders.length < 2)
+      )
+    })
+  } else {
+    return ownCompleteTrainers.filter(trainer => trainer.noQueue);
   }
 }
 
