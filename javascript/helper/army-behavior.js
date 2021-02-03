@@ -174,7 +174,6 @@ module.exports = {
         }
       }
     });
-    [...enemyUnits, ...selfUnits].forEach(unit => delete unit.expansions);
     return collectedActions;
   }
 };

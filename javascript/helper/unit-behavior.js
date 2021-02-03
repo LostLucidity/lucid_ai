@@ -193,7 +193,6 @@ module.exports = {
         }
       });
     }
-    [...enemyUnits, ...workers].forEach(unit => delete unit.expansions);
     return collectedActions;
   }
 }

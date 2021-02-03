@@ -108,6 +108,9 @@ class AssemblePlan {
     this.collectedActions.push(...marineBehavior(this.resources));
     this.collectedActions.push(...supplyDepotBehavior(this.resources));
     this.collectedActions.push(...workerBehavior(world));
+    if (this.frame.getGameLoop() % 8 === 0) {
+      this.units.getAlive().forEach(unit => delete unit.expansions);
+    }
     await actions.sendAction(this.collectedActions);
   }
 
