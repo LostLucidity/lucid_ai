@@ -160,7 +160,7 @@ class AssemblePlan {
       }
     }
   }
-  async build(food, unitType, targetCount, candidatePositions=[], enemyBuild) {
+  async build(food, unitType, targetCount, candidatePositions=[]) {
     const placementConfig = placementConfigs[unitType];
     if (this.foodUsed >= food) {
       if (this.checkBuildingCount(targetCount, placementConfig)) {
@@ -580,7 +580,7 @@ class AssemblePlan {
             this.unitType = placementConfigs[unitType].toBuild;
             const enemyBuild = planStep[5];
             if (enemyBuild && this.state.enemyBuildType !== enemyBuild && !this.earlyScoutActive) { break; }
-            await this.build(foodTarget, unitType, targetCount, planStep[4] ? await this[planStep[4]]() : [], enemyBuild);
+            await this.build(foodTarget, unitType, targetCount, planStep[4] ? await this[planStep[4]]() : []);
             break;
           case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
           case 'continuouslyBuild':
