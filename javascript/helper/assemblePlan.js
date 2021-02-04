@@ -485,17 +485,17 @@ class AssemblePlan {
       if (labelledScouts.length === 0) {
         if (conditions) {
           if (this.units.getByType(conditions.unitType).length === conditions.unitCount) {
-            this.setScout(unitType, label, this.map[targetLocation]().townhallPosition);
+            this.setScout(unitType, label, targetLocation);
           }
         } else {
-          this.setScout(unitType, label, this.map[targetLocation]().townhallPosition);
+          this.setScout(unitType, label, targetLocation);
         }
       }
       const [ scout ] = labelledScouts;
       if (scout) { 
         const unitCommand = {
           abilityId: MOVE,
-          targetWorldSpacePos: this.map[targetLocation]().townhallPosition,
+          targetWorldSpacePos: targetLocation,
           unitTags: [ scout.tag ],
         }
         this.collectedActions.push(unitCommand);
@@ -595,7 +595,8 @@ class AssemblePlan {
           case 'push': this.push(foodTarget); break;
           case 'scout':
             unitType = planStep[2];
-            const targetLocation = planStep[3];
+            const targetLocationFunction = planStep[3];
+            const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().townhallPosition : locationHelper[targetLocationFunction](this.map);;
             conditions = planStep[4];
             this.scout(foodTarget, unitType, targetLocation, conditions );
             break;
