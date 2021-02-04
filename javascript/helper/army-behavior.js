@@ -139,7 +139,8 @@ module.exports = {
         const enemySupply = closestEnemyUnit.inRangeUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
         const inRangeSelfUnits = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) < 8)
         selfUnit.selfSupply = inRangeSelfUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-        if (enemySupply > selfUnit.selfSupply) {
+        const noBunker = units.getById(BUNKER).length === 0;
+        if (enemySupply > selfUnit.selfSupply && noBunker) {
           let targetWorldSpacePos = position;
           if (!position || positionIsTooClose) {
             const isFlying = selfUnit.isFlying;
