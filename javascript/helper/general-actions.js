@@ -12,17 +12,14 @@ module.exports = {
     let collectedActions = [];
     const { actions, units } = resources.get();
     const availableExpansions = getAvailableExpansions(resources);
-    const expansionLocation = availableExpansions.length > 0 ? getNextSafeExpansion(resources, availableExpansions).townhallPosition : null;
+    const expansionLocation = availableExpansions.length > 0 ? await getNextSafeExpansion(agent, resources, availableExpansions) : null;
     if (expansionLocation) {
       const townhallType = TownhallRace[agent.race][0];
       if (canAfford(agent, data, townhallType)) {
-        const foundPosition = await actions.canPlace(TownhallRace[agent.race][0], [expansionLocation]);
-        if (foundPosition) {
-          const buildAbilityId = data.getUnitTypeData(townhallType).abilityId;
-          if ((units.inProgress(townhallType).length + units.withCurrentOrders(buildAbilityId).length) < 1 ) {
-            await actions.sendAction(workerSendOrBuild(units, data.getUnitTypeData(townhallType).abilityId, expansionLocation));
-            state.pauseBuilding = false;
-          }
+        const buildAbilityId = data.getUnitTypeData(townhallType).abilityId;
+        if ((units.inProgress(townhallType).length + units.withCurrentOrders(buildAbilityId).length) < 1 ) {
+          await actions.sendAction(workerSendOrBuild(units, data.getUnitTypeData(townhallType).abilityId, expansionLocation));
+          state.pauseBuilding = false;
         }
       } else {
         collectedActions.push(...workerSendOrBuild(units, MOVE, expansionLocation));

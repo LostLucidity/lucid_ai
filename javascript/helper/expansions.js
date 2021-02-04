@@ -5,6 +5,7 @@ const { townhallTypes } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { getRallyPointByBases, getCombatRally } = require("./location");
+const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 module.exports = {
   getAvailableExpansions: (resources) => {
@@ -46,8 +47,8 @@ module.exports = {
     });
     return occupiedExpansions;
   },
-  getNextSafeExpansion: (resources, expansions) => {
-    const { map, units } = resources.get();
+  getNextSafeExpansion: async (agent, resources, expansions) => {
+    const { actions, map, units } = resources.get();
     // sort expansions by closest to enemy units
     const enemyStructures = units.getStructures(Alliance.ENEMY)
     if (enemyStructures.length > 0) {
@@ -60,6 +61,7 @@ module.exports = {
         return calculatedDistanceB - calculatedDistanceA;
       });
     }
-    return expansions.shift();
+    const foundExpansion = expansions.find(async expansion => !!(await actions.canPlace(TownhallRace[agent.race][0], [expansion.townhallPosition])));
+    return foundExpansion.townhallPosition;
   }
 }
