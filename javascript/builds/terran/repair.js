@@ -2,7 +2,7 @@
 "use strict"
 
 const { EFFECT_REPAIR } = require("@node-sc2/core/constants/ability");
-const { CYCLONE, LIBERATOR, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER, LIBERATORAG } = require("@node-sc2/core/constants/unit-type");
+const { CYCLONE, LIBERATOR, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER, LIBERATORAG, BUNKER } = require("@node-sc2/core/constants/unit-type");
 
 module.exports = {
   repairBurningStructures: (resources) => {
@@ -45,6 +45,27 @@ module.exports = {
         const unitCommand = {
           abilityId: EFFECT_REPAIR,
           targetUnitTag: damagedMechUnit.tag,
+          unitTags: [ closestWorker.tag ]
+        }
+        collectedActions.push(unitCommand);
+      }
+    }
+    return collectedActions;
+  },
+  repairBunker: (resources) => {
+    const {
+      units,
+    } = resources.get();
+    const collectedActions = [];
+    // get burning structure.
+    const [ damagedBunker ] = units.getById([ BUNKER ]).filter(unit => unit.health / unit.healthMax < 1);
+    if (damagedBunker) {
+      // select worker and repair stucture
+      const [ closestWorker ] = units.getClosest(damagedBunker.pos, units.getWorkers());
+      if (closestWorker) {
+        const unitCommand = {
+          abilityId: EFFECT_REPAIR,
+          targetUnitTag: damagedBunker.tag,
           unitTags: [ closestWorker.tag ]
         }
         collectedActions.push(unitCommand);

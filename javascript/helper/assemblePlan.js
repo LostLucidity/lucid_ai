@@ -30,7 +30,7 @@ const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
 const { swapBuildings, checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { getCombatRally } = require("./location");
-const { repairBurningStructures, repairDamagedMechUnits } = require("../builds/terran/repair");
+const { repairBurningStructures, repairDamagedMechUnits, repairBunker } = require("../builds/terran/repair");
 const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
 const { getBetweenBaseAndWall } = require("./placement-helper");
@@ -451,6 +451,7 @@ class AssemblePlan {
       case Race.TERRAN:
         this.collectedActions.push(...repairBurningStructures(this.resources));
         this.collectedActions.push(...repairDamagedMechUnits(this.resources));
+        this.collectedActions.push(...repairBunker(this.resources));
         break;
     }
   }
