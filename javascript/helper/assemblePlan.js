@@ -297,7 +297,10 @@ class AssemblePlan {
           break;
       }
     } else {
-      if (this.scoutReport) { console.log(this.scoutReport); }
+      if (this.scoutReport) {
+        console.log(this.scoutReport);
+        this.scoutReport = '';
+      }
       this.earlyScoutActive = false;
     }
     // if scouting probe and time is greater than 2 minutes. If no base, stay defensive.
