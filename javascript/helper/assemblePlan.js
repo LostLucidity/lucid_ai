@@ -255,15 +255,27 @@ class AssemblePlan {
           break;
         case Race.TERRAN:
           // scout alive, more than 1 barracks.
+          const moreThanOneBarracks = this.units.getById(BARRACKS, Alliance.ENEMY).length > 1;
+          if (this.state.enemyBuildType !== 'cheese') {
+            if (moreThanOneBarracks) {
+              console.log('More than one barracks');
+              this.state.enemyBuildType = 'cheese';
+            }
+          }
           // 1 barracks and 1 gas, second command center
           conditions = [
             this.units.getById(BARRACKS, Alliance.ENEMY).length === 1,
             this.units.getById(GasMineRace[this.agent.race], Alliance.ENEMY).length === 1,
+            !!this.map.getEnemyNatural().getBase()
           ];
           if (!conditions.every(c => c)) {
-            if (this.state.enemyBuildType === 'standard') { console.log('cheese detected'); }
             this.state.enemyBuildType = 'cheese';
+          } else {
+            this.state.enemyBuildType = 'standard';
           }
+          this.scoutReport = `Barracks Count: ${this.units.getById(BARRACKS, Alliance.ENEMY).length}.
+          Gas Mine Count: ${this.units.getById(GasMineRace[opponentRace], Alliance.ENEMY).length}.
+          Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}.`;
           break;
         case Race.ZERG:
           // zerg: natural before pool
@@ -285,6 +297,7 @@ class AssemblePlan {
           break;
       }
     } else {
+      if (this.scoutReport) { console.log(this.scoutReport); }
       this.earlyScoutActive = false;
     }
     // if scouting probe and time is greater than 2 minutes. If no base, stay defensive.
