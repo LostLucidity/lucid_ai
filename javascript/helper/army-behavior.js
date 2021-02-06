@@ -10,6 +10,7 @@ const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const continuouslyBuild = require("./continuously-build");
 const { moveAwayPosition, retreatToExpansion } = require("../builds/helper");
 const { getClosestUnitByPath } = require("./get-closest-by-path");
+const { filterLabels } = require("./unit-selection");
 
 module.exports = {
   attack: ({data, resources}, mainCombatTypes, supportUnitTypes) => {
