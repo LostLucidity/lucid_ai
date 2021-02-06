@@ -21,10 +21,9 @@ const plans = {
         [14, 'build', 'SUPPLYDEPOT', 0],
         [16, 'build', 'BARRACKSREACTOR', 0],
         [16, 'build', 'REFINERY', 0],
-        [[...range(18, 21)], 'scout', SCV, 'getEnemyNatural',],
+        [[...range(18, 21)], 'scout', SCV, 'getEnemyMain'],
         [19, 'ability', MORPH_ORBITALCOMMAND, { targetCount: 0, countType: [ORBITALCOMMAND, ORBITALCOMMANDFLYING] } ],
         [19, 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 0, countType: BARRACKSREACTOR } ],
-        [[...range(19, 21)], 'scout', SCV, 'getEnemyMain',],
         [19, 'build', 'COMMANDCENTER', 1],
         [19, 'ability', EFFECT_CALLDOWNMULE, { targetType: MINERALFIELD, continuous: true, controlled: true } ],
         // 19 mule.

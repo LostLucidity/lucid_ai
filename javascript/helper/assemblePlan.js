@@ -25,7 +25,7 @@ const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { shadowEnemy } = require("../builds/helper");
-const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior } = require("./unit-behavior");
+const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, scoutMainBehavior } = require("./unit-behavior");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
 const { swapBuildings, checkAddOnPlacement } = require("../builds/terran/swap-buildings");
@@ -106,6 +106,7 @@ class AssemblePlan {
     this.collectedActions.push(...shadowEnemy(this.resources, this.state, this.scoutTypes));
     this.collectedActions.push(...liberatorBehavior(this.resources));
     this.collectedActions.push(...marineBehavior(this.resources));
+    this.collectedActions.push(...scoutMainBehavior(this.resources));
     this.collectedActions.push(...supplyDepotBehavior(this.resources));
     this.collectedActions.push(...workerBehavior(world));
     if (this.frame.getGameLoop() % 8 === 0) {
@@ -497,10 +498,10 @@ class AssemblePlan {
   }
   scout(foodRanges, unitType, targetLocation, conditions) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
-      const label = 'scout';
+      const label = conditions && conditions.label ? conditions.label: 'scout';
       const labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
-        if (conditions) {
+        if (conditions && conditions.unitType) {
           if (this.units.getByType(conditions.unitType).length === conditions.unitCount) {
             this.setScout(unitType, label, targetLocation);
           }
@@ -613,6 +614,13 @@ class AssemblePlan {
           case 'scout':
             unitType = planStep[2];
             const targetLocationFunction = planStep[3];
+            if (targetLocationFunction.includes('get')) {
+              const label = targetLocationFunction.replace('get', 'scout')
+              if (!conditions) {
+                conditions = {};
+              }
+              conditions.label = label;
+            }
             const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().townhallPosition : locationHelper[targetLocationFunction](this.map);;
             conditions = planStep[4];
             this.scout(foodTarget, unitType, targetLocation, conditions );

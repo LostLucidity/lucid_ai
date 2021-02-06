@@ -178,7 +178,7 @@ module.exports = {
     const { units} = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-    const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutMain', 'scoutNatural']));
+    const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural']) && isRepairing(unit));
     if (enemyUnits.length > 0) {
       workers.forEach(worker => {
         let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyUnits, 1);
