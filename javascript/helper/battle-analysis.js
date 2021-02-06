@@ -8,6 +8,6 @@ module.exports = {
     return units.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
   },
   getInRangeUnits: (unit, targetUnits) => {
-    return targetUnits.filter(targetUnit => distance(unit.pos, targetUnit.pos) < 8);
+    return targetUnits.filter(targetUnit => distance(unit.pos, targetUnit.pos) < 16);
   }
 }
