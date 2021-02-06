@@ -10,6 +10,7 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { retreatToExpansion } = require("../builds/helper");
 const { calculateNearSupply, getInRangeUnits } = require("./battle-analysis");
+const { filterLabels } = require("./unit-selection");
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action, position) => {
@@ -157,7 +158,7 @@ module.exports = {
     const { units} = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-    const workers = units.getById(WorkerRace[agent.race]);
+    const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutMain', 'scoutNatural']));
     if (enemyUnits.length > 0) {
       workers.forEach(worker => {
         let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyUnits, 1);
