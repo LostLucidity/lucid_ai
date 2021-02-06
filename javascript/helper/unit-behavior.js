@@ -127,6 +127,26 @@ module.exports = {
     });
     return collectedActions;
   },
+  scoutMainBehavior: (resources) => {
+    const { map, units } = resources.get();
+    const collectedActions = [];
+    const [ unit ] = units.withLabel('scoutMain');
+    if (unit) {
+      const unitCommand = {
+        abilityId: MOVE,
+        unitTags: [ unit.tag ],
+      };
+      const enemyMain = map.getEnemyMain();
+      const pointsOfInterest = [enemyMain.townhallPosition, ...enemyMain.cluster.vespeneGeysers.map(geyser => geyser.pos)];
+      const filteredPointsOfInterest = pointsOfInterest.filter(point => distance(point, unit.pos) > unit.data().sightRange);
+      unitCommand.queueCommand = filteredPointsOfInterest.length > unit.orders.length ? true : false;
+      filteredPointsOfInterest.forEach(point => {
+        unitCommand.targetWorldSpacePos = point;
+        collectedActions.push(unitCommand);
+      });
+    }
+    return collectedActions;
+  },
   tankBehavior: (units, target) => {
     const collectedActions = [];
     // get siege tanks
