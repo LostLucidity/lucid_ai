@@ -182,7 +182,7 @@ module.exports = {
     if (enemyUnits.length > 0) {
       workers.forEach(worker => {
         let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyUnits, 1);
-        if (distance(worker.pos, closestEnemyUnit.pos) < 8) {
+        if (distance(worker.pos, closestEnemyUnit.pos) < 16) {
           const inRangeSelfCombatUnits = getInRangeUnits(worker, units.getCombatUnits(Alliance.SELF));
           const inRangeCombatSupply = calculateNearSupply(data, inRangeSelfCombatUnits);
           closestEnemyUnit.inRangeUnits = getInRangeUnits(closestEnemyUnit, enemyUnits);
