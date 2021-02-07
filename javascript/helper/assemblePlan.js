@@ -34,6 +34,7 @@ const { repairBurningStructures, repairDamagedMechUnits, repairBunker } = requir
 const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
 const { getBetweenBaseAndWall } = require("./placement-helper");
+const { restorePower } = require("./protoss");
 
 let actions;
 let opponentRace;
@@ -461,6 +462,9 @@ class AssemblePlan {
         this.collectedActions.push(...repairBurningStructures(this.resources));
         this.collectedActions.push(...repairDamagedMechUnits(this.resources));
         this.collectedActions.push(...repairBunker(this.resources));
+        break;
+      case Race.PROTOSS:
+        this.collectedActions.push(...restorePower(this.world));
         break;
     }
   }
