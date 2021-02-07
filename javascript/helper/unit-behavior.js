@@ -3,7 +3,7 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { SIEGETANK, SIEGETANKSIEGED, LARVA, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED } = require("@node-sc2/core/constants/unit-type");
-const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
+const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK, EFFECT_REPAIR } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getBase } = require("./expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
@@ -216,6 +216,10 @@ module.exports = {
     }
     return collectedActions;
   }
+}
+
+function isRepairing(unit) {
+  return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
 }
 
 function triggerAbilityByDistance(unit, target, operator, range, abilityId, pointType) {
