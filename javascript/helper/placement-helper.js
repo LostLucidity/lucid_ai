@@ -6,6 +6,14 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 
 module.exports = {
+  findPosition: async (actions, unitType, candidatePositions) => {
+    const randomPositions = candidatePositions
+      .map(pos => ({ pos, rand: Math.random() }))
+      .sort((a, b) => a.rand - b.rand)
+      .map(a => a.pos)
+      .slice(0, 20);
+    return await actions.canPlace(unitType, randomPositions);
+  },
   findSupplyPositions: () => {
     const { map } = this.resources.get();
     const myExpansions = map.getOccupiedExpansions(Alliance.SELF);

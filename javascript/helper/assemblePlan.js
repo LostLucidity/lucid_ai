@@ -423,14 +423,6 @@ class AssemblePlan {
   
     return possiblePlacements;
   }
-  async findPosition(actions, unitType, candidatePositions) {
-    const randomPositions = candidatePositions
-      .map(pos => ({ pos, rand: Math.random() }))
-      .sort((a, b) => a.rand - b.rand)
-      .map(a => a.pos)
-      .slice(0, 20);
-    return await actions.canPlace(unitType, randomPositions);
-  }
   async getBetweenBaseAndWall() {
     return await getBetweenBaseAndWall(this.resources, this.unitType)
   };
