@@ -36,7 +36,6 @@ const entry = createSystem({
     // load build
     assemblePlan = new AssemblePlan(plan);
     assemblePlan.onGameStart(world);
-    this.state.enemyBuildType = 'standard';
   },
   async onStep(world) {
     const t0 = new Date().getTime();
