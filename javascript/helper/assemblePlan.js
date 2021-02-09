@@ -492,8 +492,9 @@ class AssemblePlan {
       console.log('cancelPush');
     }
   }
-  scout(foodRanges, unitType, targetLocation, conditions) {
+  scout(foodRanges, unitType, targetLocationFunction, conditions) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
+      const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().townhallPosition : locationHelper[targetLocationFunction](this.map);
       const label = conditions && conditions.label ? conditions.label: 'scout';
       const labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
@@ -610,6 +611,7 @@ class AssemblePlan {
           case 'scout':
             unitType = planStep[2];
             const targetLocationFunction = planStep[3];
+            conditions = planStep[4];
             if (targetLocationFunction.includes('get')) {
               const label = targetLocationFunction.replace('get', 'scout')
               if (!conditions) {
@@ -617,9 +619,7 @@ class AssemblePlan {
               }
               conditions.label = label;
             }
-            const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().townhallPosition : locationHelper[targetLocationFunction](this.map);;
-            conditions = planStep[4];
-            this.scout(foodTarget, unitType, targetLocation, conditions );
+            this.scout(foodTarget, unitType, targetLocationFunction, conditions );
             break;
           case 'train':
             unitType = planStep[2];
