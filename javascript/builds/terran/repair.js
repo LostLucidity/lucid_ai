@@ -11,7 +11,7 @@ module.exports = {
     } = resources.get();
     const collectedActions = [];
     // get burning structure.
-    const [ burningStructure ] = units.getStructures(structure => structure.health / structure.healthMax < 1 / 3);
+    const [ burningStructure ] = units.getStructures(structure => structure.health / structure.healthMax < 1 / 3 && structure.buildProgress);
     if (burningStructure) {
       // select worker and repair stucture
       const builders = [
@@ -58,7 +58,7 @@ module.exports = {
     } = resources.get();
     const collectedActions = [];
     // get burning structure.
-    const [ damagedBunker ] = units.getById([ BUNKER ]).filter(unit => unit.health / unit.healthMax < 1);
+    const [ damagedBunker ] = units.getById([ BUNKER ]).filter(unit => unit.health / unit.healthMax < 1 && unit.buildProgress >= 1)
     if (damagedBunker) {
       // select worker and repair stucture
       const [ closestWorker ] = units.getClosest(damagedBunker.pos, units.getWorkers());
