@@ -170,8 +170,9 @@ class AssemblePlan {
     if (this.foodUsed >= food) {
       if (this.checkBuildingCount(targetCount, placementConfig)) {
         const toBuild = placementConfigs[unitType].toBuild;
-        if (GasMineRace[race] === toBuild && this.agent.canAfford(toBuild)) {
-          try {
+        switch (true) {
+          case GasMineRace[race] === toBuild && this.agent.canAfford(toBuild):
+            try {
             if (this.map.freeGasGeysers().length > 0) {
               await actions.buildGasMine();
               this.state.pauseBuilding = false;
@@ -182,11 +183,15 @@ class AssemblePlan {
             this.state.pauseBuilding = true;
             this.state.continueBuild = false;
           }
-        }
-        else if (TownhallRace[race].indexOf(toBuild) > -1 ) { this.collectedActions.push(...await expand(this.agent, this.data, this.resources, this.state)); } 
-        else {
-          if (candidatePositions.length === 0 ) { candidatePositions = this.findPlacements(placementConfig); }
-          await this.buildBuilding(placementConfig, candidatePositions);
+            break;
+          case TownhallRace[race].indexOf(toBuild) > -1:
+            { this.collectedActions.push(...await expand(this.agent, this.data, this.resources, this.state)); } 
+            break;
+          case PHOTONCANNON === toBuild:
+            candidatePositions = this.map.getNatural().areas.placementGrid;
+          default:
+            if (candidatePositions.length === 0 ) { candidatePositions = this.findPlacements(placementConfig); }
+            await this.buildBuilding(placementConfig, candidatePositions);
         }
       }
     }
