@@ -42,7 +42,6 @@ const entry = createSystem({
     await assemblePlan.onStep(world, this.state);
     const t1 = new Date().getTime();
     longestTime = (t1 - t0) > longestTime ? t1 - t0 : longestTime;
-    console.log(`Call to assemblePlan.onStep took ${t1 - t0} milliseconds. Longest Time ${longestTime}`);
   },
   async onUnitCreated(world, createdUnit) {
     await assemblePlan.onUnitCreated(world, createdUnit)
