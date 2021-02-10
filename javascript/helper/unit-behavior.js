@@ -130,7 +130,7 @@ module.exports = {
   scoutMainBehavior: (resources) => {
     const { map, units } = resources.get();
     const collectedActions = [];
-    const [ unit ] = units.withLabel('scoutMain');
+    const [ unit ] = units.withLabel('scoutEnemyMain');
     if (unit) {
       const unitCommand = {
         abilityId: MOVE,
@@ -178,7 +178,7 @@ module.exports = {
     const { units} = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-    const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural']) && isRepairing(unit));
+    const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural']) && !isRepairing(unit));
     if (enemyUnits.length > 0) {
       workers.forEach(worker => {
         let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyUnits, 1);
