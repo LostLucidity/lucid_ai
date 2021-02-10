@@ -2,8 +2,8 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { LARVA, QUEEN, ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK, EFFECT_SCAN } = require("@node-sc2/core/constants/ability");
+const { LARVA, QUEEN, BUNKER } = require("@node-sc2/core/constants/unit-type");
 const { getRandomPoint, getCombatRally } = require("./location");
 const { tankBehavior } = require("./unit-behavior");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
@@ -115,8 +115,8 @@ module.exports = {
             await continuouslyBuild(world, mainCombatTypes);
             if (selfSupply < enemySupply) {
               console.log('engageOrRetreat', selfSupply, enemySupply);
-              allyUnits = [...allyUnits, ...units.getById(QUEEN)];
-              collectedActions.push(...module.exports.engageOrRetreat(world, units, allyUnits, enemyUnits));
+              allyUnits = [...allyUnits, ...units.getById(QUEEN), ...units.getWorkers()];
+              collectedActions.push(...module.exports.engageOrRetreat(world, units, allyUnits, enemyUnits, rallyPoint));
             }
           }
         }
@@ -127,46 +127,48 @@ module.exports = {
   engageOrRetreat: ({ data, resources}, units, selfUnits, enemyUnits, position) => {
     const collectedActions = [];
     selfUnits.forEach(selfUnit => {
-      const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits).filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 8);
-      if (closestEnemyUnit) {
-        const positionIsTooClose = position ? distance(selfUnit.pos, position) < 8 : false;
-        closestEnemyUnit.inRangeUnits = enemyUnits.filter(enemyUnit => distance(closestEnemyUnit.pos, enemyUnit.pos) < 8);
-        const enemySupply = closestEnemyUnit.inRangeUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-        const inRangeSelfUnits = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) < 8)
-        selfUnit.selfSupply = inRangeSelfUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-        const noBunker = units.getById(BUNKER).length === 0;
-        if (enemySupply > selfUnit.selfSupply && noBunker) {
-          let targetWorldSpacePos = position;
-          if (!position || positionIsTooClose) {
+      if (!workerTypes.includes(selfUnit.unitType)) {
+        const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits).filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 16);
+        if (closestEnemyUnit) {
+          closestEnemyUnit.inRangeUnits = getInRangeUnits(closestEnemyUnit, enemyUnits);
+          const enemySupply = calculateNearSupply(data, closestEnemyUnit.inRangeUnits);
+          closestEnemyUnit.inRangeSelfUnits = getInRangeUnits(closestEnemyUnit, selfUnits);
+          closestEnemyUnit.inRangeSelfSupply = calculateNearSupply(data, closestEnemyUnit.inRangeSelfUnits);
+          const inRangeSelfUnits = getInRangeUnits(selfUnit, selfUnits);
+          selfUnit.selfSupply = calculateNearSupply(data, inRangeSelfUnits);
+          const selfSupply = selfUnit.selfSupply > closestEnemyUnit.inRangeSelfSupply ? selfUnit.selfSupply : closestEnemyUnit.inRangeSelfSupply;
+          const noBunker = units.getById(BUNKER).length === 0;
+          if (enemySupply > selfSupply && noBunker) {
+            let targetWorldSpacePos = position;
             const isFlying = selfUnit.isFlying;
             if (isFlying) {
               targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
             } else {
               targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestEnemyUnit)
             }
-          }
-          const unitCommand = {
-            abilityId: MOVE,
-            targetWorldSpacePos: targetWorldSpacePos,
-            unitTags: [selfUnit.tag],
-          }
-          collectedActions.push(unitCommand);
+            const unitCommand = {
+              abilityId: MOVE,
+              targetWorldSpacePos: targetWorldSpacePos,
+              unitTags: [selfUnit.tag],
+            }
+            collectedActions.push(unitCommand);
+          } else {
+            const unitCommand = {
+              abilityId: ATTACK_ATTACK,
+              targetUnitTag: closestEnemyUnit.tag,
+              unitTags: [selfUnit.tag],
+            }
+            collectedActions.push(unitCommand);
+          } 
         } else {
-          const unitCommand = {
-            abilityId: ATTACK_ATTACK,
-            targetUnitTag: closestEnemyUnit.tag,
-            unitTags: [selfUnit.tag],
+          if (position) {
+            const unitCommand = {
+              abilityId: ATTACK_ATTACK,
+              targetWorldSpacePos: position,
+              unitTags: [ selfUnit.tag ],
+            }
+            collectedActions.push(unitCommand);
           }
-          collectedActions.push(unitCommand);
-        } 
-      } else {
-        if (position) {
-          const unitCommand = {
-            abilityId: ATTACK_ATTACK,
-            targetWorldSpacePos: position,
-            unitTags: [ selfUnit.tag ],
-          }
-          collectedActions.push(unitCommand);
         }
       }
     });
