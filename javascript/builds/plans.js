@@ -26,7 +26,6 @@ const plans = {
         [19, 'ability', BUILD_REACTOR_BARRACKS, { targetCount: 0, countType: BARRACKSREACTOR } ],
         [19, 'build', 'COMMANDCENTER', 1],
         [19, 'ability', EFFECT_CALLDOWNMULE, { targetType: MINERALFIELD, continuous: true, controlled: true } ],
-        // 19 mule.
         [20, 'build', 'SUPPLYDEPOT', 1],
         [20, 'build', 'FACTORY', 0],
         [21, 'train', MARINE, 0],
