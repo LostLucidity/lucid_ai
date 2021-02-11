@@ -11,6 +11,7 @@ const continuouslyBuild = require("./continuously-build");
 const { moveAwayPosition, retreatToExpansion } = require("../builds/helper");
 const { getClosestUnitByPath } = require("./get-closest-by-path");
 const { filterLabels } = require("./unit-selection");
+const { scanCloakedEnemy } = require("./terran");
 
 module.exports = {
   attack: ({data, resources}, mainCombatTypes, supportUnitTypes) => {
@@ -32,19 +33,7 @@ module.exports = {
         const army = { combatPoint, combatUnits, supportUnits, enemyTarget}
         collectedActions.push(...attackWithArmy(data, units, army));
       }
-      collectedActions.push(...scanCloakedEnemy(data, units, enemyTarget, combatUnits));
-      if (combatPoint && map.hasCreep(combatPoint.pos)) {
-        const position = combatPoint.pos;
-        const orbitalCommand = units.getById(ORBITALCOMMAND).find(n => n.energy > 50);
-        if (position && orbitalCommand) {
-          const unitCommand = {
-            abilityId: EFFECT_SCAN,
-            targetWorldSpacePos: position,
-            unitTags: [ orbitalCommand.tag ],
-          }
-          collectedActions.push(unitCommand);
-        }
-      }
+      collectedActions.push(...scanCloakedEnemy( units, enemyTarget, combatUnits));
     } else {
       // order to location,
       const label = 'combatPoint';
@@ -90,7 +79,7 @@ module.exports = {
       let [ closestEnemyUnit ] = getClosestUnitByPath(resources, rallyPoint, threats, 1);
       if (closestEnemyUnit) {
         const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
-        collectedActions.push(...scanCloakedEnemy(data, units, closestEnemyUnit, combatUnits));
+        collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
         const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
         if (combatPoint) {
           const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
@@ -255,28 +244,5 @@ function attackWithArmy(data, units, army) {
     collectedActions.push(unitCommand);
   }
   collectedActions.push(...tankBehavior(units));
-  return collectedActions;
-}
-
-function scanCloakedEnemy(data, units, target, selfUnits) {
-  const collectedActions = []
-  if (target.cloak === 1) {
-    let position = null;
-    if (target.cloak === 1) {
-      const [ closestToCloak ] = units.getClosest(target.pos, selfUnits);
-      if (distance(closestToCloak.pos, target.pos) < 8) {
-        position = target.pos;
-      }
-      const orbitalCommand = units.getById(ORBITALCOMMAND).find(n => n.energy > 50);
-      if (position && orbitalCommand) {
-        const unitCommand = {
-          abilityId: EFFECT_SCAN,
-          targetWorldSpacePos: position,
-          unitTags: [ orbitalCommand.tag ],
-        }
-        collectedActions.push(unitCommand);
-      }
-    }
-  }
   return collectedActions;
 }
