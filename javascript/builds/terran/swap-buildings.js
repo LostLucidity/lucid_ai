@@ -4,6 +4,7 @@
 const { CANCEL_QUEUE5, LIFT, LAND } = require("@node-sc2/core/constants/ability");
 const { BARRACKSREACTOR, REACTOR } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { findPosition } = require("../../helper/placement-helper");
 
 module.exports = {
   handleOrphanReactor: () => {
@@ -49,14 +50,14 @@ module.exports = {
     const { actions } = resources.get();
     const abilityId = data.getUnitTypeData(unitTypeAddOn).abilityId;
     if (building.abilityAvailable(abilityId)) {
-      const nearPoints = gridsInCircle(building.pos, 6);
-      const randomPositions = nearPoints
-          .map(pos => ({ pos, rand: Math.random() }))
-          .sort((a, b) => a.rand - b.rand)
-          .map(a => a.pos)
-          .slice(0, 20);
-      // see if any of them are good    
-      return await actions.canPlace(BARRACKSREACTOR, randomPositions);
+      let foundPosition = null;
+      let range = 4;
+      do {
+        const nearPoints = gridsInCircle(building.pos, range);
+        foundPosition = await findPosition(actions, BARRACKSREACTOR, nearPoints);
+        range++
+      } while (!foundPosition);
+      return foundPosition;
     } else {
       return;
     }
