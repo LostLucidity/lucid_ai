@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { EFFECT_REPAIR } = require("@node-sc2/core/constants/ability");
+const { EFFECT_REPAIR, SMART } = require("@node-sc2/core/constants/ability");
 const { CYCLONE, LIBERATOR, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER, LIBERATORAG, BUNKER } = require("@node-sc2/core/constants/unit-type");
 
 module.exports = {
@@ -69,6 +69,36 @@ module.exports = {
           unitTags: [ closestWorker.tag ]
         }
         collectedActions.push(unitCommand);
+      }
+    }
+    return collectedActions;
+  },
+  finishAbandonedStructures: (resources) => {
+    const { units } = resources.get();
+    const collectedActions = [];
+    const [ abandonedStructure ] = units.getStructures().filter(structure => structure.buildProgress < 1);
+    let builders = [
+      ...units.withLabel('builder').filter(w => !w.isConstructing()),
+      ...units.withLabel('proxy').filter(w => !w.isConstructing()),
+    ];
+    if (builders.length === 0) {
+      builders.push(
+        ...units.getMineralWorkers(),
+        ...units.getWorkers().filter(w => w.noQueue)
+      );
+    }
+    if (abandonedStructure) {
+      const [ builder ] = units.getClosest(abandonedStructure.pos, builders);
+      if (builder) {
+        builder.labels.set('builder', true);
+        if (builder) {
+          const unitCommand = {
+            abilityId: SMART,
+            unitTags: [ builder.tag ],
+            targetUnitTag: abandonedStructure.tag,
+          };
+          collectedActions.push(unitCommand);
+        }
       }
     }
     return collectedActions;
