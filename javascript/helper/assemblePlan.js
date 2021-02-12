@@ -272,7 +272,7 @@ class AssemblePlan {
           // 1 barracks and 1 gas, second command center
           conditions = [
             this.units.getById(BARRACKS, Alliance.ENEMY).length === 1,
-            this.units.getById(GasMineRace[this.agent.race], Alliance.ENEMY).length === 1,
+            this.units.getById(GasMineRace[opponentRace], Alliance.ENEMY).length === 1,
             !!this.map.getEnemyNatural().getBase()
           ];
           if (!conditions.every(c => c)) {
