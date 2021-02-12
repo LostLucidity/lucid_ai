@@ -56,7 +56,7 @@ function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint=null) {
       collectedActions.push(...engageOrRetreat({ data, resources }, units, selfUnits, enemyUnits, rallyPoint))
     }
   }
-  collectedActions.push(...tankBehavior(units));
+  collectedActions.push(...tankBehavior(units, rallyPoint));
   return collectedActions;
 }
 
