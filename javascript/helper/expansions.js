@@ -49,8 +49,7 @@ module.exports = {
   },
   getNextSafeExpansion: async (agent, resources, expansions) => {
     const { actions, map, units } = resources.get();
-    // sort expansions by closest to enemy units
-    const enemyStructures = units.getStructures(Alliance.ENEMY)
+    const enemyStructures = units.getStructures(Alliance.ENEMY);
     if (enemyStructures.length > 0) {
       expansions.sort((a, b) => {
         const rallyPoint = getCombatRally(map, units);
