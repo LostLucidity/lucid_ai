@@ -362,7 +362,7 @@ class AssemblePlan {
         // });
         placements = placements.filter((point) => {
           return (
-            (distance(natural.townhallPosition, point) > 4.5) &&
+            (distance(natural.townhallPosition, point) > 5) &&
             (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
             (natural.areas.hull.every(hp => distance(hp, point) > 2)) &&
             (this.units.getStructures({ alliance: Alliance.SELF })
