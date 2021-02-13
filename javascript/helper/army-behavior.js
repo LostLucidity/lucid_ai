@@ -12,6 +12,7 @@ const { moveAwayPosition, retreatToExpansion } = require("../builds/helper");
 const { getClosestUnitByPath } = require("./get-closest-by-path");
 const { filterLabels } = require("./unit-selection");
 const { scanCloakedEnemy } = require("./terran");
+const { workerTypes } = require("@node-sc2/core/constants/groups");
 
 module.exports = {
   attack: ({data, resources}, mainCombatTypes, supportUnitTypes) => {
