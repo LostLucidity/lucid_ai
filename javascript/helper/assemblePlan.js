@@ -33,7 +33,7 @@ const { getCombatRally } = require("./location");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
 const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
-const { getBetweenBaseAndWall } = require("./placement-helper");
+const { getBetweenBaseAndWall, findPosition } = require("./placement-helper");
 const { restorePower } = require("./protoss");
 
 let actions;
@@ -209,7 +209,7 @@ class AssemblePlan {
   }
   async buildBuilding(placementConfig, candidatePositions) {
     // find placement on main
-    this.foundPosition = this.foundPosition ? this.foundPosition : await this.findPosition(actions, placementConfig.placement, candidatePositions);
+    this.foundPosition = this.foundPosition ? this.foundPosition : await findPosition(actions, placementConfig.placement, candidatePositions);
     if (this.foundPosition) {
       if (this.agent.canAfford(placementConfig.toBuild)) {
         await actions.sendAction(workerSendOrBuild(this.units, this.data.getUnitTypeData(placementConfig.toBuild).abilityId, this.foundPosition));
