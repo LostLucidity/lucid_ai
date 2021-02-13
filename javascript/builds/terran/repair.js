@@ -80,8 +80,8 @@ module.exports = {
     const collectedActions = [];
     const [ abandonedStructure ] = units.getStructures().filter(structure => structure.buildProgress < 1 && addonTypes.indexOf(structure.unitType) === -1);
     if (abandonedStructure) {
-      if (distance(abandonedStructure.pos, units.getClosest(abandonedStructure.pos, units.getWorkers())[0].pos) < abandonedStructure.radius + 0.25) {
-        return;
+      if (distance(abandonedStructure.pos, units.getClosest(abandonedStructure.pos, units.getWorkers())[0].pos) < abandonedStructure.radius + 0.30) {
+        return collectedActions;
       }
       let builders = [
         ...units.withLabel('builder').filter(w => !w.isConstructing()),
