@@ -53,7 +53,7 @@ function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint=null) {
     } else {
       const selfUnits = [...combatUnits, ...supportUnits];
       const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-      collectedActions.push(...engageOrRetreat({ data, resources }, units, selfUnits, enemyUnits, rallyPoint))
+      collectedActions.push(...engageOrRetreat({ data, resources }, units, selfUnits, enemyUnits, rallyPoint));
     }
   }
   collectedActions.push(...tankBehavior(units, rallyPoint));
