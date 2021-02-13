@@ -2,6 +2,7 @@
 "use strict"
 
 const { EFFECT_REPAIR, SMART } = require("@node-sc2/core/constants/ability");
+const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { CYCLONE, LIBERATOR, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER, LIBERATORAG, BUNKER } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 
@@ -77,7 +78,7 @@ module.exports = {
   finishAbandonedStructures: (resources) => {
     const { units } = resources.get();
     const collectedActions = [];
-    const [ abandonedStructure ] = units.getStructures().filter(structure => structure.buildProgress < 1);
+    const [ abandonedStructure ] = units.getStructures().filter(structure => structure.buildProgress < 1 && addonTypes.indexOf(structure.unitType) === -1);
     if (abandonedStructure) {
       if (distance(abandonedStructure.pos, units.getClosest(abandonedStructure.pos, units.getWorkers())[0].pos) < abandonedStructure.radius + 0.25) {
         return;
