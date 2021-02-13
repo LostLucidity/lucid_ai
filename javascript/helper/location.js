@@ -6,7 +6,7 @@ const { avgPoints, add } = require("@node-sc2/core/utils/geometry/point");
 
 module.exports = {
   getCombatRally: (map, units) => {
-    return map.getNatural() && map.getNatural().getWall() ? map.getCombatRally() : module.exports.getRallyPointByBases(map, units);
+    return map.getNatural() ? map.getCombatRally() : module.exports.getRallyPointByBases(map, units);
   },
   getRallyPointByBases: (map, units) => {
     const averageBasePosition = avgPoints(units.getBases().map(base => base.pos))
