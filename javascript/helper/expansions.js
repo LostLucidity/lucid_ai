@@ -4,7 +4,7 @@
 const { townhallTypes } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
-const { getRallyPointByBases, getCombatRally } = require("./location");
+const { getCombatRally } = require("./location");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 module.exports = {
