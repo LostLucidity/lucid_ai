@@ -173,7 +173,7 @@ const plans = {
       order: [
         [[...range(0, 27), ...range(30, 41)], 'buildWorkers'],
         [14, 'build', 'PYLON', 0, 'findSupplyPositions'],
-        [[...range(14, 19)], 'scout', PROBE, 'getEnemyMain', { unitType: PYLON, unitCount: 1 }],
+        [[...range(14, 19)], 'scout', PROBE, 'getEnemyMain', { unitType: PYLON, unitCount: 1, scoutType: 'earlyScout' }],
         [15, 'build', 'GATEWAY', 0],
         [16, 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: NEXUS, continuous: false } ],
         [17, 'build', 'ASSIMILATOR', 0],
@@ -181,7 +181,7 @@ const plans = {
         [19, 'build', 'GATEWAY', 1],
         [20, 'build', 'CYBERNETICSCORE', 0],
         [20, 'build', 'PYLON', 1],
-        [[...range(20, 26)], 'scout', PROBE, 'getEnemyNatural'],
+        [[...range(20, 26)], 'scout', PROBE, 'getEnemyNatural', { scoutType: 'earlyScout' }],
         [23, 'train', STALKER, 0],
         [23, 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: GATEWAY, continuous: false  } ],
         [23, 'train', STALKER, 1],

@@ -502,24 +502,37 @@ class AssemblePlan {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().townhallPosition : locationHelper[targetLocationFunction](this.map);
       const label = conditions && conditions.label ? conditions.label: 'scout';
-      const labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
+      let labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
-        if (conditions && conditions.unitType) {
-          if (this.units.getByType(conditions.unitType).length === conditions.unitCount) {
+        if (conditions) {
+          if (conditions.scoutType && !this[conditions.scoutType]) {
+            return;
+          }
+          if (conditions.unitType) {
+            if (this.units.getByType(conditions.unitType).length === conditions.unitCount) {
+              this.setScout(unitType, label, targetLocation);
+            }
+          } else {
             this.setScout(unitType, label, targetLocation);
           }
         } else {
           this.setScout(unitType, label, targetLocation);
         }
+        labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       }
       const [ scout ] = labelledScouts;
-      if (scout) { 
-        const unitCommand = {
-          abilityId: MOVE,
-          targetWorldSpacePos: targetLocation,
-          unitTags: [ scout.tag ],
+      if (scout) {
+        if (conditions && conditions.scoutType && !this[conditions.scoutType]) {
+          const [ labelledScout ] = this.units.withLabel(label);
+          labelledScout.labels.clear();
+        } else {
+          const unitCommand = {
+            abilityId: MOVE,
+            targetWorldSpacePos: targetLocation,
+            unitTags: [ scout.tag ],
+          }
+          this.collectedActions.push(unitCommand);
         }
-        this.collectedActions.push(unitCommand);
       }
     }
   }
