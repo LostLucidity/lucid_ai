@@ -309,7 +309,7 @@ class AssemblePlan {
         console.log(this.scoutReport);
         this.scoutReport = '';
       }
-      this.earlyScoutActive = false;
+      this.earlyScout = false;
     }
     // if scouting probe and time is greater than 2 minutes. If no base, stay defensive.
     // if (frame.timeInSeconds() > 132 && frame.timeInSeconds() <= 240) {
@@ -623,7 +623,7 @@ class AssemblePlan {
             unitType = planStep[2];
             this.unitType = placementConfigs[unitType].toBuild;
             const enemyBuild = planStep[5];
-            if (enemyBuild && this.state.enemyBuildType !== enemyBuild && !this.earlyScoutActive) { break; }
+            if (enemyBuild && this.state.enemyBuildType !== enemyBuild && !this.earlyScout) { break; }
             await this.build(foodTarget, unitType, targetCount, planStep[4] ? await this[planStep[4]]() : []);
             break;
           case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
