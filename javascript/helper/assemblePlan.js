@@ -34,6 +34,7 @@ const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAba
 const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
 const { getBetweenBaseAndWall, findPosition } = require("./placement-helper");
+const locationHelper = require("./location");
 const { restorePower } = require("./protoss");
 
 let actions;
