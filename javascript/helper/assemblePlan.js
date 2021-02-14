@@ -537,14 +537,20 @@ class AssemblePlan {
     }
   }
   setScout(unitType, label, location) {
-    const [ unit ] = this.units.getById(unitType);
+    let [ unit ] = this.units.getClosest(
+      location,
+      this.units.getById(unitType).filter(unit => {
+        return (
+          unit.noQueue ||
+          unit.orders.findIndex(order => order.abilityId === MOVE) > -1 ||
+          unit.isConstructing() && unit.unitType === PROBE
+        )
+      })
+    );
+    if (!unit) { [ unit ] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing())); }
     if (unit) {
-      let [ scout ] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.noQueue || unit.orders.findIndex(order => order.abilityId === 16) > -1));
-      if (!scout) { [ scout ] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing())) }
-      if (scout) {
-        scout.labels.clear();
-        scout.labels.set(label, true);
-      }
+      unit.labels.clear();
+      unit.labels.set(label, true);
     }
   }
   async train(food, unitType, targetCount) {
