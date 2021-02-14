@@ -246,9 +246,8 @@ class AssemblePlan {
   }
   checkEnemyBuild() {
     const { frame } = this.resources.get();
-    // on first scout:
-    if (frame.timeInSeconds() > 51 && frame.timeInSeconds() <= 120) {
-      this.earlyScoutActive = true;
+    if (frame.timeInSeconds() <= 122) {
+      this.earlyScout = true;
       console.log(frame.timeInSeconds());
       let conditions = [];
       switch (opponentRace) {
