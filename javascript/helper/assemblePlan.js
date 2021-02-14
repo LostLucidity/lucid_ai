@@ -95,7 +95,6 @@ class AssemblePlan {
       this.state.pauseBuilding = false;
     }
     if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(this.agent, this.data, this.resources, this.state)); }
-    if (this.foodUsed >= ATTACKFOOD) {  }
     this.checkEnemyBuild();
     let completedBases = this.units.getBases().filter(base => base.buildProgress >= 1);
     if (completedBases.length >= 3) {
