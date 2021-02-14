@@ -146,7 +146,7 @@ class AssemblePlan {
             }
             if (target) { unitCommand.targetUnitTag = target.tag; }
           }
-          if (abilityId === 488 && !unitCanDo.isFlying) {
+          if (abilityId === BUILD_REACTOR_STARPORT && !unitCanDo.isFlying) {
             const addOnTarget = {x: unitCanDo.pos.x + 2.5, y: unitCanDo.pos.y - 0.5};
             const canPlace = await actions.canPlace(STARPORTREACTOR, [ addOnTarget ]);
             if (!canPlace) {
