@@ -182,8 +182,13 @@ function getCombatPoint(resources, units, target) {
       combatPoint.labels.set(label, false);
     }
   } else {
-    const closestUnit = getClosestUnitByPath(resources, target.pos, units, 1)[0];
-    closestUnit.labels.set(label, true);
+    let closestUnit;
+    try {
+      [ closestUnit ] = getClosestUnitByPath(resources, target.pos, units);
+      closestUnit.labels.set(label, true);
+    } catch(e) {
+      [ closestUnit ] = resources.get().units.getClosest(target.pos, units)
+    }
     return closestUnit;
   }
 }
