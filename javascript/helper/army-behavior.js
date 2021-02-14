@@ -166,10 +166,6 @@ module.exports = {
   }
 };
 
-function filterLabels(unit, labels) {
-  return labels.every(label => !unit.labels.get(label))
-}
-
 function getCombatPoint(resources, units, target) {
   const label = 'combatPoint';
   const combatPoint = units.find(unit => unit.labels.get(label));
