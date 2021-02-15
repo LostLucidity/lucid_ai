@@ -281,7 +281,8 @@ class AssemblePlan {
           } else {
             this.state.enemyBuildType = 'standard';
           }
-          this.scoutReport = `Barracks Count: ${this.units.getById(BARRACKS, Alliance.ENEMY).length}.
+          this.scoutReport = `${this.state.enemyBuildType} detected:
+          Barracks Count: ${this.units.getById(BARRACKS, Alliance.ENEMY).length}.
           Gas Mine Count: ${this.units.getById(GasMineRace[opponentRace], Alliance.ENEMY).length}.
           Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}.`;
           break;
