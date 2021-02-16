@@ -312,17 +312,6 @@ class AssemblePlan {
       }
       this.earlyScout = false;
     }
-    // if scouting probe and time is greater than 2 minutes. If no base, stay defensive.
-    // if (frame.timeInSeconds() > 132 && frame.timeInSeconds() <= 240) {
-    //   if (this.map.getEnemyNatural().getBase() === undefined) {
-    //     this.state.enemyBuildType = 'cheese';
-    //   } else {
-    //     this.state.enemyBuildType = 'standard';
-    //   };
-    // } 
-    // if (frame.timeInSeconds() > 240) {
-    //   this.state.enemyBuildType = 'complete';
-    // }
   }
   findPlacements(placementConfig) {
     const { map, units } = this.resources.get();
