@@ -203,12 +203,12 @@ module.exports = {
               collectedActions.push(unitCommand);
             } else {
               const amountToDefendWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
-              const unitsToDefendWithTag = units.getClosest(closestEnemyUnit.pos, workers, amountToDefendWith).map(unit => unit.tag);
-              if (unitsToDefendWithTag.length > 0) {
+              const defenders = units.getClosest(closestEnemyUnit.pos, workers, amountToDefendWith)
+              if (defenders.find(defender => defender.tag === worker.tag)) {
                 const unitCommand = {
                   abilityId: ATTACK_ATTACK,
                   targetUnitTag: closestEnemyUnit.tag,
-                  unitTags: unitsToDefendWithTag,
+                  unitTags: [ worker.tag ],
                 }
                 collectedActions.push(unitCommand);
               }
