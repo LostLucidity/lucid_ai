@@ -305,10 +305,16 @@ class AssemblePlan {
           }
           break;
       }
-    } else {
+    } else if (this.earlyScout) {
       if (this.scoutReport) {
         console.log(this.scoutReport);
         this.scoutReport = '';
+      }
+      const [ earlyScout ] = this.units.getAlive(Alliance.SELF).filter(units => {
+        return units.labels.has('scoutEnemyMain') || units.labels.has('scoutEnemyNatural');
+      });
+      if (earlyScout) {
+        earlyScout.labels.clear();
       }
       this.earlyScout = false;
     }
