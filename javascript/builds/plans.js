@@ -202,7 +202,7 @@ const plans = {
         [37, 'train', STALKER, 4],  
         [[...range(37, 44)], 'scout', OBSERVER, 'getEnemyNatural'],
         [39, 'train', STALKER, 5],
-        [[...range(41, 180)], 'continuouslyBuild', [ STALKER, COLOSSUS ]],
+        [[...range(27, 180)], 'continuouslyBuild', [ STALKER, COLOSSUS ]],
         [[...range(41, 200)], 'buildWorkers', true],
         [45, 'train', IMMORTAL, 0],
         [51, 'build', 'ASSIMILATOR', 2],
