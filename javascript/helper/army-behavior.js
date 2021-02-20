@@ -106,7 +106,7 @@ module.exports = {
             if (selfSupply < enemySupply) {
               console.log('engageOrRetreat', selfSupply, enemySupply);
               allyUnits = [...allyUnits, ...units.getById(QUEEN), ...units.getWorkers()];
-              collectedActions.push(...module.exports.engageOrRetreat(world, units, allyUnits, enemyUnits, rallyPoint));
+              collectedActions.push(...module.exports.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
             }
           }
         }
