@@ -66,7 +66,7 @@ module.exports = {
     }
     return collectedActions;
   },
-  defend: async (world, mainCombatTypes, supportUnitTypes, threats) => {
+  defend: async (world, assemblePlan, mainCombatTypes, supportUnitTypes, threats) => {
     const data = world.data;
     const resources = world.resources;
     const {
@@ -102,7 +102,7 @@ module.exports = {
             }
           } else {
             console.log('building defensive units');
-            await continuouslyBuild(world, mainCombatTypes);
+            await continuouslyBuild(world, assemblePlan, mainCombatTypes);
             if (selfSupply < enemySupply) {
               console.log('engageOrRetreat', selfSupply, enemySupply);
               allyUnits = [...allyUnits, ...units.getById(QUEEN), ...units.getWorkers()];

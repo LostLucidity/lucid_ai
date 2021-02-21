@@ -5,10 +5,10 @@ const { LARVA, ZERGLING, WARPGATE } = require("@node-sc2/core/constants/unit-typ
 const canAfford = require("./can-afford");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { WarpUnitAbility } = require("@node-sc2/core/constants");
-const { getCombatRally } = require("./location");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { warpIn } = require("./protoss");
 
-async function continuouslyBuild({ agent, data, resources }, unitTypes, addOn=false) {
+async function continuouslyBuild({ agent, data, resources }, assemblePlan, unitTypes, addOn=false) {
   const {
     foodUsed,
     minerals,
@@ -42,7 +42,7 @@ async function continuouslyBuild({ agent, data, resources }, unitTypes, addOn=fa
         abilityId = WarpUnitAbility[unitType];
         const warpGates = units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
         if (warpGates.length > 0) {
-          try { await actions.warpIn(unitType, { nearPosition: getCombatRally(map, units) }) } catch (error) { console.log(error); }
+          warpIn(resources, assemblePlan, unitType);
         }
       }
     }

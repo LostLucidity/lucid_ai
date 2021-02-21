@@ -35,7 +35,7 @@ const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
 const { getBetweenBaseAndWall, findPosition } = require("./placement-helper");
 const locationHelper = require("./location");
-const { restorePower } = require("./protoss");
+const { restorePower, warpIn } = require("./protoss");
 
 let actions;
 let opponentRace;
@@ -80,12 +80,12 @@ class AssemblePlan {
     if (this.outSupplied) {
       console.log('Scouted higher supply', this.selfSupply, this.enemySupply);
       console.log(this.frame.timeInSeconds());
-      await continuouslyBuild(this.world, this.defenseTypes); 
+      await continuouslyBuild(this.world, this, this.defenseTypes); 
     }
     await this.runPlan();
     if (this.foodUsed < ATTACKFOOD && this.state.pushMode === false) {
       if (this.state.defenseMode) {
-        this.collectedActions.push(...await defend(world, this.mainCombatTypes, this.supportUnitTypes, this.threats));
+        this.collectedActions.push(...await defend(world, this, this.mainCombatTypes, this.supportUnitTypes, this.threats));
       } else { this.collectedActions.push(...rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation)); }
     } else { 
       if (!this.outSupplied) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
@@ -567,7 +567,7 @@ class AssemblePlan {
             abilityId = WarpUnitAbility[unitType]
             const warpGates = this.units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
             if (warpGates.length > 0) {
-              try { await actions.warpIn(unitType, { nearPosition: getCombatRally(this.map, this.units) }) } catch (error) { console.log(error); }
+              warpIn(this.resources, this, unitType);
             } else {
               this.state.pauseBuilding = true;
               return;
@@ -625,7 +625,7 @@ class AssemblePlan {
           case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
-            if (this.agent.minerals > 512 && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, planStep[2], planStep[3]); } break;
+            if (this.agent.minerals > 512 && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
           case 'harass': if (this.state.enemyBuildType === 'standard') { await harass(this.resources, this.state); } break;
           case 'maintainQueens': if (this.foodUsed >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
