@@ -47,8 +47,8 @@ module.exports = {
   workerSendOrBuild: (units, ability, position) => {
     const collectedActions = [];
     let builders = [
-      ...units.withLabel('builder').filter(w => !w.isConstructing()),
-      ...units.withLabel('proxy').filter(w => !w.isConstructing()),
+      ...units.withLabel('builder').filter(w => !w.isConstructing() && !w.isAttacking()),
+      ...units.withLabel('proxy').filter(w => !w.isConstructing() && !w.isAttacking()),
     ];
     if (ability !== MOVE || builders.length === 0) {
       builders.push(
