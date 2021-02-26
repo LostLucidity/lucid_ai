@@ -89,7 +89,6 @@ module.exports = {
           if (selfSupply > enemySupply) {
             console.log('Defend', selfSupply, enemySupply);
             if (closestEnemyUnit.isFlying) {
-              // if no anti air in combat, use Queens.
               const findAntiAir = combatUnits.find(unit => unit.canShootUp());
               if (!findAntiAir) {
                 combatUnits.push(...units.getById(QUEEN));
