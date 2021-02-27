@@ -109,7 +109,7 @@ class AssemblePlan {
     this.collectedActions.push(...shadowEnemy(this.resources, this.state, this.scoutTypes));
     this.collectedActions.push(...liberatorBehavior(this.resources));
     this.collectedActions.push(...marineBehavior(this.resources));
-    this.collectedActions.push(...scoutMainBehavior(this.resources));
+    this.collectedActions.push(...scoutMainBehavior(this.resources, opponentRace));
     this.collectedActions.push(...supplyDepotBehavior(this.resources));
     this.collectedActions.push(...workerBehavior(world));
     if (this.frame.getGameLoop() % 8 === 0) {

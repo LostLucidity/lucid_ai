@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 const { SIEGETANK, SIEGETANKSIEGED, LARVA, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED } = require("@node-sc2/core/constants/unit-type");
 const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK, EFFECT_REPAIR } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
@@ -127,23 +127,25 @@ module.exports = {
     });
     return collectedActions;
   },
-  scoutMainBehavior: (resources) => {
+  scoutMainBehavior: (resources, opponentRace) => {
     const { map, units } = resources.get();
     const collectedActions = [];
     const [ unit ] = units.withLabel('scoutEnemyMain');
     if (unit) {
-      const unitCommand = {
-        abilityId: MOVE,
-        unitTags: [ unit.tag ],
-      };
       const enemyMain = map.getEnemyMain();
       const pointsOfInterest = [enemyMain.townhallPosition, ...enemyMain.cluster.vespeneGeysers.map(geyser => geyser.pos)];
-      const filteredPointsOfInterest = pointsOfInterest.filter(point => distance(point, unit.pos) > unit.data().sightRange);
-      unitCommand.queueCommand = filteredPointsOfInterest.length > unit.orders.length ? true : false;
-      filteredPointsOfInterest.forEach(point => {
-        unitCommand.targetWorldSpacePos = point;
-        collectedActions.push(unitCommand);
-      });
+      if (opponentRace === Race.ZERG) { pointsOfInterest.push(map.getEnemyNatural().townhallPosition); }
+      if (pointsOfInterest.length > unit.orders.length) {
+        pointsOfInterest.forEach(point => {
+          const unitCommand = {
+            abilityId: MOVE,
+            unitTags: [ unit.tag ],
+            queueCommand: true,
+            targetWorldSpacePos: point,
+          };
+          collectedActions.push(unitCommand);
+        });
+      }
     }
     return collectedActions;
   },
