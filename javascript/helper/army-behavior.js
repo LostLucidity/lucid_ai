@@ -114,8 +114,23 @@ module.exports = {
     return collectedActions;
   },
   engageOrRetreat: ({ data, resources}, units, selfUnits, enemyUnits, position) => {
+  getInRangeDestructables: (units, selfUnit) => {
+    let tag = null;
+    const ROCKS = [ 373, 638, 639, 640, 643 ];
+    const DEBRIS = [ 364, 365, 376 ];
+    const destructableRockTypes = [ ...DEBRIS, ...ROCKS];
+    const destructableRockUnits = units.getAlive(Alliance.NEUTRAL).filter(unit => destructableRockTypes.includes(unit.unitType));
+    const [ closestDestructable ] = units.getClosest(selfUnit.pos, destructableRockUnits).filter(destructableRockUnit => distance(selfUnit.pos, destructableRockUnit.pos) < 16);
+    if (closestDestructable) {
+      tag = closestDestructable.tag;
+    }
+    return tag;
+  },
+  engageOrRetreat: ({ data, resources}, selfUnits, enemyUnits, position) => {
+    const { units } = resources.get();
     const collectedActions = [];
     selfUnits.forEach(selfUnit => {
+      let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType)) {
         const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits).filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 16);
         if (closestEnemyUnit) {
