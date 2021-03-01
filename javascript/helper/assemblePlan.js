@@ -246,20 +246,28 @@ class AssemblePlan {
   }
   checkEnemyBuild() {
     const { frame } = this.resources.get();
-    if (frame.timeInSeconds() <= 122) {
-      this.earlyScout = true;
+    if (frame.timeInSeconds() > 122) { this.earlyScout = false }
+    if (this.earlyScout) {
       console.log(frame.timeInSeconds());
       let conditions = [];
       switch (opponentRace) {
         case Race.PROTOSS:
-          // protoss: two gateways
+          const moreThanTwoGateways = this.units.getById(GATEWAY, Alliance.ENEMY).length > 2;
+          if (moreThanTwoGateways) {
+            console.log('More than two gateways');
+            this.state.enemyBuildType = 'cheese';
+            this.earlyScout = false;
+          }
           conditions = [
             this.units.getById(GATEWAY, Alliance.ENEMY).length === 2,
           ];
           if (!conditions.every(c => c)) {
-            if (this.state.enemyBuildType === 'standard') { console.log('cheese detected'); }
             this.state.enemyBuildType = 'cheese';
+          } else {
+            this.state.enemyBuildType = 'standard';
           }
+          this.scoutReport = `${this.state.enemyBuildType} detected:
+          Gateway Count: ${this.units.getById(GATEWAY, Alliance.ENEMY).length}.`;
           break;
         case Race.TERRAN:
           // scout alive, more than 1 barracks.
@@ -287,16 +295,23 @@ class AssemblePlan {
           Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}.`;
           break;
         case Race.ZERG:
-          // zerg: natural before pool
           const spawningPoolDetected = this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length > 0 || this.units.getById(ZERGLING, Alliance.ENEMY).length > 0;
           const enemyNaturalDetected = this.map.getEnemyNatural().getBase();
           if (this.state.enemyBuildType !== 'cheese') {
             if (spawningPoolDetected && !enemyNaturalDetected) {
-              console.log('Pool before natural. Cheese detected');
+              console.log('Pool first. Cheese detected');
               this.state.enemyBuildType = 'cheese';
               console.log('Spawning Pool Count:', this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length);
               console.log('Zergling Count:', this.units.getById(ZERGLING, Alliance.ENEMY).length);
               console.log('Enemy Natural detected', !!this.map.getEnemyNatural().getBase());
+              this.earlyScout = false;
+            } else if (!spawningPoolDetected && enemyNaturalDetected) {
+              console.log('Hatcher first. Standard.');
+              this.state.enemyBuildType = 'standard';
+              console.log('Spawning Pool Count:', this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length);
+              console.log('Zergling Count:', this.units.getById(ZERGLING, Alliance.ENEMY).length);
+              console.log('Enemy Natural detected', !!this.map.getEnemyNatural().getBase());
+              this.earlyScout = false;
             }
             if (!enemyNaturalDetected && !!this.map.getNatural().getBase()) {
               console.log('Enemy expanding slower. Cheese detected');
@@ -305,7 +320,7 @@ class AssemblePlan {
           }
           break;
       }
-    } else if (this.earlyScout) {
+    } else {
       if (this.scoutReport) {
         console.log(this.scoutReport);
         this.scoutReport = '';
@@ -316,7 +331,6 @@ class AssemblePlan {
       if (earlyScout) {
         earlyScout.labels.clear();
       }
-      this.earlyScout = false;
     }
   }
   findPlacements(placementConfig) {
@@ -496,6 +510,7 @@ class AssemblePlan {
     }
   }
   scout(foodRanges, unitType, targetLocationFunction, conditions) {
+    if (this.earlyScout === undefined && conditions.scoutType === 'earlyScout') { this.earlyScout = true; }
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().townhallPosition : locationHelper[targetLocationFunction](this.map);
       const label = conditions && conditions.label ? conditions.label: 'scout';
