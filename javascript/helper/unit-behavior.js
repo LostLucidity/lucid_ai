@@ -13,7 +13,7 @@ const { calculateNearSupply, getInRangeUnits } = require("./battle-analysis");
 const { filterLabels } = require("./unit-selection");
 
 module.exports = {
-  orbitalCommandCenterBehavior: (resources, action, position) => {
+  orbitalCommandCenterBehavior: (resources, action) => {
     const {
       units,
     } = resources.get();
@@ -184,7 +184,8 @@ module.exports = {
     if (enemyUnits.length > 0) {
       workers.forEach(worker => {
         let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyUnits, 1);
-        if (distance(worker.pos, closestEnemyUnit.pos) < 16) {
+        const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
+        if (distanceToClosestEnemy < 16) {
           const inRangeSelfCombatUnits = getInRangeUnits(worker, units.getCombatUnits(Alliance.SELF));
           const inRangeCombatSupply = calculateNearSupply(data, inRangeSelfCombatUnits);
           const inRangeCombatUnitsOfEnemy = getInRangeUnits(closestEnemyUnit, units.getCombatUnits(Alliance.SELF));
@@ -204,8 +205,17 @@ module.exports = {
               }
               collectedActions.push(unitCommand);
             } else {
+              if (worker.labels.get('builder')) {
+                const buildOnStandby = (worker.orders.length === 0 || worker.isGathering()) || worker.isConstructing();
+                const moveOrder = worker.orders.find(order => order.abilityId === MOVE);
+                const position = buildOnStandby ? worker.pos : moveOrder.targetWorldSpacePos;
+                worker.orders.forEach(order => console.log(order.abilityId));
+                if ((buildOnStandby || moveOrder) && distance(position, closestEnemyUnit.pos) > 3) {
+                  return;
+                }
+              } 
               const amountToDefendWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
-              const defenders = units.getClosest(closestEnemyUnit.pos, workers, amountToDefendWith)
+              const defenders = units.getClosest(closestEnemyUnit.pos, workers.filter(worker => !worker.isReturning()), amountToDefendWith);
               if (defenders.find(defender => defender.tag === worker.tag)) {
                 const unitCommand = {
                   abilityId: ATTACK_ATTACK,

@@ -467,7 +467,7 @@ class AssemblePlan {
         this.collectedActions.push(...finishAbandonedStructures(this.resources));
         break;
       case Race.PROTOSS:
-        this.collectedActions.push(...restorePower(this.world));
+        this.collectedActions.push(...await restorePower(this.world));
         break;
     }
   }
