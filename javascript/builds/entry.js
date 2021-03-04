@@ -70,7 +70,7 @@ const entry = createSystem({
     await assemblePlan.onUnitDestroyed(destroyedUnit);
   },
   async onUnitIdle(world, idleUnit) {
-    if (idleUnit.isWorker()) {
+    if (idleUnit.isWorker() && idleUnit.noQueue) {
       const { units } = world.resources.get();
       if (units.getBases(Alliance.SELF).length > 0) {
         const { actions } = world.resources.get();
