@@ -4,6 +4,7 @@
 const debugDebug = require('debug')('sc2:debug:WorkerBalance');
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 const { createSystem } = require('@node-sc2/core');
+const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, returningAbilities } = require('@node-sc2/core/constants/groups');
 
@@ -72,23 +73,31 @@ module.exports = createSystem({
         }
     },
     async onUnitFinished({ resources }, newBuilding) {
-        const { units, actions } = resources.get();
-
+        const collectedActions = [];
+        const { actions, units } = resources.get();
         if (newBuilding.isTownhall()) {
             const bases = units.getBases();
             const expansionsWithExtraWorkers = bases.filter(base => base.assignedHarvesters > base.idealHarvesters);
+            const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
             debugSilly(`expansions with extra workers: ${expansionsWithExtraWorkers.map(ex => ex.tag).join(', ')}`);
             const extraWorkers = expansionsWithExtraWorkers.reduce((workers, base) => {
                 return workers.concat(
                     units.getClosest(
                         base.pos,
-                        units.getMineralWorkers(),
+                        gatheringWorkers,
                         base.assignedHarvesters - base.idealHarvesters
                     )
                 );
             }, []);
             debugSilly(`total extra workers: ${extraWorkers.map(w => w.tag).join(', ')}`);
-            return Promise.all(extraWorkers.map(worker => actions.gather(worker)));
+            extraWorkers.forEach(worker => {
+                collectedActions.push({
+                    abilityId: Ability.SMART,
+                    targetUnitTag: mineralFieldTarget.tag,
+                    unitTags: [worker.tag],
+                });
+            })
         }
+        await actions.sendAction(collectedActions);
     },
 });
