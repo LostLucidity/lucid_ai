@@ -5,7 +5,7 @@ const { MOVE, LOAD_BUNKER, SMART } = require("@node-sc2/core/constants/ability")
 const { BUNKER, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { engageOrRetreat } = require("./army-behavior");
 const { getCombatRally } = require("./location");
-const { tankBehavior } = require("./unit-behavior");
+const { tankBehavior } = require("./behavior/unit-behavior");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
 function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint=null) {

@@ -1,16 +1,16 @@
 //@ts-check
 "use strict"
 
-const { Alliance, Race } = require("@node-sc2/core/constants/enums");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { SIEGETANK, SIEGETANKSIEGED, LARVA, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED } = require("@node-sc2/core/constants/unit-type");
-const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK, EFFECT_REPAIR } = require("@node-sc2/core/constants/ability");
+const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK, EFFECT_REPAIR, STOP } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getOccupiedExpansions, getBase } = require("./expansions");
+const { getOccupiedExpansions, getBase } = require("../expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { retreatToExpansion } = require("../builds/helper");
-const { calculateNearSupply, getInRangeUnits } = require("./battle-analysis");
-const { filterLabels } = require("./unit-selection");
+const { retreatToExpansion } = require("../../builds/helper");
+const { calculateNearSupply, getInRangeUnits } = require("../battle-analysis");
+const { filterLabels } = require("../unit-selection");
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action) => {
@@ -127,28 +127,6 @@ module.exports = {
     });
     return collectedActions;
   },
-  scoutMainBehavior: (resources, opponentRace) => {
-    const { map, units } = resources.get();
-    const collectedActions = [];
-    const [ unit ] = units.withLabel('scoutEnemyMain');
-    if (unit) {
-      const enemyMain = map.getEnemyMain();
-      const pointsOfInterest = [enemyMain.townhallPosition, ...enemyMain.cluster.vespeneGeysers.map(geyser => geyser.pos)];
-      if (opponentRace === Race.ZERG) { pointsOfInterest.push(map.getEnemyNatural().townhallPosition); }
-      if (pointsOfInterest.length > unit.orders.length) {
-        pointsOfInterest.forEach(point => {
-          const unitCommand = {
-            abilityId: MOVE,
-            unitTags: [ unit.tag ],
-            queueCommand: true,
-            targetWorldSpacePos: point,
-          };
-          collectedActions.push(unitCommand);
-        });
-      }
-    }
-    return collectedActions;
-  },
   tankBehavior: (units, target) => {
     const collectedActions = [];
     // get siege tanks
@@ -208,21 +186,28 @@ module.exports = {
               if (worker.labels.get('builder')) {
                 const buildOnStandby = (worker.orders.length === 0 || worker.isGathering()) || worker.isConstructing();
                 const moveOrder = worker.orders.find(order => order.abilityId === MOVE);
-                const position = buildOnStandby ? worker.pos : moveOrder.targetWorldSpacePos;
+                const position = buildOnStandby ? worker.pos : (moveOrder ? moveOrder.targetWorldSpacePos : worker.pos);
                 worker.orders.forEach(order => console.log(order.abilityId));
                 if ((buildOnStandby || moveOrder) && distance(position, closestEnemyUnit.pos) > 3) {
                   return;
                 }
               } 
               const amountToDefendWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
-              const defenders = units.getClosest(closestEnemyUnit.pos, workers.filter(worker => !worker.isReturning()), amountToDefendWith);
-              if (defenders.find(defender => defender.tag === worker.tag)) {
+              const defenders = units.getClosest(closestEnemyUnit.pos, workers.filter(worker => !worker.isReturning()), amountToDefendWith + 1);
+              if (defenders[0]) {
                 const unitCommand = {
                   abilityId: ATTACK_ATTACK,
                   targetUnitTag: closestEnemyUnit.tag,
-                  unitTags: [ worker.tag ],
+                  unitTags: [ defenders[0].tag ],
                 }
-                collectedActions.push(unitCommand);
+                collectedActions.push(unitCommand);  
+              }
+              if (defenders[1] && defenders[1].isAttacking()) {
+                const unitCommand = {
+                  abilityId: STOP,
+                  unitTags: [ defenders[1].tag ],
+                }
+                collectedActions.push(unitCommand);  
               }
             } 
           } 
