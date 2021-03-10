@@ -49,11 +49,10 @@ module.exports = {
     let builders = [
       ...units.withLabel('builder').filter(w => !w.isConstructing() && !w.isAttacking()),
       ...units.withLabel('proxy').filter(w => !w.isConstructing() && !w.isAttacking()),
-    ];
+    ].filter(worker => !worker.isReturning());
     if (ability !== MOVE || builders.length === 0) {
       builders.push(
-        ...units.getMineralWorkers(),
-        ...units.getWorkers().filter(w => w.noQueue)
+        ...units.getWorkers().filter(worker => worker.noQueue || worker.isGathering())
       );
     }
     const [ builder ] = units.getClosest(position, builders);
