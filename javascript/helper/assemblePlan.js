@@ -463,6 +463,9 @@ class AssemblePlan {
   }
 
   async onUnitCreated(world, createdUnit) {
+    if (createdUnit.isStructure() && this.state) {
+      this.state.pauseBuilding = false;
+    }
     await generalScouting(world, createdUnit);
     await world.resources.get().actions.sendAction(this.collectedActions);
   }
