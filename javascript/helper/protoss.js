@@ -13,7 +13,7 @@ const { findPosition } = require("./placement-helper");
 
 module.exports = {
   findWarpInLocations: (resources) => {
-    const { map, units } = resources.get();
+    const { units } = resources.get();
     const pylonsNearProduction = units.getById(PYLON)
       .filter(pylon => pylon.buildProgress >= 1)
       .filter(pylon => {
