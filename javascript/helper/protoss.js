@@ -1,8 +1,8 @@
 //@ts-check
 "use strict"
 
-const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { PYLON, NEXUS, ASSIMILATOR } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
@@ -47,13 +47,18 @@ module.exports = {
         }
     }
   },
-  restorePower: ({ data, resources }) => {
+  restorePower: async ({ data, resources }) => {
     const { actions, units } = resources.get();
     const collectedActions = [];
-    const unpoweredStructure = getRandom(units.getStructures().filter(structure => !structure.isPowered));
-    const candidatePositions = gridsInCircle(unpoweredStructure.pos, 6.5 - unpoweredStructure.radius);
-    const foundPosition = findPosition(actions, unpoweredStructure.unitType, candidatePositions);
-    collectedActions.push(...workerSendOrBuild(units, data.getUnitTypeData(PYLON).abilityId, foundPosition));
+    const selfPowered = [ NEXUS, PYLON, ASSIMILATOR ];
+    const unpoweredStructure = getRandom(units.getStructures().filter(structure => !structure.isPowered && !selfPowered.includes(structure.unitType) && structure.buildProgress >= 1));
+    if (unpoweredStructure) {
+      const candidatePositions = gridsInCircle(unpoweredStructure.pos, 6.5 - unpoweredStructure.radius);
+      const foundPosition = await findPosition(actions, unpoweredStructure.unitType, candidatePositions);
+      if (foundPosition) {
+        collectedActions.push(...workerSendOrBuild(units, data.getUnitTypeData(PYLON).abilityId, foundPosition));
+      }
+    }
     return collectedActions;
   },
   warpIn: async (resources, assemblePlan, unitType) => {
