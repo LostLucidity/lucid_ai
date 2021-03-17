@@ -74,7 +74,7 @@ const entry = createSystem({
       const { units } = world.resources.get();
       if (units.getBases(Alliance.SELF).length > 0) {
         const { actions } = world.resources.get();
-        return actions.gather(idleUnit);
+        await actions.gather(idleUnit);
       }
     }
   },
