@@ -44,5 +44,10 @@ module.exports = {
     const { actions, map } = resources.get();
     const pathCandidates = map.path(add(map.getNatural().townhallPosition, 3), add(map.getEnemyMain().townhallPosition, 3)).slice(0, 10).map(pathItem => ({ 'x': pathItem[0], 'y': pathItem[1] }));
     return [ await actions.canPlace(unitType, pathCandidates) ];
+  },
+  inTheMain: async (resources, unitType) => {
+    const { actions, map } = resources.get();
+    const candidatePositions = map.getMain().areas.areaFill
+    return [ await actions.canPlace(unitType, candidatePositions) ];
   }
 }

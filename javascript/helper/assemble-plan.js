@@ -15,11 +15,11 @@ const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
 const { workerSendOrBuild, getSupply, getTrainingSupply } = require("../helper");
 const shortOnWorkers = require("./short-on-workers");
-const { WarpUnitAbility } = require("@node-sc2/core/constants");
+const { WarpUnitAbility, UnitType } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
 const { gasMineCheckAndBuild } = require("./balance-resources");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
-const { defend, attack } = require("./army-behavior");
+const { defend, attack } = require("./behavior/army-behavior");
 const baseThreats = require("./base-threats");
 const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
@@ -29,13 +29,15 @@ const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior }
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
 const { swapBuildings, checkAddOnPlacement } = require("../builds/terran/swap-buildings");
-const { getCombatRally } = require("./location");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
 const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
-const { getBetweenBaseAndWall, findPosition } = require("./placement-helper");
+const { getBetweenBaseAndWall, findPosition, inTheMain } = require("./placement-helper");
 const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
+const { scoutEnemyMainBehavior, clearFromEnemyBehavior } = require("./behavior/labelled-behavior");
+const { countTypes } = require("./groups");
+const { liftToThird } = require("./terran");
 
 let actions;
 let opponentRace;
@@ -68,6 +70,9 @@ class AssemblePlan {
     this.world = world;
     this.agent = world.agent;
     this.data = world.data;
+    if (this.foodUsed !== this.world.agent.foodUsed) {
+      this.state.pauseBuilding = false;
+    }
     this.foodUsed = this.world.agent.foodUsed
     this.resources = world.resources;
     this.frame = this.resources.get().frame;
@@ -78,8 +83,7 @@ class AssemblePlan {
     this.selfSupply = getSupply(this.units.getCombatUnits(), this.data) + getTrainingSupply(this.defenseTypes, this.data, this.units);
     this.outSupplied = this.enemySupply > this.selfSupply;
     if (this.outSupplied) {
-      console.log('Scouted higher supply', this.selfSupply, this.enemySupply);
-      console.log(this.frame.timeInSeconds());
+      console.log(this.frame.timeInSeconds(), 'Scouted higher supply', this.selfSupply, this.enemySupply);
       await continuouslyBuild(this.world, this, this.defenseTypes); 
     }
     await this.runPlan();
@@ -95,7 +99,7 @@ class AssemblePlan {
       this.manageSupply();
       this.state.pauseBuilding = false;
     }
-    if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(this.agent, this.data, this.resources, this.state)); }
+    if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(world, this.state)); }
     this.checkEnemyBuild();
     let completedBases = this.units.getBases().filter(base => base.buildProgress >= 1);
     if (completedBases.length >= 3) {
@@ -109,9 +113,10 @@ class AssemblePlan {
     this.collectedActions.push(...shadowEnemy(this.resources, this.state, this.scoutTypes));
     this.collectedActions.push(...liberatorBehavior(this.resources));
     this.collectedActions.push(...marineBehavior(this.resources));
-    this.collectedActions.push(...scoutMainBehavior(this.resources, opponentRace));
+    this.collectedActions.push(...scoutEnemyMainBehavior(this.resources, opponentRace));
     this.collectedActions.push(...supplyDepotBehavior(this.resources));
     this.collectedActions.push(...workerBehavior(world));
+    this.collectedActions.push(...clearFromEnemyBehavior(this.resources));
     if (this.frame.getGameLoop() % 8 === 0) {
       this.units.getAlive().forEach(unit => delete unit.expansions);
     }
@@ -155,6 +160,8 @@ class AssemblePlan {
               const foundPosition = await checkAddOnPlacement(this.world, unitCanDo, STARPORTREACTOR)
               if (foundPosition) { unitCommand.targetWorldSpacePos = foundPosition; } else { return; }
             }
+          } else if (abilityId === BUILD_REACTOR_STARPORT && unitCanDo.isFlying && unitCanDo.isIdle) {
+            // find orphan reactor
           }
           await actions.sendAction([unitCommand]);
           this.state.pauseBuilding = false;
@@ -168,32 +175,30 @@ class AssemblePlan {
     }
   }
   async build(food, unitType, targetCount, candidatePositions=[]) {
-    const placementConfig = placementConfigs[unitType];
     if (this.foodUsed >= food) {
-      if (this.checkBuildingCount(targetCount, placementConfig)) {
-        const toBuild = placementConfigs[unitType].toBuild;
+      if (this.checkBuildingCount(targetCount, unitType)) {
         switch (true) {
-          case GasMineRace[race] === toBuild && this.agent.canAfford(toBuild):
+          case GasMineRace[race] === unitType:
             try {
-            if (this.map.freeGasGeysers().length > 0) {
-              await actions.buildGasMine();
-              this.state.pauseBuilding = false;
+              if (this.agent.canAfford(unitType) && this.map.freeGasGeysers().length > 0) {
+                await actions.buildGasMine();
+                this.state.pauseBuilding = false;
+              }
             }
-          }
-          catch(error) {
-            console.log(error);
-            this.state.pauseBuilding = true;
-            this.state.continueBuild = false;
-          }
+            catch(error) {
+              console.log(error);
+              this.state.pauseBuilding = true;
+              this.state.continueBuild = false;
+            }
             break;
-          case TownhallRace[race].indexOf(toBuild) > -1:
-            { this.collectedActions.push(...await expand(this.agent, this.data, this.resources, this.state)); } 
+          case TownhallRace[race].indexOf(unitType) > -1 && candidatePositions.length === 0:
+            { this.collectedActions.push(...await expand(this.world, this.state)); } 
             break;
-          case PHOTONCANNON === toBuild:
+          case PHOTONCANNON === unitType:
             candidatePositions = this.map.getNatural().areas.placementGrid;
           default:
-            if (candidatePositions.length === 0 ) { candidatePositions = this.findPlacements(placementConfig); }
-            await this.buildBuilding(placementConfig, candidatePositions);
+            if (candidatePositions.length === 0 ) { candidatePositions = this.findPlacements(unitType); }
+            await this.buildBuilding(unitType, candidatePositions);
         }
       }
     }
@@ -209,33 +214,33 @@ class AssemblePlan {
       }
     }
   }
-  async buildBuilding(placementConfig, candidatePositions) {
-    // find placement on main
-    this.foundPosition = this.foundPosition ? this.foundPosition : await findPosition(actions, placementConfig.placement, candidatePositions);
+  async buildBuilding(unitType, candidatePositions) {
+    this.foundPosition = this.foundPosition ? this.foundPosition : await findPosition(actions, unitType, candidatePositions);
     if (this.foundPosition) {
-      if (this.agent.canAfford(placementConfig.toBuild)) {
-        await actions.sendAction(workerSendOrBuild(this.units, this.data.getUnitTypeData(placementConfig.toBuild).abilityId, this.foundPosition));
+      if (this.agent.canAfford(unitType)) {
+        await actions.sendAction(workerSendOrBuild(this.resources, this.data.getUnitTypeData(unitType).abilityId, this.foundPosition));
         this.state.pauseBuilding = false;
         this.state.continueBuild = false;
         this.foundPosition = null;
       } else {
-        this.collectedActions.push(...workerSendOrBuild(this.units, MOVE, this.foundPosition));
+        this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition));
         this.state.pauseBuilding = true;
         this.state.continueBuild = false;
       }
     } else {
       const [ pylon ] = this.units.getById(PYLON);
-      if (pylon) {
-        this.collectedActions.push(...workerSendOrBuild(this.units, MOVE, pylon.pos));
+      if (pylon && pylon.buildProgress < 1) {
+        this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, pylon.pos));
         this.state.pauseBuilding = true;
         this.state.continueBuild = false;
       }
     }
   }
-  checkBuildingCount(targetCount, placementConfig) {
-    const buildAbilityId = this.data.getUnitTypeData(placementConfig.toBuild).abilityId;
+  checkBuildingCount(targetCount, unitType) {
+    const buildAbilityId = this.data.getUnitTypeData(unitType).abilityId;
     let count = this.units.withCurrentOrders(buildAbilityId).length;
-    placementConfig.countTypes.forEach(type => {
+    const unitTypes = countTypes[unitType] ? countTypes[unitType]: [unitType];
+    unitTypes.forEach(type => {
       let unitsToCount = this.units.getById(type);
       if (race === Race.TERRAN) {
         unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= 1);
@@ -248,13 +253,12 @@ class AssemblePlan {
     const { frame } = this.resources.get();
     if (frame.timeInSeconds() > 122) { this.earlyScout = false }
     if (this.earlyScout) {
-      console.log(frame.timeInSeconds());
       let conditions = [];
       switch (opponentRace) {
         case Race.PROTOSS:
           const moreThanTwoGateways = this.units.getById(GATEWAY, Alliance.ENEMY).length > 2;
           if (moreThanTwoGateways) {
-            console.log('More than two gateways');
+            console.log(frame.timeInSeconds(), 'More than two gateways');
             this.state.enemyBuildType = 'cheese';
             this.earlyScout = false;
           }
@@ -274,7 +278,7 @@ class AssemblePlan {
           const moreThanOneBarracks = this.units.getById(BARRACKS, Alliance.ENEMY).length > 1;
           if (this.state.enemyBuildType !== 'cheese') {
             if (moreThanOneBarracks) {
-              console.log('More than one barracks');
+              console.log(frame.timeInSeconds(), 'More than one barracks');
               this.state.enemyBuildType = 'cheese';
             }
           }
@@ -299,22 +303,24 @@ class AssemblePlan {
           const enemyNaturalDetected = this.map.getEnemyNatural().getBase();
           if (this.state.enemyBuildType !== 'cheese') {
             if (spawningPoolDetected && !enemyNaturalDetected) {
-              console.log('Pool first. Cheese detected');
+              console.log(frame.timeInSeconds(), 'Pool first. Cheese detected');
               this.state.enemyBuildType = 'cheese';
-              console.log('Spawning Pool Count:', this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length);
-              console.log('Zergling Count:', this.units.getById(ZERGLING, Alliance.ENEMY).length);
-              console.log('Enemy Natural detected', !!this.map.getEnemyNatural().getBase());
+              this.scoutReport = `${this.state.enemyBuildType} detected:
+              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length}.
+              Zergling Pool: ${this.units.getById(ZERGLING, Alliance.ENEMY).length}
+              Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}`;
               this.earlyScout = false;
             } else if (!spawningPoolDetected && enemyNaturalDetected) {
-              console.log('Hatcher first. Standard.');
+              console.log(frame.timeInSeconds(), 'Hatcher first. Standard.');
               this.state.enemyBuildType = 'standard';
-              console.log('Spawning Pool Count:', this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length);
-              console.log('Zergling Count:', this.units.getById(ZERGLING, Alliance.ENEMY).length);
-              console.log('Enemy Natural detected', !!this.map.getEnemyNatural().getBase());
+              this.scoutReport = `${this.state.enemyBuildType} detected:
+              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length}.
+              Zergling Pool: ${this.units.getById(ZERGLING, Alliance.ENEMY).length}
+              Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}`;
               this.earlyScout = false;
             }
             if (!enemyNaturalDetected && !!this.map.getNatural().getBase()) {
-              console.log('Enemy expanding slower. Cheese detected');
+              console.log(frame.timeInSeconds(), 'Enemy expanding slower. Cheese detected');
               this.state.enemyBuildType = 'cheese';
             }
           }
@@ -324,27 +330,27 @@ class AssemblePlan {
       if (this.scoutReport) {
         console.log(this.scoutReport);
         this.scoutReport = '';
-      }
-      const [ earlyScout ] = this.units.getAlive(Alliance.SELF).filter(units => {
-        return units.labels.has('scoutEnemyMain') || units.labels.has('scoutEnemyNatural');
-      });
-      if (earlyScout) {
-        earlyScout.labels.clear();
+        const [ earlyScout ] = this.units.getAlive(Alliance.SELF).filter(unit => {
+          return unit.labels.has('scoutEnemyMain') || unit.labels.has('scoutEnemyNatural');
+        });
+        if (earlyScout) {
+          earlyScout.labels.clear();
+          earlyScout.labels.set('clearFromEnemy', true);
+        }
       }
     }
   }
-  findPlacements(placementConfig) {
+  findPlacements(unitType) {
     const { map, units } = this.resources.get();
     const [main, natural] = map.getExpansions();
     const mainMineralLine = main.areas.mineralLine;
     let placements = [];
     if (race === Race.PROTOSS) {
-      if (placementConfig.toBuild === PYLON) {
+      if (unitType === PYLON) {
         const occupiedExpansions = getOccupiedExpansions(this.resources);
         const occupiedExpansionsPlacementGrid = [...occupiedExpansions.map(expansion => expansion.areas.placementGrid)];
         const placementGrids = [];
         occupiedExpansionsPlacementGrid.forEach(grid => placementGrids.push(...grid));
-        // placements = [...main.areas.placementGrid, ...natural.areas.placementGrid, ...occupiedExpansions]
         placements = placementGrids
           .filter((point) => {
             return (
@@ -368,9 +374,6 @@ class AssemblePlan {
         pylonsNearProduction.forEach(pylon => {
           placements.push(...gridsInCircle(pylon.pos, 6.5));
         })
-        // getOccupiedExpansions(resources).forEach(expansion => {
-        //   placements.push(...expansion.areas.placementGrid);
-        // });
         placements = placements.filter((point) => {
           return (
             (distance(natural.townhallPosition, point) > 5) &&
@@ -406,9 +409,14 @@ class AssemblePlan {
   }
 
   findMineralLines() {
-    const occupiedExpansions = this.map.getOccupiedExpansions();
+    const occupiedExpansions = this.map.getOccupiedExpansions()
     const mineralLineCandidates = [];
-    occupiedExpansions.forEach(expansion => mineralLineCandidates.push(...gridsInCircle(avgPoints(expansion.areas.mineralLine), 1)));
+    occupiedExpansions.forEach(expansion => {
+      const [base] = this.units.getClosest(expansion.townhallPosition, this.units.getBases());
+      if (base) {
+        mineralLineCandidates.push(...gridsInCircle(avgPoints([...expansion.cluster.mineralFields.map(field => field.pos), base.pos, base.pos]), 0.6))
+      }
+    });
     return mineralLineCandidates;
   }
 
@@ -440,18 +448,23 @@ class AssemblePlan {
   
     return possiblePlacements;
   }
-  async getBetweenBaseAndWall() {
-    return await getBetweenBaseAndWall(this.resources, this.unitType)
+  async getBetweenBaseAndWall(unitType) {
+    return await getBetweenBaseAndWall(this.resources, unitType);
   };
+
+  async inTheMain(unitType) {
+    return await inTheMain(this.resources, unitType);
+  }
+
   async manageSupply(foodRanges) {
     if (!foodRanges || foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.agent, this.data, this.resources)) {
         switch (race) {
           // TODO: remove third parameter and handle undefined in train function.
           case Race.TERRAN:
-            await this.build(this.foodUsed, 'SUPPLYDEPOT', this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length)
+            await this.build(this.foodUsed, SUPPLYDEPOT, this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length)
           case Race.PROTOSS:
-            await this.build(this.foodUsed, 'PYLON', this.units.getById(PYLON).length);
+            await this.build(this.foodUsed, PYLON, this.units.getById(PYLON).length);
             break;
           case Race.ZERG:
             let abilityId = this.data.getUnitTypeData(OVERLORD).abilityId;
@@ -465,6 +478,7 @@ class AssemblePlan {
   async onUnitCreated(world, createdUnit) {
     if (createdUnit.isStructure() && this.state) {
       this.state.pauseBuilding = false;
+      console.log('Structure', this.state.pauseBuilding);
     }
     await generalScouting(world, createdUnit);
     await world.resources.get().actions.sendAction(this.collectedActions);
@@ -513,7 +527,7 @@ class AssemblePlan {
     }
   }
   scout(foodRanges, unitType, targetLocationFunction, conditions) {
-    if (this.earlyScout === undefined && conditions.scoutType === 'earlyScout') { this.earlyScout = true; }
+    if (conditions && conditions.scoutType === 'earlyScout' && this.earlyScout === undefined) { this.earlyScout = true; }
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().townhallPosition : locationHelper[targetLocationFunction](this.map);
       const label = conditions && conditions.label ? conditions.label: 'scout';
@@ -537,10 +551,7 @@ class AssemblePlan {
       }
       const [ scout ] = labelledScouts;
       if (scout) {
-        if (conditions && conditions.scoutType && !this[conditions.scoutType]) {
-          const [ labelledScout ] = this.units.withLabel(label);
-          labelledScout.labels.clear();
-        } else {
+        if (scout.orders.length <= 1) {
           const unitCommand = {
             abilityId: MOVE,
             targetWorldSpacePos: targetLocation,
@@ -562,16 +573,24 @@ class AssemblePlan {
         )
       })
     );
-    if (!unit) { [ unit ] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing())); }
+    if (!unit) { [ unit ] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing() && unit.isGathering())); }
     if (unit) {
+      console.log(unit.orders[0] && unit.orders[0].abilityId)
       unit.labels.clear();
-      unit.labels.set(label, true);
+      if (!unit.labels.get(label)) {
+        unit.labels.set(label, true);
+        console.log(`Set ${label}`);
+      }
     }
   }
   async train(food, unitType, targetCount) {
     if (this.foodUsed >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
-      const unitCount = this.units.getById(unitType).length + this.units.withCurrentOrders(abilityId).length
+      const orders = [];
+      this.units.withCurrentOrders(abilityId).forEach(unit => {
+        unit.orders.forEach(order => { if (order.abilityId === abilityId) { orders.push(order); } });
+      })        
+      const unitCount = this.units.getById(unitType).length + orders.length
       if (unitCount === targetCount) {
         if (canAfford(this.agent, this.world.data, unitType)) {
           const trainer = this.units.getProductionUnits(unitType).find(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId));
@@ -592,8 +611,10 @@ class AssemblePlan {
             }
           }
           this.state.pauseBuilding = false;
+          console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
         } else {
           this.state.pauseBuilding = true;
+          console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
           this.state.continueBuild = false;
         }
       }
@@ -635,16 +656,17 @@ class AssemblePlan {
             break;
           case 'build':
             unitType = planStep[2];
-            this.unitType = placementConfigs[unitType].toBuild;
+            this.unitType = unitType;
             const enemyBuild = planStep[5];
             if (enemyBuild && this.state.enemyBuildType !== enemyBuild && !this.earlyScout) { break; }
-            await this.build(foodTarget, unitType, targetCount, planStep[4] ? await this[planStep[4]]() : []);
+            await this.build(foodTarget, unitType, targetCount, planStep[4] ? await this[planStep[4]](unitType) : []);
             break;
           case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
             if (this.agent.minerals > 512 && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
           case 'harass': if (this.state.enemyBuildType === 'standard') { await harass(this.resources, this.state); } break;
+          case 'liftToThird': if (this.foodUsed >= foodTarget) { await liftToThird(this.resources); break; }
           case 'maintainQueens': if (this.foodUsed >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
           case 'push': this.push(foodTarget); break;
@@ -673,26 +695,6 @@ class AssemblePlan {
             this.upgrade(foodTarget, upgradeId);
             break;
         }
-      }
-    }
-  }
-  workerSendOrBuild(ability, position) {
-    const builders = [
-      ...this.units.getMineralWorkers(),
-      ...this.units.getWorkers().filter(w => w.noQueue),
-      ...this.units.withLabel('builder').filter(w => !w.isConstructing()),
-      ...this.units.withLabel('proxy').filter(w => !w.isConstructing()),
-    ];
-    const [ builder ] = this.units.getClosest(position, builders);
-    if (builder) {
-      builder.labels.set('builder', true);
-      if (builder) {
-        const unitCommand = {
-          abilityId: ability,
-          unitTags: [builder.tag],
-          targetWorldSpacePos: position,
-        };
-        this.collectedActions.push(unitCommand);
       }
     }
   }
