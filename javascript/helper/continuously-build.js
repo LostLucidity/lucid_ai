@@ -9,20 +9,12 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { warpIn } = require("./protoss");
 
 async function continuouslyBuild({ agent, data, resources }, assemblePlan, unitTypes, addOn=false) {
-  const {
-    foodUsed,
-    minerals,
-  } = agent;
-  const {
-    actions,
-    map,
-    units
-  } = resources.get();
-  // pick random unitType and train.
+  const { foodUsed, minerals } = agent;
+  const { actions, units } = resources.get();
   const collectedActions = [];
   if (
-    agent.race !== Race.ZERG || units.getById(LARVA).length > 0
-    && foodUsed < 198
+    agent.race !== Race.ZERG || units.getById(LARVA).length > 0 &&
+    foodUsed < 198
   ) {
     const affordableTypes = unitTypes.filter(type => !(type == ZERGLING && minerals < 50) && canAfford(agent, data, type));
     if (affordableTypes.length > 0) {
