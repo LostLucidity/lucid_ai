@@ -4,6 +4,7 @@
 const { distance, add } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance } = require('@node-sc2/core/constants/enums');
+const { UnitType } = require('@node-sc2/core/constants');
 
 module.exports = {
   findPosition: async (actions, unitType, candidatePositions) => {
@@ -12,7 +13,12 @@ module.exports = {
       .sort((a, b) => a.rand - b.rand)
       .map(a => a.pos)
       .slice(0, 20);
-    return await actions.canPlace(unitType, randomPositions);
+    const foundPosition = await actions.canPlace(unitType, randomPositions);
+    const unitTypeName = Object.keys(UnitType).find(type => UnitType[type] === unitType);
+    if (unitTypeName) {
+      console.log(`FoundPosition for ${unitTypeName}`, foundPosition);
+    }
+    return foundPosition;
   },
   findSupplyPositions: () => {
     const { map } = this.resources.get();
