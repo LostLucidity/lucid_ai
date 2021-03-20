@@ -56,7 +56,7 @@ module.exports = {
       const candidatePositions = gridsInCircle(unpoweredStructure.pos, 6.5 - unpoweredStructure.radius);
       const foundPosition = await findPosition(actions, unpoweredStructure.unitType, candidatePositions);
       if (foundPosition) {
-        collectedActions.push(...workerSendOrBuild(units, data.getUnitTypeData(PYLON).abilityId, foundPosition));
+        collectedActions.push(...workerSendOrBuild(resources, data.getUnitTypeData(PYLON).abilityId, foundPosition));
       }
     }
     return collectedActions;

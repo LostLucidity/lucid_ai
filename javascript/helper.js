@@ -1,6 +1,7 @@
 //@ts-check
 "use strict"
 
+const Ability = require('@node-sc2/core/constants/ability');
 const { MOVE } = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
@@ -44,7 +45,8 @@ module.exports = {
   getSupply: (units, data) => {
     return units.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   },
-  workerSendOrBuild: (units, ability, position) => {
+  workerSendOrBuild: (resources, abilityId, position) => {
+    const { frame, units } = resources.get();
     const collectedActions = [];
     let builders = [
       ...units.withLabel('builder').filter(w => !w.isConstructing() && !w.isAttacking()),
@@ -57,6 +59,7 @@ module.exports = {
     }
     const [ builder ] = units.getClosest(position, builders);
     if (builder) {
+      console.log(frame.timeInSeconds(), `Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}, builder.tag: ${builder.tag}, builder.isAttacking(): ${builder.isAttacking()}`);
       builder.labels.set('builder', true);
       const unitCommand = {
         abilityId: abilityId,
