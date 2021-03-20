@@ -58,14 +58,13 @@ module.exports = {
     const [ builder ] = units.getClosest(position, builders);
     if (builder) {
       builder.labels.set('builder', true);
-      if (builder) {
-        const unitCommand = {
-          abilityId: ability,
-          unitTags: [builder.tag],
-          targetWorldSpacePos: position,
-        };
-        collectedActions.push(unitCommand);
-      }
+      const unitCommand = {
+        abilityId: abilityId,
+        unitTags: [builder.tag],
+        targetWorldSpacePos: position,
+        queue: builder.isConstructing() ? true : false,
+      };
+      collectedActions.push(unitCommand);
     }
     return collectedActions;
   }
