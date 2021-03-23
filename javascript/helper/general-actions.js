@@ -8,11 +8,12 @@ const canAfford = require("./can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 
 module.exports = {
-  expand: async (agent, data, resources, state) => {
+  expand: async (world, state) => {
+    const { agent, data, resources } = world;
     let collectedActions = [];
     const { actions, units } = resources.get();
     const availableExpansions = getAvailableExpansions(resources);
-    const expansionLocation = availableExpansions.length > 0 ? await getNextSafeExpansion(agent, resources, availableExpansions) : null;
+    const expansionLocation = availableExpansions.length > 0 ? await getNextSafeExpansion(world, availableExpansions) : null;
     if (expansionLocation) {
       const townhallType = TownhallRace[agent.race][0];
       if (canAfford(agent, data, townhallType)) {
