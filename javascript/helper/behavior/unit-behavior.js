@@ -155,7 +155,7 @@ module.exports = {
     return collectedActions;
   },
   workerBehavior: ({ agent, data, resources }) => {
-    const { units} = resources.get();
+    const { frame, units} = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
     const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural']) && !isRepairing(unit));
@@ -187,7 +187,11 @@ module.exports = {
                 const buildOnStandby = (worker.orders.length === 0 || worker.isGathering()) || worker.isConstructing();
                 const moveOrder = worker.orders.find(order => order.abilityId === MOVE);
                 const position = buildOnStandby ? worker.pos : (moveOrder ? moveOrder.targetWorldSpacePos : worker.pos);
-                worker.orders.forEach(order => console.log(order.abilityId));
+                if (worker.orders.length === 0) {
+                  console.log(frame.timeInSeconds(), 'No Orders');
+                } else {
+                  worker.orders.forEach(order => console.log(frame.timeInSeconds(), `Builder Ability: ${Object.keys(Ability).find(ability => Ability[ability] === order.abilityId)}, worker.tag: ${worker.tag}`));
+                }
                 if ((buildOnStandby || moveOrder) && distance(position, closestEnemyUnit.pos) > 3) {
                   return;
                 }
