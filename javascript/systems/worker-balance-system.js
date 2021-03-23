@@ -7,6 +7,7 @@ const { createSystem } = require('@node-sc2/core');
 const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, returningAbilities } = require('@node-sc2/core/constants/groups');
+const { balanceResources } = require('./balance-resources');
 
 module.exports = createSystem({
     name: 'WorkerBalanceSystem',
@@ -21,6 +22,7 @@ module.exports = createSystem({
         const resourceRatio = minerals / vespene;
         const surplusMinerals = resourceRatio > 2.4;
 
+        balanceResources(resources, agent);
         const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
 
         const workers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities, ...returningAbilities].includes(o.abilityId)));

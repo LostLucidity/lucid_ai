@@ -5,6 +5,7 @@ const { createSystem } = require("@node-sc2/core");
 const { CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const AssemblePlan = require("../helper/assemblePlan");
+const { gatherOrMine } = require("../systems/balance-resources");
 const plans = require("./plans");
 
 let assemblePlan = null;
@@ -69,12 +70,11 @@ const entry = createSystem({
   async onUnitDestroyed({}, destroyedUnit) {
     await assemblePlan.onUnitDestroyed(destroyedUnit);
   },
-  async onUnitIdle(world, idleUnit) {
+  async onUnitIdle({ resources }, idleUnit) {
     if (idleUnit.isWorker() && idleUnit.noQueue) {
-      const { units } = world.resources.get();
+      const { units } = resources.get();
       if (units.getBases(Alliance.SELF).length > 0) {
-        const { actions } = world.resources.get();
-        await actions.gather(idleUnit);
+        await gatherOrMine(resources, idleUnit);
       }
     }
   },

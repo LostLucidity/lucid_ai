@@ -38,6 +38,7 @@ const { restorePower, warpIn } = require("./protoss");
 const { scoutEnemyMainBehavior, clearFromEnemyBehavior } = require("./behavior/labelled-behavior");
 const { countTypes } = require("./groups");
 const { liftToThird } = require("./terran");
+const { balanceResources } = require("../systems/balance-resources");
 
 let actions;
 let opponentRace;
@@ -615,6 +616,8 @@ class AssemblePlan {
         } else {
           this.state.pauseBuilding = true;
           console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
+          const {mineralCost, vespeneCost} = this.data.getUnitTypeData(unitType);
+          await balanceResources(this.resources, this.agent, mineralCost/vespeneCost);
           this.state.continueBuild = false;
         }
       }
