@@ -3,6 +3,7 @@
 
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
+const { PHOTONCANNON } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { calculateTotalHealthRatio } = require("../calculate-health");
 const { getCombatRally } = require("../location");
@@ -32,7 +33,8 @@ module.exports = {
     const [ unit ] = units.withLabel('scoutEnemyMain');
     const collectedActions = [];
     if (unit) {
-      if (calculateTotalHealthRatio(unit) > 1/2) {
+      const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, Alliance.ENEMY).filter(cannon => distance(cannon.pos, unit.pos) < 16);
+      if (calculateTotalHealthRatio(unit) > 1/2 && !inRangeEnemyCannon) {
         const enemyMain = map.getEnemyMain();
         const pointsOfInterest = [enemyMain.townhallPosition, ...enemyMain.cluster.vespeneGeysers.map(geyser => geyser.pos)];
         if (opponentRace === Race.ZERG) { pointsOfInterest.push(map.getEnemyNatural().townhallPosition); }
