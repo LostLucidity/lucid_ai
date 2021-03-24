@@ -5,7 +5,6 @@ const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions } = require("./expansions");
-const placementConfigs = require("./placement-configs");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { frontOfGrid } = require("@node-sc2/core/utils/map/region");
 const buildWorkers = require("./build-workers");
