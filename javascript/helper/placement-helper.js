@@ -5,9 +5,13 @@ const { distance, add } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { UnitType } = require('@node-sc2/core/constants');
+const { addOnTypes } = require('./groups');
 
 module.exports = {
   findPosition: async (actions, unitType, candidatePositions) => {
+    if (addOnTypes[unitType]) {
+      unitType = addOnTypes[unitType];
+    }
     const randomPositions = candidatePositions
       .map(pos => ({ pos, rand: Math.random() }))
       .sort((a, b) => a.rand - b.rand)
