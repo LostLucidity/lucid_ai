@@ -6,7 +6,7 @@ const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 const { createSystem } = require('@node-sc2/core');
 const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
-const { gatheringAbilities, returningAbilities } = require('@node-sc2/core/constants/groups');
+const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
 const { balanceResources } = require('./balance-resources');
 
 module.exports = createSystem({
@@ -25,7 +25,7 @@ module.exports = createSystem({
         balanceResources(resources, agent);
         const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
 
-        const workers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities, ...returningAbilities].includes(o.abilityId)));
+        const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
         const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
 
         const needyGasMine = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
@@ -55,12 +55,11 @@ module.exports = createSystem({
             // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
             const [givingTownhall] = units.getClosest(needyTownhall.pos, townhalls);
 
-            const donateableWorkers = workers.filter(w => w.isGathering('minerals'));
-            debugSilly('possible doners', donateableWorkers.map(th => th.tag));
+            debugSilly('possible doners', gatheringWorkers.map(worker => worker.tag));
 
-            if (givingTownhall && donateableWorkers.length > 0) {
+            if (givingTownhall && gatheringWorkers.length > 0) {
                 debugSilly('chosen closest th', givingTownhall.tag);
-                const [donatingWorker] = units.getClosest(givingTownhall.pos, donateableWorkers);
+                const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringWorkers);
                 debugSilly('chosen worker', donatingWorker.tag);
                 const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, units.getMineralFields());
                 return actions.gather(donatingWorker, mineralFieldTarget, false);
@@ -78,6 +77,13 @@ module.exports = createSystem({
         const collectedActions = [];
         const { actions, units } = resources.get();
         if (newBuilding.isTownhall()) {
+            const [mineralFieldTarget] = units.getClosest(newBuilding.pos, units.getMineralFields());
+            const rallyAbility = rallyWorkersAbilities.find(ability => newBuilding.abilityAvailable(ability));
+            collectedActions.push({
+                abilityId: rallyAbility,
+                targetUnitTag: mineralFieldTarget.tag,
+                unitTags: [newBuilding.tag]
+            });
             const bases = units.getBases();
             const expansionsWithExtraWorkers = bases.filter(base => base.assignedHarvesters > base.idealHarvesters);
             const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
