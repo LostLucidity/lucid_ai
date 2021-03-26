@@ -18,42 +18,18 @@ module.exports = createSystem({
     },
     async onStep({ agent, resources }) {
         const { units, actions } = resources.get();
-        const { minerals, vespene } = agent;
-        const resourceRatio = minerals / vespene;
-        const surplusMinerals = resourceRatio > 2.4;
-
         balanceResources(resources, agent);
         const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
 
         const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
         const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
 
-        const needyGasMine = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
+        const needyTownhall = units.getBases(readySelfFilter).find(base => base.assignedHarvesters < base.idealHarvesters);
 
-        if (needyGasMine && surplusMinerals) {
-            // const possibleDonerThs = townhalls.filter(u => u.assignedHarvesters / u.idealHarvesters * 100 > 50);
+        if (needyTownhall) {
+            const possibleDonerThs = townhalls.filter(townhall => townhall.assignedHarvesters > needyTownhall.assignedHarvesters + 1);
             // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
-            // const [givingTownhall] = units.getClosest(needyGasMine.pos, possibleDonerThs);
-            debugSilly('possible ths', townhalls.map(th => th.tag));
-            const [givingTownhall] = units.getClosest(needyGasMine.pos, townhalls);
-
-            const donateableWorkers = workers.filter(w => w.isGathering('minerals'));
-            debugSilly('possible doners', donateableWorkers.map(th => th.tag));
-
-            if (givingTownhall && donateableWorkers.length > 0) {
-                debugSilly('chosen closest th', givingTownhall.tag);
-                const [donatingWorker] = units.getClosest(givingTownhall.pos, donateableWorkers);
-                debugSilly('chosen worker', donatingWorker.tag);
-                return actions.mine([donatingWorker], needyGasMine, false);
-            }
-        }
-
-        const needyTownhall = units.getBases(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
-
-        if (needyTownhall && !surplusMinerals) {
-            // const possibleDonerThs = townhalls.filter(u => u.assignedHarvesters / u.idealHarvesters * 100 > 115);
-            // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
-            const [givingTownhall] = units.getClosest(needyTownhall.pos, townhalls);
+            const [givingTownhall] = units.getClosest(needyTownhall.pos, possibleDonerThs);
 
             debugSilly('possible doners', gatheringWorkers.map(worker => worker.tag));
 
