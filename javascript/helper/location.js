@@ -5,7 +5,8 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints, add } = require("@node-sc2/core/utils/geometry/point");
 
 module.exports = {
-  getCombatRally: (map, units) => {
+  getCombatRally: (resources) => {
+    const { map, units } = resources.get();
     return map.getNatural() ? map.getCombatRally() : module.exports.getRallyPointByBases(map, units);
   },
   getRallyPointByBases: (map, units) => {

@@ -16,7 +16,7 @@ function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint=null) {
   const collectedActions = [];
   const combatUnits = units.getCombatUnits().filter(unit => !unit.labels.get('harasser') && !unit.labels.get('scout'));
   if (!rallyPoint) {
-    rallyPoint = getCombatRally(map, units);
+    rallyPoint = getCombatRally(resources);
   }
   if (combatUnits.length > 0) {
     const supportUnits = [];
