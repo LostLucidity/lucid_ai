@@ -72,7 +72,7 @@ module.exports = {
           }
         }
       }));
-      if (closestEnemy) {
+      if (closestEnemy && distance(scoutingUnit.pos, closestEnemy.pos) < 16) {
         const distanceToEnemy = distance(scoutingUnit.pos, closestEnemy.pos);
         const overlordSightRange = scoutingUnit.data().sightRange;
         const enemySightRange = closestEnemy.data().sightRange;
