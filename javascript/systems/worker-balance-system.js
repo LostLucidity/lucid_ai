@@ -83,5 +83,5 @@ module.exports = createSystem({
             })
         }
         await actions.sendAction(collectedActions);
-    },
+    }
 });
