@@ -2,7 +2,7 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { SIEGETANK, SIEGETANKSIEGED, LARVA, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED } = require("@node-sc2/core/constants/unit-type");
+const { SIEGETANK, SIEGETANKSIEGED, LARVA, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED, EGG } = require("@node-sc2/core/constants/unit-type");
 const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK, EFFECT_REPAIR, STOP } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getBase } = require("../expansions");
@@ -11,6 +11,7 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { retreatToExpansion } = require("../../builds/helper");
 const { calculateNearSupply, getInRangeUnits } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
+const { larvaOrEgg } = require("../groups");
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action) => {
@@ -55,7 +56,7 @@ module.exports = {
       units,
     } = resources.get();
     const collectedActions = [];
-    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA) && !(unit.isStructure()));
+    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType) && !(unit.isStructure()));
     units.getByType(LIBERATOR).filter(liberator => {
       let [ closestEnemyUnit ] = units.getClosest(liberator.pos, enemyUnits, 1);
       if (closestEnemyUnit && !closestEnemyUnit.isFlying) {
@@ -81,7 +82,7 @@ module.exports = {
       units,
     } = resources.get();
     const collectedActions = [];
-    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
     units.getByType(MARINE).filter(marine => {
       let [ closestEnemyUnit ] = units.getClosest(marine.pos, enemyUnits, 1);
       if (closestEnemyUnit) {
@@ -97,7 +98,7 @@ module.exports = {
       units,
     } = resources.get();
     const collectedActions = [];
-    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
     units.getByType(MARAUDER).filter(marauder => {
       let [ closestEnemyUnit ] = units.getClosest(marauder.pos, enemyUnits, 1);
       if (closestEnemyUnit) {
@@ -113,7 +114,7 @@ module.exports = {
       units,
     } = resources.get();
     const collectedActions = [];
-    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
     units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).filter(depot => {
       const unitCommand = { unitTags: [ depot.tag ], }
       let [ closestEnemyUnit ] = units.getClosest(depot.pos, enemyUnits, 1);
@@ -138,7 +139,7 @@ module.exports = {
         collectedActions.push(...triggerAbilityByDistance(tank, target, '>', 4, MORPH_UNSIEGE));
       });
     } else {
-      const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+      const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
       units.getByType(SIEGETANK).filter(tank => {
         let [ closestEnemyUnit ] = units.getClosest(tank.pos, enemyUnits, 1);
         if (closestEnemyUnit) {
@@ -157,7 +158,7 @@ module.exports = {
   workerBehavior: ({ agent, data, resources }) => {
     const { frame, units} = resources.get();
     const collectedActions = [];
-    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
     const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural']) && !isRepairing(unit));
     if (enemyUnits.length > 0) {
       workers.forEach(worker => {
