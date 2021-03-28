@@ -79,8 +79,8 @@ class AssemblePlan {
     this.map = this.resources.get().map;
     this.units = this.resources.get().units;
     this.threats = baseThreats(this.resources, this.state);
-    this.enemySupply = getSupply(this.units.getCombatUnits(Alliance.ENEMY), this.data);
-    this.selfSupply = getSupply(this.units.getCombatUnits(), this.data) + getTrainingSupply(this.defenseTypes, this.data, this.units);
+    this.enemySupply = enemyTrackingService.getEnemyCombatSupply(this.data);
+    this.selfSupply = getSupply(this.data, this.units.getCombatUnits()) + getTrainingSupply(this.defenseTypes, this.data, this.units);
     this.outSupplied = this.enemySupply > this.selfSupply;
     if (this.outSupplied) {
       console.log(this.frame.timeInSeconds(), 'Scouted higher supply', this.selfSupply, this.enemySupply);
@@ -509,7 +509,7 @@ class AssemblePlan {
         [...this.mainCombatTypes, ...this.supportUnitTypes].forEach(type => {
           this.units.getById(type).filter(unit => !unit.labels.get('scout') && !unit.labels.get('creeper') && !unit.labels.get('injector')).forEach(unit => unit.labels.set(label, true));
         });
-        console.log('getSupply(this.units.withLabel(label), this.data)', getSupply(this.units.withLabel(label), this.data));
+        console.log('getSupply(this.units.withLabel(label), this.data)', getSupply(this.data, this.units.withLabel(label)));
         this.state.pushMode = true;
       }
     }

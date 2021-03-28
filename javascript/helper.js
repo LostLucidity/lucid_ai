@@ -42,7 +42,7 @@ module.exports = {
     });
     return trainingUnitTypes.map(unitType => data.getUnitTypeData(unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   },
-  getSupply: (units, data) => {
+  getSupply: (data, units) => {
     return units.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   },
   workerSendOrBuild: (resources, abilityId, position) => {
