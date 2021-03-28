@@ -47,12 +47,12 @@ module.exports = {
     });
     return occupiedExpansions;
   },
-  getNextSafeExpansion: async (agent, resources, expansions) => {
-    const { actions, map, units } = resources.get();
+  getNextSafeExpansion: async ({agent, resources}, expansions) => {
+    const { actions, units } = resources.get();
     const enemyStructures = units.getStructures(Alliance.ENEMY);
     if (enemyStructures.length > 0) {
       expansions.sort((a, b) => {
-        const rallyPoint = getCombatRally(map, units);
+        const rallyPoint = getCombatRally(resources);
         const [ closestEnemyToA ] = units.getClosest(a.townhallPosition, enemyStructures);
         const calculatedDistanceA = distance(a.townhallPosition, closestEnemyToA.pos) - distance(a.townhallPosition, rallyPoint);
         const [ closestEnemyToB ] = units.getClosest(b.townhallPosition, enemyStructures);
