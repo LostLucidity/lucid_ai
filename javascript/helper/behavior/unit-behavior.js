@@ -162,7 +162,8 @@ module.exports = {
     const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural']) && !isRepairing(unit));
     if (enemyUnits.length > 0) {
       workers.forEach(worker => {
-        let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyUnits, 1);
+        let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyUnits.filter(unit => !unit.isStructure()), 1);
+        if (!closestEnemyUnit) { [ closestEnemyUnit ] = units.getClosest(worker.pos, units.getStructures(Alliance.ENEMY), 1) }
         const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
         if (distanceToClosestEnemy < 16) {
           const inRangeSelfCombatUnits = getInRangeUnits(worker, units.getCombatUnits(Alliance.SELF));
