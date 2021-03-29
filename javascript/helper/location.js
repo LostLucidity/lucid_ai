@@ -3,6 +3,7 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints, add } = require("@node-sc2/core/utils/geometry/point");
+const getRandom = require("@node-sc2/core/utils/get-random");
 
 module.exports = {
   getCombatRally: (resources) => {
@@ -21,6 +22,13 @@ module.exports = {
       x: Math.floor(Math.random() * Math.floor(map._mapSize.x)),
       y: Math.floor(Math.random() * Math.floor(map._mapSize.y)),
     };
+  },
+  getRandomPoints: (map, numberOfPoints, area=null) => {
+    const points = [];
+    for (let point = 0; point < numberOfPoints; point++) {
+      points.push(area ? getRandom(area) : module.exports.getRandomPoint(map));
+    }
+    return points;
   },
   acrossTheMap: (map) => {
     const naturalToEnemyNaturalPath = map.path(add(map.getNatural().townhallPosition, 3), add(map.getEnemyNatural().townhallPosition, 3)).map(pathItem => ({ 'x': pathItem[0], 'y': pathItem[1] }));
