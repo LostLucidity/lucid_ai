@@ -42,13 +42,6 @@ module.exports = createSystem({
             }
         }
     },
-    async onUnitCreated({ resources }, newUnit) {
-        if (newUnit.isWorker()) {
-            const { actions } = resources.get();
-
-            return actions.gather(newUnit);
-        }
-    },
     async onUnitFinished({ resources }, newBuilding) {
         const collectedActions = [];
         const { actions, units } = resources.get();
