@@ -11,6 +11,7 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { retreatToExpansion } = require("../../builds/helper");
 const { calculateNearSupply, getInRangeUnits } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
+const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
 
 module.exports = {
