@@ -38,7 +38,7 @@ module.exports = createSystem({
                 const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringWorkers);
                 debugSilly('chosen worker', donatingWorker.tag);
                 const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, units.getMineralFields());
-                return actions.gather(donatingWorker, mineralFieldTarget, false);
+                await actions.gather(donatingWorker, mineralFieldTarget, false);
             }
         }
     },
