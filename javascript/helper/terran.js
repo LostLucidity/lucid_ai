@@ -22,8 +22,7 @@ module.exports = {
       if (liftToThird) {
         liftToThird.labels.set('liftToThird');
       }
-    }
-    if (liftToThird) {
+    } else {
       const [ position ] = getAvailableExpansions(resources).map(expansion => ({ expansion, distance: distance(liftToThird.pos, expansion.townhallPosition) }))
         .sort((a, b) => a.distance - b.distance)
         .map(u => u.expansion.townhallPosition)
