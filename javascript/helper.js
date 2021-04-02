@@ -49,8 +49,8 @@ module.exports = {
     const { frame, units } = resources.get();
     const collectedActions = [];
     let builders = [
-      ...units.withLabel('builder').filter(w => !w.isConstructing() && !w.isAttacking()),
-      ...units.withLabel('proxy').filter(w => !w.isConstructing() && !w.isAttacking()),
+      ...units.withLabel('builder').filter(builder => getLabelledAvailable(builder)),
+      ...units.withLabel('proxy').filter(proxy => getLabelledAvailable(proxy)),
     ].filter(worker => !worker.isReturning());
     if (ability !== MOVE || builders.length === 0) {
       builders.push(
@@ -71,4 +71,16 @@ module.exports = {
     }
     return collectedActions;
   }
+
 }
+
+function getLabelledAvailable(labelled) {
+  console.log(
+    'getLabelledAvailable',
+    !labelled.isConstructing(),
+    (labelled.isConstructing() && labelled.unitType === PROBE),
+    !labelled.isAttacking(),
+    (!labelled.isConstructing() || (labelled.isConstructing() && labelled.unitType === PROBE)) && !labelled.isAttacking(),
+  );
+  return (!labelled.isConstructing() || (labelled.isConstructing() && labelled.unitType === PROBE)) && !labelled.isAttacking()
+} 
