@@ -53,9 +53,11 @@ module.exports = {
       ...units.withLabel('proxy').filter(proxy => getLabelledAvailable(proxy)),
     ].filter(worker => !worker.isReturning());
     if (ability !== MOVE || builders.length === 0) {
+    console.log('builders.length', builders.length);
       builders.push(
         ...units.getWorkers().filter(worker => worker.noQueue || worker.isGathering())
       );
+      console.log('builders.length', builders.length);
     }
     const [ builder ] = units.getClosest(position, builders);
     if (builder) {
