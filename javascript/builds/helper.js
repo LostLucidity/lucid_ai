@@ -64,7 +64,7 @@ module.exports = {
         if (map.getEnemyNatural()) {
           const [ closestOverlordToEnemyNatural ] = units.getClosest(map.getEnemyNatural().centroid, scoutingUnits);
           if (scoutingUnit.tag === closestOverlordToEnemyNatural.tag) {
-            return workerTypes.includes(unit.unitType) || unit.unitType === 106 ? false : true;
+            return workerTypes.includes(unit.unitType) || unit.unitType === OVERLORD ? false : true;
           } else {
             // count enemy units outside their range
             detectRush(map, units, state);
