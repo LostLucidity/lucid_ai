@@ -67,7 +67,7 @@ module.exports = {
     if (assemblePlan.state.defenseMode && assemblePlan.outSupplied) {
       nearPosition = module.exports.findWarpInLocations(resources);
     } else {
-      nearPosition = getCombatRally(map, units);
+      nearPosition = getCombatRally(resources);
     }
     try { await actions.warpIn(unitType, { nearPosition: nearPosition }) } catch (error) { console.log(error); }
   }
