@@ -199,20 +199,19 @@ module.exports = {
                   return;
                 }
               } 
-              const amountToDefendWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
-              const defenders = units.getClosest(closestEnemyUnit.pos, workers.filter(worker => !worker.isReturning()), amountToDefendWith + 1);
-              if (defenders[0]) {
+              const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
+              const fighters = units.getClosest(closestEnemyUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
+              if (fighters.find(fighters => fighters.tag === worker.tag)) {
                 const unitCommand = {
                   abilityId: ATTACK_ATTACK,
                   targetUnitTag: closestEnemyUnit.tag,
-                  unitTags: [ defenders[0].tag ],
+                  unitTags: [ worker.tag ],
                 }
                 collectedActions.push(unitCommand);  
-              }
-              if (defenders[1] && defenders[1].isAttacking()) {
+              } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === closestEnemyUnit.tag) {
                 const unitCommand = {
                   abilityId: STOP,
-                  unitTags: [ defenders[1].tag ],
+                  unitTags: [ worker.tag ],
                 }
                 collectedActions.push(unitCommand);  
               }
