@@ -21,6 +21,7 @@ const opponentRace = Race.ZERG;
 const map = maps[Math.floor(Math.random() * maps.length)];
 const difficulty = Difficulty.CHEATMONEY;
 const aiBuild = AIBuild.Rush;
+const trackEnemySystem = require('./systems/track-enemy-system');
 const settings = {
   type: PlayerType.PARTICIPANT,
   race: race,
@@ -58,7 +59,7 @@ const bot1 = createAgent(blueprint);
 // }
 
 bot1.use(entry);
-bot1.use(workerBalanceSystem);
+bot1.use([workerBalanceSystem, trackEnemySystem]);
 
 // bot1.use(zerg);
 // bot2.use(protoss);
