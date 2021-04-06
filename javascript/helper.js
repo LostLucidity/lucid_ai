@@ -40,7 +40,7 @@ module.exports = {
       let abilityId = data.getUnitTypeData(type).abilityId;
       trainingUnitTypes.push(...units.withCurrentOrders(abilityId).map(() => type));
     });
-    return trainingUnitTypes.map(unitType => data.getUnitTypeData(unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+    return trainingUnitTypes.map(unitType => unitType === ZERGLING ? 1 : data.getUnitTypeData(unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   },
   getSupply: (data, units) => {
     return units.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
