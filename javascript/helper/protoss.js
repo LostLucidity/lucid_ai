@@ -30,7 +30,7 @@ module.exports = {
       });
     let closestPylon;
     if (pylonsNearProduction.length > 0) {
-      [closestPylon] = units.getClosest(getCombatRally, pylonsNearProduction);
+      [closestPylon] = units.getClosest(getCombatRally(resources), pylonsNearProduction);
       return closestPylon.pos;
     } else {
       const pylons = units.getById(PYLON)
@@ -42,7 +42,7 @@ module.exports = {
           }
         });
         if (pylons) {
-          [closestPylon] = units.getClosest(getCombatRally, pylons);
+          [closestPylon] = units.getClosest(getCombatRally(resources), pylons);
           return closestPylon.pos;
         }
     }
