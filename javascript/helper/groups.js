@@ -21,6 +21,11 @@ const countTypes = {
   86: [ HATCHERY, LAIR ],
   132: [ ORBITALCOMMAND, ORBITALCOMMANDFLYING ],
 }
+const flyingTypesMapping = new Map([
+  [BARRACKSFLYING, BARRACKS],
+  [FACTORYFLYING, FACTORY],
+  [STARPORTFLYING, STARPORT],
+]);
 
 const larvaOrEgg = [EGG, LARVA];
 
@@ -33,6 +38,7 @@ const morphMapping = {
 module.exports = {
   addOnTypes,
   countTypes,
+  flyingTypesMapping,
   larvaOrEgg,
   morphMapping,
 }
