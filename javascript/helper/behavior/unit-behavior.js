@@ -196,6 +196,7 @@ module.exports = {
                   worker.orders.forEach(order => console.log(frame.timeInSeconds(), `Builder Ability: ${Object.keys(Ability).find(ability => Ability[ability] === order.abilityId)}, worker.tag: ${worker.tag}`));
                 }
                 if ((buildOnStandby || moveOrder) && distance(position, closestEnemyUnit.pos) > 3) {
+                  console.log('Ignore out of build range enemy.');
                   return;
                 }
               } 
