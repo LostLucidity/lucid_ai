@@ -2,7 +2,7 @@
 "use strict"
 
 const { CANCEL_QUEUE5, LIFT, LAND } = require("@node-sc2/core/constants/ability");
-const { BARRACKSREACTOR, REACTOR } = require("@node-sc2/core/constants/unit-type");
+const { REACTOR } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { findPosition } = require("../../helper/placement-helper");
 
@@ -46,17 +46,21 @@ module.exports = {
       }
     }
   },
-  checkAddOnPlacement: async ({ data, resources }, building, unitTypeAddOn = REACTOR) => {
+  checkAddOnPlacement: async ({ data, resources }, building, addOnType = REACTOR) => {
     const { actions } = resources.get();
-    const abilityId = data.getUnitTypeData(unitTypeAddOn).abilityId;
+    const abilityId = data.getUnitTypeData(addOnType).abilityId;
     if (building.abilityAvailable(abilityId)) {
       let foundPosition = null;
-      let range = 4;
+      let foundAddOnPosition = null;
+      let range = 1;
       do {
-        const nearPoints = gridsInCircle(building.pos, range);
-        foundPosition = await findPosition(actions, BARRACKSREACTOR, nearPoints);
+        const nearPoints = gridsInCircle(getAddOnPosition(building.pos), range);
+        foundAddOnPosition = await findPosition(actions, addOnType, nearPoints);
+        if (foundAddOnPosition) {
+          foundPosition = await findPosition(actions, building.unitType, [getAddOnBuildingPosition(foundAddOnPosition)]);
+        }
         range++
-      } while (!foundPosition);
+      } while (!foundPosition || !foundAddOnPosition);
       return foundPosition;
     } else {
       return;
