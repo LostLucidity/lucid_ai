@@ -23,7 +23,7 @@ const baseThreats = require("./base-threats");
 const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
-const { shadowEnemy } = require("../builds/helper");
+const { shadowEnemy, moveAway } = require("../builds/helper");
 const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior } = require("./behavior/unit-behavior");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
@@ -121,6 +121,14 @@ class AssemblePlan {
       this.units.getAlive().forEach(unit => delete unit.expansions);
     }
     await actions.sendAction(this.collectedActions);
+  }
+
+  async onUnitDamaged(resources, damagedUnit) {
+    const { units } = resources.get();
+    if (damagedUnit.labels.get('scoutEnemyMain')) {
+      const [closestEnemyUnit] = units.getClosest(damagedUnit.pos, enemyTrackingService.enemyUnits);
+      await actions.sendAction(moveAway(damagedUnit, closestEnemyUnit, 4));
+    }
   }
 
   async onUnitDestroyed(destroyedUnit) {
