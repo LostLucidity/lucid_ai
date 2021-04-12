@@ -3,11 +3,26 @@
 
 const Ability = require('@node-sc2/core/constants/ability');
 const { MOVE } = require('@node-sc2/core/constants/ability');
-const { Alliance } = require('@node-sc2/core/constants/enums');
+const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
+const { countTypes } = require('./helper/groups');
 
 module.exports = {
+  checkBuildingCount: ({agent, data, resources}, unitType, targetCount) => {
+    const { units } = resources.get();
+    const buildAbilityId = data.getUnitTypeData(unitType).abilityId;
+    let count = units.withCurrentOrders(buildAbilityId).length;
+    const unitTypes = countTypes.get(unitType) ? countTypes.get(unitType) : [unitType];
+    unitTypes.forEach(type => {
+      let unitsToCount = units.getById(type);
+      if (agent.race === Race.TERRAN) {
+        unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= 1);
+      }
+      count += unitsToCount.length;
+    });
+    return count === targetCount;
+  },
   findSupplyPositions: (resources) => {
     const { map } = resources.get();
     const myExpansions = map.getOccupiedExpansions(Alliance.SELF);

@@ -12,7 +12,7 @@ const { MOVE, BUILD_REACTOR_STARPORT } = require("@node-sc2/core/constants/abili
 const canAfford = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
-const { workerSendOrBuild, getSupply, getTrainingSupply } = require("../helper");
+const { workerSendOrBuild, getSupply, getTrainingSupply, checkBuildingCount } = require("../helper");
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility, UnitType } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
@@ -184,7 +184,7 @@ class AssemblePlan {
   }
   async build(food, unitType, targetCount, candidatePositions=[]) {
     if (this.foodUsed >= food) {
-      if (this.checkBuildingCount(targetCount, unitType)) {
+      if (checkBuildingCount(this.world, unitType, targetCount)) {
         switch (true) {
           case GasMineRace[race] === unitType:
             try {
@@ -243,19 +243,6 @@ class AssemblePlan {
         this.state.continueBuild = false;
       }
     }
-  }
-  checkBuildingCount(targetCount, unitType) {
-    const buildAbilityId = this.data.getUnitTypeData(unitType).abilityId;
-    let count = this.units.withCurrentOrders(buildAbilityId).length;
-    const unitTypes = countTypes[unitType] ? countTypes[unitType]: [unitType];
-    unitTypes.forEach(type => {
-      let unitsToCount = this.units.getById(type);
-      if (race === Race.TERRAN) {
-        unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= 1);
-      }
-      count += unitsToCount.length;
-    });
-    return count === targetCount;
   }
   checkEnemyBuild() {
     const { frame } = this.resources.get();
