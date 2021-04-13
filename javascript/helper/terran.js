@@ -6,10 +6,50 @@ const { EFFECT_SCAN, CANCEL_QUEUECANCELTOSELECTION } = require("@node-sc2/core/c
 const { liftingAbilities, landingAbilities, townhallTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
+const { setPendingOrders } = require("../helper");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosest } = require("./get-closest");
+const { getAddOnPosition } = require("./placement-helper");
 
 module.exports = {
+  addAddOn: async (world, unit, abilityId, addOnType) => {
+    const { actions } = world.resources.get();
+    if (unit.noQueue && !unit.labels.has('swapBuilding')) {
+      if (unit.availableAbilities().find(ability => ability === abilityId)) {
+        const unitCommand = {
+          abilityId,
+          unitTags: [unit.tag]
+        }
+        if (await actions.canPlace(addOnType, [getAddOnPosition(unit.pos)])) {
+          await actions.sendAction(unitCommand);
+          setPendingOrders(unit, unitCommand);
+        }
+      }
+      if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
+        unit.labels.set('addAddOn');
+        const unitCommand = {
+          abilityId: Ability.LIFT,
+          unitTags: [unit.tag],
+        }
+        await actions.sendAction(unitCommand);
+        setPendingOrders(unit, unitCommand);
+      }
+      if (unit.availableAbilities().find(ability => landingAbilities.includes(ability))) {
+        const foundPosition = await checkAddOnPlacement(world, unit, addOnType);
+        if (foundPosition) {
+          const unitCommand = {
+            abilityId: abilityId,
+            unitTags: [unit.tag],
+            targetWorldSpacePos: foundPosition
+          }
+          await actions.sendAction(unitCommand);
+          setPendingOrders(unit, unitCommand);
+          unit.labels.delete('addAddOn');
+        }
+      }
+    }
+  },
   liftToThird: async (resources) => {
     const { actions, map, units } = resources.get();
     const label = 'liftToThird';
