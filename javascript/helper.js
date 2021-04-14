@@ -67,8 +67,8 @@ module.exports = {
       ...units.withLabel('builder').filter(builder => getLabelledAvailable(builder)),
       ...units.withLabel('proxy').filter(proxy => getLabelledAvailable(proxy)),
     ].filter(worker => !worker.isReturning());
-    if (ability !== MOVE || builders.length === 0) {
     console.log('builders.length', builders.length);
+    if (abilityId !== MOVE || builders.length === 0) {
       builders.push(
         ...units.getWorkers().filter(worker => worker.noQueue || worker.isGathering())
       );
