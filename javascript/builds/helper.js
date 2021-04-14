@@ -90,7 +90,7 @@ module.exports = {
             }
             collectedActions.push(unitCommand);
           }
-        } else if (distanceToEnemy < enemySightRange) {
+        } else if (distanceToEnemy - scoutingUnit.radius < enemySightRange + closestEnemy.radius) {
           const isFlying = scoutingUnit.isFlying;
           let position;
           if (isFlying) {
