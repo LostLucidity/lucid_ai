@@ -48,6 +48,12 @@ module.exports = {
   
     return possiblePlacements;
   },
+  getAddOnBuildingPosition: (position) => {
+    return { x: position.x - 2.5, y: position.y + 0.5 }
+  },
+  getAddOnPosition: (position) => {
+    return { x: position.x + 2.5, y: position.y - 0.5 }
+  },
   getBetweenBaseAndWall: async (resources, unitType) => {
     const { actions, map } = resources.get();
     const pathCandidates = map.path(add(map.getNatural().townhallPosition, 3), add(map.getEnemyMain().townhallPosition, 3)).slice(0, 10).map(pathItem => ({ 'x': pathItem[0], 'y': pathItem[1] }));
