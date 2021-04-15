@@ -17,7 +17,7 @@ module.exports = {
       .slice(0, 20);
     const foundPosition = await actions.canPlace(unitType, randomPositions);
     const unitTypeName = Object.keys(UnitType).find(type => UnitType[type] === unitType);
-    if (unitTypeName) {
+    if (foundPosition && unitTypeName) {
       console.log(`FoundPosition for ${unitTypeName}`, foundPosition);
     }
     return foundPosition;
