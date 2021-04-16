@@ -79,9 +79,29 @@ const entry = createSystem({
     }
   },
   getBuild(race) {
-    const racePlans = plans[race]
-      var keys = Object.keys(racePlans);
-      return racePlans[keys[ keys.length * Math.random() << 0]];
+    const racePlans = plans[race];
+    var keys = Object.keys(racePlans);
+    const selectedBuild = racePlans[keys[ keys.length * Math.random() << 0]];
+    if (selectedBuild.buildType === 'two variable') {
+      return this.convertBuild(selectedBuild);
+    } else {
+      return selectedBuild;
+    }
+  },
+  convertBuild(build) {
+    const convertedBuild = [];
+    build.forEach(order => {
+      const convertedBuild = []
+      const actions = order[1].split(',').map(item => item.replace(' ','').toUpperCase())
+      actions.forEach(action => {
+
+      });
+      convertedBuild.push([
+        order[0],
+        UnitType[order[1].replace(' ','').toUpperCase()],
+      ]);
+    })
+    return convertedBuild;
   }
 });
 
