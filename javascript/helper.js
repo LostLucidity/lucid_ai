@@ -87,8 +87,17 @@ module.exports = {
       collectedActions.push(unitCommand);
     }
     return collectedActions;
-  }
-
+  },
+  setPendingOrders: (unit, unitCommand) => {
+    const label = 'pendingOrders';
+    const labels = unit.labels;
+    if (labels.has(label)) {
+      const pendingOrders = labels.get(label);
+      pendingOrders.push(unitCommand);
+    } else {
+      labels.set(label, []);
+    }
+  },
 }
 
 function getLabelledAvailable(labelled) {
