@@ -8,6 +8,10 @@ const { distance, add } = require("@node-sc2/core/utils/geometry/point");
 const canAfford = require("../../helper/can-afford");
 const { getClosestPositionByPath, getClosestUnitByPath } = require("../../helper/get-closest-by-path");
 const {  intersectionOfPoints } = require("../../helper/utilities");
+const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { findPosition } = require("../../helper/placement-helper");
+const { creepGenerators } = require("@node-sc2/core/constants/groups");
+const { getClosest } = require("../../helper/get-closest");
 
 module.exports = {
   labelQueens: (units) => {
@@ -52,11 +56,11 @@ module.exports = {
     }
   },
   spreadCreep: async (resources) => {
-    const { map, units } = resources.get();
+    const { actions, map, units } = resources.get();
     const collectedActions = [];
     const label = 'creeper';
     const idleCreeperQueens = units.withLabel(label).filter(unit => unit.abilityAvailable(BUILD_CREEPTUMOR_QUEEN) && unit.orders.length === 0);
-    const activeCreepTumors = [...units.getById(CREEPTUMORBURROWED) ].filter(unit => unit.availableAbilities().length > 0 && !unit.labels.get('stuck'));
+    const activeCreepTumors = units.getById(CREEPTUMORBURROWED).filter(unit => unit.availableAbilities().length > 0 && !unit.labels.get('stuck'));
     if (idleCreeperQueens.length > 0) {
       if (units.getById(CREEPTUMORBURROWED).length <= 2) {
         // get creep natural closest to enemy
@@ -73,28 +77,44 @@ module.exports = {
       }
     }
     if (activeCreepTumors.length > 0) {
-      collectedActions.push(...await findAndPlaceCreepTumor(resources, activeCreepTumors, BUILD_CREEPTUMOR_TUMOR, map.getCreep()))
+      for (let step = 0; step < activeCreepTumors.length; step++) {
+        const radius = 10;
+        let lowerLimit = 9.5;
+        let foundPosition = null;
+        const tumor = activeCreepTumors[step];
+        do {
+          let excludedCircle = gridsInCircle(tumor.pos, lowerLimit);
+          const candidatePositions = gridsInCircle(tumor.pos, radius).filter(position => {
+            const [closestCreepGenerator] = units.getClosest(position, units.getByType(creepGenerators));
+            const [closestTownhallPosition] = getClosest(position, map.getExpansions().map(expansion => expansion.townhallPosition));
+            return [
+              closestCreepGenerator,
+              !excludedCircle.includes(position),
+              distance(position, closestCreepGenerator.pos) > lowerLimit,
+              distance(position, tumor.pos) <= radius,
+              closestTownhallPosition ? distance(position, closestTownhallPosition) > 3 : true
+            ].every(condition => condition);
+          });
+          foundPosition = await findPosition(actions, CREEPTUMOR, candidatePositions);
+          lowerLimit-= 0.5;
+        } while (!foundPosition && lowerLimit > 0);
+        if (foundPosition) {
+          const unitCommand = {
+            abilityId: BUILD_CREEPTUMOR_TUMOR,
+            targetWorldSpacePos: foundPosition,
+            unitTags: [ tumor.tag ]
+          }
+          collectedActions.push(unitCommand);
+        } else {
+          tumor.labels.set('stuck', true)
+        }
+      }
     }
     return collectedActions;
   }
 }
 
 let longestTime = 0;
-
-function findCreepPlacement(resources, candidates) {
-  const { map, units } = resources.get();
-  let collectedActions = [];
-  let creepPoints = []
-  const pointLimit = 250;
-  if (candidates.length > pointLimit) {
-    creepPoints = getRandomWithLimit(candidates, pointLimit);
-  } else {
-    creepPoints = candidates;
-  }
-  const creepCandidates = creepPoints.filter(point => {
-    return filterPlacementsByRange(map, units, [ HATCHERY, LAIR, CREEPTUMORBURROWED, ], point, 9);
-  });
-}
 
 async function findAndPlaceCreepTumor(resources, spreaders, ability, candidates) {
   const { actions, map, units } = resources.get();
