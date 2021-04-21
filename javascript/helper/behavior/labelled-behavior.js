@@ -28,8 +28,8 @@ module.exports = {
     }
     return collectedActions;
   },
-  scoutEnemyMainBehavior: (resources, opponentRace) => {
-    const { map, units } = resources.get();
+  scoutEnemyMainBehavior: async (resources, opponentRace) => {
+    const { actions, map, units } = resources.get();
     const [ unit ] = units.withLabel('scoutEnemyMain');
     const collectedActions = [];
     if (unit) {
@@ -58,6 +58,6 @@ module.exports = {
         collectedActions.push(unitCommand);
       }
     }
-    return collectedActions;
+    collectedActions.length > 0 && await actions.sendAction(collectedActions);
   },
 }
