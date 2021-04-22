@@ -16,7 +16,11 @@ module.exports = {
     const collectedActions = [];
     if (unit) {
       let [ closestEnemyUnit ] = units.getClosest(unit.pos, units.getAlive(Alliance.ENEMY), 1);
-      if (!closestEnemyUnit || distance(closestEnemyUnit.pos, unit.pos) > 16) {
+      if (
+        !closestEnemyUnit ||
+        distance(unit.pos, closestEnemyUnit.pos) > 16 ||
+        distance(unit.pos, map.getCombatRally()) < 1
+      ) {
         unit.labels.clear();
         console.log('clear!');
       }
