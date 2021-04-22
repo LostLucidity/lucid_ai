@@ -32,8 +32,8 @@ module.exports = {
     const [ closestExpansionCentroidByPath ] = getClosestPositionByPath(resources, unit.pos, candidateExpansionsCentroid, candidateExpansionsCentroid.length).filter(centroid => distanceByPath(resources, centroid, targetUnit.pos) > 16);
     return closestExpansionCentroidByPath ? closestExpansionCentroidByPath : module.exports.moveAwayPosition(targetUnit, unit);
   },
-  moveAway(unit, targetUnit) {
-    const awayPoint = module.exports.moveAwayPosition(targetUnit, unit);
+  moveAway(unit, targetUnit, distance=2) {
+    const awayPoint = module.exports.moveAwayPosition(targetUnit, unit, distance);
     const unitCommand = {
       abilityId: MOVE,
       targetWorldSpacePos: awayPoint,
@@ -41,14 +41,14 @@ module.exports = {
     }
     return unitCommand;
   },
-  moveAwayPosition(targetUnit, unit) {
+  moveAwayPosition(targetUnit, unit, distance=2) {
         // move away
     // angle of enemy in grid.
     const angle = toDegrees(Math.atan2(targetUnit.pos.y - unit.pos.y, targetUnit.pos.x - unit.pos.x));
     const oppositeAngle = angle + 180 % 360;
     const awayPoint = {
-      x: Math.cos(oppositeAngle * Math.PI / 180) * 2 + unit.pos.x,
-      y: Math.sin(oppositeAngle * Math.PI / 180) * 2 + unit.pos.y
+      x: Math.cos(oppositeAngle * Math.PI / 180) * distance + unit.pos.x,
+      y: Math.sin(oppositeAngle * Math.PI / 180) * distance + unit.pos.y
     }
     // Get opposite angle of enemy.
     // move to point with opposite angle and distance
