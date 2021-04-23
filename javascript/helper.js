@@ -4,6 +4,7 @@
 const Ability = require('@node-sc2/core/constants/ability');
 const { MOVE } = require('@node-sc2/core/constants/ability');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
+const { PROBE, ZERGLING } = require('@node-sc2/core/constants/unit-type');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { countTypes } = require('./helper/groups');
