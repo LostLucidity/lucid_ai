@@ -36,8 +36,9 @@ const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
 const { scoutEnemyMainBehavior, clearFromEnemyBehavior } = require("./behavior/labelled-behavior");
 const { countTypes } = require("./groups");
-const { liftToThird } = require("./terran");
+const { liftToThird, addAddOn } = require("./terran");
 const { balanceResources } = require("../systems/balance-resources");
+const { addonTypes } = require("@node-sc2/core/constants/groups");
 
 let actions;
 let opponentRace;
@@ -194,6 +195,18 @@ class AssemblePlan {
             break;
           case PHOTONCANNON === unitType:
             candidatePositions = this.map.getNatural().areas.placementGrid;
+          case addonTypes.includes(unitType):
+            if (checkBuildingCount(this.world, unitType, targetCount)) {
+              let abilityId = this.data.getUnitTypeData(unitType).abilityId;
+              let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
+              const addOnUnits = this.units.withLabel('addAddOn');
+              const unitsCanDo = addOnUnits.length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
+              if (unitsCanDo.length > 0) {
+                let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+                await addAddOn(this.world, unitCanDo, abilityId, unitType)
+              }
+            }
+            break;
           default:
             if (candidatePositions.length === 0 ) { candidatePositions = this.findPlacements(unitType); }
             await this.buildBuilding(unitType, candidatePositions);
