@@ -102,12 +102,5 @@ module.exports = {
 }
 
 function getLabelledAvailable(labelled) {
-  console.log(
-    'getLabelledAvailable',
-    !labelled.isConstructing(),
-    (labelled.isConstructing() && labelled.unitType === PROBE),
-    !labelled.isAttacking(),
-    (!labelled.isConstructing() || (labelled.isConstructing() && labelled.unitType === PROBE)) && !labelled.isAttacking(),
-  );
-  return (!labelled.isConstructing() || (labelled.isConstructing() && labelled.unitType === PROBE)) && !labelled.isAttacking()
+  return (!labelled.isConstructing() || (labelled.isConstructing() && labelled.unitType === PROBE)) && !labelled.isAttacking();
 } 
