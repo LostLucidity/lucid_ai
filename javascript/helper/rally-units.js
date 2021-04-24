@@ -9,10 +9,7 @@ const { tankBehavior } = require("./behavior/unit-behavior");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
 function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint=null) {
-  const {
-    map,
-    units,
-  } = resources.get();
+  const { units } = resources.get();
   const collectedActions = [];
   const combatUnits = units.getCombatUnits().filter(unit => !unit.labels.get('harasser') && !unit.labels.get('scout'));
   if (!rallyPoint) {
