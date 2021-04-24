@@ -2,7 +2,7 @@
 "use strict"
 
 const { MOVE, LOAD_BUNKER, SMART } = require("@node-sc2/core/constants/ability");
-const { BUNKER, LARVA } = require("@node-sc2/core/constants/unit-type");
+const { BUNKER, LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { engageOrRetreat } = require("./behavior/army-behavior");
 const { getCombatRally } = require("./location");
 const { tankBehavior } = require("./behavior/unit-behavior");
@@ -48,7 +48,7 @@ function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint=null) {
         collectedActions.push(unitCommand);
       }
     } else {
-      const selfUnits = [...combatUnits, ...supportUnits];
+      const selfUnits = [...combatUnits, ...supportUnits, ...units.getById(QUEEN)];
       const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
       collectedActions.push(...engageOrRetreat({ data, resources }, selfUnits, enemyUnits, rallyPoint));
     }
