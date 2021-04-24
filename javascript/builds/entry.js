@@ -45,11 +45,7 @@ const entry = createSystem({
     longestTime = (t1 - t0) > longestTime ? t1 - t0 : longestTime;
   },
   async onUnitCreated(world, createdUnit) {
-    await assemblePlan.onUnitCreated(world, createdUnit)
-    if (createdUnit.isWorker()) {
-      const { actions } = world.resources.get();
-      return actions.gather(createdUnit);
-    }
+    await assemblePlan.onUnitCreated(world, createdUnit);
   },
   async onUnitDamaged({ resources }, damagedUnit) {
     const { actions } = resources.get();
