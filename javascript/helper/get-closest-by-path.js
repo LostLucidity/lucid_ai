@@ -6,8 +6,12 @@ const { add } = require("@node-sc2/core/utils/geometry/point");
 module.exports = {
   distanceByPath: (resources, position, point) => {
     const { map, units } = resources.get();
-    position = map.isPlaceable(position) ? position : getUnitCornerPosition(units.getClosest(position, units.getAlive())[0]);
-    return map.path(position, point).length ? map.path(position, point).length : 500;
+    try {
+      position = map.isPlaceable(position) ? position : getUnitCornerPosition(units.getClosest(position, units.getAlive())[0]);
+      return map.path(position, point).length ? map.path(position, point).length : 500;
+    } catch {
+      return 500;
+    }
   },
   getClosestPositionByPath: (resources, position, points, n = 1) => {
     return points.map(point => ({ point, distance: module.exports.distanceByPath(resources, position, point) }))
