@@ -39,6 +39,7 @@ const { countTypes } = require("./groups");
 const { liftToThird, addAddOn } = require("./terran");
 const { balanceResources } = require("../systems/balance-resources");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
+const { getClosest } = require("./get-closest");
 
 let actions;
 let opponentRace;
@@ -396,10 +397,14 @@ class AssemblePlan {
     } else if (race === Race.ZERG) {
       placements = map.getCreep()
         .filter((point) => {
+          const [closestMineralLine] = getClosest(point, mainMineralLine);
+          const [closestStructure] = units.getClosest(point, units.getStructures());
+          const [closestTownhallPosition] = getClosest(point, map.getExpansions().map(expansion => expansion.townhallPosition));
           return (
-            (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
-            (this.units.getStructures({ alliance: Alliance.SELF }).map(u => u.pos).every(eb => distance(eb, point) > 3)) &&
-            (distance(point, units.getClosest(point, units.getStructures({ alliance: Alliance.SELF }))[0].pos) <= 12.5)
+            distance(point, closestMineralLine) > 1.5 &&
+            distance(point, closestStructure.pos) > 3 &&
+            distance(point, closestStructure.pos) <= 12.5 &&
+            distance(point, closestTownhallPosition) > 3
           );
         });
     }
