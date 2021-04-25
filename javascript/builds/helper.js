@@ -5,6 +5,7 @@ const { MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
+const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { distanceByPath, getClosestPositionByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
 
