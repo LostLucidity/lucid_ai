@@ -57,7 +57,7 @@ class AssemblePlan {
     this.supportUnitTypes = plan.unitTypes.supportUnitTypes;
   }
   onEnemyFirstSeen(seenEnemyUnit) {
-    opponentRace = seenEnemyUnit.data().race
+    opponentRace = seenEnemyUnit.data().race;
   }
   onGameStart(world) {
     actions = world.resources.get().actions;
