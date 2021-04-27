@@ -33,6 +33,7 @@ const countTypes = new Map([
   [STARPORT, [ STARPORT, STARPORTFLYING ]],
   [SUPPLYDEPOT, [ SUPPLYDEPOT, SUPPLYDEPOTLOWERED ]],
 ]);
+
 const larvaOrEgg = [EGG, LARVA];
 
 const morphMapping = new Map([
