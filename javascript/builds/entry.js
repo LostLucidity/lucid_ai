@@ -62,6 +62,7 @@ const entry = createSystem({
         actions.sendAction(unitCommand);
       }
     }
+    await assemblePlan.onUnitDamaged(resources, damagedUnit)
   },
   async onUnitDestroyed({}, destroyedUnit) {
     await assemblePlan.onUnitDestroyed(destroyedUnit);
