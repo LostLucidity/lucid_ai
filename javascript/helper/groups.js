@@ -47,6 +47,7 @@ const morphMapping = new Map([
 ])
 
 module.exports = {
+  addOnAbilities,
   addOnTypesMapping,
   countTypes,
   flyingTypesMapping,
