@@ -32,7 +32,7 @@ module.exports = {
       const combatPoint = getCombatPoint(resources, combatUnits, enemyTarget);
       if (combatPoint) {
         const army = { combatPoint, combatUnits, supportUnits, enemyTarget}
-        collectedActions.push(...attackWithArmy(data, units, army));
+        collectedActions.push(...module.exports.attackWithArmy(data, units, army));
       }
       collectedActions.push(...scanCloakedEnemy( units, enemyTarget, combatUnits));
     } else {
@@ -93,7 +93,7 @@ module.exports = {
             const combatPoint = getCombatPoint(resources, combatUnits, closestEnemyUnit);
             if (combatPoint) {
               const army = { combatPoint, combatUnits, supportUnits, enemyTarget: closestEnemyUnit}
-              collectedActions.push(...attackWithArmy(data, units, army));
+              collectedActions.push(...module.exports.attackWithArmy(data, units, army));
             }
           } else {
             console.log('building defensive units');
@@ -202,18 +202,51 @@ module.exports = {
       return closestUnit;
     }
   },
+  attackWithArmy: (data, units, army) => {
+    const collectedActions = [];
+    const pointType = army.combatPoint.unitType;
+    const pointTypeUnits = units.getById(pointType);
+    const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType));
+    const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
+    const nonPointTypeUnitTags = nonPointTypeUnits.map(unit => unit.tag);
+    const range = Math.max.apply(Math, data.getUnitTypeData(SIEGETANKSIEGED).weapons.map(weapon => { return weapon.range; }))
+    const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
+    let unitCommand = {
+      abilityId: ATTACK_ATTACK,
+      targetWorldSpacePos: targetWorldSpacePos,
+      unitTags: [ ...pointTypeUnitTags, ...nonPointTypeUnitTags ],
     }
-  } else {
-    let closestUnit;
-    try {
-      [ closestUnit ] = getClosestUnitByPath(resources, target.pos, units);
-      closestUnit.labels.set(label, true);
-    } catch(e) {
-      [ closestUnit ] = resources.get().units.getClosest(target.pos, units)
+    collectedActions.push(unitCommand);
+    if (army.supportUnits.length > 0) {
+      const supportUnitTags = army.supportUnits.map(unit => unit.tag);
+      let unitCommand = {
+        abilityId: MOVE,
+        targetWorldSpacePos: army.combatPoint.pos,
+        unitTags: [ ...supportUnitTags ],
+      }
+      collectedActions.push(unitCommand);
     }
-    return closestUnit;
+    const changelings = [13, 14, 15, 16];
+    if (changelings.includes(army.enemyTarget.unitType)) {
+      const killChanglingCommand = {
+        abilityId: ATTACK,
+        targetUnitTag: army.enemyTarget.tag,
+        unitTags: [ ...pointTypeUnitTags ],
+      }
+      collectedActions.push(killChanglingCommand);
+    } else {
+      unitCommand = {
+        abilityId: ATTACK_ATTACK,
+        targetWorldSpacePos: army.enemyTarget.pos,
+        unitTags: [ army.combatPoint.tag ],
+      }
+      collectedActions.push(unitCommand);
+    }
+    collectedActions.push(...tankBehavior(units));
+    return collectedActions;
   }
-}
+};
+
 
 function groupUnits(units, mainCombatTypes, supportUnitTypes) {
   const combatUnits = [];
@@ -225,48 +258,4 @@ function groupUnits(units, mainCombatTypes, supportUnitTypes) {
     supportUnits.push(...units.getById(type).filter(unit => !unit.labels.get('scout') && !unit.labels.get('creeper') && !unit.labels.get('injector')));
   });
   return [ combatUnits, supportUnits ];
-}
-
-function attackWithArmy(data, units, army) {
-  const collectedActions = [];
-  const pointType = army.combatPoint.unitType;
-  const pointTypeUnits = units.getById(pointType);
-  const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType));
-  const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
-  const nonPointTypeUnitTags = nonPointTypeUnits.map(unit => unit.tag);
-  const range = Math.max.apply(Math, data.getUnitTypeData(SIEGETANKSIEGED).weapons.map(weapon => { return weapon.range; }))
-  const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
-  let unitCommand = {
-    abilityId: ATTACK_ATTACK,
-    targetWorldSpacePos: targetWorldSpacePos,
-    unitTags: [ ...pointTypeUnitTags, ...nonPointTypeUnitTags ],
-  }
-  collectedActions.push(unitCommand);
-  if (army.supportUnits.length > 0) {
-    const supportUnitTags = army.supportUnits.map(unit => unit.tag);
-    let unitCommand = {
-      abilityId: MOVE,
-      targetWorldSpacePos: army.combatPoint.pos,
-      unitTags: [ ...supportUnitTags ],
-    }
-    collectedActions.push(unitCommand);
-  }
-  const changelings = [13, 14, 15, 16];
-  if (changelings.includes(army.enemyTarget.unitType)) {
-    const killChanglingCommand = {
-      abilityId: ATTACK,
-      targetUnitTag: army.enemyTarget.tag,
-      unitTags: [ ...pointTypeUnitTags ],
-    }
-    collectedActions.push(killChanglingCommand);
-  } else {
-    unitCommand = {
-      abilityId: ATTACK_ATTACK,
-      targetWorldSpacePos: army.enemyTarget.pos,
-      unitTags: [ army.combatPoint.tag ],
-    }
-    collectedActions.push(unitCommand);
-  }
-  collectedActions.push(...tankBehavior(units));
-  return collectedActions;
 }
