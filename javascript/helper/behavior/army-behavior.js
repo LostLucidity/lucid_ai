@@ -29,7 +29,7 @@ module.exports = {
     let [ closestEnemyUnit ] = units.getClosest(avgCombatUnitsPoint, enemyUnits, 1);
     if (closestEnemyBase || closestEnemyUnit) {
       const enemyTarget = closestEnemyBase || closestEnemyUnit;
-      const combatPoint = getCombatPoint(resources, combatUnits, enemyTarget);
+      const combatPoint = module.exports.getCombatPoint(resources, combatUnits, enemyTarget);
       if (combatPoint) {
         const army = { combatPoint, combatUnits, supportUnits, enemyTarget}
         collectedActions.push(...module.exports.attackWithArmy(data, units, army));
@@ -90,7 +90,7 @@ module.exports = {
                 combatUnits.push(...units.getById(QUEEN));
               }
             }
-            const combatPoint = getCombatPoint(resources, combatUnits, closestEnemyUnit);
+            const combatPoint = module.exports.getCombatPoint(resources, combatUnits, closestEnemyUnit);
             if (combatPoint) {
               const army = { combatPoint, combatUnits, supportUnits, enemyTarget: closestEnemyUnit}
               collectedActions.push(...module.exports.attackWithArmy(data, units, army));
