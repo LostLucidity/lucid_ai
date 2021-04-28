@@ -2,8 +2,6 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { workerTypes } = require("@node-sc2/core/constants/groups");
-const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 
 function baseThreats(resources, state) {
