@@ -100,7 +100,7 @@ module.exports = {
             await continuouslyBuild(world, assemblePlan, mainCombatTypes);
             if (selfSupply < enemySupply) {
               console.log('engageOrRetreat', selfSupply, enemySupply);
-              allyUnits = [...allyUnits, ...units.getById(QUEEN), ...units.getWorkers()];
+              allyUnits = [...allyUnits, ...units.getById(QUEEN), ...units.getWorkers().filter(worker => worker.isAttacking())];
               collectedActions.push(...module.exports.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
             }
           }
