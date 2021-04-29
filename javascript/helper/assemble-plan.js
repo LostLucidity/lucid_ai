@@ -75,7 +75,7 @@ class AssemblePlan {
     if (this.foodUsed !== this.world.agent.foodUsed) {
       this.state.pauseBuilding = false;
     }
-    this.foodUsed = this.world.agent.foodUsed
+    this.foodUsed = this.world.agent.foodUsed;
     this.resources = world.resources;
     this.frame = this.resources.get().frame;
     this.map = this.resources.get().map;
