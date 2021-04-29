@@ -163,14 +163,16 @@ module.exports = {
             collectedActions.push(unitCommand);
           } 
         } else {
-          const unitCommand = {
-            abilityId: ATTACK_ATTACK,
-            unitTags: [ selfUnit.tag ],
+          if (selfUnit.unitType !== QUEEN) {
+            const unitCommand = {
+              abilityId: ATTACK_ATTACK,
+              unitTags: [ selfUnit.tag ],
+            }
+            const destructableTag = module.exports.getInRangeDestructables(units, selfUnit);
+            if (destructableTag) { unitCommand.targetUnitTag = destructableTag; }
+            else { unitCommand.targetWorldSpacePos = targetPosition; }
+            collectedActions.push(unitCommand);
           }
-          const destructableTag = module.exports.getInRangeDestructables(units, selfUnit);
-          if (destructableTag) { unitCommand.targetUnitTag = destructableTag; }
-          else { unitCommand.targetWorldSpacePos = targetPosition; }
-          collectedActions.push(unitCommand);
         }
       }
     });
