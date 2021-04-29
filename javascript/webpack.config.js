@@ -12,4 +12,7 @@ module.exports = {
     path: path.resolve(__dirname, "build"),
     filename: "LucidZ.js"
   }
+  node: {
+    __dirname: false,
+  },
 };
