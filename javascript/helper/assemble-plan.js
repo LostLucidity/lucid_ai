@@ -19,7 +19,7 @@ const continuouslyBuild = require("./continuously-build");
 const { gasMineCheckAndBuild } = require("./balance-resources");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack } = require("./behavior/army-behavior");
-const baseThreats = require("./base-threats");
+const threats = require("./base-threats");
 const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
@@ -80,7 +80,7 @@ class AssemblePlan {
     this.frame = this.resources.get().frame;
     this.map = this.resources.get().map;
     this.units = this.resources.get().units;
-    this.threats = baseThreats(this.resources, this.state);
+    this.threats = threats(this.resources, this.state);
     this.enemySupply = enemyTrackingService.getEnemyCombatSupply(this.data);
     this.selfSupply = getSupply(this.data, this.units.getCombatUnits()) + getTrainingSupply(this.defenseTypes, this.data, this.units);
     this.outSupplied = this.enemySupply > this.selfSupply;

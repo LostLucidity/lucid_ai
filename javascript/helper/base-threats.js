@@ -4,15 +4,15 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 
-function baseThreats(resources, state) {
+function threats(resources, state) {
   const { units } = resources.get();
-  // check for enemy worker near townhall.
-  const townhalls = units.getBases();
+  const positionsOfStructures = units.getStructures().map(structure => structure.pos);
   const enemyPush = [];
   const threats = [];
-  townhalls.forEach(async townhall => {
+  // check if structure in natural
+  positionsOfStructures.forEach(position => {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
-    const inRange = enemyUnits.filter(unit => distance(unit.pos, townhall.pos) < 22);
+    const inRange = enemyUnits.filter(unit => distance(unit.pos, position) < 16);
     const enemyCount = inRange.length;
     if (enemyCount > 0) {
       enemyPush.push(true);
@@ -29,4 +29,4 @@ function baseThreats(resources, state) {
   return threats;
 }
 
-module.exports = baseThreats;
+module.exports = threats;
