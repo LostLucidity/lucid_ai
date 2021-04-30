@@ -49,8 +49,6 @@ const entry = createSystem({
   },
   async onUnitDamaged({ resources }, damagedUnit) {
     const { actions } = resources.get();
-    // if unit damaged in in progrees and less than 1/3 health.
-    // units.getStructures(structure => structure.health / structure.healthMax < 1 / 3);
     const totalHealthShield = damagedUnit.health + damagedUnit.shield;
     const maxHealthShield = damagedUnit.healthMax + damagedUnit.shieldMax;
     if ((totalHealthShield / maxHealthShield) < 1/3) {
