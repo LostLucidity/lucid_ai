@@ -693,7 +693,8 @@ class AssemblePlan {
             try { await this.train(foodTarget, unitType, targetCount); } catch(error) { console.log(error) } break;
           case 'swapBuildings':
             conditions = planStep[2];
-            if (this.foodUsed >= foodTarget) { swapBuildings(this.resources, conditions); }
+            if (this.foodUsed >= foodTarget) { await swapBuildings(this.world, conditions); }
+            this.state.pauseBuilding = this.units.withLabel('swapBuilding').length > 0;
             break;
           case 'upgrade':
             const upgradeId = planStep[2];
