@@ -4,6 +4,7 @@
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { workerSendOrBuild } = require("../helper");
+const { balanceResources } = require("../systems/balance-resources");
 const canAfford = require("./can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 
@@ -24,6 +25,8 @@ module.exports = {
         }
       } else {
         collectedActions.push(...workerSendOrBuild(resources, MOVE, expansionLocation));
+        const {mineralCost, vespeneCost} = data.getUnitTypeData(townhallType);
+        await balanceResources(resources, agent, mineralCost/vespeneCost);
         state.pauseBuilding = true;
         state.continueBuild = false;
       }
