@@ -618,7 +618,7 @@ class AssemblePlan {
         } else {
           this.state.pauseBuilding = true;
           console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
-          const {mineralCost, vespeneCost} = this.data.getUnitTypeData(unitType);
+          const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
           await balanceResources(this.resources, this.agent, mineralCost/vespeneCost);
           this.state.continueBuild = false;
         }
