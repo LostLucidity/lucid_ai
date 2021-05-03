@@ -4,9 +4,10 @@
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
-const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
+const { toDegrees, gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { getClosest } = require("../helper/get-closest");
 const { distanceByPath, getClosestPositionByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
 
 module.exports = {
@@ -95,7 +96,23 @@ module.exports = {
           const isFlying = scoutingUnit.isFlying;
           let position;
           if (isFlying) {
-            position = module.exports.moveAwayPosition(closestEnemy, scoutingUnit);
+            const highPoints = gridsInCircle(scoutingUnit.pos, overlordSightRange)
+              .filter(grid => {
+                const [ closestEnemyToPoint ] = units.getClosest(grid, units.getAlive(Alliance.ENEMY));
+                try {
+                  const gridHeight = map.getHeight(grid);
+                  const circleCandidates = gridsInCircle(grid, scoutingUnit.radius).filter(candidate => distance(candidate, grid) <= scoutingUnit.radius);
+                  return (
+                    gridHeight - closestEnemy.pos.z >= 2 &&
+                    gridHeight - closestEnemyToPoint.pos.z >= 2 &&
+                    circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight)
+                  )
+                } catch {
+                  return false;
+                }
+              });
+            const [ closestHighPoint ] = getClosest(scoutingUnit.pos, highPoints);
+            position = closestHighPoint ? closestHighPoint : module.exports.moveAwayPosition(closestEnemy, scoutingUnit);
           } else {
             const enemyUnits = units.getAlive(Alliance.ENEMY);
             closestEnemy.inRangeUnits = enemyUnits.filter(enemyUnit => distance(closestEnemy.pos, enemyUnit.pos) < 8);
