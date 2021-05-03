@@ -57,7 +57,7 @@ const entry = createSystem({
           abilityId: CANCEL_BUILDINPROGRESS,
           unitTags: [ damagedUnit.tag ],
         };
-        actions.sendAction(unitCommand);
+        await actions.sendAction(unitCommand);
       }
     }
     await assemblePlan.onUnitDamaged(resources, damagedUnit)
