@@ -38,6 +38,7 @@ const { scoutEnemyMainBehavior, clearFromEnemyBehavior } = require("./behavior/l
 const { countTypes } = require("./groups");
 const { liftToThird, addAddOn } = require("./terran");
 const { balanceResources } = require("../systems/balance-resources");
+const enemyTrackingService = require("./enemy-tracking");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { getClosest } = require("./get-closest");
 
