@@ -3,7 +3,7 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { SIEGETANK, SIEGETANKSIEGED, LARVA, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED, EGG } = require("@node-sc2/core/constants/unit-type");
-const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK, EFFECT_REPAIR, STOP } = require("@node-sc2/core/constants/ability");
+const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK, EFFECT_REPAIR, STOP, HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getBase } = require("../expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
@@ -13,6 +13,8 @@ const { calculateNearSupply, getInRangeUnits } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
+const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
+const { mineralFieldTypes } = require("@node-sc2/core/constants/groups");
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action) => {
@@ -202,13 +204,16 @@ module.exports = {
               } 
               const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
               const fighters = units.getClosest(closestEnemyUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
-              if (fighters.find(fighters => fighters.tag === worker.tag)) {
-                const unitCommand = {
-                  abilityId: ATTACK_ATTACK,
-                  targetUnitTag: closestEnemyUnit.tag,
+              if (fighters.find(fighter => fighter.tag === worker.tag)) {
+                const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(worker.pos, mineralField.pos) < distance(closestEnemyUnit.pos, mineralField.pos));
+                const [closestCandidateMineral] = units.getClosest(worker.pos, candidateMinerals);
+                const retreatCommand = {
+                  abilityId: HARVEST_GATHER,
+                  targetUnitTag: closestCandidateMineral.tag,
                   unitTags: [ worker.tag ],
+                  queueCommand: false,
                 }
-                collectedActions.push(unitCommand);  
+                collectedActions.push(...micro(worker, closestEnemyUnit, retreatCommand))
               } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === closestEnemyUnit.tag) {
                 const unitCommand = {
                   abilityId: STOP,
@@ -246,4 +251,38 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
     collectedActions.push(unitCommand);
   }
   return collectedActions;
+}
+
+function micro(unit, targetUnit, retreatCommand) {
+  const collectedActions = [];
+  // if cool down and fighting melee move back
+  if (
+    unit.weaponCooldown > 12 &&
+    targetUnit.isMelee() &&
+    distance(unit.pos, targetUnit.pos) - (unit.radius + targetUnit.radius) < 0.5 &&
+    isFacing(targetUnit, unit)
+  ) {
+    console.log('unit.weaponCooldown', unit.weaponCooldown);
+    console.log('distance(unit.pos, targetUnit.pos)', distance(unit.pos, targetUnit.pos));
+    collectedActions.push(retreatCommand);
+  } else {
+    const unitCommand = {
+      abilityId: ATTACK_ATTACK,
+      targetUnitTag: targetUnit.tag,
+      unitTags: [ unit.tag ],
+    }
+    collectedActions.push(unitCommand);  
+  }
+  return collectedActions;
+}
+
+function isFacing(targetUnit, unit) {
+  const targetFacingDegrees = toDegrees(targetUnit.facing);
+  const positionOfUnitDegrees = toDegrees(Math.atan2(unit.pos.y - targetUnit.pos.y, unit.pos.x - targetUnit.pos.x));
+  const normalizedPositionOfUnitDegrees = positionOfUnitDegrees > 0 ? positionOfUnitDegrees : 360 + positionOfUnitDegrees;
+  console.log('targetFacingDegrees, normalizedPositionOfUnitDegrees', targetFacingDegrees, normalizedPositionOfUnitDegrees);
+  return Math.abs(
+    targetFacingDegrees -// 13.43
+    normalizedPositionOfUnitDegrees // 12.84
+  ) < 1;
 }
