@@ -2,6 +2,7 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
+const { UnitType } = require("@node-sc2/core/constants");
 const { CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const AssemblePlan = require("../helper/assemblePlan");
