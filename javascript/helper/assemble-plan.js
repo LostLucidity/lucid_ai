@@ -238,6 +238,8 @@ class AssemblePlan {
         this.foundPosition = null;
       } else {
         this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition));
+        const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
+        await balanceResources(this.resources, this.agent, mineralCost/vespeneCost);
         this.state.pauseBuilding = true;
         this.state.continueBuild = false;
       }
