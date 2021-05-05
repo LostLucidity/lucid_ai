@@ -83,7 +83,8 @@ class AssemblePlan {
     this.units = this.resources.get().units;
     this.threats = threats(this.resources, this.state);
     this.enemySupply = enemyTrackingService.getEnemyCombatSupply(this.data);
-    this.selfSupply = getSupply(this.data, this.units.getCombatUnits()) + getTrainingSupply(this.defenseTypes, this.data, this.units);
+    const inFieldSelfSupply = getSupply(this.data, this.units.getCombatUnits());
+    this.selfSupply = inFieldSelfSupply + getTrainingSupply(this.defenseTypes, this.data, this.units);
     this.outSupplied = this.enemySupply > this.selfSupply;
     if (this.outSupplied) {
       console.log(this.frame.timeInSeconds(), 'Scouted higher supply', this.selfSupply, this.enemySupply);
