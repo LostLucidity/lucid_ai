@@ -6,44 +6,20 @@ const path = require('path');
 // main.js
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const {
-  AIBuild,
   Difficulty,
   PlayerType,
   Race,
 } = require('@node-sc2/core/constants/enums');
 
-const maps = require('./maps')
+const maps = require('./maps');
 
 const workerBalanceSystem = require('./systems/worker-balance-system');
 const entry = require('./builds/entry');
-const race = Race.ZERG;
-const opponentRace = Race.ZERG;
-const map = maps[Math.floor(Math.random() * maps.length)];
-const difficulty = Difficulty.CHEATMONEY;
-const aiBuild = AIBuild.Rush;
 const trackEnemySystem = require('./systems/track-enemy-system');
-const settings = {
-  type: PlayerType.PARTICIPANT,
-  race: race,
-}
-
-const blueprint = {
-  settings: {
-    type: PlayerType.PARTICIPANT,
-    race: race,
-  },
-  interface: {
-    raw: true,
-    rawCropToPlayableArea: true,
-    showCloaked: true
-  }
-}
-
-
-
-console.log('blueprint', blueprint);
-
-const bot1 = createAgent(blueprint);
+const battleManager = require('./systems/battle-manager');
+const { getFileName } = require('./helper/get-races');
+const difficulty = Difficulty.VERYHARD;
+// const aiBuild = AIBuild.Rush;
 // const bot2 = createAgent(settings);
 // protossBuild.forEach(system => {
 //   bot1.use(system);
@@ -57,9 +33,6 @@ const bot1 = createAgent(blueprint);
 //     bot.use(build);
 //   });
 // }
-
-bot1.use(entry);
-bot1.use([workerBalanceSystem, trackEnemySystem]);
 
 // bot1.use(zerg);
 // bot2.use(protoss);
@@ -122,22 +95,79 @@ const engine = createEngine();
 //   await connectToHost(engine2, bot2);
 //   engine2.runLoop();
 // });
+let gameLimit = 2;
 
-engine.connect().then(async () => {
+try {
+  (async() => {
+    const responsePing = await engineConnect();
+    console.log('responsePing', responsePing);
+    for (let game = 0; game < gameLimit; game++) {
+      console.log('game', game + 1)
+      const gameResults = await runGame();
+      await processResults(gameResults);
+    }
+    console.log('end loop');
+  })();
+} catch (error) {
+  console.log('connect error', error.message);
+}
+
+function engineConnect() {
+  return engine.connect();
+}
+
+function runGame() {
+  console.log('__dirname', __dirname);
+  console.log(path.join(__dirname, 'data', `current.json`));
+  // const map = maps[Math.floor(Math.random() * maps.length)];
+  const map = 'Submarine506';
   console.log('map', map);
-  return engine.runGame(
-    map,
-    [
-      createPlayer({ race: settings.race }, bot1),
-      createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild }),
-    ]
-  );
-}).then(async ([world, results]) => {
-  console.log('GAME RESULTS: ', results);
-  const { actions } = world.resources.get();
+  const aiBuild = 2;
+  const settings = {
+    type: PlayerType.PARTICIPANT,
+    race: Race.ZERG,
+  }
+  const opponentRace = Race.ZERG;
+  const blueprint = {
+    settings,
+    interface: {
+      raw: true,
+      rawCropToPlayableArea: true,
+      showBurrowedShadows: true,
+      showCloaked: true
+    }
+  }
+  console.log('blueprint', blueprint);
+  const bot1 = createAgent(blueprint);
+  bot1.use(entry);
+  bot1.use([
+    workerBalanceSystem,
+    trackEnemySystem,
+    // battleManager
+  ]);
+  const playerOne = createPlayer({ race: settings.race }, bot1);
+  const playerTwo = createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild })
+  return engine.runGame(map, [ playerOne, playerTwo ]);
+}
 
+async function processResults([{ agent, data, resources }, gameResults]) {
+  console.log('GAME RESULTS: ', gameResults);
+  const { actions } = resources.get();
+  const parsedCompositions = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `current.json`)).toString())
+  parsedCompositions.forEach(composition => {
+    if (typeof composition.attack !== 'undefined') {
+      composition.matches++
+      if (gameResults.find(result => result.playerId === agent.playerId).result === 1) {
+        composition.attack ? composition.differential++ : composition.differential--;
+      } else {
+        composition.attack ? composition.differential-- : composition.differential++;
+      }
+      delete composition.attack;
+    }
+  });
+  const [ selfUnitType ] = Object.keys(parsedCompositions[0].selfComposition);
+  const [ enemyUnitType ] = Object.keys(parsedCompositions[0].enemyComposition);
+  fs.writeFileSync(path.join(__dirname, 'data', getFileName(data, selfUnitType, enemyUnitType)), JSON.stringify(parsedCompositions));
   const replay = await actions._client.saveReplay();
   fs.writeFileSync(path.join(__dirname, 'replays', `${Date.now()}.sc2replay`), replay.data);
-}).catch(error => {
-  console.log('connect error', error)
-});
+}
