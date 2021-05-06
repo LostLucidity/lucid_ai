@@ -56,74 +56,33 @@ module.exports = {
     // move to point with opposite angle and distance
     return awayPoint;
   },
-  shadowEnemy(resources, state, unitTypes) {
+  shadowEnemy(data, resources, shadowingUnits) {
     const { map, units } = resources.get();
     const collectedActions = [];
-    const scoutingUnits = [...units.getById(unitTypes), ...units.withLabel('scout')];
-    scoutingUnits.forEach(scoutingUnit => {
-      // follow drones outside of overlord of natural expansion scout
-      const [ closestEnemy ] = units.getClosest(scoutingUnit.pos, units.getAlive(Alliance.ENEMY).filter(unit => {
-        if (map.getEnemyNatural()) {
-          const [ closestOverlordToEnemyNatural ] = units.getClosest(map.getEnemyNatural().centroid, scoutingUnits);
-          if (scoutingUnit.tag === closestOverlordToEnemyNatural.tag) {
-            return workerTypes.includes(unit.unitType) || unit.unitType === OVERLORD ? false : true;
-          } else {
-            // count enemy units outside their range
-            detectRush(map, units, state);
-            return true;
-          }
+    const enemyUnits = units.getAlive(Alliance.ENEMY);
+    shadowingUnits.forEach(unit => {
+      const inRangeUnits = enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < unit.data().sightRange);
+      const [ closestInRangeUnit ] = units.getClosest(unit.pos, inRangeUnits);
+      const [ closestThreatUnit ] = inRangeUnits.filter(inRangeUnit => inRangeUnit.canShootUp()).sort((a, b) => {
+        const weaponsAirRangeA = Math.max.apply(Math, data.getUnitTypeData(a.unitType).weapons.map(weapon => { return weapon.range; }));
+        const distanceToRangeA = distance(a.pos, unit.pos) - weaponsAirRangeA;
+        const weaponsAirRangeB = Math.max.apply(Math, data.getUnitTypeData(b.unitType).weapons.map(weapon => { return weapon.range; }));
+        const distanceToRangeB = distance(b.pos, unit.pos) - weaponsAirRangeB;
+        return distanceToRangeA - distanceToRangeB;
+      });
+      if (closestThreatUnit) {
+        if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestThreatUnit)) { return }
+        if (distance(unit.pos, closestThreatUnit.pos) > closestThreatUnit.data().sightRange + unit.radius + closestThreatUnit.radius) {
+          collectedActions.push(moveToTarget(unit, closestThreatUnit));
+        } else {
+          collectedActions.push(moveAwayFromTarget(resources, unit, closestThreatUnit, enemyUnits));
         }
-      }));
-      if (closestEnemy && distance(scoutingUnit.pos, closestEnemy.pos) < 16) {
-        const distanceToEnemy = distance(scoutingUnit.pos, closestEnemy.pos);
-        const overlordSightRange = scoutingUnit.data().sightRange;
-        const enemySightRange = closestEnemy.data().sightRange;
-        const averageSightRange = (overlordSightRange + enemySightRange) / 2;
-        // if (distanceToEnemy < overlordSightRange && distanceToEnemy > enemySightRange) {
-        //   collectedActions.push(...holdPosition(overlord));
-        // } else 
-        if (distanceToEnemy < overlordSightRange && distanceToEnemy > averageSightRange) {
-          if (scoutingUnit.health / scoutingUnit.healthMax > 0.5) {
-            // move towards
-            const unitCommand = {
-              abilityId: MOVE,
-              targetUnitTag: closestEnemy.tag,
-              unitTags: [ scoutingUnit.tag ]
-            }
-            collectedActions.push(unitCommand);
-          }
-        } else if (distanceToEnemy - scoutingUnit.radius < enemySightRange + closestEnemy.radius) {
-          const isFlying = scoutingUnit.isFlying;
-          let position;
-          if (isFlying) {
-            const highPoints = gridsInCircle(scoutingUnit.pos, overlordSightRange)
-              .filter(grid => {
-                const [ closestEnemyToPoint ] = units.getClosest(grid, units.getAlive(Alliance.ENEMY));
-                try {
-                  const gridHeight = map.getHeight(grid);
-                  const circleCandidates = gridsInCircle(grid, scoutingUnit.radius).filter(candidate => distance(candidate, grid) <= scoutingUnit.radius);
-                  return (
-                    gridHeight - closestEnemy.pos.z >= 2 &&
-                    gridHeight - closestEnemyToPoint.pos.z >= 2 &&
-                    circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight)
-                  )
-                } catch {
-                  return false;
-                }
-              });
-            const [ closestHighPoint ] = getClosest(scoutingUnit.pos, highPoints);
-            position = closestHighPoint ? closestHighPoint : module.exports.moveAwayPosition(closestEnemy, scoutingUnit);
-          } else {
-            const enemyUnits = units.getAlive(Alliance.ENEMY);
-            closestEnemy.inRangeUnits = enemyUnits.filter(enemyUnit => distance(closestEnemy.pos, enemyUnit.pos) < 8);
-            position = module.exports.retreatToExpansion(resources, scoutingUnit, closestEnemy);
-          }
-          const unitCommand = {
-            abilityId: MOVE,
-            targetWorldSpacePos: position,
-            unitTags: [ scoutingUnit.tag ],
-          }
-          collectedActions.push(unitCommand);
+      } else if (closestInRangeUnit) {
+        if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) { return }
+        if (distance(unit.pos, closestInRangeUnit.pos) > closestInRangeUnit.data().sightRange) {
+          collectedActions.push(moveToTarget(unit, closestInRangeUnit));
+        } else {
+          collectedActions.push(moveAwayFromTarget(resources, unit, closestInRangeUnit, enemyUnits))
         }
       }
     });
@@ -131,27 +90,58 @@ module.exports = {
   }
 }
 
-function detectRush(map, units, state) {
-  // if enemy natural overlord is killed
-  const enemyBases = units.getBases(Alliance.ENEMY);
-  const threateningUnits = units.getAlive(Alliance.ENEMY).filter(unit => {
-    if (enemyBases.length > 0) {
-      const [ closestBase ] = units.getClosest(unit.pos, enemyBases);
-      if (distance(unit.pos, closestBase.pos) > 22) {
-        return true; 
-      }
-    } else {
-      const enemyMain = map.getEnemyMain();
-      if (distance(unit.pos, enemyMain.townhallPosition) > 22) {
-        return true; 
-      }
-    }
-  })
-  if (threateningUnits.length > 1) {
-    state.paused = true;
-    state.rushDetected = true;
+function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
+  const { map, units } = resources.get();
+  const [ closestToEnemyNatural ] = units.getClosest(map.getEnemyNatural().centroid, shadowingUnits);
+  if (map.getEnemyNatural()) {
+    if (
+      unit.tag === closestToEnemyNatural.tag &&
+      workerTypes.includes(targetUnit.unitType) || targetUnit.unitType === OVERLORD
+    ) { return true; }
+  }
+}
+
+function moveAwayFromTarget(resources, unit, targetUnit, targetUnits) {
+  const { map, units } = resources.get();
+  const isFlying = unit.isFlying;
+  let position;
+  if (isFlying) {
+    const overlordSightRange = unit.data().sightRange;
+    const highPoints = gridsInCircle(unit.pos, overlordSightRange)
+      .filter(grid => {
+        const [ closestEnemyToPoint ] = units.getClosest(grid, targetUnits);
+        try {
+          const gridHeight = map.getHeight(grid);
+          const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => distance(candidate, grid) <= unit.radius);
+          return (
+            gridHeight - targetUnit.pos.z >= 2 &&
+            gridHeight - closestEnemyToPoint.pos.z >= 2 &&
+            circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight)
+          )
+        } catch {
+          return false;
+        }
+      });
+    const [ closestHighPoint ] = getClosest(unit.pos, highPoints);
+    position = closestHighPoint ? closestHighPoint : module.exports.moveAwayPosition(targetUnit, unit);
   } else {
-    state.paused = false;
-    state.rushDetected = false;
+    const enemyUnits = units.getAlive(Alliance.ENEMY);
+    targetUnit.inRangeUnits = enemyUnits.filter(enemyUnit => distance(targetUnit.pos, enemyUnit.pos) < 8);
+    position = module.exports.retreatToExpansion(resources, unit, targetUnit);
+  }
+  return {
+    abilityId: MOVE,
+    targetWorldSpacePos: position,
+    unitTags: [ unit.tag ],
+  }
+}
+
+function moveToTarget(unit, targetUnit) {
+  if (unit.health / unit.healthMax > 0.5) {
+    return {
+      abilityId: MOVE,
+      targetUnitTag: targetUnit.tag,
+      unitTags: [ unit.tag ]
+    }
   }
 }

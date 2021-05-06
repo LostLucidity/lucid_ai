@@ -2,13 +2,13 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { SIEGETANK, SIEGETANKSIEGED, LARVA, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED, EGG } = require("@node-sc2/core/constants/unit-type");
+const { SIEGETANK, SIEGETANKSIEGED, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED, OVERLORD, OVERSEER, OBSERVER } = require("@node-sc2/core/constants/unit-type");
 const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK, EFFECT_REPAIR, STOP, HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getBase } = require("../expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { retreatToExpansion } = require("../../builds/helper");
+const { retreatToExpansion, shadowEnemy } = require("../../builds/helper");
 const { calculateNearSupply, getInRangeUnits } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
@@ -110,6 +110,18 @@ module.exports = {
         }
       }
     });
+    return collectedActions;
+  },
+  observerBehavior: (resources, data) => {
+    const collectedActions = [];
+    const { units } = resources.get()
+    collectedActions.push(...shadowEnemy(data, resources, units.getById(OBSERVER)));
+    return collectedActions;
+  },
+  overlordBehavior: (resources, data) => {
+    const collectedActions = [];
+    const { units } = resources.get()
+    collectedActions.push(...shadowEnemy(data, resources, units.getById([OVERLORD, OVERSEER])));
     return collectedActions;
   },
   supplyDepotBehavior: (resources) => {

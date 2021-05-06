@@ -23,8 +23,6 @@ const threats = require("./base-threats");
 const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
-const { shadowEnemy, moveAway } = require("../builds/helper");
-const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior } = require("./behavior/unit-behavior");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
 const { swapBuildings } = require("../builds/terran/swap-buildings");
@@ -34,13 +32,13 @@ const { harass } = require("../builds/harass");
 const { getBetweenBaseAndWall, findPosition, inTheMain } = require("./placement-helper");
 const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
-const { scoutEnemyMainBehavior, clearFromEnemyBehavior } = require("./behavior/labelled-behavior");
 const { countTypes } = require("./groups");
 const { liftToThird, addAddOn } = require("./terran");
 const { balanceResources } = require("../systems/balance-resources");
 const enemyTrackingService = require("./enemy-tracking");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { getClosest } = require("./get-closest");
+const runBehaviors = require("./behavior/run-behaviors");
 
 let actions;
 let opponentRace;
@@ -114,13 +112,7 @@ class AssemblePlan {
       this.state.defendNatural = true;
     }
     await this.raceSpecificManagement();
-    this.collectedActions.push(...shadowEnemy(this.resources, this.state, this.scoutTypes));
-    this.collectedActions.push(...liberatorBehavior(this.resources));
-    this.collectedActions.push(...marineBehavior(this.resources));
-    this.collectedActions.push(...scoutEnemyMainBehavior(this.resources, opponentRace));
-    this.collectedActions.push(...supplyDepotBehavior(this.resources));
-    this.collectedActions.push(...workerBehavior(world));
-    this.collectedActions.push(...clearFromEnemyBehavior(this.resources));
+    this.collectedActions.push(...await runBehaviors(world, opponentRace));
     if (this.frame.getGameLoop() % 8 === 0) {
       this.units.getAlive().forEach(unit => delete unit.expansions);
     }
