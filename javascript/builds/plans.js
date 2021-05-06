@@ -145,7 +145,6 @@ const plans = {
         defenseTypes: [ ZERGLING, ROACH, HYDRALISK ],
         defenseStructures: [ SPINECRAWLER ],
         mainCombatTypes: [ ZERGLING, ROACH, HYDRALISK ],
-        scoutTypes: [ OVERLORD, OVERSEER ],
         supportUnitTypes: [ OVERSEER, QUEEN ],
       },
       order: [
@@ -224,7 +223,6 @@ const plans = {
         defenseStructures: [ SHIELDBATTERY ],
         defenseTypes: [ STALKER, IMMORTAL ],
         mainCombatTypes: [ STALKER, COLOSSUS, IMMORTAL, ZEALOT ],
-        scoutTypes: [ OBSERVER ],
         supportUnitTypes: [ OBSERVER, WARPPRISM ],
       },
       order: [

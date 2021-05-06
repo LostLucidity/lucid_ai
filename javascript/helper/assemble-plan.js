@@ -52,7 +52,6 @@ class AssemblePlan {
     this.planOrder = plan.order;
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
     this.defenseTypes = plan.unitTypes.defenseTypes;
-    this.scoutTypes = plan.unitTypes.scoutTypes;
     this.defenseStructures = plan.unitTypes.defenseStructures;
     this.supportUnitTypes = plan.unitTypes.supportUnitTypes;
   }
