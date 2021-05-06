@@ -224,10 +224,16 @@ class AssemblePlan {
     this.foundPosition = this.foundPosition ? this.foundPosition : await findPosition(actions, unitType, candidatePositions);
     if (this.foundPosition) {
       if (this.agent.canAfford(unitType)) {
-        await actions.sendAction(workerSendOrBuild(this.resources, this.data.getUnitTypeData(unitType).abilityId, this.foundPosition));
-        this.state.pauseBuilding = false;
-        this.state.continueBuild = false;
-        this.foundPosition = null;
+        if (await actions.canPlace(unitType, [this.foundPosition])) {
+          await actions.sendAction(workerSendOrBuild(this.resources, this.data.getUnitTypeData(unitType).abilityId, this.foundPosition));
+          this.state.pauseBuilding = false;
+          this.state.continueBuild = false;
+          this.foundPosition = null;
+        } else {
+          this.foundPosition = null;
+          this.state.pauseBuilding = true;
+          this.state.continueBuild = false;
+        }
       } else {
         this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition));
         const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
