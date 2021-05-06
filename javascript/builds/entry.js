@@ -5,7 +5,7 @@ const { createSystem } = require("@node-sc2/core");
 const { UnitType } = require("@node-sc2/core/constants");
 const { CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const AssemblePlan = require("../helper/assemblePlan");
+const AssemblePlan = require("../helper/assemble-plan");
 const { gatherOrMine } = require("../systems/balance-resources");
 const plans = require("./plans");
 
