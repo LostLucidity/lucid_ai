@@ -79,9 +79,9 @@ module.exports = {
         collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
         const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
         if (combatPoint) {
-          const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
-          let allyUnits = [ ...combatUnits, ...supportUnits ];
-          const selfSupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0)
+          const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+          let allyUnits = [ ...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking()) ];
+          const selfSupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
           if (selfSupply > enemySupply) {
             console.log('Defend', selfSupply, enemySupply);
             if (closestEnemyUnit.isFlying) {
@@ -100,7 +100,7 @@ module.exports = {
             await continuouslyBuild(world, assemblePlan, mainCombatTypes);
             if (selfSupply < enemySupply) {
               console.log('engageOrRetreat', selfSupply, enemySupply);
-              allyUnits = [...allyUnits, ...units.getById(QUEEN), ...units.getWorkers().filter(worker => worker.isAttacking())];
+              allyUnits = [...allyUnits, ...units.getById(QUEEN)];
               collectedActions.push(...module.exports.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
             }
           }
