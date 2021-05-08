@@ -60,7 +60,7 @@ module.exports = {
     const collectedActions = [];
     const label = 'creeper';
     const idleCreeperQueens = units.withLabel(label).filter(unit => unit.abilityAvailable(BUILD_CREEPTUMOR_QUEEN) && unit.orders.length === 0);
-    const activeCreepTumors = units.getById(CREEPTUMORBURROWED).filter(unit => unit.availableAbilities().length > 0 && !unit.labels.get('stuck'));
+    const activeCreepTumors = units.getById(CREEPTUMORBURROWED).filter(unit => unit.availableAbilities().length > 0 && !unit.labels.get('done'));
     if (idleCreeperQueens.length > 0) {
       if (units.getById(CREEPTUMORBURROWED).length <= 2) {
         // get creep natural closest to enemy
@@ -105,9 +105,8 @@ module.exports = {
             unitTags: [ tumor.tag ]
           }
           collectedActions.push(unitCommand);
-        } else {
-          tumor.labels.set('stuck', true)
         }
+        tumor.labels.set('done', true);
       }
     }
     return collectedActions;
@@ -149,10 +148,10 @@ async function findAndPlaceCreepTumor(resources, spreaders, ability, candidates)
           unitTags: [ closestSpreader.tag ]
         }
         collectedActions.push(unitCommand);
-        allSpreaders.forEach(spreader => spreader.labels.set('stuck', false));
+        allSpreaders.forEach(spreader => spreader.labels.set('done', false));
       }
     } else {
-      spreaders.forEach(spreader => spreader.labels.set('stuck', true));
+      spreaders.forEach(spreader => spreader.labels.set('done', true));
     }
   }
   return collectedActions;
