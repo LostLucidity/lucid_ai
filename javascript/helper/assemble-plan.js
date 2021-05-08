@@ -555,7 +555,7 @@ class AssemblePlan {
       }
       const [ scout ] = labelledScouts;
       if (scout) {
-        if (scout.orders.length <= 1) {
+        if (distance(scout.pos, targetLocation) > 16) {
           const unitCommand = {
             abilityId: MOVE,
             targetWorldSpacePos: targetLocation,
