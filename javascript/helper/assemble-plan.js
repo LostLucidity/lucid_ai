@@ -115,6 +115,8 @@ class AssemblePlan {
     if (this.frame.getGameLoop() % 8 === 0) {
       this.units.getAlive().forEach(unit => delete unit.expansions);
     }
+    const label = 'pendingOrders';
+    this.units.withLabel(label).forEach(unit => unit.labels.delete(label));
     await actions.sendAction(this.collectedActions);
   }
 
