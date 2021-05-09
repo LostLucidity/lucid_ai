@@ -332,12 +332,14 @@ class AssemblePlan {
       if (this.scoutReport) {
         console.log(this.scoutReport);
         this.scoutReport = '';
-        const [ earlyScout ] = this.units.getAlive(Alliance.SELF).filter(unit => {
+        const earlyScouts = this.units.getAlive(Alliance.SELF).filter(unit => {
           return unit.labels.has('scoutEnemyMain') || unit.labels.has('scoutEnemyNatural');
         });
-        if (earlyScout) {
-          earlyScout.labels.clear();
-          earlyScout.labels.set('clearFromEnemy', true);
+        if (earlyScouts.length > 0) {
+          earlyScouts.forEach(earlyScout => {
+            earlyScout.labels.clear();
+            earlyScout.labels.set('clearFromEnemy', true);
+          })
         }
       }
     }
