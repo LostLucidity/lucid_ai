@@ -10,11 +10,11 @@ module.exports = {
     const { actions, units } = resources.get();
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const needyGasMines = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
-    const { minerals, vespene } = agent;
-    const resourceRatio = minerals / vespene;
-    const surplusMinerals = resourceRatio > targetRatio;
+    const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
+    const mineralMinerCountRatio = mineralMinerCount / vespeneMinerCount;
+    const surplusMinerals = mineralMinerCountRatio > targetRatio;
     if (needyGasMines && surplusMinerals) {
-      const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
+      const townhalls = units.getBases(readySelfFilter);
       // const possibleDonerThs = townhalls.filter(townhall => townhall.assignedHarvesters > needyGasMine.assignedHarvesters + 1);
       // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
       // const [givingTownhall] = units.getClosest(needyGasMine.pos, possibleDonerThs);
@@ -65,4 +65,11 @@ module.exports = {
     const gasMinerCount = units.getGasMines(readySelfFilter).map(mine => mine.assignedHarvesters).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
     needyGasMine && mineralMinerCount/gasMinerCount > 16/6 ? await actions.mine(unit, needyGasMine) : await actions.gather(unit);
   }
+}
+
+function getMinerCount(units) {
+  const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
+  const mineralMinerCount = units.getBases(readySelfFilter).reduce((accumulator, currentValue) => accumulator + currentValue.assignedHarvesters, 0);
+  const vespeneMinerCount = units.getGasMines(readySelfFilter).reduce((accumulator, currentValue) => accumulator + currentValue.assignedHarvesters, 0);
+  return { mineralMinerCount, vespeneMinerCount }
 }
