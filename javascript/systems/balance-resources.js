@@ -6,7 +6,7 @@ const { gatheringAbilities, mineralFieldTypes, gasMineTypes } = require("@node-s
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 module.exports = {
-  balanceResources: async (resources, agent, targetRatio=16/6) => {
+  balanceResources: async (resources, targetRatio=16/6) => {
     const { actions, units } = resources.get();
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const needyGasMines = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);

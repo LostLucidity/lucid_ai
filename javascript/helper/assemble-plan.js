@@ -200,6 +200,11 @@ class AssemblePlan {
               if (unitsCanDo.length > 0) {
                 let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
                 await addAddOn(this.world, unitCanDo, abilityId, unitType)
+              } else {
+                const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
+                await balanceResources(this.resources, mineralCost/vespeneCost);
+                this.state.pauseBuilding = true;
+                this.state.continueBuild = false;
               }
             }
             break;
@@ -238,7 +243,7 @@ class AssemblePlan {
       } else {
         this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition));
         const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-        await balanceResources(this.resources, this.agent, mineralCost/vespeneCost);
+        await balanceResources(this.resources, mineralCost/vespeneCost);
         this.state.pauseBuilding = true;
         this.state.continueBuild = false;
       }
@@ -624,7 +629,7 @@ class AssemblePlan {
           this.state.pauseBuilding = true;
           console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
           const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-          await balanceResources(this.resources, this.agent, mineralCost/vespeneCost);
+          await balanceResources(this.resources, mineralCost/vespeneCost);
           this.state.continueBuild = false;
         }
       }
@@ -642,6 +647,8 @@ class AssemblePlan {
           await actions.sendAction([unitCommand]);
           this.state.pauseBuilding = false;
         } else {
+          const { mineralCost, vespeneCost } = this.data.getUpgradeData(upgradeId);
+          await balanceResources(this.resources, mineralCost/vespeneCost);
           this.state.pauseBuilding = true;
           this.state.continueBuild = false;
         }

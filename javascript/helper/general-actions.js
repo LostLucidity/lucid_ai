@@ -26,7 +26,7 @@ module.exports = {
       } else {
         collectedActions.push(...workerSendOrBuild(resources, MOVE, expansionLocation));
         const {mineralCost, vespeneCost} = data.getUnitTypeData(townhallType);
-        await balanceResources(resources, agent, mineralCost/vespeneCost);
+        await balanceResources(resources, mineralCost/vespeneCost);
         state.pauseBuilding = true;
         state.continueBuild = false;
       }
