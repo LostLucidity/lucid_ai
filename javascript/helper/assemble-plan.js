@@ -541,7 +541,7 @@ class AssemblePlan {
   scout(foodRanges, unitType, targetLocationFunction, conditions) {
     if (conditions && conditions.scoutType === 'earlyScout' && this.earlyScout === undefined) { this.earlyScout = true; }
     if (foodRanges.indexOf(this.foodUsed) > -1) {
-      const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().townhallPosition : locationHelper[targetLocationFunction](this.map);
+      const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().centroid : locationHelper[targetLocationFunction](this.map);
       const label = conditions && conditions.label ? conditions.label: 'scout';
       let labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
