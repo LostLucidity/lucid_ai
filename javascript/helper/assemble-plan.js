@@ -32,7 +32,6 @@ const { harass } = require("../builds/harass");
 const { getBetweenBaseAndWall, findPosition, inTheMain } = require("./placement-helper");
 const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
-const { countTypes } = require("./groups");
 const { liftToThird, addAddOn } = require("./terran");
 const { balanceResources } = require("../systems/balance-resources");
 const enemyTrackingService = require("./enemy-tracking");
