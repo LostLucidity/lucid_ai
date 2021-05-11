@@ -59,7 +59,7 @@ module.exports = {
     return trainingUnitTypes.map(unitType => unitType === ZERGLING ? 1 : data.getUnitTypeData(unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   },
   getSupply: (data, units) => {
-    return units.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+    return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
   },
   workerSendOrBuild: (resources, abilityId, position) => {
     const { frame, units } = resources.get();
