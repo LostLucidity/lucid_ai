@@ -625,10 +625,10 @@ class AssemblePlan {
           this.state.pauseBuilding = false;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
         } else {
-          this.state.pauseBuilding = true;
           console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
           const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
           await balanceResources(this.resources, mineralCost/vespeneCost);
+          this.state.pauseBuilding = true;
           this.state.continueBuild = false;
         }
       }
