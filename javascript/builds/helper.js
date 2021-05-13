@@ -44,16 +44,12 @@ module.exports = {
     return unitCommand;
   },
   moveAwayPosition(targetUnit, unit, distance=2) {
-        // move away
-    // angle of enemy in grid.
     const angle = toDegrees(Math.atan2(targetUnit.pos.y - unit.pos.y, targetUnit.pos.x - unit.pos.x));
     const oppositeAngle = angle + 180 % 360;
     const awayPoint = {
       x: Math.cos(oppositeAngle * Math.PI / 180) * distance + unit.pos.x,
       y: Math.sin(oppositeAngle * Math.PI / 180) * distance + unit.pos.y
     }
-    // Get opposite angle of enemy.
-    // move to point with opposite angle and distance
     return awayPoint;
   },
   shadowEnemy(data, resources, shadowingUnits) {
