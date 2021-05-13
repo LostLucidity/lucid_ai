@@ -225,7 +225,7 @@ module.exports = {
                   unitTags: [ worker.tag ],
                   queueCommand: false,
                 }
-                collectedActions.push(...micro(worker, closestEnemyUnit, retreatCommand))
+                collectedActions.push(...micro(enemyUnits, worker, closestEnemyUnit, retreatCommand))
               } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === closestEnemyUnit.tag) {
                 const unitCommand = {
                   abilityId: STOP,
@@ -265,7 +265,7 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
   return collectedActions;
 }
 
-function micro(unit, targetUnit, retreatCommand) {
+function micro(enemyUnits, unit, targetUnit, retreatCommand) {
   const collectedActions = [];
   // if cool down and fighting melee move back
   if (
@@ -278,6 +278,9 @@ function micro(unit, targetUnit, retreatCommand) {
     console.log('distance(unit.pos, targetUnit.pos)', distance(unit.pos, targetUnit.pos));
     collectedActions.push(retreatCommand);
   } else {
+    const inRangeMeleeEnemyUnits = enemyUnits.filter(enemyUnit => enemyUnit.isMelee() && ((distance(unit.pos, enemyUnit.pos) + 0.05) - (unit.radius + enemyUnit.radius) < 0.25));
+    const [ weakestInRange ] = inRangeMeleeEnemyUnits.sort((a, b) => (a.health + a.shield) - (b.health + b.shield));
+    targetUnit = weakestInRange || targetUnit;
     const unitCommand = {
       abilityId: ATTACK_ATTACK,
       targetUnitTag: targetUnit.tag,
