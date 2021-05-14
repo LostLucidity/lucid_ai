@@ -296,8 +296,5 @@ function isFacing(targetUnit, unit) {
   const positionOfUnitDegrees = toDegrees(Math.atan2(unit.pos.y - targetUnit.pos.y, unit.pos.x - targetUnit.pos.x));
   const normalizedPositionOfUnitDegrees = positionOfUnitDegrees > 0 ? positionOfUnitDegrees : 360 + positionOfUnitDegrees;
   console.log('targetFacingDegrees, normalizedPositionOfUnitDegrees', targetFacingDegrees, normalizedPositionOfUnitDegrees);
-  return Math.abs(
-    targetFacingDegrees -// 13.43
-    normalizedPositionOfUnitDegrees // 12.84
-  ) < 1;
+  return Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees) < 7;
 }
