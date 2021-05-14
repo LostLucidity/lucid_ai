@@ -84,7 +84,10 @@ class AssemblePlan {
     this.outSupplied = this.enemySupply > this.selfSupply;
     if (this.outSupplied) {
       console.log(this.frame.timeInSeconds(), 'Scouted higher supply', this.selfSupply, this.enemySupply);
-      await continuouslyBuild(this.world, this, this.defenseTypes); 
+      const haveTechForTypes = this.defenseTypes.filter(type => this.agent.hasTechFor(type));
+      this.selectedTypeToBuild = this.selectedTypeToBuild ? this.selectedTypeToBuild : haveTechForTypes[Math.floor(Math.random() * haveTechForTypes.length)];
+      let abilityId = this.data.getUnitTypeData(this.selectedTypeToBuild).abilityId;
+      this.train(this.foodUsed, this.selectedTypeToBuild, this.units.getById(this.selectedTypeToBuild).length + this.units.withCurrentOrders(abilityId).length)
     }
     await this.runPlan();
     if (this.foodUsed < ATTACKFOOD && this.state.pushMode === false) {
@@ -623,6 +626,7 @@ class AssemblePlan {
             }
           }
           this.state.pauseBuilding = false;
+          this.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
         } else {
           console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
