@@ -60,10 +60,8 @@ module.exports = {
     const { actions, units } = resources.get();
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const needyGasMine = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
-    const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
-    const mineralMinerCount = townhalls.map(townhall => townhall.assignedHarvesters).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-    const gasMinerCount = units.getGasMines(readySelfFilter).map(mine => mine.assignedHarvesters).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-    needyGasMine && mineralMinerCount/gasMinerCount > 16/6 ? await actions.mine(unit, needyGasMine) : await actions.gather(unit);
+    const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
+    needyGasMine && mineralMinerCount/vespeneMinerCount > 16/6 ? await actions.mine(unit, needyGasMine) : await actions.gather(unit);
   }
 }
 
