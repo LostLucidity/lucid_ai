@@ -268,11 +268,14 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
 function micro(enemyUnits, unit, targetUnit, retreatCommand) {
   const collectedActions = [];
   // if cool down and fighting melee move back
+  const microConditions = [
+    targetUnit.isMelee(),
+    (distance(unit.pos, targetUnit.pos) + 0.05) - (unit.radius + targetUnit.radius) < 0.5,
+    isFacing(targetUnit, unit),
+  ]
   if (
-    unit.weaponCooldown > 12 &&
-    targetUnit.isMelee() &&
-    distance(unit.pos, targetUnit.pos) - (unit.radius + targetUnit.radius) < 0.5 &&
-    isFacing(targetUnit, unit)
+    [...microConditions, unit.weaponCooldown > 12].every(condition => condition) ||
+    [...microConditions, (unit.health + unit.shield) < (targetUnit.health + targetUnit.shield)].every(condition => condition)
   ) {
     console.log('unit.weaponCooldown', unit.weaponCooldown);
     console.log('distance(unit.pos, targetUnit.pos)', distance(unit.pos, targetUnit.pos));
