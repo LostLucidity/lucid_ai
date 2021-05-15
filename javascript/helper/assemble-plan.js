@@ -212,7 +212,7 @@ class AssemblePlan {
             }
             break;
           default:
-            if (candidatePositions.length === 0 ) { candidatePositions = this.findPlacements(unitType); }
+            if (candidatePositions.length === 0) { candidatePositions = this.findPlacements(unitType); }
             await this.buildBuilding(unitType, candidatePositions);
         }
       }
