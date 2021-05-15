@@ -714,7 +714,7 @@ class AssemblePlan {
             break;
           case 'upgrade':
             const upgradeId = planStep[2];
-            this.upgrade(foodTarget, upgradeId);
+            await this.upgrade(foodTarget, upgradeId);
             break;
         }
       }
