@@ -64,4 +64,35 @@ module.exports = {
     }
     collectedActions.length > 0 && await actions.sendAction(collectedActions);
   },
+  scoutEnemyNaturalBehavior: async (resources) => {
+    const { actions, map, units } = resources.get();
+    const [ unit ] = units.withLabel('scoutEnemyNatural');
+    const collectedActions = [];
+    if (unit) {
+      const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, Alliance.ENEMY).filter(cannon => distance(cannon.pos, unit.pos) < 16);
+      if (calculateTotalHealthRatio(unit) > 1/2 && !inRangeEnemyCannon) {
+        const enemyNatural = map.getEnemyNatural();
+        const randomPointsOfInterest = [...getRandomPoints(map, 3, enemyNatural.areas.areaFill)];
+        if (randomPointsOfInterest.length > unit.orders.length) {
+          randomPointsOfInterest.forEach(point => {
+            const unitCommand = {
+              abilityId: MOVE,
+              unitTags: [ unit.tag ],
+              queueCommand: true,
+              targetWorldSpacePos: point,
+            };
+            collectedActions.push(unitCommand);
+          });
+        }
+      } else {
+        const unitCommand = {
+          abilityId: MOVE,
+          unitTags: [ unit.tag ],
+          targetWorldSpacePos: getCombatRally(resources),
+        };
+        collectedActions.push(unitCommand);
+      }
+    }
+    collectedActions.length > 0 && await actions.sendAction(collectedActions);
+  },
 }

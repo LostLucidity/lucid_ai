@@ -125,7 +125,7 @@ class AssemblePlan {
 
   async onUnitDamaged(resources, damagedUnit) {
     const { units } = resources.get();
-    if (damagedUnit.labels.get('scoutEnemyMain')) {
+    if (damagedUnit.labels.get('scoutEnemyMain') || damagedUnit.labels.get('scoutEnemyNatural')) {
       const [closestEnemyUnit] = units.getClosest(damagedUnit.pos, enemyTrackingService.enemyUnits);
       await actions.sendAction(moveAway(damagedUnit, closestEnemyUnit, 4));
     }
