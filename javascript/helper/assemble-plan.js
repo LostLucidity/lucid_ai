@@ -717,6 +717,8 @@ class AssemblePlan {
             await this.upgrade(foodTarget, upgradeId);
             break;
         }
+      } else {
+        break;
       }
     }
   }
