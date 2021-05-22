@@ -3,7 +3,7 @@
 
 const { UnitType } = require("@node-sc2/core/constants");
 const { getSupply } = require("../helper");
-const { morphMapping } = require("./groups");
+const { morphMapping } = require("../helper/groups");
 
 const enemyTrackingService = {
   enemyUnits: [],

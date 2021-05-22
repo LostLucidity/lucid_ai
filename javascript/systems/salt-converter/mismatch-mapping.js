@@ -2,6 +2,7 @@
 "use strict"
 
 const mismatchMappings = {
+  'TERRANINFANTRYARMORLEVEL1': 'TERRANINFANTRYARMORSLEVEL1',
   'VIKING': 'VIKINGFIGHTER'
 }
 

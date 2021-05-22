@@ -2,7 +2,7 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const enemyTrackingService = require("../helper/enemy-tracking");
+const enemyTrackingService = require("../services/enemy-tracking-service");
 
 module.exports = createSystem({
   name: 'TrackEnemySystem',
