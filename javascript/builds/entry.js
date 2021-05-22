@@ -70,6 +70,7 @@ const entry = createSystem({
     if (idleUnit.isWorker() && idleUnit.noQueue) {
       const { units } = resources.get();
       if (units.getBases(Alliance.SELF).length > 0) {
+        console.log('gatherOrMine');
         await gatherOrMine(resources, idleUnit);
       }
     }
