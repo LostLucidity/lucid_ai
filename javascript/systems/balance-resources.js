@@ -61,7 +61,7 @@ module.exports = {
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const needyGasMine = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
     const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
-    needyGasMine && mineralMinerCount/vespeneMinerCount > 16/6 ? await actions.mine(unit, needyGasMine) : await actions.gather(unit);
+    needyGasMine && mineralMinerCount/vespeneMinerCount > 16/6 ? await actions.mine(unit, needyGasMine, false) : await actions.gather(unit, null, false);
   }
 }
 
