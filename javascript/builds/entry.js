@@ -2,10 +2,10 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { UnitType } = require("@node-sc2/core/constants");
 const { CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const AssemblePlan = require("../helper/assemble-plan");
+const { convertPlan } = require("../helper/salt-converter/salt-converter");
 const { gatherOrMine } = require("../systems/balance-resources");
 const plans = require("./plans");
 
@@ -79,26 +79,11 @@ const entry = createSystem({
     var keys = Object.keys(racePlans);
     const selectedBuild = racePlans[keys[ keys.length * Math.random() << 0]];
     if (selectedBuild.buildType === 'two variable') {
-      return this.convertBuild(selectedBuild);
+      return convertPlan(selectedBuild);
     } else {
       return selectedBuild;
     }
   },
-  convertBuild(build) {
-    const convertedBuild = [];
-    build.forEach(order => {
-      const convertedBuild = []
-      const actions = order[1].split(',').map(item => item.replace(' ','').toUpperCase())
-      actions.forEach(action => {
-
-      });
-      convertedBuild.push([
-        order[0],
-        UnitType[order[1].replace(' ','').toUpperCase()],
-      ]);
-    })
-    return convertedBuild;
-  }
 });
 
 module.exports = entry;
