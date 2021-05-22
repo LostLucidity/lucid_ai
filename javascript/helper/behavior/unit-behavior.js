@@ -9,7 +9,7 @@ const { getOccupiedExpansions, getBase } = require("../expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { retreatToExpansion, shadowEnemy } = require("../../builds/helper");
-const { calculateNearSupply, getInRangeUnits } = require("../battle-analysis");
+const { calculateNearSupply, getInRangeUnits, calculateHealthAdjustedSupply } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
@@ -182,15 +182,15 @@ module.exports = {
         const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
         if (distanceToClosestEnemy < 16) {
           const inRangeSelfCombatUnits = getInRangeUnits(worker, units.getCombatUnits(Alliance.SELF));
-          const inRangeCombatSupply = calculateNearSupply(data, inRangeSelfCombatUnits);
+          const inRangeCombatSupply = calculateHealthAdjustedSupply(data, inRangeSelfCombatUnits);
           const inRangeCombatUnitsOfEnemy = getInRangeUnits(closestEnemyUnit, units.getCombatUnits(Alliance.SELF));
-          const inRangeCombatUnitsOfEnemySupply = calculateNearSupply(data, inRangeCombatUnitsOfEnemy);
+          const inRangeCombatUnitsOfEnemySupply = calculateHealthAdjustedSupply(data, inRangeCombatUnitsOfEnemy);
           closestEnemyUnit.inRangeUnits = getInRangeUnits(closestEnemyUnit, enemyUnits);
-          const inRangeEnemySupply = calculateNearSupply(data, closestEnemyUnit.inRangeUnits);
+          const inRangeEnemySupply = calculateHealthAdjustedSupply(data, closestEnemyUnit.inRangeUnits);
           const combatSupply = inRangeCombatSupply > inRangeCombatUnitsOfEnemySupply ? inRangeCombatSupply : inRangeCombatUnitsOfEnemySupply;
           if (inRangeEnemySupply > combatSupply) {
             const inRangeWorkers = getInRangeUnits(worker, workers);
-            const inRangeWorkerSupply = calculateNearSupply(data, inRangeWorkers);
+            const inRangeWorkerSupply = calculateHealthAdjustedSupply(data, inRangeWorkers);
             if (inRangeEnemySupply > inRangeWorkerSupply) {
               const position = retreatToExpansion(resources, worker, closestEnemyUnit);
               const unitCommand = {
