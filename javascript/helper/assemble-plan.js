@@ -9,7 +9,7 @@ const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { frontOfGrid } = require("@node-sc2/core/utils/map/region");
 const buildWorkers = require("./build-workers");
 const { MOVE } = require("@node-sc2/core/constants/ability");
-const canAfford = require("./can-afford");
+const canBuild = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
 const { workerSendOrBuild, getSupply, getTrainingSupply, checkBuildingCount } = require("../helper");
@@ -608,7 +608,7 @@ class AssemblePlan {
       })        
       const unitCount = this.units.getById(unitType).length + orders.length
       if (unitCount === targetCount) {
-        if (canAfford(this.agent, this.world.data, unitType)) {
+        if (canBuild(this.agent, this.world.data, unitType)) {
           const trainer = this.units.getProductionUnits(unitType).find(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId));
           if (trainer) {
             const unitCommand = {

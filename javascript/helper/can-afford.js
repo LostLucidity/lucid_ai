@@ -3,11 +3,8 @@
 
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 
-function canAfford(agent, data, type) {
-  const {
-    foodCap,
-    foodUsed,
-  } = agent;
+function canBuild(agent, data, type) {
+  const { foodCap, foodUsed, } = agent;
   let supplyLeft = 1
   if (type !== OVERLORD) {
     supplyLeft = foodCap - foodUsed;
@@ -15,4 +12,4 @@ function canAfford(agent, data, type) {
   return agent.canAfford(type) && agent.hasTechFor(type) && supplyLeft >= data.getUnitTypeData(type).foodRequired;
 }
 
-module.exports = canAfford;
+module.exports = canBuild;
