@@ -630,9 +630,11 @@ class AssemblePlan {
           this.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
         } else {
-          console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
-          const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-          await balanceResources(this.resources, mineralCost/vespeneCost);
+          if (!this.agent.canAfford(unitType)) {
+            console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
+            const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
+            await balanceResources(this.resources, mineralCost/vespeneCost);
+          }
           this.state.pauseBuilding = true;
           this.state.continueBuild = false;
         }
