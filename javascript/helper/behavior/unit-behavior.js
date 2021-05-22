@@ -226,6 +226,7 @@ module.exports = {
                   unitTags: [ worker.tag ],
                   queueCommand: false,
                 }
+                console.log('inRangeEnemySupply', inRangeEnemySupply, 'inRangeWorkerSupply', inRangeWorkerSupply);
                 collectedActions.push(...micro(enemyUnits, worker, closestEnemyUnit, retreatCommand))
               } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === closestEnemyUnit.tag) {
                 await gatherOrMine(resources, worker);
