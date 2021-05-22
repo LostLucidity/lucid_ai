@@ -15,6 +15,7 @@ const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { mineralFieldTypes } = require("@node-sc2/core/constants/groups");
+const { gatherOrMine } = require("../../systems/balance-resources");
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action) => {
@@ -170,13 +171,13 @@ module.exports = {
     }
     return collectedActions;
   },
-  workerBehavior: ({ agent, data, resources }) => {
+  workerBehavior: async ({ agent, data, resources }) => {
     const { frame, units} = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
     const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural']) && !isRepairing(unit));
     if (enemyUnits.length > 0) {
-      workers.forEach(worker => {
+      for (const worker of workers) {
         let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyUnits.filter(unit => !unit.isStructure()), 1);
         if (!closestEnemyUnit) { [ closestEnemyUnit ] = units.getClosest(worker.pos, units.getStructures(Alliance.ENEMY), 1) }
         const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
@@ -227,11 +228,7 @@ module.exports = {
                 }
                 collectedActions.push(...micro(enemyUnits, worker, closestEnemyUnit, retreatCommand))
               } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === closestEnemyUnit.tag) {
-                const unitCommand = {
-                  abilityId: STOP,
-                  unitTags: [ worker.tag ],
-                }
-                collectedActions.push(unitCommand);  
+                await gatherOrMine(resources, worker);
               }
             } 
           } 
