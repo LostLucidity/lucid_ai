@@ -49,7 +49,7 @@ class AssemblePlan {
   constructor(plan) {
     this.collectedActions = [];
     this.foundPosition = null;
-    this.planOrder = plan.order;
+    this.planOrders = plan.orders;
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
     this.defenseTypes = plan.unitTypes.defenseTypes;
     this.defenseStructures = plan.unitTypes.defenseStructures;
@@ -664,9 +664,9 @@ class AssemblePlan {
   
   async runPlan() {
     this.state.continueBuild = true;
-    for (let step = 0; step < this.planOrder.length; step++) {
+    for (let step = 0; step < this.planOrders.length; step++) {
       if (this.state.continueBuild) {
-        const planStep = this.planOrder[step];
+        const planStep = this.planOrders[step];
         let targetCount = planStep[3];
         const foodTarget = planStep[0];
         let conditions;

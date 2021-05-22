@@ -16,7 +16,7 @@ const plans = {
         mainCombatTypes: [ MARINE, MARAUDER, SIEGETANK, SIEGETANKSIEGED ],
         supportUnitTypes: [ CYCLONE, LIBERATOR, MEDIVAC, VIKINGFIGHTER ],
       },
-      order: [
+      orders: [
         [[...range(0, 21)], 'buildWorkers'],
         [[...range(21, 200)], 'buildWorkers', true],
         [[...range(0, 200)], 'continuouslyBuild', [MARINE, MARAUDER], true],
@@ -147,7 +147,7 @@ const plans = {
         mainCombatTypes: [ ZERGLING, ROACH, HYDRALISK ],
         supportUnitTypes: [ OVERSEER, QUEEN ],
       },
-      order: [
+      orders: [
         [[...range(0, 21)], 'buildWorkers'],
         [13, 'train', OVERLORD, 1],
         [17, 'build', HATCHERY, 1],
@@ -225,7 +225,7 @@ const plans = {
         mainCombatTypes: [ STALKER, COLOSSUS, IMMORTAL, ZEALOT ],
         supportUnitTypes: [ OBSERVER, WARPPRISM ],
       },
-      order: [
+      orders: [
         [[...range(0, 27), ...range(30, 41)], 'buildWorkers'],
         [14, 'build', PYLON, 0, 'findSupplyPositions'],
         [[...range(14, 19)], 'scout', PROBE, 'getEnemyMain', { unitType: PYLON, unitCount: 1, scoutType: 'earlyScout' }],
