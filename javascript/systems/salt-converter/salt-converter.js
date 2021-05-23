@@ -25,21 +25,21 @@ module.exports = {
         }
       });
       actions.forEach(action => {
-        let orderType;
-        let unitType;
+        const planStep = {};
         let unitTypeAction = UnitType[action] ? action : mismatchMappings[action];
         let upgradeAction = Upgrade[action] ? action : mismatchMappings[action];
         if (UnitType[unitTypeAction]) {
-          orderType = "UnitType";
+          planStep.orderType = "UnitType";
           action = UnitType[action] ? action : mismatchMappings[action];
-          unitCount[action] = unitCount.hasOwnProperty(action) ? unitCount[action] + 1 : 0;
-          unitType = UnitType[unitTypeAction];
+          unitCount[UnitType[unitTypeAction]] = unitCount.hasOwnProperty(UnitType[unitTypeAction]) ? unitCount[UnitType[unitTypeAction]] + 1 : 0;
+          planStep.unitType = UnitType[unitTypeAction];
+          planStep.targetCount = unitCount[UnitType[unitTypeAction]];
         } else if (Upgrade[upgradeAction]) {
-          orderType = "Upgrade";
+          planStep.orderType = "Upgrade";
           action = Upgrade[action] ? action : mismatchMappings[action];
-          unitType = Upgrade[upgradeAction];
+          planStep.upgrade = Upgrade[upgradeAction];
         }
-        let planStep = { food: order[0], orderType, unitType, targetCount: unitCount[action] };
+        planStep.food = order[0];
         convertedPlan.push(planStep);
       });
     })
