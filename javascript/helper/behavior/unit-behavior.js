@@ -214,7 +214,7 @@ module.exports = {
                   console.log('Ignore out of build range enemy.');
                   return;
                 }
-              } 
+              }
               const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
               const fighters = units.getClosest(closestEnemyUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
               if (fighters.find(fighter => fighter.tag === worker.tag)) {
