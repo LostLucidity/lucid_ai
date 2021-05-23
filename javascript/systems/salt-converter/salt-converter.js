@@ -7,6 +7,7 @@ const mismatchMappings = require("./mismatch-mapping");
 module.exports = {
   convertPlan: (build) => {
     const convertedPlan = [];
+    const unitCount = {};
     build.orders.forEach(order => {
       const actions = [];
       order[1].split(',').forEach(item => {
@@ -26,14 +27,19 @@ module.exports = {
       actions.forEach(action => {
         let orderType;
         let unitType;
-        if (UnitType[action] || mismatchMappings[action]) {
+        let unitTypeAction = UnitType[action] ? action : mismatchMappings[action];
+        let upgradeAction = Upgrade[action] ? action : mismatchMappings[action];
+        if (UnitType[unitTypeAction]) {
           orderType = "UnitType";
-          unitType = UnitType[action]
-        } else if (Upgrade[action]) {
+          action = UnitType[action] ? action : mismatchMappings[action];
+          unitCount[action] = unitCount.hasOwnProperty(action) ? unitCount[action] + 1 : 0;
+          unitType = UnitType[unitTypeAction];
+        } else if (Upgrade[upgradeAction]) {
           orderType = "Upgrade";
-          unitType = Upgrade[action]
+          action = Upgrade[action] ? action : mismatchMappings[action];
+          unitType = Upgrade[upgradeAction];
         }
-        let planStep = [ order[0], orderType, unitType ];
+        let planStep = { food: order[0], orderType, unitType, targetCount: unitCount[action] };
         convertedPlan.push(planStep);
       });
     })
