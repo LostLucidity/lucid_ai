@@ -13,4 +13,4 @@ module.exports = createSystem({
   async onUnitDestroyed({}, unitDestroyed) {
     enemyTrackingService.removeEnemyUnit(unitDestroyed);
   }
-})
+});
