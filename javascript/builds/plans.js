@@ -70,7 +70,6 @@ const plans = {
         [[...range(193, 200)], 'continuouslyBuild', [LIBERATOR], true],
         [105, 'build', BARRACKSREACTOR, 2],
         [105, 'build', BARRACKSREACTOR, 3],
-        [105, 'build', BARRACKSREACTOR, 4],
         [113, 'liftToThird'],
         [117, 'ability', RESEARCH_COMBATSHIELD],
         [117, 'build', ARMORY, 0],
