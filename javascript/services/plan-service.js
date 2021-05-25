@@ -8,7 +8,8 @@ const planService = {
   plan: null,
   setPlan: (plan) => {
     planService.plan = plan;
-  }
+  },
+  trainingTypes: null,
 }
 
 module.exports = planService;

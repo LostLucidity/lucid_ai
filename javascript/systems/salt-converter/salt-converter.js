@@ -2,12 +2,13 @@
 "use strict"
 
 const { UnitType, Upgrade } = require("@node-sc2/core/constants");
+const planService = require("../../services/plan-service");
 const mismatchMappings = require("./mismatch-mapping");
 
 module.exports = {
   convertPlan: (build) => {
     const convertedPlan = [];
-    const unitCount = {};
+    const unitCount = new Map();
     build.orders.forEach(order => {
       const actions = [];
       order[1].split(',').forEach(item => {
@@ -31,9 +32,9 @@ module.exports = {
         if (UnitType[unitTypeAction]) {
           planStep.orderType = "UnitType";
           action = UnitType[action] ? action : mismatchMappings[action];
-          unitCount[UnitType[unitTypeAction]] = unitCount.hasOwnProperty(UnitType[unitTypeAction]) ? unitCount[UnitType[unitTypeAction]] + 1 : 0;
+          unitCount.set(UnitType[unitTypeAction], unitCount.get(UnitType[unitTypeAction]) ? unitCount.get(UnitType[unitTypeAction]) + 1 : 0);
           planStep.unitType = UnitType[unitTypeAction];
-          planStep.targetCount = unitCount[UnitType[unitTypeAction]];
+          planStep.targetCount = unitCount.get(UnitType[unitTypeAction]);
         } else if (Upgrade[upgradeAction]) {
           planStep.orderType = "Upgrade";
           action = Upgrade[action] ? action : mismatchMappings[action];
@@ -42,7 +43,8 @@ module.exports = {
         planStep.food = order[0];
         convertedPlan.push(planStep);
       });
-    })
+      planService.trainingTypes = Array.from(unitCount.keys());
+    });
     return convertedPlan;
   },
 }
