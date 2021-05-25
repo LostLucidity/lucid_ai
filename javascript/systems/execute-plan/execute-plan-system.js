@@ -7,7 +7,7 @@ const planService = require("../../services/plan-service");
 const { build, train, upgrade } = require("./plan-actions");
 
 module.exports = createSystem({
-  name: 'ExecutePlanSystems',
+  name: 'ExecutePlanSystem',
   type: 'agent',
   async onStep(world) {
     const { actions } = world.resources.get();
