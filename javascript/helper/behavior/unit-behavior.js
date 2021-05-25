@@ -212,7 +212,7 @@ module.exports = {
                 }
                 if ((buildOnStandby || moveOrder) && distance(position, closestEnemyUnit.pos) > 3) {
                   console.log('Ignore out of build range enemy.');
-                  return;
+                  continue;
                 }
               }
               const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
