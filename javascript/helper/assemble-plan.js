@@ -617,7 +617,7 @@ class AssemblePlan {
             }
             await actions.sendAction([unitCommand]);
           } else {
-            abilityId = WarpUnitAbility[unitType]
+            abilityId = WarpUnitAbility[unitType];
             const warpGates = this.units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
             if (warpGates.length > 0) {
               warpIn(this.resources, this, unitType);
