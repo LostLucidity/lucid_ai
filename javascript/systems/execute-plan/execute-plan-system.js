@@ -29,7 +29,9 @@ module.exports = createSystem({
             await upgrade(world, planStep.upgrade);
           }
         }
-      } 
+      } else {
+        break;
+      }
     }
   }
 });
