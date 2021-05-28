@@ -60,6 +60,7 @@ const plans = {
           [ BARRACKS, 3],
         ])],
         [71, 'build', STARPORTREACTOR, 0 ],
+        [71, 'build', REFINERY, 2],
         [75, 'upgrade', STIMPACK],
         [77, 'build', BARRACKS, 3],
         [86, 'upgrade', TERRANINFANTRYWEAPONSLEVEL1],
