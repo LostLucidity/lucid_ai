@@ -3,6 +3,7 @@
 
 const { WarpUnitAbility, UnitType } = require("@node-sc2/core/constants");
 const { MOVE } = require("@node-sc2/core/constants/ability");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { PHOTONCANNON, PYLON, WARPGATE } = require("@node-sc2/core/constants/unit-type");
@@ -16,6 +17,21 @@ const planService = require("../../services/plan-service");
 const { balanceResources } = require("../balance-resources");
 
 module.exports = {
+  ability: async (world, abilityId) => {
+    const { data, resources } = world;
+    const { actions, units } = resources.get();
+    let canDoTypes = data.findUnitTypesWithAbility(abilityId);
+    if (canDoTypes.length === 0) {
+      canDoTypes = units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
+    }
+    const unitsCanDo = units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
+    if (unitsCanDo.length > 0) {
+      let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+      const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
+      await actions.sendAction([unitCommand]);
+      planService.pauseBuilding = false;
+    }
+  },
   build: async (world, unitType, targetCount) => {
     const collectedActions = [];
     if (checkBuildingCount(world, unitType, targetCount)) {
@@ -36,8 +52,12 @@ module.exports = {
             planService.continueBuild = false;
           }
           break;
-        case TownhallRace[race].indexOf(unitType) > -1:
-          { collectedActions.push(...await expand(world)); } 
+        case TownhallRace[race].includes(unitType):
+          if (TownhallRace[race].indexOf(unitType) === 0) {
+            { collectedActions.push(...await expand(world)); } 
+          } else {
+            await module.exports.ability(world, data.getUnitTypeData(unitType).abilityId)
+          }
           break;
         case PHOTONCANNON === unitType:
           candidatePositions = map.getNatural().areas.placementGrid;
