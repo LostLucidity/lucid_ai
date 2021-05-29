@@ -16,9 +16,9 @@ module.exports = createSystem({
         stepIncrement: 50,
         state: {},
     },
-    async onStep({ resources }) {
-        const { units, actions } = resources.get();
-        balanceResources(resources);
+    async onStep(world) {
+        const { units, actions } = world.resources.get();
+        balanceResources(world);
         const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
 
         const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));

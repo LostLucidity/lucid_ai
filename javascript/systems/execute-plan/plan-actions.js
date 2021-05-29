@@ -71,7 +71,7 @@ module.exports = {
               await addAddOn(world, unitCanDo, abilityId, unitType)
             } else {
               const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-              await balanceResources(resources, mineralCost/vespeneCost);
+              await balanceResources(world, mineralCost/vespeneCost);
               planService.pauseBuilding = true;
               planService.continueBuild = false;
             }
@@ -94,7 +94,7 @@ module.exports = {
             } else {
               collectedActions.push(...workerSendOrBuild(resources, MOVE, planService.foundPosition));
               const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-              await balanceResources(resources, mineralCost/vespeneCost);
+              await balanceResources(world, mineralCost/vespeneCost);
               planService.pauseBuilding = true;
               planService.continueBuild = false;
             }
@@ -144,7 +144,7 @@ module.exports = {
         if (!agent.canAfford(unitType)) {
           console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.pauseBuilding);
           const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-          await balanceResources(resources, mineralCost/vespeneCost);
+          await balanceResources(world, mineralCost/vespeneCost);
         }
         planService.pauseBuilding = true;
         planService.continueBuild = false;
@@ -165,7 +165,7 @@ module.exports = {
         planService.pauseBuilding = false;
       } else {
         const { mineralCost, vespeneCost } = data.getUpgradeData(upgradeId);
-        await balanceResources(resources, mineralCost/vespeneCost);
+        await balanceResources(world, mineralCost/vespeneCost);
         planService.pauseBuilding = true;
         planService.continueBuild = false;
       }

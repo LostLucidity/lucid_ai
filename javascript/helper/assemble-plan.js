@@ -195,20 +195,18 @@ class AssemblePlan {
           case PHOTONCANNON === unitType:
             candidatePositions = this.map.getNatural().areas.placementGrid;
           case addonTypes.includes(unitType):
-            if (checkBuildingCount(this.world, unitType, targetCount)) {
-              let abilityId = this.data.getUnitTypeData(unitType).abilityId;
-              let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
-              const addOnUnits = this.units.withLabel('addAddOn');
-              const unitsCanDo = addOnUnits.length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
-              if (unitsCanDo.length > 0) {
-                let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-                await addAddOn(this.world, unitCanDo, abilityId, unitType)
-              } else {
-                const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-                await balanceResources(this.resources, mineralCost/vespeneCost);
-                this.state.pauseBuilding = true;
-                this.state.continueBuild = false;
-              }
+            let abilityId = this.data.getUnitTypeData(unitType).abilityId;
+            let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
+            const addOnUnits = this.units.withLabel('addAddOn');
+            const unitsCanDo = addOnUnits.length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
+            if (unitsCanDo.length > 0) {
+              let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+              await addAddOn(this.world, unitCanDo, abilityId, unitType)
+            } else {
+              const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
+              await balanceResources(this.world, mineralCost/vespeneCost);
+              this.state.pauseBuilding = true;
+              this.state.continueBuild = false;
             }
             break;
           default:
@@ -246,7 +244,7 @@ class AssemblePlan {
       } else {
         this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition));
         const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-        await balanceResources(this.resources, mineralCost/vespeneCost);
+        await balanceResources(this.world, mineralCost/vespeneCost);
         this.state.pauseBuilding = true;
         this.state.continueBuild = false;
       }
@@ -633,7 +631,7 @@ class AssemblePlan {
           if (!this.agent.canAfford(unitType)) {
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
             const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-            await balanceResources(this.resources, mineralCost/vespeneCost);
+            await balanceResources(this.world, mineralCost/vespeneCost);
           }
           this.state.pauseBuilding = true;
           this.state.continueBuild = false;
@@ -654,7 +652,7 @@ class AssemblePlan {
           this.state.pauseBuilding = false;
         } else {
           const { mineralCost, vespeneCost } = this.data.getUpgradeData(upgradeId);
-          await balanceResources(this.resources, mineralCost/vespeneCost);
+          await balanceResources(this.world, mineralCost/vespeneCost);
           this.state.pauseBuilding = true;
           this.state.continueBuild = false;
         }
