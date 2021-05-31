@@ -18,7 +18,7 @@ const { WarpUnitAbility, UnitType } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
 const { gasMineCheckAndBuild } = require("./balance-resources");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
-const { defend, attack } = require("./behavior/army-behavior");
+const { defend, attack, push } = require("./behavior/army-behavior");
 const threats = require("./base-threats");
 const { generalScouting } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
@@ -524,7 +524,7 @@ class AssemblePlan {
         break;
     }
   }
-  push(foodRanges) {
+  async push(foodRanges) {
     const label = 'pusher';
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       if (this.state.pushMode === false && !this.state.cancelPush) {
@@ -540,7 +540,7 @@ class AssemblePlan {
         this.state.cancelPush = true;
         console.log('cancelPush');
       } else {
-        this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes));
+        this.collectedActions.push(...await push(this.world, this.mainCombatTypes, this.supportUnitTypes));
       }
     } else if (this.state.pushMode === true) {
       this.state.pushMode = false;

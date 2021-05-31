@@ -34,35 +34,9 @@ module.exports = {
         const army = { combatPoint, combatUnits, supportUnits, enemyTarget}
         collectedActions.push(...module.exports.attackWithArmy(data, units, army));
       }
-      collectedActions.push(...scanCloakedEnemy( units, enemyTarget, combatUnits));
+      collectedActions.push(...scanCloakedEnemy(units, enemyTarget, combatUnits));
     } else {
-      // order to location,
-      const label = 'combatPoint';
-      const combatPoint = combatUnits.find(unit => unit.labels.get(label));
-      if (combatPoint) { combatPoint.labels.set(label, false); }
-      const expansions = [...map.getAvailableExpansions(), ...map.getOccupiedExpansions(4)];
-      const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
-      const randomExpansion = expansions[Math.floor(Math.random() * expansions.length)];
-      const randomPosition = randomExpansion ? randomExpansion.townhallPosition : getRandomPoint(map)
-      if (randomPosition) {
-        if (supportUnits.length > 1) {
-          const supportUnitTags = supportUnits.map(unit => unit.tag);
-          let unitCommand = {
-            abilityId: MOVE,
-            targetWorldSpacePos: randomPosition,
-            unitTags: [ ...supportUnitTags ],
-          }
-          collectedActions.push(unitCommand);
-        }
-        const idleCombatUnitTags = idleCombatUnits.map(unit => unit.tag);
-        let unitCommand = {
-          abilityId: ATTACK_ATTACK,
-          targetWorldSpacePos: randomPosition,
-          unitTags: [ ...idleCombatUnitTags ],
-        }
-        collectedActions.push(unitCommand);
-
-      }
+      collectedActions.push(...module.exports.searchAndDestroy(resources, combatUnits, supportUnits));
     }
     return collectedActions;
   },
@@ -245,6 +219,63 @@ module.exports = {
       collectedActions.push(unitCommand);
     }
     collectedActions.push(...tankBehavior(units));
+    return collectedActions;
+  },
+  push: async (world, mainCombatTypes, supportUnitTypes) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const collectedActions = [];
+    let [ closestEnemyBase ] = getClosestUnitByPath(resources, getCombatRally(resources), units.getBases(Alliance.ENEMY), 1);
+    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+    const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+    const avgCombatUnitsPoint = avgPoints(combatUnits.map(unit => unit.pos));
+    let [ closestEnemyUnit ] = getClosestUnitByPath(resources, avgCombatUnitsPoint, enemyUnits, 1);
+    const closestEnemyTarget = closestEnemyBase || closestEnemyUnit;
+    if (closestEnemyTarget) {
+      const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+      collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
+      const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
+      if (combatPoint) {
+        const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+        let allyUnits = [ ...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking()) ];
+        const selfSupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+        console.log('Push', selfSupply, enemySupply);
+        collectedActions.push(...module.exports.engageOrRetreat(world, allyUnits, enemyUnits, closestEnemyTarget.pos, false));
+      }
+      collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
+    } else {
+      collectedActions.push(...module.exports.searchAndDestroy(resources, combatUnits, supportUnits));
+    }
+    return collectedActions;
+  },
+  searchAndDestroy: (resources, combatUnits, supportUnits) => {
+    const { map, units } = resources.get();
+    const collectedActions = [];
+    const label = 'combatPoint';
+    const combatPoint = combatUnits.find(unit => unit.labels.get(label));
+    if (combatPoint) { combatPoint.labels.set(label, false); }
+    const expansions = [...map.getAvailableExpansions(), ...map.getOccupiedExpansions(4)];
+    const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
+    const randomExpansion = expansions[Math.floor(Math.random() * expansions.length)];
+    const randomPosition = randomExpansion ? randomExpansion.townhallPosition : getRandomPoint(map)
+    if (randomPosition) {
+      if (supportUnits.length > 1) {
+        const supportUnitTags = supportUnits.map(unit => unit.tag);
+        let unitCommand = {
+          abilityId: MOVE,
+          targetWorldSpacePos: randomPosition,
+          unitTags: [ ...supportUnitTags ],
+        }
+        collectedActions.push(unitCommand);
+      }
+      const idleCombatUnitTags = idleCombatUnits.map(unit => unit.tag);
+      let unitCommand = {
+        abilityId: ATTACK_ATTACK,
+        targetWorldSpacePos: randomPosition,
+        unitTags: [ ...idleCombatUnitTags ],
+      }
+      collectedActions.push(unitCommand);
+    }
     return collectedActions;
   }
 };
