@@ -121,7 +121,7 @@ module.exports = {
     }
     return tag;
   },
-  engageOrRetreat: ({ data, resources}, selfUnits, enemyUnits, position) => {
+  engageOrRetreat: ({ data, resources}, selfUnits, enemyUnits, position, clearRocks=true) => {
     const { units } = resources.get();
     const collectedActions = [];
     selfUnits.forEach(selfUnit => {
@@ -169,7 +169,7 @@ module.exports = {
               unitTags: [ selfUnit.tag ],
             }
             const destructableTag = module.exports.getInRangeDestructables(units, selfUnit);
-            if (destructableTag) { unitCommand.targetUnitTag = destructableTag; }
+            if (destructableTag && clearRocks) { unitCommand.targetUnitTag = destructableTag; }
             else { unitCommand.targetWorldSpacePos = targetPosition; }
             collectedActions.push(unitCommand);
           }
