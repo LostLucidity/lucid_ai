@@ -353,7 +353,7 @@ class AssemblePlan {
           earlyScouts.forEach(earlyScout => {
             earlyScout.labels.clear();
             earlyScout.labels.set('clearFromEnemy', true);
-          })
+          });
         }
       }
     }
