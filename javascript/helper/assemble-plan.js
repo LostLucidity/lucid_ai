@@ -39,6 +39,7 @@ const enemyTrackingService = require("../services/enemy-tracking-service");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { getClosest } = require("./get-closest");
 const runBehaviors = require("./behavior/run-behaviors");
+const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
 
 let actions;
 let opponentRace;
@@ -83,12 +84,19 @@ class AssemblePlan {
     const inFieldSelfSupply = getSupply(this.data, this.units.getCombatUnits());
     this.selfSupply = inFieldSelfSupply + getTrainingSupply(world, this.defenseTypes);
     this.outSupplied = this.enemySupply > this.selfSupply;
-    if (this.outSupplied) {
-      console.log(this.frame.timeInSeconds(), 'Scouted higher supply', this.selfSupply, this.enemySupply);
-      const haveTechForTypes = this.defenseTypes.filter(type => this.agent.hasTechFor(type));
-      this.selectedTypeToBuild = this.selectedTypeToBuild ? this.selectedTypeToBuild : haveTechForTypes[Math.floor(Math.random() * haveTechForTypes.length)];
-      let abilityId = this.data.getUnitTypeData(this.selectedTypeToBuild).abilityId;
-      this.train(this.foodUsed, this.selectedTypeToBuild, this.units.getById(this.selectedTypeToBuild).length + this.units.withCurrentOrders(abilityId).length)
+    const trainUnitConditions = [
+      this.outSupplied,
+      workersTrainingTendedTo(world) && !this.state.pauseBuilding,
+      !shortOnWorkers(this.resources) && !this.state.pauseBuilding,
+    ];
+    if (trainUnitConditions.some(condition => condition)) {
+      this.outSupplied ? console.log(this.frame.timeInSeconds(), 'Scouted higher supply', this.selfSupply, this.enemySupply) : console.log('Free build mode.');
+      const haveProductionAndTechForTypes = this.defenseTypes.filter(type => haveAvailableProductionUnitsFor(world, type) && this.agent.hasTechFor(type));
+      if (haveProductionAndTechForTypes.length > 0) {
+        this.selectedTypeToBuild = this.selectedTypeToBuild ? this.selectedTypeToBuild : haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
+        let abilityId = this.data.getUnitTypeData(this.selectedTypeToBuild).abilityId;
+        await this.train(this.foodUsed, this.selectedTypeToBuild, this.units.getById(this.selectedTypeToBuild).length + this.units.withCurrentOrders(abilityId).length)
+      } 
     }
     await this.runPlan();
     if (this.foodUsed < ATTACKFOOD && this.state.pushMode === false) {
