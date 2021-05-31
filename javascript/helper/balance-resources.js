@@ -19,6 +19,7 @@ module.exports = {
       resourceRatio > ratio,
       agent.canAfford(gasUnitId),
       units.getById(gasUnitId).filter(unit => unit.buildProgress < 1).length < 1,
+      units.getById(gasUnitId).length > 2,
       units.withCurrentOrders(buildAbilityId).length <= 0,
       geyser,
     ];
