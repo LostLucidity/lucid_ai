@@ -2,11 +2,12 @@
 "use strict"
 
 const { UnitType, Upgrade } = require("@node-sc2/core/constants");
+const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const planService = require("../../services/plan-service");
 const mismatchMappings = require("./mismatch-mapping");
 
 module.exports = {
-  convertPlan: (build) => {
+  convertPlan: (build, race) => {
     const convertedPlan = [];
     const unitCount = new Map();
     build.orders.forEach(order => {
@@ -31,10 +32,10 @@ module.exports = {
         let upgradeAction = Upgrade[action] ? action : mismatchMappings[action];
         if (UnitType[unitTypeAction]) {
           planStep.orderType = "UnitType";
-          action = UnitType[action] ? action : mismatchMappings[action];
-          unitCount.set(UnitType[unitTypeAction], unitCount.get(UnitType[unitTypeAction]) ? unitCount.get(UnitType[unitTypeAction]) + 1 : 0);
-          planStep.unitType = UnitType[unitTypeAction];
-          planStep.targetCount = unitCount.get(UnitType[unitTypeAction]);
+          const unitType = UnitType[unitTypeAction];
+          unitCount.set(unitType, unitCount.has(unitType) ? unitCount.get(unitType) + 1 : TownhallRace[race].indexOf(unitType) === 0 ? 1 : 0);
+          planStep.unitType = unitType;
+          planStep.targetCount = unitCount.get(unitType);
         } else if (Upgrade[upgradeAction]) {
           planStep.orderType = "Upgrade";
           action = Upgrade[action] ? action : mismatchMappings[action];
