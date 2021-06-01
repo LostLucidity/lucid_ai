@@ -16,7 +16,6 @@ const { workerSendOrBuild, getSupply, getTrainingSupply, checkBuildingCount } = 
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility, UnitType } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
-const { gasMineCheckAndBuild } = require("./balance-resources");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack, push } = require("./behavior/army-behavior");
 const threats = require("./base-threats");
