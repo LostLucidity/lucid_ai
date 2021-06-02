@@ -99,7 +99,7 @@ const engine = createEngine();
 //   await connectToHost(engine2, bot2);
 //   engine2.runLoop();
 // });
-let gameLimit = 2;
+let gameLimit = 1;
 
 try {
   (async() => {
