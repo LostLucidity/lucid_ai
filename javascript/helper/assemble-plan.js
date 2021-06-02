@@ -167,6 +167,7 @@ class AssemblePlan {
               target = targets[Math.floor(Math.random() * targets.length)];
             }
             if (target) { unitCommand.targetUnitTag = target.tag; }
+            else { return; }
           }
           await actions.sendAction([unitCommand]);
           this.state.pauseBuilding = false;
