@@ -498,10 +498,6 @@ class AssemblePlan {
   }
 
   async onUnitCreated(world, createdUnit) {
-    if (createdUnit.isStructure() && this.state) {
-      this.state.pauseBuilding = false;
-      console.log('Structure', this.state.pauseBuilding);
-    }
     await generalScouting(world, createdUnit);
     await world.resources.get().actions.sendAction(this.collectedActions);
   }
