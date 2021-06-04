@@ -8,6 +8,7 @@ const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { setPendingOrders } = require("../helper");
+const planService = require("../services/plan-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosest } = require("./get-closest");
 const { getAddOnPosition } = require("./placement-helper");
@@ -23,6 +24,7 @@ module.exports = {
         }
         if (await actions.canPlace(addOnType, [getAddOnPosition(unit.pos)])) {
           await actions.sendAction(unitCommand);
+          planService.pauseBuilding = false;
           setPendingOrders(unit, unitCommand);
         }
       }
@@ -44,6 +46,7 @@ module.exports = {
             targetWorldSpacePos: foundPosition
           }
           await actions.sendAction(unitCommand);
+          planService.pauseBuilding = false;
           setPendingOrders(unit, unitCommand);
           unit.labels.delete('addAddOn');
         }
