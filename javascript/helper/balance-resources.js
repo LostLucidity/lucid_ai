@@ -5,11 +5,7 @@ const { GasMineRace } = require("@node-sc2/core/constants/race-map");
 
 module.exports = {
   gasMineCheckAndBuild: async ({ agent, data, resources}, ratio=2.4) => {
-    const {
-      actions,
-      map,
-      units,
-    } = resources.get();
+    const { actions, map, units } = resources.get();
     const { minerals, vespene } = agent;
     const resourceRatio = minerals / vespene;
     const gasUnitId = GasMineRace[agent.race]
