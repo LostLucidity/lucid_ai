@@ -98,10 +98,14 @@ class AssemblePlan {
       } 
     }
     await this.runPlan();
-    if (this.foodUsed < ATTACKFOOD && this.state.pushMode === false) {
-      if (this.state.defenseMode) {
-        this.collectedActions.push(...await defend(world, this, this.mainCombatTypes, this.supportUnitTypes, this.threats));
-      } else { this.collectedActions.push(...rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation)); }
+    if (this.foodUsed < ATTACKFOOD) {
+      if (!this.state.pushMode) {
+        if (this.state.defenseMode) {
+          this.collectedActions.push(...await defend(world, this, this.mainCombatTypes, this.supportUnitTypes, this.threats));
+        } else {
+          this.collectedActions.push(...rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation));
+        }
+      }
     } else { 
       if (!this.outSupplied || this.selfSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
     }
