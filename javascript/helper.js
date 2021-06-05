@@ -79,15 +79,17 @@ module.exports = {
     }
     const [ builder ] = units.getClosest(position, builders);
     if (builder) {
-      console.log(frame.timeInSeconds(), `Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}, builder.tag: ${builder.tag}, builder.isAttacking(): ${builder.isAttacking()}`);
-      builder.labels.set('builder', true);
-      const unitCommand = {
-        abilityId: abilityId,
-        unitTags: [builder.tag],
-        targetWorldSpacePos: position,
-        queue: builder.isConstructing() ? true : false,
-      };
-      collectedActions.push(unitCommand);
+      if (!builder.isConstructing()) {
+        console.log(frame.timeInSeconds(), `Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}, builder.tag: ${builder.tag}, builder.isAttacking(): ${builder.isAttacking()}`);
+        builder.labels.set('builder', true);
+        const unitCommand = {
+          abilityId: abilityId,
+          unitTags: [builder.tag],
+          targetWorldSpacePos: position,
+          queue: builder.isConstructing() ? true : false,
+        };
+        collectedActions.push(unitCommand);
+      }
     }
     return collectedActions;
   },
