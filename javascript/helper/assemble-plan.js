@@ -570,16 +570,16 @@ class AssemblePlan {
           this.setScout(unitType, label, targetLocation);
         }
         labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
-      }
-      const [ scout ] = labelledScouts;
-      if (scout) {
-        if (distance(scout.pos, targetLocation) > 16) {
-          const unitCommand = {
-            abilityId: MOVE,
-            targetWorldSpacePos: targetLocation,
-            unitTags: [ scout.tag ],
+        const [ scout ] = labelledScouts;
+        if (scout) {
+          if (distance(scout.pos, targetLocation) > 16) {
+            const unitCommand = {
+              abilityId: MOVE,
+              targetWorldSpacePos: targetLocation,
+              unitTags: [ scout.tag ],
+            }
+            this.collectedActions.push(unitCommand);
           }
-          this.collectedActions.push(unitCommand);
         }
       }
     }
