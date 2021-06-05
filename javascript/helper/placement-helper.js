@@ -9,7 +9,7 @@ const { flyingTypesMapping } = require('./groups');
 const { PYLON } = require('@node-sc2/core/constants/unit-type');
 const { getOccupiedExpansions } = require('./expansions');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
-const { getClosest } = require('./get-closest');
+const { getClosestPosition } = require('./get-closest');
 
 module.exports = {
   findPosition: async (actions, unitType, candidatePositions) => {
@@ -86,9 +86,9 @@ module.exports = {
     } else if (race === Race.ZERG) {
       placements = map.getCreep()
         .filter((point) => {
-          const [closestMineralLine] = getClosest(point, mainMineralLine);
+          const [closestMineralLine] = getClosestPosition(point, mainMineralLine);
           const [closestStructure] = units.getClosest(point, units.getStructures());
-          const [closestTownhallPosition] = getClosest(point, map.getExpansions().map(expansion => expansion.townhallPosition));
+          const [closestTownhallPosition] = getClosestPosition(point, map.getExpansions().map(expansion => expansion.townhallPosition));
           return (
             distance(point, closestMineralLine) > 1.5 &&
             distance(point, closestStructure.pos) > 3 &&

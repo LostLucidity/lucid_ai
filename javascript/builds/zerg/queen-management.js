@@ -11,7 +11,7 @@ const {  intersectionOfPoints } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { findPosition } = require("../../helper/placement-helper");
 const { creepGenerators } = require("@node-sc2/core/constants/groups");
-const { getClosest } = require("../../helper/get-closest");
+const { getClosestPosition } = require("../../helper/get-closest");
 
 module.exports = {
   labelQueens: (units) => {
@@ -86,7 +86,7 @@ module.exports = {
           let excludedCircle = gridsInCircle(tumor.pos, lowerLimit);
           const candidatePositions = gridsInCircle(tumor.pos, radius).filter(position => {
             const [closestCreepGenerator] = units.getClosest(position, units.getByType(creepGenerators));
-            const [closestTownhallPosition] = getClosest(position, map.getExpansions().map(expansion => expansion.townhallPosition));
+            const [closestTownhallPosition] = getClosestPosition(position, map.getExpansions().map(expansion => expansion.townhallPosition));
             return [
               closestCreepGenerator,
               !excludedCircle.includes(position),

@@ -7,7 +7,7 @@ const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { toDegrees, gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getClosest } = require("../helper/get-closest");
+const { getClosestPosition } = require("../helper/get-closest");
 const { distanceByPath, getClosestPositionByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
 
 module.exports = {
@@ -118,7 +118,7 @@ function moveAwayFromTarget(resources, unit, targetUnit, targetUnits) {
           return false;
         }
       });
-    const [ closestHighPoint ] = getClosest(unit.pos, highPoints);
+    const [ closestHighPoint ] = getClosestPosition(unit.pos, highPoints);
     position = closestHighPoint ? closestHighPoint : module.exports.moveAwayPosition(targetUnit, unit);
   } else {
     const enemyUnits = units.getAlive(Alliance.ENEMY);

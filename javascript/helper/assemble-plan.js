@@ -36,7 +36,7 @@ const { liftToThird, addAddOn } = require("./terran");
 const { balanceResources } = require("../systems/balance-resources");
 const enemyTrackingService = require("../services/enemy-tracking-service");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
-const { getClosest } = require("./get-closest");
+const { getClosestPosition } = require("./get-closest");
 const runBehaviors = require("./behavior/run-behaviors");
 const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
 
@@ -420,9 +420,9 @@ class AssemblePlan {
     } else if (race === Race.ZERG) {
       placements = map.getCreep()
         .filter((point) => {
-          const [closestMineralLine] = getClosest(point, mainMineralLine);
+          const [closestMineralLine] = getClosestPosition(point, mainMineralLine);
           const [closestStructure] = units.getClosest(point, units.getStructures());
-          const [closestTownhallPosition] = getClosest(point, map.getExpansions().map(expansion => expansion.townhallPosition));
+          const [closestTownhallPosition] = getClosestPosition(point, map.getExpansions().map(expansion => expansion.townhallPosition));
           return (
             distance(point, closestMineralLine) > 1.5 &&
             distance(point, closestStructure.pos) > 3 &&
