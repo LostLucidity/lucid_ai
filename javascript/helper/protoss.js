@@ -62,7 +62,7 @@ module.exports = {
     return collectedActions;
   },
   warpIn: async (resources, assemblePlan, unitType) => {
-    const { actions, map, units } = resources.get();
+    const { actions } = resources.get();
     let nearPosition;
     if (assemblePlan.state.defenseMode && assemblePlan.outSupplied) {
       nearPosition = module.exports.findWarpInLocations(resources);
