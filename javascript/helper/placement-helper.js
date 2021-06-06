@@ -75,14 +75,19 @@ module.exports = {
       }
     } else if (race === Race.TERRAN) {
       const placementGrids = [];
-      getOccupiedExpansions(world.resources).forEach(expansion => {
-        placementGrids.push(...expansion.areas.placementGrid);
-      });
-      placements = placementGrids
-        .map(pos => ({ pos, rand: Math.random() }))
-        .sort((a, b) => a.rand - b.rand)
-        .map(a => a.pos)
-        .slice(0, 20); 
+      const wallOffUnitTypes = [ SUPPLYDEPOT, BARRACKS ];
+      if (planService.wallOff && wallOffUnitTypes.includes(unitType)) {
+        placements.push(...findWallOffPlacement(map, unitType));
+      } else {
+        getOccupiedExpansions(world.resources).forEach(expansion => {
+          placementGrids.push(...expansion.areas.placementGrid);
+        });
+        placements = placementGrids
+          .map(pos => ({ pos, rand: Math.random() }))
+          .sort((a, b) => a.rand - b.rand)
+          .map(a => a.pos)
+          .slice(0, 20); 
+      }
     } else if (race === Race.ZERG) {
       placements = map.getCreep()
         .filter((point) => {
