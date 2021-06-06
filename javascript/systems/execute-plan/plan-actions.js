@@ -42,10 +42,14 @@ module.exports = {
       switch (true) {
         case GasMineRace[race] === unitType:
           try {
-            if (agent.canAfford(unitType) && map.freeGasGeysers().length > 0) {
-              await actions.buildGasMine();
-              planService.pauseBuilding = false;
-            }
+            if (map.freeGasGeysers().length > 0) {
+              if (agent.canAfford(unitType)) {
+                await actions.buildGasMine();
+                planService.pauseBuilding = false;
+              } else {
+                collectedActions.push(...workerSendOrBuild(resources, MOVE, map.freeGasGeysers()[0].pos));
+              }
+            } 
           } catch(error) {
             console.log(error);
             planService.pauseBuilding = true;
