@@ -23,6 +23,7 @@ const executePlanSystem = require('./systems/execute-plan/execute-plan-system');
 const unitTrainingSystem = require('./systems/unit-training/unit-training-system');
 const workerTrainingSystem = require('./systems/worker-training-system');
 const wallOffRampSystem = require('./systems/wall-off-ramp/wall-off-ramp-system');
+const workerScoutingSystem = require('./systems/scouting/worker-scouting-system');
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
 // const bot2 = createAgent(settings);
@@ -153,6 +154,7 @@ function runGame() {
     workerTrainingSystem,
     unitTrainingSystem,
     workerBalanceSystem,
+    workerScoutingSystem,
     // battleManager
   ]);
   const playerOne = createPlayer({ race: settings.race }, bot1);
