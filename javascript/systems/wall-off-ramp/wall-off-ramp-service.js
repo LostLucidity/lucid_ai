@@ -2,6 +2,7 @@
 "use strict"
 
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../../helper/get-closest");
 const { intersectionOfPoints } = require("../../helper/utilities");
 
@@ -9,7 +10,7 @@ const wallOffRampService = {
   adjacentToRampGrids: [],
   findWallOffPlacement: (map, unitType) => {
     const placeableGrids = module.exports.adjacentToRampGrids.filter(grid => map.isPlaceable(grid));
-    const cornerGrids = placeableGrids.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1), placeableGrids).length === 2);
+    const cornerGrids = placeableGrids.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1).filter(point => distance(point, grid) <= 1), placeableGrids).length === 2);
     const [ closestCornerGrid ] = getClosestPosition(map.getMain().townhallPosition, cornerGrids);
     let wallOffPosition = [];
     if (closestCornerGrid) {
