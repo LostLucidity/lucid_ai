@@ -10,6 +10,7 @@ const { PYLON } = require('@node-sc2/core/constants/unit-type');
 const { getOccupiedExpansions } = require('./expansions');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 const { getClosestPosition } = require('./get-closest');
+const planService = require('../services/plan-service');
 
 module.exports = {
   findPosition: async (actions, unitType, candidatePositions) => {
