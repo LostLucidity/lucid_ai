@@ -12,11 +12,6 @@ const { UnitType } = require("@node-sc2/core/constants");
 module.exports = createSystem({
   name: 'WorkerScoutSystem',
   type: 'agent',
-  async onGameStart(world) {
-    planService.scouts.forEach(scout => {
-
-    });
-  },
   async onStep(world) {
     // at 17 scout with worker.
     // should worker scout be in build order or as a plan property?
