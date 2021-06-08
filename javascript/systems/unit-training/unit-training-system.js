@@ -27,8 +27,7 @@ module.exports = createSystem({
       !shortOnWorkers(resources) && !planService.pauseBuilding,
     ];
     if (trainUnitConditions.some(condition => condition)) {
-      outSupplied ? console.log(frame.timeInSeconds(), 'Scouted higher supply', selfSupply, enemySupply) : console.log('Excess minerals');
-      
+      outSupplied ? console.log(frame.timeInSeconds(), 'Scouted higher supply', selfSupply, enemySupply) : null;
       const haveTechForTypes = trainingTypes.filter(type => !data.getUnitTypeData(type).attributes.includes(Attribute.STRUCTURE) && haveAvailableProductionUnitsFor(world, type) && agent.hasTechFor(type));
       let { selectedTypeToBuild } = unitTrainingService;
       unitTrainingService.selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : haveTechForTypes[Math.floor(Math.random() * haveTechForTypes.length)];
