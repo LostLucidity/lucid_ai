@@ -27,10 +27,10 @@ module.exports = {
     }
     return foundPosition;
   },
-  findPlacements: (world, unitType) => {
+  findPlacements: async (world, unitType) => {
     const { agent, resources } = world;
     const { race } = agent;
-    const { map, units } = resources.get();
+    const { actions, map, units } = resources.get();
     const [main, natural] = map.getExpansions();
     const mainMineralLine = main.areas.mineralLine;
     let placements = [];
@@ -76,19 +76,21 @@ module.exports = {
       }
     } else if (race === Race.TERRAN) {
       const placementGrids = [];
-      const wallOffUnitTypes = [ SUPPLYDEPOT, BARRACKS ];
+      const wallOffUnitTypes = [SUPPLYDEPOT, BARRACKS];
       if (planService.wallOff && wallOffUnitTypes.includes(unitType)) {
-        placements.push(...findWallOffPlacement(map, unitType));
-      } else {
-        getOccupiedExpansions(world.resources).forEach(expansion => {
-          placementGrids.push(...expansion.areas.placementGrid);
-        });
-        placements = placementGrids
-          .map(pos => ({ pos, rand: Math.random() }))
-          .sort((a, b) => a.rand - b.rand)
-          .map(a => a.pos)
-          .slice(0, 20); 
+        const wallOffPositions = findWallOffPlacement(map, unitType);
+        if (wallOffPositions.length > 0 && await actions.canPlace(unitType, wallOffPositions)) {
+          return wallOffPositions;
+        }
       }
+      getOccupiedExpansions(world.resources).forEach(expansion => {
+        placementGrids.push(...expansion.areas.placementGrid);
+      });
+      placements = placementGrids
+        .map(pos => ({ pos, rand: Math.random() }))
+        .sort((a, b) => a.rand - b.rand)
+        .map(a => a.pos)
+        .slice(0, 20);
     } else if (race === Race.ZERG) {
       placements = map.getCreep()
         .filter((point) => {
