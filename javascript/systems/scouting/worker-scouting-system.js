@@ -13,8 +13,6 @@ module.exports = createSystem({
   name: 'WorkerScoutSystem',
   type: 'agent',
   async onStep(world) {
-    // at 17 scout with worker.
-    // should worker scout be in build order or as a plan property?
     const { actions, frame, map, units } = world.resources.get()
     const collectedActions = [];
     if (frame.timeInSeconds() > 122) { scoutService.earlyScout = false }
