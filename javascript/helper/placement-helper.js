@@ -109,7 +109,6 @@ module.exports = {
   },
   findSupplyPositions: (resources) => {
     const { map } = resources.get();
-    const myExpansions = map.getOccupiedExpansions(Alliance.SELF);
     // front of natural pylon for great justice
     const naturalWall = map.getNatural().getWall();
     let possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
