@@ -710,7 +710,7 @@ class AssemblePlan {
               }
               conditions.label = label;
             }
-            this.scout(foodTarget, unitType, targetLocationFunction, conditions );
+            this.scout(foodTarget, unitType, targetLocationFunction, conditions);
             break;
           case 'train':
             unitType = planStep[2];
