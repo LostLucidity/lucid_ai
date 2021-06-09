@@ -26,7 +26,8 @@ const scoutService = {
         console.log(`Set ${label}`);
       }
     }
-  }
+  },
+  opponentRace: null,
 }
 
 module.exports = scoutService;
