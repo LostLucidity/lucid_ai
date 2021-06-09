@@ -70,7 +70,7 @@ class AssemblePlan {
     this.world = world;
     this.agent = world.agent;
     this.data = world.data;
-    if (this.foodUsed !== this.world.agent.foodUsed) {
+    if (this.foodUsed > this.world.agent.foodUsed) {
       this.state.pauseBuilding = false;
     }
     this.foodUsed = this.world.agent.foodUsed;
