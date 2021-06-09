@@ -30,6 +30,8 @@ module.exports = {
       const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
       await actions.sendAction([unitCommand]);
       planService.pauseBuilding = false;
+    } else {
+      planService.pauseBuilding = true;
     }
   },
   build: async (world, unitType, targetCount) => {
