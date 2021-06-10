@@ -46,6 +46,6 @@ module.exports = {
       });
       planService.trainingTypes = Array.from(unitCount.keys());
     });
-    return convertedPlan;
+    planService.setPlan(convertedPlan);
   },
 }
