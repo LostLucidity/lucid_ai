@@ -10,7 +10,7 @@ const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { setPendingOrders } = require("../helper");
 const planService = require("../services/plan-service");
 const { getAvailableExpansions } = require("./expansions");
-const { getClosest } = require("./get-closest");
+const { getClosestPosition } = require("./get-closest");
 const { getAddOnPosition } = require("./placement-helper");
 
 module.exports = {
@@ -59,7 +59,7 @@ module.exports = {
     let [liftToThird] = units.withLabel(label);
     if (!liftToThird) {
       [ liftToThird ] = units.getById(townhallTypes).filter(base => {
-        const [closestTownhallPosition] = getClosest(base.pos, map.getExpansions().map(expansion => expansion.townhallPosition));
+        const [closestTownhallPosition] = getClosestPosition(base.pos, map.getExpansions().map(expansion => expansion.townhallPosition));
         return distance(base.pos, closestTownhallPosition) > 1 || base.isFlying;
       })
       if (liftToThird) {
@@ -71,7 +71,7 @@ module.exports = {
         .map(u => u.expansion.townhallPosition)
         .slice(0, 1);
       if (position) {
-        const [closestTownhallPosition] = getClosest(liftToThird.pos, map.getExpansions().map(expansion => expansion.townhallPosition));
+        const [closestTownhallPosition] = getClosestPosition(liftToThird.pos, map.getExpansions().map(expansion => expansion.townhallPosition));
         const rallyAbility = rallyWorkersAbilities.find(ability => liftToThird.abilityAvailable(ability));
         if (distance(liftToThird.pos, closestTownhallPosition) < 1 && rallyAbility) {
           liftToThird.labels.clear();
