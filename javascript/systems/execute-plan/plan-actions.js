@@ -22,16 +22,19 @@ module.exports = {
     const { actions, units } = resources.get();
     let canDoTypes = data.findUnitTypesWithAbility(abilityId);
     if (canDoTypes.length === 0) {
-      canDoTypes = units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
+      canDoTypes = units.getAlive(Alliance.SELF);
     }
-    const unitsCanDo = units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
+    const unitsCanDo = units.getByType(canDoTypes);
     if (unitsCanDo.length > 0) {
-      let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-      const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
-      await actions.sendAction([unitCommand]);
-      planService.pauseBuilding = false;
-    } else {
-      planService.pauseBuilding = true;
+      if (unitsCanDo.filter(unit => unit.abilityAvailable(abilityId)).length > 0) {
+        let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+        const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
+        await actions.sendAction([unitCommand]);
+        planService.pauseBuilding = false;
+      } else {
+        unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+        planService.pauseBuilding = true;
+      }
     }
   },
   build: async (world, unitType, targetCount) => {
