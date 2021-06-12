@@ -26,6 +26,7 @@ const wallOffRampSystem = require('./systems/wall-off-ramp/wall-off-ramp-system'
 const workerScoutingSystem = require('./systems/scouting/worker-scouting-system');
 const runBehaviorsSystem = require('./systems/run-behaviors-system');
 const enemyTrackingSystem = require('./systems/enemy-tracking/enemy-tracking-system');
+const rallySystem = require('./systems/army-management/rally-system');
 const defenseSystem = require('./systems/army-management/defense-system');
 
 const difficulty = Difficulty.VERYHARD;
@@ -162,6 +163,7 @@ function runGame() {
     runBehaviorsSystem,
     defenseSystem,
     enemyTrackingSystem,
+    rallySystem,
     // battleManager
   ]);
   const playerOne = createPlayer({ race: settings.race }, bot1);
