@@ -25,8 +25,8 @@ const workerTrainingSystem = require('./systems/worker-training-system');
 const wallOffRampSystem = require('./systems/wall-off-ramp/wall-off-ramp-system');
 const workerScoutingSystem = require('./systems/scouting/worker-scouting-system');
 const runBehaviorsSystem = require('./systems/run-behaviors-system');
-const defenseSystem = require('./systems/defense-system');
 const enemyTrackingSystem = require('./systems/enemy-tracking/enemy-tracking-system');
+const defenseSystem = require('./systems/army-management/defense-system');
 
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
