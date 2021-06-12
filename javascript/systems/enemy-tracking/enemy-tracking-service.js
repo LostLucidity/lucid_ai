@@ -2,12 +2,15 @@
 "use strict"
 
 const { UnitType } = require("@node-sc2/core/constants");
-const { getSupply } = require("../helper");
-const { morphMapping } = require("../helper/groups");
+const { Alliance } = require("@node-sc2/core/constants/enums");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { getSupply } = require("../../helper");
+const { morphMapping } = require("../../helper/groups");
 
 const enemyTrackingService = {
   enemyUnits: [],
   enemySupply: null,
+  threats: [],
   get enemyCombatUnits() {
     return enemyTrackingService.enemyUnits.filter(unit => unit.isCombatUnit());
   },
@@ -28,6 +31,17 @@ const enemyTrackingService = {
       supplyToRemove += data.getUnitTypeData(UnitType[foundKey]).foodRequired;
     })
     return getSupply(data, enemyCombatUnits) - supplyToRemove;
+  },
+  setBaseThreats(resources) {
+    const { units } = resources.get();
+    const positionsOfStructures = units.getStructures().map(structure => structure.pos);
+    enemyTrackingService.threats = [];
+    // check if structure in natural
+    positionsOfStructures.forEach(position => {
+      const enemyUnits = units.getAlive(Alliance.ENEMY);
+      const inRange = enemyUnits.filter(unit => distance(unit.pos, position) < 16);
+      enemyTrackingService.threats.push(...inRange);
+    });
   },
 }
 
