@@ -126,7 +126,7 @@ module.exports = {
     const orders = [];
     units.withCurrentOrders(abilityId).forEach(unit => {
       unit.orders.forEach(order => { if (order.abilityId === abilityId) { orders.push(order); } });
-    })        
+    });
     const unitCount = units.getById(unitType).length + orders.length
     if (targetCount === null || unitCount === targetCount) {
       if (canBuild(agent, data, unitType)) {
