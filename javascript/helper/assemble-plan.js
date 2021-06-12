@@ -34,11 +34,11 @@ const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
 const { liftToThird, addAddOn } = require("./terran");
 const { balanceResources } = require("../systems/balance-resources");
-const enemyTrackingService = require("../services/enemy-tracking-service");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { getClosestPosition } = require("./get-closest");
 const runBehaviors = require("./behavior/run-behaviors");
 const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
+const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 
 let actions;
 let opponentRace;

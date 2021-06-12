@@ -5,8 +5,8 @@ const { createSystem } = require("@node-sc2/core");
 const { getSupply, getTrainingSupply } = require("../helper");
 const buildWorkers = require("../helper/build-workers");
 const shortOnWorkers = require("../helper/short-on-workers");
-const enemyTrackingService = require("../services/enemy-tracking-service");
 const planService = require("../services/plan-service");
+const enemyTrackingService = require("./enemy-tracking/enemy-tracking-service");
 
 module.exports = createSystem({
   name: 'WorkerTrainingSystem',
