@@ -17,7 +17,13 @@ module.exports = createSystem({
     const inFieldSelfSupply = getSupply(data, units.getCombatUnits());
     const selfSupply = inFieldSelfSupply + getTrainingSupply(world, planService.trainingTypes);
     const outSupplied = enemyTrackingService.getEnemyCombatSupply(data) > selfSupply;
-    if (!planService.pauseBuilding && shortOnWorkers(resources) && !outSupplied) {
+    const conditions = [
+      !planService.pauseBuilding,
+      agent.minerals < 512,
+      shortOnWorkers(resources),
+      !outSupplied,
+    ];
+    if (conditions.every(condition => condition)) {
       try { await buildWorkers(agent, data, resources); } catch(error) { console.log(error); }
     }
   }
