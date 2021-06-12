@@ -17,7 +17,7 @@ module.exports = {
   addAddOn: async (world, unit, abilityId, addOnType) => {
     const { actions } = world.resources.get();
     if (unit.noQueue && !unit.labels.has('swapBuilding')) {
-      if (unit.availableAbilities().find(ability => ability === abilityId)) {
+      if (unit.availableAbilities().some(ability => ability === abilityId)) {
         const unitCommand = {
           abilityId,
           unitTags: [unit.tag]
