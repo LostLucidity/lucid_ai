@@ -28,6 +28,7 @@ const runBehaviorsSystem = require('./systems/run-behaviors-system');
 const enemyTrackingSystem = require('./systems/enemy-tracking/enemy-tracking-system');
 const rallySystem = require('./systems/army-management/rally-system');
 const defenseSystem = require('./systems/army-management/defense-system');
+const manageSupplySystem = require('./systems/manage-supply-system');
 
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -164,6 +165,7 @@ function runGame() {
     defenseSystem,
     enemyTrackingSystem,
     rallySystem,
+    manageSupplySystem,
     // battleManager
   ]);
   const playerOne = createPlayer({ race: settings.race }, bot1);
