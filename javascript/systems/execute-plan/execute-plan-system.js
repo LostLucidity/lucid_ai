@@ -33,5 +33,10 @@ module.exports = createSystem({
         break;
       }
     }
+  },
+  async onUnitDestroyed({}, destroyedUnit) {
+    if (destroyedUnit.isWorker()) {
+      this.state.pauseBuilding = false;
+    }
   }
 });
