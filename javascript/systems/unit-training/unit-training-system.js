@@ -3,7 +3,7 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { Attribute } = require("@node-sc2/core/constants/enums");
-const { getSupply, getTrainingSupply } = require("../../helper");
+const { getSupply, getTrainingSupply, getLoadedSupply } = require("../../helper");
 const shortOnWorkers = require("../../helper/short-on-workers");
 const planService = require("../../services/plan-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
@@ -19,7 +19,7 @@ module.exports = createSystem({
     const { frame, units } = resources.get();
     const { trainingTypes } = planService;
     const inFieldSelfSupply = getSupply(data, units.getCombatUnits());
-    const selfSupply = inFieldSelfSupply + getTrainingSupply(world, trainingTypes);
+    const selfSupply = inFieldSelfSupply + getTrainingSupply(world, trainingTypes) + getLoadedSupply(units);
     const enemySupply = enemyTrackingService.getEnemyCombatSupply(data);
     const outSupplied = enemySupply > selfSupply;
     const trainUnitConditions = [

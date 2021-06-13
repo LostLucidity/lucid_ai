@@ -50,6 +50,9 @@ module.exports = {
   
     return possiblePlacements;
   },
+  getLoadedSupply: (units) => {
+    units.getAlive().reduce((accumulator, currentValue) => accumulator + currentValue.cargoSpaceTaken, 0);
+  },
   getTrainingSupply: (world, unitTypes) => {
     const { data, resources } = world;
     const { units } = resources.get();
