@@ -29,7 +29,8 @@ module.exports = {
           'distanceByPath': distanceByPath(resources, unit.pos, expansion.centroid),
         }
       }
-      return unit.expansions[centroidString].distanceByPath <= targetUnit.expansions[centroidString].distanceByPath;
+      const distanceByPathToCentroid = unit.expansions[centroidString].distanceByPath;
+      return distanceByPathToCentroid != 500 && distanceByPathToCentroid <= targetUnit.expansions[centroidString].distanceByPath;
     }).map(expansion => expansion.centroid);
     const [ closestExpansionCentroidByPath ] = getClosestPositionByPath(resources, unit.pos, candidateExpansionsCentroid, candidateExpansionsCentroid.length).filter(centroid => distanceByPath(resources, centroid, targetUnit.pos) > 16);
     return closestExpansionCentroidByPath ? closestExpansionCentroidByPath : module.exports.moveAwayPosition(targetUnit, unit);
