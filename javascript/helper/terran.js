@@ -15,14 +15,14 @@ const { getAddOnPosition } = require("./placement-helper");
 
 module.exports = {
   addAddOn: async (world, unit, abilityId, addOnType) => {
-    const { actions } = world.resources.get();
+    const { actions, map } = world.resources.get();
     if (unit.noQueue && !unit.labels.has('swapBuilding')) {
       if (unit.availableAbilities().some(ability => ability === abilityId)) {
         const unitCommand = {
           abilityId,
           unitTags: [unit.tag]
         }
-        if (await actions.canPlace(addOnType, [getAddOnPosition(unit.pos)])) {
+        if (map.isPlaceable(getAddOnPosition(unit.pos))) {
           await actions.sendAction(unitCommand);
           planService.pauseBuilding = false;
           setPendingOrders(unit, unitCommand);
