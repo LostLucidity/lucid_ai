@@ -7,7 +7,7 @@ const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 module.exports = {
-  balanceResources: async ({ agent, data, resources }, targetRatio=16/6) => {
+  balanceResources: async ({ agent, data, resources }, targetRatio = 16 / 6) => {
     const { actions, units } = resources.get();
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const needyGasMines = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
@@ -66,8 +66,24 @@ module.exports = {
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const needyGasMine = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
     const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
-    needyGasMine && mineralMinerCount/vespeneMinerCount > 16/6 ? await actions.mine(unit, needyGasMine, false) : await actions.gather(unit, null, false);
-  }
+    needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? await actions.mine(unit, needyGasMine, false) : await actions.gather(unit, null, false);
+  },
+  getResourceDemand(data, steps) {
+    let totalMineralCost = 0;
+    let totalVespeneCost = 0;
+    steps.forEach(step => {
+      if (step.orderType === 'UnitType') {
+        let { mineralCost, vespeneCost } = data.getUnitTypeData(step.unitType);
+        totalMineralCost += mineralCost;
+        totalVespeneCost += vespeneCost;
+      } else if (step.orderType === 'Upgrade') {
+        let { mineralCost, vespeneCost } = data.getUpgradeData(step.upgrade);
+        totalMineralCost += mineralCost;
+        totalVespeneCost += vespeneCost;
+      }
+    });
+    return { totalMineralCost, totalVespeneCost };
+  },
 }
 
 function getMinerCount(units) {

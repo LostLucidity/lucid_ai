@@ -7,14 +7,14 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { PHOTONCANNON, PYLON, WARPGATE } = require("@node-sc2/core/constants/unit-type");
-const { checkBuildingCount, workerSendOrBuild } = require("../../helper");
+const { checkBuildingCount, workerSendOrBuild, checkUnitCount } = require("../../helper");
 const canBuild = require("../../helper/can-afford");
 const { expand } = require("../../helper/general-actions");
 const { findPlacements, findPosition } = require("../../helper/placement-helper");
 const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
 const planService = require("../../services/plan-service");
-const { balanceResources } = require("../balance-resources");
+const { balanceResources, getResourceDemand } = require("../balance-resources");
 
 module.exports = {
   ability: async (world, abilityId) => {
@@ -53,6 +53,7 @@ module.exports = {
                 planService.pauseBuilding = false;
               } else {
                 collectedActions.push(...workerSendOrBuild(resources, MOVE, map.freeGasGeysers()[0].pos));
+                await balanceForFuture(world, unitType)
               }
             } 
           } catch(error) {
@@ -71,19 +72,18 @@ module.exports = {
         case PHOTONCANNON === unitType:
           candidatePositions = map.getNatural().areas.placementGrid;
         case addonTypes.includes(unitType):
-            let abilityId = data.getUnitTypeData(unitType).abilityId;
-            let canDoTypes = data.findUnitTypesWithAbility(abilityId);
-            const addOnUnits = units.withLabel('addAddOn');
-            const unitsCanDo = addOnUnits.length > 0 ? addOnUnits : units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
-            if (unitsCanDo.length > 0) {
-              let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-              await addAddOn(world, unitCanDo, abilityId, unitType)
-            } else {
-              const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-              await balanceResources(world, mineralCost/vespeneCost);
-              planService.pauseBuilding = true;
-              planService.continueBuild = false;
-            }
+          let abilityId = data.getUnitTypeData(unitType).abilityId;
+          let canDoTypes = data.findUnitTypesWithAbility(abilityId);
+          const addOnUnits = units.withLabel('addAddOn');
+          const unitsCanDo = addOnUnits.length > 0 ? addOnUnits : units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
+          if (unitsCanDo.length > 0) {
+            let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+            await addAddOn(world, unitCanDo, abilityId, unitType)
+          } else {
+            await balanceForFuture(world, unitType);
+            planService.pauseBuilding = true;
+            planService.continueBuild = false;
+          }
           break;
         default:
           if (candidatePositions.length === 0) { candidatePositions = await findPlacements(world, unitType); }
@@ -102,8 +102,7 @@ module.exports = {
               }
             } else {
               collectedActions.push(...workerSendOrBuild(resources, MOVE, planService.foundPosition));
-              const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-              await balanceResources(world, mineralCost/vespeneCost);
+              await balanceForFuture(world, unitType);
               planService.pauseBuilding = true;
               planService.continueBuild = false;
             }
@@ -152,8 +151,7 @@ module.exports = {
       } else {
         if (!agent.canAfford(unitType)) {
           console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.pauseBuilding);
-          const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-          await balanceResources(world, mineralCost/vespeneCost);
+          await balanceForFuture(world, unitType);
         }
         planService.pauseBuilding = true;
         planService.continueBuild = false;
@@ -173,11 +171,32 @@ module.exports = {
         await actions.sendAction([unitCommand]);
         planService.pauseBuilding = false;
       } else {
-        const { mineralCost, vespeneCost } = data.getUpgradeData(upgradeId);
-        await balanceResources(world, mineralCost/vespeneCost);
+        await balanceForFuture(world, upgradeId);
         planService.pauseBuilding = true;
         planService.continueBuild = false;
       }
     }
+  }
+}
+
+async function balanceForFuture(world, action) {
+  const { plan } = planService;
+  const currentStep = planService.currentStep;
+  if (currentStep !== null) {
+    const steps = plan[currentStep]
+    const nextStep = plan[currentStep + 1];
+    const isStructure = world.data.getUnitTypeData(nextStep.unitType).attributes.includes(Attribute.STRUCTURE);
+    let useNextStep;
+    if (isStructure) {
+      useNextStep = checkBuildingCount(world, action, nextStep.targetCount)
+    } else {
+      useNextStep = checkUnitCount(world, action, nextStep.targetCount)
+    }
+    if (useNextStep) { steps.push(nextStep) };
+    const { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, steps);
+    await balanceResources(world, totalMineralCost / totalVespeneCost);
+  } else {
+    let { mineralCost, vespeneCost } = world.data.getUnitTypeData(action);
+    await balanceResources(world, mineralCost / vespeneCost);
   }
 }
