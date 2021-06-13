@@ -64,7 +64,7 @@ module.exports = {
           break;
         case TownhallRace[race].includes(unitType):
           if (TownhallRace[race].indexOf(unitType) === 0) {
-            { collectedActions.push(...await expand(world)); } 
+            { collectedActions.push(...await expand(world)); }
           } else {
             await module.exports.ability(world, data.getUnitTypeData(unitType).abilityId)
           }
