@@ -78,11 +78,11 @@ const entry = createSystem({
   getBuild(race) {
     const racePlans = plans[race];
     var keys = Object.keys(racePlans);
-    const selectedBuild = racePlans[keys[ keys.length * Math.random() << 0]];
-    if (selectedBuild.buildType === 'two variable') {
-      return convertPlan(selectedBuild);
+    const selectedPlan = racePlans[keys[ keys.length * Math.random() << 0]];
+    if (selectedPlan.buildType === 'two variable') {
+      return convertPlan(selectedPlan);
     } else {
-      return selectedBuild;
+      return selectedPlan;
     }
   },
 });
