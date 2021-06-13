@@ -6,8 +6,10 @@ const { PROBE } = require("@node-sc2/core/constants/unit-type");
 
 const scoutService = {
   earlyScout: true,
+  enemyBuildType: null,
+  scoutReport: null,
   setScout: (units, location, unitType, label) => {
-    let [ unit ] = units.getClosest(
+    let [unit] = units.getClosest(
       location,
       units.getById(unitType).filter(unit => {
         return (
