@@ -86,7 +86,7 @@ module.exports = {
             }
           break;
         default:
-          if (candidatePositions.length === 0) { candidatePositions = findPlacements(world, unitType); }
+          if (candidatePositions.length === 0) { candidatePositions = await findPlacements(world, unitType); }
           planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(actions, unitType, candidatePositions);
           if (planService.foundPosition) {
             if (agent.canAfford(unitType)) {
