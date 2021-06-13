@@ -1,6 +1,7 @@
 //@ts-check
 "use strict"
 
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { calculateTotalHealthRatio } = require("./calculate-health");
 
@@ -16,6 +17,18 @@ module.exports = {
   },
   getInRangeUnits: (unit, targetUnits) => {
     return targetUnits.filter(targetUnit => distance(unit.pos, targetUnit.pos) < 16);
+  },
+  getInRangeDestructables: (units, selfUnit) => {
+    let tag = null;
+    const ROCKS = [ 373, 638, 639, 640, 643 ];
+    const DEBRIS = [ 364, 365, 376 ];
+    const destructableRockTypes = [ ...DEBRIS, ...ROCKS];
+    const destructableRockUnits = units.getAlive(Alliance.NEUTRAL).filter(unit => destructableRockTypes.includes(unit.unitType));
+    const [ closestDestructable ] = units.getClosest(selfUnit.pos, destructableRockUnits).filter(destructableRockUnit => distance(selfUnit.pos, destructableRockUnit.pos) < 16);
+    if (closestDestructable) {
+      tag = closestDestructable.tag;
+    }
+    return tag;
   },
   assessBattleField: (selfUnits, enemyunits) => {
     // I want a mapping of unit types and count for each composition.
