@@ -80,34 +80,35 @@ module.exports = {
       );
       console.log('builders.length', builders.length);
     }
-    const [ builder ] = units.getClosest(position, builders);
+    const [builder] = units.getClosest(position, builders);
     if (builder) {
-      if (!builder.isConstructing()) {
+      if (!builder.isConstructing() && !isPendingContructing(builder)) {
         console.log(frame.timeInSeconds(), `Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}, builder.tag: ${builder.tag}, builder.isAttacking(): ${builder.isAttacking()}`);
         builder.labels.set('builder', true);
         const unitCommand = {
           abilityId: abilityId,
           unitTags: [builder.tag],
           targetWorldSpacePos: position,
-          queue: builder.isConstructing() ? true : false,
         };
         collectedActions.push(unitCommand);
+        module.exports.setPendingOrders(builder, unitCommand);
       }
     }
     return collectedActions;
   },
   setPendingOrders: (unit, unitCommand) => {
-    const label = 'pendingOrders';
-    const labels = unit.labels;
-    if (labels.has(label)) {
-      const pendingOrders = labels.get(label);
-      pendingOrders.push(unitCommand);
+    if (unit.pendingOrder) {
+      unit.pendingOrder.push(unitCommand);
     } else {
-      labels.set(label, []);
+      unit.pendingOrder = [];
     }
   },
 }
 
 function getLabelledAvailable(labelled) {
   return (!labelled.isConstructing() || (labelled.isConstructing() && labelled.unitType === PROBE)) && !labelled.isAttacking();
-} 
+}
+
+function isPendingContructing(unit) {
+  return unit.pendingOrders && unit.pendingOrders.some(o => constructionAbilities.includes(o.abilityId));
+}
