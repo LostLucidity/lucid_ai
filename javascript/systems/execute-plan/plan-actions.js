@@ -15,6 +15,7 @@ const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
 const planService = require("../../services/plan-service");
 const { balanceResources, getResourceDemand } = require("../balance-resources");
+const unitTrainingService = require("../unit-training/unit-training-service");
 
 module.exports = {
   ability: async (world, abilityId) => {
@@ -148,6 +149,7 @@ module.exports = {
         }
         planService.pauseBuilding = false;
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.pauseBuilding);
+        unitTrainingService.selectedTypeToBuild = null;
       } else {
         if (!agent.canAfford(unitType)) {
           console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.pauseBuilding);
