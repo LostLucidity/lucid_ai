@@ -3,7 +3,7 @@
 
 const { WarpUnitAbility, UnitType } = require("@node-sc2/core/constants");
 const { MOVE } = require("@node-sc2/core/constants/ability");
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { PHOTONCANNON, PYLON, WARPGATE } = require("@node-sc2/core/constants/unit-type");
@@ -183,7 +183,7 @@ async function balanceForFuture(world, action) {
   const { plan } = planService;
   const currentStep = planService.currentStep;
   if (currentStep !== null) {
-    const steps = plan[currentStep]
+    const steps = [plan[currentStep]];
     const nextStep = plan[currentStep + 1];
     const isStructure = world.data.getUnitTypeData(nextStep.unitType).attributes.includes(Attribute.STRUCTURE);
     let useNextStep;
