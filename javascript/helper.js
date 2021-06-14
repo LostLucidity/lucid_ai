@@ -61,7 +61,7 @@ module.exports = {
       let abilityId = data.getUnitTypeData(type).abilityId;
       trainingUnitTypes.push(...units.withCurrentOrders(abilityId).map(() => type));
     });
-    return trainingUnitTypes.reduce((accumulator, unitType) => accumulator + unitType === ZERGLING ? 1 : data.getUnitTypeData(unitType).foodRequired, 0);
+    return trainingUnitTypes.reduce((accumulator, unitType) => accumulator + (unitType === ZERGLING ? 1 : data.getUnitTypeData(unitType).foodRequired), 0);
   },
   getSupply: (data, units) => {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
