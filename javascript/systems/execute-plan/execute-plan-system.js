@@ -16,6 +16,7 @@ module.exports = createSystem({
     planService.continueBuild = true;
     const { plan } = planService;
     for (let step = 0; step < plan.length; step++) {
+      planService.currentStep = step;
       if (planService.continueBuild) {
         const planStep = plan[step];
         const { food, orderType, unitType } = planStep;
@@ -32,6 +33,7 @@ module.exports = createSystem({
           }
         }
       } else {
+        planService.currentStep = null;
         break;
       }
     }
