@@ -6,6 +6,7 @@ const { Attribute } = require("@node-sc2/core/constants/enums");
 const { getSupply, getTrainingSupply, getLoadedSupply } = require("../../helper");
 const shortOnWorkers = require("../../helper/short-on-workers");
 const planService = require("../../services/plan-service");
+const sharedService = require("../../services/shared-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const { train } = require("../execute-plan/plan-actions");
 const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("./unit-training-service");
@@ -18,6 +19,7 @@ module.exports = createSystem({
     const { agent, data, resources } = world;
     const { frame, units } = resources.get();
     const { trainingTypes } = planService;
+    sharedService.removePendingOrderBySystemName(units, this.name);
     const inFieldSelfSupply = getSupply(data, units.getCombatUnits());
     const selfSupply = inFieldSelfSupply + getTrainingSupply(world, trainingTypes) + getLoadedSupply(units);
     const enemySupply = enemyTrackingService.getEnemyCombatSupply(data);
@@ -34,5 +36,6 @@ module.exports = createSystem({
       unitTrainingService.selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : haveTechForTypes[Math.floor(Math.random() * haveTechForTypes.length)];
       if (typeof selectedTypeToBuild == null) { await train(world, selectedTypeToBuild) }
     }
+    sharedService.setPendingOrderBySystemName(units, this.name);
   }
 });
