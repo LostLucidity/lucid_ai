@@ -32,9 +32,11 @@ module.exports = {
         const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
         await actions.sendAction([unitCommand]);
         planService.pauseBuilding = false;
+        planService.continueBuild = true;
       } else {
         unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
         planService.pauseBuilding = true;
+        planService.continueBuild = false;
       }
     }
   },
