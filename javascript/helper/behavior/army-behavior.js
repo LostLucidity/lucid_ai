@@ -185,7 +185,7 @@ module.exports = {
     const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType));
     const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
     const nonPointTypeUnitTags = nonPointTypeUnits.map(unit => unit.tag);
-    const range = Math.max.apply(Math, data.getUnitTypeData(SIEGETANKSIEGED).weapons.map(weapon => { return weapon.range; }))
+    const range = Math.max.apply(Math, data.getUnitTypeData(SIEGETANKSIEGED).weapons.map(weapon => { return weapon.range; }));
     const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
     let unitCommand = {
       abilityId: ATTACK_ATTACK,
