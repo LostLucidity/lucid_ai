@@ -109,11 +109,7 @@ class AssemblePlan {
     } else { 
       if (!this.outSupplied || this.selfSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
     }
-    if (this.agent.minerals > 512) {
-      gasMineCheckAndBuild(world);
-      this.manageSupply();
-      this.state.pauseBuilding = false;
-    }
+    if (this.agent.minerals > 512) { this.manageSupply(); }
     if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(world, this.state)); }
     this.checkEnemyBuild();
     let completedBases = this.units.getBases().filter(base => base.buildProgress >= 1);
