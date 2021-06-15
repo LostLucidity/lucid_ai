@@ -19,7 +19,7 @@ const scoutService = {
         )
       })
     );
-    if (!unit) { [ unit ] = units.getClosest(location, units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing() && unit.isGathering())); }
+    if (!unit) { [unit] = units.getClosest(location, units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing() && unit.isGathering())); }
     if (unit) {
       console.log(unit.orders[0] && unit.orders[0].abilityId)
       unit.labels.clear();
