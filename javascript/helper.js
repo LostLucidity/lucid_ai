@@ -10,7 +10,7 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { countTypes } = require('./helper/groups');
 
 module.exports = {
-  checkBuildingCount: ({agent, data, resources}, unitType, targetCount) => {
+  checkBuildingCount: ({ agent, data, resources }, unitType, targetCount) => {
     const { units } = resources.get();
     const buildAbilityId = data.getUnitTypeData(unitType).abilityId;
     let count = units.withCurrentOrders(buildAbilityId).length;
