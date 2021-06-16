@@ -13,7 +13,7 @@ const { getClosestPosition } = require('./get-closest');
 const planService = require('../services/plan-service');
 const { findWallOffPlacement } = require('../systems/wall-off-ramp/wall-off-ramp-service');
 
-module.exports = {
+const placementHelper = {
   findPosition: async (actions, unitType, candidatePositions) => {
     if (flyingTypesMapping.has(unitType)) { unitType = flyingTypesMapping.get(unitType); }
     const randomPositions = candidatePositions
@@ -156,3 +156,5 @@ module.exports = {
     return [ await actions.canPlace(unitType, candidatePositions) ];
   }
 }
+
+module.exports = placementHelper;
