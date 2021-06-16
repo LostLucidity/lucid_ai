@@ -110,7 +110,7 @@ const engine = createEngine();
 let gameLimit = 1;
 
 try {
-  (async() => {
+  (async () => {
     const responsePing = await engineConnect();
     console.log('responsePing', responsePing);
     for (let game = 0; game < gameLimit; game++) {
@@ -170,7 +170,7 @@ function runGame() {
   ]);
   const playerOne = createPlayer({ race: settings.race }, bot1);
   const playerTwo = createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild })
-  return engine.runGame(map, [ playerOne, playerTwo ]);
+  return engine.runGame(map, [playerOne, playerTwo]);
 }
 
 async function processResults([{ agent, data, resources }, gameResults]) {
@@ -188,8 +188,8 @@ async function processResults([{ agent, data, resources }, gameResults]) {
       delete composition.attack;
     }
   });
-  const [ selfUnitType ] = Object.keys(parsedCompositions[0].selfComposition);
-  const [ enemyUnitType ] = Object.keys(parsedCompositions[0].enemyComposition);
+  const [selfUnitType] = Object.keys(parsedCompositions[0].selfComposition);
+  const [enemyUnitType] = Object.keys(parsedCompositions[0].enemyComposition);
   fs.writeFileSync(path.join(__dirname, 'data', getFileName(data, selfUnitType, enemyUnitType)), JSON.stringify(parsedCompositions));
   const replay = await actions._client.saveReplay();
   fs.writeFileSync(path.join(__dirname, 'replays', `${Date.now()}.sc2replay`), replay.data);
