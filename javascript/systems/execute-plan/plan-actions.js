@@ -40,9 +40,9 @@ module.exports = {
       }
     }
   },
-  build: async (world, unitType, targetCount) => {
+  build: async (world, unitType, targetCount = null) => {
     const collectedActions = [];
-    if (checkBuildingCount(world, unitType, targetCount)) {
+    if (checkBuildingCount(world, unitType, targetCount) || targetCount === null) {
       const { agent, data, resources } = world;
       const { race } = world.agent;
       const { actions, map, units } = resources.get();
