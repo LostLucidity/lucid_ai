@@ -689,7 +689,7 @@ class AssemblePlan {
           case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
-            if (this.agent.minerals > 512 && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
+            if (this.agent.minerals > 512 && this.agent.vespene > 128 && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
           case 'harass': if (this.state.enemyBuildType === 'standard') { await harass(this.resources, this.state); } break;
           case 'liftToThird': if (this.foodUsed >= foodTarget) { await liftToThird(this.resources); break; }
           case 'maintainQueens': if (this.foodUsed >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
