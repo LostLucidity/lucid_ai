@@ -57,6 +57,8 @@ module.exports = {
               } else {
                 collectedActions.push(...workerSendOrBuild(resources, MOVE, map.freeGasGeysers()[0].pos));
                 await balanceForFuture(world, unitType)
+                planService.pauseBuilding = true;
+                planService.continueBuild = false;
               }
             } 
           } catch(error) {
