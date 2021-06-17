@@ -151,8 +151,13 @@ function runGame() {
   }
   console.log('blueprint', blueprint);
   const bot1 = createAgent(blueprint);
-  bot1.use([
-    // entry,
+  const legacySystems = [
+    entry,
+    trackEnemySystem,
+    workerBalanceSystem,
+    enemyTrackingSystem,
+  ];
+  const updateSystems = [
     saltConverterSystem,
     wallOffRampSystem,
     trackEnemySystem,
@@ -166,8 +171,8 @@ function runGame() {
     enemyTrackingSystem,
     rallySystem,
     manageSupplySystem,
-    // battleManager
-  ]);
+  ];
+  bot1.use(legacySystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
   const playerTwo = createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild })
   return engine.runGame(map, [playerOne, playerTwo]);
