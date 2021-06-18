@@ -6,7 +6,7 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { UnitType } = require('@node-sc2/core/constants');
 const { flyingTypesMapping } = require('./groups');
-const { PYLON, SUPPLYDEPOT, BARRACKS } = require('@node-sc2/core/constants/unit-type');
+const { PYLON, SUPPLYDEPOT, BARRACKS, REACTOR } = require('@node-sc2/core/constants/unit-type');
 const { getOccupiedExpansions } = require('./expansions');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 const { getClosestPosition } = require('./get-closest');
@@ -132,6 +132,9 @@ const placementHelper = {
     }
   
     return possiblePlacements;
+  },
+  isBuildingAndAddonPlaceable: (map, unitType, grid) => {
+    return map.isPlaceableAt(unitType, grid) && map.isPlaceableAt(REACTOR, placementHelper.getAddOnPlacement(grid));
   },
   getAddOnBuildingPosition: (position) => {
     return { x: position.x - 2.5, y: position.y + 0.5 }
