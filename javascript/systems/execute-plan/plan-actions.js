@@ -152,7 +152,7 @@ module.exports = {
           }
         }
         planService.pauseBuilding = false;
-        console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.pauseBuilding);
+        console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
         if (!agent.canAfford(unitType)) {
