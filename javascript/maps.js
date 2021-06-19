@@ -17,6 +17,12 @@ maps = [
   "IceandChrome506",
   "PillarsofGold506",
   "Submarine506",
+  "2000AtmospheresAIE",
+  "BlackburnAIE",
+  "JagannathaAIE",
+  "OxideAIE",
+  "LightshadeAIE",
+  "RomanticideAIE",
 ]
 
 module.exports = maps;
