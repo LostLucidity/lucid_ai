@@ -25,7 +25,7 @@ module.exports = {
     if (canDoTypes.length === 0) {
       canDoTypes = units.getAlive(Alliance.SELF);
     }
-    const unitsCanDo = units.getByType(canDoTypes);
+    const unitsCanDo = units.getByType(canDoTypes).filter(unit => unit.alliance === Alliance.SELF);
     if (unitsCanDo.length > 0) {
       if (unitsCanDo.filter(unit => unit.abilityAvailable(abilityId)).length > 0) {
         let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
@@ -80,7 +80,7 @@ module.exports = {
           let abilityId = data.getUnitTypeData(unitType).abilityId;
           let canDoTypes = data.findUnitTypesWithAbility(abilityId);
           const addOnUnits = units.withLabel('addAddOn');
-          const unitsCanDo = addOnUnits.length > 0 ? addOnUnits : units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
+          const unitsCanDo = addOnUnits.filter(unit => unit.abilityAvailable(abilityId)).length > 0 ? addOnUnits : units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
           if (unitsCanDo.length > 0) {
             let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
             await addAddOn(world, unitCanDo, abilityId, unitType)
