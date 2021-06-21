@@ -11,6 +11,7 @@ const { tankBehavior } = require("../helper/behavior/unit-behavior");
 const { getClosestUnitByPath } = require("../helper/get-closest-by-path");
 
 const armyManagementService = {
+  defenseMode: false,
   attackWithArmy: (data, units, army) => {
     const collectedActions = [];
     const pointType = army.combatPoint.unitType;
