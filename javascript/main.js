@@ -29,6 +29,7 @@ const enemyTrackingSystem = require('./systems/enemy-tracking/enemy-tracking-sys
 const rallySystem = require('./systems/army-management/rally-system');
 const defenseSystem = require('./systems/army-management/defense-system');
 const manageSupplySystem = require('./systems/manage-supply-system');
+const debugSystem = require('./systems/debug-system');
 
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -156,6 +157,7 @@ function runGame() {
     trackEnemySystem,
     workerBalanceSystem,
     enemyTrackingSystem,
+    // debugSystem,
   ];
   const updateSystems = [
     saltConverterSystem,
