@@ -64,7 +64,7 @@ module.exports = {
         if (buildingsToSwap.every(building => building.availableAbilities().find(ability => landingAbilities.includes(ability)))) {
           await actions.do(Ability.LAND, buildingsToSwap[0].tag, { target: buildingsToSwap[1].pos });
           await actions.do(Ability.LAND, buildingsToSwap[1].tag, { target: buildingsToSwap[0].pos });
-        }  
+        }
       }
       module.exports.removeLabelsWhenInTargetRange(units.withLabel(label), label);
     } else {
