@@ -60,8 +60,8 @@ module.exports = {
                 planService.pauseBuilding = true;
                 planService.continueBuild = false;
               }
-            } 
-          } catch(error) {
+            }
+          } catch (error) {
             console.log(error);
             planService.pauseBuilding = true;
             planService.continueBuild = false;
@@ -112,7 +112,7 @@ module.exports = {
               planService.continueBuild = false;
             }
           } else {
-            const [ pylon ] = units.getById(PYLON);
+            const [pylon] = units.getById(PYLON);
             if (pylon && pylon.buildProgress < 1) {
               collectedActions.push(...workerSendOrBuild(resources, MOVE, pylon.pos));
               planService.pauseBuilding = true;
@@ -123,7 +123,7 @@ module.exports = {
     }
     return collectedActions;
   },
-  train: async (world, unitType, targetCount=null) => {
+  train: async (world, unitType, targetCount = null) => {
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
     let abilityId = data.getUnitTypeData(unitType).abilityId;
@@ -138,7 +138,7 @@ module.exports = {
         if (trainer) {
           const unitCommand = {
             abilityId,
-            unitTags: [ trainer.tag ],
+            unitTags: [trainer.tag],
           }
           await actions.sendAction([unitCommand]);
         } else {
