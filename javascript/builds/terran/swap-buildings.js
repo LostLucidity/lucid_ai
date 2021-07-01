@@ -25,7 +25,7 @@ module.exports = {
       }
     });
   },
-  swapBuildings: async (world, conditions=[]) => {
+  swapBuildings: async (world, conditions = []) => {
     // get first building, if addon get building offset
     const { actions, units } = world.resources.get();
     const label = 'swapBuilding';
