@@ -78,6 +78,7 @@ class AssemblePlan {
     this.frame = this.resources.get().frame;
     this.map = this.resources.get().map;
     this.units = this.resources.get().units;
+    this.resourceTrigger = this.agent.minerals > 512 && this.agent.vespene > 128
     this.threats = threats(this.resources, this.state);
     this.enemySupply = enemyTrackingService.getEnemyCombatSupply(this.data);
     const inFieldSelfSupply = getSupply(this.data, this.units.getCombatUnits());
@@ -227,7 +228,7 @@ class AssemblePlan {
   async buildWorkers(foodRanges, controlled = false) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       if (controlled) {
-        if (!this.outSupplied && this.agent.minerals < 512 && shortOnWorkers(this.resources)) {
+        if (!this.outSupplied && this.resourceTrigger && shortOnWorkers(this.resources)) {
           try { await buildWorkers(this.agent, this.data, this.world.resources); } catch (error) { console.log(error); }
         }
       } else {
@@ -689,7 +690,7 @@ class AssemblePlan {
           case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
-            if (this.agent.minerals > 512 && this.agent.vespene > 128 && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
+            if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
           case 'harass': if (this.state.enemyBuildType === 'standard') { await harass(this.resources, this.state); } break;
           case 'liftToThird': if (this.foodUsed >= foodTarget) { await liftToThird(this.resources); break; }
           case 'maintainQueens': if (this.foodUsed >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
