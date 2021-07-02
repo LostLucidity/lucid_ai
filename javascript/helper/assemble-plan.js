@@ -553,19 +553,11 @@ class AssemblePlan {
       let labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
         if (conditions) {
-          if (conditions.scoutType && !this[conditions.scoutType]) {
-            return;
-          }
+          if (conditions.scoutType && !this[conditions.scoutType]) { return; }
           if (conditions.unitType) {
-            if (this.units.getByType(conditions.unitType).length === conditions.unitCount) {
-              this.setScout(unitType, label, targetLocation);
-            }
-          } else {
-            this.setScout(unitType, label, targetLocation);
-          }
-        } else {
-          this.setScout(unitType, label, targetLocation);
-        }
+            if (this.units.getByType(conditions.unitType).length === conditions.unitCount) { this.setScout(unitType, label, targetLocation); }
+          } else { this.setScout(unitType, label, targetLocation); }
+        } else { this.setScout(unitType, label, targetLocation); }
         labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
         const [scout] = labelledScouts;
         if (scout) {
