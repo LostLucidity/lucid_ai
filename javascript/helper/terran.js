@@ -22,10 +22,11 @@ module.exports = {
           abilityId,
           unitTags: [unit.tag]
         }
-        if (map.isPlaceable(getAddOnPosition(unit.pos))) {
+        if (map.isPlaceableAt(addOnType, getAddOnPosition(unit.pos))) {
           await actions.sendAction(unitCommand);
           planService.pauseBuilding = false;
           setPendingOrders(unit, unitCommand);
+          return;
         }
       }
       if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
