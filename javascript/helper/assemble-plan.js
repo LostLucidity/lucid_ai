@@ -328,7 +328,7 @@ class AssemblePlan {
               Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}`;
               this.earlyScout = false;
             } else if (!spawningPoolDetected && enemyNaturalDetected) {
-              console.log(frame.timeInSeconds(), 'Hatcher first. Standard.');
+              console.log(frame.timeInSeconds(), 'Hatchery first. Standard.');
               this.state.enemyBuildType = 'standard';
               this.scoutReport = `${this.state.enemyBuildType} detected:
               Spawning Pool: ${this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length}.
