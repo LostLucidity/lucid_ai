@@ -14,6 +14,7 @@ const { getInRangeUnits, calculateNearSupply } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
 const { scanCloakedEnemy } = require("../terran");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
+const { microRangedUnit } = require("../../services/micro-service");
 
 module.exports = {
   attack: ({data, resources}, mainCombatTypes, supportUnitTypes) => {
@@ -128,13 +129,15 @@ module.exports = {
               collectedActions.push(unitCommand);
             }
           } else {
-            const unitCommand = {
-              abilityId: ATTACK_ATTACK,
-              targetUnitTag: closestEnemyUnit.tag,
-              unitTags: [selfUnit.tag],
+            if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(selfUnit, closestEnemyUnit)); }
+            else {
+              selfUnit.labels.set('retreat', false);
+              collectedActions.push({
+                abilityId: ATTACK_ATTACK,
+                targetUnitTag: closestEnemyUnit.tag,
+                unitTags: [selfUnit.tag],
+              });
             }
-            selfUnit.labels.set('retreat', false);
-            collectedActions.push(unitCommand);
           } 
         } else {
           if (selfUnit.unitType !== QUEEN) {
