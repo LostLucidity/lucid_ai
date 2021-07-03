@@ -228,7 +228,7 @@ class AssemblePlan {
   async buildWorkers(foodRanges, controlled = false) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       if (controlled) {
-        if (!this.outSupplied && this.resourceTrigger && shortOnWorkers(this.resources)) {
+        if (!this.outSupplied && !this.resourceTrigger && shortOnWorkers(this.resources)) {
           try { await buildWorkers(this.agent, this.data, this.world.resources); } catch (error) { console.log(error); }
         }
       } else {
