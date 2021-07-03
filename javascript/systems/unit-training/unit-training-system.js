@@ -31,10 +31,17 @@ module.exports = createSystem({
     ];
     if (trainUnitConditions.some(condition => condition)) {
       outSupplied ? console.log(frame.timeInSeconds(), 'Scouted higher supply', selfSupply, enemySupply) : null;
-      const haveTechForTypes = trainingTypes.filter(type => !data.getUnitTypeData(type).attributes.includes(Attribute.STRUCTURE) && haveAvailableProductionUnitsFor(world, type) && agent.hasTechFor(type));
+      const candidateTypeToBuild = trainingTypes.filter(type => {
+        return [
+          !data.getUnitTypeData(type).attributes.includes(Attribute.STRUCTURE),
+          haveAvailableProductionUnitsFor(world, type),
+          agent.hasTechFor(type),
+          data.getUnitTypeData(type).foodRequired <= planService.plan.find(action => action.food > agent.foodUsed).food - agent.foodUsed,
+        ].every(condition => condition);
+      });
       let { selectedTypeToBuild } = unitTrainingService;
-      unitTrainingService.selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : haveTechForTypes[Math.floor(Math.random() * haveTechForTypes.length)];
-      if (typeof selectedTypeToBuild == null) { await train(world, selectedTypeToBuild) }
+      unitTrainingService.selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : candidateTypeToBuild[Math.floor(Math.random() * candidateTypeToBuild.length)];
+      if (selectedTypeToBuild != null) { await train(world, selectedTypeToBuild) }
     }
     sharedService.setPendingOrderBySystemName(units, this.name);
   }
