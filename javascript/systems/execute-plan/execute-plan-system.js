@@ -39,9 +39,9 @@ module.exports = createSystem({
     }
     sharedService.setPendingOrderBySystemName(units, this.name);
   },
-  async onUnitDestroyed({}, destroyedUnit) {
+  async onUnitDestroyed({ }, destroyedUnit) {
     if (destroyedUnit.isWorker()) {
-      this.state.pauseBuilding = false;
+      planService.pauseBuilding = false;
     }
   }
 });
