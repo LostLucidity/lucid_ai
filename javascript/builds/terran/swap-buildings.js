@@ -74,21 +74,28 @@ module.exports = {
     }
   },
   checkAddOnPlacement: async ({ data, resources }, building, addOnType = REACTOR) => {
-    const { actions } = resources.get();
+    const { actions, map } = resources.get();
     const abilityId = data.getUnitTypeData(addOnType).abilityId;
     if (building.abilityAvailable(abilityId)) {
-      let foundPosition = null;
-      let foundAddOnPosition = null;
+      let position = null;
+      let addOnPosition = null;
       let range = 1;
       do {
-        const nearPoints = gridsInCircle(getAddOnPosition(building.pos), range);
-        foundAddOnPosition = await findPosition(actions, addOnType, nearPoints);
-        if (foundAddOnPosition) {
-          foundPosition = await findPosition(actions, building.unitType, [getAddOnBuildingPosition(foundAddOnPosition)]);
+        const nearPoints = gridsInCircle(getAddOnPosition(building.pos), range).filter(grid => map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(building.unitType, getAddOnBuildingPosition(grid)));
+        if (nearPoints.length > 0) {
+          if (Math.random() < (1 / 2)) {
+            addOnPosition = nearPoints[Math.floor(Math.random() * nearPoints.length)];
+            position = getAddOnBuildingPosition(addOnPosition)
+          } else {
+            addOnPosition = await findPosition(actions, addOnType, nearPoints);
+            if (addOnPosition) {
+              position = await findPosition(actions, building.unitType, [getAddOnBuildingPosition(addOnPosition)]);
+            }
+          }
         }
         range++
-      } while (!foundPosition || !foundAddOnPosition);
-      return foundPosition;
+      } while (!position || !addOnPosition);
+      return position;
     } else {
       return;
     }
