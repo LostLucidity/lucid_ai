@@ -42,11 +42,11 @@ function decideDefendingActions(world, rallyPoint) {
   let [closestEnemyUnit] = getClosestUnitByPath(resources, rallyPoint, enemyTrackingService.threats);
   if (closestEnemyUnit) {
     let selfCombatUnits = units.getCombatUnits();
-    const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, units.getCombatUnits());
+    const [combatPoint] = getClosestUnitByPath(resources, closestEnemyUnit.pos, units.getCombatUnits());
     if (combatPoint) {
       const enemyCombatUnits = units.getCombatUnits(Alliance.ENEMY);
       const enemySupply = enemyCombatUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-      let selfUnits = [ ...selfCombatUnits, ...units.getWorkers().filter(worker => worker.isAttacking()) ];
+      let selfUnits = [...selfCombatUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
       const selfSupply = selfUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
       if (selfSupply > enemySupply) {
         console.log('Defend', selfSupply, enemySupply);
@@ -58,7 +58,7 @@ function decideDefendingActions(world, rallyPoint) {
         }
         const combatPoint = getCombatPoint(resources, selfCombatUnits, closestEnemyUnit);
         if (combatPoint) {
-          const army = { combatPoint, selfCombatUnits, enemyTarget: closestEnemyUnit}
+          const army = { combatPoint, selfCombatUnits, enemyTarget: closestEnemyUnit }
           collectedActions.push(...attackWithArmy(data, units, army));
         }
       } else {
@@ -78,28 +78,28 @@ function decideDefendingActions(world, rallyPoint) {
 
 async function defenseSetup({ agent, data, resources }) {
   const { actions, map, units } = resources.get();
-    if (!scoutService.earlyScout && scoutService.enemyBuildType === 'cheese') {
-      let buildAbilityId;
-      switch (agent.race) {
-        case Race.TERRAN:
-          buildAbilityId = data.getUnitTypeData(BUNKER).abilityId;
-          if ((units.getById(BUNKER).length + units.withCurrentOrders(buildAbilityId)) < 1) {
-            const natural = map.getNatural();
-            const naturalWall = natural.getWall();
-            if (naturalWall) {
-              if (canAfford(agent, data, BUNKER)) {
-                try {
-                  const [foundPosition] = await getBetweenBaseAndWall(resources, BUNKER);
-                  if (foundPosition) {
-                    await actions.build(BUNKER, foundPosition);
-                  }
-                } catch (error) {
-                  console.log(error);
+  if (!scoutService.earlyScout && scoutService.enemyBuildType === 'cheese') {
+    let buildAbilityId;
+    switch (agent.race) {
+      case Race.TERRAN:
+        buildAbilityId = data.getUnitTypeData(BUNKER).abilityId;
+        if ((units.getById(BUNKER).length + units.withCurrentOrders(buildAbilityId)) < 1) {
+          const natural = map.getNatural();
+          const naturalWall = natural.getWall();
+          if (naturalWall) {
+            if (canAfford(agent, data, BUNKER)) {
+              try {
+                const [foundPosition] = await getBetweenBaseAndWall(resources, BUNKER);
+                if (foundPosition) {
+                  await actions.build(BUNKER, foundPosition);
                 }
+              } catch (error) {
+                console.log(error);
               }
             }
           }
-          break;
-      }
+        }
+        break;
     }
+  }
 }
