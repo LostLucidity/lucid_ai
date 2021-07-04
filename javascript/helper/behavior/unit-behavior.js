@@ -175,7 +175,7 @@ module.exports = {
     const { frame, units} = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
-    const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural']) && !isRepairing(unit));
+    const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !isRepairing(unit));
     if (enemyUnits.length > 0) {
       for (const worker of workers) {
         let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyUnits.filter(unit => !unit.isStructure()), 1);
