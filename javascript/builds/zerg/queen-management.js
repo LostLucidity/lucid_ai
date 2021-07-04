@@ -9,7 +9,7 @@ const canAfford = require("../../helper/can-afford");
 const { getClosestPositionByPath, getClosestUnitByPath } = require("../../helper/get-closest-by-path");
 const {  intersectionOfPoints } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { findPosition } = require("../../helper/placement-helper");
+const { findPosition } = require("../../helper/placement/placement-helper");
 const { creepGenerators } = require("@node-sc2/core/constants/groups");
 const { getClosestPosition } = require("../../helper/get-closest");
 

@@ -9,7 +9,7 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { workerSendOrBuild } = require("../helper");
 const { getOccupiedExpansions } = require("./expansions");
 const { getCombatRally } = require("./location");
-const { findPosition } = require("./placement-helper");
+const { findPosition } = require("./placement/placement-helper");
 
 module.exports = {
   findWarpInLocations: (resources) => {

@@ -8,7 +8,8 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkBuildingCount } = require("../../helper");
 const { countTypes } = require("../../helper/groups");
-const { findPosition, getAddOnBuildingPosition, getAddOnPosition } = require("../../helper/placement-helper");
+const { findPosition } = require("../../helper/placement/placement-helper");
+const { getAddOnBuildingPosition, getAddOnPosition } = require("../../helper/placement/placement-utilities");
 
 module.exports = {
   handleOrphanReactor: () => {

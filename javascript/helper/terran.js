@@ -11,7 +11,7 @@ const { setPendingOrders } = require("../helper");
 const planService = require("../services/plan-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
-const { getAddOnPosition } = require("./placement-helper");
+const { getAddOnPosition } = require("./placement/placement-utilities");
 
 module.exports = {
   addAddOn: async (world, unit, abilityId, addOnType) => {

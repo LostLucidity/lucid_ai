@@ -6,6 +6,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../../helper/get-closest");
 const wallOffRampService = require("./wall-off-ramp-service");
 const { distanceByPath } = require("../../helper/get-closest-by-path");
+const { getAddOnPlacement, isBuildingAndAddonPlaceable, getAddOnBuildingPlacement } = require("../../helper/placement/placement-utilities");
 
 module.exports = createSystem({
   name: 'WallOffRamp',
