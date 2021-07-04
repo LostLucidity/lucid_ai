@@ -9,6 +9,7 @@ const { PROBE, ZERGLING } = require('@node-sc2/core/constants/unit-type');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { countTypes } = require('./helper/groups');
+const trackUnitsService = require('./systems/track-units/track-units-service');
 
 module.exports = {
   checkBuildingCount: ({ agent, data, resources }, unitType, targetCount) => {
@@ -32,7 +33,7 @@ module.exports = {
     units.withCurrentOrders(abilityId).forEach(unit => {
       unit.orders.forEach(order => { if (order.abilityId === abilityId) { orders.push(order); } });
     });
-    const unitCount = units.getById(unitType).length + orders.length;
+    const unitCount = units.getById(unitType).length + orders.length + trackUnitsService.missingUnits.filter(unit => unit.unitType === unitType).length;
     return unitCount === targetCount;
   },
   findSupplyPositions: (resources) => {

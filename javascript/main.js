@@ -30,6 +30,7 @@ const rallySystem = require('./systems/army-management/rally-system');
 const defenseSystem = require('./systems/army-management/defense-system');
 const manageSupplySystem = require('./systems/manage-supply-system');
 const debugSystem = require('./systems/debug-system');
+const trackUnitsSystem = require('./systems/track-units/track-units-system');
 
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -159,7 +160,7 @@ function runGame() {
     enemyTrackingSystem,
     // debugSystem,
   ];
-  const updateSystems = [
+  const updatedSystems = [
     saltConverterSystem,
     wallOffRampSystem,
     trackEnemySystem,
@@ -173,8 +174,9 @@ function runGame() {
     enemyTrackingSystem,
     rallySystem,
     manageSupplySystem,
+    trackUnitsSystem,
   ];
-  bot1.use(legacySystems);
+  bot1.use(updatedSystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
   const playerTwo = createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild })
   return engine.runGame(map, [playerOne, playerTwo]);
