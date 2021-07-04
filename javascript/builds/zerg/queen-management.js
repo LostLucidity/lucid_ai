@@ -7,7 +7,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance, add } = require("@node-sc2/core/utils/geometry/point");
 const canAfford = require("../../helper/can-afford");
 const { getClosestPositionByPath, getClosestUnitByPath } = require("../../helper/get-closest-by-path");
-const {  intersectionOfPoints } = require("../../helper/utilities");
+const { intersectionOfPoints } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { findPosition } = require("../../helper/placement/placement-helper");
 const { creepGenerators } = require("@node-sc2/core/constants/groups");
@@ -29,12 +29,12 @@ module.exports = {
     const queen = units.withLabel('injector').find(injector => injector.energy >= 25);
     if (queen) {
       const nonInjectedBases = units.getBases().filter(base => !base.buffIds.includes(11));
-      const [ townhall ] = units.getClosest(queen.pos, units.getClosest(queen.pos, nonInjectedBases));
+      const [townhall] = units.getClosest(queen.pos, units.getClosest(queen.pos, nonInjectedBases));
       if (townhall) {
         const unitCommand = {
           abilityId: EFFECT_INJECTLARVA,
           targetUnitTag: townhall.tag,
-          unitTags: [ queen.tag ]      
+          unitTags: [queen.tag]
         }
         collectedActions.push(unitCommand);
       }
@@ -65,7 +65,7 @@ module.exports = {
       if (units.getById(CREEPTUMORBURROWED).length <= 2) {
         // get creep natural closest to enemy
         const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
-        const [ closestTownhallPositionToEnemy ] = getClosestUnitByPath(resources, map.getEnemyMain().townhallPosition, occupiedTownhalls).map(unit => unit.pos);
+        const [closestTownhallPositionToEnemy] = getClosestUnitByPath(resources, map.getEnemyMain().townhallPosition, occupiedTownhalls).map(unit => unit.pos);
         const pathToEnemyMain = map.path(add(closestTownhallPositionToEnemy, 3), add(map.getEnemyMain().townhallPosition, 3))
           .map(step => ({ x: step[0], y: step[1] }))
           .filter(point => map.getOccupiedExpansions(Alliance.ENEMY).every(expansion => distance(point, expansion.townhallPosition) > 11.5));
@@ -96,13 +96,13 @@ module.exports = {
             ].every(condition => condition);
           });
           foundPosition = await findPosition(actions, CREEPTUMOR, candidatePositions);
-          lowerLimit-= 0.5;
+          lowerLimit -= 0.5;
         } while (!foundPosition && lowerLimit > 0);
         if (foundPosition) {
           const unitCommand = {
             abilityId: BUILD_CREEPTUMOR_TUMOR,
             targetWorldSpacePos: foundPosition,
-            unitTags: [ tumor.tag ]
+            unitTags: [tumor.tag]
           }
           collectedActions.push(unitCommand);
         }
@@ -127,7 +127,7 @@ async function findAndPlaceCreepTumor(resources, spreaders, ability, candidates)
   }
   const t0 = new Date().getTime();
   const creepCandidates = creepPoints.filter(point => {
-    return filterPlacementsByRange(map, units, [ HATCHERY, LAIR, CREEPTUMORBURROWED, ], point, 9);
+    return filterPlacementsByRange(map, units, [HATCHERY, LAIR, CREEPTUMORBURROWED,], point, 9);
   });
   const t1 = new Date().getTime();
   longestTime = (t1 - t0) > longestTime ? t1 - t0 : longestTime;
@@ -135,17 +135,17 @@ async function findAndPlaceCreepTumor(resources, spreaders, ability, candidates)
   if (creepCandidates.length > 0) {
     // for every creepCandidate filter by finding at least one spreader less than 10.5 distance
     // no test for queens.
-    const spreadableCreepCandidates = creepCandidates.filter(candidate => ability === BUILD_CREEPTUMOR_QUEEN ? true : spreaders.some(spreader => distance( candidate, spreader.pos, ) <= 10.5));
+    const spreadableCreepCandidates = creepCandidates.filter(candidate => ability === BUILD_CREEPTUMOR_QUEEN ? true : spreaders.some(spreader => distance(candidate, spreader.pos,) <= 10.5));
     const allSpreaders = [...units.getById(CREEPTUMORBURROWED)].filter(unit => unit.availableAbilities().length > 0);
     if (spreadableCreepCandidates.length > 0) {
       const foundPosition = await actions.canPlace(CREEPTUMOR, spreadableCreepCandidates);
       if (foundPosition) {
         // get closest spreader
-        const [ closestSpreader ] = units.getClosest(foundPosition, spreaders);
+        const [closestSpreader] = units.getClosest(foundPosition, spreaders);
         const unitCommand = {
           abilityId: ability,
           targetWorldSpacePos: foundPosition,
-          unitTags: [ closestSpreader.tag ]
+          unitTags: [closestSpreader.tag]
         }
         collectedActions.push(unitCommand);
         allSpreaders.forEach(spreader => spreader.labels.set('done', false));
@@ -161,7 +161,7 @@ function filterPlacementsByRange(map, units, unitType, point, range) {
   return [...units.getById(unitType), ...map.getAvailableExpansions()]
     .map(creepGenerator => creepGenerator.pos || creepGenerator.townhallPosition)
     .every(position => {
-      const [ closestEnemyStructure ] = units.getClosest(position, units.getStructures(Alliance.ENEMY));
+      const [closestEnemyStructure] = units.getClosest(position, units.getStructures(Alliance.ENEMY));
       if (closestEnemyStructure) {
         return (
           distance(position, point) >= range &&
@@ -174,9 +174,7 @@ function filterPlacementsByRange(map, units, unitType, point, range) {
 }
 
 function getRandomWithLimit(array, limit) {
-  var result = new Array(limit),
-  len = array.length,
-  taken = new Array(len);
+  let result = new Array(limit), len = array.length, taken = new Array(len);
   if (limit > len)
     throw new RangeError("getRandom: more elements taken than available");
   while (limit--) {
