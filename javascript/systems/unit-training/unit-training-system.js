@@ -9,6 +9,7 @@ const planService = require("../../services/plan-service");
 const sharedService = require("../../services/shared-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const { train } = require("../execute-plan/plan-actions");
+const { getSelfCombatSupply } = require("../track-units/track-units-service");
 const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("./unit-training-service");
 const unitTrainingService = require("./unit-training-service");
 
@@ -20,17 +21,16 @@ module.exports = createSystem({
     const { frame, units } = resources.get();
     const { trainingTypes } = planService;
     sharedService.removePendingOrderBySystemName(units, this.name);
-    const inFieldSelfSupply = getSupply(data, units.getCombatUnits());
-    const selfSupply = inFieldSelfSupply + getTrainingSupply(world, trainingTypes) + getLoadedSupply(units);
-    const enemySupply = enemyTrackingService.getEnemyCombatSupply(data);
-    const outSupplied = enemySupply > selfSupply;
+    const selfCombatSupply = getSelfCombatSupply(world);
+    const enemyCombatSupply = enemyTrackingService.getEnemyCombatSupply(data);
+    const outSupplied = enemyCombatSupply > selfCombatSupply;
     const trainUnitConditions = [
       outSupplied,
       workersTrainingTendedTo(world) && !planService.pauseBuilding,
       !shortOnWorkers(resources) && !planService.pauseBuilding,
     ];
     if (trainUnitConditions.some(condition => condition)) {
-      outSupplied ? console.log(frame.timeInSeconds(), 'Scouted higher supply', selfSupply, enemySupply) : null;
+      outSupplied ? console.log(frame.timeInSeconds(), 'Scouted higher supply', selfCombatSupply, enemyCombatSupply) : null;
       const candidateTypeToBuild = trainingTypes.filter(type => {
         return [
           !data.getUnitTypeData(type).attributes.includes(Attribute.STRUCTURE),
