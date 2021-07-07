@@ -8,6 +8,7 @@ const AssemblePlan = require("../helper/assemble-plan");
 const { convertPlan } = require("../systems/salt-converter/salt-converter");
 const { gatherOrMine } = require("../systems/balance-resources");
 const plans = require("./plans");
+const sharedService = require("../services/shared-service");
 
 let assemblePlan = null;
 let longestTime = 0;
@@ -40,10 +41,13 @@ const entry = createSystem({
     assemblePlan.onGameStart(world);
   },
   async onStep(world) {
+    const { units } = world.resources.get();
+    sharedService.removePendingOrderBySystemName(units, this.name);
     const t0 = new Date().getTime();
     await assemblePlan.onStep(world, this.state);
     const t1 = new Date().getTime();
     longestTime = (t1 - t0) > longestTime ? t1 - t0 : longestTime;
+    sharedService.setPendingOrderBySystemName(units, this.name);
   },
   async onUnitCreated(world, createdUnit) {
     await assemblePlan.onUnitCreated(world, createdUnit);
