@@ -5,7 +5,7 @@ const { MOVE } = require("@node-sc2/core/constants/ability");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { workerSendOrBuild } = require("../helper");
 const planService = require("../services/plan-service");
-const { balanceResources } = require("../systems/balance-resources");
+const { balanceForFuture } = require("../systems/manage-resources");
 const canAfford = require("./can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 

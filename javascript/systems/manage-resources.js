@@ -1,12 +1,43 @@
 //@ts-check
 "use strict"
 
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities, mineralFieldTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
+const { checkBuildingCount } = require("../helper");
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
+const planService = require("../services/plan-service");
+const { checkUnitCount } = require("./track-units/track-units-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
-module.exports = {
+const manageResources = {
+  balanceForFuture: async (world, action) => {
+    const { plan } = planService;
+    const currentStep = planService.currentStep;
+    if (currentStep !== null) {
+      const steps = [plan[currentStep]];
+      const nextStep = plan[currentStep + 1];
+      if (nextStep.orderType === 'UnitType') {
+        const isStructure = world.data.getUnitTypeData(nextStep.unitType).attributes.includes(Attribute.STRUCTURE);
+        let useNextStep;
+        if (isStructure) {
+          useNextStep = checkBuildingCount(world, nextStep.unitType, nextStep.targetCount)
+        } else {
+          useNextStep = checkUnitCount(world, nextStep.unitType, nextStep.targetCount)
+        }
+        if (useNextStep) { steps.push(nextStep); };
+      } else if (nextStep.orderType === 'Upgrade') {
+        const upgraders = world.resources.get().units.getUpgradeFacilities(nextStep.upgrade);
+        const { abilityId } = world.data.getUpgradeData(nextStep.upgrade);
+        const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
+        if (!world.agent.upgradeIds.includes(nextStep.upgrade) && foundUpgradeInProgress === undefined) { steps.push(nextStep); }
+      }
+      const { totalMineralCost, totalVespeneCost } = manageResources.getResourceDemand(world.data, steps);
+      await manageResources.balanceResources(world, totalMineralCost / totalVespeneCost);
+    } else {
+      let { mineralCost, vespeneCost } = world.data.getUnitTypeData(action);
+      await manageResources.balanceResources(world, mineralCost / vespeneCost);
+    }
+  },
   balanceResources: async ({ agent, data, resources }, targetRatio = 16 / 6) => {
     const { actions, units } = resources.get();
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
@@ -92,3 +123,5 @@ function getMinerCount(units) {
   const vespeneMinerCount = units.getGasMines(readySelfFilter).reduce((accumulator, currentValue) => accumulator + currentValue.assignedHarvesters, 0);
   return { mineralMinerCount, vespeneMinerCount }
 }
+
+module.exports = manageResources;

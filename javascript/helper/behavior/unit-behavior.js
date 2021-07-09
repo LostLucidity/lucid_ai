@@ -15,7 +15,7 @@ const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { mineralFieldTypes } = require("@node-sc2/core/constants/groups");
-const { gatherOrMine } = require("../../systems/balance-resources");
+const { gatherOrMine } = require("../../systems/manage-resources");
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action) => {

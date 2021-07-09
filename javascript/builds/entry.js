@@ -6,7 +6,7 @@ const { CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const AssemblePlan = require("../helper/assemble-plan");
 const { convertPlan } = require("../systems/salt-converter/salt-converter");
-const { gatherOrMine } = require("../systems/balance-resources");
+const { gatherOrMine } = require("../systems/manage-resources");
 const plans = require("./plans");
 const sharedService = require("../services/shared-service");
 
