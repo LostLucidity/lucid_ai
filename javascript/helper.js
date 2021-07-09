@@ -63,7 +63,7 @@ module.exports = {
     return possiblePlacements;
   },
   getLoadedSupply: (units) => {
-    units.getAlive().reduce((accumulator, currentValue) => accumulator + currentValue.cargoSpaceTaken, 0);
+    return units.getAlive(Alliance.SELF).reduce((accumulator, currentValue) => accumulator + currentValue.cargoSpaceTaken, 0);
   },
   getTrainingSupply: (world, unitTypes) => {
     const { data, resources } = world;
