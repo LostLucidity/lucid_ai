@@ -3,7 +3,6 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { Attribute } = require("@node-sc2/core/constants/enums");
-const { getSupply, getTrainingSupply, getLoadedSupply } = require("../../helper");
 const shortOnWorkers = require("../../helper/short-on-workers");
 const planService = require("../../services/plan-service");
 const sharedService = require("../../services/shared-service");
