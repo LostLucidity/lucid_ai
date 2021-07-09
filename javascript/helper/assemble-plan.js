@@ -485,7 +485,8 @@ class AssemblePlan {
         switch (race) {
           // TODO: remove third parameter and handle undefined in train function.
           case Race.TERRAN:
-            await this.build(this.foodUsed, SUPPLYDEPOT, this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length)
+            await this.build(this.foodUsed, SUPPLYDEPOT, this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length);
+            break;
           case Race.PROTOSS:
             await this.build(this.foodUsed, PYLON, this.units.getById(PYLON).length);
             break;
