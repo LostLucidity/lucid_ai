@@ -19,7 +19,7 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
     switch (agent.race) {
       case Race.TERRAN:
         buildAbilityId = data.getUnitTypeData(BUNKER).abilityId;
-        if ((units.getById(BUNKER).length + units.withCurrentOrders(buildAbilityId)) < 1 ) {
+        if ((units.getById(BUNKER).length + units.withCurrentOrders(buildAbilityId)) < 1) {
           const natural = map.getNatural();
           const naturalWall = natural.getWall();
           if (naturalWall) {
@@ -32,18 +32,18 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
               } catch (error) {
                 console.log(error);
               }
-            }   
+            }
           }
         }
         break;
       case Race.PROTOSS:
         buildAbilityId = data.getUnitTypeData(SHIELDBATTERY).abilityId;
-        if ((units.getById(SHIELDBATTERY).length + units.withCurrentOrders(buildAbilityId)) < 1 ) {
+        if ((units.getById(SHIELDBATTERY).length + units.withCurrentOrders(buildAbilityId)) < 1) {
           const natural = map.getNatural();
           const naturalWall = natural.getWall();
           if (naturalWall) {
             const avg = avgPoints(naturalWall);
-            const [ closestPylon ] = units.getClosest(avg, units.getById(PYLON), 1);
+            const [closestPylon] = units.getClosest(avg, units.getById(PYLON), 1);
             const points = gridsInCircle(closestPylon.pos, 6.5);
             const filteredPoints = points.filter(point => {
               return (
@@ -73,7 +73,7 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
         break;
       case Race.ZERG:
         buildAbilityId = data.getUnitTypeData(SPINECRAWLER).abilityId;
-        if ((units.getById(SPINECRAWLER).length + units.withCurrentOrders(buildAbilityId)) < 1 ) {
+        if ((units.getById(SPINECRAWLER).length + units.withCurrentOrders(buildAbilityId)) < 1) {
           const natural = map.getNatural();
           const naturalWall = natural.getWall();
           if (naturalWall) {
@@ -106,7 +106,7 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
         break;
     }
   }
-  const [ defenseStructure ] = units.getById(state.defenseStructures);
+  const [defenseStructure] = units.getById(state.defenseStructures);
   if (defenseStructure && state.defendNatural) {
     state.defenseLocation = defenseStructure.pos;
   } else {
