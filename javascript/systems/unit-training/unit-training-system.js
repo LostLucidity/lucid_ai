@@ -8,6 +8,7 @@ const planService = require("../../services/plan-service");
 const sharedService = require("../../services/shared-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const { train } = require("../execute-plan/plan-actions");
+const { getResourceDemand } = require("../manage-resources");
 const { getSelfCombatSupply } = require("../track-units/track-units-service");
 const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("./unit-training-service");
 const unitTrainingService = require("./unit-training-service");
@@ -42,7 +43,7 @@ module.exports = createSystem({
       let { selectedTypeToBuild } = unitTrainingService;
       unitTrainingService.selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : candidateTypeToBuild[Math.floor(Math.random() * candidateTypeToBuild.length)];
       if (selectedTypeToBuild != null) {
-        const { totalMineralCost, totalVespeneCost } = manageResources.getResourceDemand(world.data, [foundStep]);
+        const { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, [foundStep]);
         let { mineralCost, vespeneCost } = data.getUnitTypeData(selectedTypeToBuild);
         if (agent.minerals < (totalMineralCost + mineralCost) || agent.vespene < (totalVespeneCost + vespeneCost)) { return; }
         await train(world, selectedTypeToBuild);
