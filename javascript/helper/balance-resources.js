@@ -2,6 +2,7 @@
 "use strict"
 
 const { GasMineRace } = require("@node-sc2/core/constants/race-map");
+const planService = require("../services/plan-service");
 
 module.exports = {
   gasMineCheckAndBuild: async ({ agent, data, resources}, ratio=2.4) => {
@@ -15,7 +16,7 @@ module.exports = {
       resourceRatio > ratio,
       agent.canAfford(gasUnitId),
       units.getById(gasUnitId).filter(unit => unit.buildProgress < 1).length < 1,
-      units.getById(gasUnitId).length > 2,
+      agent.foodUsed > planService.planMax.gasMine,
       units.withCurrentOrders(buildAbilityId).length <= 0,
       geyser,
     ];

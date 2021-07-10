@@ -13,17 +13,15 @@ module.exports = createSystem({
   type: 'agent',
   async onStep(world) {
     const { agent, data, resources } = world;
-    if (agent.foodUsed > planService.supplyMax && isSupplyNeeded(agent, data, resources)) {
+    const conditions = [
+      isSupplyNeeded(agent, data, resources) &&
+      (agent.foodUsed > planService.planMax.supplyDepot || agent.minerals > 512)
+    ];
+    if (conditions.some(condition => condition)) {
       switch (agent.race) {
-        case Race.TERRAN:
-          await build(world, SUPPLYDEPOT)
-        case Race.PROTOSS:
-          await build(world, PYLON);
-          break;
-        case Race.ZERG:
-          let abilityId = data.getUnitTypeData(OVERLORD).abilityId;
-          await train(world, OVERLORD);
-          break;
+        case Race.TERRAN: await build(world, SUPPLYDEPOT); break;
+        case Race.PROTOSS: await build(world, PYLON); break;
+        case Race.ZERG: await train(world, OVERLORD); break;
       }
     }
   }
