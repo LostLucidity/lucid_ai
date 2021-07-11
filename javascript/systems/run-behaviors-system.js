@@ -2,7 +2,7 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { scoutEnemyMainBehavior } = require("../helper/behavior/labelled-behavior");
+const { scoutEnemyMainBehavior, clearFromEnemyBehavior } = require("../helper/behavior/labelled-behavior");
 const { supplyDepotBehavior } = require("../helper/behavior/unit-behavior");
 const scoutService = require("./scouting/scouting-service");
 
@@ -16,7 +16,8 @@ module.exports = createSystem({
     scoutService.opponentRace = seenEnemyUnit.data().race;
   },
   async onStep({ resources }) {
-    const collectedActions = []
+    const collectedActions = [];
+    collectedActions.push(...clearFromEnemyBehavior(resources));
     await scoutEnemyMainBehavior(resources, scoutService.opponentRace);
     collectedActions.push(...supplyDepotBehavior(resources));
     await resources.get().actions.sendAction(collectedActions);
