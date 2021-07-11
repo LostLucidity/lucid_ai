@@ -9,12 +9,13 @@ const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map
 const { PHOTONCANNON, PYLON, WARPGATE } = require("@node-sc2/core/constants/unit-type");
 const { checkBuildingCount, workerSendOrBuild, checkUnitCount } = require("../../helper");
 const canBuild = require("../../helper/can-afford");
+const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
 const { expand } = require("../../helper/general-actions");
-const { findPlacements, findPosition } = require("../../helper/placement/placement-helper");
+const { findPlacements, findPosition, inTheMain } = require("../../helper/placement/placement-helper");
 const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
 const planService = require("../../services/plan-service");
-const { balanceResources, getResourceDemand } = require("../balance-resources");
+const { balanceForFuture } = require("../manage-resources");
 const unitTrainingService = require("../unit-training/unit-training-service");
 
 module.exports = {
@@ -69,13 +70,22 @@ module.exports = {
           break;
         case TownhallRace[race].includes(unitType):
           if (TownhallRace[race].indexOf(unitType) === 0) {
-            { collectedActions.push(...await expand(world)); }
+            if (units.getBases().length !== 2) {
+              const availableExpansions = getAvailableExpansions(resources);
+              candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(world, availableExpansions)] : [];
+              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
+            } else {
+              candidatePositions = await inTheMain(resources, unitType);
+              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
+            }
           } else {
             await module.exports.ability(world, data.getUnitTypeData(unitType).abilityId)
           }
           break;
         case PHOTONCANNON === unitType:
           candidatePositions = map.getNatural().areas.placementGrid;
+          collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
+          break;
         case addonTypes.includes(unitType):
           let abilityId = data.getUnitTypeData(unitType).abilityId;
           let canDoTypes = data.findUnitTypesWithAbility(abilityId);
@@ -91,34 +101,7 @@ module.exports = {
           }
           break;
         default:
-          if (candidatePositions.length === 0) { candidatePositions = await findPlacements(world, unitType); }
-          planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(actions, unitType, candidatePositions);
-          if (planService.foundPosition) {
-            if (agent.canAfford(unitType)) {
-              if (await actions.canPlace(unitType, [planService.foundPosition])) {
-                await actions.sendAction(workerSendOrBuild(resources, data.getUnitTypeData(unitType).abilityId, planService.foundPosition));
-                planService.pauseBuilding = false;
-                planService.continueBuild = false;
-                planService.foundPosition = null;
-              } else {
-                planService.foundPosition = null;
-                planService.pauseBuilding = true;
-                planService.continueBuild = false;
-              }
-            } else {
-              collectedActions.push(...workerSendOrBuild(resources, MOVE, planService.foundPosition));
-              await balanceForFuture(world, unitType);
-              planService.pauseBuilding = true;
-              planService.continueBuild = false;
-            }
-          } else {
-            const [pylon] = units.getById(PYLON);
-            if (pylon && pylon.buildProgress < 1) {
-              collectedActions.push(...workerSendOrBuild(resources, MOVE, pylon.pos));
-              planService.pauseBuilding = true;
-              planService.continueBuild = false;
-            }
-          }
+          collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
       }
     }
     return collectedActions;
@@ -185,24 +168,37 @@ module.exports = {
   }
 }
 
-async function balanceForFuture(world, action) {
-  const { plan } = planService;
-  const currentStep = planService.currentStep;
-  if (currentStep !== null) {
-    const steps = [plan[currentStep]];
-    const nextStep = plan[currentStep + 1];
-    const isStructure = world.data.getUnitTypeData(nextStep.unitType).attributes.includes(Attribute.STRUCTURE);
-    let useNextStep;
-    if (isStructure) {
-      useNextStep = checkBuildingCount(world, action, nextStep.targetCount)
+async function findAndPlaceBuilding(world, unitType, candidatePositions) {
+  const { agent, data, resources } = world
+  const collectedActions = []
+  const { actions, units } = resources.get();
+  if (candidatePositions.length === 0) { candidatePositions = await findPlacements(world, unitType); }
+  planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(actions, unitType, candidatePositions);
+  if (planService.foundPosition) {
+    if (agent.canAfford(unitType)) {
+      if (await actions.canPlace(unitType, [planService.foundPosition])) {
+        await actions.sendAction(workerSendOrBuild(resources, data.getUnitTypeData(unitType).abilityId, planService.foundPosition));
+        planService.pauseBuilding = false;
+        planService.continueBuild = false;
+        planService.foundPosition = null;
+      } else {
+        planService.foundPosition = null;
+        planService.pauseBuilding = true;
+        planService.continueBuild = false;
+      }
     } else {
-      useNextStep = checkUnitCount(world, action, nextStep.targetCount)
+      collectedActions.push(...workerSendOrBuild(resources, MOVE, planService.foundPosition));
+      await balanceForFuture(world, unitType);
+      planService.pauseBuilding = true;
+      planService.continueBuild = false;
     }
-    if (useNextStep) { steps.push(nextStep) };
-    const { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, steps);
-    await balanceResources(world, totalMineralCost / totalVespeneCost);
   } else {
-    let { mineralCost, vespeneCost } = world.data.getUnitTypeData(action);
-    await balanceResources(world, mineralCost / vespeneCost);
+    const [pylon] = units.getById(PYLON);
+    if (pylon && pylon.buildProgress < 1) {
+      collectedActions.push(...workerSendOrBuild(resources, MOVE, pylon.pos));
+      planService.pauseBuilding = true;
+      planService.continueBuild = false;
+    }
   }
+  return collectedActions;
 }
