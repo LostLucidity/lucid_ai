@@ -31,6 +31,7 @@ const defenseSystem = require('./systems/army-management/defense-system');
 const manageSupplySystem = require('./systems/manage-supply-system');
 const debugSystem = require('./systems/debug-system');
 const trackUnitsSystem = require('./systems/track-units/track-units-system');
+const swapBuildingSystem = require('./systems/swap-building-system');
 
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -175,6 +176,7 @@ function runGame() {
     rallySystem,
     manageSupplySystem,
     trackUnitsSystem,
+    swapBuildingSystem,
   ];
   bot1.use(updatedSystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
