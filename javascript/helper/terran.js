@@ -18,19 +18,21 @@ module.exports = {
     const { actions, map } = world.resources.get();
     if (unit.noQueue && !unit.labels.has('swapBuilding')) {
       if (unit.availableAbilities().some(ability => ability === abilityId)) {
-        const unitCommand = {
-          abilityId,
-          unitTags: [unit.tag]
-        }
-        if (map.isPlaceableAt(addOnType, getAddOnPosition(unit.pos))) {
-          await actions.sendAction(unitCommand);
-          planService.pauseBuilding = false;
-          setPendingOrders(unit, unitCommand);
-          return;
+        const addOnPosition = unit.labels.get('addAddOn');
+        if (addOnPosition && distance(unit.pos, addOnPosition) < 1) { unit.labels.delete('addAddOn'); } else {
+          const unitCommand = {
+            abilityId,
+            unitTags: [unit.tag]
+          }
+          if (map.isPlaceableAt(addOnType, getAddOnPosition(unit.pos))) {
+            await actions.sendAction(unitCommand);
+            planService.pauseBuilding = false;
+            setPendingOrders(unit, unitCommand);
+            return;
+          }
         }
       }
       if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
-        unit.labels.set('addAddOn');
         const unitCommand = {
           abilityId: Ability.LIFT,
           unitTags: [unit.tag],
@@ -41,6 +43,7 @@ module.exports = {
       if (unit.availableAbilities().find(ability => landingAbilities.includes(ability))) {
         const foundPosition = await checkAddOnPlacement(world, unit, addOnType);
         if (foundPosition) {
+          unit.labels.set('addAddOn', foundPosition);
           const unitCommand = {
             abilityId: abilityId,
             unitTags: [unit.tag],
@@ -49,7 +52,6 @@ module.exports = {
           await actions.sendAction(unitCommand);
           planService.pauseBuilding = false;
           setPendingOrders(unit, unitCommand);
-          unit.labels.delete('addAddOn');
         }
       }
     }
