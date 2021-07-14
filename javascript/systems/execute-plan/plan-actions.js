@@ -16,6 +16,7 @@ const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
 const planService = require("../../services/plan-service");
 const { balanceForFuture } = require("../manage-resources");
+const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
 
 module.exports = {
@@ -110,12 +111,7 @@ module.exports = {
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
     let abilityId = data.getUnitTypeData(unitType).abilityId;
-    const orders = [];
-    units.withCurrentOrders(abilityId).forEach(unit => {
-      unit.orders.forEach(order => { if (order.abilityId === abilityId) { orders.push(order); } });
-    });
-    const unitCount = units.getById(unitType).length + orders.length
-    if (targetCount === null || unitCount === targetCount) {
+    if (checkUnitCount(world, unitType, targetCount) || targetCount === null) {
       if (canBuild(agent, data, unitType)) {
         const trainer = units.getProductionUnits(unitType).find(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId));
         if (trainer) {
