@@ -7,7 +7,7 @@ const { createSystem } = require('@node-sc2/core');
 const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
-const { balanceResources, gatherOrMine } = require('./balance-resources');
+const { balanceResources, gatherOrMine } = require('./manage-resources');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',
