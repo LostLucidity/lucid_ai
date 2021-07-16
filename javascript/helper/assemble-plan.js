@@ -78,7 +78,7 @@ class AssemblePlan {
     this.frame = this.resources.get().frame;
     this.map = this.resources.get().map;
     this.units = this.resources.get().units;
-    this.resourceTrigger = this.agent.minerals > 512 && this.agent.vespene > 128
+    this.resourceTrigger = this.agent.minerals > 512 && this.agent.vespene > 256;
     this.threats = threats(this.resources, this.state);
     this.enemySupply = enemyTrackingService.getEnemyCombatSupply(this.data);
     const inFieldSelfSupply = getSupply(this.data, this.units.getCombatUnits());
