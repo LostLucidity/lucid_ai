@@ -33,7 +33,7 @@ module.exports = {
       const combatPoint = module.exports.getCombatPoint(resources, combatUnits, enemyTarget);
       if (combatPoint) {
         const army = { combatPoint, combatUnits, supportUnits, enemyTarget}
-        collectedActions.push(...module.exports.attackWithArmy(data, units, army));
+        collectedActions.push(...module.exports.attackWithArmy({data, resources}, army, enemyUnits));
       }
       collectedActions.push(...scanCloakedEnemy(units, enemyTarget, combatUnits));
     } else {
@@ -68,7 +68,7 @@ module.exports = {
             const combatPoint = module.exports.getCombatPoint(resources, combatUnits, closestEnemyUnit);
             if (combatPoint) {
               const army = { combatPoint, combatUnits, supportUnits, enemyTarget: closestEnemyUnit}
-              collectedActions.push(...module.exports.attackWithArmy(data, units, army));
+              collectedActions.push(...module.exports.attackWithArmy(world, army, enemyUnits));
             }
           } else {
             console.log('building defensive units');
@@ -129,7 +129,7 @@ module.exports = {
               collectedActions.push(unitCommand);
             }
           } else {
-            if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(selfUnit, closestEnemyUnit)); }
+            if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit({ data, resources }, selfUnit, closestEnemyUnit)); }
             else {
               selfUnit.labels.set('retreat', false);
               collectedActions.push({
@@ -181,21 +181,26 @@ module.exports = {
       return closestUnit;
     }
   },
-  attackWithArmy: (data, units, army) => {
+  attackWithArmy: ({data, resources}, army, enemyUnits) => {
+    const { units } = resources.get();
     const collectedActions = [];
     const pointType = army.combatPoint.unitType;
     const pointTypeUnits = units.getById(pointType);
     const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType));
     const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
-    const nonPointTypeUnitTags = nonPointTypeUnits.map(unit => unit.tag);
     const range = Math.max.apply(Math, data.getUnitTypeData(SIEGETANKSIEGED).weapons.map(weapon => { return weapon.range; }));
     const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
-    let unitCommand = {
-      abilityId: ATTACK_ATTACK,
-      targetWorldSpacePos: targetWorldSpacePos,
-      unitTags: [ ...pointTypeUnitTags, ...nonPointTypeUnitTags ],
-    }
-    collectedActions.push(unitCommand);
+    [ ...pointTypeUnits, ...nonPointTypeUnits ].forEach(unit => {
+      const [ closestUnit ] = units.getClosest(unit.pos, enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < 16));
+      if (!unit.isMelee() && closestUnit) { collectedActions.push(...microRangedUnit({ data, resources }, unit, closestUnit)); }
+      else {
+        collectedActions.push({
+          abilityId: ATTACK_ATTACK,
+          targetWorldSpacePos: targetWorldSpacePos,
+          unitTags: [ unit.tag ],
+        })
+      }
+    });
     if (army.supportUnits.length > 0) {
       const supportUnitTags = army.supportUnits.map(unit => unit.tag);
       let unitCommand = {
@@ -214,12 +219,11 @@ module.exports = {
       }
       collectedActions.push(killChanglingCommand);
     } else {
-      unitCommand = {
+      collectedActions.push({
         abilityId: ATTACK_ATTACK,
         targetWorldSpacePos: army.enemyTarget.pos,
         unitTags: [ army.combatPoint.tag ],
-      }
-      collectedActions.push(unitCommand);
+      });
     }
     collectedActions.push(...tankBehavior(units));
     return collectedActions;
