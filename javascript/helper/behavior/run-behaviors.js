@@ -1,12 +1,13 @@
 //@ts-check
 "use strict"
 
-const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior } = require("./labelled-behavior");
+const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior, acrossTheMapBehavior } = require("./labelled-behavior");
 const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior } = require("./unit-behavior");
 
-async function runBehaviors (world, opponentRace) {
-  const { data, resources} = world;
+async function runBehaviors(world, opponentRace) {
+  const { data, resources } = world;
   const collectedActions = []
+  collectedActions.push(...acrossTheMapBehavior(world));
   collectedActions.push(...clearFromEnemyBehavior(resources));
   collectedActions.push(...liberatorBehavior(resources));
   collectedActions.push(...marineBehavior(resources));
