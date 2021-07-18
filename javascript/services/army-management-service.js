@@ -52,7 +52,7 @@ const armyManagementService = {
     selfUnits.forEach(selfUnit => {
       let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType)) {
-        const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits).filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 16);
+        const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 16));
         if (closestEnemyUnit) {
           closestEnemyUnit.inRangeUnits = getInRangeUnits(closestEnemyUnit, enemyUnits);
           const enemySupply = calculateNearSupply(data, closestEnemyUnit.inRangeUnits);
