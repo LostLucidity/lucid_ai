@@ -1,14 +1,41 @@
 //@ts-check
 "use strict"
 
-const { MOVE } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
-const { PHOTONCANNON } = require("@node-sc2/core/constants/unit-type");
+const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { calculateTotalHealthRatio } = require("../calculate-health");
-const { getCombatRally, getRandomPoints } = require("../location");
+const { getClosestUnitByPath } = require("../get-closest-by-path");
+const { getCombatRally, getRandomPoints, acrossTheMap } = require("../location");
+const { engageOrRetreat } = require("./army-behavior");
 
 module.exports = {
+  acrossTheMapBehavior: (world) => {
+    const { data, resources } = world;
+    const { map, units } = resources.get();
+    const collectedActions = [];
+    const label = 'acrossTheMap';
+    const [ unit ] = units.withLabel(label);
+    if (unit) {
+      const enemyUnits = units.getAlive(Alliance.ENEMY).filter(enemyUnit => !(unit.unitType === LARVA) && distance(enemyUnit.pos, unit.pos) < 16);
+      const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+      const combatUnits = units.getCombatUnits().filter(combatUnit => unit.isAttacking() && distance(combatUnit.pos, unit.pos) < 16);
+      let allyUnits = [ unit, ...combatUnits ];
+      const selfSupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+      if (selfSupply < enemySupply) {
+        let [ closestEnemyUnit ] = getClosestUnitByPath(resources, unit.pos, enemyUnits, 1);
+        collectedActions.push(...engageOrRetreat(world, allyUnits, enemyUnits, closestEnemyUnit.pos, false));
+      } else {
+        collectedActions.push({
+          abilityId: ATTACK_ATTACK,
+          unitTags: [ unit.tag ],
+          targetWorldSpacePos: acrossTheMap(map),
+        });
+      }
+    }
+    return collectedActions;
+  },
   clearFromEnemyBehavior: (resources) => {
     const { map, units } = resources.get();
     const label = 'clearFromEnemy';

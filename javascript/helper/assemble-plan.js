@@ -693,12 +693,12 @@ class AssemblePlan {
             unitType = planStep[2];
             const targetLocationFunction = planStep[3];
             conditions = planStep[4];
+            if (!conditions) { conditions = {}; }
             if (targetLocationFunction.includes('get')) {
               const label = targetLocationFunction.replace('get', 'scout')
-              if (!conditions) {
-                conditions = {};
-              }
               conditions.label = label;
+            } else {
+              conditions.label = targetLocationFunction
             }
             this.scout(foodTarget, unitType, targetLocationFunction, conditions);
             break;
