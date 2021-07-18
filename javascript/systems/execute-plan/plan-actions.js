@@ -3,15 +3,16 @@
 
 const { WarpUnitAbility, UnitType } = require("@node-sc2/core/constants");
 const { MOVE } = require("@node-sc2/core/constants/ability");
-const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
-const { addonTypes } = require("@node-sc2/core/constants/groups");
+const { Alliance } = require("@node-sc2/core/constants/enums");
+const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
-const { PHOTONCANNON, PYLON, WARPGATE } = require("@node-sc2/core/constants/unit-type");
-const { checkBuildingCount, workerSendOrBuild, checkUnitCount } = require("../../helper");
+const { PHOTONCANNON, PYLON, WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { checkBuildingCount, workerSendOrBuild } = require("../../helper");
 const canBuild = require("../../helper/can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
-const { expand } = require("../../helper/general-actions");
 const { findPlacements, findPosition, inTheMain } = require("../../helper/placement/placement-helper");
+const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
 const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
 const planService = require("../../services/plan-service");
@@ -147,18 +148,44 @@ module.exports = {
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
     const upgraders = units.getUpgradeFacilities(upgradeId);
-    const { abilityId } = data.getUpgradeData(upgradeId);
-    const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
-    if (!agent.upgradeIds.includes(upgradeId) && foundUpgradeInProgress === undefined) {
-      const upgrader = units.getUpgradeFacilities(upgradeId).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
-      if (upgrader) {
-        const unitCommand = { abilityId, unitTags: [upgrader.tag] };
-        await actions.sendAction([unitCommand]);
-        planService.pauseBuilding = false;
-      } else {
-        await balanceForFuture(world, upgradeId);
-        planService.pauseBuilding = true;
-        planService.continueBuild = false;
+    if (upgraders.length > 0) {
+      const { abilityId } = data.getUpgradeData(upgradeId);
+      const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
+      if (!agent.upgradeIds.includes(upgradeId) && foundUpgradeInProgress === undefined) {
+        const upgrader = units.getUpgradeFacilities(upgradeId).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
+        if (upgrader) {
+          const unitCommand = { abilityId, unitTags: [upgrader.tag] };
+          await actions.sendAction([unitCommand]);
+          planService.pauseBuilding = false;
+        } else {
+          await balanceForFuture(world, upgradeId);
+          planService.pauseBuilding = true;
+          planService.continueBuild = false;
+        }
+      }
+    } else {
+      // find techlabs
+      const techLabs = units.getAlive(Alliance.SELF).filter(unit => techLabTypes.includes(unit.unitType));
+      const orphanTechLab = techLabs.filter(techLab => techLab.unitType === TECHLAB);
+      if (orphanTechLab.length > 0) { }
+      else {
+        const nonOrphanTechLab = techLabs.filter(techLab => techLab.unitType !== TECHLAB);
+        // find idle building with tech lab.
+        const idleBuildingsWithTechLab = nonOrphanTechLab.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]);
+        // find closest barracks to closest tech lab.
+        let closestPair = [];
+        units.getById(BARRACKS).forEach(barracks => {
+          if (barracks.buildProgress >= 1) {
+            idleBuildingsWithTechLab.forEach(techLab => {
+              if (closestPair.length > 0) {
+                closestPair = distance(barracks.pos, techLab.pos) < distance(closestPair[0].pos, closestPair[1].pos) ? [barracks, techLab] : closestPair;
+              } else { closestPair = [barracks, techLab]; }
+            });
+          }
+        });
+        const label = 'swapBuilding';
+        closestPair[0].labels.set('swapBuilding', closestPair[1].pos);
+        closestPair[1].labels.set('swapBuilding', closestPair[0].pos);
       }
     }
   }
