@@ -39,6 +39,7 @@ const { getClosestPosition } = require("./get-closest");
 const runBehaviors = require("./behavior/run-behaviors");
 const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
+const { checkUnitCount } = require("../systems/track-units/track-units-service");
 
 let actions;
 let opponentRace;
@@ -598,12 +599,7 @@ class AssemblePlan {
   async train(food, unitType, targetCount) {
     if (this.foodUsed >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
-      const orders = [];
-      this.units.withCurrentOrders(abilityId).forEach(unit => {
-        unit.orders.forEach(order => { if (order.abilityId === abilityId) { orders.push(order); } });
-      })
-      const unitCount = this.units.getById(unitType).length + orders.length
-      if (unitCount === targetCount) {
+      if (checkUnitCount(this.world, unitType, targetCount) || targetCount === null) {
         if (canBuild(this.agent, this.world.data, unitType)) {
           const trainer = this.units.getProductionUnits(unitType).find(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId));
           if (trainer) {
