@@ -73,10 +73,7 @@ const entry = createSystem({
   async onUnitIdle({ resources }, idleUnit) {
     if (idleUnit.isWorker() && idleUnit.noQueue) {
       const { units } = resources.get();
-      if (units.getBases(Alliance.SELF).length > 0) {
-        console.log('gatherOrMine');
-        await gatherOrMine(resources, idleUnit);
-      }
+      if (units.getBases(Alliance.SELF).length > 0) { await gatherOrMine(resources, idleUnit); }
     }
   },
   getBuild(race) {
