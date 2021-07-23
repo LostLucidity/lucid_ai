@@ -27,8 +27,7 @@ module.exports = {
         }
       } else {
         collectedActions.push(...workerSendOrBuild(resources, MOVE, expansionLocation));
-        const {mineralCost, vespeneCost} = data.getUnitTypeData(townhallType);
-        await balanceResources(world, mineralCost/vespeneCost);
+        await balanceForFuture(world, townhallType);
         state.pauseBuilding = true;
         state.continueBuild = false;
         planService.pauseBuilding = true;
