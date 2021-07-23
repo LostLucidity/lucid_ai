@@ -207,7 +207,11 @@ class AssemblePlan {
           case addonTypes.includes(unitType):
             let abilityId = this.data.getUnitTypeData(unitType).abilityId;
             let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
-            const addOnUnits = this.units.withLabel('addAddOn');
+            const addOnUnits = this.units.withLabel('addAddOn').filter(addOnUnit => {
+              const addOnPosition = addOnUnit.labels.get('addAddOn');
+              if (addOnPosition && distance(addOnUnit.pos, addOnPosition) < 1) { addOnUnit.labels.delete('addAddOn'); }
+              else { return true; }
+            });
             const unitsCanDo = addOnUnits.length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
             if (unitsCanDo.length > 0) {
               let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
