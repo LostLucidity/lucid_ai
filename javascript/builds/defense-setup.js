@@ -6,7 +6,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { Race } = require('@node-sc2/core/constants/enums');
 const canAfford = require("../helper/can-afford");
-const { getBetweenBaseAndWall } = require("../helper/placement-helper");
+const { getBetweenBaseAndWall } = require("../helper/placement/placement-helper");
 
 module.exports = async function defenseSetup({ agent, data, resources }, state) {
   const {
