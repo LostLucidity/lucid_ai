@@ -29,7 +29,7 @@ module.exports = createSystem({
       }
       if (building.availableAbilities().find(ability => landingAbilities.includes(ability))) {
         const unitCommand = {
-          abilityId: Ability.LIFT,
+          abilityId: Ability.LAND,
           unitTags: [building.tag],
           targetWorldSpacePos: building.labels.get('swapBuilding')
         }
