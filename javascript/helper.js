@@ -93,6 +93,15 @@ module.exports = {
         };
         collectedActions.push(unitCommand);
         module.exports.setPendingOrders(builder, unitCommand);
+        const overlappingBuilders = builders
+          .filter(otherBuilder => otherBuilder.tag !== builder.tag && otherBuilder.orders
+          .find(order => order.abilityId === abilityId && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y));
+        if (overlappingBuilders.length > 0) {
+          collectedActions.push({
+            abilityId: STOP,
+            unitTags: overlappingBuilders.map(builder => builder.tag),
+          });
+        }
       }
     }
     return collectedActions;
