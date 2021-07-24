@@ -10,6 +10,7 @@ const { morphMapping } = require("../../helper/groups");
 const enemyTrackingService = {
   enemyUnits: [],
   enemySupply: null,
+  mappedEnemyUnits: [],
   threats: [],
   get enemyCombatUnits() {
     return enemyTrackingService.enemyUnits.filter(unit => unit.isCombatUnit());
@@ -19,6 +20,10 @@ const enemyTrackingService = {
   },
   removeEnemyUnit: (enemyUnit) => {
     enemyTrackingService.enemyUnits = [...enemyTrackingService.enemyUnits.filter(unit => unit.tag !== enemyUnit.tag)];
+    enemyTrackingService.removedMappedUnit(enemyUnit);
+  },
+  removedMappedUnit: (enemyUnit) => {
+    enemyTrackingService.mappedEnemyUnits = [...enemyTrackingService.mappedEnemyUnits.filter(unit => unit.tag !== enemyUnit.tag)];
   },
   getEnemyCombatSupply: (data) => {
     const {enemyCombatUnits} = enemyTrackingService;
