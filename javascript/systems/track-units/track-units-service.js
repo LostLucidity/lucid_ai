@@ -1,6 +1,7 @@
 //@ts-check
 "use strict"
 
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { getSupply, getTrainingSupply } = require("../../helper");
 const { morphMapping } = require("../../helper/groups");
 const planService = require("../../services/plan-service");
@@ -21,7 +22,8 @@ const trackUnitsService = {
     units.withCurrentOrders(abilityId).forEach(unit => {
       unit.orders.forEach(order => { if (order.abilityId === abilityId) { orders.push(order); } });
     });
-    const unitCount = units.getById(unitTypes).length + orders.length + trackUnitsService.missingUnits.filter(unit => unit.unitType === unitType).length;
+    const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => u.pendingOrders && u.pendingOrders.some(o => o.abilityId === abilityId));
+    const unitCount = units.getById(unitTypes).length + orders.length + unitsWithPendingOrders.length + trackUnitsService.missingUnits.filter(unit => unit.unitType === unitType).length;
     return unitCount === targetCount;
   },
   getSelfCombatSupply: (world) => {
