@@ -40,6 +40,8 @@ const runBehaviors = require("./behavior/run-behaviors");
 const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { checkUnitCount } = require("../systems/track-units/track-units-service");
+const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
+const { getStringNameOfConstant } = require("../services/logging-service");
 
 let actions;
 let opponentRace;
@@ -639,6 +641,8 @@ class AssemblePlan {
   }
   async upgrade(food, upgradeId) {
     if (this.foodUsed >= food) {
+      const upgradeName = getStringNameOfConstant(Upgrade, upgradeId)
+      upgradeId = mismatchMappings[upgradeName] ? Upgrade[mismatchMappings[upgradeName]] : Upgrade[upgradeName];
       const upgraders = this.units.getUpgradeFacilities(upgradeId);
       const { abilityId } = this.data.getUpgradeData(upgradeId);
       const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
