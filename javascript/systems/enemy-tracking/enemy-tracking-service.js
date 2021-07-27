@@ -18,6 +18,17 @@ const enemyTrackingService = {
   addEnemyUnit: (enemyUnit) => {
     enemyTrackingService.enemyUnits.push(enemyUnit);
   },
+  addUnmappedUnit: (units) => {
+    enemyTrackingService.mappedEnemyUnits.push(...units.getAlive(Alliance.ENEMY).filter(unit => !enemyTrackingService.mappedEnemyUnits.some(mappedUnit => unit.tag === mappedUnit.tag)));
+  },
+  clearOutdatedMappedUnits: (resources) => {
+    const { map, units } = resources.get();
+    enemyTrackingService.mappedEnemyUnits.forEach(unit => {
+      if (map.isVisible(unit.pos) && !units.getByTag(unit.tag).isCurrent()) {
+        enemyTrackingService.removedMappedUnit(unit);
+      }
+    });
+  },
   removeEnemyUnit: (enemyUnit) => {
     enemyTrackingService.enemyUnits = [...enemyTrackingService.enemyUnits.filter(unit => unit.tag !== enemyUnit.tag)];
     enemyTrackingService.removedMappedUnit(enemyUnit);

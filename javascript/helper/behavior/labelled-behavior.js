@@ -5,6 +5,7 @@ const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { calculateTotalHealthRatio } = require("../calculate-health");
 const { getClosestUnitByPath } = require("../get-closest-by-path");
 const { getCombatRally, getRandomPoints, acrossTheMap } = require("../location");
@@ -18,7 +19,7 @@ module.exports = {
     const label = 'acrossTheMap';
     const [ unit ] = units.withLabel(label);
     if (unit) {
-      const enemyUnits = units.getAlive(Alliance.ENEMY).filter(enemyUnit => !(unit.unitType === LARVA) && distance(enemyUnit.pos, unit.pos) < 16);
+      const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(enemyUnit => !(unit.unitType === LARVA) && distance(enemyUnit.pos, unit.pos) < 16);
       const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
       const combatUnits = units.getCombatUnits().filter(combatUnit => unit.isAttacking() && distance(combatUnit.pos, unit.pos) < 16);
       let allyUnits = [ unit, ...combatUnits ];
