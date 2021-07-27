@@ -12,7 +12,7 @@ const { MOVE } = require("@node-sc2/core/constants/ability");
 const canBuild = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
-const { workerSendOrBuild, getSupply, getTrainingSupply, checkBuildingCount } = require("../helper");
+const { workerSendOrBuild, getSupply, getTrainingSupply, checkBuildingCount, setPendingOrders } = require("../helper");
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility, UnitType } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
@@ -607,13 +607,22 @@ class AssemblePlan {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
       if (checkUnitCount(this.world, unitType, targetCount) || targetCount === null) {
         if (canBuild(this.agent, this.world.data, unitType)) {
-          const trainer = this.units.getProductionUnits(unitType).find(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId));
+          const trainer = this.units.getProductionUnits(unitType).find(unit => {
+            const pendingOrders = unit.pendingOrders ? unit.pendingOrders : [];
+            const noQueue = unit.noQueue && pendingOrders.length === 0;
+            return (
+              noQueue ||
+              (unit.hasReactor() && unit.orders.length + pendingOrders.length < 2)
+            ) &&
+              unit.abilityAvailable(abilityId);
+          });
           if (trainer) {
             const unitCommand = {
               abilityId,
               unitTags: [trainer.tag],
             }
             await actions.sendAction([unitCommand]);
+            setPendingOrders(trainer, unitCommand);
           } else {
             abilityId = WarpUnitAbility[unitType];
             const warpGates = this.units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
