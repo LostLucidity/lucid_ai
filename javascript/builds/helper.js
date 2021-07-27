@@ -105,8 +105,8 @@ function moveAwayFromTarget(resources, unit, targetUnit, targetUnits) {
   const isFlying = unit.isFlying;
   let position;
   if (isFlying) {
-    const overlordSightRange = unit.data().sightRange;
-    const highPoints = gridsInCircle(unit.pos, overlordSightRange)
+    const sightRange = unit.data().sightRange;
+    const highPoints = gridsInCircle(unit.pos, sightRange)
       .filter(grid => {
         const [ closestEnemyToPoint ] = units.getClosest(grid, targetUnits);
         try {
