@@ -10,6 +10,9 @@ const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
 const { createPoint2D, getNeighbors, distance, avgPoints, closestPoint, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const bresenham = require('bresenham');
+const enemyTrackingService = require("./enemy-tracking/enemy-tracking-service");
+const { Alliance } = require("@node-sc2/core/constants/enums");
+const { LARVA } = require("@node-sc2/core/constants/unit-type");
 const debugDrawWalls = require('debug')('sc2:DrawDebugWalls');
 
 module.exports = createSystem({
@@ -17,8 +20,64 @@ module.exports = createSystem({
   type: 'agent',
   async onStep(world) {
     debugWalls(world);
+    debugArmySupplies(world);
   }
 });
+
+function debugArmySupplies(world) {
+  const { debug, units } = world.resources.get();
+  debug.setDrawCells('enemyUnit.selfSupply', units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA) && unit.selfSupply).map(enemyUnit => ({ pos: enemyUnit.pos, text: `(${enemyUnit.selfSupply})` })), { size: 0.50, color: Color.RED, cube: true, persistText: true });
+  debug.setDrawCells('selfUnit.selfSupply', units.getAlive(Alliance.SELF).filter(unit => !(unit.unitType === LARVA) && unit.selfSupply).map(selfUnit => ({ pos: selfUnit.pos, text: `(${selfUnit.selfSupply})` })), { size: 0.50, color: Color.GREEN, cube: true, persistText: true });
+}
+
+function debugMapHeights(world) {
+  const { debug, map } = world.resources.get();
+  debug.setDrawCells('Height', map._grids.height.reduce((cells, row, y) => {
+    row.forEach((node, x) => {
+      cells.push({
+        pos: { x, y },
+        text: `${map.getHeight({ x, y })}`,
+        color: Color.GREEN,
+      });
+    });
+    return cells;
+  }, []));
+}
+
+function debugVisibilityMap(world) {
+  const { debug, map } = world.resources.get();
+  // debug.setDrawCells('visiblityMap', map._mapState.visibility.map((visibilityPoint, index) => ({ pos: {x: visibilityPoint[index], y: index} })), { size: 1, color: Color.RED, cube: true, persistText: true });
+  debug.setDrawCells('visiblityMap', map._mapState.visibility.reduce((cells, row, y) => {
+    row.forEach((node, x) => {
+      if (map.isVisible({ x, y })) {
+        cells.push({
+          pos: { x, y },
+          text: `visible`,
+          color: Color.GREEN,
+        });
+      } else {
+        cells.push({
+          pos: { x, y },
+          text: `not visible`,
+          color: Color.RED,
+        });
+      }
+    });
+    return cells;
+  }, []));
+}
+
+function debugEnemyUnitPosition(world) {
+  const { debug } = world.resources.get();
+  // debug.setDrawCells('enemyUnit', enemyTrackingService.enemyUnits.map(enemyUnit => ({ pos: enemyUnit.pos, text: `(${enemyUnit.unitType})` })), { size: 0.50, color: Color.YELLOW, cube: true, persistText: true });
+  debug.setDrawCells('mappedEnemyUnit', enemyTrackingService.mappedEnemyUnits.map(enemyUnit => ({ pos: enemyUnit.pos, text: `(${enemyUnit.unitType})` })), { size: 0.50, color: Color.YELLOW, cube: true, persistText: true });
+}
+
+function debugUnitTypes(world) {
+  const { units, debug } = world.resources.get();
+  const aliveUnits = units.getAlive();
+  debug.setDrawCells('unitType', aliveUnits.map(alive => ({ pos: alive.pos, text: `(${alive.unitType})` })), { size: 0.50, color: Color.YELLOW, cube: true, persistText: true });
+}
 
 function debugWalls(world) {
   const { map } = world.resources.get();
