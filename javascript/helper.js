@@ -107,10 +107,10 @@ module.exports = {
     return collectedActions;
   },
   setPendingOrders: (unit, unitCommand) => {
-    if (unit.pendingOrder) {
-      unit.pendingOrder.push(unitCommand);
+    if (unit.pendingOrders) {
+      unit.pendingOrders.push(unitCommand);
     } else {
-      unit.pendingOrder = [];
+      unit.pendingOrders = [unitCommand];
     }
   },
 }
