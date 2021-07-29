@@ -97,8 +97,9 @@ class AssemblePlan {
       const haveProductionAndTechForTypes = this.defenseTypes.filter(type => haveAvailableProductionUnitsFor(world, type) && this.agent.hasTechFor(type));
       if (haveProductionAndTechForTypes.length > 0) {
         this.selectedTypeToBuild = this.selectedTypeToBuild ? this.selectedTypeToBuild : haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
-        let abilityId = this.data.getUnitTypeData(this.selectedTypeToBuild).abilityId;
-        await this.train(this.foodUsed, this.selectedTypeToBuild, this.units.getById(this.selectedTypeToBuild).length + this.units.withCurrentOrders(abilityId).length)
+        let { mineralCost, vespeneCost } = this.data.getUnitTypeData(this.selectedTypeToBuild);
+        if (this.agent.minerals < (mineralCost * 2) || this.agent.vespene < (vespeneCost * 2)) { return; }
+        await this.train(this.foodUsed, this.selectedTypeToBuild, null)
       }
     }
     await this.runPlan();
