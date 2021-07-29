@@ -2,7 +2,7 @@
 "use strict"
 
 const Ability = require('@node-sc2/core/constants/ability');
-const { MOVE } = require('@node-sc2/core/constants/ability');
+const { MOVE, STOP } = require('@node-sc2/core/constants/ability');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { constructionAbilities } = require('@node-sc2/core/constants/groups');
 const { PROBE, ZERGLING } = require('@node-sc2/core/constants/unit-type');
