@@ -10,12 +10,12 @@ const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const continuouslyBuild = require("../continuously-build");
 const { moveAwayPosition, retreatToExpansion } = require("../../builds/helper");
 const { getClosestUnitByPath } = require("../get-closest-by-path");
-const { getInRangeUnits, calculateNearSupply } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
 const { scanCloakedEnemy } = require("../terran");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { microRangedUnit } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
+const { setPendingOrders } = require("../../helper");
 
 module.exports = {
   attack: ({data, resources}, mainCombatTypes, supportUnitTypes) => {
@@ -106,29 +106,24 @@ module.exports = {
       if (!workerTypes.includes(selfUnit.unitType)) {
         const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits).filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 16);
         if (closestEnemyUnit) {
-          closestEnemyUnit.inRangeUnits = getInRangeUnits(closestEnemyUnit, enemyUnits);
-          const enemySupply = calculateNearSupply(data, closestEnemyUnit.inRangeUnits);
-          closestEnemyUnit.inRangeSelfUnits = getInRangeUnits(closestEnemyUnit, selfUnits);
-          closestEnemyUnit.inRangeSelfSupply = calculateNearSupply(data, closestEnemyUnit.inRangeSelfUnits);
-          const inRangeSelfUnits = getInRangeUnits(selfUnit, selfUnits);
-          selfUnit.selfSupply = calculateNearSupply(data, inRangeSelfUnits);
-          const selfSupply = selfUnit.selfSupply > closestEnemyUnit.inRangeSelfSupply ? selfUnit.selfSupply : closestEnemyUnit.inRangeSelfSupply;
+          const selfSupply = selfUnit.selfSupply > closestEnemyUnit.enemySupply ? selfUnit.selfSupply : closestEnemyUnit.enemySupply;
           const noBunker = units.getById(BUNKER).length === 0;
-          if (enemySupply > selfSupply && noBunker) {
-            let targetWorldSpacePos;
+          if (closestEnemyUnit.selfSupply > selfSupply && noBunker) {
             const isFlying = selfUnit.isFlying;
+            const unitCommand = { abilityId: MOVE }
             if (isFlying) {
-              targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
-            } else {
-              targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestEnemyUnit);
-            }
-            if (targetWorldSpacePos) {
-              const unitCommand = {
-                abilityId: MOVE,
-                targetWorldSpacePos: targetWorldSpacePos,
-                unitTags: [selfUnit.tag],
-              }
+              unitCommand.targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
+              unitCommand.unitTags = [selfUnit.tag];
               collectedActions.push(unitCommand);
+            } else {
+              if (selfUnit.pendingOrders === undefined || selfUnit.pendingOrders.length === 0) {
+                unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestEnemyUnit);
+                unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
+                  setPendingOrders(unit, unitCommand);
+                  return unit.tag;
+                });
+                collectedActions.push(unitCommand);
+              }
             }
           } else {
             if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit({ data, resources }, selfUnit, closestEnemyUnit)); }
