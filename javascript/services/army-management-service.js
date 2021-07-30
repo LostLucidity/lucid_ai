@@ -46,6 +46,9 @@ const armyManagementService = {
     collectedActions.push(...tankBehavior(units));
     return collectedActions;
   },
+  calculateSupplyPower(data, unit, Units) {
+    return calculateNearSupply(data, getInRangeUnits(unit, Units));
+  },
   engageOrRetreat: ({ data, resources}, selfUnits, enemyUnits, position, clearRocks=true) => {
     const { units } = resources.get();
     const collectedActions = [];
