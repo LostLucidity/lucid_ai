@@ -15,6 +15,7 @@ const { filterLabels } = require("../unit-selection");
 const { scanCloakedEnemy } = require("../terran");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { microRangedUnit } = require("../../services/micro-service");
+const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 
 module.exports = {
   attack: ({data, resources}, mainCombatTypes, supportUnitTypes) => {
@@ -74,7 +75,8 @@ module.exports = {
             console.log('building defensive units');
             await continuouslyBuild(world, assemblePlan, mainCombatTypes);
             if (selfSupply < enemySupply) {
-              console.log('engageOrRetreat', selfSupply, enemySupply);
+              console.log('engageOrRetreatVisible', selfSupply, enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
+              console.log('engageOrRetreatMapped', selfSupply, enemyTrackingService.mappedEnemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
               allyUnits = [...allyUnits, ...units.getById(QUEEN)];
               collectedActions.push(...module.exports.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
             }
