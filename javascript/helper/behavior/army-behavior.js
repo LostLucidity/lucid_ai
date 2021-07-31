@@ -284,7 +284,6 @@ module.exports = {
   }
 };
 
-
 function groupUnits(units, mainCombatTypes, supportUnitTypes) {
   const combatUnits = [];
   mainCombatTypes.forEach(type => {
