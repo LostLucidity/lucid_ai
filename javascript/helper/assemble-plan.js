@@ -191,9 +191,18 @@ class AssemblePlan {
         switch (true) {
           case GasMineRace[race] === unitType:
             try {
-              if (this.agent.canAfford(unitType) && this.map.freeGasGeysers().length > 0) {
-                await actions.buildGasMine();
-                this.state.pauseBuilding = false;
+              if (this.map.freeGasGeysers().length > 0) {
+                if (this.agent.canAfford(unitType)) {
+                  await actions.buildGasMine();
+                  this.state.pauseBuilding = false;
+                } else {
+                  this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.map.freeGasGeysers()[0].pos));
+                  const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
+                  await balanceResources(this.world, mineralCost / vespeneCost);
+                  this.state.pauseBuilding = true;
+                  this.state.continueBuild = false;
+                }
+
               }
             }
             catch (error) {
