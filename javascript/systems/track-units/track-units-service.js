@@ -9,6 +9,7 @@ const planService = require("../../services/plan-service");
 const trackUnitsService = {
   previousUnits: [],
   missingUnits: [],
+  selfUnits: [],
   checkUnitCount: ({ data, resources }, unitType, targetCount) => {
     const { units } = resources.get();
     const orders = [];
