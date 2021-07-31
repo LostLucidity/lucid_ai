@@ -68,7 +68,7 @@ module.exports = {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
   },
   workerSendOrBuild: (resources, abilityId, position) => {
-    const { frame, units } = resources.get();
+    const { units } = resources.get();
     const collectedActions = [];
     let builders = [
       ...units.withLabel('builder').filter(builder => getLabelledAvailable(builder)),
@@ -84,7 +84,6 @@ module.exports = {
     const [builder] = units.getClosest(position, builders);
     if (builder) {
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
-        console.log(frame.timeInSeconds(), `Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}, builder.tag: ${builder.tag}, builder.isAttacking(): ${builder.isAttacking()}`);
         builder.labels.set('builder', true);
         const unitCommand = {
           abilityId: abilityId,
