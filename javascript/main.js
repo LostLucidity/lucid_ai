@@ -33,6 +33,7 @@ const debugSystem = require('./systems/debug-system');
 const trackUnitsSystem = require('./systems/track-units/track-units-system');
 const swapBuildingSystem = require('./systems/swap-building-system');
 const liftToThirdSystem = require('./systems/lift-to-third-system');
+const loggingSystem = require('./systems/logging-system');
 
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -162,6 +163,7 @@ function runGame() {
     enemyTrackingSystem,
     // debugSystem,
     trackUnitsSystem,
+    loggingSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,
