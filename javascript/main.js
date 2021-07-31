@@ -161,6 +161,7 @@ function runGame() {
     workerBalanceSystem,
     enemyTrackingSystem,
     // debugSystem,
+    trackUnitsSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,
