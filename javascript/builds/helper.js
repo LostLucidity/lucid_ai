@@ -108,17 +108,20 @@ function moveAwayFromTarget(resources, unit, targetUnit, targetUnits) {
     const sightRange = unit.data().sightRange;
     const highPoints = gridsInCircle(unit.pos, sightRange)
       .filter(grid => {
-        const [ closestEnemyToPoint ] = units.getClosest(grid, targetUnits);
-        try {
-          const gridHeight = map.getHeight(grid);
-          const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => distance(candidate, grid) <= unit.radius);
-          return (
-            gridHeight - targetUnit.pos.z >= 2 &&
-            gridHeight - closestEnemyToPoint.pos.z >= 2 &&
-            circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight)
-          )
-        } catch {
-          return false;
+        if (grid.y >= 1) {
+          const [ closestEnemyToPoint ] = units.getClosest(grid, targetUnits);
+          try {
+            const gridHeight = map.getHeight(grid);
+            const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => distance(candidate, grid) <= unit.radius);
+            return (
+              gridHeight - targetUnit.pos.z >= 2 &&
+              gridHeight - closestEnemyToPoint.pos.z >= 2 &&
+              circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight)
+            )
+          } catch (error) {
+            console.log('error', error);
+            return false;
+          }
         }
       });
     const [ closestHighPoint ] = getClosestPosition(unit.pos, highPoints);
