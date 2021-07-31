@@ -25,4 +25,7 @@ module.exports = createSystem({
     setSelfSupplyPowers(data, selfUnits)
     setEnemySupplyPowers(data, selfUnits, enemyTrackingService.enemyUnits);
   },
+  async onUnitDestroyed({}, destroyedUnit) {
+    trackUnitsService.missingUnits = trackUnitsService.missingUnits.filter(unit => destroyedUnit.tag !== unit.tag);
+  },
 });
