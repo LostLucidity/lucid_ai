@@ -18,7 +18,7 @@ module.exports = {
     const candidateExpansionsCentroid = map.getExpansions().filter(expansion => {
       const centroidString = expansion.centroid.x.toString() + expansion.centroid.y.toString();
       if (!(centroidString in targetUnit.expansions)) {
-        let [ closestToExpansion ] = getClosestUnitByPath(resources, expansion.centroid, targetUnit.inRangeUnits);
+        let [ closestToExpansion ] = getClosestUnitByPath(resources, expansion.centroid, targetUnit.selfUnits);
         targetUnit.expansions[centroidString] = {
           'closestToExpansion': closestToExpansion,
           'distanceByPath': distanceByPath(resources, closestToExpansion.pos, expansion.centroid),
