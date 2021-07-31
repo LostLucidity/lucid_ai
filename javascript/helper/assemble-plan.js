@@ -93,7 +93,7 @@ class AssemblePlan {
       !shortOnWorkers(this.resources) && !this.state.pauseBuilding,
     ];
     if (trainUnitConditions.some(condition => condition)) {
-      this.outSupplied ? console.log(this.frame.timeInSeconds(), 'Scouted higher supply', this.selfSupply, this.enemySupply) : console.log('Free build mode.');
+      this.outSupplied ? console.log(this.frame.timeInSeconds(), 'Scouted higher supply', this.selfSupply, this.enemySupply) : console.log(this.frame.timeInSeconds(), 'Free build mode.');
       const haveProductionAndTechForTypes = this.defenseTypes.filter(type => haveAvailableProductionUnitsFor(world, type) && this.agent.hasTechFor(type));
       if (haveProductionAndTechForTypes.length > 0) {
         this.selectedTypeToBuild = this.selectedTypeToBuild ? this.selectedTypeToBuild : haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
