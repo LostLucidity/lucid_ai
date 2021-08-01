@@ -13,6 +13,7 @@ const bresenham = require('bresenham');
 const enemyTrackingService = require("./enemy-tracking/enemy-tracking-service");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { LARVA } = require("@node-sc2/core/constants/unit-type");
+const { getBuildingFootprintOfOrphanAddons } = require("../services/placement-service");
 const debugDrawWalls = require('debug')('sc2:DrawDebugWalls');
 
 module.exports = createSystem({
@@ -23,6 +24,11 @@ module.exports = createSystem({
     debugArmySupplies(world);
   }
 });
+
+function debugPlacements(world) {
+  const { debug, units } = world.resources.get();
+  debug.setDrawCells('enemyUnit.selfSupply', getBuildingFootprintOfOrphanAddons(units).map(position => ({ pos: position, text: `footprint` })), { size: 0.50, color: Color.RED, cube: true, persistText: true });
+}
 
 function debugArmySupplies(world) {
   const { debug, units } = world.resources.get();
