@@ -42,6 +42,7 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 const { checkUnitCount } = require("../systems/track-units/track-units-service");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
+const { getBuildingFootprintOfOrphanAddons } = require("../services/placement-service");
 
 let actions;
 let opponentRace;
@@ -427,6 +428,7 @@ class AssemblePlan {
         placementGrids.push(...expansion.areas.placementGrid);
       });
       placements = placementGrids
+        .filter(point => getBuildingFootprintOfOrphanAddons(units).every(pos => distance(pos, point) > 3))
         .map(pos => ({ pos, rand: Math.random() }))
         .sort((a, b) => a.rand - b.rand)
         .map(a => a.pos)
