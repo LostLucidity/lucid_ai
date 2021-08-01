@@ -23,8 +23,8 @@ const microService = {
         .filter(grid => {
           return [
             distance(grid, targetUnit.pos) <= range,
-            distance(grid, targetUnit.pos) >= enemyRange,
-            grid.y >= 1 && resources.get().map.isPathable(grid),  
+            enemyRange >= range ? true : distance(grid, targetUnit.pos) >= enemyRange,
+            grid.y >= 1 && resources.get().map.isPathable(grid),
           ].every(condition => condition);
         });
       const [closestPosition] = getClosestPosition(unit.pos, gridCandidates);
