@@ -10,7 +10,7 @@ const { checkUnitCount } = require("./track-units/track-units-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
-  balanceForFuture: async (world, action, stepCount=3) => {
+  balanceForFuture: async (world, action, stepCount = 3) => {
     const { plan } = planService;
     const currentStep = planService.currentStep;
     if (currentStep !== null) {
