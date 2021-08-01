@@ -5,6 +5,8 @@ const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { retreatToExpansion } = require("../../builds/helper");
+const { isFacing } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { calculateTotalHealthRatio } = require("../calculate-health");
 const { getClosestUnitByPath } = require("../get-closest-by-path");
@@ -67,19 +69,28 @@ module.exports = {
     if (unit) {
       const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, Alliance.ENEMY).filter(cannon => distance(cannon.pos, unit.pos) < 16);
       if (calculateTotalHealthRatio(unit) > 1/2 && !inRangeEnemyCannon) {
-        const enemyMain = map.getEnemyMain();
-        const randomPointsOfInterest = [...getRandomPoints(map, 3, enemyMain.areas.areaFill)];
-        if (opponentRace === Race.ZERG) { randomPointsOfInterest.push(map.getEnemyNatural().townhallPosition); }
-        if (randomPointsOfInterest.length > unit.orders.length) {
-          randomPointsOfInterest.forEach(point => {
-            const unitCommand = {
-              abilityId: MOVE,
-              unitTags: [ unit.tag ],
-              queueCommand: true,
-              targetWorldSpacePos: point,
-            };
-            collectedActions.push(unitCommand);
+        if (unit.enemyUnits.filter(enemyUnit => isFacing(unit, enemyUnit) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8).length > 1) {
+          let [ closestEnemyUnit ] = units.getClosest(unit.pos, unit.enemyUnits, 1);
+          collectedActions.push({
+            abilityId: MOVE,
+            unitTags: [ unit.tag ],
+            targetWorldSpacePos: retreatToExpansion(resources, unit, closestEnemyUnit),
           });
+        } else {
+          const enemyMain = map.getEnemyMain();
+          const randomPointsOfInterest = [...getRandomPoints(map, 3, enemyMain.areas.areaFill)];
+          if (opponentRace === Race.ZERG) { randomPointsOfInterest.push(map.getEnemyNatural().townhallPosition); }
+          if (randomPointsOfInterest.length > unit.orders.length) {
+            randomPointsOfInterest.forEach(point => {
+              const unitCommand = {
+                abilityId: MOVE,
+                unitTags: [ unit.tag ],
+                queueCommand: true,
+                targetWorldSpacePos: point,
+              };
+              collectedActions.push(unitCommand);
+            });
+          }
         }
       } else {
         const unitCommand = {
