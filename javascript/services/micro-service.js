@@ -2,11 +2,17 @@
 "use strict"
 
 const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
-const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { gridsInCircle, toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 
 const microService = {
+  isFacing: (unit, targetUnit) => {
+    const targetFacingDegrees = toDegrees(targetUnit.facing);
+    const positionOfUnitDegrees = toDegrees(Math.atan2(unit.pos.y - targetUnit.pos.y, unit.pos.x - targetUnit.pos.x));
+    const normalizedPositionOfUnitDegrees = positionOfUnitDegrees > 0 ? positionOfUnitDegrees : 360 + positionOfUnitDegrees;
+    return Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees) < 7;
+  },
   microRangedUnit: ({ data, resources }, unit, targetUnit) => {
     const collectedActions = [];
     if (unit.weaponCooldown > 12) {
