@@ -19,10 +19,7 @@ const { setPendingOrders } = require("../../helper");
 
 module.exports = {
   attack: ({data, resources}, mainCombatTypes, supportUnitTypes) => {
-    const {
-      map,
-      units
-    } = resources.get();
+    const { units } = resources.get();
     const collectedActions = [];
     let [ closestEnemyBase ] = getClosestUnitByPath(resources, getCombatRally(resources), units.getBases(Alliance.ENEMY), 1);
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
