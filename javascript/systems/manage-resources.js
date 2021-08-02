@@ -46,51 +46,57 @@ const manageResources = {
     const needyGasMines = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
     const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
     const mineralMinerCountRatio = mineralMinerCount / vespeneMinerCount;
-    const surplusMinerals = mineralMinerCountRatio > targetRatio;
-    if (surplusMinerals) {
-      if (needyGasMines) {
-        const townhalls = units.getBases(readySelfFilter);
-        // const possibleDonerThs = townhalls.filter(townhall => townhall.assignedHarvesters > needyGasMine.assignedHarvesters + 1);
-        // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
-        // const [givingTownhall] = units.getClosest(needyGasMine.pos, possibleDonerThs);
-        debugSilly('possible ths', townhalls.map(th => th.tag));
-        const [givingTownhall] = units.getClosest(needyGasMines.pos, townhalls);
-        const gatheringMineralWorkers = units.getWorkers()
+    const needyBases = units.getBases(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters + 2);
+    if (mineralMinerCountRatio > targetRatio) {
+      const decreaseRatio = (mineralMinerCount - 1) / (vespeneMinerCount + 1);
+      if ((mineralMinerCountRatio + decreaseRatio) / 2 > targetRatio) {
+        if (needyGasMines) {
+          const townhalls = units.getBases(readySelfFilter);
+          // const possibleDonerThs = townhalls.filter(townhall => townhall.assignedHarvesters > needyGasMine.assignedHarvesters + 1);
+          // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
+          // const [givingTownhall] = units.getClosest(needyGasMine.pos, possibleDonerThs);
+          debugSilly('possible ths', townhalls.map(th => th.tag));
+          const [givingTownhall] = units.getClosest(needyGasMines.pos, townhalls);
+          const gatheringMineralWorkers = units.getWorkers()
+            .filter(unit => unit.orders.some(order => {
+              return (
+                [...gatheringAbilities].includes(order.abilityId) &&
+                order.targetUnitTag &&
+                mineralFieldTypes.includes(units.getByTag(order.targetUnitTag).unitType)
+              );
+            }));
+          debugSilly('possible doners', gatheringMineralWorkers.map(worker => worker.tag));
+          if (givingTownhall && gatheringMineralWorkers.length > 0) {
+            debugSilly('chosen closest th', givingTownhall.tag);
+            const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringMineralWorkers);
+            debugSilly('chosen worker', donatingWorker.tag);
+            await actions.mine([donatingWorker], needyGasMines, false);
+          }
+        } else {
+          gasMineCheckAndBuild({ agent, data, resources })
+        }
+      }
+    } else if (mineralMinerCountRatio === targetRatio) {
+      return;
+    } else if (needyBases && mineralMinerCountRatio < targetRatio) {
+      const increaseRatio = (mineralMinerCount + 1) / (vespeneMinerCount - 1);
+      if ((mineralMinerCountRatio + increaseRatio) / 2 < targetRatio) {
+        const gasMines = units.getAlive(readySelfFilter).filter(u => u.isGasMine());
+        const [givingGasMine] = units.getClosest(needyBases.pos, gasMines);
+        const gatheringGasWorkers = units.getWorkers()
           .filter(unit => unit.orders.some(order => {
             return (
               [...gatheringAbilities].includes(order.abilityId) &&
               order.targetUnitTag &&
-              mineralFieldTypes.includes(units.getByTag(order.targetUnitTag).unitType)
+              gasMineTypes.includes(units.getByTag(order.targetUnitTag).unitType)
             );
           }));
-        debugSilly('possible doners', gatheringMineralWorkers.map(worker => worker.tag));
-        if (givingTownhall && gatheringMineralWorkers.length > 0) {
-          debugSilly('chosen closest th', givingTownhall.tag);
-          const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringMineralWorkers);
+        if (givingGasMine && gatheringGasWorkers.length > 0) {
+          debugSilly('chosen closest th', givingGasMine.tag);
+          const [donatingWorker] = units.getClosest(givingGasMine.pos, gatheringGasWorkers);
           debugSilly('chosen worker', donatingWorker.tag);
-          await actions.mine([donatingWorker], needyGasMines, false);
+          await actions.gather(donatingWorker, null, false);
         }
-      } else {
-        gasMineCheckAndBuild({ agent, data, resources })
-      }
-    }
-    const needyBases = units.getBases(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters + 2);
-    if (needyBases && !surplusMinerals) {
-      const gasMines = units.getAlive(readySelfFilter).filter(u => u.isGasMine());
-      const [givingGasMine] = units.getClosest(needyBases.pos, gasMines);
-      const gatheringGasWorkers = units.getWorkers()
-        .filter(unit => unit.orders.some(order => {
-          return (
-            [...gatheringAbilities].includes(order.abilityId) &&
-            order.targetUnitTag &&
-            gasMineTypes.includes(units.getByTag(order.targetUnitTag).unitType)
-          );
-        }));
-      if (givingGasMine && gatheringGasWorkers.length > 0) {
-        debugSilly('chosen closest th', givingGasMine.tag);
-        const [donatingWorker] = units.getClosest(givingGasMine.pos, gatheringGasWorkers);
-        debugSilly('chosen worker', donatingWorker.tag);
-        await actions.gather(donatingWorker, null, false);
       }
     }
   },
