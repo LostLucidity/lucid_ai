@@ -68,6 +68,7 @@ module.exports = {
       nearPosition = module.exports.findWarpInLocations(resources);
     } else {
       nearPosition = getCombatRally(resources);
+      console.log('nearPosition', nearPosition);
     }
     try { await actions.warpIn(unitType, { nearPosition: nearPosition }) } catch (error) { console.log(error); }
   }
