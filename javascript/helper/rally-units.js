@@ -6,7 +6,7 @@ const { BUNKER, LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { engageOrRetreat } = require("./behavior/army-behavior");
 const { getCombatRally } = require("./location");
 const { tankBehavior } = require("./behavior/unit-behavior");
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 
 function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint=null) {
   const { units } = resources.get();
@@ -49,7 +49,7 @@ function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint=null) {
       }
     } else {
       const selfUnits = [...combatUnits, ...supportUnits, ...units.getById(QUEEN)];
-      const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+      const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA));
       collectedActions.push(...engageOrRetreat({ data, resources }, selfUnits, enemyUnits, rallyPoint));
     }
   }
