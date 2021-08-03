@@ -32,7 +32,7 @@ function debugPlacements(world) {
 
 function debugArmySupplies(world) {
   const { debug, units } = world.resources.get();
-  debug.setDrawCells('enemyUnit.selfSupply', units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA) && unit.selfSupply).map(enemyUnit => ({ pos: enemyUnit.pos, text: `(${enemyUnit.selfSupply})` })), { size: 0.50, color: Color.RED, cube: true, persistText: true });
+  debug.setDrawCells('enemyUnit.selfSupply', enemyTrackingService.mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA) && unit.selfSupply).map(enemyUnit => ({ pos: enemyUnit.pos, text: `(${enemyUnit.selfSupply})` })), { size: 0.50, color: Color.RED, cube: true, persistText: true });
   debug.setDrawCells('selfUnit.selfSupply', units.getAlive(Alliance.SELF).filter(unit => !(unit.unitType === LARVA) && unit.selfSupply).map(selfUnit => ({ pos: selfUnit.pos, text: `(${selfUnit.selfSupply})` })), { size: 0.50, color: Color.GREEN, cube: true, persistText: true });
 }
 
