@@ -3,7 +3,6 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
 const enemyTrackingService = require("./enemy-tracking/enemy-tracking-service");
 
 module.exports = createSystem({
