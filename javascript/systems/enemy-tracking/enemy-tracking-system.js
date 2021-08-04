@@ -11,8 +11,8 @@ module.exports = createSystem({
   type: 'agent',
   async onStep({ data, resources }) {
     enemyTrackingService.setBaseThreats(resources);
-    const { enemyUnits } = enemyTrackingService;
-    setSelfSupplyPowers(data, enemyUnits);
-    setEnemySupplyPowers(data, enemyUnits, trackUnitsService.selfUnits);
+    const { mappedEnemyUnits } = enemyTrackingService;
+    setSelfSupplyPowers(data, mappedEnemyUnits);
+    setEnemySupplyPowers(data, mappedEnemyUnits, trackUnitsService.selfUnits);
   }
 });
