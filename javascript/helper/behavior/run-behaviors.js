@@ -13,7 +13,7 @@ async function runBehaviors(world, opponentRace) {
   collectedActions.push(...marineBehavior(resources));
   collectedActions.push(...observerBehavior(resources, data));
   collectedActions.push(...overlordBehavior(resources, data));
-  await scoutEnemyMainBehavior(resources, opponentRace);
+  await scoutEnemyMainBehavior({ data, resources }, opponentRace);
   await scoutEnemyNaturalBehavior(resources);
   collectedActions.push(...supplyDepotBehavior(resources));
   collectedActions.push(...await workerBehavior(world));

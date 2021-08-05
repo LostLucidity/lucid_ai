@@ -15,10 +15,10 @@ module.exports = createSystem({
   async onEnemyFirstSeen({}, seenEnemyUnit) {
     scoutService.opponentRace = seenEnemyUnit.data().race;
   },
-  async onStep({ resources }) {
+  async onStep({ data, resources }) {
     const collectedActions = [];
     collectedActions.push(...clearFromEnemyBehavior(resources));
-    await scoutEnemyMainBehavior(resources, scoutService.opponentRace);
+    await scoutEnemyMainBehavior({ data, resources }, scoutService.opponentRace);
     collectedActions.push(...supplyDepotBehavior(resources));
     await resources.get().actions.sendAction(collectedActions);
   },
