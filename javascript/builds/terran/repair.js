@@ -2,8 +2,9 @@
 "use strict"
 
 const { EFFECT_REPAIR, SMART } = require("@node-sc2/core/constants/ability");
+const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
-const { CYCLONE, LIBERATOR, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER, LIBERATORAG, BUNKER } = require("@node-sc2/core/constants/unit-type");
+const { BUNKER } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 
 module.exports = {
@@ -34,19 +35,15 @@ module.exports = {
     return collectedActions;
   },
   repairDamagedMechUnits: (resources) => {
-    const {
-      units,
-    } = resources.get();
+    const { units, } = resources.get();
     const collectedActions = [];
-    // get burning structure.
-    const [ damagedMechUnit ] = units.getById([ CYCLONE, LIBERATOR, LIBERATORAG, MEDIVAC, SIEGETANK, SIEGETANKSIEGED, VIKINGFIGHTER]).filter(unit => unit.health / unit.healthMax < 1 / 3);
-    if (damagedMechUnit) {
-      // select worker and repair stucture
-      const [ closestWorker ] = units.getClosest(damagedMechUnit.pos, units.getWorkers());
+    const [ damagedMechanicalUnit ] = units.getAlive(Alliance.SELF).filter(unit => unit.data().attributes.includes(Attribute.MECHANICAL) && unit.health / unit.healthMax < 1 / 3);
+    if (damagedMechanicalUnit) {
+      const [ closestWorker ] = units.getClosest(damagedMechanicalUnit.pos, units.getWorkers().filter(worker => worker.tag !== damagedMechanicalUnit.tag));
       if (closestWorker) {
         const unitCommand = {
           abilityId: EFFECT_REPAIR,
-          targetUnitTag: damagedMechUnit.tag,
+          targetUnitTag: damagedMechanicalUnit.tag,
           unitTags: [ closestWorker.tag ]
         }
         collectedActions.push(unitCommand);
