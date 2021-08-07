@@ -1,6 +1,7 @@
 //@ts-check
 "use strict"
 
+const { UnitType } = require('@node-sc2/core/constants');
 const Ability = require('@node-sc2/core/constants/ability');
 const { MOVE, STOP } = require('@node-sc2/core/constants/ability');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
@@ -90,6 +91,7 @@ module.exports = {
           unitTags: [builder.tag],
           targetWorldSpacePos: position,
         };
+        console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
         collectedActions.push(unitCommand);
         module.exports.setPendingOrders(builder, unitCommand);
         const overlappingBuilders = builders
