@@ -19,7 +19,7 @@ module.exports = {
     const { map, units } = resources.get();
     const collectedActions = [];
     const label = 'acrossTheMap';
-    const [ unit ] = units.withLabel(label);
+    const [unit] = units.withLabel(label);
     if (unit) {
       const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(enemyUnit => !(unit.unitType === LARVA) && distance(enemyUnit.pos, unit.pos) < 16);
       const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
@@ -32,7 +32,7 @@ module.exports = {
       } else {
         collectedActions.push({
           abilityId: ATTACK_ATTACK,
-          unitTags: [ unit.tag ],
+          unitTags: [unit.tag],
           targetWorldSpacePos: acrossTheMap(map),
         });
       }
@@ -42,10 +42,10 @@ module.exports = {
   clearFromEnemyBehavior: (resources) => {
     const { map, units } = resources.get();
     const label = 'clearFromEnemy';
-    const [ unit ] = units.withLabel(label);
+    const [unit] = units.withLabel(label);
     const collectedActions = [];
     if (unit) {
-      let [ closestEnemyUnit ] = units.getClosest(unit.pos, units.getAlive(Alliance.ENEMY), 1);
+      let [closestEnemyUnit] = units.getClosest(unit.pos, units.getAlive(Alliance.ENEMY), 1);
       if (
         !closestEnemyUnit ||
         distance(unit.pos, closestEnemyUnit.pos) > 16 ||
@@ -62,18 +62,18 @@ module.exports = {
     }
     return collectedActions;
   },
-  scoutEnemyMainBehavior: async ({data, resources}, opponentRace) => {
+  scoutEnemyMainBehavior: async ({ data, resources }, opponentRace) => {
     const { actions, map, units } = resources.get();
-    const [ unit ] = units.withLabel('scoutEnemyMain');
+    const [unit] = units.withLabel('scoutEnemyMain');
     const collectedActions = [];
     if (unit) {
       const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, Alliance.ENEMY).filter(cannon => distance(cannon.pos, unit.pos) < 16);
-      if (calculateTotalHealthRatio(unit) > 1/2 && !inRangeEnemyCannon) {
+      if (calculateTotalHealthRatio(unit) > 1 / 2 && !inRangeEnemyCannon) {
         if (unit.enemyUnits.filter(enemyUnit => isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8).length > 1) {
-          let [ closestEnemyUnit ] = units.getClosest(unit.pos, unit.enemyUnits, 1);
+          let [closestEnemyUnit] = units.getClosest(unit.pos, unit.enemyUnits, 1);
           collectedActions.push({
             abilityId: MOVE,
-            unitTags: [ unit.tag ],
+            unitTags: [unit.tag],
             targetWorldSpacePos: retreatToExpansion(resources, unit, closestEnemyUnit),
           });
         } else {
@@ -84,7 +84,7 @@ module.exports = {
             randomPointsOfInterest.forEach(point => {
               const unitCommand = {
                 abilityId: MOVE,
-                unitTags: [ unit.tag ],
+                unitTags: [unit.tag],
                 queueCommand: true,
                 targetWorldSpacePos: point,
               };
@@ -95,7 +95,7 @@ module.exports = {
       } else {
         const unitCommand = {
           abilityId: MOVE,
-          unitTags: [ unit.tag ],
+          unitTags: [unit.tag],
           targetWorldSpacePos: getCombatRally(resources),
         };
         collectedActions.push(unitCommand);
@@ -105,18 +105,18 @@ module.exports = {
   },
   scoutEnemyNaturalBehavior: async (resources) => {
     const { actions, map, units } = resources.get();
-    const [ unit ] = units.withLabel('scoutEnemyNatural');
+    const [unit] = units.withLabel('scoutEnemyNatural');
     const collectedActions = [];
     if (unit) {
       const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, Alliance.ENEMY).filter(cannon => distance(cannon.pos, unit.pos) < 16);
-      if (calculateTotalHealthRatio(unit) > 1/2 && !inRangeEnemyCannon) {
+      if (calculateTotalHealthRatio(unit) > 1 / 2 && !inRangeEnemyCannon) {
         const enemyNatural = map.getEnemyNatural();
         const randomPointsOfInterest = [...getRandomPoints(map, 3, enemyNatural.areas.areaFill)];
         if (randomPointsOfInterest.length > unit.orders.length) {
           randomPointsOfInterest.forEach(point => {
             const unitCommand = {
               abilityId: MOVE,
-              unitTags: [ unit.tag ],
+              unitTags: [unit.tag],
               queueCommand: true,
               targetWorldSpacePos: point,
             };
@@ -126,7 +126,7 @@ module.exports = {
       } else {
         const unitCommand = {
           abilityId: MOVE,
-          unitTags: [ unit.tag ],
+          unitTags: [unit.tag],
           targetWorldSpacePos: getCombatRally(resources),
         };
         collectedActions.push(unitCommand);
