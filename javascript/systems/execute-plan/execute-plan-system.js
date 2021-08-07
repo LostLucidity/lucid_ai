@@ -31,7 +31,7 @@ module.exports = createSystem({
           } else if (orderType === 'Upgrade') {
             await upgrade(world, planStep.upgrade);
           }
-        }
+        } else { break; }
       } else {
         planService.currentStep = null;
         break;
