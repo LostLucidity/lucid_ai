@@ -24,7 +24,7 @@ module.exports = createSystem({
           if (orderType === 'UnitType') {
             const { targetCount } = planStep;
             if (world.data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
-              await actions.sendAction(await build(world, unitType, targetCount));
+              await build(world, unitType, targetCount);
             } else {
               await train(world, unitType, targetCount);
             };

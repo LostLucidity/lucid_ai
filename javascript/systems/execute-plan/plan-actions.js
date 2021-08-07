@@ -45,10 +45,10 @@ module.exports = {
   },
   build: async (world, unitType, targetCount = null) => {
     const collectedActions = [];
+    const { agent, data, resources } = world;
+    const { actions, map, units } = resources.get();
     if (checkBuildingCount(world, unitType, targetCount) || targetCount === null) {
-      const { agent, data, resources } = world;
       const { race } = world.agent;
-      const { actions, map, units } = resources.get();
       let candidatePositions = [];
       switch (true) {
         case GasMineRace[race] === unitType:
@@ -106,7 +106,7 @@ module.exports = {
           collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
       }
     }
-    return collectedActions;
+    await actions.sendAction(collectedActions);
   },
   train: async (world, unitType, targetCount = null) => {
     const { agent, data, resources } = world;
