@@ -15,20 +15,23 @@ const { engageOrRetreat } = require("./army-behavior");
 
 module.exports = {
   acrossTheMapBehavior: (world) => {
-    const { data, resources } = world;
+    const { resources } = world;
     const { map, units } = resources.get();
     const collectedActions = [];
     const label = 'acrossTheMap';
     const [unit] = units.withLabel(label);
     if (unit) {
       const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(enemyUnit => !(unit.unitType === LARVA) && distance(enemyUnit.pos, unit.pos) < 16);
-      const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-      const combatUnits = units.getCombatUnits().filter(combatUnit => unit.isAttacking() && distance(combatUnit.pos, unit.pos) < 16);
-      let allyUnits = [ unit, ...combatUnits ];
-      const selfSupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-      if (selfSupply < enemySupply) {
-        let [ closestEnemyUnit ] = getClosestUnitByPath(resources, unit.pos, enemyUnits, 1);
-        collectedActions.push(...engageOrRetreat(world, allyUnits, enemyUnits, closestEnemyUnit.pos, false));
+      const combatUnits = units.getCombatUnits().filter(combatUnit => {
+        if (combatUnit.isAttacking()) {
+          const foundOrder = combatUnit.orders.find(order => order.abilityId === ATTACK_ATTACK && units.getByTag(order.targetUnitTag));
+          const targetPosition = foundOrder ? units.getByTag(foundOrder.targetUnitTag).pos : combatUnit.orders.find(order => order.abilityId === ATTACK_ATTACK).targetWorldSpacePos;
+          return distance(targetPosition, unit.pos) < 16;
+        }
+      });
+      let [closestEnemyUnit] = getClosestUnitByPath(resources, unit.pos, enemyUnits);
+      if (closestEnemyUnit && unit.selfSupply < closestEnemyUnit.selfSupply) {
+        collectedActions.push(...engageOrRetreat(world, combatUnits, enemyUnits, closestEnemyUnit.pos, false));
       } else {
         collectedActions.push({
           abilityId: ATTACK_ATTACK,
