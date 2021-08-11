@@ -2,7 +2,6 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { getSupply, getTrainingSupply } = require("../helper");
 const buildWorkers = require("../helper/build-workers");
 const shortOnWorkers = require("../helper/short-on-workers");
 const planService = require("../services/plan-service");
