@@ -15,7 +15,7 @@ const manageResources = {
     const currentStep = planService.currentStep;
     if (currentStep !== null) {
       const steps = [plan[currentStep]];
-      for (let step = 1; step < stepCount; step++) {
+      for (let step = 1; step <= stepCount; step++) {
         const nextStep = plan[currentStep + step];
         if (nextStep.orderType === 'UnitType') {
           const isStructure = world.data.getUnitTypeData(nextStep.unitType).attributes.includes(Attribute.STRUCTURE);
