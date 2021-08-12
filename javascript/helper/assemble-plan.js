@@ -99,8 +99,9 @@ class AssemblePlan {
       if (haveProductionAndTechForTypes.length > 0) {
         this.selectedTypeToBuild = this.selectedTypeToBuild ? this.selectedTypeToBuild : haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
         let { mineralCost, vespeneCost } = this.data.getUnitTypeData(this.selectedTypeToBuild);
-        if (this.agent.minerals < (mineralCost * 2) || this.agent.vespene < (vespeneCost * 2)) { return; }
-        await this.train(this.foodUsed, this.selectedTypeToBuild, null)
+        if (this.agent.minerals >= (mineralCost * 2) && this.agent.vespene >= (vespeneCost * 2)) {
+          await this.train(this.foodUsed, this.selectedTypeToBuild, null);
+        }
       }
     }
     await this.runPlan();
