@@ -6,6 +6,7 @@ const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { BUNKER } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { isPendingContructing } = require("../../services/shared-service");
 
 module.exports = {
   repairBurningStructures: (resources) => {
@@ -39,7 +40,7 @@ module.exports = {
     const collectedActions = [];
     const [ damagedMechanicalUnit ] = units.getAlive(Alliance.SELF).filter(unit => unit.data().attributes.includes(Attribute.MECHANICAL) && unit.health / unit.healthMax < 1 / 3);
     if (damagedMechanicalUnit) {
-      const [ closestWorker ] = units.getClosest(damagedMechanicalUnit.pos, units.getWorkers().filter(worker => worker.tag !== damagedMechanicalUnit.tag));
+      const [ closestWorker ] = units.getClosest(damagedMechanicalUnit.pos, units.getWorkers().filter(worker => worker.tag !== damagedMechanicalUnit.tag && !worker.isConstructing() && !isPendingContructing(worker)));
       if (closestWorker) {
         const unitCommand = {
           abilityId: EFFECT_REPAIR,
