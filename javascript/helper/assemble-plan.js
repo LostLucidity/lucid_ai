@@ -742,6 +742,7 @@ class AssemblePlan {
             break;
         }
       } else {
+        console.log('step', step);
         break;
       }
     }
