@@ -31,19 +31,19 @@ module.exports = createSystem({
     ];
     if (trainUnitConditions.some(condition => condition)) {
       outSupplied ? console.log(frame.timeInSeconds(), 'Scouted higher supply', selfCombatSupply, enemyCombatSupply) : null;
-      const foundStep = planService.plan.find(action => action.food >= agent.foodUsed);
+      const { currentStep, plan } = planService;
       const candidateTypeToBuild = trainingTypes.filter(type => {
         return [
           !data.getUnitTypeData(type).attributes.includes(Attribute.STRUCTURE),
           haveAvailableProductionUnitsFor(world, type),
           agent.hasTechFor(type),
-          data.getUnitTypeData(type).foodRequired <= foundStep.food - agent.foodUsed,
+          data.getUnitTypeData(type).foodRequired <= plan[currentStep].food - agent.foodUsed,
         ].every(condition => condition);
       });
       let { selectedTypeToBuild } = unitTrainingService;
       unitTrainingService.selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : candidateTypeToBuild[Math.floor(Math.random() * candidateTypeToBuild.length)];
       if (selectedTypeToBuild != null) {
-        const { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, [foundStep]);
+        const { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, [currentStep]);
         let { mineralCost, vespeneCost } = data.getUnitTypeData(selectedTypeToBuild);
         if (agent.minerals < (totalMineralCost + mineralCost) || agent.vespene < (totalVespeneCost + vespeneCost)) { return; }
         await train(world, selectedTypeToBuild);
