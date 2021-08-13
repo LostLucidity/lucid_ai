@@ -14,7 +14,7 @@ module.exports = createSystem({
   type: 'agent',
   async onStep(world) {
     const { actions, units } = world.resources.get();
-    sharedService.removePendingOrderBySystemName(units, this.name);
+    sharedService.removePendingOrders(units);
     const swapBuildings = units.withLabel('swapBuilding');
     for (let step = 0; step < swapBuildings.length; step++) {
       const building = swapBuildings[step];
@@ -39,6 +39,5 @@ module.exports = createSystem({
         building.labels.delete('addAddOn');
       }
     }
-    sharedService.setPendingOrderBySystemName(units, this.name);
   }
 })

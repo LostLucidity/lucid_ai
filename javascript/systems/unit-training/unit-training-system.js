@@ -20,7 +20,7 @@ module.exports = createSystem({
     const { agent, data, resources } = world;
     const { frame, units } = resources.get();
     const { trainingTypes } = planService;
-    sharedService.removePendingOrderBySystemName(units, this.name);
+    sharedService.removePendingOrders(units);
     const selfCombatSupply = getSelfCombatSupply(world);
     const enemyCombatSupply = enemyTrackingService.getEnemyCombatSupply(data);
     const outSupplied = enemyCombatSupply > selfCombatSupply;
@@ -49,6 +49,5 @@ module.exports = createSystem({
         await train(world, selectedTypeToBuild);
       }
     }
-    sharedService.setPendingOrderBySystemName(units, this.name);
   }
 });

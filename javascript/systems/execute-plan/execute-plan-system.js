@@ -11,8 +11,8 @@ module.exports = createSystem({
   name: 'ExecutePlanSystem',
   type: 'agent',
   async onStep(world) {
-    const { actions, units } = world.resources.get();
-    sharedService.removePendingOrderBySystemName(units, this.name);
+    const { units } = world.resources.get();
+    sharedService.removePendingOrders(units);
     planService.continueBuild = true;
     const { plan } = planService;
     for (let step = 0; step < plan.length; step++) {
@@ -37,7 +37,6 @@ module.exports = createSystem({
         break;
       }
     }
-    sharedService.setPendingOrderBySystemName(units, this.name);
   },
   async onUnitDestroyed({ }, destroyedUnit) {
     if (destroyedUnit.isWorker()) {

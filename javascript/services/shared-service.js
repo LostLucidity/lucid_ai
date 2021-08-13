@@ -6,6 +6,11 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { calculateNearSupply } = require("../helper/battle-analysis");
 
 const sharedService = {
+  removePendingOrders: (units) => {
+    units.getAlive(Alliance.SELF).forEach(unit => {
+      if (unit['pendingOrders'] && unit['pendingOrders'].length > 0) { unit['pendingOrders'] = []; }
+    });
+  },
   removePendingOrderBySystemName: (units, name) => {
     units.getAlive(Alliance.SELF).forEach(unit => {
       if (unit['pendingOrders'] && unit['pendingOrders'].length > 0) {

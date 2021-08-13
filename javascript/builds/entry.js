@@ -42,12 +42,11 @@ const entry = createSystem({
   },
   async onStep(world) {
     const { units } = world.resources.get();
-    sharedService.removePendingOrderBySystemName(units, this.name);
+    sharedService.removePendingOrders(units);
     const t0 = new Date().getTime();
     await assemblePlan.onStep(world, this.state);
     const t1 = new Date().getTime();
     longestTime = (t1 - t0) > longestTime ? t1 - t0 : longestTime;
-    sharedService.setPendingOrderBySystemName(units, this.name);
   },
   async onUnitCreated(world, createdUnit) {
     await assemblePlan.onUnitCreated(world, createdUnit);
