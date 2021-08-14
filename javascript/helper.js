@@ -1,15 +1,14 @@
 //@ts-check
 "use strict"
 
-const { UnitType } = require('@node-sc2/core/constants');
 const Ability = require('@node-sc2/core/constants/ability');
 const { MOVE, STOP } = require('@node-sc2/core/constants/ability');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
-const { constructionAbilities } = require('@node-sc2/core/constants/groups');
 const { PROBE, ZERGLING } = require('@node-sc2/core/constants/unit-type');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { countTypes } = require('./helper/groups');
+const { isPendingContructing } = require('./services/shared-service');
 
 module.exports = {
   checkBuildingCount: ({ agent, data, resources }, unitType, targetCount) => {
@@ -118,8 +117,4 @@ module.exports = {
 
 function getLabelledAvailable(labelled) {
   return (!labelled.isConstructing() || (labelled.isConstructing() && labelled.unitType === PROBE)) && !labelled.isAttacking();
-}
-
-function isPendingContructing(unit) {
-  return unit.pendingOrders && unit.pendingOrders.some(o => constructionAbilities.includes(o.abilityId));
 }

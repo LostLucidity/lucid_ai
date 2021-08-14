@@ -2,10 +2,14 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { calculateNearSupply } = require("../helper/battle-analysis");
 
 const sharedService = {
+  isPendingContructing: (unit) => {
+    return unit.pendingOrders && unit.pendingOrders.some(o => constructionAbilities.includes(o.abilityId));
+  },
   removePendingOrders: (units) => {
     units.getAlive(Alliance.SELF).forEach(unit => {
       if (unit['pendingOrders'] && unit['pendingOrders'].length > 0) { unit['pendingOrders'] = []; }
