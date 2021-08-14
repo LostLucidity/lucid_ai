@@ -87,7 +87,7 @@ module.exports = {
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
         builder.labels.set('builder', true);
         const unitCommand = {
-          abilityId: abilityId,
+          abilityId,
           unitTags: [builder.tag],
           targetWorldSpacePos: position,
         };
