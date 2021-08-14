@@ -66,9 +66,6 @@ const entry = createSystem({
     }
     await assemblePlan.onUnitDamaged(resources, damagedUnit)
   },
-  async onUnitDestroyed({}, destroyedUnit) {
-    await assemblePlan.onUnitDestroyed(destroyedUnit);
-  },
   async onUnitIdle({ resources }, idleUnit) {
     if (idleUnit.isWorker() && idleUnit.noQueue) {
       const { units } = resources.get();

@@ -145,12 +145,6 @@ class AssemblePlan {
     }
   }
 
-  async onUnitDestroyed(destroyedUnit) {
-    if (destroyedUnit.isWorker()) {
-      this.state.pauseBuilding = false;
-    }
-  }
-
   async ability(food, abilityId, conditions) {
     if (this.foodUsed >= food) {
       if (conditions === undefined || conditions.targetType || conditions.targetCount === this.units.getById(conditions.countType).length + this.units.withCurrentOrders(abilityId).length) {
