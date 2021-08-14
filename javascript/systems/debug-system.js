@@ -19,6 +19,10 @@ const debugDrawWalls = require('debug')('sc2:DrawDebugWalls');
 module.exports = createSystem({
   name: 'Debug',
   type: 'agent',
+  async onGameStart(world) {
+    // debugMapHeights(world);
+
+  },
   async onStep(world) {
     debugWalls(world);
     debugArmySupplies(world);
