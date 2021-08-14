@@ -16,8 +16,8 @@ module.exports = createSystem({
     planService.continueBuild = true;
     const { plan } = planService;
     for (let step = 0; step < plan.length; step++) {
-      planService.currentStep = step;
       if (planService.continueBuild) {
+        planService.currentStep = step;
         const planStep = plan[step];
         const { food, orderType, unitType } = planStep;
         if (world.agent.foodUsed >= food) {
@@ -33,7 +33,6 @@ module.exports = createSystem({
           }
         } else { break; }
       } else {
-        planService.currentStep = null;
         break;
       }
     }
