@@ -43,6 +43,7 @@ const { checkUnitCount } = require("../systems/track-units/track-units-service")
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
 const { getBuildingFootprintOfOrphanAddons } = require("../services/placement-service");
+const { getEnemyWorkers } = require("../services/units-service");
 
 let actions;
 let opponentRace;
@@ -282,7 +283,15 @@ class AssemblePlan {
   checkEnemyBuild() {
     const { frame } = this.resources.get();
     if (frame.timeInSeconds() > 122) { this.earlyScout = false }
-    if (this.earlyScout) {
+      if (this.earlyScout) {
+        const suspiciousWorkerCount = getEnemyWorkers(this.world).filter(worker => distance(worker.pos, this.map.getEnemyMain().townhallPosition) > 16).length;
+        if (suspiciousWorkerCount > 2) {
+          this.state.enemyBuildType = 'cheese';
+          this.scoutReport = `${this.state.enemyBuildType} detected:
+          Work Rush Detected: ${suspiciousWorkerCount} sus workers.`;
+          this.earlyScout = false;
+          return;
+        }
       let conditions = [];
       switch (opponentRace) {
         case Race.PROTOSS:
