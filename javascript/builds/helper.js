@@ -56,7 +56,7 @@ module.exports = {
     return awayPoint;
   },
   shadowEnemy(data, resources, shadowingUnits) {
-    const { map, units } = resources.get();
+    const { units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     shadowingUnits.forEach(unit => {
