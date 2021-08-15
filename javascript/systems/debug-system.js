@@ -16,6 +16,8 @@ const { LARVA } = require("@node-sc2/core/constants/unit-type");
 const { getBuildingFootprintOfOrphanAddons } = require("../services/placement-service");
 const debugDrawWalls = require('debug')('sc2:DrawDebugWalls');
 
+let setDebug = false;
+
 module.exports = createSystem({
   name: 'Debug',
   type: 'agent',
@@ -28,6 +30,23 @@ module.exports = createSystem({
     debugArmySupplies(world);
   }
 });
+
+function debugPositions(world) {
+  if (!setDebug) {
+    const { debug, map } = world.resources.get();
+    debug.setDrawCells('Positions', map._grids.placement.reduce((cells, row, y) => {
+      row.forEach((_node, x) => {
+        cells.push({
+          pos: { x, y },
+          text: `${x},${y}`,
+          color: Color.Yellow,
+        });
+      });
+      return cells;
+    }, []), { persistText: true });
+  }
+  setDebug = true;
+}
 
 function debugPlacements(world) {
   const { debug, units } = world.resources.get();
