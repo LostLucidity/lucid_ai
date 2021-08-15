@@ -19,9 +19,15 @@ const unitTrainingService = {
     );
   },
   workersTrainingTendedTo: (world) => {
-    if (world.agent.race !== Race.ZERG) {
-      const { resources } = world;
-      return resources.get().units.getBases(Alliance.SELF).filter(base => base.buildProgress >= 1 && base.isIdle()).length === 0 && shortOnWorkers(resources);
+    const { agent, resources } = world;
+    if (agent.race !== Race.ZERG) {
+      return [
+        (
+          resources.get().units.getBases(Alliance.SELF).filter(base => base.buildProgress >= 1 && base.isIdle()).length === 0 &&
+          shortOnWorkers(resources)
+        ),
+          agent.minerals > 512,
+      ].some(condition => condition);
     }
   },
 }
