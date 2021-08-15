@@ -345,16 +345,16 @@ class AssemblePlan {
               console.log(frame.timeInSeconds(), 'Pool first. Cheese detected');
               this.state.enemyBuildType = 'cheese';
               this.scoutReport = `${this.state.enemyBuildType} detected:
-              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length}.
-              Zergling Pool: ${this.units.getById(ZERGLING, Alliance.ENEMY).length}
+              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length > 0}.
+              Zerglings: ${this.units.getById(ZERGLING, Alliance.ENEMY).length > 0}
               Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}`;
               this.earlyScout = false;
             } else if (!spawningPoolDetected && enemyNaturalDetected) {
               console.log(frame.timeInSeconds(), 'Hatchery first. Standard.');
               this.state.enemyBuildType = 'standard';
               this.scoutReport = `${this.state.enemyBuildType} detected:
-              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length}.
-              Zergling Pool: ${this.units.getById(ZERGLING, Alliance.ENEMY).length}
+              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length > 0}.
+              Zerglings: ${this.units.getById(ZERGLING, Alliance.ENEMY).length > 0}
               Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}`;
               this.earlyScout = false;
             }
