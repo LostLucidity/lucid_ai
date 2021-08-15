@@ -361,6 +361,8 @@ class AssemblePlan {
             if (!enemyNaturalDetected && !!this.map.getNatural().getBase()) {
               console.log(frame.timeInSeconds(), 'Enemy expanding slower. Cheese detected');
               this.state.enemyBuildType = 'cheese';
+              this.scoutReport = `Enemy expanding slower. Cheese detected`;
+              this.earlyScout = false;
             }
           }
           break;
