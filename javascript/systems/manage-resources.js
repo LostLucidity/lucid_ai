@@ -11,6 +11,7 @@ const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
   balanceForFuture: async (world, action, stepCount = 3) => {
+    const { data } = world;
     const { plan } = planService;
     const currentStep = planService.currentStep;
     if (currentStep !== null) {
@@ -18,25 +19,26 @@ const manageResources = {
       for (let step = 1; step <= stepCount; step++) {
         const nextStep = plan[currentStep + step];
         if (nextStep.orderType === 'UnitType') {
-          const isStructure = world.data.getUnitTypeData(nextStep.unitType).attributes.includes(Attribute.STRUCTURE);
           let useNextStep;
-          if (isStructure) {
-            useNextStep = checkBuildingCount(world, nextStep.unitType, nextStep.targetCount)
-          } else {
-            useNextStep = checkUnitCount(world, nextStep.unitType, nextStep.targetCount)
-          }
+          if (!steps.find(step => step.unitType === nextStep.unitType)) {
+            if (data.getUnitTypeData(nextStep.unitType).attributes.includes(Attribute.STRUCTURE)) {
+              useNextStep = checkBuildingCount(world, nextStep.unitType, nextStep.targetCount)
+            } else {
+              useNextStep = checkUnitCount(world, nextStep.unitType, nextStep.targetCount)
+            }
+          } else { useNextStep = true; }
           if (useNextStep) { steps.push(nextStep); };
         } else if (nextStep.orderType === 'Upgrade') {
           const upgraders = world.resources.get().units.getUpgradeFacilities(nextStep.upgrade);
-          const { abilityId } = world.data.getUpgradeData(nextStep.upgrade);
+          const { abilityId } = data.getUpgradeData(nextStep.upgrade);
           const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
           if (!world.agent.upgradeIds.includes(nextStep.upgrade) && foundUpgradeInProgress === undefined) { steps.push(nextStep); }
         }
       }
-      const { totalMineralCost, totalVespeneCost } = manageResources.getResourceDemand(world.data, steps);
+      const { totalMineralCost, totalVespeneCost } = manageResources.getResourceDemand(data, steps);
       await manageResources.balanceResources(world, totalMineralCost / totalVespeneCost);
     } else {
-      let { mineralCost, vespeneCost } = world.data.getUnitTypeData(action);
+      let { mineralCost, vespeneCost } = data.getUnitTypeData(action);
       await manageResources.balanceResources(world, mineralCost / vespeneCost);
     }
   },
