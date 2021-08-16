@@ -113,11 +113,13 @@ function moveAwayFromTarget(resources, unit, targetUnit, targetUnits) {
           try {
             const gridHeight = map.getHeight(grid);
             const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => distance(candidate, grid) <= unit.radius);
+            const targetUnitHeight = targetUnit.isFlying ? targetUnit.pos.z : map.getHeight(targetUnit.pos);
+            const closestEnemyToPointHeight = closestEnemyToPoint.isFlying ? closestEnemyToPoint.pos.z : map.getHeight(closestEnemyToPoint.pos);
             return (
-              gridHeight - targetUnit.pos.z >= 2 &&
-              gridHeight - closestEnemyToPoint.pos.z >= 2 &&
+              gridHeight - targetUnitHeight >= 2 &&
+              gridHeight - closestEnemyToPointHeight >= 2 &&
               circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight)
-            )
+            );
           } catch (error) {
             console.log('error', error);
             return false;
