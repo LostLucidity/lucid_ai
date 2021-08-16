@@ -29,8 +29,9 @@ const entry = createSystem({
     assemblePlan.onEnemyFirstSeen(seenEnemyUnit);
   },
   async onGameStart(world) {
-    const { frame } = world.resources.get();
+    const { map, frame } = world.resources.get();
     console.log('frame.getGameInfo().playerInfo', frame.getGameInfo().playerInfo);
+    console.log('Natural Wall:', !!map.getNatural().getWall());
     // get race.
     const race = world.agent.race;
     // get build
