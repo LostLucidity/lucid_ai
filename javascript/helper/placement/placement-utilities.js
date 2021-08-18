@@ -10,7 +10,7 @@ const placementUtilities = {
     return map.isPlaceableAt(unitType, grid) && map.isPlaceableAt(REACTOR, placementUtilities.getAddOnPlacement(grid));
   },
   getBuildingAndAddonGrids: (pos, unitType) => {
-    return [ ...cellsInFootprint(pos, getFootprint(unitType)), ...cellsInFootprint(placementUtilities.getAddOnPlacement(pos), getFootprint(REACTOR))];
+    return [...cellsInFootprint(pos, getFootprint(unitType)), ...cellsInFootprint(placementUtilities.getAddOnPlacement(pos), getFootprint(REACTOR))];
   },
   getAddOnBuildingPosition: (position) => {
     return { x: position.x - 2.5, y: position.y + 0.5 }
