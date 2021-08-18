@@ -9,7 +9,9 @@ const { distanceByPath } = require("../../helper/get-closest-by-path");
 const { intersectionOfPoints } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { BARRACKS, SUPPLYDEPOT } = require("@node-sc2/core/constants/unit-type");
-const { getAddOnPlacement, isBuildingAndAddonPlaceable, getAddOnBuildingPlacement } = require("../../helper/placement/placement-utilities");
+const { getAddOnPlacement, isBuildingAndAddonPlaceable, getAddOnBuildingPlacement, getBuildingAndAddonGrids } = require("../../helper/placement/placement-utilities");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 module.exports = createSystem({
   name: 'WallOffRamp',
@@ -25,13 +27,14 @@ module.exports = createSystem({
       );
     });
     debug.setDrawCells('adToRamp', wallOffRampService.adjacentToRampGrids.map(r => ({ pos: r })), { size: 1, cube: true });
-    // const supplyDepotPlacements = getSupplyDepotPlacements(map);
-    // const barracksPlacement = getBarracksPlacement(supplyDepotPlacements);
+    const supplyDepotPlacements = setSupplyDepotPlacements(map);
+    setBarracksPlacement(map, supplyDepotPlacements);
   },
 });
 
-function getSupplyDepotPlacements(map) {
-  const cornerGrids = wallOffRampService.placeableGrids.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1).filter(point => distance(point, grid) <= 1), wallOffRampService.placeableGrids).length === 2);
+function setSupplyDepotPlacements(map) {
+  const placeableGrids = wallOffRampService.adjacentToRampGrids.filter(grid => map.isPlaceable(grid));
+  const cornerGrids = placeableGrids.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1).filter(point => distance(point, grid) <= 1), placeableGrids).length === 2);
   let wallOffPositions = [];
   cornerGrids.forEach(cornerGrid => {
     const cornerGridCircle = gridsInCircle(cornerGrid, 3);
@@ -42,23 +45,23 @@ function getSupplyDepotPlacements(map) {
     if (closestRamp) {
       const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
       if (closestPlaceableToRamp) {
-        let position = null;
-        wallOffPositions.push(position);
+        wallOffRampService.supplyWallOffPositions.push(closestPlaceableToRamp);
+        wallOffPositions.push(...cellsInFootprint(closestPlaceableToRamp, getFootprint(SUPPLYDEPOT)));
       }
     }
   });
   return wallOffPositions;
 }
 
-function getBarracksPlacement(map, supplyDepotPlacements) {
-  const placeableGrids = wallOffRampService.placeableGrids.filter(grid => ![...supplyDepotPlacements].includes(grid));
+function setBarracksPlacement(map, supplyDepotPlacements) {
+  const placeableGrids = wallOffRampService.adjacentToRampGrids.filter(grid => ![...supplyDepotPlacements].some(placement => placement.x === grid.x && placement.y === grid.y));
   const cornerGrids = placeableGrids.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1).filter(point => distance(point, grid) <= 1), placeableGrids).length === 2);
   const [closestCornerGrid] = getClosestPosition(map.getMain().townhallPosition, cornerGrids);
   let wallOffPosition;
   if (closestCornerGrid) {
-    const cornerGridCircle = gridsInCircle(closestCornerGrid, 3);
+    const cornerGridCircle = gridsInCircle(closestCornerGrid, 3).filter(grid => ![...supplyDepotPlacements].some(placement => placement.x === grid.x && placement.y === grid.y));
     let closestPlaceableGrids = getClosestPosition(closestCornerGrid, cornerGridCircle, cornerGridCircle.length).filter(grid => {
-      return isBuildingAndAddonPlaceable(map, BARRACKS, grid);
+      return intersectionOfPoints(supplyDepotPlacements, getBuildingAndAddonGrids(grid, BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, BARRACKS, grid);
     });
     const [closestRamp] = getClosestPosition(closestCornerGrid, cornerGridCircle.filter(grid => map.isRamp(grid)));
     if (closestRamp) {
@@ -72,7 +75,7 @@ function getBarracksPlacement(map, supplyDepotPlacements) {
       const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
       if (closestPlaceableToRamp) {
         let position = null;
-        if (isBuildingAndAddonPlaceable(map, BARRACKS, closestPlaceableToRamp)) {
+        if (intersectionOfPoints(supplyDepotPlacements, getBuildingAndAddonGrids(closestPlaceableToRamp, BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, BARRACKS, closestPlaceableToRamp)) {
           position = closestPlaceableToRamp;
         } else {
           position = getAddOnBuildingPlacement(closestPlaceableToRamp);
@@ -81,6 +84,6 @@ function getBarracksPlacement(map, supplyDepotPlacements) {
       }
     }
   }
-  return wallOffPosition;
+  wallOffRampService.barracksWallOffPosition = wallOffPosition;
 }
 
