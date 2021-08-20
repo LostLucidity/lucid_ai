@@ -34,6 +34,7 @@ const trackUnitsSystem = require('./systems/track-units/track-units-system');
 const swapBuildingSystem = require('./systems/swap-building-system');
 const liftToThirdSystem = require('./systems/lift-to-third-system');
 const loggingSystem = require('./systems/logging-system');
+const boGeneratorSystem = require('./systems/bo-generator-system');
 
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -183,7 +184,12 @@ function runGame() {
     swapBuildingSystem,
     liftToThirdSystem,
   ];
-  bot1.use(updatedSystems);
+  const bogSystems = [
+    boGeneratorSystem
+  ];
+  // bot1.use(legacySystems);
+  // bot1.use(updatedSystems);
+  bot1.use(bogSystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
   const playerTwo = createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild })
   return engine.runGame(map, [playerOne, playerTwo]);
