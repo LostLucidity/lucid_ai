@@ -161,8 +161,8 @@ function runGame() {
     trackEnemySystem,
     workerBalanceSystem,
     enemyTrackingSystem,
-    // debugSystem,
     trackUnitsSystem,
+    debugSystem,
     loggingSystem,
   ];
   const updatedSystems = [
@@ -182,8 +182,9 @@ function runGame() {
     trackUnitsSystem,
     swapBuildingSystem,
     liftToThirdSystem,
+    debugSystem,
   ];
-  bot1.use(updatedSystems);
+  bot1.use(legacySystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
   const playerTwo = createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild })
   return engine.runGame(map, [playerOne, playerTwo]);

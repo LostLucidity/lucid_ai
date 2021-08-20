@@ -42,8 +42,9 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 const { checkUnitCount } = require("../systems/track-units/track-units-service");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
-const { getBuildingFootprintOfOrphanAddons } = require("../services/placement-service");
+const { getBuildingFootprintOfOrphanAddons, clearPosition, keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers } = require("../services/units-service");
+const getRandom = require("@node-sc2/core/utils/get-random");
 
 let actions;
 let opponentRace;
@@ -251,7 +252,7 @@ class AssemblePlan {
     }
   }
   async buildBuilding(unitType, candidatePositions) {
-    this.foundPosition = this.foundPosition ? this.foundPosition : await findPosition(actions, unitType, candidatePositions);
+    this.foundPosition = this.foundPosition ? this.foundPosition : await findPosition(this.resources, unitType, candidatePositions);
     if (this.foundPosition) {
       if (this.agent.canAfford(unitType)) {
         if (await actions.canPlace(unitType, [this.foundPosition])) {
@@ -260,7 +261,8 @@ class AssemblePlan {
           this.state.continueBuild = false;
           this.foundPosition = null;
         } else {
-          this.foundPosition = null;
+          this.foundPosition = keepPosition(this.resources, unitType, this.foundPosition) ? this.foundPosition : null;
+          if (this.foundPosition) { this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition)); }
           this.state.pauseBuilding = true;
           this.state.continueBuild = false;
         }
@@ -268,13 +270,6 @@ class AssemblePlan {
         this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition));
         const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
         await balanceResources(this.world, mineralCost / vespeneCost);
-        this.state.pauseBuilding = true;
-        this.state.continueBuild = false;
-      }
-    } else {
-      const [pylon] = this.units.getById(PYLON);
-      if (pylon && pylon.buildProgress < 1) {
-        this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, pylon.pos));
         this.state.pauseBuilding = true;
         this.state.continueBuild = false;
       }
