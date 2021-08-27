@@ -16,7 +16,6 @@ const maps = require('./maps');
 const workerBalanceSystem = require('./systems/worker-balance-system');
 const entry = require('./builds/entry');
 const trackEnemySystem = require('./systems/track-enemy-system');
-const battleManager = require('./systems/battle-manager');
 const { getFileName } = require('./helper/get-races');
 const saltConverterSystem = require('./systems/salt-converter/salt-converter-system');
 const executePlanSystem = require('./systems/execute-plan/execute-plan-system');

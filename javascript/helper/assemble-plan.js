@@ -42,9 +42,8 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 const { checkUnitCount } = require("../systems/track-units/track-units-service");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
-const { getBuildingFootprintOfOrphanAddons, clearPosition, keepPosition } = require("../services/placement-service");
+const { getBuildingFootprintOfOrphanAddons, keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers } = require("../services/units-service");
-const getRandom = require("@node-sc2/core/utils/get-random");
 
 let actions;
 let opponentRace;
