@@ -11,7 +11,7 @@ const { setPendingOrders } = require("../helper");
 const planService = require("../services/plan-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
-const { getAddOnPosition } = require("./placement/placement-utilities");
+const { getAddOnPlacement } = require("./placement/placement-utilities");
 
 module.exports = {
   addAddOn: async (world, unit, abilityId, addOnType) => {
@@ -19,12 +19,15 @@ module.exports = {
     if (unit.noQueue && !unit.labels.has('swapBuilding')) {
       if (unit.availableAbilities().some(ability => ability === abilityId)) {
         const addOnPosition = unit.labels.get('addAddOn');
-        if (addOnPosition && distance(unit.pos, addOnPosition) < 1) { unit.labels.delete('addAddOn'); } else {
+        if (addOnPosition && distance(unit.pos, addOnPosition) < 1) {
+          unit.labels.delete('addAddOn');
+        } else {
           const unitCommand = {
             abilityId,
             unitTags: [unit.tag]
           }
-          if (map.isPlaceableAt(addOnType, getAddOnPosition(unit.pos))) {
+          if (map.isPlaceableAt(addOnType, getAddOnPlacement(unit.pos))) {
+            unitCommand.targetWorldSpacePos = unit.pos;
             await actions.sendAction(unitCommand);
             planService.pauseBuilding = false;
             setPendingOrders(unit, unitCommand);

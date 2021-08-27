@@ -9,7 +9,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkBuildingCount } = require("../../helper");
 const { countTypes } = require("../../helper/groups");
 const { findPosition } = require("../../helper/placement/placement-helper");
-const { getAddOnBuildingPosition, getAddOnPosition } = require("../../helper/placement/placement-utilities");
+const { getAddOnBuildingPosition, getAddOnPosition, getAddOnBuildingPlacement } = require("../../helper/placement/placement-utilities");
 
 module.exports = {
   handleOrphanReactor: () => {
@@ -86,11 +86,11 @@ module.exports = {
         if (nearPoints.length > 0) {
           if (Math.random() < (1 / 2)) {
             addOnPosition = nearPoints[Math.floor(Math.random() * nearPoints.length)];
-            position = getAddOnBuildingPosition(addOnPosition)
+            position = getAddOnBuildingPlacement(addOnPosition);
           } else {
-            addOnPosition = await findPosition(actions, addOnType, nearPoints);
+            addOnPosition = await findPosition(resources, addOnType, nearPoints);
             if (addOnPosition) {
-              position = await findPosition(actions, building.unitType, [getAddOnBuildingPosition(addOnPosition)]);
+              position = await findPosition(resources, building.unitType, [getAddOnBuildingPlacement(addOnPosition)]);
             }
           }
         }
