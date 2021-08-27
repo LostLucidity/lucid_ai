@@ -648,7 +648,7 @@ class AssemblePlan {
           }
           this.state.pauseBuilding = false;
           this.selectedTypeToBuild = null;
-          console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
+          console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
         } else {
           if (!this.agent.canAfford(unitType)) {
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
