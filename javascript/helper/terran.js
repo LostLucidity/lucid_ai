@@ -64,7 +64,7 @@ module.exports = {
     const label = 'liftToThird';
     let [liftToThird] = units.withLabel(label);
     if (!liftToThird) {
-      [ liftToThird ] = units.getById(townhallTypes).filter(base => {
+      [liftToThird] = units.getById(townhallTypes).filter(base => {
         const [closestTownhallPosition] = getClosestPosition(base.pos, map.getExpansions().map(expansion => expansion.townhallPosition));
         return distance(base.pos, closestTownhallPosition) > 1 || base.isFlying;
       })
@@ -72,7 +72,7 @@ module.exports = {
         liftToThird.labels.set('liftToThird');
       }
     } else {
-      const [ position ] = getAvailableExpansions(resources).map(expansion => ({ expansion, distance: distance(liftToThird.pos, expansion.townhallPosition) }))
+      const [position] = getAvailableExpansions(resources).map(expansion => ({ expansion, distance: distance(liftToThird.pos, expansion.townhallPosition) }))
         .sort((a, b) => a.distance - b.distance)
         .map(u => u.expansion.townhallPosition)
         .slice(0, 1);
@@ -83,16 +83,16 @@ module.exports = {
           liftToThird.labels.clear();
           const [mineralFieldTarget] = units.getClosest(liftToThird.pos, units.getMineralFields());
           await actions.sendAction({
-              abilityId: rallyAbility,
-              targetUnitTag: mineralFieldTarget.tag,
-              unitTags: [liftToThird.tag]
+            abilityId: rallyAbility,
+            targetUnitTag: mineralFieldTarget.tag,
+            unitTags: [liftToThird.tag]
           });
         } else {
           if (liftToThird.noQueue) {
             if (liftToThird.abilityAvailable(CANCEL_QUEUECANCELTOSELECTION)) {
               const unitCommand = {
                 abilityId: CANCEL_QUEUECANCELTOSELECTION,
-                unitTags: [ liftToThird.tag ],
+                unitTags: [liftToThird.tag],
               }
               await actions.sendAction(unitCommand);
             }
@@ -110,7 +110,7 @@ module.exports = {
     if (target.cloak === 1) {
       let position = null;
       if (target.cloak === 1) {
-        const [ closestToCloak ] = units.getClosest(target.pos, selfUnits);
+        const [closestToCloak] = units.getClosest(target.pos, selfUnits);
         if (distance(closestToCloak.pos, target.pos) < 8) {
           position = target.pos;
         }
@@ -119,7 +119,7 @@ module.exports = {
           const unitCommand = {
             abilityId: EFFECT_SCAN,
             targetWorldSpacePos: position,
-            unitTags: [ orbitalCommand.tag ],
+            unitTags: [orbitalCommand.tag],
           }
           collectedActions.push(unitCommand);
         }
