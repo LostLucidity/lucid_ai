@@ -19,7 +19,6 @@ const plans = {
       orders: [
         [[...range(0, 21)], 'buildWorkers'],
         [[...range(21, 200)], 'buildWorkers', true],
-        [[...range(0, 200)], 'continuouslyBuild', [MARINE, MARAUDER], true],
         [14, 'build', SUPPLYDEPOT, 0],
         [16, 'build', BARRACKS, 0],
         [16, 'build', REFINERY, 0],
@@ -44,7 +43,6 @@ const plans = {
         [46, 'train', SIEGETANK, 0],
         [49, 'build', SUPPLYDEPOT, 4],
         [49, 'build', SUPPLYDEPOT, 5],
-        [[...range(46, 200)], 'continuouslyBuild', [SIEGETANK], true],
         [[...range(49, 200)], 'manageSupply'],
         [[...range(53, 54)], 'scout', MARINE, 'outInFront',],
         [[...range(53, 54)], 'scout', MARINE, 'acrossTheMap',],
