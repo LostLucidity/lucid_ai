@@ -79,7 +79,7 @@ const placementHelper = {
       const placementGrids = [];
       const wallOffUnitTypes = [SUPPLYDEPOT, BARRACKS];
       if (planService.wallOff && wallOffUnitTypes.includes(unitType)) {
-        const wallOffPositions = findWallOffPlacement(map, unitType);
+        const wallOffPositions = findWallOffPlacement(unitType);
         if (wallOffPositions.length > 0 && await actions.canPlace(unitType, wallOffPositions)) {
           return wallOffPositions;
         }
