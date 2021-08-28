@@ -4,7 +4,7 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { calculateNearSupply } = require("../helper/battle-analysis");
+const { calculateNearSupply, calculateNearDPSHealth } = require("../helper/battle-analysis");
 
 const sharedService = {
   isPendingContructing: (unit) => {
@@ -39,6 +39,18 @@ const sharedService = {
     units.forEach(unit => {
       unit.enemyUnits = enemyUnits.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16)
       unit.enemySupply = calculateNearSupply(data, unit.enemyUnits);
+    });
+  },
+  setSelfDPSHealthPower: (data, units) => {
+    units.forEach(unit => {
+      unit.selfUnits = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
+      unit.selfDPSHealth = calculateNearDPSHealth(data, unit.selfUnits)
+    });
+  },
+  setEnemyDPSHealthPower: (data, units, enemyUnits) => {
+    units.forEach(unit => {
+      unit.enemyUnits = enemyUnits.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16)
+      unit.enemyDPSHealth = calculateNearDPSHealth(data, unit.enemyUnits);
     });
   },
 }

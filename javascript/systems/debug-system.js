@@ -21,14 +21,8 @@ let setDebug = false;
 module.exports = createSystem({
   name: 'Debug',
   type: 'agent',
-  async onGameStart(world) {
-    // debugMapHeights(world);
-
-  },
-  async onStep(world) {
-    debugWalls(world);
-    debugArmySupplies(world);
-  }
+  async onGameStart(world) { },
+  async onStep(world) { },
 });
 
 function debugPositions(world) {
