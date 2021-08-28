@@ -15,6 +15,16 @@ module.exports = {
       return accumulator + (halfFood) + (halfFood  * calculateTotalHealthRatio(currentValue));
     }, 0);
   },
+  calculateNearDPSHealth: (data, units) => {
+    return units.reduce((accumulator, unit) => {
+      const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
+      let dpsHeath = 0;
+      if (weapon) {
+        dpsHeath = weapon.damage * weapon.speed * (unit.health + unit.shield);
+      }
+      return accumulator + dpsHeath;
+    }, 0);
+  },
   getInRangeUnits: (unit, targetUnits) => {
     return targetUnits.filter(targetUnit => distance(unit.pos, targetUnit.pos) < 16);
   },
