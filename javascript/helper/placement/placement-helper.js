@@ -12,19 +12,28 @@ const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 const { getClosestPosition } = require('../get-closest');
 const planService = require('../../services/plan-service');
 const { findWallOffPlacement } = require('../../systems/wall-off-ramp/wall-off-ramp-service');
+const getRandom = require('@node-sc2/core/utils/get-random');
+const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
+const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
 
 const placementHelper = {
-  findPosition: async (actions, unitType, candidatePositions) => {
+  findPosition: async (resources, unitType, candidatePositions) => {
+    const { actions, map, units } = resources.get();
     if (flyingTypesMapping.has(unitType)) { unitType = flyingTypesMapping.get(unitType); }
     const randomPositions = candidatePositions
       .map(pos => ({ pos, rand: Math.random() }))
       .sort((a, b) => a.rand - b.rand)
       .map(a => a.pos)
       .slice(0, 20);
-    const foundPosition = await actions.canPlace(unitType, randomPositions);
+    let foundPosition = await actions.canPlace(unitType, randomPositions);
     const unitTypeName = Object.keys(UnitType).find(type => UnitType[type] === unitType);
     if (foundPosition && unitTypeName) {
       console.log(`FoundPosition for ${unitTypeName}`, foundPosition);
+    } else {
+      const [pylon] = units.getById(PYLON);
+      if (pylon && pylon.buildProgress < 1) {
+        foundPosition = getRandom(candidatePositions.filter(position => cellsInFootprint(position, getFootprint(unitType)).every(cell => distance(cell, pylon.pos) <= 6.5) && map.isPlaceableAt(unitType, position)));
+      }
     }
     return foundPosition;
   },

@@ -103,9 +103,10 @@ module.exports = {
       if (!workerTypes.includes(selfUnit.unitType)) {
         const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits).filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 16);
         if (closestEnemyUnit) {
-          const selfSupply = selfUnit.selfSupply > closestEnemyUnit.enemySupply ? selfUnit.selfSupply : closestEnemyUnit.enemySupply;
+          // const selfSupply = selfUnit.selfSupply > closestEnemyUnit.enemySupply ? selfUnit.selfSupply : closestEnemyUnit.enemySupply;
+          const selfDPSHealth = selfUnit.selfDPSHealth > closestEnemyUnit.enemyDPSHealth ? selfUnit.selfDPSHealth : closestEnemyUnit.enemyDPSHealth;
           const noBunker = units.getById(BUNKER).length === 0;
-          if (closestEnemyUnit.selfSupply > selfSupply && noBunker) {
+          if (closestEnemyUnit.selfDPSHealth > selfDPSHealth && noBunker) {
             const isFlying = selfUnit.isFlying;
             const unitCommand = { abilityId: MOVE }
             if (isFlying) {

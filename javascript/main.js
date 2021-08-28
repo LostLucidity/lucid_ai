@@ -15,8 +15,6 @@ const maps = require('./maps');
 
 const workerBalanceSystem = require('./systems/worker-balance-system');
 const entry = require('./builds/entry');
-const trackEnemySystem = require('./systems/track-enemy-system');
-const battleManager = require('./systems/battle-manager');
 const { getFileName } = require('./helper/get-races');
 const saltConverterSystem = require('./systems/salt-converter/salt-converter-system');
 const executePlanSystem = require('./systems/execute-plan/execute-plan-system');
@@ -137,14 +135,14 @@ function runGame() {
   console.log('__dirname', __dirname);
   console.log(path.join(__dirname, 'data', `current.json`));
   // const map = maps[Math.floor(Math.random() * maps.length)];
-  const map = 'Submarine506';
+  const map = 'JagannathaAIE';
   console.log('map', map);
   const aiBuild = 2;
   const settings = {
     type: PlayerType.PARTICIPANT,
     race: Race.ZERG,
   }
-  const opponentRace = Race.ZERG;
+  const opponentRace = Race.TERRAN;
   const blueprint = {
     settings,
     interface: {
@@ -158,17 +156,15 @@ function runGame() {
   const bot1 = createAgent(blueprint);
   const legacySystems = [
     entry,
-    trackEnemySystem,
     workerBalanceSystem,
     enemyTrackingSystem,
-    // debugSystem,
     trackUnitsSystem,
+    debugSystem,
     loggingSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,
     wallOffRampSystem,
-    trackEnemySystem,
     workerTrainingSystem,
     unitTrainingSystem,
     executePlanSystem,
@@ -182,8 +178,9 @@ function runGame() {
     trackUnitsSystem,
     swapBuildingSystem,
     liftToThirdSystem,
+    debugSystem,
   ];
-  bot1.use(updatedSystems);
+  bot1.use(legacySystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
   const playerTwo = createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild })
   return engine.runGame(map, [playerOne, playerTwo]);

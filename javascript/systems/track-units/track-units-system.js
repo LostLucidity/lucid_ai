@@ -3,7 +3,7 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { setEnemySupplyPowers, setSelfSupplyPowers } = require("../../services/shared-service");
+const { setEnemySupplyPowers, setSelfSupplyPowers, setSelfDPSHealthPower, setEnemyDPSHealthPower } = require("../../services/shared-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("./track-units-service");
 
@@ -24,6 +24,8 @@ module.exports = createSystem({
     trackUnitsService.selfUnits = selfUnits;
     setSelfSupplyPowers(data, selfUnits)
     setEnemySupplyPowers(data, selfUnits, enemyTrackingService.enemyUnits);
+    setSelfDPSHealthPower(data, selfUnits)
+    setEnemyDPSHealthPower(data, selfUnits, enemyTrackingService.enemyUnits)
   },
   async onUnitDestroyed({}, destroyedUnit) {
     trackUnitsService.missingUnits = trackUnitsService.missingUnits.filter(unit => destroyedUnit.tag !== unit.tag);
