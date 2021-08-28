@@ -15,7 +15,6 @@ const maps = require('./maps');
 
 const workerBalanceSystem = require('./systems/worker-balance-system');
 const entry = require('./builds/entry');
-const trackEnemySystem = require('./systems/track-enemy-system');
 const { getFileName } = require('./helper/get-races');
 const saltConverterSystem = require('./systems/salt-converter/salt-converter-system');
 const executePlanSystem = require('./systems/execute-plan/execute-plan-system');
@@ -157,7 +156,6 @@ function runGame() {
   const bot1 = createAgent(blueprint);
   const legacySystems = [
     entry,
-    trackEnemySystem,
     workerBalanceSystem,
     enemyTrackingSystem,
     trackUnitsSystem,
@@ -167,7 +165,6 @@ function runGame() {
   const updatedSystems = [
     saltConverterSystem,
     wallOffRampSystem,
-    trackEnemySystem,
     workerTrainingSystem,
     unitTrainingSystem,
     executePlanSystem,
