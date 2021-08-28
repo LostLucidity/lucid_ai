@@ -26,8 +26,13 @@ module.exports = createSystem({
 
   },
   async onStep(world) {
-    debugWalls(world);
-    debugArmySupplies(world);
+    // debugWalls(world);
+    // debugUnitTypes(world);
+    // debugEnemyUnitPosition(world);
+    // debugVisibilityMap(world);
+    // debugArmySupplies(world);
+    // debugPlacements(world);
+    // debugPositions(world);
   }
 });
 
