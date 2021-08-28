@@ -95,7 +95,7 @@ module.exports = {
               closestTownhallPosition ? distance(position, closestTownhallPosition) > 3 : true
             ].every(condition => condition);
           });
-          foundPosition = await findPosition(actions, CREEPTUMOR, candidatePositions);
+          foundPosition = await findPosition(resources, CREEPTUMOR, candidatePositions);
           lowerLimit -= 0.5;
         } while (!foundPosition && lowerLimit > 0);
         if (foundPosition) {
