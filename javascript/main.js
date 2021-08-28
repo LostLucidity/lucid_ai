@@ -183,13 +183,14 @@ function runGame() {
     trackUnitsSystem,
     swapBuildingSystem,
     liftToThirdSystem,
+    debugSystem,
   ];
   const bogSystems = [
     boGeneratorSystem
   ];
   // bot1.use(legacySystems);
-  // bot1.use(updatedSystems);
-  bot1.use(bogSystems);
+  bot1.use(updatedSystems);
+  // bot1.use(bogSystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
   const playerTwo = createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild })
   return engine.runGame(map, [playerOne, playerTwo]);
