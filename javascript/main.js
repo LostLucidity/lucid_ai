@@ -135,14 +135,14 @@ function runGame() {
   console.log('__dirname', __dirname);
   console.log(path.join(__dirname, 'data', `current.json`));
   // const map = maps[Math.floor(Math.random() * maps.length)];
-  const map = 'Submarine506';
+  const map = 'JagannathaAIE';
   console.log('map', map);
   const aiBuild = 2;
   const settings = {
     type: PlayerType.PARTICIPANT,
     race: Race.ZERG,
   }
-  const opponentRace = Race.ZERG;
+  const opponentRace = Race.TERRAN;
   const blueprint = {
     settings,
     interface: {
