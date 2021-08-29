@@ -7,6 +7,7 @@ const shortOnWorkers = require("../helper/short-on-workers");
 const planService = require("../services/plan-service");
 const enemyTrackingService = require("./enemy-tracking/enemy-tracking-service");
 const { getSelfCombatSupply } = require("./track-units/track-units-service");
+const { haveProductionUnitsFor } = require("./unit-training/unit-training-service");
 
 module.exports = createSystem({
   name: 'WorkerTrainingSystem',
@@ -16,7 +17,7 @@ module.exports = createSystem({
     const outSupplied = enemyTrackingService.getEnemyCombatSupply(data) > getSelfCombatSupply(world);
     const conditions = [
       !planService.pauseBuilding,
-      agent.minerals < 512,
+      agent.minerals < 512 || planService.trainingTypes.filter(type => haveProductionUnitsFor(world, type)).length === 0,
       shortOnWorkers(resources),
       !outSupplied,
     ];
