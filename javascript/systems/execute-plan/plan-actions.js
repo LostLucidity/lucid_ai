@@ -11,6 +11,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkBuildingCount, workerSendOrBuild } = require("../../helper");
 const canBuild = require("../../helper/can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
+const { countTypes } = require("../../helper/groups");
 const { findPlacements, findPosition, inTheMain } = require("../../helper/placement/placement-helper");
 const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
 const { warpIn } = require("../../helper/protoss");
@@ -171,11 +172,11 @@ module.exports = {
       else {
         const nonOrphanTechLab = techLabs.filter(techLab => techLab.unitType !== TECHLAB);
         // find idle building with tech lab.
-        const idleBuildingsWithTechLab = nonOrphanTechLab.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]);
+        const idleBuildingsWithTechLab = nonOrphanTechLab.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]).filter(building => building.noQueue);;
         // find closest barracks to closest tech lab.
         let closestPair = [];
-        units.getById(BARRACKS).forEach(barracks => {
-          if (barracks.buildProgress >= 1) {
+        units.getById(countTypes.get(BARRACKS)).forEach(barracks => {
+          if (barracks.buildProgress >= 1 && barracks.noQueue) {
             idleBuildingsWithTechLab.forEach(techLab => {
               if (closestPair.length > 0) {
                 closestPair = distance(barracks.pos, techLab.pos) < distance(closestPair[0].pos, closestPair[1].pos) ? [barracks, techLab] : closestPair;
@@ -183,9 +184,11 @@ module.exports = {
             });
           }
         });
-        const label = 'swapBuilding';
-        closestPair[0].labels.set('swapBuilding', closestPair[1].pos);
-        closestPair[1].labels.set('swapBuilding', closestPair[0].pos);
+        if (closestPair.length > 0) {
+          const label = 'swapBuilding';
+          closestPair[0].labels.set(label, closestPair[1].pos);
+          closestPair[1].labels.set(label, closestPair[0].pos);
+        }
       }
     }
   }
