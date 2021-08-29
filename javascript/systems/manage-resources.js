@@ -3,8 +3,10 @@
 
 const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities, mineralFieldTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
+const { COMMANDCENTER } = require("@node-sc2/core/constants/unit-type");
 const { checkBuildingCount } = require("../helper");
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
+const { upgradeTypes } = require("../helper/groups");
 const planService = require("../services/plan-service");
 const { checkUnitCount } = require("./track-units/track-units-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
@@ -115,8 +117,9 @@ const manageResources = {
     steps.forEach(step => {
       if (step.orderType === 'UnitType') {
         let { mineralCost, vespeneCost } = data.getUnitTypeData(step.unitType);
-        totalMineralCost += mineralCost;
-        totalVespeneCost += vespeneCost;
+        let { adjustMineralCost, adjustVespeneCost } = adjustForUpgrades(data, step.unitType);
+        totalMineralCost += mineralCost - adjustMineralCost;
+        totalVespeneCost += vespeneCost - adjustVespeneCost;
       } else if (step.orderType === 'Upgrade') {
         let { mineralCost, vespeneCost } = data.getUpgradeData(step.upgrade);
         totalMineralCost += mineralCost;
@@ -132,6 +135,16 @@ function getMinerCount(units) {
   const mineralMinerCount = units.getBases(readySelfFilter).reduce((accumulator, currentValue) => accumulator + currentValue.assignedHarvesters, 0);
   const vespeneMinerCount = units.getGasMines(readySelfFilter).reduce((accumulator, currentValue) => accumulator + currentValue.assignedHarvesters, 0);
   return { mineralMinerCount, vespeneMinerCount }
+}
+
+function adjustForUpgrades(data, unitType) {
+  const adjustedCost = { adjustMineralCost: 0, adjustVespeneCost: 0 };
+  if (upgradeTypes.get(COMMANDCENTER).includes(unitType)) {
+    const unitData = data.getUnitTypeData(COMMANDCENTER);
+    adjustedCost.adjustMineralCost = unitData.mineralCost;
+    adjustedCost.adjustVespeneCost = unitData.vespeneCost;
+  }
+  return adjustedCost;
 }
 
 module.exports = manageResources;
