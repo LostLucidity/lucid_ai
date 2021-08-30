@@ -18,30 +18,30 @@ module.exports = {
     const { actions, map } = world.resources.get();
     if (unit.noQueue && !unit.labels.has('swapBuilding')) {
       if (unit.availableAbilities().some(ability => ability === abilityId)) {
-        const addOnPosition = unit.labels.get('addAddOn');
-        if (addOnPosition && distance(unit.pos, addOnPosition) < 1) {
-          unit.labels.delete('addAddOn');
-        } else {
-          const unitCommand = {
-            abilityId,
-            unitTags: [unit.tag]
-          }
-          if (map.isPlaceableAt(addOnType, getAddOnPlacement(unit.pos))) {
-            unitCommand.targetWorldSpacePos = unit.pos;
-            await actions.sendAction(unitCommand);
-            planService.pauseBuilding = false;
-            setPendingOrders(unit, unitCommand);
-            return;
-          }
+        const unitCommand = {
+          abilityId,
+          unitTags: [unit.tag]
+        }
+        if (map.isPlaceableAt(addOnType, getAddOnPlacement(unit.pos))) {
+          unitCommand.targetWorldSpacePos = unit.pos;
+          await actions.sendAction(unitCommand);
+          planService.pauseBuilding = false;
+          setPendingOrders(unit, unitCommand);
+          return;
         }
       }
       if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
-        const unitCommand = {
-          abilityId: Ability.LIFT,
-          unitTags: [unit.tag],
+        const addOnPosition = unit.labels.get('addAddOn');
+        if (addOnPosition && distance(getAddOnPlacement(unit.pos), addOnPosition) < 1) {
+          unit.labels.delete('addAddOn');
+        } else {
+          const unitCommand = {
+            abilityId: Ability.LIFT,
+            unitTags: [unit.tag],
+          }
+          await actions.sendAction(unitCommand);
+          setPendingOrders(unit, unitCommand);
         }
-        await actions.sendAction(unitCommand);
-        setPendingOrders(unit, unitCommand);
       }
       if (unit.availableAbilities().find(ability => landingAbilities.includes(ability))) {
         const foundPosition = await checkAddOnPlacement(world, unit, addOnType);
