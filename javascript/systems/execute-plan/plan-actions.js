@@ -199,7 +199,7 @@ async function findAndPlaceBuilding(world, unitType, candidatePositions) {
   const collectedActions = []
   const { actions, units } = resources.get();
   if (candidatePositions.length === 0) { candidatePositions = await findPlacements(world, unitType); }
-  planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(actions, unitType, candidatePositions);
+  planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(resources, unitType, candidatePositions);
   if (planService.foundPosition) {
     if (agent.canAfford(unitType)) {
       if (await actions.canPlace(unitType, [planService.foundPosition])) {
