@@ -34,7 +34,7 @@ const unitTrainingService = {
           resources.get().units.getBases(Alliance.SELF).filter(base => base.buildProgress >= 1 && base.isIdle()).length === 0 &&
           shortOnWorkers(resources)
         ),
-          agent.minerals > 512,
+        agent.minerals > 512,
       ].some(condition => condition);
     }
   },
