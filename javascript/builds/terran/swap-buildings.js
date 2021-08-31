@@ -75,7 +75,7 @@ module.exports = {
     }
   },
   checkAddOnPlacement: async ({ data, resources }, building, addOnType = REACTOR) => {
-    const { actions, map } = resources.get();
+    const { map } = resources.get();
     const abilityId = data.getUnitTypeData(addOnType).abilityId;
     if (building.abilityAvailable(abilityId)) {
       let position = null;
