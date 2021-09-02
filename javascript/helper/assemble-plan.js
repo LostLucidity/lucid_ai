@@ -709,7 +709,7 @@ class AssemblePlan {
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
             if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
-          case 'harass': if (this.state.enemyBuildType === 'standard') { await harass(this.resources, this.state); } break;
+          case 'harass': if (this.state.enemyBuildType === 'standard') { await harass(this.world, this.state); } break;
           case 'liftToThird': if (this.foodUsed >= foodTarget) { await liftToThird(this.resources); break; }
           case 'maintainQueens': if (this.foodUsed >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;

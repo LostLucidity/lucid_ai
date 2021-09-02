@@ -4,9 +4,19 @@
 const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { gridsInCircle, toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { moveAwayPosition } = require("../builds/helper");
 const { getClosestPosition } = require("../helper/get-closest");
 
 const microService = {
+  getPositionVersusTargetUnit: (data, unit, targetUnit) => {
+    const totalRadius = unit.radius + targetUnit.radius + 1;
+    const range = Math.max.apply(Math, data.getUnitTypeData(unit.unitType).weapons.map(weapon => { return weapon.range; })) + totalRadius;
+    if (distance(unit.pos, targetUnit.pos) < range) {
+      return moveAwayPosition(targetUnit, unit);
+    } else {
+      return targetUnit.pos;
+    }
+  },
   isFacing: (unit, targetUnit) => {
     const targetFacingDegrees = toDegrees(targetUnit.facing);
     const positionOfUnitDegrees = toDegrees(Math.atan2(unit.pos.y - targetUnit.pos.y, unit.pos.x - targetUnit.pos.x));
@@ -16,21 +26,10 @@ const microService = {
   microRangedUnit: ({ data, resources }, unit, targetUnit) => {
     const collectedActions = [];
     if (unit.weaponCooldown > 12) {
-      const totalRadius = unit.radius + targetUnit.radius + 1;
-      const range = Math.max.apply(Math, data.getUnitTypeData(unit.unitType).weapons.map(weapon => { return weapon.range; })) + totalRadius;
-      const enemyRange = Math.max.apply(Math, data.getUnitTypeData(targetUnit.unitType).weapons.map(weapon => { return weapon.range; })) + totalRadius;
-      const gridCandidates = gridsInCircle(targetUnit.pos, range)
-        .filter(grid => {
-          return [
-            distance(grid, targetUnit.pos) <= range,
-            enemyRange >= range ? true : distance(grid, targetUnit.pos) >= enemyRange,
-            grid.y >= 1 && resources.get().map.isPathable(grid),
-          ].every(condition => condition);
-        });
-      const [closestPosition] = getClosestPosition(unit.pos, gridCandidates);
+      const microPosition = microService.getPositionVersusTargetUnit(data, unit, targetUnit)
       collectedActions.push({
         abilityId: MOVE,
-        targetWorldSpacePos: closestPosition || targetUnit.pos,
+        targetWorldSpacePos: microPosition,
         unitTags: [unit.tag],
       });
     } else {
