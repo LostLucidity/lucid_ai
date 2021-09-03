@@ -596,11 +596,13 @@ class AssemblePlan {
     let [unit] = this.units.getClosest(
       location,
       this.units.getById(unitType).filter(unit => {
-        return (
-          unit.noQueue ||
-          unit.orders.findIndex(order => order.abilityId === MOVE) > -1 ||
-          unit.isConstructing() && unit.unitType === PROBE
-        )
+        const condition = [
+          unit.noQueue,
+          unit.orders.findIndex(order => order.abilityId === MOVE) > -1,
+          unit.isConstructing() && unit.unitType === PROBE,
+          !unit.isWorker()
+        ];
+        return condition.some(condition => condition);
       })
     );
     if (!unit) { [unit] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing() && unit.isGathering())); }
