@@ -211,8 +211,6 @@ class AssemblePlan {
           case TownhallRace[race].indexOf(unitType) > -1 && candidatePositions.length === 0:
             { this.collectedActions.push(...await expand(this.world, this.state)); }
             break;
-          case PHOTONCANNON === unitType:
-            candidatePositions = this.map.getNatural().areas.placementGrid;
           case addonTypes.includes(unitType):
             let abilityId = this.data.getUnitTypeData(unitType).abilityId;
             let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
@@ -232,6 +230,8 @@ class AssemblePlan {
               this.state.continueBuild = false;
             }
             break;
+          case PHOTONCANNON === unitType:
+            candidatePositions = this.map.getNatural().areas.placementGrid;
           default:
             if (candidatePositions.length === 0) { candidatePositions = this.findPlacements(unitType); }
             await this.buildBuilding(unitType, candidatePositions);
