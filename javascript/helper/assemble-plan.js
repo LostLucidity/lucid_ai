@@ -25,14 +25,13 @@ const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { moveAway } = require("../builds/helper");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
-const { swapBuildings } = require("../builds/terran/swap-buildings");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
 const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
 const { getBetweenBaseAndWall, findPosition, inTheMain } = require("./placement/placement-helper");
 const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
-const { liftToThird, addAddOn } = require("./terran");
+const { liftToThird, addAddOn, swapBuildings } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { getClosestPosition } = require("./get-closest");
@@ -733,7 +732,6 @@ class AssemblePlan {
           case 'swapBuildings':
             conditions = planStep[2];
             if (this.foodUsed >= foodTarget) { await swapBuildings(this.world, conditions); }
-            this.state.pauseBuilding = this.units.withLabel('swapBuilding').length > 0;
             break;
           case 'upgrade':
             const upgradeId = planStep[2];

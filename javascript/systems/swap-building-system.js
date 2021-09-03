@@ -4,7 +4,6 @@
 const { createSystem } = require("@node-sc2/core");
 const { Ability } = require("@node-sc2/core/constants");
 const { liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
-const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { setPendingOrders } = require("../helper");
 const planService = require("../services/plan-service");
 const sharedService = require("../services/shared-service");
@@ -18,7 +17,7 @@ module.exports = createSystem({
     const swapBuildings = units.withLabel('swapBuilding');
     for (let step = 0; step < swapBuildings.length; step++) {
       const building = swapBuildings[step];
-      if (building.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !building.labels.has('pendingOrders')) {
+      if (building.availableAbilities().find(ability => liftingAbilities.includes(ability)) && (!building['pendingOrders'] || !building['pendingOrders'].length)) {
         building.labels.set('addAddOn');
         const unitCommand = {
           abilityId: Ability.LIFT,
