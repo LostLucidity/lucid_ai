@@ -19,7 +19,7 @@ const continuouslyBuild = require("./continuously-build");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack, push } = require("./behavior/army-behavior");
 const threats = require("./base-threats");
-const { generalScouting } = require("../builds/scouting");
+const { generalScouting, cancelEarlyScout } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { moveAway } = require("../builds/helper");
@@ -275,14 +275,21 @@ class AssemblePlan {
   }
   checkEnemyBuild() {
     const { frame } = this.resources.get();
-    if (frame.timeInSeconds() > 122) { this.earlyScout = false }
     if (this.earlyScout) {
+      if (frame.timeInSeconds() > 122) {
+        this.earlyScout = false;
+        console.log(this.scoutReport);
+        cancelEarlyScout(this.units);
+        return;
+      }
       const suspiciousWorkerCount = getEnemyWorkers(this.world).filter(worker => distance(worker.pos, this.map.getEnemyMain().townhallPosition) > 16).length;
       if (suspiciousWorkerCount > 2) {
         this.state.enemyBuildType = 'cheese';
         this.scoutReport = `${this.state.enemyBuildType} detected:
-          Work Rush Detected: ${suspiciousWorkerCount} sus workers.`;
+          Worker Rush Detected: ${suspiciousWorkerCount} sus workers.`;
         this.earlyScout = false;
+        console.log(this.scoutReport);
+        cancelEarlyScout(this.units);
         return;
       }
       let conditions = [];
@@ -360,19 +367,9 @@ class AssemblePlan {
           }
           break;
       }
-    } else {
-      if (this.scoutReport) {
+      if (!this.earlyScout) {
         console.log(this.scoutReport);
-        this.scoutReport = '';
-        const earlyScouts = this.units.getAlive(Alliance.SELF).filter(unit => {
-          return unit.labels.has('scoutEnemyMain') || unit.labels.has('scoutEnemyNatural');
-        });
-        if (earlyScouts.length > 0) {
-          earlyScouts.forEach(earlyScout => {
-            earlyScout.labels.clear();
-            earlyScout.labels.set('clearFromEnemy', true);
-          });
-        }
+        cancelEarlyScout(this.units);
       }
     }
   }
