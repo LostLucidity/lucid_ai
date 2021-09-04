@@ -1,15 +1,12 @@
 //@ts-check
 "use strict"
 
-const Ability = require("@node-sc2/core/constants/ability");
-const { addonTypes, liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
+const { UnitType } = require("@node-sc2/core/constants");
 const { REACTOR } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { checkBuildingCount } = require("../../helper");
-const { countTypes } = require("../../helper/groups");
 const { findPosition } = require("../../helper/placement/placement-helper");
-const { getAddOnBuildingPosition, getAddOnPosition, getAddOnBuildingPlacement } = require("../../helper/placement/placement-utilities");
+const { getAddOnBuildingPlacement, getAddOnPlacement } = require("../../helper/placement/placement-utilities");
+const { getStringNameOfConstant } = require("../../services/logging-service");
 
 module.exports = {
   handleOrphanReactor: () => {
@@ -23,11 +20,13 @@ module.exports = {
       let addOnPosition = null;
       let range = 1;
       do {
-        const nearPoints = gridsInCircle(getAddOnPosition(building.pos), range).filter(grid => map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(building.unitType, getAddOnBuildingPosition(grid)));
+        const nearPoints = gridsInCircle(getAddOnPlacement(building.pos), range).filter(grid => map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(building.unitType, getAddOnBuildingPlacement(grid)));
         if (nearPoints.length > 0) {
           if (Math.random() < (1 / 2)) {
             addOnPosition = nearPoints[Math.floor(Math.random() * nearPoints.length)];
+            console.log(`isPlaceableAt for ${getStringNameOfConstant(UnitType, addOnType)}`, addOnPosition);
             position = getAddOnBuildingPlacement(addOnPosition);
+            console.log(`isPlaceableAt for ${getStringNameOfConstant(UnitType, building.unitType)}`, position);
           } else {
             addOnPosition = await findPosition(resources, addOnType, nearPoints);
             if (addOnPosition) {
