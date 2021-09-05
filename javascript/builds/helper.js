@@ -19,7 +19,7 @@ const helper = {
     const candidateExpansionsCentroid = map.getExpansions().filter(expansion => {
       const centroidString = expansion.centroid.x.toString() + expansion.centroid.y.toString();
       if (!(centroidString in targetUnit.expansions)) {
-        let [ closestToExpansion ] = getClosestUnitByPath(resources, expansion.centroid, targetUnit.selfUnits);
+        let [closestToExpansion] = getClosestUnitByPath(resources, expansion.centroid, targetUnit.selfUnits);
         targetUnit.expansions[centroidString] = {
           'closestToExpansion': closestToExpansion,
           'distanceByPath': distanceByPath(resources, closestToExpansion.pos, expansion.centroid),
@@ -33,21 +33,21 @@ const helper = {
       const distanceByPathToCentroid = unit.expansions[centroidString].distanceByPath;
       return distanceByPathToCentroid !== 500 && distanceByPathToCentroid <= targetUnit.expansions[centroidString].distanceByPath;
     }).map(expansion => expansion.centroid);
-    const [ largestPathDifferenceCentroid ] = candidateExpansionsCentroid
-      .sort((a,b) => (distanceByPath(resources, unit.pos, a) - distanceByPath(resources, targetUnit.pos, a)) - (distanceByPath(resources, unit.pos, b) - distanceByPath(resources, targetUnit.pos, b)))
+    const [largestPathDifferenceCentroid] = candidateExpansionsCentroid
+      .sort((a, b) => (distanceByPath(resources, unit.pos, a) - distanceByPath(resources, targetUnit.pos, a)) - (distanceByPath(resources, unit.pos, b) - distanceByPath(resources, targetUnit.pos, b)))
       .filter(centroid => distanceByPath(resources, targetUnit.pos, centroid) > 16);
     return largestPathDifferenceCentroid ? largestPathDifferenceCentroid : module.exports.moveAwayPosition(targetUnit, unit);
   },
-  moveAway(unit, targetUnit, distance=2) {
+  moveAway(unit, targetUnit, distance = 2) {
     const awayPoint = module.exports.moveAwayPosition(targetUnit, unit, distance);
     const unitCommand = {
       abilityId: MOVE,
       targetWorldSpacePos: awayPoint,
-      unitTags: [ unit.tag ]
+      unitTags: [unit.tag]
     }
     return unitCommand;
   },
-  moveAwayPosition(targetUnit, unit, distance=2) {
+  moveAwayPosition(targetUnit, unit, distance = 2) {
     const angle = toDegrees(Math.atan2(targetUnit.pos.y - unit.pos.y, targetUnit.pos.x - unit.pos.x));
     const oppositeAngle = angle + 180 % 360;
     const awayPoint = {
@@ -62,8 +62,8 @@ const helper = {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     shadowingUnits.forEach(unit => {
       const inRangeUnits = enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < unit.data().sightRange);
-      const [ closestInRangeUnit ] = units.getClosest(unit.pos, inRangeUnits);
-      const [ closestThreatUnit ] = inRangeUnits.filter(inRangeUnit => inRangeUnit.canShootUp()).sort((a, b) => {
+      const [closestInRangeUnit] = units.getClosest(unit.pos, inRangeUnits);
+      const [closestThreatUnit] = inRangeUnits.filter(inRangeUnit => inRangeUnit.canShootUp()).sort((a, b) => {
         const weaponsAirRangeA = Math.max.apply(Math, data.getUnitTypeData(a.unitType).weapons.map(weapon => { return weapon.range; }));
         const distanceToRangeA = distance(a.pos, unit.pos) - weaponsAirRangeA;
         const weaponsAirRangeB = Math.max.apply(Math, data.getUnitTypeData(b.unitType).weapons.map(weapon => { return weapon.range; }));
@@ -92,7 +92,7 @@ const helper = {
 
 function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
   const { map, units } = resources.get();
-  const [ closestToEnemyNatural ] = units.getClosest(map.getEnemyNatural().centroid, shadowingUnits);
+  const [closestToEnemyNatural] = units.getClosest(map.getEnemyNatural().centroid, shadowingUnits);
   if (map.getEnemyNatural()) {
     if (
       unit.tag === closestToEnemyNatural.tag &&
@@ -110,7 +110,7 @@ function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) 
     const highPoints = gridsInCircle(unit.pos, sightRange)
       .filter(grid => {
         if (grid.y >= 1) {
-          const [ closestEnemyToPoint ] = units.getClosest(grid, targetUnits);
+          const [closestEnemyToPoint] = units.getClosest(grid, targetUnits);
           try {
             const gridHeight = map.getHeight(grid);
             const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => distance(candidate, grid) <= unit.radius);
@@ -148,7 +148,7 @@ function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) 
   return {
     abilityId: MOVE,
     targetWorldSpacePos: position,
-    unitTags: [ unit.tag ],
+    unitTags: [unit.tag],
   }
 }
 
@@ -157,7 +157,7 @@ function moveToTarget(unit, targetUnit) {
     return {
       abilityId: MOVE,
       targetUnitTag: targetUnit.tag,
-      unitTags: [ unit.tag ]
+      unitTags: [unit.tag]
     }
   }
 }

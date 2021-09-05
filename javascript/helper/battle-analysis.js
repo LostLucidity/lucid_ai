@@ -12,7 +12,7 @@ module.exports = {
   calculateHealthAdjustedSupply: (data, units) => {
     return units.reduce((accumulator, currentValue) => {
       const halfFood = data.getUnitTypeData(currentValue.unitType).foodRequired / 2;
-      return accumulator + (halfFood) + (halfFood  * calculateTotalHealthRatio(currentValue));
+      return accumulator + (halfFood) + (halfFood * calculateTotalHealthRatio(currentValue));
     }, 0);
   },
   calculateNearDPSHealth: (data, units) => {
@@ -25,7 +25,7 @@ module.exports = {
       return accumulator + dPSHealth;
     }, 0);
   },
-  getDPSOfInRangeAntiAirUnits: (data, unit ) => {
+  getDPSOfInRangeAntiAirUnits: (data, unit) => {
     return unit.selfUnits.reduce((accumulator, unit) => {
       let dPS = 0;
       if (unit.canShootUp()) {
@@ -40,11 +40,11 @@ module.exports = {
   },
   getInRangeDestructables: (units, selfUnit) => {
     let tag = null;
-    const ROCKS = [ 373, 638, 639, 640, 643 ];
-    const DEBRIS = [ 364, 365, 376 ];
-    const destructableRockTypes = [ ...DEBRIS, ...ROCKS];
+    const ROCKS = [373, 638, 639, 640, 643];
+    const DEBRIS = [364, 365, 376];
+    const destructableRockTypes = [...DEBRIS, ...ROCKS];
     const destructableRockUnits = units.getAlive(Alliance.NEUTRAL).filter(unit => destructableRockTypes.includes(unit.unitType));
-    const [ closestDestructable ] = units.getClosest(selfUnit.pos, destructableRockUnits).filter(destructableRockUnit => distance(selfUnit.pos, destructableRockUnit.pos) < 16);
+    const [closestDestructable] = units.getClosest(selfUnit.pos, destructableRockUnits).filter(destructableRockUnit => distance(selfUnit.pos, destructableRockUnit.pos) < 16);
     if (closestDestructable) {
       tag = closestDestructable.tag;
     }
