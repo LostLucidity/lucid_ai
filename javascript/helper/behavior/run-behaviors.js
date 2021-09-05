@@ -5,7 +5,7 @@ const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavio
 const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior } = require("./unit-behavior");
 
 async function runBehaviors(world, opponentRace) {
-  const { data, resources } = world;
+  const { resources } = world;
   const collectedActions = []
   collectedActions.push(...acrossTheMapBehavior(world));
   collectedActions.push(...clearFromEnemyBehavior(resources));
