@@ -18,11 +18,21 @@ module.exports = {
   calculateNearDPSHealth: (data, units) => {
     return units.reduce((accumulator, unit) => {
       const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
-      let dpsHeath = 0;
+      let dPSHealth = 0;
       if (weapon) {
-        dpsHeath = weapon.damage * weapon.speed * (unit.health + unit.shield);
+        dPSHealth = weapon.damage / weapon.speed * (unit.health + unit.shield);
       }
-      return accumulator + dpsHeath;
+      return accumulator + dPSHealth;
+    }, 0);
+  },
+  getDPSOfInRangeAntiAirUnits: (data, unit ) => {
+    return unit.selfUnits.reduce((accumulator, unit) => {
+      let dPS = 0;
+      if (unit.canShootUp()) {
+        const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
+        if (weapon) { dPS = weapon.damage / weapon.speed; }
+      }
+      return accumulator + dPS;
     }, 0);
   },
   getInRangeUnits: (unit, targetUnits) => {

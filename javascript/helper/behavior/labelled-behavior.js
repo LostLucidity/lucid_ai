@@ -65,7 +65,8 @@ module.exports = {
     }
     return collectedActions;
   },
-  scoutEnemyMainBehavior: async ({ data, resources }, opponentRace) => {
+  scoutEnemyMainBehavior: async (world, opponentRace) => {
+    const { data, resources } = world;
     const { actions, map, units } = resources.get();
     const [unit] = units.withLabel('scoutEnemyMain');
     const collectedActions = [];

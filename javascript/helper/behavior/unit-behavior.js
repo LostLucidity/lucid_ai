@@ -113,16 +113,16 @@ module.exports = {
     });
     return collectedActions;
   },
-  observerBehavior: (resources, data) => {
+  observerBehavior: (world) => {
     const collectedActions = [];
-    const { units } = resources.get()
-    collectedActions.push(...shadowEnemy(data, resources, units.getById(OBSERVER)));
+    const { units } = world.resources.get()
+    collectedActions.push(...shadowEnemy(world, units.getById(OBSERVER)));
     return collectedActions;
   },
-  overlordBehavior: (resources, data) => {
+  overlordBehavior: (world) => {
     const collectedActions = [];
-    const { units } = resources.get()
-    collectedActions.push(...shadowEnemy(data, resources, units.getById([OVERLORD, OVERSEER])));
+    const { units } = world.resources.get()
+    collectedActions.push(...shadowEnemy(world, units.getById([OVERLORD, OVERSEER])));
     return collectedActions;
   },
   supplyDepotBehavior: (resources) => {

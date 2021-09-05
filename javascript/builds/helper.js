@@ -7,10 +7,11 @@ const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { toDegrees, gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
-const { distanceByPath, getClosestPositionByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
+const { distanceByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
 
-module.exports = {
+const helper = {
   retreatToExpansion: (resources, unit, targetUnit) => {
     const { map } = resources.get();
     if (!unit.expansions) { unit.expansions = new Map(); }
@@ -55,7 +56,7 @@ module.exports = {
     }
     return awayPoint;
   },
-  shadowEnemy(data, resources, shadowingUnits) {
+  shadowEnemy({ data, resources }, shadowingUnits) {
     const { units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY);
@@ -74,14 +75,14 @@ module.exports = {
         if (distance(unit.pos, closestThreatUnit.pos) > closestThreatUnit.data().sightRange + unit.radius + closestThreatUnit.radius) {
           collectedActions.push(moveToTarget(unit, closestThreatUnit));
         } else {
-          collectedActions.push(moveAwayFromTarget(resources, unit, closestThreatUnit, enemyUnits));
+          collectedActions.push(moveAwayFromTarget({ data, resources }, unit, closestThreatUnit, enemyUnits));
         }
       } else if (closestInRangeUnit) {
         if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) { return }
         if (distance(unit.pos, closestInRangeUnit.pos) > closestInRangeUnit.data().sightRange) {
           collectedActions.push(moveToTarget(unit, closestInRangeUnit));
         } else {
-          collectedActions.push(moveAwayFromTarget(resources, unit, closestInRangeUnit, enemyUnits))
+          collectedActions.push(moveAwayFromTarget({ data, resources }, unit, closestInRangeUnit, enemyUnits))
         }
       }
     });
@@ -100,7 +101,7 @@ function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
   }
 }
 
-function moveAwayFromTarget(resources, unit, targetUnit, targetUnits) {
+function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) {
   const { map, units } = resources.get();
   const isFlying = unit.isFlying;
   let position;
@@ -126,12 +127,23 @@ function moveAwayFromTarget(resources, unit, targetUnit, targetUnits) {
           }
         }
       });
-    const [ closestHighPoint ] = getClosestPosition(unit.pos, highPoints);
-    position = closestHighPoint ? closestHighPoint : module.exports.moveAwayPosition(targetUnit, unit);
+    const [closestHighPoint] = getClosestPosition(unit.pos, highPoints);
+    // calculate dps of enemy versus distance and speed of overlord.
+    if (closestHighPoint) {
+      const dPSOfInRangeUnits = getDPSOfInRangeAntiAirUnits(data, targetUnit);
+      const timeToBeKilled = (unit.health + unit.shield) / dPSOfInRangeUnits;
+      const distanceToHighPoint = distance(unit.pos, closestHighPoint);
+      const speed = unit.data().movementSpeed;
+      const timeToTarget = distanceToHighPoint / speed;
+      if (timeToBeKilled > timeToTarget) {
+        position = closestHighPoint;
+      }
+    }
+    position = position ? position : helper.moveAwayPosition(targetUnit, unit);
   } else {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     targetUnit.inRangeUnits = enemyUnits.filter(enemyUnit => distance(targetUnit.pos, enemyUnit.pos) < 8);
-    position = module.exports.retreatToExpansion(resources, unit, targetUnit);
+    position = helper.retreatToExpansion(resources, unit, targetUnit);
   }
   return {
     abilityId: MOVE,
@@ -149,3 +161,5 @@ function moveToTarget(unit, targetUnit) {
     }
   }
 }
+
+module.exports = helper;
