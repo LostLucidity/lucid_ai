@@ -101,9 +101,8 @@ module.exports = {
     selfUnits.forEach(selfUnit => {
       let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType)) {
-        const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits).filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 16);
-        if (closestEnemyUnit) {
-          // const selfSupply = selfUnit.selfSupply > closestEnemyUnit.enemySupply ? selfUnit.selfSupply : closestEnemyUnit.enemySupply;
+        const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits);
+        if (closestEnemyUnit && distance(selfUnit.pos, closestEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit.selfDPSHealth > closestEnemyUnit.enemyDPSHealth ? selfUnit.selfDPSHealth : closestEnemyUnit.enemyDPSHealth;
           const noBunker = units.getById(BUNKER).length === 0;
           if (closestEnemyUnit.selfDPSHealth > selfDPSHealth && noBunker) {
@@ -115,7 +114,8 @@ module.exports = {
               collectedActions.push(unitCommand);
             } else {
               if (selfUnit.pendingOrders === undefined || selfUnit.pendingOrders.length === 0) {
-                unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestEnemyUnit);
+                const [ closestArmedEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
+                unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestArmedEnemyUnit);
                 unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
                   setPendingOrders(unit, unitCommand);
                   return unit.tag;
