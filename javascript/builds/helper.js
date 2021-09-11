@@ -11,6 +11,7 @@ const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { distanceByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { existsInMap } = require("../helper/location");
+const { isWorker } = require("../services/units-service");
 
 const helper = {
   retreatToExpansion: (resources, unit, targetUnit) => {
@@ -94,10 +95,11 @@ const helper = {
 function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
   const { map, units } = resources.get();
   const [closestToEnemyNatural] = units.getClosest(map.getEnemyNatural().centroid, shadowingUnits);
-  if (map.getEnemyNatural()) {
+  const outOfNaturalRangeWorker = isWorker(targetUnit) && distance(targetUnit.pos, map.getEnemyNatural().centroid) > 16;
+  if (closestToEnemyNatural) {
     if (
       unit.tag === closestToEnemyNatural.tag &&
-      workerTypes.includes(targetUnit.unitType) || targetUnit.unitType === OVERLORD
+      (outOfNaturalRangeWorker || targetUnit.unitType === OVERLORD)
     ) { return true; }
   }
 }
