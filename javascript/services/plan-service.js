@@ -19,6 +19,9 @@ const planService = {
     planService.planMax.supplyDepot = Math.max.apply(Math, plan.filter(step => supplyTypes.includes(step.unitType)).map(step => { return step.food; }));
     planService.planMax.gasMine = Math.max.apply(Math, plan.filter(step => gasMineTypes.includes(step.unitType)).map(step => { return step.food; }));
   },
+  getNextPlanStep: (planOrders, foodUsed) => {
+    return planOrders.find(order => Number.isInteger(order[0]) && order[0] > foodUsed);
+  },
   scouting: [],
   trainingTypes: null,
   wallOff: null,

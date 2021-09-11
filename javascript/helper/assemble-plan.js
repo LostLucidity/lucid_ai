@@ -44,6 +44,7 @@ const { getStringNameOfConstant } = require("../services/logging-service");
 const { getBuildingFootprintOfOrphanAddons, keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers } = require("../services/units-service");
 const planService = require("../services/plan-service");
+const { getNextPlanStep } = require("../services/plan-service");
 
 let actions;
 let opponentRace;
@@ -95,8 +96,15 @@ class AssemblePlan {
       !shortOnWorkers(this.resources) && !planService.pauseBuilding,
     ];
     if (trainUnitConditions.some(condition => condition)) {
-      this.outSupplied ? console.log(this.frame.timeInSeconds(), 'Scouted higher supply', this.selfSupply, this.enemySupply) : console.log(this.frame.timeInSeconds(), 'Free build mode.');
-      const haveProductionAndTechForTypes = this.defenseTypes.filter(type => haveAvailableProductionUnitsFor(world, type) && this.agent.hasTechFor(type));
+      this.outSupplied ? console.log('Scouted higher supply', this.selfSupply, this.enemySupply) : console.log('Free build mode.');
+      const nextStep = getNextPlanStep(this.planOrders, this.foodUsed);
+      const haveProductionAndTechForTypes = this.defenseTypes.filter(type => {
+        return [
+          haveAvailableProductionUnitsFor(world, type),
+          this.agent.hasTechFor(type),
+          nextStep ? this.data.getUnitTypeData(type).foodRequired <= nextStep[0] - this.foodUsed : true,
+        ].every(condition => condition);
+      });
       if (haveProductionAndTechForTypes.length > 0) {
         this.selectedTypeToBuild = this.selectedTypeToBuild ? this.selectedTypeToBuild : haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
         let { mineralCost, vespeneCost } = this.data.getUnitTypeData(this.selectedTypeToBuild);
@@ -739,7 +747,7 @@ class AssemblePlan {
             break;
         }
       } else {
-        console.log('step', step);
+        planService.currentStep = step;
         break;
       }
     }
