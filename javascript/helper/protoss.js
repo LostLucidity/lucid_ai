@@ -48,13 +48,13 @@ module.exports = {
     }
   },
   restorePower: async ({ data, resources }) => {
-    const { actions, units } = resources.get();
+    const { units } = resources.get();
     const collectedActions = [];
     const selfPowered = [ NEXUS, PYLON, ASSIMILATOR ];
     const unpoweredStructure = getRandom(units.getStructures().filter(structure => !structure.isPowered && !selfPowered.includes(structure.unitType) && structure.buildProgress >= 1));
     if (unpoweredStructure) {
       const candidatePositions = gridsInCircle(unpoweredStructure.pos, 6.5 - unpoweredStructure.radius);
-      const foundPosition = await findPosition(actions, unpoweredStructure.unitType, candidatePositions);
+      const foundPosition = await findPosition(resources, unpoweredStructure.unitType, candidatePositions);
       if (foundPosition) {
         collectedActions.push(...workerSendOrBuild(resources, data.getUnitTypeData(PYLON).abilityId, foundPosition));
       }
