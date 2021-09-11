@@ -10,6 +10,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { distanceByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
+const { existsInMap } = require("../helper/location");
 
 const helper = {
   retreatToExpansion: (resources, unit, targetUnit) => {
@@ -109,7 +110,7 @@ function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) 
     const sightRange = unit.data().sightRange;
     const highPoints = gridsInCircle(unit.pos, sightRange)
       .filter(grid => {
-        if (grid.y >= 1) {
+        if (existsInMap(map, grid)) {
           const [closestEnemyToPoint] = units.getClosest(grid, targetUnits);
           try {
             const gridHeight = map.getHeight(grid);
