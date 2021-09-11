@@ -9,7 +9,7 @@ const { microRangedUnit } = require("../services/micro-service");
 
 module.exports = {
   harass: async (world, state) => {
-    const { resources } = world;
+    const { data, resources } = world;
     const { actions, map, units } = resources.get();
     const label = 'harasser';
     if (units.getByType(STALKER).length == 4 && units.withLabel(label).length === 0) {
@@ -36,7 +36,7 @@ module.exports = {
       if (units.withLabel(label).filter(harasser => harasser.labels.get(label)).length === 4) {
         if (closestEnemyUnit && distance(closestEnemyUnit.pos, averagePoints) <= 8) {
           const harasserActions = [];
-          harassers.forEach(harasser => harasserActions.push(...microRangedUnit(world, harasser, closestEnemyUnit)));
+          harassers.forEach(harasser => harasserActions.push(...microRangedUnit(data, harasser, closestEnemyUnit)));
           return actions.sendAction(harasserActions);
         } else {
           return actions.attackMove(harassers, map.getEnemyNatural().townhallPosition);

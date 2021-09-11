@@ -43,7 +43,7 @@ module.exports = {
     return collectedActions;
   },
   defend: async (world, assemblePlan, mainCombatTypes, supportUnitTypes, threats) => {
-    const { data, resources } = world;
+    const { agent, data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY);
@@ -131,7 +131,7 @@ module.exports = {
               }
             }
           } else {
-            if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit({ data, resources }, selfUnit, closestEnemyUnit)); }
+            if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(data, selfUnit, closestEnemyUnit)); }
             else {
               selfUnit.labels.set('retreat', false);
               collectedActions.push({
@@ -194,7 +194,7 @@ module.exports = {
     const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
     [ ...pointTypeUnits, ...nonPointTypeUnits ].forEach(unit => {
       const [ closestUnit ] = units.getClosest(unit.pos, enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < 16));
-      if (!unit.isMelee() && closestUnit) { collectedActions.push(...microRangedUnit({ data, resources }, unit, closestUnit)); }
+      if (!unit.isMelee() && closestUnit) { collectedActions.push(...microRangedUnit(data, unit, closestUnit)); }
       else {
         collectedActions.push({
           abilityId: ATTACK_ATTACK,
