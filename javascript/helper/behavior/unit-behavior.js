@@ -14,8 +14,9 @@ const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
-const { mineralFieldTypes } = require("@node-sc2/core/constants/groups");
 const { gatherOrMine } = require("../../systems/manage-resources");
+const { pullWorkersToDefend } = require("../../services/army-management-service");
+const { isRepairing } = require("../../services/units-service");
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action) => {
@@ -215,22 +216,7 @@ module.exports = {
                   continue;
                 }
               }
-              const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
-              const fighters = units.getClosest(closestEnemyUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
-              if (fighters.find(fighter => fighter.tag === worker.tag)) {
-                const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(worker.pos, mineralField.pos) < distance(closestEnemyUnit.pos, mineralField.pos));
-                const [closestCandidateMineral] = units.getClosest(worker.pos, candidateMinerals);
-                const retreatCommand = {
-                  abilityId: HARVEST_GATHER,
-                  targetUnitTag: closestCandidateMineral.tag,
-                  unitTags: [worker.tag],
-                  queueCommand: false,
-                }
-                console.log('inRangeEnemySupply', inRangeEnemySupply, 'inRangeWorkerSupply', inRangeWorkerSupply);
-                collectedActions.push(...micro(enemyUnits, worker, closestEnemyUnit, retreatCommand))
-              } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === closestEnemyUnit.tag) {
-                await gatherOrMine(resources, worker);
-              }
+              collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits));
             }
           }
         }
@@ -238,10 +224,6 @@ module.exports = {
     }
     return collectedActions;
   }
-}
-
-function isRepairing(unit) {
-  return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
 }
 
 function triggerAbilityByDistance(unit, target, operator, range, abilityId, pointType) {
@@ -257,35 +239,6 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
     }
     if (pointType === 'target') {
       unitCommand.targetWorldSpacePos = target;
-    }
-    collectedActions.push(unitCommand);
-  }
-  return collectedActions;
-}
-
-function micro(enemyUnits, unit, targetUnit, retreatCommand) {
-  const collectedActions = [];
-  // if cool down and fighting melee move back
-  const microConditions = [
-    targetUnit.isMelee(),
-    (distance(unit.pos, targetUnit.pos) + 0.05) - (unit.radius + targetUnit.radius) < 0.5,
-    isFacing(targetUnit, unit),
-  ]
-  if (
-    [...microConditions, unit.weaponCooldown > 12].every(condition => condition) ||
-    [...microConditions, (unit.health + unit.shield) < (targetUnit.health + targetUnit.shield)].every(condition => condition)
-  ) {
-    console.log('unit.weaponCooldown', unit.weaponCooldown);
-    console.log('distance(unit.pos, targetUnit.pos)', distance(unit.pos, targetUnit.pos));
-    collectedActions.push(retreatCommand);
-  } else {
-    const inRangeMeleeEnemyUnits = enemyUnits.filter(enemyUnit => enemyUnit.isMelee() && ((distance(unit.pos, enemyUnit.pos) + 0.05) - (unit.radius + enemyUnit.radius) < 0.25));
-    const [weakestInRange] = inRangeMeleeEnemyUnits.sort((a, b) => (a.health + a.shield) - (b.health + b.shield));
-    targetUnit = weakestInRange || targetUnit;
-    const unitCommand = {
-      abilityId: ATTACK_ATTACK,
-      targetUnitTag: targetUnit.tag,
-      unitTags: [unit.tag],
     }
     collectedActions.push(unitCommand);
   }

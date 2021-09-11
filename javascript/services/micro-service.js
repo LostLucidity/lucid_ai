@@ -2,10 +2,9 @@
 "use strict"
 
 const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
-const { gridsInCircle, toDegrees } = require("@node-sc2/core/utils/geometry/angle");
+const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { moveAwayPosition } = require("../builds/helper");
-const { getClosestPosition } = require("../helper/get-closest");
 
 const microService = {
   getPositionVersusTargetUnit: (data, unit, targetUnit) => {
@@ -23,7 +22,35 @@ const microService = {
     const normalizedPositionOfUnitDegrees = positionOfUnitDegrees > 0 ? positionOfUnitDegrees : 360 + positionOfUnitDegrees;
     return Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees) < 7;
   },
-  microRangedUnit: ({ data, resources }, unit, targetUnit) => {
+  micro: (unit, targetUnit, enemyUnits, retreatCommand) => {
+    const collectedActions = [];
+    // if cool down and fighting melee move back
+    const microConditions = [
+      targetUnit.isMelee(),
+      (distance(unit.pos, targetUnit.pos) + 0.05) - (unit.radius + targetUnit.radius) < 0.5,
+      microService.isFacing(targetUnit, unit),
+    ]
+    if (
+      [...microConditions, unit.weaponCooldown > 12].every(condition => condition) ||
+      [...microConditions, (unit.health + unit.shield) < (targetUnit.health + targetUnit.shield)].every(condition => condition)
+    ) {
+      console.log('unit.weaponCooldown', unit.weaponCooldown);
+      console.log('distance(unit.pos, targetUnit.pos)', distance(unit.pos, targetUnit.pos));
+      collectedActions.push(retreatCommand);
+    } else {
+      const inRangeMeleeEnemyUnits = enemyUnits.filter(enemyUnit => enemyUnit.isMelee() && ((distance(unit.pos, enemyUnit.pos) + 0.05) - (unit.radius + enemyUnit.radius) < 0.25));
+      const [weakestInRange] = inRangeMeleeEnemyUnits.sort((a, b) => (a.health + a.shield) - (b.health + b.shield));
+      targetUnit = weakestInRange || targetUnit;
+      const unitCommand = {
+        abilityId: ATTACK_ATTACK,
+        targetUnitTag: targetUnit.tag,
+        unitTags: [unit.tag],
+      }
+      collectedActions.push(unitCommand);
+    }
+    return collectedActions;
+  },
+  microRangedUnit: (data, unit, targetUnit) => {
     const collectedActions = [];
     if (unit.weaponCooldown > 12) {
       const microPosition = microService.getPositionVersusTargetUnit(data, unit, targetUnit)
