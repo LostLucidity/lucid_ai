@@ -22,14 +22,11 @@ module.exports = {
         const buildAbilityId = data.getUnitTypeData(townhallType).abilityId;
         if ((units.inProgress(townhallType).length + units.withCurrentOrders(buildAbilityId).length) < 1 ) {
           await actions.sendAction(workerSendOrBuild(resources, data.getUnitTypeData(townhallType).abilityId, expansionLocation));
-          state.pauseBuilding = false;
           planService.pauseBuilding = false;
         }
       } else {
         collectedActions.push(...workerSendOrBuild(resources, MOVE, expansionLocation));
         await balanceForFuture(world, townhallType);
-        state.pauseBuilding = true;
-        state.continueBuild = false;
         planService.pauseBuilding = true;
         planService.continueBuild = false;
       }

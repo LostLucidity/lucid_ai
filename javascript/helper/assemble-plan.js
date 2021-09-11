@@ -43,6 +43,7 @@ const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
 const { getBuildingFootprintOfOrphanAddons, keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers } = require("../services/units-service");
+const planService = require("../services/plan-service");
 
 let actions;
 let opponentRace;
@@ -75,7 +76,7 @@ class AssemblePlan {
     this.agent = world.agent;
     this.data = world.data;
     if (this.foodUsed > this.world.agent.foodUsed) {
-      this.state.pauseBuilding = false;
+      planService.pauseBuilding = false;
     }
     this.foodUsed = this.world.agent.foodUsed;
     this.resources = world.resources;
@@ -90,8 +91,8 @@ class AssemblePlan {
     this.outSupplied = this.enemySupply > this.selfSupply;
     const trainUnitConditions = [
       this.outSupplied,
-      workersTrainingTendedTo(world) && !this.state.pauseBuilding,
-      !shortOnWorkers(this.resources) && !this.state.pauseBuilding,
+      workersTrainingTendedTo(world) && !planService.pauseBuilding,
+      !shortOnWorkers(this.resources) && !planService.pauseBuilding,
     ];
     if (trainUnitConditions.some(condition => condition)) {
       this.outSupplied ? console.log(this.frame.timeInSeconds(), 'Scouted higher supply', this.selfSupply, this.enemySupply) : console.log(this.frame.timeInSeconds(), 'Free build mode.');
@@ -171,11 +172,11 @@ class AssemblePlan {
             else { return; }
           }
           await actions.sendAction([unitCommand]);
-          this.state.pauseBuilding = false;
+          planService.pauseBuilding = false;
         } else {
           if (conditions === undefined || conditions.targetType === undefined) {
-            this.state.pauseBuilding = true;
-            this.state.continueBuild = false;
+            planService.pauseBuilding = true;
+            planService.continueBuild = false;
           }
         }
       }
@@ -190,21 +191,21 @@ class AssemblePlan {
               if (this.map.freeGasGeysers().length > 0) {
                 if (this.agent.canAfford(unitType)) {
                   await actions.buildGasMine();
-                  this.state.pauseBuilding = false;
+                  planService.pauseBuilding = false;
                 } else {
                   this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.map.freeGasGeysers()[0].pos));
                   const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
                   await balanceResources(this.world, mineralCost / vespeneCost);
-                  this.state.pauseBuilding = true;
-                  this.state.continueBuild = false;
+                  planService.pauseBuilding = true;
+                  planService.continueBuild = false;
                 }
 
               }
             }
             catch (error) {
               console.log(error);
-              this.state.pauseBuilding = true;
-              this.state.continueBuild = false;
+              planService.pauseBuilding = true;
+              planService.continueBuild = false;
             }
             break;
           case TownhallRace[race].indexOf(unitType) > -1 && candidatePositions.length === 0:
@@ -225,8 +226,8 @@ class AssemblePlan {
             } else {
               const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
               await balanceResources(this.world, mineralCost / vespeneCost);
-              this.state.pauseBuilding = true;
-              this.state.continueBuild = false;
+              planService.pauseBuilding = true;
+              planService.continueBuild = false;
             }
             break;
           case PHOTONCANNON === unitType:
@@ -255,21 +256,21 @@ class AssemblePlan {
       if (this.agent.canAfford(unitType)) {
         if (await actions.canPlace(unitType, [this.foundPosition])) {
           await actions.sendAction(workerSendOrBuild(this.resources, this.data.getUnitTypeData(unitType).abilityId, this.foundPosition));
-          this.state.pauseBuilding = false;
-          this.state.continueBuild = false;
+          planService.pauseBuilding = false;
+          planService.continueBuild = false;
           this.foundPosition = null;
         } else {
           this.foundPosition = keepPosition(this.resources, unitType, this.foundPosition) ? this.foundPosition : null;
           if (this.foundPosition) { this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition)); }
-          this.state.pauseBuilding = true;
-          this.state.continueBuild = false;
+          planService.pauseBuilding = true;
+          planService.continueBuild = false;
         }
       } else {
         this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition));
         const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
         await balanceResources(this.world, mineralCost / vespeneCost);
-        this.state.pauseBuilding = true;
-        this.state.continueBuild = false;
+        planService.pauseBuilding = true;
+        planService.continueBuild = false;
       }
     }
   }
@@ -639,21 +640,21 @@ class AssemblePlan {
             if (warpGates.length > 0) {
               warpIn(this.resources, this, unitType);
             } else {
-              this.state.pauseBuilding = true;
+              planService.pauseBuilding = true;
               return;
             }
           }
-          this.state.pauseBuilding = false;
+          planService.pauseBuilding = false;
           this.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
         } else {
           if (!this.agent.canAfford(unitType)) {
-            console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, this.state.pauseBuilding);
+            console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.pauseBuilding);
             const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
             await balanceResources(this.world, mineralCost / vespeneCost);
           }
-          this.state.pauseBuilding = true;
-          this.state.continueBuild = false;
+          planService.pauseBuilding = true;
+          planService.continueBuild = false;
         }
       }
     }
@@ -670,21 +671,21 @@ class AssemblePlan {
         if (upgrader) {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
-          this.state.pauseBuilding = false;
+          planService.pauseBuilding = false;
         } else {
           const { mineralCost, vespeneCost } = this.data.getUpgradeData(upgradeId);
           await balanceResources(this.world, mineralCost / vespeneCost);
-          this.state.pauseBuilding = true;
-          this.state.continueBuild = false;
+          planService.pauseBuilding = true;
+          planService.continueBuild = false;
         }
       }
     }
   }
 
   async runPlan() {
-    this.state.continueBuild = true;
+    planService.continueBuild = true;
     for (let step = 0; step < this.planOrders.length; step++) {
-      if (this.state.continueBuild) {
+      if (planService.continueBuild) {
         const planStep = this.planOrders[step];
         let targetCount = planStep[3];
         const foodTarget = planStep[0];
@@ -703,7 +704,7 @@ class AssemblePlan {
             if (enemyBuild && this.state.enemyBuildType !== enemyBuild && !this.earlyScout) { break; }
             await this.build(foodTarget, unitType, targetCount, planStep[4] ? await this[planStep[4]](unitType) : []);
             break;
-          case 'buildWorkers': if (!this.state.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
+          case 'buildWorkers': if (!planService.pauseBuilding) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
             if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
