@@ -21,20 +21,20 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { isRepairing } = require("../../services/units-service");
 
 module.exports = {
-  attack: ({data, resources}, mainCombatTypes, supportUnitTypes) => {
+  attack: ({ data, resources }, mainCombatTypes, supportUnitTypes) => {
     const { units } = resources.get();
     const collectedActions = [];
-    let [ closestEnemyBase ] = getClosestUnitByPath(resources, getCombatRally(resources), units.getBases(Alliance.ENEMY), 1);
+    let [closestEnemyBase] = getClosestUnitByPath(resources, getCombatRally(resources), units.getBases(Alliance.ENEMY), 1);
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-    const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+    const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
     const avgCombatUnitsPoint = avgPoints(combatUnits.map(unit => unit.pos));
-    let [ closestEnemyUnit ] = units.getClosest(avgCombatUnitsPoint, enemyUnits, 1);
+    let [closestEnemyUnit] = units.getClosest(avgCombatUnitsPoint, enemyUnits, 1);
     if (closestEnemyBase || closestEnemyUnit) {
       const enemyTarget = closestEnemyBase || closestEnemyUnit;
       const combatPoint = module.exports.getCombatPoint(resources, combatUnits, enemyTarget);
       if (combatPoint) {
-        const army = { combatPoint, combatUnits, supportUnits, enemyTarget}
-        collectedActions.push(...module.exports.attackWithArmy({data, resources}, army, enemyUnits));
+        const army = { combatPoint, combatUnits, supportUnits, enemyTarget }
+        collectedActions.push(...module.exports.attackWithArmy({ data, resources }, army, enemyUnits));
       }
       collectedActions.push(...scanCloakedEnemy(units, enemyTarget, combatUnits));
     } else {
@@ -49,15 +49,15 @@ module.exports = {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     const rallyPoint = getCombatRally(resources);
     if (rallyPoint) {
-      let [ closestEnemyUnit ] = getClosestUnitByPath(resources, rallyPoint, threats);
+      let [closestEnemyUnit] = getClosestUnitByPath(resources, rallyPoint, threats);
       if (closestEnemyUnit) {
-        const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+        const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
         collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
-        const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
+        const [combatPoint] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
         const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !isRepairing(unit));
         if (combatPoint) {
           const enemySupply = getSupply(data, enemyUnits);
-          let allyUnits = [ ...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking()) ];
+          let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
           const selfSupply = getSupply(data, allyUnits);
           if (selfSupply > enemySupply) {
             console.log('Defend', selfSupply, enemySupply);
@@ -69,7 +69,7 @@ module.exports = {
             }
             const combatPoint = module.exports.getCombatPoint(resources, combatUnits, closestEnemyUnit);
             if (combatPoint) {
-              const army = { combatPoint, combatUnits, supportUnits, enemyTarget: closestEnemyUnit}
+              const army = { combatPoint, combatUnits, supportUnits, enemyTarget: closestEnemyUnit }
               collectedActions.push(...module.exports.attackWithArmy(world, army, enemyUnits));
             }
           } else {
@@ -78,13 +78,13 @@ module.exports = {
             if (selfSupply < enemySupply) {
               console.log('engageOrRetreatVisible', selfSupply, enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
               console.log('engageOrRetreatMapped', selfSupply, enemyTrackingService.mappedEnemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
-              for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }
+              for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }
               allyUnits = [...allyUnits, ...units.getById(QUEEN)];
               collectedActions.push(...module.exports.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
             }
           }
         } else {
-          for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }
+          for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }
         }
       }
     }
@@ -92,23 +92,23 @@ module.exports = {
   },
   getInRangeDestructables: (units, selfUnit) => {
     let tag = null;
-    const ROCKS = [ 373, 638, 639, 640, 643 ];
-    const DEBRIS = [ 364, 365, 376 ];
-    const destructableRockTypes = [ ...DEBRIS, ...ROCKS];
+    const ROCKS = [373, 638, 639, 640, 643];
+    const DEBRIS = [364, 365, 376];
+    const destructableRockTypes = [...DEBRIS, ...ROCKS];
     const destructableRockUnits = units.getAlive(Alliance.NEUTRAL).filter(unit => destructableRockTypes.includes(unit.unitType));
-    const [ closestDestructable ] = units.getClosest(selfUnit.pos, destructableRockUnits).filter(destructableRockUnit => distance(selfUnit.pos, destructableRockUnit.pos) < 16);
+    const [closestDestructable] = units.getClosest(selfUnit.pos, destructableRockUnits).filter(destructableRockUnit => distance(selfUnit.pos, destructableRockUnit.pos) < 16);
     if (closestDestructable) {
       tag = closestDestructable.tag;
     }
     return tag;
   },
-  engageOrRetreat: ({ data, resources}, selfUnits, enemyUnits, position, clearRocks=true) => {
+  engageOrRetreat: ({ data, resources }, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { units } = resources.get();
     const collectedActions = [];
     selfUnits.forEach(selfUnit => {
       let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType)) {
-        const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits);
+        const [closestEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits);
         if (closestEnemyUnit && distance(selfUnit.pos, closestEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit.selfDPSHealth > closestEnemyUnit.enemyDPSHealth ? selfUnit.selfDPSHealth : closestEnemyUnit.enemyDPSHealth;
           const noBunker = units.getById(BUNKER).length === 0;
@@ -121,7 +121,7 @@ module.exports = {
               collectedActions.push(unitCommand);
             } else {
               if (selfUnit.pendingOrders === undefined || selfUnit.pendingOrders.length === 0) {
-                const [ closestArmedEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
+                const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
                 unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestArmedEnemyUnit);
                 unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
                   setPendingOrders(unit, unitCommand);
@@ -140,12 +140,12 @@ module.exports = {
                 unitTags: [selfUnit.tag],
               });
             }
-          } 
+          }
         } else {
           if (selfUnit.unitType !== QUEEN) {
             const unitCommand = {
               abilityId: ATTACK_ATTACK,
-              unitTags: [ selfUnit.tag ],
+              unitTags: [selfUnit.tag],
             }
             const destructableTag = module.exports.getInRangeDestructables(units, selfUnit);
             if (destructableTag && clearRocks) { unitCommand.targetUnitTag = destructableTag; }
@@ -175,15 +175,15 @@ module.exports = {
     } else {
       let closestUnit;
       try {
-        [ closestUnit ] = getClosestUnitByPath(resources, target.pos, units);
+        [closestUnit] = getClosestUnitByPath(resources, target.pos, units);
         closestUnit.labels.set(label, true);
-      } catch(e) {
-        [ closestUnit ] = resources.get().units.getClosest(target.pos, units)
+      } catch (e) {
+        [closestUnit] = resources.get().units.getClosest(target.pos, units)
       }
       return closestUnit;
     }
   },
-  attackWithArmy: ({data, resources}, army, enemyUnits) => {
+  attackWithArmy: ({ data, resources }, army, enemyUnits) => {
     const { units } = resources.get();
     const collectedActions = [];
     const pointType = army.combatPoint.unitType;
@@ -192,14 +192,14 @@ module.exports = {
     const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
     const range = Math.max.apply(Math, data.getUnitTypeData(SIEGETANKSIEGED).weapons.map(weapon => { return weapon.range; }));
     const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
-    [ ...pointTypeUnits, ...nonPointTypeUnits ].forEach(unit => {
-      const [ closestUnit ] = units.getClosest(unit.pos, enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < 16));
+    [...pointTypeUnits, ...nonPointTypeUnits].forEach(unit => {
+      const [closestUnit] = units.getClosest(unit.pos, enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < 16));
       if (!unit.isMelee() && closestUnit) { collectedActions.push(...microRangedUnit(data, unit, closestUnit)); }
       else {
         collectedActions.push({
           abilityId: ATTACK_ATTACK,
           targetWorldSpacePos: targetWorldSpacePos,
-          unitTags: [ unit.tag ],
+          unitTags: [unit.tag],
         })
       }
     });
@@ -208,7 +208,7 @@ module.exports = {
       let unitCommand = {
         abilityId: MOVE,
         targetWorldSpacePos: army.combatPoint.pos,
-        unitTags: [ ...supportUnitTags ],
+        unitTags: [...supportUnitTags],
       }
       collectedActions.push(unitCommand);
     }
@@ -217,14 +217,14 @@ module.exports = {
       const killChanglingCommand = {
         abilityId: ATTACK,
         targetUnitTag: army.enemyTarget.tag,
-        unitTags: [ ...pointTypeUnitTags ],
+        unitTags: [...pointTypeUnitTags],
       }
       collectedActions.push(killChanglingCommand);
     } else {
       collectedActions.push({
         abilityId: ATTACK_ATTACK,
         targetWorldSpacePos: army.enemyTarget.pos,
-        unitTags: [ army.combatPoint.tag ],
+        unitTags: [army.combatPoint.tag],
       });
     }
     collectedActions.push(...tankBehavior(units));
@@ -234,19 +234,19 @@ module.exports = {
     const { data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
-    let [ closestEnemyBase ] = getClosestUnitByPath(resources, getCombatRally(resources), units.getBases(Alliance.ENEMY), 1);
+    let [closestEnemyBase] = getClosestUnitByPath(resources, getCombatRally(resources), units.getBases(Alliance.ENEMY), 1);
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-    const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+    const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
     const avgCombatUnitsPoint = avgPoints(combatUnits.map(unit => unit.pos));
-    let [ closestEnemyUnit ] = getClosestUnitByPath(resources, avgCombatUnitsPoint, enemyUnits, 1);
+    let [closestEnemyUnit] = getClosestUnitByPath(resources, avgCombatUnitsPoint, enemyUnits, 1);
     const closestEnemyTarget = closestEnemyBase || closestEnemyUnit;
     if (closestEnemyTarget) {
-      const [ combatUnits, supportUnits ] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+      const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
       collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
-      const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
+      const [combatPoint] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
       if (combatPoint) {
         const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-        let allyUnits = [ ...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking()) ];
+        let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
         const selfSupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
         console.log('Push', selfSupply, enemySupply);
         collectedActions.push(...module.exports.engageOrRetreat(world, allyUnits, enemyUnits, closestEnemyTarget.pos, false));
@@ -273,7 +273,7 @@ module.exports = {
         let unitCommand = {
           abilityId: MOVE,
           targetWorldSpacePos: randomPosition,
-          unitTags: [ ...supportUnitTags ],
+          unitTags: [...supportUnitTags],
         }
         collectedActions.push(unitCommand);
       }
@@ -281,7 +281,7 @@ module.exports = {
       let unitCommand = {
         abilityId: ATTACK_ATTACK,
         targetWorldSpacePos: randomPosition,
-        unitTags: [ ...idleCombatUnitTags ],
+        unitTags: [...idleCombatUnitTags],
       }
       collectedActions.push(unitCommand);
     }
@@ -298,5 +298,5 @@ function groupUnits(units, mainCombatTypes, supportUnitTypes) {
   supportUnitTypes.forEach(type => {
     supportUnits.push(...units.getById(type).filter(unit => !unit.labels.get('scout') && !unit.labels.get('creeper') && !unit.labels.get('injector')));
   });
-  return [ combatUnits, supportUnits ];
+  return [combatUnits, supportUnits];
 }

@@ -30,7 +30,7 @@ const armyManagementService = {
     let unitCommand = {
       abilityId: ATTACK_ATTACK,
       targetWorldSpacePos: targetWorldSpacePos,
-      unitTags: [ ...pointTypeUnitTags, ...nonPointTypeUnitTags ],
+      unitTags: [...pointTypeUnitTags, ...nonPointTypeUnitTags],
     }
     collectedActions.push(unitCommand);
     const changelings = [13, 14, 15, 16];
@@ -38,14 +38,14 @@ const armyManagementService = {
       const killChanglingCommand = {
         abilityId: ATTACK,
         targetUnitTag: army.enemyTarget.tag,
-        unitTags: [ ...pointTypeUnitTags ],
+        unitTags: [...pointTypeUnitTags],
       }
       collectedActions.push(killChanglingCommand);
     } else {
       unitCommand = {
         abilityId: ATTACK_ATTACK,
         targetWorldSpacePos: army.enemyTarget.pos,
-        unitTags: [ army.combatPoint.tag ],
+        unitTags: [army.combatPoint.tag],
       }
       collectedActions.push(unitCommand);
     }
@@ -55,13 +55,13 @@ const armyManagementService = {
   calculateSupplyPower(data, unit, Units) {
     return calculateNearSupply(data, getInRangeUnits(unit, Units));
   },
-  engageOrRetreat: ({ data, resources}, selfUnits, enemyUnits, position, clearRocks=true) => {
+  engageOrRetreat: ({ data, resources }, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { units } = resources.get();
     const collectedActions = [];
     selfUnits.forEach(selfUnit => {
       let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType)) {
-        const [ closestEnemyUnit ] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 16));
+        const [closestEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 16));
         if (closestEnemyUnit) {
           closestEnemyUnit.inRangeUnits = getInRangeUnits(closestEnemyUnit, enemyUnits);
           const enemySupply = calculateNearSupply(data, closestEnemyUnit.inRangeUnits);
@@ -95,12 +95,12 @@ const armyManagementService = {
             }
             selfUnit.labels.set('retreat', false);
             collectedActions.push(unitCommand);
-          } 
+          }
         } else {
           if (selfUnit.unitType !== QUEEN) {
             const unitCommand = {
               abilityId: ATTACK_ATTACK,
-              unitTags: [ selfUnit.tag ],
+              unitTags: [selfUnit.tag],
             }
             const destructableTag = getInRangeDestructables(units, selfUnit);
             if (destructableTag && clearRocks) { unitCommand.targetUnitTag = destructableTag; }
