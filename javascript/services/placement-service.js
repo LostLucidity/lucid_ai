@@ -12,8 +12,7 @@ const placementService = {
     const { map, units } = resources.get()
     const [pylon] = units.getById(PYLON);
     return [
-      pylon,
-      pylon.buildProgress < 1,
+      pylon && pylon.buildProgress < 1,
       map.isPlaceableAt(unitType, position),
     ].every(condition => condition)
   },
