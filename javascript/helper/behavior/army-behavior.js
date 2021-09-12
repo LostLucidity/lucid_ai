@@ -3,7 +3,7 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { LARVA, QUEEN, BUNKER, SIEGETANKSIEGED } = require("@node-sc2/core/constants/unit-type");
-const { MOVE, ATTACK_ATTACK, ATTACK } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, ATTACK, SMART, LOAD_BUNKER } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("../location");
 const { tankBehavior } = require("./unit-behavior");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
@@ -149,7 +149,15 @@ module.exports = {
             }
             const destructableTag = module.exports.getInRangeDestructables(units, selfUnit);
             if (destructableTag && clearRocks) { unitCommand.targetUnitTag = destructableTag; }
-            else { unitCommand.targetWorldSpacePos = targetPosition; }
+            else {
+              const [closestCompletedBunker] = units.getClosest(selfUnit.pos, units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1));
+              if (closestCompletedBunker && closestCompletedBunker.abilityAvailable(LOAD_BUNKER)) {
+                unitCommand.abilityId  = SMART;
+                unitCommand.targetUnitTag = closestCompletedBunker.tag;
+              } else {
+                unitCommand.targetWorldSpacePos = targetPosition;
+              }
+            }
             collectedActions.push(unitCommand);
           }
         }
