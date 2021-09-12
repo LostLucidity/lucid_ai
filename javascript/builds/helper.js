@@ -3,7 +3,6 @@
 
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { toDegrees, gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");

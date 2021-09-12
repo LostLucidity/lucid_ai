@@ -10,7 +10,7 @@ const canAfford = require("./can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 
 module.exports = {
-  expand: async (world, state={}) => {
+  expand: async (world) => {
     const { agent, data, resources } = world;
     let collectedActions = [];
     const { actions, units } = resources.get();
@@ -20,7 +20,7 @@ module.exports = {
       const townhallType = TownhallRace[agent.race][0];
       if (canAfford(agent, data, townhallType)) {
         const buildAbilityId = data.getUnitTypeData(townhallType).abilityId;
-        if ((units.inProgress(townhallType).length + units.withCurrentOrders(buildAbilityId).length) < 1 ) {
+        if ((units.inProgress(townhallType).length + units.withCurrentOrders(buildAbilityId).length) < 1) {
           await actions.sendAction(workerSendOrBuild(resources, data.getUnitTypeData(townhallType).abilityId, expansionLocation));
           planService.pauseBuilding = false;
         }
