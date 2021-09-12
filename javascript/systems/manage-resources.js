@@ -14,7 +14,7 @@ const manageResources = {
     const { data } = world;
     const { plan } = planService;
     const currentStep = planService.currentStep;
-    if (currentStep !== null) {
+    if (plan !== null && currentStep !== null) {
       const steps = [plan[currentStep]];
       for (let step = 1; step <= stepCount; step++) {
         const nextStep = plan[currentStep + step];

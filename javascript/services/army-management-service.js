@@ -148,13 +148,15 @@ const armyManagementService = {
     if (fighters.find(fighter => fighter.tag === worker.tag)) {
       const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(worker.pos, mineralField.pos) < distance(targetUnit.pos, mineralField.pos));
       const [closestCandidateMineral] = units.getClosest(worker.pos, candidateMinerals);
-      const retreatCommand = {
-        abilityId: HARVEST_GATHER,
-        targetUnitTag: closestCandidateMineral.tag,
-        unitTags: [worker.tag],
-        queueCommand: false,
+      if (closestCandidateMineral) {
+        const retreatCommand = {
+          abilityId: HARVEST_GATHER,
+          targetUnitTag: closestCandidateMineral.tag,
+          unitTags: [worker.tag],
+          queueCommand: false,
+        }
+        collectedActions.push(...micro(worker, targetUnit, enemyUnits, retreatCommand));
       }
-      collectedActions.push(...micro(worker, targetUnit, enemyUnits, retreatCommand));
     } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === targetUnit.tag) {
       await gatherOrMine(resources, worker);
     }
