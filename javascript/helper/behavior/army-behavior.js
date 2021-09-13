@@ -123,7 +123,7 @@ const armyBehavior = {
             } else {
               if (selfUnit.pendingOrders === undefined || selfUnit.pendingOrders.length === 0) {
                 const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
-                unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestArmedEnemyUnit);
+                unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestArmedEnemyUnit || closestEnemyUnit);
                 unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
                   setPendingOrders(unit, unitCommand);
                   return unit.tag;
