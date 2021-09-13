@@ -21,7 +21,7 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { isRepairing } = require("../../services/units-service");
 const scoutService = require("../../systems/scouting/scouting-service");
 
-module.exports = {
+const armyBehavior = {
   attack: ({ data, resources }, mainCombatTypes, supportUnitTypes) => {
     const { units } = resources.get();
     const collectedActions = [];
@@ -32,14 +32,14 @@ module.exports = {
     let [closestEnemyUnit] = units.getClosest(avgCombatUnitsPoint, enemyUnits, 1);
     if (closestEnemyBase || closestEnemyUnit) {
       const enemyTarget = closestEnemyBase || closestEnemyUnit;
-      const combatPoint = module.exports.getCombatPoint(resources, combatUnits, enemyTarget);
+      const combatPoint = armyBehavior.getCombatPoint(resources, combatUnits, enemyTarget);
       if (combatPoint) {
         const army = { combatPoint, combatUnits, supportUnits, enemyTarget }
-        collectedActions.push(...module.exports.attackWithArmy({ data, resources }, army, enemyUnits));
+        collectedActions.push(...armyBehavior.attackWithArmy({ data, resources }, army, enemyUnits));
       }
       collectedActions.push(...scanCloakedEnemy(units, enemyTarget, combatUnits));
     } else {
-      collectedActions.push(...module.exports.searchAndDestroy(resources, combatUnits, supportUnits));
+      collectedActions.push(...armyBehavior.searchAndDestroy(resources, combatUnits, supportUnits));
     }
     return collectedActions;
   },
@@ -68,10 +68,10 @@ module.exports = {
                 combatUnits.push(...units.getById(QUEEN));
               }
             }
-            const combatPoint = module.exports.getCombatPoint(resources, combatUnits, closestEnemyUnit);
+            const combatPoint = armyBehavior.getCombatPoint(resources, combatUnits, closestEnemyUnit);
             if (combatPoint) {
               const army = { combatPoint, combatUnits, supportUnits, enemyTarget: closestEnemyUnit }
-              collectedActions.push(...module.exports.attackWithArmy(world, army, enemyUnits));
+              collectedActions.push(...armyBehavior.attackWithArmy(world, army, enemyUnits));
             }
           } else {
             console.log('building defensive units');
@@ -81,7 +81,7 @@ module.exports = {
               console.log('engageOrRetreatMapped', selfSupply, enemyTrackingService.mappedEnemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
               for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }
               allyUnits = [...allyUnits, ...units.getById(QUEEN)];
-              collectedActions.push(...module.exports.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
+              collectedActions.push(...armyBehavior.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
             }
           }
         } else {
@@ -148,12 +148,12 @@ module.exports = {
               abilityId: ATTACK_ATTACK,
               unitTags: [selfUnit.tag],
             }
-            const destructableTag = module.exports.getInRangeDestructables(units, selfUnit);
+            const destructableTag = armyBehavior.getInRangeDestructables(units, selfUnit);
             if (destructableTag && clearRocks && !scoutService.outsupplied) { unitCommand.targetUnitTag = destructableTag; }
             else {
               const [closestCompletedBunker] = units.getClosest(selfUnit.pos, units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1));
               if (closestCompletedBunker && closestCompletedBunker.abilityAvailable(LOAD_BUNKER)) {
-                unitCommand.abilityId  = SMART;
+                unitCommand.abilityId = SMART;
                 unitCommand.targetUnitTag = closestCompletedBunker.tag;
               } else {
                 unitCommand.targetWorldSpacePos = targetPosition;
@@ -258,11 +258,11 @@ module.exports = {
         let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
         const selfSupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
         console.log('Push', selfSupply, enemySupply);
-        collectedActions.push(...module.exports.engageOrRetreat(world, allyUnits, enemyUnits, closestEnemyTarget.pos, false));
+        collectedActions.push(...armyBehavior.engageOrRetreat(world, allyUnits, enemyUnits, closestEnemyTarget.pos, false));
       }
       collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
     } else {
-      collectedActions.push(...module.exports.searchAndDestroy(resources, combatUnits, supportUnits));
+      collectedActions.push(...armyBehavior.searchAndDestroy(resources, combatUnits, supportUnits));
     }
     return collectedActions;
   },
@@ -309,3 +309,5 @@ function groupUnits(units, mainCombatTypes, supportUnitTypes) {
   });
   return [combatUnits, supportUnits];
 }
+
+module.exports = armyBehavior;
