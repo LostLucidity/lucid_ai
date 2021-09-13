@@ -217,7 +217,7 @@ class AssemblePlan {
             }
             break;
           case TownhallRace[race].indexOf(unitType) > -1 && candidatePositions.length === 0:
-            { this.collectedActions.push(...await expand(this.world, this.state)); }
+            { this.collectedActions.push(...await expand(this.world)); }
             break;
           case addonTypes.includes(unitType):
             let abilityId = this.data.getUnitTypeData(unitType).abilityId;
