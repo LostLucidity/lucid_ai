@@ -19,6 +19,7 @@ const { setPendingOrders, getSupply } = require("../../helper");
 const { pullWorkersToDefend } = require("../../services/army-management-service");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { isRepairing } = require("../../services/units-service");
+const scoutService = require("../../systems/scouting/scouting-service");
 
 module.exports = {
   attack: ({ data, resources }, mainCombatTypes, supportUnitTypes) => {
@@ -148,7 +149,7 @@ module.exports = {
               unitTags: [selfUnit.tag],
             }
             const destructableTag = module.exports.getInRangeDestructables(units, selfUnit);
-            if (destructableTag && clearRocks) { unitCommand.targetUnitTag = destructableTag; }
+            if (destructableTag && clearRocks && !scoutService.outsupplied) { unitCommand.targetUnitTag = destructableTag; }
             else {
               const [closestCompletedBunker] = units.getClosest(selfUnit.pos, units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1));
               if (closestCompletedBunker && closestCompletedBunker.abilityAvailable(LOAD_BUNKER)) {

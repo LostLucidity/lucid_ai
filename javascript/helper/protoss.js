@@ -7,6 +7,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { workerSendOrBuild } = require("../helper");
+const scoutService = require("../systems/scouting/scouting-service");
 const { getOccupiedExpansions } = require("./expansions");
 const { getCombatRally } = require("./location");
 const { findPosition } = require("./placement/placement-helper");
@@ -64,7 +65,7 @@ module.exports = {
   warpIn: async (resources, assemblePlan, unitType) => {
     const { actions } = resources.get();
     let nearPosition;
-    if (assemblePlan.state.defenseMode && assemblePlan.outSupplied) {
+    if (assemblePlan.state.defenseMode && scoutService.outsupplied) {
       nearPosition = module.exports.findWarpInLocations(resources);
     } else {
       nearPosition = getCombatRally(resources);

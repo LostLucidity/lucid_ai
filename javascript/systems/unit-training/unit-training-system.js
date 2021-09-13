@@ -6,10 +6,10 @@ const { Attribute } = require("@node-sc2/core/constants/enums");
 const shortOnWorkers = require("../../helper/short-on-workers");
 const planService = require("../../services/plan-service");
 const sharedService = require("../../services/shared-service");
-const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const { train } = require("../execute-plan/plan-actions");
 const { getResourceDemand } = require("../manage-resources");
-const { getSelfCombatSupply } = require("../track-units/track-units-service");
+const scoutService = require("../scouting/scouting-service");
+const trackUnitsService = require("../track-units/track-units-service");
 const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("./unit-training-service");
 const unitTrainingService = require("./unit-training-service");
 
@@ -21,16 +21,14 @@ module.exports = createSystem({
     const { frame, units } = resources.get();
     const { trainingTypes } = planService;
     sharedService.removePendingOrders(units);
-    const selfCombatSupply = getSelfCombatSupply(world);
-    const enemyCombatSupply = enemyTrackingService.getEnemyCombatSupply(data);
-    const outSupplied = enemyCombatSupply > selfCombatSupply;
+    const { outsupplied, enemyCombatSupply } = scoutService;
     const trainUnitConditions = [
-      outSupplied,
+      outsupplied,
       workersTrainingTendedTo(world) && !planService.pauseBuilding,
       !shortOnWorkers(resources) && !planService.pauseBuilding,
     ];
     if (trainUnitConditions.some(condition => condition)) {
-      outSupplied ? console.log(frame.timeInSeconds(), 'Scouted higher supply', selfCombatSupply, enemyCombatSupply) : null;
+      outsupplied ? console.log(frame.timeInSeconds(), 'Scouted higher supply', trackUnitsService.selfCombatSupply, enemyCombatSupply) : null;
       const { currentStep, plan } = planService;
       const candidateTypeToBuild = trainingTypes.filter(type => {
         return [

@@ -45,6 +45,9 @@ const { getBuildingFootprintOfOrphanAddons, keepPosition } = require("../service
 const { getEnemyWorkers } = require("../services/units-service");
 const planService = require("../services/plan-service");
 const { getNextPlanStep } = require("../services/plan-service");
+const scoutService = require("../systems/scouting/scouting-service");
+const scoutingService = require("../systems/scouting/scouting-service");
+const trackUnitsService = require("../systems/track-units/track-units-service");
 
 let actions;
 let opponentRace;
@@ -86,17 +89,14 @@ class AssemblePlan {
     this.units = this.resources.get().units;
     this.resourceTrigger = this.agent.minerals > 512 && this.agent.vespene > 256;
     this.threats = threats(this.resources, this.state);
-    this.enemySupply = enemyTrackingService.getEnemyCombatSupply(this.data);
-    const inFieldSelfSupply = getSupply(this.data, this.units.getCombatUnits());
-    this.selfSupply = inFieldSelfSupply + getTrainingSupply(world, this.defenseTypes);
-    this.outSupplied = this.enemySupply > this.selfSupply;
     const trainUnitConditions = [
-      this.outSupplied,
+      scoutService.outsupplied,
       workersTrainingTendedTo(world) && !planService.pauseBuilding,
       !shortOnWorkers(this.resources) && !planService.pauseBuilding,
     ];
+    const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
     if (trainUnitConditions.some(condition => condition)) {
-      this.outSupplied ? console.log('Scouted higher supply', this.selfSupply, this.enemySupply) : console.log('Free build mode.');
+      scoutService.outsupplied ? console.log('Scouted higher supply', selfCombatSupply, scoutingService.enemyCombatSupply) : console.log('Free build mode.');
       const nextStep = getNextPlanStep(this.planOrders, this.foodUsed);
       const haveProductionAndTechForTypes = this.defenseTypes.filter(type => {
         return [
@@ -123,7 +123,7 @@ class AssemblePlan {
         }
       }
     } else {
-      if (!this.outSupplied || this.selfSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
+      if (!scoutService.outsupplied || selfCombatSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
     }
     if (this.agent.minerals > 512) { this.manageSupply(); }
     if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(world)); }
@@ -250,7 +250,7 @@ class AssemblePlan {
   async buildWorkers(foodRanges, controlled = false) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       if (controlled) {
-        if (!this.outSupplied && (this.units.getBases().length <= 2 || !this.resourceTrigger) && shortOnWorkers(this.resources)) {
+        if (!scoutingService.outsupplied && (this.units.getBases().length <= 2 || !this.resourceTrigger) && shortOnWorkers(this.resources)) {
           try { await buildWorkers(this.agent, this.data, this.world.resources); } catch (error) { console.log(error); }
         }
       } else {
@@ -558,7 +558,7 @@ class AssemblePlan {
       }
     }
     if (this.units.withLabel(label).length > 0 && !this.state.cancelPush) {
-      if (this.outSupplied) {
+      if (scoutService.outsupplied) {
         this.state.cancelPush = true;
         console.log('cancelPush');
       } else {
