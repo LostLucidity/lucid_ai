@@ -115,7 +115,7 @@ function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) 
           const [closestEnemyToPoint] = units.getClosest(grid, targetUnits);
           try {
             const gridHeight = map.getHeight(grid);
-            const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => distance(candidate, grid) <= unit.radius);
+            const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => existsInMap(map, candidate) && distance(candidate, grid) <= unit.radius);
             const targetUnitHeight = targetUnit.isFlying ? targetUnit.pos.z : map.getHeight(targetUnit.pos);
             const closestEnemyToPointHeight = closestEnemyToPoint.isFlying ? closestEnemyToPoint.pos.z : map.getHeight(closestEnemyToPoint.pos);
             return (
