@@ -10,14 +10,14 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint = null) {
   const { units } = resources.get();
   const collectedActions = [];
-  const combatUnits = units.getCombatUnits().filter(unit => !unit.labels.get('harasser') && !unit.labels.get('scout'));
+  const combatUnits = units.getCombatUnits().filter(unit => unit.labels.size === 0);
   if (!rallyPoint) {
     rallyPoint = getCombatRally(resources);
   }
   if (combatUnits.length > 0) {
     const supportUnits = [];
     supportUnitTypes.forEach(type => {
-      supportUnits.concat(units.getById(type).filter(unit => !unit.labels.get('scout')));
+      supportUnits.concat(units.getById(type).filter(unit => unit.labels.size === 0));
     });
     if (units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1).length > 0) {
       const [bunker] = units.getById(BUNKER);

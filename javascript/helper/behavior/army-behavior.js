@@ -196,8 +196,8 @@ const armyBehavior = {
     const { units } = resources.get();
     const collectedActions = [];
     const pointType = army.combatPoint.unitType;
-    const pointTypeUnits = units.getById(pointType);
-    const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType));
+    const pointTypeUnits = units.getById(pointType).filter(unit => unit.labels.size === 0);
+    const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType) && unit.labels.size === 0);
     const pointTypeUnitTags = pointTypeUnits.map(unit => unit.tag);
     const range = Math.max.apply(Math, data.getUnitTypeData(SIEGETANKSIEGED).weapons.map(weapon => { return weapon.range; }));
     const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
