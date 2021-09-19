@@ -44,7 +44,7 @@ module.exports = {
       } else {
         if (!closestEnemyUnit || distance(closestEnemyUnit.pos, averagePoints) > 8) {
           state.harassOn = false;
-          harassers.forEach(harasser => harasser.labels.set(label, false));
+          harassers.forEach(harasser => harasser.labels.delete(label));
         }
         return actions.move(harassers, map.getCombatRally());
       }
