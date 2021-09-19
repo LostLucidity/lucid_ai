@@ -93,7 +93,6 @@ const armyManagementService = {
               targetUnitTag: closestEnemyUnit.tag,
               unitTags: [selfUnit.tag],
             }
-            selfUnit.labels.set('retreat', false);
             collectedActions.push(unitCommand);
           }
         } else {

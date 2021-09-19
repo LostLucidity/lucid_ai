@@ -134,7 +134,6 @@ const armyBehavior = {
           } else {
             if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(data, selfUnit, closestEnemyUnit)); }
             else {
-              selfUnit.labels.set('retreat', false);
               collectedActions.push({
                 abilityId: ATTACK_ATTACK,
                 targetUnitTag: closestEnemyUnit.tag,
