@@ -109,19 +109,24 @@ function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) 
   let position;
   if (isFlying) {
     const sightRange = unit.data().sightRange;
-    const highPoints = gridsInCircle(unit.pos, sightRange)
+    const highPointCandidates = gridsInCircle(unit.pos, sightRange)
       .filter(grid => {
         if (existsInMap(map, grid)) {
-          const [closestEnemyToPoint] = units.getClosest(grid, targetUnits);
+          // get list of inrange enemy units
+          const unitsInSightRangeTo = targetUnits.filter(targetUnit => {
+            return distance(targetUnit.pos, unit.pos) < targetUnit.data().sightRange + unit.radius + targetUnit.radius;
+          });
           try {
             const gridHeight = map.getHeight(grid);
             const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => existsInMap(map, candidate) && distance(candidate, grid) <= unit.radius);
             const targetUnitHeight = targetUnit.isFlying ? targetUnit.pos.z : map.getHeight(targetUnit.pos);
-            const closestEnemyToPointHeight = closestEnemyToPoint.isFlying ? closestEnemyToPoint.pos.z : map.getHeight(closestEnemyToPoint.pos);
+            const unitsInSightRangeToHeights = unitsInSightRangeTo.map(unit => unit.isFlying ? unit.pos.z : map.getHeight(unit.pos));
             return (
-              gridHeight - targetUnitHeight >= 2 &&
-              gridHeight - closestEnemyToPointHeight >= 2 &&
-              circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight)
+              [
+                gridHeight - targetUnitHeight >= 2,
+                unitsInSightRangeToHeights.every(height => gridHeight - height >= 2),
+                circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight),
+              ].every(condition => condition)
             );
           } catch (error) {
             console.log('error', error);
@@ -129,7 +134,7 @@ function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) 
           }
         }
       });
-    const [closestHighPoint] = getClosestPosition(unit.pos, highPoints);
+    const [closestHighPoint] = getClosestPosition(unit.pos, highPointCandidates);
     // calculate dps of enemy versus distance and speed of overlord.
     if (closestHighPoint) {
       const dPSOfInRangeUnits = getDPSOfInRangeAntiAirUnits(data, targetUnit);
