@@ -8,6 +8,6 @@ module.exports = createSystem({
   name: 'Logging',
   type: 'agent',
   async onStep({ agent, resources }) {
-    console.log(`foodUsed: ${agent.foodUsed}, timeInSeconds: ${resources.get().frame.timeInSeconds()}, pauseBuilding: ${planService.pauseBuilding}, step: ${planService.currentStep}`);
+    console.log(`foodUsed: ${agent.foodUsed}, timeInSeconds: ${resources.get().frame.timeInSeconds()}, isPlanPaused: ${planService.isPlanPaused}, step: ${planService.currentStep}`);
   },
 });

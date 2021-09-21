@@ -39,7 +39,7 @@ module.exports = createSystem({
   },
   async onUnitDestroyed({ }, destroyedUnit) {
     if (destroyedUnit.isWorker()) {
-      planService.pauseBuilding = false;
+      planService.pausePlan = false;
     }
   }
 });

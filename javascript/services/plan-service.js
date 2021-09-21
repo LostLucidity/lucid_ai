@@ -5,10 +5,13 @@ const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { supplyTypes } = require("../helper/groups");
 
 const planService = {
+  set pausePlan(value) {
+    planService.isPlanPaused = value;
+  },
   continueBuild: null,
   currentStep: null,
   foundPosition: null,
-  pauseBuilding: null,
+  isPlanPaused: null,
   plan: null,
   planMax: {
     gasMine: null,

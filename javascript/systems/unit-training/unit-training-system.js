@@ -24,8 +24,8 @@ module.exports = createSystem({
     const { outsupplied, enemyCombatSupply } = scoutService;
     const trainUnitConditions = [
       outsupplied,
-      workersTrainingTendedTo(world) && !planService.pauseBuilding,
-      !shortOnWorkers(resources) && !planService.pauseBuilding,
+      workersTrainingTendedTo(world) && !planService.isPlanPaused,
+      !shortOnWorkers(resources) && !planService.isPlanPaused,
     ];
     if (trainUnitConditions.some(condition => condition)) {
       outsupplied ? console.log(frame.timeInSeconds(), 'Scouted higher supply', trackUnitsService.selfCombatSupply, enemyCombatSupply) : null;

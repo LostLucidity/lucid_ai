@@ -30,7 +30,7 @@ const terran = {
           if (map.isPlaceableAt(addOnType, getAddOnPlacement(unit.pos))) {
             unitCommand.targetWorldSpacePos = unit.pos;
             await actions.sendAction(unitCommand);
-            planService.pauseBuilding = false;
+            planService.pausePlan = false;
             setPendingOrders(unit, unitCommand);
             return;
           }
@@ -54,7 +54,7 @@ const terran = {
             targetWorldSpacePos: foundPosition
           }
           await actions.sendAction(unitCommand);
-          planService.pauseBuilding = false;
+          planService.pausePlan = false;
           setPendingOrders(unit, unitCommand);
         }
       }

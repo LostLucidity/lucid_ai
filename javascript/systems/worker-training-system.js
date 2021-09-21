@@ -13,7 +13,7 @@ module.exports = createSystem({
   async onStep(world) {
     const { agent, data, resources } = world;
     const conditions = [
-      !planService.pauseBuilding,
+      !planService.isPlanPaused,
       agent.minerals < 512,
       shortOnWorkers(resources),
       !scoutService.outsupplied,

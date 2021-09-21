@@ -22,12 +22,12 @@ module.exports = {
         const buildAbilityId = data.getUnitTypeData(townhallType).abilityId;
         if ((units.inProgress(townhallType).length + units.withCurrentOrders(buildAbilityId).length) < 1) {
           await actions.sendAction(workerSendOrBuild(resources, data.getUnitTypeData(townhallType).abilityId, expansionLocation));
-          planService.pauseBuilding = false;
+          planService.pausePlan = false;
         }
       } else {
         collectedActions.push(...workerSendOrBuild(resources, MOVE, expansionLocation));
         await balanceForFuture(world, townhallType);
-        planService.pauseBuilding = true;
+        planService.pausePlan = true;
         planService.continueBuild = false;
       }
     }
