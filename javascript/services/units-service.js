@@ -7,6 +7,9 @@ const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
 const unitsService = {
+  deleteLabel(units, label) {
+    units.withLabel(label).forEach(pusher => pusher.labels.delete(label));
+  },
   isRepairing(unit) {
     return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
   },

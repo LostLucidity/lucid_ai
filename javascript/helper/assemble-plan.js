@@ -473,6 +473,7 @@ class AssemblePlan {
     if (this.units.withLabel(label).length > 0 && !this.state.cancelPush) {
       if (scoutService.outsupplied) {
         this.state.cancelPush = true;
+        deleteLabel(this.units, label);
         console.log('cancelPush');
       } else {
         this.collectedActions.push(...await push(this.world, this.mainCombatTypes, this.supportUnitTypes));
@@ -480,6 +481,7 @@ class AssemblePlan {
     } else if (this.state.pushMode === true) {
       this.state.pushMode = false;
       this.state.cancelPush = true;
+      deleteLabel(this.units, label);
       console.log('cancelPush');
     }
   }
