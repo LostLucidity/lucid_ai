@@ -2,9 +2,7 @@
 "use strict"
 
 const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, BARRACKS, SPAWNINGPOOL, GATEWAY, ZERGLING, PHOTONCANNON, PROBE } = require("@node-sc2/core/constants/unit-type");
-const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const { getOccupiedExpansions } = require("./expansions");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { frontOfGrid } = require("@node-sc2/core/utils/map/region");
 const buildWorkers = require("./build-workers");
@@ -12,7 +10,7 @@ const { MOVE } = require("@node-sc2/core/constants/ability");
 const canBuild = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
-const { workerSendOrBuild, getSupply, getTrainingSupply, checkBuildingCount, setPendingOrders } = require("../helper");
+const { workerSendOrBuild, getSupply, checkBuildingCount, setPendingOrders } = require("../helper");
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility, UnitType, Upgrade } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
@@ -34,15 +32,14 @@ const { restorePower, warpIn } = require("./protoss");
 const { liftToThird, addAddOn, swapBuildings } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
-const { getClosestPosition } = require("./get-closest");
 const runBehaviors = require("./behavior/run-behaviors");
 const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { checkUnitCount } = require("../systems/track-units/track-units-service");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
-const { getBuildingFootprintOfOrphanAddons, keepPosition } = require("../services/placement-service");
-const { getEnemyWorkers } = require("../services/units-service");
+const { keepPosition } = require("../services/placement-service");
+const { getEnemyWorkers, deleteLabel } = require("../services/units-service");
 const planService = require("../services/plan-service");
 const { getNextPlanStep } = require("../services/plan-service");
 const scoutService = require("../systems/scouting/scouting-service");
