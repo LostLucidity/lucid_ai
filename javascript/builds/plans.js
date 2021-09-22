@@ -90,7 +90,6 @@ const plans = {
         supportUnitTypes: [ OVERSEER, QUEEN ],
       },
       orders: [
-        [[...range(0, 21)], 'buildWorkers'],
         [13, 'train', OVERLORD, 1],
         [17, 'build', HATCHERY, 1],
         [17, 'build', EXTRACTOR, 0],
@@ -104,7 +103,6 @@ const plans = {
         [[...range(26, 200)], 'continuouslyBuild', [ ZERGLING, ROACH, HYDRALISK ]],
         [[...range(32, 33)], 'scout', ZERGLING, 'acrossTheMap'],
         [32, 'train', OVERLORD, 3],
-        [[...range(25, 200)], 'buildWorkers', true],
         [34, 'ability', MORPH_LAIR, { targetCount: 0, countType: LAIR } ],
         [34, 'train', QUEEN, 2],
         [36, 'build', ROACHWARREN, 0],

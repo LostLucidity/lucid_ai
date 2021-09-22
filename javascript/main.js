@@ -163,6 +163,7 @@ function runGame() {
     trackUnitsSystem,
     debugSystem,
     loggingSystem,
+    workerTrainingSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,
