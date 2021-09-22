@@ -383,18 +383,6 @@ class AssemblePlan {
     }
   }
 
-  findMineralLines() {
-    const occupiedExpansions = this.map.getOccupiedExpansions()
-    const mineralLineCandidates = [];
-    occupiedExpansions.forEach(expansion => {
-      const [base] = this.units.getClosest(expansion.townhallPosition, this.units.getBases());
-      if (base) {
-        mineralLineCandidates.push(...gridsInCircle(avgPoints([...expansion.cluster.mineralFields.map(field => field.pos), base.pos, base.pos]), 0.6))
-      }
-    });
-    return mineralLineCandidates;
-  }
-
   findSupplyPositions() {
     const { map } = this.resources.get();
     // front of natural pylon for great justice

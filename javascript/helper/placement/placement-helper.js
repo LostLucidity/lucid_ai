@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { distance, add } = require('@node-sc2/core/utils/geometry/point');
+const { distance, add, avgPoints } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { UnitType } = require('@node-sc2/core/constants');
@@ -16,6 +16,18 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 const { existsInMap } = require('../location');
 
 const placementHelper = {
+  findMineralLines: (resources) => {
+    const { map, units } = resources.get();
+    const occupiedExpansions = map.getOccupiedExpansions()
+    const mineralLineCandidates = [];
+    occupiedExpansions.forEach(expansion => {
+      const [base] = units.getClosest(expansion.townhallPosition, units.getBases());
+      if (base) {
+        mineralLineCandidates.push(...gridsInCircle(avgPoints([...expansion.cluster.mineralFields.map(field => field.pos), base.pos, base.pos]), 0.6))
+      }
+    });
+    return mineralLineCandidates;
+  },
   findPosition: async (resources, unitType, candidatePositions) => {
     const { actions, map, units } = resources.get();
     if (flyingTypesMapping.has(unitType)) { unitType = flyingTypesMapping.get(unitType); }
