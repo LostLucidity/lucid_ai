@@ -130,25 +130,25 @@ const placementHelper = {
     const { map } = resources.get();
     // front of natural pylon for great justice
     const naturalWall = map.getNatural().getWall();
-    let possiblePlacements = frontOfGrid({resources}, map.getNatural().areas.areaFill)
-        .filter(point => naturalWall.every(wallCell => (
-            (distance(wallCell, point) <= 6.5) &&
-            (distance(wallCell, point) >= 3)
-        )));
-  
+    let possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
+      .filter(point => naturalWall.every(wallCell => (
+        (distance(wallCell, point) <= 6.5) &&
+        (distance(wallCell, point) >= 3)
+      )));
+
     if (possiblePlacements.length <= 0) {
-        possiblePlacements = frontOfGrid({resources}, map.getNatural().areas.areaFill)
-            .map(point => {
-                point.coverage = naturalWall.filter(wallCell => (
-                    (distance(wallCell, point) <= 6.5) &&
-                    (distance(wallCell, point) >= 1)
-                )).length;
-                return point;
-            })
-            .sort((a, b) => b.coverage - a.coverage)
-            .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
+      possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
+        .map(point => {
+          point.coverage = naturalWall.filter(wallCell => (
+            (distance(wallCell, point) <= 6.5) &&
+            (distance(wallCell, point) >= 1)
+          )).length;
+          return point;
+        })
+        .sort((a, b) => b.coverage - a.coverage)
+        .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
     }
-  
+
     return possiblePlacements;
   },
   getCandidatePositions: async (resources, positions, unitType) => {
@@ -157,12 +157,12 @@ const placementHelper = {
   getBetweenBaseAndWall: async (resources, unitType) => {
     const { actions, map } = resources.get();
     const pathCandidates = map.path(add(map.getNatural().townhallPosition, 3), add(map.getEnemyMain().townhallPosition, 3)).slice(0, 10).map(pathItem => ({ 'x': pathItem[0], 'y': pathItem[1] }));
-    return [ await actions.canPlace(unitType, pathCandidates) ];
+    return [await actions.canPlace(unitType, pathCandidates)];
   },
   inTheMain: async (resources, unitType) => {
     const { actions, map } = resources.get();
     const candidatePositions = map.getMain().areas.areaFill
-    return [ await actions.canPlace(unitType, candidatePositions) ];
+    return [await actions.canPlace(unitType, candidatePositions)];
   }
 }
 
