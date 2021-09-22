@@ -142,6 +142,9 @@ const placementHelper = {
   
     return possiblePlacements;
   },
+  getCandidatePositions: async (resources, positions, unitType) => {
+    return typeof positions === 'string' ? await placementHelper[positions](resources, unitType) : positions
+  },
   getBetweenBaseAndWall: async (resources, unitType) => {
     const { actions, map } = resources.get();
     const pathCandidates = map.path(add(map.getNatural().townhallPosition, 3), add(map.getEnemyMain().townhallPosition, 3)).slice(0, 10).map(pathItem => ({ 'x': pathItem[0], 'y': pathItem[1] }));

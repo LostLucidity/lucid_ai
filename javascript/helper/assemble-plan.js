@@ -28,7 +28,7 @@ const { expand } = require("./general-actions");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
 const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
-const { getBetweenBaseAndWall, findPosition, inTheMain } = require("./placement/placement-helper");
+const { getBetweenBaseAndWall, findPosition, inTheMain, getCandidatePositions, findPlacements } = require("./placement/placement-helper");
 const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
 const { liftToThird, addAddOn, swapBuildings } = require("./terran");
@@ -241,7 +241,7 @@ class AssemblePlan {
           case PHOTONCANNON === unitType:
             candidatePositions = this.map.getNatural().areas.placementGrid;
           default:
-            if (candidatePositions.length === 0) { candidatePositions = this.findPlacements(unitType); }
+            if (candidatePositions.length === 0) { candidatePositions = await findPlacements(this.world, unitType); }
             await this.buildBuilding(unitType, candidatePositions);
         }
       }
@@ -381,78 +381,6 @@ class AssemblePlan {
         cancelEarlyScout(this.units);
       }
     }
-  }
-  findPlacements(unitType) {
-    const { map, units } = this.resources.get();
-    const [main, natural] = map.getExpansions();
-    const mainMineralLine = main.areas.mineralLine;
-    let placements = [];
-    if (race === Race.PROTOSS) {
-      if (unitType === PYLON) {
-        const occupiedExpansions = getOccupiedExpansions(this.resources);
-        const occupiedExpansionsPlacementGrid = [...occupiedExpansions.map(expansion => expansion.areas.placementGrid)];
-        const placementGrids = [];
-        occupiedExpansionsPlacementGrid.forEach(grid => placementGrids.push(...grid));
-        placements = placementGrids
-          .filter((point) => {
-            return (
-              (distance(natural.townhallPosition, point) > 4.5) &&
-              (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
-              (natural.areas.hull.every(hp => distance(hp, point) > 3)) &&
-              (this.units.getStructures({ alliance: Alliance.SELF })
-                .map(u => u.pos)
-                .every(eb => distance(eb, point) > 3))
-            );
-          });
-      } else {
-        let pylonsNearProduction;
-        if (this.units.getById(PYLON).length === 1) {
-          pylonsNearProduction = this.units.getById(PYLON);
-        } else {
-          pylonsNearProduction = this.units.getById(PYLON)
-            .filter(u => u.buildProgress >= 1)
-            .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
-        }
-        pylonsNearProduction.forEach(pylon => {
-          placements.push(...gridsInCircle(pylon.pos, 6.5));
-        })
-        placements = placements.filter((point) => {
-          return (
-            (distance(natural.townhallPosition, point) > 5) &&
-            (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
-            (natural.areas.hull.every(hp => distance(hp, point) > 2)) &&
-            (this.units.getStructures({ alliance: Alliance.SELF })
-              .map(u => u.pos)
-              .every(eb => distance(eb, point) > 3))
-          );
-        });
-      }
-    } else if (race === Race.TERRAN) {
-      const placementGrids = [];
-      getOccupiedExpansions(this.world.resources).forEach(expansion => {
-        placementGrids.push(...expansion.areas.placementGrid);
-      });
-      placements = placementGrids
-        .filter(point => getBuildingFootprintOfOrphanAddons(units).every(pos => distance(pos, point) > 3))
-        .map(pos => ({ pos, rand: Math.random() }))
-        .sort((a, b) => a.rand - b.rand)
-        .map(a => a.pos)
-        .slice(0, 20);
-    } else if (race === Race.ZERG) {
-      placements = map.getCreep()
-        .filter((point) => {
-          const [closestMineralLine] = getClosestPosition(point, mainMineralLine);
-          const [closestStructure] = units.getClosest(point, units.getStructures());
-          const [closestTownhallPosition] = getClosestPosition(point, map.getExpansions().map(expansion => expansion.townhallPosition));
-          return (
-            distance(point, closestMineralLine) > 1.5 &&
-            distance(point, closestStructure.pos) > 3 &&
-            distance(point, closestStructure.pos) <= 12.5 &&
-            distance(point, closestTownhallPosition) > 3
-          );
-        });
-    }
-    return placements;
   }
 
   findMineralLines() {
@@ -710,7 +638,8 @@ class AssemblePlan {
             this.unitType = unitType;
             const enemyBuild = planStep[5];
             if (enemyBuild && this.state.enemyBuildType !== enemyBuild && !this.earlyScout) { break; }
-            await this.build(foodTarget, unitType, targetCount, planStep[4] ? await this[planStep[4]](unitType) : []);
+            const candidatePositions = planStep[4] ? await getCandidatePositions(this.resources, planStep[4], unitType) : [];
+            await this.build(foodTarget, unitType, targetCount, candidatePositions);
             break;
           case 'buildWorkers': if (!planService.isPlanPaused) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
           case 'continuouslyBuild':
