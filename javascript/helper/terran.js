@@ -37,6 +37,7 @@ const terran = {
         }
       }
       if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
+        unit.labels.set('addAddOn', false);
         const unitCommand = {
           abilityId: Ability.LIFT,
           unitTags: [unit.tag],
