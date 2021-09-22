@@ -94,7 +94,7 @@ const armyBehavior = {
   getInRangeDestructables: (units, selfUnit) => {
     let tag = null;
     const ROCKS = [373, 638, 639, 640, 643];
-    const DEBRIS = [364, 365, 376];
+    const DEBRIS = [364, 365, 376, 377];
     const destructableRockTypes = [...DEBRIS, ...ROCKS];
     const destructableRockUnits = units.getAlive(Alliance.NEUTRAL).filter(unit => destructableRockTypes.includes(unit.unitType));
     const [closestDestructable] = units.getClosest(selfUnit.pos, destructableRockUnits).filter(destructableRockUnit => distance(selfUnit.pos, destructableRockUnit.pos) < 16);
