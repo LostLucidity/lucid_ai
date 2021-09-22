@@ -13,8 +13,6 @@ const { getClosestPosition } = require('../get-closest');
 const planService = require('../../services/plan-service');
 const { findWallOffPlacement } = require('../../systems/wall-off-ramp/wall-off-ramp-service');
 const getRandom = require('@node-sc2/core/utils/get-random');
-const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
-const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
 
 const placementHelper = {
   findPosition: async (resources, unitType, candidatePositions) => {
@@ -27,14 +25,14 @@ const placementHelper = {
       .slice(0, 20);
     let foundPosition = await actions.canPlace(unitType, randomPositions);
     const unitTypeName = Object.keys(UnitType).find(type => UnitType[type] === unitType);
-    if (foundPosition && unitTypeName) {
-      console.log(`FoundPosition for ${unitTypeName}`, foundPosition);
-    } else {
+    if (!foundPosition) {
       const [pylon] = units.getById(PYLON);
       if (pylon && pylon.buildProgress < 1) {
-        foundPosition = getRandom(candidatePositions.filter(position => cellsInFootprint(position, getFootprint(unitType)).every(cell => distance(cell, pylon.pos) <= 6.5) && map.isPlaceableAt(unitType, position)));
+        foundPosition = getRandom(candidatePositions.filter(position => map.isPlaceableAt(unitType, position)));
       }
     }
+    if (foundPosition) console.log(`FoundPosition for ${unitTypeName}`, foundPosition);
+    else console.log(`Could not find position for ${unitTypeName}`);
     return foundPosition;
   },
   findPlacements: async (world, unitType) => {
