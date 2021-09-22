@@ -13,6 +13,7 @@ const { getClosestPosition } = require('../get-closest');
 const planService = require('../../services/plan-service');
 const { findWallOffPlacement } = require('../../systems/wall-off-ramp/wall-off-ramp-service');
 const getRandom = require('@node-sc2/core/utils/get-random');
+const { existsInMap } = require('../location');
 
 const placementHelper = {
   findPosition: async (resources, unitType, candidatePositions) => {
@@ -69,16 +70,14 @@ const placementHelper = {
             .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
         }
         pylonsNearProduction.forEach(pylon => {
-          placements.push(...gridsInCircle(pylon.pos, 6.5));
+          placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid)));
         })
         placements = placements.filter((point) => {
           return (
             (distance(natural.townhallPosition, point) > 5) &&
             (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
             (natural.areas.hull.every(hp => distance(hp, point) > 2)) &&
-            (units.getStructures({ alliance: Alliance.SELF })
-              .map(u => u.pos)
-              .every(eb => distance(eb, point) > 3))
+            map.isPlaceableAt(unitType, point)
           );
         });
       }
