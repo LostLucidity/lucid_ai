@@ -3,17 +3,18 @@
 
 const Ability = require("@node-sc2/core/constants/ability");
 const { EFFECT_SCAN, CANCEL_QUEUECANCELTOSELECTION } = require("@node-sc2/core/constants/ability");
-const { liftingAbilities, landingAbilities, townhallTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
+const { liftingAbilities, landingAbilities, townhallTypes, rallyWorkersAbilities, addonTypes } = require("@node-sc2/core/constants/groups");
 const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
-const { setPendingOrders } = require("../helper");
+const { setPendingOrders, checkBuildingCount } = require("../helper");
 const planService = require("../services/plan-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
-const { getAddOnPlacement } = require("./placement/placement-utilities");
+const { countTypes } = require("./groups");
+const { getAddOnPlacement, getAddOnBuildingPosition } = require("./placement/placement-utilities");
 
-module.exports = {
+const terran = {
   addAddOn: async (world, unit, abilityId, addOnType) => {
     const { actions, map } = world.resources.get();
     if (unit.noQueue && !unit.labels.has('swapBuilding')) {
@@ -53,7 +54,7 @@ module.exports = {
             targetWorldSpacePos: foundPosition
           }
           await actions.sendAction(unitCommand);
-          planService.pauseBuilding = false;
+          planService.pausePlan = false;
           setPendingOrders(unit, unitCommand);
         }
       }
@@ -103,7 +104,6 @@ module.exports = {
         }
       }
     }
-
   },
   scanCloakedEnemy: (units, target, selfUnits) => {
     const collectedActions = []
@@ -126,5 +126,66 @@ module.exports = {
       }
     }
     return collectedActions;
-  }
+  },
+  swapBuildings: async (world, conditions = []) => {
+    // get first building, if addon get building offset
+    const { actions, units } = world.resources.get();
+    const label = 'swapBuilding';
+    let buildingsToSwap = [...conditions].map((condition, index) => {
+      const addOnValue = `addOn${index}`;
+      const unitType = condition[0];
+      let [building] = units.withLabel(label).filter(unit => unit.labels.get(label) === index);
+      if (!checkBuildingCount(world, unitType, condition[1]) && !building) { return };
+      let [addOn] = units.withLabel(label).filter(unit => unit.labels.get(label) === addOnValue);
+      if (!building) {
+        if (addonTypes.includes(unitType)) {
+          [addOn] = addOn ? [addOn] : units.getById(unitType).filter(unit => unit.buildProgress >= 1);
+          const [building] = addOn ? units.getClosest(getAddOnBuildingPosition(addOn.pos), units.getStructures()) : [];
+          if (addOn && building) {
+            addOn.labels.set(label, addOnValue);
+            building.labels.set(label, index);
+            return building;
+          }
+        } else {
+          const [building] = units.getById(countTypes.get(unitType)).filter(unit => unit.noQueue && (unit.addOnTag === '0' || unit.addOnTag === 0) && unit.buildProgress >= 1);
+          if (building) {
+            building.labels.set(label, index);
+            return building;
+          }
+        }
+      } else {
+        return building;
+      }
+    });
+    if (buildingsToSwap.every(building => building)) {
+      if (buildingsToSwap.every(building => building.noQueue && !building.labels.has('pendingOrders'))) {
+        if (buildingsToSwap.every(building => building.availableAbilities().find(ability => liftingAbilities.includes(ability)))) {
+          await actions.do(Ability.LIFT, buildingsToSwap[0].tag);
+          await actions.do(Ability.LIFT, buildingsToSwap[1].tag);
+        }
+        if (buildingsToSwap.every(building => building.availableAbilities().find(ability => landingAbilities.includes(ability)))) {
+          await actions.do(Ability.LAND, buildingsToSwap[0].tag, { target: buildingsToSwap[1].pos });
+          await actions.do(Ability.LAND, buildingsToSwap[1].tag, { target: buildingsToSwap[0].pos });
+        }
+      }
+      terran.removeLabelsWhenInTargetRange(units.withLabel(label), label);
+    } else {
+      units.withLabel(label).forEach((building) => {
+        building.labels.delete(label);
+      });
+    }
+  },
+  removeLabelsWhenInTargetRange: (buildings, label) => {
+    buildings.forEach((building) => {
+      if (building.orders.length > 0) {
+        const foundOrder = building.orders.find(order => landingAbilities.includes(order.abilityId));
+        if (foundOrder && foundOrder.targetWorldSpacePos && distance(building.pos, foundOrder.targetWorldSpacePos) < 1) {
+          console.log('remove label', label);
+          building.labels.delete(label);
+        }
+      }
+    });
+  },
 }
+
+module.exports = terran;

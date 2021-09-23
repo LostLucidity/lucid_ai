@@ -5,12 +5,14 @@ const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { setEnemySupplyPowers, setSelfSupplyPowers, setSelfDPSHealthPower, setEnemyDPSHealthPower } = require("../../services/shared-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
+const { setSelfCombatSupply } = require("./track-units-service");
 const trackUnitsService = require("./track-units-service");
 
 module.exports = createSystem({
   name: 'TrackUnitsSystem',
   type: 'agent',
-  async onStep({ data, resources }) {
+  async onStep(world) {
+    const { data, resources } = world;
     const { units } = resources.get();
     const currentUnits = units.getAlive(Alliance.SELF);
     var inCurrent = {};
@@ -21,6 +23,7 @@ module.exports = createSystem({
     trackUnitsService.missingUnits = trackUnitsService.missingUnits.filter(unit => !currentUnits.some(currentUnit => currentUnit.tag === unit.tag));
     trackUnitsService.previousUnits = currentUnits;
     let selfUnits = [...currentUnits, ...trackUnitsService.missingUnits];
+    setSelfCombatSupply(world);
     trackUnitsService.selfUnits = selfUnits;
     setSelfSupplyPowers(data, selfUnits)
     setEnemySupplyPowers(data, selfUnits, enemyTrackingService.enemyUnits);

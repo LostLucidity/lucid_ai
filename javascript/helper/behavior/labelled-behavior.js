@@ -23,7 +23,8 @@ module.exports = {
     if (unit) {
       const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(enemyUnit => !(unit.unitType === LARVA) && distance(enemyUnit.pos, unit.pos) < 16);
       const combatUnits = units.getCombatUnits().filter(combatUnit => {
-        if (combatUnit.isAttacking()) {
+        if (combatUnit.tag === unit.tag) return true;
+        else if (combatUnit.isAttacking()) {
           const foundOrder = combatUnit.orders.find(order => order.abilityId === ATTACK_ATTACK && units.getByTag(order.targetUnitTag));
           const targetPosition = foundOrder ? units.getByTag(foundOrder.targetUnitTag).pos : combatUnit.orders.find(order => order.abilityId === ATTACK_ATTACK).targetWorldSpacePos;
           return distance(targetPosition, unit.pos) < 16;
@@ -65,7 +66,8 @@ module.exports = {
     }
     return collectedActions;
   },
-  scoutEnemyMainBehavior: async ({ data, resources }, opponentRace) => {
+  scoutEnemyMainBehavior: async (world, opponentRace) => {
+    const { data, resources } = world;
     const { actions, map, units } = resources.get();
     const [unit] = units.withLabel('scoutEnemyMain');
     const collectedActions = [];

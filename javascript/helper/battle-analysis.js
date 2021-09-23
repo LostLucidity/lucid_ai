@@ -12,17 +12,27 @@ module.exports = {
   calculateHealthAdjustedSupply: (data, units) => {
     return units.reduce((accumulator, currentValue) => {
       const halfFood = data.getUnitTypeData(currentValue.unitType).foodRequired / 2;
-      return accumulator + (halfFood) + (halfFood  * calculateTotalHealthRatio(currentValue));
+      return accumulator + (halfFood) + (halfFood * calculateTotalHealthRatio(currentValue));
     }, 0);
   },
   calculateNearDPSHealth: (data, units) => {
     return units.reduce((accumulator, unit) => {
       const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
-      let dpsHeath = 0;
+      let dPSHealth = 0;
       if (weapon) {
-        dpsHeath = weapon.damage * weapon.speed * (unit.health + unit.shield);
+        dPSHealth = weapon.damage / weapon.speed * (unit.health + unit.shield);
       }
-      return accumulator + dpsHeath;
+      return accumulator + dPSHealth;
+    }, 0);
+  },
+  getDPSOfInRangeAntiAirUnits: (data, unit) => {
+    return unit.selfUnits.reduce((accumulator, unit) => {
+      let dPS = 0;
+      if (unit.canShootUp()) {
+        const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
+        if (weapon) { dPS = weapon.damage / weapon.speed; }
+      }
+      return accumulator + dPS;
     }, 0);
   },
   getInRangeUnits: (unit, targetUnits) => {
@@ -30,11 +40,11 @@ module.exports = {
   },
   getInRangeDestructables: (units, selfUnit) => {
     let tag = null;
-    const ROCKS = [ 373, 638, 639, 640, 643 ];
-    const DEBRIS = [ 364, 365, 376 ];
-    const destructableRockTypes = [ ...DEBRIS, ...ROCKS];
+    const ROCKS = [373, 638, 639, 640, 643];
+    const DEBRIS = [364, 365, 376];
+    const destructableRockTypes = [...DEBRIS, ...ROCKS];
     const destructableRockUnits = units.getAlive(Alliance.NEUTRAL).filter(unit => destructableRockTypes.includes(unit.unitType));
-    const [ closestDestructable ] = units.getClosest(selfUnit.pos, destructableRockUnits).filter(destructableRockUnit => distance(selfUnit.pos, destructableRockUnit.pos) < 16);
+    const [closestDestructable] = units.getClosest(selfUnit.pos, destructableRockUnits).filter(destructableRockUnit => distance(selfUnit.pos, destructableRockUnit.pos) < 16);
     if (closestDestructable) {
       tag = closestDestructable.tag;
     }

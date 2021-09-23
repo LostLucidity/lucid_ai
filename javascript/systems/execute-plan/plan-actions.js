@@ -35,11 +35,11 @@ module.exports = {
         let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
         const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
         await actions.sendAction([unitCommand]);
-        planService.pauseBuilding = false;
+        planService.pausePlan = false;
         planService.continueBuild = true;
       } else {
         unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-        planService.pauseBuilding = true;
+        planService.pausePlan = true;
         planService.continueBuild = false;
       }
     }
@@ -57,17 +57,17 @@ module.exports = {
             if (map.freeGasGeysers().length > 0) {
               if (agent.canAfford(unitType)) {
                 await actions.buildGasMine();
-                planService.pauseBuilding = false;
+                planService.pausePlan = false;
               } else {
                 collectedActions.push(...workerSendOrBuild(resources, MOVE, map.freeGasGeysers()[0].pos));
                 await balanceForFuture(world, unitType)
-                planService.pauseBuilding = true;
+                planService.pausePlan = true;
                 planService.continueBuild = false;
               }
             }
           } catch (error) {
             console.log(error);
-            planService.pauseBuilding = true;
+            planService.pausePlan = true;
             planService.continueBuild = false;
           }
           break;
@@ -99,7 +99,7 @@ module.exports = {
             await addAddOn(world, unitCanDo, abilityId, unitType)
           } else {
             await balanceForFuture(world, unitType);
-            planService.pauseBuilding = true;
+            planService.pausePlan = true;
             planService.continueBuild = false;
           }
           break;
@@ -128,19 +128,19 @@ module.exports = {
           if (warpGates.length > 0) {
             await warpIn(resources, this, unitType);
           } else {
-            planService.pauseBuilding = true;
+            planService.pausePlan = true;
             return;
           }
         }
-        planService.pauseBuilding = false;
+        planService.pausePlan = false;
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
         if (!agent.canAfford(unitType)) {
-          console.log(`${agent.foodUsed}: Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.pauseBuilding);
+          console.log(`${agent.foodUsed}: Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
           await balanceForFuture(world, unitType);
         }
-        planService.pauseBuilding = true;
+        planService.pausePlan = true;
         planService.continueBuild = false;
       }
     }
@@ -157,10 +157,10 @@ module.exports = {
         if (upgrader) {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
-          planService.pauseBuilding = false;
+          planService.pausePlan = false;
         } else {
           await balanceForFuture(world, upgradeId);
-          planService.pauseBuilding = true;
+          planService.pausePlan = true;
           planService.continueBuild = false;
         }
       }
@@ -204,25 +204,25 @@ async function findAndPlaceBuilding(world, unitType, candidatePositions) {
     if (agent.canAfford(unitType)) {
       if (await actions.canPlace(unitType, [planService.foundPosition])) {
         await actions.sendAction(workerSendOrBuild(resources, data.getUnitTypeData(unitType).abilityId, planService.foundPosition));
-        planService.pauseBuilding = false;
+        planService.pausePlan = false;
         planService.continueBuild = false;
         planService.foundPosition = null;
       } else {
         planService.foundPosition = null;
-        planService.pauseBuilding = true;
+        planService.pausePlan = true;
         planService.continueBuild = false;
       }
     } else {
       collectedActions.push(...workerSendOrBuild(resources, MOVE, planService.foundPosition));
       await balanceForFuture(world, unitType);
-      planService.pauseBuilding = true;
+      planService.pausePlan = true;
       planService.continueBuild = false;
     }
   } else {
     const [pylon] = units.getById(PYLON);
     if (pylon && pylon.buildProgress < 1) {
       collectedActions.push(...workerSendOrBuild(resources, MOVE, pylon.pos));
-      planService.pauseBuilding = true;
+      planService.pausePlan = true;
       planService.continueBuild = false;
     }
   }

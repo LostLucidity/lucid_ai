@@ -7,6 +7,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getSupply } = require("../../helper");
 const { morphMapping } = require("../../helper/groups");
+const { existsInMap } = require("../../helper/location");
 
 const enemyTrackingService = {
   enemyUnits: [],
@@ -25,8 +26,8 @@ const enemyTrackingService = {
   clearOutdatedMappedUnits: (resources) => {
     const { map, units } = resources.get();
     enemyTrackingService.mappedEnemyUnits.forEach(unit => {
-      const visibleCandidates = gridsInCircle(unit.pos, 1).filter(grid => {
-        if (grid.y >= 1) {
+      const visibleCandidates = gridsInCircle(unit.pos, 1, { normalize: true }).filter(grid => {
+        if (existsInMap) {
           if (!unit.isFlying) { return map.isPathable(unit.pos); } else { return true; }
         }
       });

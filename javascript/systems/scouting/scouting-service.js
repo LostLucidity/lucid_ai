@@ -3,11 +3,21 @@
 
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { PROBE } = require("@node-sc2/core/constants/unit-type");
+const { getEnemyCombatSupply } = require("../enemy-tracking/enemy-tracking-service");
+const trackUnitsService = require("../track-units/track-units-service");
 
 const scoutService = {
   earlyScout: true,
   enemyBuildType: null,
+  enemyCombatSupply: 0,
+  outsupplied: false,
   scoutReport: null,
+  setEnemyCombatSupply: (data) => {
+    scoutService.enemyCombatSupply = getEnemyCombatSupply(data);
+  },
+  setOutsupplied: () => {
+    scoutService.outsupplied = scoutService.enemyCombatSupply > trackUnitsService.selfCombatSupply;
+  },
   setScout: (units, location, unitType, label) => {
     let [unit] = units.getClosest(
       location,

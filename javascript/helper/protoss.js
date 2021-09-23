@@ -7,6 +7,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { workerSendOrBuild } = require("../helper");
+const scoutService = require("../systems/scouting/scouting-service");
 const { getOccupiedExpansions } = require("./expansions");
 const { getCombatRally } = require("./location");
 const { findPosition } = require("./placement/placement-helper");
@@ -48,13 +49,13 @@ module.exports = {
     }
   },
   restorePower: async ({ data, resources }) => {
-    const { actions, units } = resources.get();
+    const { units } = resources.get();
     const collectedActions = [];
     const selfPowered = [ NEXUS, PYLON, ASSIMILATOR ];
     const unpoweredStructure = getRandom(units.getStructures().filter(structure => !structure.isPowered && !selfPowered.includes(structure.unitType) && structure.buildProgress >= 1));
     if (unpoweredStructure) {
       const candidatePositions = gridsInCircle(unpoweredStructure.pos, 6.5 - unpoweredStructure.radius);
-      const foundPosition = await findPosition(actions, unpoweredStructure.unitType, candidatePositions);
+      const foundPosition = await findPosition(resources, unpoweredStructure.unitType, candidatePositions);
       if (foundPosition) {
         collectedActions.push(...workerSendOrBuild(resources, data.getUnitTypeData(PYLON).abilityId, foundPosition));
       }
@@ -64,7 +65,7 @@ module.exports = {
   warpIn: async (resources, assemblePlan, unitType) => {
     const { actions } = resources.get();
     let nearPosition;
-    if (assemblePlan.state.defenseMode && assemblePlan.outSupplied) {
+    if (assemblePlan.state.defenseMode && scoutService.outsupplied) {
       nearPosition = module.exports.findWarpInLocations(resources);
     } else {
       nearPosition = getCombatRally(resources);

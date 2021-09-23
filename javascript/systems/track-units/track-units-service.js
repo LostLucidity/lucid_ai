@@ -2,6 +2,7 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { combatTypes } = require("@node-sc2/core/constants/groups");
 const { getSupply, getTrainingSupply } = require("../../helper");
 const { morphMapping } = require("../../helper/groups");
 const planService = require("../../services/plan-service");
@@ -9,7 +10,9 @@ const planService = require("../../services/plan-service");
 const trackUnitsService = {
   previousUnits: [],
   missingUnits: [],
+  inFieldSelfSupply: 0,
   selfUnits: [],
+  selfCombatSupply: 0,
   checkUnitCount: ({ data, resources }, unitType, targetCount) => {
     const { units } = resources.get();
     const orders = [];
@@ -27,14 +30,16 @@ const trackUnitsService = {
     const unitCount = units.getById(unitTypes).length + orders.length + unitsWithPendingOrders.length + trackUnitsService.missingUnits.filter(unit => unit.unitType === unitType).length;
     return unitCount === targetCount;
   },
-  getSelfCombatSupply: (world) => {
+  setSelfCombatSupply: (world) => {
     const { data, resources } = world;
-    return getSupply(data, resources.get().units.getCombatUnits()) + getTrainingSupply(world, planService.trainingTypes) + trackUnitsService.missingUnits.reduce((foodCount, missingUnit) => {
+    trackUnitsService.inFieldSelfSupply = getSupply(data, (resources.get().units.getCombatUnits()));
+    const { inFieldSelfSupply, missingUnits } = trackUnitsService;
+    trackUnitsService.selfCombatSupply = inFieldSelfSupply + getTrainingSupply(world, combatTypes) + missingUnits.reduce((foodCount, missingUnit) => {
       if (missingUnit.isCombatUnit()) {
         return foodCount + data.getUnitTypeData(missingUnit.unitType).foodRequired;
       } else {
-        return foodCount
-      }
+        return   foodCount  
+      }       
     }, 0);
   }
 }

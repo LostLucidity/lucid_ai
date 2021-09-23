@@ -33,6 +33,7 @@ const swapBuildingSystem = require('./systems/swap-building-system');
 const liftToThirdSystem = require('./systems/lift-to-third-system');
 const loggingSystem = require('./systems/logging-system');
 const boGeneratorSystem = require('./systems/bo-generator-system');
+const scoutingSystem = require('./systems/scouting/scouting-system');
 
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -157,15 +158,18 @@ function runGame() {
   const bot1 = createAgent(blueprint);
   const legacySystems = [
     entry,
+    scoutingSystem,
     workerBalanceSystem,
     enemyTrackingSystem,
     trackUnitsSystem,
     debugSystem,
     loggingSystem,
+    workerTrainingSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,
     wallOffRampSystem,
+    scoutingSystem,
     workerTrainingSystem,
     unitTrainingSystem,
     executePlanSystem,

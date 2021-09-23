@@ -3,8 +3,7 @@
 
 const { TECHLAB, REACTOR, PYLON } = require("@node-sc2/core/constants/unit-type");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { createPoint2D, distance } = require("@node-sc2/core/utils/geometry/point");
-const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getAddOnBuildingPlacement } = require("../helper/placement/placement-utilities");
 
 const placementService = {
@@ -12,8 +11,7 @@ const placementService = {
     const { map, units } = resources.get()
     const [pylon] = units.getById(PYLON);
     return [
-      pylon,
-      pylon.buildProgress < 1,
+      pylon && pylon.buildProgress < 1,
       map.isPlaceableAt(unitType, position),
     ].every(condition => condition)
   },

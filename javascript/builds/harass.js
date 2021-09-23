@@ -4,14 +4,13 @@
 const { STALKER, EGG, LARVA, HATCHERY, COMMANDCENTER, ORBITALCOMMAND, NEXUS } = require("@node-sc2/core/constants/unit-type");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
+const microService = require("../services/micro-service");
+const { microRangedUnit } = require("../services/micro-service");
 
 module.exports = {
-  harass: async (resources, state) => {
-    const {
-      actions,
-      map,
-      units
-    } = resources.get();
+  harass: async (world, state) => {
+    const { data, resources } = world;
+    const { actions, map, units } = resources.get();
     const label = 'harasser';
     if (units.getByType(STALKER).length == 4 && units.withLabel(label).length === 0) {
       state.harassOn = true;
@@ -33,17 +32,19 @@ module.exports = {
           !(unit.unitType === NEXUS)
         )
       });
-      let [ closestEnemyUnit ] = units.getClosest(averagePoints, enemyUnits, 1);
+      let [closestEnemyUnit] = units.getClosest(averagePoints, enemyUnits, 1);
       if (units.withLabel(label).filter(harasser => harasser.labels.get(label)).length === 4) {
         if (closestEnemyUnit && distance(closestEnemyUnit.pos, averagePoints) <= 8) {
-          return actions.attack(harassers, closestEnemyUnit);
+          const harasserActions = [];
+          harassers.forEach(harasser => harasserActions.push(...microRangedUnit(data, harasser, closestEnemyUnit)));
+          return actions.sendAction(harasserActions);
         } else {
           return actions.attackMove(harassers, map.getEnemyNatural().townhallPosition);
         }
       } else {
         if (!closestEnemyUnit || distance(closestEnemyUnit.pos, averagePoints) > 8) {
           state.harassOn = false;
-          harassers.forEach(harasser => harasser.labels.set(label, false));
+          harassers.forEach(harasser => harasser.labels.delete(label));
         }
         return actions.move(harassers, map.getCombatRally());
       }

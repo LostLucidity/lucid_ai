@@ -3,7 +3,7 @@
 
 const { WarpUnitAbility } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
-const { WARPGATE } = require("@node-sc2/core/constants/unit-type");
+const { WARPGATE, LARVA } = require("@node-sc2/core/constants/unit-type");
 const shortOnWorkers = require("../../helper/short-on-workers");
 
 const unitTrainingService = {
@@ -28,15 +28,16 @@ const unitTrainingService = {
   },
   workersTrainingTendedTo: (world) => {
     const { agent, resources } = world;
-    if (agent.race !== Race.ZERG) {
-      return [
-        (
-          resources.get().units.getBases(Alliance.SELF).filter(base => base.buildProgress >= 1 && base.isIdle()).length === 0 &&
-          shortOnWorkers(resources)
-        ),
-        agent.minerals > 512,
-      ].some(condition => condition);
-    }
+    const { units } = resources.get();
+    const idleBases = units.getBases(Alliance.SELF).filter(base => base.buildProgress >= 1 && base.isIdle()).length > 0;
+    const idleLarva = units.getById(LARVA).length > 0;
+    return [
+      agent.minerals > 512,
+      (
+        (!idleBases || !idleLarva) &&
+        !shortOnWorkers(resources)
+      ),
+    ].some(condition => condition);
   },
 }
 

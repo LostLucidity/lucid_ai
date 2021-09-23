@@ -5,10 +5,13 @@ const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { supplyTypes } = require("../helper/groups");
 
 const planService = {
+  set pausePlan(value) {
+    planService.isPlanPaused = value;
+  },
   continueBuild: null,
   currentStep: null,
   foundPosition: null,
-  pauseBuilding: null,
+  isPlanPaused: null,
   plan: null,
   planMax: {
     gasMine: null,
@@ -18,6 +21,9 @@ const planService = {
     planService.plan = plan;
     planService.planMax.supplyDepot = Math.max.apply(Math, plan.filter(step => supplyTypes.includes(step.unitType)).map(step => { return step.food; }));
     planService.planMax.gasMine = Math.max.apply(Math, plan.filter(step => gasMineTypes.includes(step.unitType)).map(step => { return step.food; }));
+  },
+  getNextPlanStep: (planOrders, foodUsed) => {
+    return planOrders.find(order => Number.isInteger(order[0]) && order[0] > foodUsed);
   },
   scouting: [],
   trainingTypes: null,

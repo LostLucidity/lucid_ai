@@ -2,9 +2,21 @@
 "use strict"
 
 const { MOVE } = require("@node-sc2/core/constants/ability");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 
 module.exports = {
+  cancelEarlyScout: (units, scoutReport) => {
+    const earlyScouts = units.getAlive(Alliance.SELF).filter(unit => {
+      return unit.labels.has('scoutEnemyMain') || unit.labels.has('scoutEnemyNatural');
+    });
+    if (earlyScouts.length > 0) {
+      earlyScouts.forEach(earlyScout => {
+        earlyScout.labels.clear();
+        earlyScout.labels.set('clearFromEnemy', true);
+      });
+    }
+  },
   generalScouting: async (world, unit) => {
     const { actions, map, units } = world.resources.get();
     const collectedActions = [];

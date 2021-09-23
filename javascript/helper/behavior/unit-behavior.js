@@ -14,8 +14,9 @@ const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
-const { mineralFieldTypes } = require("@node-sc2/core/constants/groups");
 const { gatherOrMine } = require("../../systems/manage-resources");
+const { pullWorkersToDefend } = require("../../services/army-management-service");
+const { isRepairing } = require("../../services/units-service");
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action) => {
@@ -30,12 +31,12 @@ module.exports = {
         const randomExpansion = getRandom(expansions);
         if (randomExpansion) {
           if (action === EFFECT_CALLDOWNMULE) {
-            const [ closestMineralField ] = units.getClosest(randomExpansion.townhallPosition, units.getMineralFields());
+            const [closestMineralField] = units.getClosest(randomExpansion.townhallPosition, units.getMineralFields());
             if (closestMineralField) {
               const unitCommand = {
                 abilityId: EFFECT_CALLDOWNMULE,
                 targetUnitTag: closestMineralField.tag,
-                unitTags: [ orbitalCommand.tag ],
+                unitTags: [orbitalCommand.tag],
               }
               collectedActions.push(unitCommand);
             }
@@ -48,7 +49,7 @@ module.exports = {
         const unitCommand = {
           abilityId: EFFECT_SCAN,
           targetWorldSpacePos: randomCloak.pos,
-          unitTags: [ orbitalCommand.tag ],
+          unitTags: [orbitalCommand.tag],
         }
         collectedActions.push(unitCommand);
       }
@@ -62,19 +63,19 @@ module.exports = {
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType) && !(unit.isStructure()));
     units.getByType(LIBERATOR).filter(liberator => {
-      let [ closestEnemyUnit ] = units.getClosest(liberator.pos, enemyUnits, 1);
+      let [closestEnemyUnit] = units.getClosest(liberator.pos, enemyUnits, 1);
       if (closestEnemyUnit && !closestEnemyUnit.isFlying) {
         collectedActions.push(...triggerAbilityByDistance(liberator, closestEnemyUnit.pos, '<', 10, MORPH_LIBERATORAGMODE, 'target'));
       }
     });
     units.getByType(LIBERATORAG).filter(liberator => {
-      let [ closestEnemyUnit ] = units.getClosest(liberator.pos, enemyUnits, 1);
+      let [closestEnemyUnit] = units.getClosest(liberator.pos, enemyUnits, 1);
       if (closestEnemyUnit && !closestEnemyUnit.isFlying) {
         collectedActions.push(...triggerAbilityByDistance(liberator, closestEnemyUnit.pos, '>', 10, MORPH_LIBERATORAAMODE));
       } else if (!closestEnemyUnit) {
         const unitCommand = {
           abilityId: MORPH_LIBERATORAAMODE,
-          unitTags: [ liberator.tag ],
+          unitTags: [liberator.tag],
         }
         collectedActions.push(unitCommand);
       }
@@ -88,9 +89,9 @@ module.exports = {
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
     units.getByType(MARINE).filter(marine => {
-      let [ closestEnemyUnit ] = units.getClosest(marine.pos, enemyUnits, 1);
+      let [closestEnemyUnit] = units.getClosest(marine.pos, enemyUnits, 1);
       if (closestEnemyUnit) {
-        if (marine.health / marine.healthMax === 1 && marine.abilityAvailable(EFFECT_STIM_MARINE)) {     
+        if (marine.health / marine.healthMax === 1 && marine.abilityAvailable(EFFECT_STIM_MARINE)) {
           collectedActions.push(...triggerAbilityByDistance(marine, closestEnemyUnit.pos, '<', 5, EFFECT_STIM_MARINE));
         }
       }
@@ -104,25 +105,25 @@ module.exports = {
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
     units.getByType(MARAUDER).filter(marauder => {
-      let [ closestEnemyUnit ] = units.getClosest(marauder.pos, enemyUnits, 1);
+      let [closestEnemyUnit] = units.getClosest(marauder.pos, enemyUnits, 1);
       if (closestEnemyUnit) {
-        if (marauder.health / marauder.healthMax === 1 && marauder.abilityAvailable(EFFECT_STIM_MARINE)) {     
+        if (marauder.health / marauder.healthMax === 1 && marauder.abilityAvailable(EFFECT_STIM_MARINE)) {
           collectedActions.push(...triggerAbilityByDistance(marauder, closestEnemyUnit.pos, '<', 6, EFFECT_STIM_MARINE));
         }
       }
     });
     return collectedActions;
   },
-  observerBehavior: (resources, data) => {
+  observerBehavior: (world) => {
     const collectedActions = [];
-    const { units } = resources.get()
-    collectedActions.push(...shadowEnemy(data, resources, units.getById(OBSERVER)));
+    const { units } = world.resources.get()
+    collectedActions.push(...shadowEnemy(world, units.getById(OBSERVER)));
     return collectedActions;
   },
-  overlordBehavior: (resources, data) => {
+  overlordBehavior: (world) => {
     const collectedActions = [];
-    const { units } = resources.get()
-    collectedActions.push(...shadowEnemy(data, resources, units.getById([OVERLORD, OVERSEER])));
+    const { units } = world.resources.get()
+    collectedActions.push(...shadowEnemy(world, units.getById([OVERLORD, OVERSEER])));
     return collectedActions;
   },
   supplyDepotBehavior: (resources) => {
@@ -132,8 +133,8 @@ module.exports = {
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
     units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).filter(depot => {
-      const unitCommand = { unitTags: [ depot.tag ], }
-      let [ closestEnemyUnit ] = units.getClosest(depot.pos, enemyUnits, 1);
+      const unitCommand = { unitTags: [depot.tag], }
+      let [closestEnemyUnit] = units.getClosest(depot.pos, enemyUnits, 1);
       if (closestEnemyUnit && distance(closestEnemyUnit.pos, depot.pos) < 16) {
         unitCommand.abilityId = MORPH_SUPPLYDEPOT_RAISE
         collectedActions.push(unitCommand);
@@ -157,13 +158,13 @@ module.exports = {
     } else {
       const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
       units.getByType(SIEGETANK).filter(tank => {
-        let [ closestEnemyUnit ] = units.getClosest(tank.pos, enemyUnits, 1);
+        let [closestEnemyUnit] = units.getClosest(tank.pos, enemyUnits, 1);
         if (closestEnemyUnit) {
           collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit.pos, '<', 13, MORPH_SIEGEMODE));
         }
       });
       units.getById(SIEGETANKSIEGED).filter(tank => {
-        let [ closestEnemyUnit ] = units.getClosest(tank.pos, enemyUnits, 1);
+        let [closestEnemyUnit] = units.getClosest(tank.pos, enemyUnits, 1);
         if (closestEnemyUnit) {
           collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit.pos, '>', 13, MORPH_UNSIEGE));
         }
@@ -172,14 +173,14 @@ module.exports = {
     return collectedActions;
   },
   workerBehavior: async ({ agent, data, resources }) => {
-    const { frame, units} = resources.get();
+    const { frame, units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
     const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !isRepairing(unit));
     if (enemyUnits.length > 0) {
       for (const worker of workers) {
-        let [ closestEnemyUnit ] = units.getClosest(worker.pos, enemyUnits.filter(unit => !unit.isStructure()), 1);
-        if (!closestEnemyUnit) { [ closestEnemyUnit ] = units.getClosest(worker.pos, units.getStructures(Alliance.ENEMY), 1) }
+        let [closestEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(unit => !unit.isStructure()), 1);
+        if (!closestEnemyUnit) { [closestEnemyUnit] = units.getClosest(worker.pos, units.getStructures(Alliance.ENEMY), 1) }
         const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
         if (distanceToClosestEnemy < 16) {
           const inRangeSelfCombatUnits = getInRangeUnits(worker, units.getCombatUnits(Alliance.SELF));
@@ -197,7 +198,7 @@ module.exports = {
               const unitCommand = {
                 abilityId: MOVE,
                 targetWorldSpacePos: position,
-                unitTags: [ worker.tag ],
+                unitTags: [worker.tag],
               }
               collectedActions.push(unitCommand);
             } else {
@@ -215,33 +216,14 @@ module.exports = {
                   continue;
                 }
               }
-              const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
-              const fighters = units.getClosest(closestEnemyUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
-              if (fighters.find(fighter => fighter.tag === worker.tag)) {
-                const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(worker.pos, mineralField.pos) < distance(closestEnemyUnit.pos, mineralField.pos));
-                const [closestCandidateMineral] = units.getClosest(worker.pos, candidateMinerals);
-                const retreatCommand = {
-                  abilityId: HARVEST_GATHER,
-                  targetUnitTag: closestCandidateMineral.tag,
-                  unitTags: [ worker.tag ],
-                  queueCommand: false,
-                }
-                console.log('inRangeEnemySupply', inRangeEnemySupply, 'inRangeWorkerSupply', inRangeWorkerSupply);
-                collectedActions.push(...micro(enemyUnits, worker, closestEnemyUnit, retreatCommand))
-              } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === closestEnemyUnit.tag) {
-                await gatherOrMine(resources, worker);
-              }
-            } 
-          } 
+              collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits));
+            }
+          }
         }
       };
     }
     return collectedActions;
   }
-}
-
-function isRepairing(unit) {
-  return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
 }
 
 function triggerAbilityByDistance(unit, target, operator, range, abilityId, pointType) {
@@ -250,44 +232,15 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
     const unitCommand = {};
     if (operator === '>' && distance(unit.pos, target) > range) {
       unitCommand.abilityId = abilityId;
-      unitCommand.unitTags = [ unit.tag ];
+      unitCommand.unitTags = [unit.tag];
     } else if (operator === '<' && distance(unit.pos, target) < range) {
       unitCommand.abilityId = abilityId;
-      unitCommand.unitTags = [ unit.tag ];
+      unitCommand.unitTags = [unit.tag];
     }
     if (pointType === 'target') {
       unitCommand.targetWorldSpacePos = target;
     }
     collectedActions.push(unitCommand);
-  }
-  return collectedActions;
-}
-
-function micro(enemyUnits, unit, targetUnit, retreatCommand) {
-  const collectedActions = [];
-  // if cool down and fighting melee move back
-  const microConditions = [
-    targetUnit.isMelee(),
-    (distance(unit.pos, targetUnit.pos) + 0.05) - (unit.radius + targetUnit.radius) < 0.5,
-    isFacing(targetUnit, unit),
-  ]
-  if (
-    [...microConditions, unit.weaponCooldown > 12].every(condition => condition) ||
-    [...microConditions, (unit.health + unit.shield) < (targetUnit.health + targetUnit.shield)].every(condition => condition)
-  ) {
-    console.log('unit.weaponCooldown', unit.weaponCooldown);
-    console.log('distance(unit.pos, targetUnit.pos)', distance(unit.pos, targetUnit.pos));
-    collectedActions.push(retreatCommand);
-  } else {
-    const inRangeMeleeEnemyUnits = enemyUnits.filter(enemyUnit => enemyUnit.isMelee() && ((distance(unit.pos, enemyUnit.pos) + 0.05) - (unit.radius + enemyUnit.radius) < 0.25));
-    const [ weakestInRange ] = inRangeMeleeEnemyUnits.sort((a, b) => (a.health + a.shield) - (b.health + b.shield));
-    targetUnit = weakestInRange || targetUnit;
-    const unitCommand = {
-      abilityId: ATTACK_ATTACK,
-      targetUnitTag: targetUnit.tag,
-      unitTags: [ unit.tag ],
-    }
-    collectedActions.push(unitCommand);  
   }
   return collectedActions;
 }

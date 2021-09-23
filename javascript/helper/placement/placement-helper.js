@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { distance, add } = require('@node-sc2/core/utils/geometry/point');
+const { distance, add, avgPoints } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { UnitType } = require('@node-sc2/core/constants');
@@ -13,10 +13,21 @@ const { getClosestPosition } = require('../get-closest');
 const planService = require('../../services/plan-service');
 const { findWallOffPlacement } = require('../../systems/wall-off-ramp/wall-off-ramp-service');
 const getRandom = require('@node-sc2/core/utils/get-random');
-const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
-const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
+const { existsInMap } = require('../location');
 
 const placementHelper = {
+  findMineralLines: (resources) => {
+    const { map, units } = resources.get();
+    const occupiedExpansions = map.getOccupiedExpansions()
+    const mineralLineCandidates = [];
+    occupiedExpansions.forEach(expansion => {
+      const [base] = units.getClosest(expansion.townhallPosition, units.getBases());
+      if (base) {
+        mineralLineCandidates.push(...gridsInCircle(avgPoints([...expansion.cluster.mineralFields.map(field => field.pos), base.pos, base.pos]), 0.6))
+      }
+    });
+    return mineralLineCandidates;
+  },
   findPosition: async (resources, unitType, candidatePositions) => {
     const { actions, map, units } = resources.get();
     if (flyingTypesMapping.has(unitType)) { unitType = flyingTypesMapping.get(unitType); }
@@ -27,14 +38,14 @@ const placementHelper = {
       .slice(0, 20);
     let foundPosition = await actions.canPlace(unitType, randomPositions);
     const unitTypeName = Object.keys(UnitType).find(type => UnitType[type] === unitType);
-    if (foundPosition && unitTypeName) {
-      console.log(`FoundPosition for ${unitTypeName}`, foundPosition);
-    } else {
+    if (!foundPosition) {
       const [pylon] = units.getById(PYLON);
       if (pylon && pylon.buildProgress < 1) {
-        foundPosition = getRandom(candidatePositions.filter(position => cellsInFootprint(position, getFootprint(unitType)).every(cell => distance(cell, pylon.pos) <= 6.5) && map.isPlaceableAt(unitType, position)));
+        foundPosition = getRandom(candidatePositions.filter(position => map.isPlaceableAt(unitType, position)));
       }
     }
+    if (foundPosition) console.log(`FoundPosition for ${unitTypeName}`, foundPosition);
+    else console.log(`Could not find position for ${unitTypeName}`);
     return foundPosition;
   },
   findPlacements: async (world, unitType) => {
@@ -71,16 +82,14 @@ const placementHelper = {
             .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
         }
         pylonsNearProduction.forEach(pylon => {
-          placements.push(...gridsInCircle(pylon.pos, 6.5));
+          placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid)));
         })
         placements = placements.filter((point) => {
           return (
             (distance(natural.townhallPosition, point) > 5) &&
             (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
             (natural.areas.hull.every(hp => distance(hp, point) > 2)) &&
-            (units.getStructures({ alliance: Alliance.SELF })
-              .map(u => u.pos)
-              .every(eb => distance(eb, point) > 3))
+            map.isPlaceableAt(unitType, point)
           );
         });
       }
@@ -121,36 +130,39 @@ const placementHelper = {
     const { map } = resources.get();
     // front of natural pylon for great justice
     const naturalWall = map.getNatural().getWall();
-    let possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
-        .filter(point => naturalWall.every(wallCell => (
-            (distance(wallCell, point) <= 6.5) &&
-            (distance(wallCell, point) >= 3)
-        )));
-  
+    let possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
+      .filter(point => naturalWall.every(wallCell => (
+        (distance(wallCell, point) <= 6.5) &&
+        (distance(wallCell, point) >= 3)
+      )));
+
     if (possiblePlacements.length <= 0) {
-        possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
-            .map(point => {
-                point.coverage = naturalWall.filter(wallCell => (
-                    (distance(wallCell, point) <= 6.5) &&
-                    (distance(wallCell, point) >= 1)
-                )).length;
-                return point;
-            })
-            .sort((a, b) => b.coverage - a.coverage)
-            .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
+      possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
+        .map(point => {
+          point.coverage = naturalWall.filter(wallCell => (
+            (distance(wallCell, point) <= 6.5) &&
+            (distance(wallCell, point) >= 1)
+          )).length;
+          return point;
+        })
+        .sort((a, b) => b.coverage - a.coverage)
+        .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
     }
-  
+
     return possiblePlacements;
+  },
+  getCandidatePositions: async (resources, positions, unitType) => {
+    return typeof positions === 'string' ? await placementHelper[positions](resources, unitType) : positions
   },
   getBetweenBaseAndWall: async (resources, unitType) => {
     const { actions, map } = resources.get();
     const pathCandidates = map.path(add(map.getNatural().townhallPosition, 3), add(map.getEnemyMain().townhallPosition, 3)).slice(0, 10).map(pathItem => ({ 'x': pathItem[0], 'y': pathItem[1] }));
-    return [ await actions.canPlace(unitType, pathCandidates) ];
+    return [await actions.canPlace(unitType, pathCandidates)];
   },
   inTheMain: async (resources, unitType) => {
     const { actions, map } = resources.get();
     const candidatePositions = map.getMain().areas.areaFill
-    return [ await actions.canPlace(unitType, candidatePositions) ];
+    return [await actions.canPlace(unitType, candidatePositions)];
   }
 }
 

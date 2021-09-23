@@ -6,6 +6,10 @@ const { avgPoints, add } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 module.exports = {
+  existsInMap: (map, position) => {
+    const { height } = map._grids;
+    return height.hasOwnProperty(position.y) && height[position.y].hasOwnProperty(position.x);
+  },
   getCombatRally: (resources) => {
     const { map, units } = resources.get();
     return map.getNatural() ? map.getCombatRally() : module.exports.getRallyPointByBases(map, units);

@@ -37,7 +37,7 @@ module.exports = createSystem({
           targetWorldSpacePos: building.labels.get('swapBuilding')
         }
         await actions.sendAction(unitCommand);
-        planService.pauseBuilding = false;
+        planService.pausePlan = false;
         setPendingOrders(building, unitCommand);
       }
     }
