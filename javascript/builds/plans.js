@@ -17,8 +17,6 @@ const plans = {
         supportUnitTypes: [ CYCLONE, LIBERATOR, MEDIVAC, VIKINGFIGHTER ],
       },
       orders: [
-        [[...range(0, 21)], 'buildWorkers'],
-        [[...range(21, 200)], 'buildWorkers', true],
         [14, 'build', SUPPLYDEPOT, 0],
         [16, 'build', BARRACKS, 0],
         [16, 'build', REFINERY, 0],
