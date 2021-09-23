@@ -96,7 +96,7 @@ const placementHelper = {
     } else if (race === Race.TERRAN) {
       const placementGrids = [];
       const wallOffUnitTypes = [SUPPLYDEPOT, BARRACKS];
-      if (planService.wallOff && wallOffUnitTypes.includes(unitType)) {
+      if (wallOffUnitTypes.includes(unitType)) {
         const wallOffPositions = findWallOffPlacement(unitType);
         if (wallOffPositions.length > 0 && await actions.canPlace(unitType, wallOffPositions)) {
           return wallOffPositions;

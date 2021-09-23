@@ -165,6 +165,7 @@ function runGame() {
     debugSystem,
     loggingSystem,
     workerTrainingSystem,
+    wallOffRampSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,
