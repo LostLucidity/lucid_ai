@@ -26,7 +26,7 @@ const { expand } = require("./general-actions");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
 const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
-const { getBetweenBaseAndWall, findPosition, inTheMain, getCandidatePositions, findPlacements } = require("./placement/placement-helper");
+const { getMiddleOfNaturalWall, findPosition, inTheMain, getCandidatePositions, findPlacements } = require("./placement/placement-helper");
 const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
 const { liftToThird, addAddOn, swapBuildings } = require("./terran");
@@ -380,8 +380,8 @@ class AssemblePlan {
     }
   }
 
-  async getBetweenBaseAndWall(unitType) {
-    return await getBetweenBaseAndWall(this.resources, unitType);
+  async getMiddleOfNaturalWall(unitType) {
+    return await getMiddleOfNaturalWall(this.resources, unitType);
   };
 
   async inTheMain(unitType) {

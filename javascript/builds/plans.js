@@ -29,7 +29,7 @@ const plans = {
         [20, 'build', FACTORY, 0],
         [21, 'train', MARINE, 0],
         [21, 'train', MARINE, 1],
-        [24, 'build', BUNKER, 0, 'getBetweenBaseAndWall', 'cheese'],
+        [24, 'build', BUNKER, 0, 'getMiddleOfNaturalWall', 'cheese'],
         [31, 'ability', MORPH_ORBITALCOMMAND, { targetCount: 1, countType: countTypes.get(ORBITALCOMMAND) } ],
         [31, 'build', FACTORYTECHLAB, 0],
         [33, 'build', STARPORT, 0],

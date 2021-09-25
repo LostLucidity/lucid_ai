@@ -14,6 +14,7 @@ const enemyTrackingService = require("./enemy-tracking/enemy-tracking-service");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { LARVA } = require("@node-sc2/core/constants/unit-type");
 const { getBuildingFootprintOfOrphanAddons } = require("../services/placement-service");
+const pathingService = require("../services/pathing-service");
 const debugDrawWalls = require('debug')('sc2:DrawDebugWalls');
 
 let setDebug = false;
@@ -22,7 +23,9 @@ module.exports = createSystem({
   name: 'Debug',
   type: 'agent',
   async onGameStart(world) { },
-  async onStep(world) { },
+  async onStep(world) {
+    paintMapFromArrayOfPositions(world, 'bunkerCandidates', pathingService.pathCandidates);
+  },
 });
 
 function debugPositions(world) {
@@ -277,4 +280,16 @@ function calculateWall(world, expansion) {
       ));
     });
   }
+}
+
+function paintMapFromArrayOfPositions(world, label, positions) {
+  const { debug } = world.resources.get();
+  debug.setDrawCells(label, positions.reduce((cells, position) => {
+    cells.push({
+      pos: position,
+      text: `${position.x},${position.y}`,
+      color: Color.Yellow,
+    });
+    return cells;
+  }, []), { persistText: true });
 }

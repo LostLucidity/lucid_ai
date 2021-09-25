@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { distance, add, avgPoints } = require('@node-sc2/core/utils/geometry/point');
+const { distance, avgPoints } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { UnitType } = require('@node-sc2/core/constants');
@@ -13,6 +13,7 @@ const { getClosestPosition } = require('../get-closest');
 const { findWallOffPlacement } = require('../../systems/wall-off-ramp/wall-off-ramp-service');
 const getRandom = require('@node-sc2/core/utils/get-random');
 const { existsInMap } = require('../location');
+const pathingService = require('../../services/pathing-service');
 
 const placementHelper = {
   findMineralLines: (resources) => {
@@ -136,7 +137,7 @@ const placementHelper = {
           (distance(wallCell, point) <= 6.5) &&
           (distance(wallCell, point) >= 3)
         )));
-  
+
       if (possiblePlacements.length <= 0) {
         possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
           .map(point => {
@@ -155,10 +156,11 @@ const placementHelper = {
   getCandidatePositions: async (resources, positions, unitType) => {
     return typeof positions === 'string' ? await placementHelper[positions](resources, unitType) : positions
   },
-  getBetweenBaseAndWall: async (resources, unitType) => {
+  getMiddleOfNaturalWall: async (resources, unitType) => {
     const { actions, map } = resources.get();
-    const pathCandidates = map.path(add(map.getNatural().townhallPosition, 3), add(map.getEnemyMain().townhallPosition, 3)).slice(0, 10).map(pathItem => ({ 'x': pathItem[0], 'y': pathItem[1] }));
-    return [await actions.canPlace(unitType, pathCandidates)];
+    const wallPositions = map.getNatural().getWall().filter(wallPosition => map.isPlaceableAt(unitType, wallPosition));
+    const middleOfWall = getClosestPosition(avgPoints(wallPositions), wallPositions, 2);
+    return [await actions.canPlace(unitType, middleOfWall)];
   },
   inTheMain: async (resources, unitType) => {
     const { actions, map } = resources.get();

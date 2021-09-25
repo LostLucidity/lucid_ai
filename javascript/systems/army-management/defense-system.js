@@ -8,7 +8,7 @@ const { salvageBunker } = require("../../builds/terran/salvage-bunker");
 const canAfford = require("../../helper/can-afford");
 const { getClosestUnitByPath } = require("../../helper/get-closest-by-path");
 const { getCombatRally } = require("../../helper/location");
-const { getBetweenBaseAndWall } = require("../../helper/placement/placement-helper");
+const { getMiddleOfNaturalWall } = require("../../helper/placement/placement-helper");
 const armyManagementService = require("../../services/army-management-service");
 const { getCombatPoint, attackWithArmy, engageOrRetreat } = require("../../services/army-management-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
@@ -89,7 +89,7 @@ async function defenseSetup({ agent, data, resources }) {
           if (naturalWall) {
             if (canAfford(agent, data, BUNKER)) {
               try {
-                const [foundPosition] = await getBetweenBaseAndWall(resources, BUNKER);
+                const [foundPosition] = await getMiddleOfNaturalWall(resources, BUNKER);
                 if (foundPosition) {
                   await actions.build(BUNKER, foundPosition);
                 }

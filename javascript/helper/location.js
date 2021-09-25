@@ -5,19 +5,19 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints, add } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
-module.exports = {
+const location = {
   existsInMap: (map, position) => {
     const { height } = map._grids;
     return height.hasOwnProperty(position.y) && height[position.y].hasOwnProperty(position.x);
   },
   getCombatRally: (resources) => {
     const { map, units } = resources.get();
-    return map.getNatural() ? map.getCombatRally() : module.exports.getRallyPointByBases(map, units);
+    return map.getNatural() ? map.getCombatRally() : location.getRallyPointByBases(map, units);
   },
   getRallyPointByBases: (map, units) => {
     const averageBasePosition = avgPoints(units.getBases().map(base => base.pos))
     let [ closestEnemyBase ] = units.getClosest(averageBasePosition, units.getBases(Alliance.ENEMY), 1);
-    let enemyBaseLocation = closestEnemyBase ? closestEnemyBase.pos : map.getEnemyMain() ? map.getEnemyMain().townhallPosition : module.exports.getRandomPoint(map);
+    let enemyBaseLocation = closestEnemyBase ? closestEnemyBase.pos : map.getEnemyMain() ? map.getEnemyMain().townhallPosition : location.getRandomPoint(map);
     const rallyPointByBases = avgPoints([...units.getBases().map(base => base.pos), enemyBaseLocation]);
     return rallyPointByBases;
   },
@@ -30,7 +30,7 @@ module.exports = {
   getRandomPoints: (map, numberOfPoints, area=null) => {
     const points = [];
     for (let point = 0; point < numberOfPoints; point++) {
-      points.push(area ? getRandom(area) : module.exports.getRandomPoint(map));
+      points.push(area ? getRandom(area) : location.getRandomPoint(map));
     }
     return points;
   },
@@ -47,3 +47,5 @@ module.exports = {
     return targetPosition;
   }
 }
+
+module.exports = location;

@@ -6,7 +6,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { Race } = require('@node-sc2/core/constants/enums');
 const canAfford = require("../helper/can-afford");
-const { getBetweenBaseAndWall } = require("../helper/placement/placement-helper");
+const { getMiddleOfNaturalWall } = require("../helper/placement/placement-helper");
 
 module.exports = async function defenseSetup({ agent, data, resources }, state) {
   const {
@@ -23,7 +23,7 @@ module.exports = async function defenseSetup({ agent, data, resources }, state) 
           const natural = map.getNatural();
           const naturalWall = natural.getWall();
           if (naturalWall) {
-            const foundPosition = getBetweenBaseAndWall(resources, BUNKER);
+            const foundPosition = getMiddleOfNaturalWall(resources, BUNKER);
             if (foundPosition) {
               try {
                 if (canAfford(agent, data, BUNKER)) {
