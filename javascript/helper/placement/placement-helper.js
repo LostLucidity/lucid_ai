@@ -10,7 +10,6 @@ const { PYLON, SUPPLYDEPOT, BARRACKS } = require('@node-sc2/core/constants/unit-
 const { getOccupiedExpansions } = require('../expansions');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 const { getClosestPosition } = require('../get-closest');
-const planService = require('../../services/plan-service');
 const { findWallOffPlacement } = require('../../systems/wall-off-ramp/wall-off-ramp-service');
 const getRandom = require('@node-sc2/core/utils/get-random');
 const { existsInMap } = require('../location');
@@ -129,26 +128,28 @@ const placementHelper = {
   findSupplyPositions: (resources) => {
     const { map } = resources.get();
     // front of natural pylon for great justice
+    let possiblePlacements = [];
     const naturalWall = map.getNatural().getWall();
-    let possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
-      .filter(point => naturalWall.every(wallCell => (
-        (distance(wallCell, point) <= 6.5) &&
-        (distance(wallCell, point) >= 3)
-      )));
-
-    if (possiblePlacements.length <= 0) {
+    if (naturalWall) {
       possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
-        .map(point => {
-          point.coverage = naturalWall.filter(wallCell => (
-            (distance(wallCell, point) <= 6.5) &&
-            (distance(wallCell, point) >= 1)
-          )).length;
-          return point;
-        })
-        .sort((a, b) => b.coverage - a.coverage)
-        .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
+        .filter(point => naturalWall.every(wallCell => (
+          (distance(wallCell, point) <= 6.5) &&
+          (distance(wallCell, point) >= 3)
+        )));
+  
+      if (possiblePlacements.length <= 0) {
+        possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
+          .map(point => {
+            point.coverage = naturalWall.filter(wallCell => (
+              (distance(wallCell, point) <= 6.5) &&
+              (distance(wallCell, point) >= 1)
+            )).length;
+            return point;
+          })
+          .sort((a, b) => b.coverage - a.coverage)
+          .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
+      }
     }
-
     return possiblePlacements;
   },
   getCandidatePositions: async (resources, positions, unitType) => {
