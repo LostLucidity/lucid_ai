@@ -9,9 +9,14 @@ const planService = {
     planService.isPlanPaused = value;
   },
   continueBuild: null,
-  currentStep: null,
+  currentStep: 0,
+  getFoodUsed: (foodused) => {
+    return foodused + planService.pendingFood;
+  },
   foundPosition: null,
   isPlanPaused: null,
+  legacyPlan: null,
+  pendingFood: 0,
   plan: null,
   planMax: {
     gasMine: null,
@@ -22,8 +27,8 @@ const planService = {
     planService.planMax.supplyDepot = Math.max.apply(Math, plan.filter(step => supplyTypes.includes(step.unitType)).map(step => { return step.food; }));
     planService.planMax.gasMine = Math.max.apply(Math, plan.filter(step => gasMineTypes.includes(step.unitType)).map(step => { return step.food; }));
   },
-  getNextPlanStep: (planOrders, foodUsed) => {
-    return planOrders.find(order => Number.isInteger(order[0]) && order[0] > foodUsed);
+  getNextPlanStep: (foodUsed) => {
+    return planService.legacyPlan.find(order => Number.isInteger(order[0]) && order[0] > foodUsed);
   },
   scouting: [],
   trainingTypes: null,

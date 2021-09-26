@@ -41,7 +41,7 @@ const { getStringNameOfConstant } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers, deleteLabel } = require("../services/units-service");
 const planService = require("../services/plan-service");
-const { getNextPlanStep } = require("../services/plan-service");
+const { getNextPlanStep, getFoodUsed } = require("../services/plan-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
@@ -55,7 +55,7 @@ class AssemblePlan {
   constructor(plan) {
     this.collectedActions = [];
     this.foundPosition = null;
-    this.planOrders = plan.orders;
+    planService.legacyPlan = plan.orders;
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
     this.defenseTypes = plan.unitTypes.defenseTypes;
     this.defenseStructures = plan.unitTypes.defenseStructures;
@@ -94,7 +94,7 @@ class AssemblePlan {
     const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
     if (trainUnitConditions.some(condition => condition)) {
       scoutService.outsupplied ? console.log('Scouted higher supply', selfCombatSupply, scoutingService.enemyCombatSupply) : console.log('Free build mode.');
-      const nextStep = getNextPlanStep(this.planOrders, this.foodUsed);
+      const nextStep = getNextPlanStep(this.foodUsed);
       const haveProductionAndTechForTypes = this.defenseTypes.filter(type => {
         return [
           haveAvailableProductionUnitsFor(world, type),
@@ -123,7 +123,7 @@ class AssemblePlan {
       if (!scoutService.outsupplied || selfCombatSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
     }
     if (this.agent.minerals > 512) { this.manageSupply(); }
-    if (this.foodUsed >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(world)); }
+    if (getFoodUsed(this.foodUsed) >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(world)); }
     this.checkEnemyBuild();
     let completedBases = this.units.getBases().filter(base => base.buildProgress >= 1);
     if (completedBases.length >= 3) {
@@ -152,7 +152,7 @@ class AssemblePlan {
   }
 
   async ability(food, abilityId, conditions) {
-    if (this.foodUsed >= food) {
+    if (getFoodUsed(this.foodUsed) >= food) {
       if (conditions === undefined || conditions.targetType || conditions.targetCount === this.units.getById(conditions.countType).length + this.units.withCurrentOrders(abilityId).length) {
         if (conditions && conditions.targetType && conditions.continuous === false) { if (this.foodUsed !== food) { return; } }
         let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
@@ -188,7 +188,7 @@ class AssemblePlan {
     }
   }
   async build(food, unitType, targetCount, candidatePositions = []) {
-    if (this.foodUsed >= food) {
+    if (getFoodUsed(this.foodUsed) >= food) {
       if (checkBuildingCount(this.world, unitType, targetCount)) {
         switch (true) {
           case GasMineRace[race] === unitType:
@@ -509,7 +509,7 @@ class AssemblePlan {
     }
   }
   async train(food, unitType, targetCount) {
-    if (this.foodUsed >= food) {
+    if (getFoodUsed(this.foodUsed) >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
       if (checkUnitCount(this.world, unitType, targetCount) || targetCount === null) {
         if (canBuild(this.agent, this.world.data, unitType)) {
@@ -529,6 +529,7 @@ class AssemblePlan {
             }
             await actions.sendAction([unitCommand]);
             setPendingOrders(trainer, unitCommand);
+            planService.pendingFood += this.data.getUnitTypeData(unitType).foodRequired;
           } else {
             abilityId = WarpUnitAbility[unitType];
             const warpGates = this.units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
@@ -555,7 +556,7 @@ class AssemblePlan {
     }
   }
   async upgrade(food, upgradeId) {
-    if (this.foodUsed >= food) {
+    if (getFoodUsed(this.foodUsed) >= food) {
       const upgradeName = getStringNameOfConstant(Upgrade, upgradeId)
       upgradeId = mismatchMappings[upgradeName] ? Upgrade[mismatchMappings[upgradeName]] : Upgrade[upgradeName];
       const upgraders = this.units.getUpgradeFacilities(upgradeId);
@@ -579,9 +580,10 @@ class AssemblePlan {
 
   async runPlan() {
     planService.continueBuild = true;
-    for (let step = 0; step < this.planOrders.length; step++) {
+    planService.pendingFood = 0;
+    for (let step = 0; step < planService.legacyPlan.length; step++) {
       if (planService.continueBuild) {
-        const planStep = this.planOrders[step];
+        const planStep = planService.legacyPlan[step];
         let targetCount = planStep[3];
         const foodTarget = planStep[0];
         let conditions;
@@ -605,8 +607,8 @@ class AssemblePlan {
             const foodRanges = planStep[0];
             if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
           case 'harass': if (this.state.enemyBuildType === 'standard') { await harass(this.world, this.state); } break;
-          case 'liftToThird': if (this.foodUsed >= foodTarget) { await liftToThird(this.resources); break; }
-          case 'maintainQueens': if (this.foodUsed >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
+          case 'liftToThird': if (getFoodUsed(this.foodUsed) >= foodTarget) { await liftToThird(this.resources); break; }
+          case 'maintainQueens': if (getFoodUsed(this.foodUsed) >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
           case 'push': this.push(foodTarget); break;
           case 'scout':
@@ -627,7 +629,7 @@ class AssemblePlan {
             try { await this.train(foodTarget, unitType, targetCount); } catch (error) { console.log(error) } break;
           case 'swapBuildings':
             conditions = planStep[2];
-            if (this.foodUsed >= foodTarget) { await swapBuildings(this.world, conditions); }
+            if (getFoodUsed(this.foodUsed) >= foodTarget) { await swapBuildings(this.world, conditions); }
             break;
           case 'upgrade':
             const upgradeId = planStep[2];
