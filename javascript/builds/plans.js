@@ -222,7 +222,6 @@ const plans = {
         supportUnitTypes: [ OBSERVER, WARPPRISM ],
       },
       orders: [
-        [[...range(0, 27), ...range(30, 41)], 'buildWorkers'],
         [14, 'build', PYLON, 0, 'findSupplyPositions'],
         [[...range(14, 19)], 'scout', PROBE, 'getEnemyMain', { unitType: PYLON, unitCount: 1, scoutType: 'earlyScout' }],
         [15, 'build', GATEWAY, 0],
@@ -254,7 +253,6 @@ const plans = {
         [37, 'train', STALKER, 4],  
         [[...range(37, 44)], 'scout', OBSERVER, 'getEnemyNatural'],
         [39, 'train', STALKER, 5],
-        [[...range(41, 200)], 'buildWorkers', true],
         [45, 'train', IMMORTAL, 0],
         [51, 'build', ASSIMILATOR, 2],
         [51, 'build', ASSIMILATOR, 3],

@@ -4,8 +4,6 @@
 const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, BARRACKS, SPAWNINGPOOL, GATEWAY, ZERGLING, PHOTONCANNON, PROBE } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
-const { frontOfGrid } = require("@node-sc2/core/utils/map/region");
-const buildWorkers = require("./build-workers");
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const canBuild = require("./can-afford");
 const isSupplyNeeded = require("./supply");
@@ -244,17 +242,7 @@ class AssemblePlan {
       }
     }
   }
-  async buildWorkers(foodRanges, controlled = false) {
-    if (foodRanges.indexOf(this.foodUsed) > -1) {
-      if (controlled) {
-        if (!scoutingService.outsupplied && (this.units.getBases().length <= 2 || !this.resourceTrigger) && shortOnWorkers(this.resources)) {
-          try { await buildWorkers(this.agent, this.data, this.world.resources); } catch (error) { console.log(error); }
-        }
-      } else {
-        try { await buildWorkers(this.agent, this.data, this.world.resources); } catch (error) { console.log(error); }
-      }
-    }
-  }
+
   async buildBuilding(unitType, candidatePositions) {
     this.foundPosition = this.foundPosition ? this.foundPosition : await findPosition(this.resources, unitType, candidatePositions);
     if (this.foundPosition) {
@@ -602,7 +590,6 @@ class AssemblePlan {
             const candidatePositions = planStep[4] ? await getCandidatePositions(this.resources, planStep[4], unitType) : [];
             await this.build(foodTarget, unitType, targetCount, candidatePositions);
             break;
-          case 'buildWorkers': if (!planService.isPlanPaused) { await this.buildWorkers(planStep[0], planStep[2] ? planStep[2] : null); } break;
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
             if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
