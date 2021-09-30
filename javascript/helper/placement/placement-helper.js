@@ -158,9 +158,14 @@ const placementHelper = {
   },
   getMiddleOfNaturalWall: async (resources, unitType) => {
     const { actions, map } = resources.get();
-    const wallPositions = map.getNatural().getWall().filter(wallPosition => map.isPlaceableAt(unitType, wallPosition));
-    const middleOfWall = getClosestPosition(avgPoints(wallPositions), wallPositions, 2);
-    return [await actions.canPlace(unitType, middleOfWall)];
+    const naturalWall = map.getNatural().getWall();
+    let candidates = [];
+    if (naturalWall) {
+      const wallPositions = naturalWall.filter(wallPosition => map.isPlaceableAt(unitType, wallPosition));
+      const middleOfWall = getClosestPosition(avgPoints(wallPositions), wallPositions, 2);
+      candidates = [await actions.canPlace(unitType, middleOfWall)];
+    }
+    return candidates;
   },
   inTheMain: async (resources, unitType) => {
     const { actions, map } = resources.get();
