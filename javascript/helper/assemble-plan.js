@@ -451,7 +451,8 @@ class AssemblePlan {
       const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().centroid : locationHelper[targetLocationFunction](this.map);
       const label = conditions && conditions.label ? conditions.label : 'scout';
       let labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
-      if (labelledScouts.length === 0) {
+      const hasOrderToTargetLocation = labelledScouts.filter(scout => scout.orders.find(order => distance(order.targetWorldSpacePos, targetLocation) < 16)).length > 0;
+      if (!hasOrderToTargetLocation) {
         if (conditions) {
           if (conditions.scoutType && !this[conditions.scoutType]) { return; }
           if (conditions.unitType) {
@@ -491,7 +492,7 @@ class AssemblePlan {
       console.log(unit.orders[0] && unit.orders[0].abilityId)
       unit.labels.clear();
       if (!unit.labels.get(label)) {
-        unit.labels.set(label, true);
+        unit.labels.set(label, location);
         console.log(`Set ${label}`);
       }
     }
