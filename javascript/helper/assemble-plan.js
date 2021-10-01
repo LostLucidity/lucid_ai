@@ -39,7 +39,7 @@ const { getStringNameOfConstant } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers, deleteLabel } = require("../services/units-service");
 const planService = require("../services/plan-service");
-const { getNextPlanStep, getFoodUsed } = require("../services/plan-service");
+const { getNextPlanStep, getFoodUsed, addEarmark } = require("../services/plan-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
@@ -138,6 +138,7 @@ class AssemblePlan {
     }
     const label = 'pendingOrders';
     this.units.withLabel(label).forEach(unit => unit.labels.delete(label));
+    this.data.get('earmarks').forEach(earmark => this.data.settleEarmark(earmark.name));
     await actions.sendAction(this.collectedActions);
   }
 
@@ -248,10 +249,12 @@ class AssemblePlan {
     if (this.foundPosition) {
       if (this.agent.canAfford(unitType)) {
         if (await actions.canPlace(unitType, [this.foundPosition])) {
-          await actions.sendAction(workerSendOrBuild(this.resources, this.data.getUnitTypeData(unitType).abilityId, this.foundPosition));
+          const unitTypeData = this.data.getUnitTypeData(unitType);
+          await actions.sendAction(workerSendOrBuild(this.resources, unitTypeData.abilityId, this.foundPosition));
           planService.pausePlan = false;
           planService.continueBuild = false;
           this.foundPosition = null;
+          addEarmark(this.data, unitTypeData);
         } else {
           this.foundPosition = keepPosition(this.resources, unitType, this.foundPosition) ? this.foundPosition : null;
           if (this.foundPosition) { this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition)); }
@@ -511,6 +514,7 @@ class AssemblePlan {
             ) &&
               unit.abilityAvailable(abilityId);
           });
+          const unitTypeData = this.data.getUnitTypeData(unitType);
           if (trainer) {
             const unitCommand = {
               abilityId,
@@ -518,7 +522,7 @@ class AssemblePlan {
             }
             await actions.sendAction([unitCommand]);
             setPendingOrders(trainer, unitCommand);
-            planService.pendingFood += this.data.getUnitTypeData(unitType).foodRequired;
+            planService.pendingFood += unitTypeData.foodRequired;
           } else {
             abilityId = WarpUnitAbility[unitType];
             const warpGates = this.units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
@@ -532,6 +536,7 @@ class AssemblePlan {
           planService.pausePlan = false;
           this.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
+          addEarmark(this.data, unitTypeData);
         } else {
           if (!this.agent.canAfford(unitType)) {
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
@@ -549,7 +554,8 @@ class AssemblePlan {
       const upgradeName = getStringNameOfConstant(Upgrade, upgradeId)
       upgradeId = mismatchMappings[upgradeName] ? Upgrade[mismatchMappings[upgradeName]] : Upgrade[upgradeName];
       const upgraders = this.units.getUpgradeFacilities(upgradeId);
-      const { abilityId } = this.data.getUpgradeData(upgradeId);
+      const upgradeData = this.data.getUpgradeData(upgradeId);
+      const { abilityId } = upgradeData;
       const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
       if (!this.agent.upgradeIds.includes(upgradeId) && foundUpgradeInProgress === undefined) {
         const upgrader = this.units.getUpgradeFacilities(upgradeId).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
@@ -557,6 +563,8 @@ class AssemblePlan {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
           planService.pausePlan = false;
+          addEarmark(this.data, upgradeData);
+          console.log(`Upgrading ${upgradeName}`);
         } else {
           const { mineralCost, vespeneCost } = this.data.getUpgradeData(upgradeId);
           await balanceResources(this.world, mineralCost / vespeneCost);
@@ -571,6 +579,7 @@ class AssemblePlan {
     planService.continueBuild = true;
     planService.pendingFood = 0;
     for (let step = 0; step < planService.legacyPlan.length; step++) {
+      planService.currentStep = step;
       if (planService.continueBuild) {
         const planStep = planService.legacyPlan[step];
         let targetCount = planStep[3];
@@ -625,7 +634,6 @@ class AssemblePlan {
             break;
         }
       } else {
-        planService.currentStep = step;
         break;
       }
     }

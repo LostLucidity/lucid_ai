@@ -8,6 +8,7 @@ const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { setPendingOrders, checkBuildingCount } = require("../helper");
+const { addEarmark } = require("../services/plan-service");
 const planService = require("../services/plan-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
@@ -28,6 +29,7 @@ const terran = {
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
           setPendingOrders(unit, unitCommand);
+          addEarmark(world.data, world.data.getUnitTypeData(addOnType));
           return;
         }
       }
@@ -56,6 +58,7 @@ const terran = {
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
           setPendingOrders(unit, unitCommand);
+          addEarmark(world.data, addOnType);
         }
       }
     }

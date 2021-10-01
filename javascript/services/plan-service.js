@@ -8,6 +8,13 @@ const planService = {
   set pausePlan(value) {
     planService.isPlanPaused = value;
   },
+  addEarmark: (data, orderData) => {
+    data.addEarmark({
+      name: `${planService.currentStep}`,
+      minerals: orderData.mineralCost,
+      vespene: orderData.vespeneCost,
+    });
+  },
   continueBuild: null,
   currentStep: 0,
   getFoodUsed: (foodused) => {
