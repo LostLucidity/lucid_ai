@@ -6,9 +6,8 @@ function shortOnWorkers(resources) {
   let assignedHarvesters = 0
   const townhalls = units.getBases();
   townhalls.forEach(townhall => {
-    idealHarvesters += townhall.idealHarvesters;
+    idealHarvesters += townhall.idealHarvesters + 3;
     assignedHarvesters += townhall.assignedHarvesters;
-    if (townhall.buildProgress < 1) { idealHarvesters += 3; }
   });
   return idealHarvesters >= assignedHarvesters;
 }
