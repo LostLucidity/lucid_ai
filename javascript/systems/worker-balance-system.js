@@ -7,6 +7,7 @@ const { createSystem } = require('@node-sc2/core');
 const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
+const planService = require('../services/plan-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
 
 module.exports = createSystem({
@@ -18,7 +19,7 @@ module.exports = createSystem({
   },
   async onStep(world) {
     const { units, actions } = world.resources.get();
-    balanceResources(world);
+    if (!planService.isPlanPaused) { balanceResources(world) };
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
 
     const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
