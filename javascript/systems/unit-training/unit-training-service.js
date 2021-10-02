@@ -6,14 +6,6 @@ const { WARPGATE } = require("@node-sc2/core/constants/unit-type");
 
 const unitTrainingService = {
   selectedTypeToBuild: null,
-  haveProductionUnitsFor: (world, unitType) => {
-    const { resources } = world;
-    const { units } = resources.get();
-    return (
-      units.getById(WARPGATE).length > 0 ||
-      units.getProductionUnits(unitType).length > 0
-    );
-  },
   haveAvailableProductionUnitsFor: (world, unitType) => {
     const { data, resources } = world;
     const { units } = resources.get();

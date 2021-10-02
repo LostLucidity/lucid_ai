@@ -3,11 +3,13 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { LARVA } = require("@node-sc2/core/constants/unit-type");
 const buildWorkers = require("../helper/build-workers");
 const shortOnWorkers = require("../helper/short-on-workers");
 const planService = require("../services/plan-service");
 const scoutService = require("./scouting/scouting-service");
+const { haveAvailableProductionUnitsFor } = require("./unit-training/unit-training-service");
 const unitTrainingService = require("./unit-training/unit-training-service");
 
 module.exports = createSystem({
@@ -15,11 +17,8 @@ module.exports = createSystem({
   type: 'agent',
   async onStep(world) {
     const { agent, data, resources } = world;
-    const { units } = resources.get();
-    const idleBases = units.getBases(Alliance.SELF).filter(base => base.buildProgress >= 1 && base.isIdle()).length > 0;
-    const idleLarva = units.getById(LARVA).length > 0;
     const conditions = [
-      idleBases || idleLarva,
+      haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
       !planService.isPlanPaused,
       agent.minerals < 512,
       shortOnWorkers(resources),
