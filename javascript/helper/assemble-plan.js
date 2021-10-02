@@ -31,7 +31,7 @@ const { liftToThird, addAddOn, swapBuildings } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const runBehaviors = require("./behavior/run-behaviors");
-const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
+const { haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { checkUnitCount } = require("../systems/track-units/track-units-service");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
@@ -43,6 +43,7 @@ const { getNextPlanStep, getFoodUsed, addEarmark } = require("../services/plan-s
 const scoutService = require("../systems/scouting/scouting-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
+const unitTrainingService = require("../systems/unit-training/unit-training-service");
 
 let actions;
 let opponentRace;
@@ -86,7 +87,7 @@ class AssemblePlan {
     this.threats = threats(this.resources, this.state);
     const trainUnitConditions = [
       scoutService.outsupplied,
-      workersTrainingTendedTo(world) && !planService.isPlanPaused,
+      unitTrainingService.workersTrainingTendedTo && !planService.isPlanPaused,
       !shortOnWorkers(this.resources) && !planService.isPlanPaused,
     ];
     const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
