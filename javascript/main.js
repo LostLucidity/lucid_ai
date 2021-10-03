@@ -157,14 +157,14 @@ function runGame() {
   console.log('blueprint', blueprint);
   const bot1 = createAgent(blueprint);
   const legacySystems = [
-    entry,
+    workerTrainingSystem,
+    trackUnitsSystem,
     scoutingSystem,
+    entry,
     workerBalanceSystem,
     enemyTrackingSystem,
-    trackUnitsSystem,
     debugSystem,
     loggingSystem,
-    workerTrainingSystem,
     wallOffRampSystem,
   ];
   const updatedSystems = [

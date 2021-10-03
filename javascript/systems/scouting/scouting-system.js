@@ -9,6 +9,6 @@ module.exports = createSystem({
   type: 'agent',
   async onStep({ data }) {
     setEnemyCombatSupply(data);
-    setOutsupplied(data);
+    setOutsupplied();
   }
 });
