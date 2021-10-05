@@ -34,6 +34,7 @@ const liftToThirdSystem = require('./systems/lift-to-third-system');
 const loggingSystem = require('./systems/logging-system');
 const boGeneratorSystem = require('./systems/bo-generator-system');
 const scoutingSystem = require('./systems/scouting/scouting-system');
+const taggingSystem = require('./systems/tagging-system');
 
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -166,6 +167,7 @@ function runGame() {
     debugSystem,
     loggingSystem,
     wallOffRampSystem,
+    taggingSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,
