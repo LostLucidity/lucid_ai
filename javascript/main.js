@@ -202,7 +202,7 @@ function runGame() {
 
 async function processResults([{ agent, data, resources }, gameResults]) {
   console.log('GAME RESULTS: ', gameResults);
-  console.log(loggingService.executedSteps);
+  loggingService.executedSteps.forEach(step => console.log(step));
   const { actions } = resources.get();
   const parsedCompositions = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `current.json`)).toString())
   parsedCompositions.forEach(composition => {
