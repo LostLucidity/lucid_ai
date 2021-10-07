@@ -35,6 +35,7 @@ const loggingSystem = require('./systems/logging-system');
 const boGeneratorSystem = require('./systems/bo-generator-system');
 const scoutingSystem = require('./systems/scouting/scouting-system');
 const taggingSystem = require('./systems/tagging-system');
+const loggingService = require('./services/logging-service');
 
 const difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -201,6 +202,7 @@ function runGame() {
 
 async function processResults([{ agent, data, resources }, gameResults]) {
   console.log('GAME RESULTS: ', gameResults);
+  console.log(loggingService.executedSteps);
   const { actions } = resources.get();
   const parsedCompositions = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `current.json`)).toString())
   parsedCompositions.forEach(composition => {

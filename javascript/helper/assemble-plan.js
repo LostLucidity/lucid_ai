@@ -44,6 +44,7 @@ const scoutService = require("../systems/scouting/scouting-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
+const loggingService = require("../services/logging-service");
 
 let actions;
 let opponentRace;
@@ -197,6 +198,7 @@ class AssemblePlan {
                 if (this.agent.canAfford(unitType)) {
                   await actions.buildGasMine();
                   planService.pausePlan = false;
+                  loggingService.setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
                 } else {
                   this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.map.freeGasGeysers()[0].pos));
                   const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
@@ -253,6 +255,7 @@ class AssemblePlan {
           const unitTypeData = this.data.getUnitTypeData(unitType);
           await actions.sendAction(workerSendOrBuild(this.resources, unitTypeData.abilityId, this.foundPosition));
           planService.pausePlan = false;
+          loggingService.setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
           planService.continueBuild = false;
           this.foundPosition = null;
           addEarmark(this.data, unitTypeData);
@@ -455,7 +458,7 @@ class AssemblePlan {
       const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().centroid : locationHelper[targetLocationFunction](this.map);
       const label = conditions && conditions.label ? conditions.label : 'scout';
       let labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
-      const hasOrderToTargetLocation = labelledScouts.filter(scout => scout.orders.find(order => distance(order.targetWorldSpacePos, targetLocation) < 16)).length > 0;
+      const hasOrderToTargetLocation = labelledScouts.filter(scout => scout.orders.find(order => order.targetWorldSpacePos && distance(order.targetWorldSpacePos, targetLocation) < 16)).length > 0;
       if (!hasOrderToTargetLocation) {
         if (conditions) {
           if (conditions.scoutType && !this[conditions.scoutType]) { return; }
@@ -535,6 +538,7 @@ class AssemblePlan {
             }
           }
           planService.pausePlan = false;
+          loggingService.setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
           this.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
           addEarmark(this.data, unitTypeData);
@@ -564,6 +568,7 @@ class AssemblePlan {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
           planService.pausePlan = false;
+          loggingService.setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), upgradeName);
           addEarmark(this.data, upgradeData);
           console.log(`Upgrading ${upgradeName}`);
         } else {

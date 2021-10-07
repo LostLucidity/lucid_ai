@@ -1,9 +1,12 @@
 //@ts-check
 "use strict"
 
+const { UnitType } = require("@node-sc2/core/constants");
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { workerSendOrBuild } = require("../helper");
+const { getStringNameOfConstant } = require("../services/logging-service");
+const loggingService = require("../services/logging-service");
 const { addEarmark } = require("../services/plan-service");
 const planService = require("../services/plan-service");
 const { balanceForFuture } = require("../systems/manage-resources");
@@ -14,7 +17,7 @@ module.exports = {
   expand: async (world) => {
     const { agent, data, resources } = world;
     let collectedActions = [];
-    const { actions, units } = resources.get();
+    const { actions, frame, units } = resources.get();
     const availableExpansions = getAvailableExpansions(resources);
     const expansionLocation = availableExpansions.length > 0 ? await getNextSafeExpansion(world, availableExpansions) : null;
     if (expansionLocation) {
@@ -25,6 +28,7 @@ module.exports = {
           const unitTypeData = data.getUnitTypeData(townhallType);
           await actions.sendAction(workerSendOrBuild(resources, unitTypeData.abilityId, expansionLocation));
           planService.pausePlan = false;
+          loggingService.setAndLogExecutedSteps(agent.foodUsed, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallType));
           addEarmark(data, unitTypeData);
         }
       } else {

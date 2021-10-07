@@ -15,6 +15,7 @@ const planService = {
       vespene: orderData.vespeneCost,
     });
   },
+  dirtyBasePlan: false,
   continueBuild: null,
   currentStep: 0,
   getFoodUsed: (foodused) => {

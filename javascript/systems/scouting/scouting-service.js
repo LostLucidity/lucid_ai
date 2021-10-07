@@ -3,6 +3,7 @@
 
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { PROBE } = require("@node-sc2/core/constants/unit-type");
+const planService = require("../../services/plan-service");
 const { getEnemyCombatSupply } = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("../track-units/track-units-service");
 
@@ -17,6 +18,10 @@ const scoutService = {
   },
   setOutsupplied: () => {
     scoutService.outsupplied = scoutService.enemyCombatSupply > trackUnitsService.selfCombatSupply;
+    if (!planService.dirtyBasePlan && scoutService.outsupplied) {
+      planService.dirtyBasePlan = true;
+      console.log('dirtyBasePlan'.toUpperCase());
+    }
   },
   setScout: (units, location, unitType, label) => {
     let [unit] = units.getClosest(
