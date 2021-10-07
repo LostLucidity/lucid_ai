@@ -74,12 +74,8 @@ module.exports = {
       ...units.withLabel('builder').filter(builder => getLabelledAvailable(builder)),
       ...units.withLabel('proxy').filter(proxy => getLabelledAvailable(proxy)),
     ].filter(worker => !worker.isReturning());
-    console.log('builders.length', builders.length);
     if (abilityId !== MOVE || builders.length === 0) {
-      builders.push(
-        ...units.getWorkers().filter(worker => worker.noQueue || worker.isGathering())
-      );
-      console.log('builders.length', builders.length);
+      builders.push(...units.getWorkers().filter(worker => worker.noQueue || worker.isGathering()));
     }
     const [builder] = units.getClosest(position, builders);
     if (builder) {
