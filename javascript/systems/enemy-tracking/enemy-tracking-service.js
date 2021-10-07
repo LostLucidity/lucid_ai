@@ -27,7 +27,7 @@ const enemyTrackingService = {
     const { map, units } = resources.get();
     enemyTrackingService.mappedEnemyUnits.forEach(unit => {
       const visibleCandidates = gridsInCircle(unit.pos, 1, { normalize: true }).filter(grid => {
-        if (existsInMap) {
+        if (existsInMap(map, grid)) {
           if (!unit.isFlying) { return map.isPathable(unit.pos); } else { return true; }
         }
       });
