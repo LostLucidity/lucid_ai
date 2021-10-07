@@ -45,6 +45,7 @@ const manageResources = {
     }
   },
   balanceResources: async ({ agent, data, resources }, targetRatio = 16 / 6) => {
+    targetRatio = targetRatio === Infinity ? (32 / 6) : targetRatio;
     const { actions, units } = resources.get();
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const needyGasMines = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
