@@ -28,7 +28,7 @@ module.exports = {
           const unitTypeData = data.getUnitTypeData(townhallType);
           await actions.sendAction(workerSendOrBuild(resources, unitTypeData.abilityId, expansionLocation));
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(agent.foodUsed, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallType));
+          loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallType));
           addEarmark(data, unitTypeData);
         }
       } else {

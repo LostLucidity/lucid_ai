@@ -31,7 +31,7 @@ const terran = {
           unitCommand.targetWorldSpacePos = unit.pos;
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, addOnType));
+          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, addOnType));
           setPendingOrders(unit, unitCommand);
           addEarmark(world.data, world.data.getUnitTypeData(addOnType));
           return;
@@ -61,7 +61,7 @@ const terran = {
           }
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, addOnType));
+          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, addOnType));
           setPendingOrders(unit, unitCommand);
           addEarmark(world.data, addOnType);
         }

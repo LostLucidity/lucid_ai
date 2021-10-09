@@ -198,7 +198,7 @@ class AssemblePlan {
                 if (this.agent.canAfford(unitType)) {
                   await actions.buildGasMine();
                   planService.pausePlan = false;
-                  loggingService.setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
+                  loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
                 } else {
                   this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.map.freeGasGeysers()[0].pos));
                   const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
@@ -255,7 +255,7 @@ class AssemblePlan {
           const unitTypeData = this.data.getUnitTypeData(unitType);
           await actions.sendAction(workerSendOrBuild(this.resources, unitTypeData.abilityId, this.foundPosition));
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
+          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
           planService.continueBuild = false;
           this.foundPosition = null;
           addEarmark(this.data, unitTypeData);
@@ -477,7 +477,7 @@ class AssemblePlan {
             }
             this.collectedActions.push(unitCommand);
             console.log('Scout sent');
-            setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), `scouting ${targetLocationFunction}`);
+            setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), `scouting ${targetLocationFunction}`);
           }
         }
       }
@@ -540,7 +540,7 @@ class AssemblePlan {
             }
           }
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
+          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
           this.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
           addEarmark(this.data, unitTypeData);
@@ -570,7 +570,7 @@ class AssemblePlan {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), upgradeName);
+          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), upgradeName);
           addEarmark(this.data, upgradeData);
           console.log(`Upgrading ${upgradeName}`);
         } else {
