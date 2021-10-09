@@ -35,7 +35,7 @@ const { haveAvailableProductionUnitsFor } = require("../systems/unit-training/un
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { checkUnitCount } = require("../systems/track-units/track-units-service");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
-const { getStringNameOfConstant } = require("../services/logging-service");
+const { getStringNameOfConstant, setAndLogExecutedSteps } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers, deleteLabel } = require("../services/units-service");
 const planService = require("../services/plan-service");
@@ -476,6 +476,8 @@ class AssemblePlan {
               unitTags: [scout.tag],
             }
             this.collectedActions.push(unitCommand);
+            console.log('Scout sent');
+            setAndLogExecutedSteps(this.foodUsed, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), `scouting ${targetLocationFunction}`);
           }
         }
       }

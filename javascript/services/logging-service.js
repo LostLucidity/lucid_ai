@@ -8,8 +8,9 @@ const loggingService = {
   getStringNameOfConstant(constants, value) {
     return `${Object.keys(constants).find(constant => constants[constant] === value)}`;
   },
-  setAndLogExecutedSteps: (foodUsed, time, name) => {
+  setAndLogExecutedSteps: (foodUsed, time, name, extra) => {
     const buildStepExecuted = [foodUsed, loggingService.formatToMinutesAndSeconds(time), name, scoutService.outsupplied];
+    if (extra) buildStepExecuted.push(extra);
     console.log(buildStepExecuted);
     loggingService.executedSteps.push(buildStepExecuted);
   },
