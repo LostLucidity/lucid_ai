@@ -105,7 +105,12 @@ class AssemblePlan {
       if (haveProductionAndTechForTypes.length > 0) {
         this.selectedTypeToBuild = this.selectedTypeToBuild ? this.selectedTypeToBuild : haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
         let { mineralCost, vespeneCost } = this.data.getUnitTypeData(this.selectedTypeToBuild);
-        if (this.agent.minerals >= (mineralCost * 2) && this.agent.vespene >= (vespeneCost * 2)) {
+        if (this.selectedTypeToBuild === ZERGLING) {
+          mineralCost += mineralCost;
+          vespeneCost += vespeneCost;
+        }
+        const freeBuildThreshold = this.agent.minerals >= (mineralCost * 2) && this.agent.vespene >= (vespeneCost * 2);
+        if (scoutService.outsupplied || freeBuildThreshold) {
           await this.train(this.foodUsed, this.selectedTypeToBuild, null);
         }
       }

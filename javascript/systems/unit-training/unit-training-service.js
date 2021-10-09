@@ -13,7 +13,7 @@ const unitTrainingService = {
     const { abilityId } = data.getUnitTypeData(unitType);
     return (
       units.getById(WARPGATE).some(warpgate => warpgate.abilityAvailable(warpInAbilityId)) ||
-      units.getProductionUnits(unitType).some(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId))
+      units.getProductionUnits(unitType).some(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)))
     );
   },
   workersTrainingTendedTo: false,

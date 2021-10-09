@@ -114,9 +114,8 @@ const armyBehavior = {
           const selfDPSHealth = selfUnit.selfDPSHealth > closestEnemyUnit.enemyDPSHealth ? selfUnit.selfDPSHealth : closestEnemyUnit.enemyDPSHealth;
           const noBunker = units.getById(BUNKER).length === 0;
           if (closestEnemyUnit.selfDPSHealth > selfDPSHealth && noBunker) {
-            const isFlying = selfUnit.isFlying;
             const unitCommand = { abilityId: MOVE }
-            if (isFlying) {
+            if (selfUnit.isFlying) {
               unitCommand.targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
               unitCommand.unitTags = [selfUnit.tag];
               collectedActions.push(unitCommand);
