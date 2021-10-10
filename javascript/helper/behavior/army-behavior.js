@@ -18,7 +18,7 @@ const enemyTrackingService = require("../../systems/enemy-tracking/enemy-trackin
 const { setPendingOrders, getSupply } = require("../../helper");
 const { pullWorkersToDefend } = require("../../services/army-management-service");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { isRepairing } = require("../../services/units-service");
+const { isRepairing, canAttack } = require("../../services/units-service");
 const scoutService = require("../../systems/scouting/scouting-service");
 
 const armyBehavior = {
@@ -103,6 +103,15 @@ const armyBehavior = {
     }
     return tag;
   },
+  /**
+   * Returns an array of unitCommands to give to selfUnits to engage or retreat.
+   * @param {any} param0 
+   * @param {any[]} selfUnits 
+   * @param {any[]} enemyUnits 
+   * @param {any} position 
+   * @param {boolean} clearRocks 
+   * @returns {any[]}
+   */
   engageOrRetreat: ({ data, resources }, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { units } = resources.get();
     const collectedActions = [];
@@ -131,11 +140,19 @@ const armyBehavior = {
               }
             }
           } else {
-            if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(data, selfUnit, closestEnemyUnit)); }
-            else {
+            if (canAttack(resources, selfUnit, closestEnemyUnit)) {
+              if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(data, selfUnit, closestEnemyUnit)); }
+              else {
+                collectedActions.push({
+                  abilityId: ATTACK_ATTACK,
+                  targetUnitTag: closestEnemyUnit.tag,
+                  unitTags: [selfUnit.tag],
+                });
+              }
+            } else {
               collectedActions.push({
                 abilityId: ATTACK_ATTACK,
-                targetUnitTag: closestEnemyUnit.tag,
+                targetWorldSpacePos: closestEnemyUnit.pos,
                 unitTags: [selfUnit.tag],
               });
             }
