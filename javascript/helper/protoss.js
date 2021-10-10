@@ -18,7 +18,7 @@ module.exports = {
     const pylonsNearProduction = units.getById(PYLON)
       .filter(pylon => pylon.buildProgress >= 1)
       .filter(pylon => {
-        const [ closestBase ] = getOccupiedExpansions(resources).map(expansion => expansion.getBase())
+        const [closestBase] = getOccupiedExpansions(resources).map(expansion => expansion.getBase())
         if (closestBase) {
           return distance(pylon.pos, closestBase.pos) < 6.89
         }
@@ -42,17 +42,25 @@ module.exports = {
             return distance(pylon.pos, closestUnitOutOfRange.pos) > 16
           }
         });
-        if (pylons) {
-          [closestPylon] = units.getClosest(getCombatRally(resources), pylons);
-          return closestPylon.pos;
-        }
+      if (pylons) {
+        [closestPylon] = units.getClosest(getCombatRally(resources), pylons);
+        return closestPylon.pos;
+      }
     }
   },
   restorePower: async ({ data, resources }) => {
     const { units } = resources.get();
     const collectedActions = [];
-    const selfPowered = [ NEXUS, PYLON, ASSIMILATOR ];
-    const unpoweredStructure = getRandom(units.getStructures().filter(structure => !structure.isPowered && !selfPowered.includes(structure.unitType) && structure.buildProgress >= 1));
+    const selfPowered = [NEXUS, PYLON, ASSIMILATOR];
+    const unpoweredStructure = getRandom(units.getStructures().filter(structure => {
+      const [closestPylon] = units.getClosest(structure.pos, units.getById(PYLON));
+      return [
+        !structure.isPowered,
+        !selfPowered.includes(structure.unitType),
+        structure.buildProgress >= 1,
+        distance(structure.pos, closestPylon.pos) > 6.5,
+      ].every(condition => condition);
+    }));
     if (unpoweredStructure) {
       const candidatePositions = gridsInCircle(unpoweredStructure.pos, 6.5 - unpoweredStructure.radius);
       const foundPosition = await findPosition(resources, unpoweredStructure.unitType, candidatePositions);
