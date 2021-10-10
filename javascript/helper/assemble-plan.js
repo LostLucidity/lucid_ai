@@ -511,6 +511,13 @@ class AssemblePlan {
       }
     }
   }
+  /**
+   * Collects training actions if conditions are met based on params.
+   * @param {number} food
+   * @param {number} unitType
+   * @param {null|number} targetCount
+   * @returns {Promise<void>}
+   */
   async train(food, unitType, targetCount) {
     if (getFoodUsed(this.foodUsed) >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
@@ -540,7 +547,9 @@ class AssemblePlan {
             if (warpGates.length > 0) {
               warpIn(this.resources, this, unitType);
             } else {
-              planService.pausePlan = true;
+              if (targetCount !== null) {
+                planService.pausePlan = true;
+              }
               return;
             }
           }
@@ -555,8 +564,10 @@ class AssemblePlan {
             const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
             await balanceResources(this.world, mineralCost / vespeneCost);
           }
-          planService.pausePlan = true;
-          planService.continueBuild = false;
+          if (targetCount !== null) {
+            planService.pausePlan = true;
+            planService.continueBuild = false;
+          }
         }
       }
     }
