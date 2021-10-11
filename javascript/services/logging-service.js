@@ -8,7 +8,14 @@ const loggingService = {
   getStringNameOfConstant(constants, value) {
     return `${Object.keys(constants).find(constant => constants[constant] === value)}`;
   },
-  setAndLogExecutedSteps: ({foodUsed, minerals, vespene}, time, name, extra) => {
+  /**
+   * 
+   * @param {World["agent"]} param0
+   * @param {number} time 
+   * @param {string} name 
+   * @param {string} extra 
+   */
+  setAndLogExecutedSteps: ({foodUsed, minerals, vespene}, time, name, extra='') => {
     const buildStepExecuted = [foodUsed, loggingService.formatToMinutesAndSeconds(time), name, scoutService.outsupplied, `${minerals}/${vespene}`];
     if (extra) buildStepExecuted.push(extra);
     console.log(buildStepExecuted);
