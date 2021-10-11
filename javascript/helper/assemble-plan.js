@@ -303,16 +303,17 @@ class AssemblePlan {
         return;
       }
       let conditions = [];
+      const enemyFilter = { alliance: Alliance.ENEMY };
       switch (opponentRace) {
         case Race.PROTOSS:
-          const moreThanTwoGateways = this.units.getById(GATEWAY, Alliance.ENEMY).length > 2;
+          const moreThanTwoGateways = this.units.getById(GATEWAY, enemyFilter).length > 2;
           if (moreThanTwoGateways) {
             console.log(frame.timeInSeconds(), 'More than two gateways');
             this.state.enemyBuildType = 'cheese';
             this.earlyScout = false;
           }
           conditions = [
-            this.units.getById(GATEWAY, Alliance.ENEMY).length === 2,
+            this.units.getById(GATEWAY, enemyFilter).length === 2,
           ];
           if (!conditions.every(c => c)) {
             this.state.enemyBuildType = 'cheese';
@@ -320,11 +321,11 @@ class AssemblePlan {
             this.state.enemyBuildType = 'standard';
           }
           this.scoutReport = `${this.state.enemyBuildType} detected:
-          Gateway Count: ${this.units.getById(GATEWAY, Alliance.ENEMY).length}.`;
+          Gateway Count: ${this.units.getById(GATEWAY, enemyFilter).length}.`;
           break;
         case Race.TERRAN:
           // scout alive, more than 1 barracks.
-          const moreThanOneBarracks = this.units.getById(BARRACKS, Alliance.ENEMY).length > 1;
+          const moreThanOneBarracks = this.units.getById(BARRACKS, enemyFilter).length > 1;
           if (this.state.enemyBuildType !== 'cheese') {
             if (moreThanOneBarracks) {
               console.log(frame.timeInSeconds(), 'More than one barracks');
@@ -333,8 +334,8 @@ class AssemblePlan {
           }
           // 1 barracks and 1 gas, second command center
           conditions = [
-            this.units.getById(BARRACKS, Alliance.ENEMY).length === 1,
-            this.units.getById(GasMineRace[opponentRace], Alliance.ENEMY).length === 1,
+            this.units.getById(BARRACKS, enemyFilter).length === 1,
+            this.units.getById(GasMineRace[opponentRace], enemyFilter).length === 1,
             !!this.map.getEnemyNatural().getBase()
           ];
           if (!conditions.every(c => c)) {
@@ -343,28 +344,28 @@ class AssemblePlan {
             this.state.enemyBuildType = 'standard';
           }
           this.scoutReport = `${this.state.enemyBuildType} detected:
-          Barracks Count: ${this.units.getById(BARRACKS, Alliance.ENEMY).length}.
-          Gas Mine Count: ${this.units.getById(GasMineRace[opponentRace], Alliance.ENEMY).length}.
+          Barracks Count: ${this.units.getById(BARRACKS, enemyFilter).length}.
+          Gas Mine Count: ${this.units.getById(GasMineRace[opponentRace], enemyFilter).length}.
           Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}.`;
           break;
         case Race.ZERG:
-          const spawningPoolDetected = this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length > 0 || this.units.getById(ZERGLING, Alliance.ENEMY).length > 0;
+          const spawningPoolDetected = this.units.getById(SPAWNINGPOOL, enemyFilter).length > 0 || this.units.getById(ZERGLING, enemyFilter).length > 0;
           const enemyNaturalDetected = this.map.getEnemyNatural().getBase();
           if (this.state.enemyBuildType !== 'cheese') {
             if (spawningPoolDetected && !enemyNaturalDetected) {
               console.log(frame.timeInSeconds(), 'Pool first. Cheese detected');
               this.state.enemyBuildType = 'cheese';
               this.scoutReport = `${this.state.enemyBuildType} detected:
-              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length > 0}.
-              Zerglings: ${this.units.getById(ZERGLING, Alliance.ENEMY).length > 0}
+              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, enemyFilter).length > 0}.
+              Zerglings: ${this.units.getById(ZERGLING, enemyFilter).length > 0}
               Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}`;
               this.earlyScout = false;
             } else if (!spawningPoolDetected && enemyNaturalDetected) {
               console.log(frame.timeInSeconds(), 'Hatchery first. Standard.');
               this.state.enemyBuildType = 'standard';
               this.scoutReport = `${this.state.enemyBuildType} detected:
-              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, Alliance.ENEMY).length > 0}.
-              Zerglings: ${this.units.getById(ZERGLING, Alliance.ENEMY).length > 0}
+              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, enemyFilter).length > 0}.
+              Zerglings: ${this.units.getById(ZERGLING, enemyFilter).length > 0}
               Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}`;
               this.earlyScout = false;
             }
