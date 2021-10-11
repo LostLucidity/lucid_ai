@@ -2,9 +2,7 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { Alliance } = require("@node-sc2/core/constants/enums");
-const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { LARVA } = require("@node-sc2/core/constants/unit-type");
+const { WorkerRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const buildWorkers = require("../helper/build-workers");
 const shortOnWorkers = require("../helper/short-on-workers");
 const planService = require("../services/plan-service");
@@ -17,12 +15,18 @@ module.exports = createSystem({
   type: 'agent',
   async onStep(world) {
     const { agent, data, resources } = world;
+    const { race } = agent;
+    const { units } = resources.get();
+    const workerCount = units.getById(WorkerRace[race]).length;
+    const assignedWorkerCount = [...units.getBases(), ...units.getById(GasMineRace[race])].reduce((assignedWorkerCount, base) => base.assignedHarvesters + assignedWorkerCount, 0);
+    const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
+    console.log('minimumWorkerCount', minimumWorkerCount);
     const conditions = [
       haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
       !planService.isPlanPaused,
-      agent.minerals < 512,
+      agent.minerals < 512 || minimumWorkerCount <= 31,
       shortOnWorkers(resources),
-      !scoutService.outsupplied,
+      !scoutService.outsupplied,  
     ];
     if (conditions.every(condition => condition)) {
       unitTrainingService.workersTrainingTendedTo = false;
