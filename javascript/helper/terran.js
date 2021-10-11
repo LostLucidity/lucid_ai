@@ -19,8 +19,17 @@ const { countTypes } = require("./groups");
 const { getAddOnPlacement, getAddOnBuildingPosition } = require("./placement/placement-utilities");
 
 const terran = {
+  /**
+   * Adds addon, with placement checks and relocating logic.
+   * @param {World} world 
+   * @param {Unit} unit 
+   * @param {AbilityId} abilityId 
+   * @param {UnitTypeId} addOnType 
+   * @returns {Promise<void>}
+   */
   addAddOn: async (world, unit, abilityId, addOnType) => {
-    const { actions, map } = world.resources.get();
+    const { agent, data, resources } = world;
+    const { actions, frame, map } = resources.get();
     if (unit.noQueue && !unit.labels.has('swapBuilding')) {
       if (unit.availableAbilities().some(ability => ability === abilityId)) {
         const unitCommand = {
@@ -31,9 +40,9 @@ const terran = {
           unitCommand.targetWorldSpacePos = unit.pos;
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, addOnType));
+          loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), getStringNameOfConstant(UnitType, addOnType));
           setPendingOrders(unit, unitCommand);
-          addEarmark(world.data, world.data.getUnitTypeData(addOnType));
+          addEarmark(data, data.getUnitTypeData(addOnType));
           return;
         }
       }
@@ -61,9 +70,9 @@ const terran = {
           }
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, addOnType));
+          loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), getStringNameOfConstant(UnitType, addOnType));
           setPendingOrders(unit, unitCommand);
-          addEarmark(world.data, addOnType);
+          addEarmark(data, addOnType);
         }
       }
     }

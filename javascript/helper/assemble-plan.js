@@ -69,6 +69,10 @@ class AssemblePlan {
     race = world.agent.race;
     opponentRace = world.agent.opponent.race;
   }
+  /**
+   * @param {World} world
+   * @param {any} state
+   */
   async onStep(world, state) {
     this.collectedActions = [];
     this.state = state;
