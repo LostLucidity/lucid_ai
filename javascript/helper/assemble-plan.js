@@ -145,7 +145,7 @@ class AssemblePlan {
     await this.raceSpecificManagement();
     this.collectedActions.push(...await runBehaviors(world, opponentRace));
     if (this.frame.getGameLoop() % 8 === 0) {
-      this.units.getAlive().forEach(unit => delete unit.expansions);
+      this.units.getAlive().forEach(unit => delete unit['expansions']);
     }
     const label = 'pendingOrders';
     this.units.withLabel(label).forEach(unit => unit.labels.delete(label));
@@ -529,7 +529,7 @@ class AssemblePlan {
       if (checkUnitCount(this.world, unitType, targetCount) || targetCount === null) {
         if (canBuild(this.agent, this.world.data, unitType)) {
           const trainer = this.units.getProductionUnits(unitType).find(unit => {
-            const pendingOrders = unit.pendingOrders ? unit.pendingOrders : [];
+            const pendingOrders = unit['pendingOrders'] ? unit['pendingOrders'] : [];
             const noQueue = unit.noQueue && pendingOrders.length === 0;
             return (
               noQueue ||
