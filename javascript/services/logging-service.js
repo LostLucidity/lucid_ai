@@ -2,12 +2,26 @@
 "use strict"
 
 const scoutService = require("../systems/scouting/scouting-service");
+const planService = require("./plan-service");
 
 const loggingService = {
   executedSteps: [],
   getStringNameOfConstant(constants, value) {
     return `${Object.keys(constants).find(constant => constants[constant] === value)}`;
   },
+  /**
+   * Unpause and log on attempted steps.
+   * @param {World} world 
+   * @param {string} name 
+   * @param {string} extra 
+   */
+  unpauseAndLog: (world, name, extra='') => {
+    const { agent, resources } = world;
+    const { frame } = resources.get();
+    planService.pausePlan = false;
+    planService.continueBuild = true;
+    loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), name, extra);
+  }  ,
   /**
    * 
    * @param {World["agent"]} param0

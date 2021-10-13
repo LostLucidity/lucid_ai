@@ -180,7 +180,7 @@ function runGame() {
     workerBalanceSystem,
     workerScoutingSystem,
     runBehaviorsSystem,
-    defenseSystem,
+    // defenseSystem,
     enemyTrackingSystem,
     rallySystem,
     manageSupplySystem,
@@ -188,12 +188,13 @@ function runGame() {
     swapBuildingSystem,
     liftToThirdSystem,
     debugSystem,
+    loggingSystem,
   ];
   const bogSystems = [
     boGeneratorSystem
   ];
-  // bot1.use(legacySystems);
   bot1.use(updatedSystems);
+  // bot1.use(updatedSystems);
   // bot1.use(bogSystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
   const playerTwo = createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild })

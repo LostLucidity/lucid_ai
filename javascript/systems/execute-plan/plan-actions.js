@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { WarpUnitAbility, UnitType } = require("@node-sc2/core/constants");
+const { WarpUnitAbility, UnitType, AbilityId, UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
@@ -16,6 +16,7 @@ const { findPlacements, findPosition, inTheMain } = require("../../helper/placem
 const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
 const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
+const { unpauseAndLog } = require("../../services/logging-service");
 const planService = require("../../services/plan-service");
 const { balanceForFuture } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
@@ -35,8 +36,7 @@ module.exports = {
         let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
         const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
         await actions.sendAction([unitCommand]);
-        planService.pausePlan = false;
-        planService.continueBuild = true;
+        unpauseAndLog(world, AbilityId[abilityId]);
       } else {
         unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
         planService.pausePlan = true;
@@ -57,7 +57,7 @@ module.exports = {
             if (map.freeGasGeysers().length > 0) {
               if (agent.canAfford(unitType)) {
                 await actions.buildGasMine();
-                planService.pausePlan = false;
+                unpauseAndLog(world, UnitTypeId[unitType]);
               } else {
                 collectedActions.push(...workerSendOrBuild(resources, MOVE, map.freeGasGeysers()[0].pos));
                 await balanceForFuture(world, unitType)
@@ -132,7 +132,7 @@ module.exports = {
             return;
           }
         }
-        planService.pausePlan = false;
+        unpauseAndLog(world, UnitTypeId[unitType]);
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
@@ -140,8 +140,10 @@ module.exports = {
           console.log(`${agent.foodUsed}: Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
           await balanceForFuture(world, unitType);
         }
-        planService.pausePlan = true;
-        planService.continueBuild = false;
+        if (targetCount !== null) {
+          planService.pausePlan = true;
+          planService.continueBuild = false;
+        }
       }
     }
   },
@@ -157,7 +159,7 @@ module.exports = {
         if (upgrader) {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
-          planService.pausePlan = false;
+          unpauseAndLog(world, UpgradeId[upgradeId]);
         } else {
           await balanceForFuture(world, upgradeId);
           planService.pausePlan = true;
@@ -204,8 +206,7 @@ async function findAndPlaceBuilding(world, unitType, candidatePositions) {
     if (agent.canAfford(unitType)) {
       if (await actions.canPlace(unitType, [planService.foundPosition])) {
         await actions.sendAction(workerSendOrBuild(resources, data.getUnitTypeData(unitType).abilityId, planService.foundPosition));
-        planService.pausePlan = false;
-        planService.continueBuild = false;
+        unpauseAndLog(world, UnitTypeId[unitType]);
         planService.foundPosition = null;
       } else {
         planService.foundPosition = null;
