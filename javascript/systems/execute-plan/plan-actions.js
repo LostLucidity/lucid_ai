@@ -17,6 +17,7 @@ const { getAddOnBuildingPosition } = require("../../helper/placement/placement-u
 const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
 const { unpauseAndLog } = require("../../services/logging-service");
+const { addEarmark } = require("../../services/plan-service");
 const planService = require("../../services/plan-service");
 const { balanceForFuture } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
@@ -58,6 +59,7 @@ module.exports = {
               if (agent.canAfford(unitType)) {
                 await actions.buildGasMine();
                 unpauseAndLog(world, UnitTypeId[unitType]);
+                addEarmark(data, data.getUnitTypeData(unitType));
               } else {
                 collectedActions.push(...workerSendOrBuild(resources, MOVE, map.freeGasGeysers()[0].pos));
                 await balanceForFuture(world, unitType)
@@ -112,7 +114,8 @@ module.exports = {
   train: async (world, unitType, targetCount = null) => {
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
-    let abilityId = data.getUnitTypeData(unitType).abilityId;
+    let unitTypeData = data.getUnitTypeData(unitType);
+    let { abilityId } = unitTypeData;
     if (checkUnitCount(world, unitType, targetCount) || targetCount === null) {
       if (canBuild(agent, data, unitType)) {
         const trainer = units.getProductionUnits(unitType).find(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId));
@@ -133,6 +136,7 @@ module.exports = {
           }
         }
         unpauseAndLog(world, UnitTypeId[unitType]);
+        addEarmark(data, data.getUnitTypeData(unitType));
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
@@ -152,7 +156,8 @@ module.exports = {
     const { actions, units } = resources.get();
     const upgraders = units.getUpgradeFacilities(upgradeId);
     if (upgraders.length > 0) {
-      const { abilityId } = data.getUpgradeData(upgradeId);
+      const upgradeData = data.getUpgradeData(upgradeId)
+      const { abilityId } = upgradeData;
       const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
       if (!agent.upgradeIds.includes(upgradeId) && foundUpgradeInProgress === undefined) {
         const upgrader = units.getUpgradeFacilities(upgradeId).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
@@ -160,6 +165,7 @@ module.exports = {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
           unpauseAndLog(world, UpgradeId[upgradeId]);
+          addEarmark(this.data, upgradeData);
         } else {
           await balanceForFuture(world, upgradeId);
           planService.pausePlan = true;
@@ -207,6 +213,7 @@ async function findAndPlaceBuilding(world, unitType, candidatePositions) {
       if (await actions.canPlace(unitType, [planService.foundPosition])) {
         await actions.sendAction(workerSendOrBuild(resources, data.getUnitTypeData(unitType).abilityId, planService.foundPosition));
         unpauseAndLog(world, UnitTypeId[unitType]);
+        addEarmark(data, data.getUnitTypeData(unitType));
         planService.foundPosition = null;
       } else {
         planService.foundPosition = null;

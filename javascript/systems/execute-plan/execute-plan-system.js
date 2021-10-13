@@ -11,7 +11,8 @@ module.exports = createSystem({
   name: 'ExecutePlanSystem',
   type: 'agent',
   async onStep(world) {
-    const { units } = world.resources.get();
+    const { data, resources } = world;
+    const { units } = resources.get();
     sharedService.removePendingOrders(units);
     planService.continueBuild = true;
     const { plan } = planService;
@@ -36,6 +37,7 @@ module.exports = createSystem({
         break;
       }
     }
+    data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
   },
   async onUnitDestroyed({ }, destroyedUnit) {
     if (destroyedUnit.isWorker()) {
