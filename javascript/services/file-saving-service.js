@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { Race, Difficulty, DifficultyId, RaceId } = require('@node-sc2/core/constants/enums');
+const { DifficultyId, RaceId } = require('@node-sc2/core/constants/enums');
 const fs = require('fs');
 const path = require('path');
 const scoutService = require('../systems/scouting/scouting-service');
