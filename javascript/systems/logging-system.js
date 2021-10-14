@@ -2,7 +2,6 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { setAndLogExecutedSteps } = require("../services/logging-service");
 const loggingService = require("../services/logging-service");
 const planService = require("../services/plan-service");
 

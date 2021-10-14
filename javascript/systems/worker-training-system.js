@@ -20,7 +20,6 @@ module.exports = createSystem({
     const workerCount = units.getById(WorkerRace[race]).length;
     const assignedWorkerCount = [...units.getBases(), ...units.getById(GasMineRace[race])].reduce((assignedWorkerCount, base) => base.assignedHarvesters + assignedWorkerCount, 0);
     const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
-    console.log('minimumWorkerCount', minimumWorkerCount);
     const conditions = [
       haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
       !planService.isPlanPaused,

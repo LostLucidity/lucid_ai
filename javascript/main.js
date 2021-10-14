@@ -36,8 +36,11 @@ const boGeneratorSystem = require('./systems/bo-generator-system');
 const scoutingSystem = require('./systems/scouting/scouting-system');
 const taggingSystem = require('./systems/tagging-system');
 const loggingService = require('./services/logging-service');
+const { logoutStepsExecuted } = require('./services/logging-service');
+const { saveReplay, saveExecutedStepsLog } = require('./services/file-saving-service');
+const agentService = require('./services/agent-service');
 
-const difficulty = Difficulty.VERYHARD;
+agentService.difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
 // const bot2 = createAgent(settings);
 // protossBuild.forEach(system => {
@@ -197,7 +200,7 @@ function runGame() {
   // bot1.use(updatedSystems);
   // bot1.use(bogSystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
-  const playerTwo = createPlayer({ race: opponentRace, difficulty: difficulty, ai_build: aiBuild })
+  const playerTwo = createPlayer({ race: opponentRace, difficulty: agentService.difficulty, ai_build: aiBuild })
   return engine.runGame(map, [playerOne, playerTwo]);
 }
 
@@ -205,6 +208,8 @@ async function processResults([{ agent, data, resources }, gameResults]) {
   console.log('GAME RESULTS: ', gameResults);
   loggingService.executedSteps.forEach(step => console.log(step));
   const { actions } = resources.get();
+  logoutStepsExecuted();
+  const { actions, frame } = resources.get();
   const parsedCompositions = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `current.json`)).toString())
   parsedCompositions.forEach(composition => {
     if (typeof composition.attack !== 'undefined') {
@@ -221,5 +226,7 @@ async function processResults([{ agent, data, resources }, gameResults]) {
   const [enemyUnitType] = Object.keys(parsedCompositions[0].enemyComposition);
   fs.writeFileSync(path.join(__dirname, 'data', getFileName(data, selfUnitType, enemyUnitType)), JSON.stringify(parsedCompositions));
   const replay = await actions._client.saveReplay();
-  fs.writeFileSync(path.join(__dirname, 'replays', `${Date.now()}.sc2replay`), replay.data);
+  saveReplay(replay);
+  saveExecutedStepsLog(agent, frame.getGameInfo().mapName)
+  actions._client.close();
 }

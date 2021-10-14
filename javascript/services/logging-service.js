@@ -9,6 +9,9 @@ const loggingService = {
   getStringNameOfConstant(constants, value) {
     return `${Object.keys(constants).find(constant => constants[constant] === value)}`;
   },
+  logoutStepsExecuted: () => {
+    loggingService.executedSteps.forEach(step => console.log(step));
+  },
   /**
    * Unpause and log on attempted steps.
    * @param {World} world 
