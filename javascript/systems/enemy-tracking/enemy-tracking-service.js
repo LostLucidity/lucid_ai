@@ -5,9 +5,9 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getSupply } = require("../../helper");
 const { morphMapping } = require("../../helper/groups");
 const { existsInMap } = require("../../helper/location");
+const { getSupply } = require("../../services/shared-service");
 
 const enemyTrackingService = {
   enemyUnits: [],

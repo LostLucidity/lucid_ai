@@ -1,20 +1,25 @@
 //@ts-check
 "use strict"
 
-const Ability = require('@node-sc2/core/constants/ability');
-const { MOVE, STOP } = require('@node-sc2/core/constants/ability');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
-const { PROBE, ZERGLING } = require('@node-sc2/core/constants/unit-type');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { countTypes } = require('./helper/groups');
-const { isPendingContructing } = require('./services/shared-service');
 
-module.exports = {
-  checkBuildingCount: ({ agent, data, resources }, unitType, targetCount) => {
+const helper = {
+  /**
+   * Returns boolean on whether build step should be executed.
+   * @param {World} world 
+   * @param {UnitTypeId} unitType 
+   * @param {number} targetCount 
+   * @returns {boolean}
+   */
+  checkBuildingCount: (world, unitType, targetCount) => {
+    const { agent, data, resources } = world;
     const { units } = resources.get();
-    const buildAbilityId = data.getUnitTypeData(unitType).abilityId;
-    let count = units.withCurrentOrders(buildAbilityId).length;
+    const { abilityId } = data.getUnitTypeData(unitType);
+    const unitsWithOrder = units.withCurrentOrders(abilityId);
+    let count = unitsWithOrder.length;
     const unitTypes = countTypes.get(unitType) ? countTypes.get(unitType) : [unitType];
     unitTypes.forEach(type => {
       let unitsToCount = units.getById(type);
@@ -27,7 +32,6 @@ module.exports = {
   },
   findSupplyPositions: (resources) => {
     const { map } = resources.get();
-    const myExpansions = map.getOccupiedExpansions(Alliance.SELF);
     // front of natural pylon for great justice
     const naturalWall = map.getNatural().getWall();
     let possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
@@ -54,63 +58,6 @@ module.exports = {
   getLoadedSupply: (units) => {
     return units.getAlive(Alliance.SELF).reduce((accumulator, currentValue) => accumulator + currentValue.cargoSpaceTaken, 0);
   },
-  getTrainingSupply: (world, unitTypes) => {
-    const { data, resources } = world;
-    const { units } = resources.get();
-    const trainingUnitTypes = [];
-    unitTypes.forEach(type => {
-      let abilityId = data.getUnitTypeData(type).abilityId;
-      trainingUnitTypes.push(...units.withCurrentOrders(abilityId).map(() => type));
-    });
-    return trainingUnitTypes.reduce((accumulator, unitType) => accumulator + (unitType === ZERGLING ? 1 : data.getUnitTypeData(unitType).foodRequired), 0);
-  },
-  getSupply: (data, units) => {
-    return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
-  },
-  workerSendOrBuild: (resources, abilityId, position) => {
-    const { units } = resources.get();
-    const collectedActions = [];
-    let builders = [
-      ...units.withLabel('builder').filter(builder => getLabelledAvailable(builder)),
-      ...units.withLabel('proxy').filter(proxy => getLabelledAvailable(proxy)),
-    ].filter(worker => !worker.isReturning());
-    if (abilityId !== MOVE || builders.length === 0) {
-      builders.push(...units.getWorkers().filter(worker => worker.noQueue || worker.isGathering()));
-    }
-    const [builder] = units.getClosest(position, builders);
-    if (builder) {
-      if (!builder.isConstructing() && !isPendingContructing(builder)) {
-        builder.labels.set('builder', true);
-        const unitCommand = {
-          abilityId,
-          unitTags: [builder.tag],
-          targetWorldSpacePos: position,
-        };
-        console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
-        collectedActions.push(unitCommand);
-        module.exports.setPendingOrders(builder, unitCommand);
-        const overlappingBuilders = builders
-          .filter(otherBuilder => otherBuilder.tag !== builder.tag && otherBuilder.orders
-          .find(order => order.abilityId === abilityId && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y));
-        if (overlappingBuilders.length > 0) {
-          collectedActions.push({
-            abilityId: STOP,
-            unitTags: overlappingBuilders.map(builder => builder.tag),
-          });
-        }
-      }
-    }
-    return collectedActions;
-  },
-  setPendingOrders: (unit, unitCommand) => {
-    if (unit.pendingOrders) {
-      unit.pendingOrders.push(unitCommand);
-    } else {
-      unit.pendingOrders = [unitCommand];
-    }
-  },
 }
 
-function getLabelledAvailable(labelled) {
-  return (!labelled.isConstructing() || (labelled.isConstructing() && labelled.unitType === PROBE)) && !labelled.isAttacking();
-}
+module.exports = helper;

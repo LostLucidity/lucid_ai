@@ -3,6 +3,7 @@
 
 const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { supplyTypes } = require("../helper/groups");
+const { setAndLogExecutedSteps } = require("./logging-service");
 
 const planService = {
   set pausePlan(value) {
@@ -15,6 +16,19 @@ const planService = {
       vespene: orderData.vespeneCost,
     });
   },
+  /**
+   * Unpause and log on attempted steps.
+   * @param {World} world 
+   * @param {string} name 
+   * @param {string} extra 
+   */
+   unpauseAndLog: (world, name, extra='') => {
+    const { agent, resources } = world;
+    const { frame } = resources.get();
+    planService.pausePlan = false;
+    planService.continueBuild = true;
+    setAndLogExecutedSteps(agent, frame.timeInSeconds(), name, extra);
+  },  
   dirtyBasePlan: false,
   continueBuild: null,
   currentStep: 0,

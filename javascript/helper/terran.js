@@ -1,18 +1,19 @@
 //@ts-check
 "use strict"
 
-const { UnitType } = require("@node-sc2/core/constants");
+const { UnitType, UnitTypeId } = require("@node-sc2/core/constants");
 const Ability = require("@node-sc2/core/constants/ability");
 const { EFFECT_SCAN, CANCEL_QUEUECANCELTOSELECTION } = require("@node-sc2/core/constants/ability");
 const { liftingAbilities, landingAbilities, townhallTypes, rallyWorkersAbilities, addonTypes } = require("@node-sc2/core/constants/groups");
 const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
-const { setPendingOrders, checkBuildingCount } = require("../helper");
+const { checkBuildingCount } = require("../helper");
 const loggingService = require("../services/logging-service");
 const { getStringNameOfConstant } = require("../services/logging-service");
 const { addEarmark } = require("../services/plan-service");
 const planService = require("../services/plan-service");
+const { setPendingOrders } = require("../services/units-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
 const { countTypes } = require("./groups");
@@ -40,7 +41,7 @@ const terran = {
           unitCommand.targetWorldSpacePos = unit.pos;
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), getStringNameOfConstant(UnitType, addOnType));
+          loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), UnitTypeId[addOnType]);
           setPendingOrders(unit, unitCommand);
           addEarmark(data, data.getUnitTypeData(addOnType));
           return;
@@ -70,7 +71,7 @@ const terran = {
           }
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), getStringNameOfConstant(UnitType, addOnType));
+          loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), UnitTypeId[addOnType]);
           setPendingOrders(unit, unitCommand);
           addEarmark(data, addOnType);
         }

@@ -3,9 +3,8 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes } = require("@node-sc2/core/constants/groups");
-const { getSupply, getTrainingSupply } = require("../../helper");
 const { morphMapping } = require("../../helper/groups");
-const planService = require("../../services/plan-service");
+const { getSupply, getTrainingSupply } = require("../../services/shared-service");
 
 const trackUnitsService = {
   previousUnits: [],

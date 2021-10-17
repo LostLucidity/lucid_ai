@@ -12,7 +12,7 @@ const { checkUnitCount } = require("./track-units/track-units-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
-  balanceForFuture: async (world, action, stepCount = 3) => {
+  balanceForFuture: async (world, action, stepCount = 1) => {
     const { data } = world;
     const { plan } = planService;
     const currentStep = planService.currentStep;
@@ -105,12 +105,18 @@ const manageResources = {
       }
     }
   },
+  /**
+   * @param {World['resources']} resources
+   * @param {Unit} unit
+   */
   async gatherOrMine(resources, unit) {
     const { actions, units } = resources.get();
-    const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
-    const needyGasMine = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
-    const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
-    needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? await actions.mine(unit, needyGasMine, false) : await actions.gather(unit, null, false);
+    if (units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1).length > 0) {
+      const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
+      const needyGasMine = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
+      const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
+      needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? await actions.mine(unit, needyGasMine, false) : await actions.gather(unit, null, false);
+    }
   },
   getResourceDemand(data, steps) {
     let totalMineralCost = 0;

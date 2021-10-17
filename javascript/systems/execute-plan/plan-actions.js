@@ -1,14 +1,13 @@
 //@ts-check
 "use strict"
 
-const { WarpUnitAbility, UnitType, AbilityId, UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
-const { MOVE } = require("@node-sc2/core/constants/ability");
+const { WarpUnitAbility, UnitType,  UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { PHOTONCANNON, PYLON, WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { checkBuildingCount, workerSendOrBuild } = require("../../helper");
+const { checkBuildingCount } = require("../../helper");
 const canBuild = require("../../helper/can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
 const { countTypes } = require("../../helper/groups");
@@ -16,35 +15,49 @@ const { findPlacements, findPosition, inTheMain } = require("../../helper/placem
 const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
 const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
-const { unpauseAndLog } = require("../../services/logging-service");
-const { addEarmark } = require("../../services/plan-service");
+const { addEarmark, unpauseAndLog } = require("../../services/plan-service");
 const planService = require("../../services/plan-service");
+const { assignAndSendWorkerToBuild, premoveBuilderToPosition } = require("../../services/units-service");
 const { balanceForFuture } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
 
-module.exports = {
+const planActions = {
+  /**
+   * 
+   * @param {World} world 
+   * @param {AbilityId} abilityId 
+   * @returns {Promise<any[]>}
+   */
   ability: async (world, abilityId) => {
+    const collectedActions = [];
     const { data, resources } = world;
-    const { actions, units } = resources.get();
+    const { units } = resources.get();
     let canDoTypes = data.findUnitTypesWithAbility(abilityId);
     if (canDoTypes.length === 0) {
-      canDoTypes = units.getAlive(Alliance.SELF);
+      canDoTypes = units.getAlive(Alliance.SELF).map(selfUnits => selfUnits.unitType);
     }
     const unitsCanDo = units.getByType(canDoTypes).filter(unit => unit.alliance === Alliance.SELF);
     if (unitsCanDo.length > 0) {
       if (unitsCanDo.filter(unit => unit.abilityAvailable(abilityId)).length > 0) {
         let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
         const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
-        await actions.sendAction([unitCommand]);
-        unpauseAndLog(world, AbilityId[abilityId]);
+        collectedActions.push(unitCommand);
       } else {
         unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
         planService.pausePlan = true;
         planService.continueBuild = false;
       }
     }
+    return collectedActions;
   },
+  /**
+   * 
+   * @param {World} world 
+   * @param {number} unitType 
+   * @param {null | number} targetCount
+   * @returns {Promise<void>}
+   */
   build: async (world, unitType, targetCount = null) => {
     const collectedActions = [];
     const { agent, data, resources } = world;
@@ -61,7 +74,8 @@ module.exports = {
                 unpauseAndLog(world, UnitTypeId[unitType]);
                 addEarmark(data, data.getUnitTypeData(unitType));
               } else {
-                collectedActions.push(...workerSendOrBuild(resources, MOVE, map.freeGasGeysers()[0].pos));
+                const position = map.freeGasGeysers()[0].pos;
+                collectedActions.push(...premoveBuilderToPosition(units, position));
                 await balanceForFuture(world, unitType)
                 planService.pausePlan = true;
                 planService.continueBuild = false;
@@ -84,7 +98,12 @@ module.exports = {
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             }
           } else {
-            await module.exports.ability(world, data.getUnitTypeData(unitType).abilityId)
+            const actions = await planActions.ability(world, data.getUnitTypeData(unitType).abilityId);
+            if (actions.length > 0) {
+              unpauseAndLog(world, UnitTypeId[unitType]);
+              addEarmark(data, data.getUnitTypeData(unitType));
+              collectedActions.push(...actions);
+            }
           }
           break;
         case PHOTONCANNON === unitType:
@@ -165,7 +184,7 @@ module.exports = {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
           unpauseAndLog(world, UpgradeId[upgradeId]);
-          addEarmark(this.data, upgradeData);
+          addEarmark(data, upgradeData);
         } else {
           await balanceForFuture(world, upgradeId);
           planService.pausePlan = true;
@@ -202,6 +221,12 @@ module.exports = {
   }
 }
 
+/**
+ * @param {World} world
+ * @param {number} unitType
+ * @param {Point2D[]} candidatePositions
+ * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+ */
 async function findAndPlaceBuilding(world, unitType, candidatePositions) {
   const { agent, data, resources } = world
   const collectedActions = []
@@ -211,8 +236,9 @@ async function findAndPlaceBuilding(world, unitType, candidatePositions) {
   if (planService.foundPosition) {
     if (agent.canAfford(unitType)) {
       if (await actions.canPlace(unitType, [planService.foundPosition])) {
-        await actions.sendAction(workerSendOrBuild(resources, data.getUnitTypeData(unitType).abilityId, planService.foundPosition));
-        unpauseAndLog(world, UnitTypeId[unitType]);
+        await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
+        planService.pausePlan = false;
+        planService.continueBuild = true;
         addEarmark(data, data.getUnitTypeData(unitType));
         planService.foundPosition = null;
       } else {
@@ -221,7 +247,7 @@ async function findAndPlaceBuilding(world, unitType, candidatePositions) {
         planService.continueBuild = false;
       }
     } else {
-      collectedActions.push(...workerSendOrBuild(resources, MOVE, planService.foundPosition));
+      collectedActions.push(...premoveBuilderToPosition(units, planService.foundPosition));
       await balanceForFuture(world, unitType);
       planService.pausePlan = true;
       planService.continueBuild = false;
@@ -229,10 +255,12 @@ async function findAndPlaceBuilding(world, unitType, candidatePositions) {
   } else {
     const [pylon] = units.getById(PYLON);
     if (pylon && pylon.buildProgress < 1) {
-      collectedActions.push(...workerSendOrBuild(resources, MOVE, pylon.pos));
+      collectedActions.push(...premoveBuilderToPosition(units, pylon.pos));
       planService.pausePlan = true;
       planService.continueBuild = false;
     }
   }
   return collectedActions;
 }
+
+module.exports = planActions;
