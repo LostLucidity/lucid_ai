@@ -8,7 +8,7 @@ const { MOVE } = require("@node-sc2/core/constants/ability");
 const canBuild = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
-const { workerSendOrBuild, getSupply, checkBuildingCount, setPendingOrders } = require("../helper");
+const { checkBuildingCount } = require("../helper");
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility, UnitType, Upgrade } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
@@ -22,7 +22,6 @@ const { moveAway } = require("../builds/helper");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
-const { getMineralFieldTarget } = require("../builds/terran/mineral-field");
 const { harass } = require("../builds/harass");
 const { getMiddleOfNaturalWall, findPosition, inTheMain, getCandidatePositions, findPlacements } = require("./placement/placement-helper");
 const locationHelper = require("./location");
@@ -37,7 +36,7 @@ const { checkUnitCount } = require("../systems/track-units/track-units-service")
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant, setAndLogExecutedSteps } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
-const { getEnemyWorkers, deleteLabel } = require("../services/units-service");
+const { getEnemyWorkers, deleteLabel, premoveBuilderToPosition, assignAndSendWorkerToBuild, setPendingOrders, getMineralFieldTarget } = require("../services/units-service");
 const planService = require("../services/plan-service");
 const { getNextPlanStep, getFoodUsed, addEarmark } = require("../services/plan-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -45,6 +44,7 @@ const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const loggingService = require("../services/logging-service");
+const { getSupply } = require("../services/shared-service");
 
 let actions;
 let opponentRace;
@@ -209,7 +209,7 @@ class AssemblePlan {
                   planService.pausePlan = false;
                   loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
                 } else {
-                  this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.map.freeGasGeysers()[0].pos));
+                  this.collectedActions.push(...premoveBuilderToPosition(this.units, this.map.freeGasGeysers()[0].pos));
                   const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
                   await balanceResources(this.world, mineralCost / vespeneCost);
                   planService.pausePlan = true;
@@ -262,7 +262,7 @@ class AssemblePlan {
       if (this.agent.canAfford(unitType)) {
         if (await actions.canPlace(unitType, [this.foundPosition])) {
           const unitTypeData = this.data.getUnitTypeData(unitType);
-          await actions.sendAction(workerSendOrBuild(this.resources, unitTypeData.abilityId, this.foundPosition));
+          await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, this.foundPosition));
           planService.pausePlan = false;
           loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
           planService.continueBuild = false;
@@ -270,12 +270,12 @@ class AssemblePlan {
           addEarmark(this.data, unitTypeData);
         } else {
           this.foundPosition = keepPosition(this.resources, unitType, this.foundPosition) ? this.foundPosition : null;
-          if (this.foundPosition) { this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition)); }
+          if (this.foundPosition) { this.collectedActions.push(...premoveBuilderToPosition(this.units, this.foundPosition)); }
           planService.pausePlan = true;
           planService.continueBuild = false;
         }
       } else {
-        this.collectedActions.push(...workerSendOrBuild(this.resources, MOVE, this.foundPosition));
+        this.collectedActions.push(...premoveBuilderToPosition(this.units, this.foundPosition));
         const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
         await balanceResources(this.world, mineralCost / vespeneCost);
         planService.pausePlan = true;
