@@ -39,6 +39,7 @@ const loggingService = require('./services/logging-service');
 const { logoutStepsExecuted } = require('./services/logging-service');
 const { saveReplay, saveExecutedStepsLog } = require('./services/file-saving-service');
 const agentService = require('./services/agent-service');
+const mulingSystem = require('./systems/muling-system');
 
 agentService.difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -192,6 +193,7 @@ function runGame() {
     liftToThirdSystem,
     debugSystem,
     loggingSystem,
+    mulingSystem,
   ];
   const bogSystems = [
     boGeneratorSystem

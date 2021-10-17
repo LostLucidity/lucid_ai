@@ -18,7 +18,7 @@ const { addAddOn } = require("../../helper/terran");
 const { addEarmark, unpauseAndLog } = require("../../services/plan-service");
 const planService = require("../../services/plan-service");
 const { assignAndSendWorkerToBuild, premoveBuilderToPosition } = require("../../services/units-service");
-const { balanceForFuture } = require("../manage-resources");
+const { balanceResources } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
 
@@ -76,7 +76,8 @@ const planActions = {
               } else {
                 const position = map.freeGasGeysers()[0].pos;
                 collectedActions.push(...premoveBuilderToPosition(units, position));
-                await balanceForFuture(world, unitType)
+                const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+                await balanceResources(world, mineralCost / vespeneCost);
                 planService.pausePlan = true;
                 planService.continueBuild = false;
               }
@@ -119,7 +120,8 @@ const planActions = {
             let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
             await addAddOn(world, unitCanDo, abilityId, unitType)
           } else {
-            await balanceForFuture(world, unitType);
+            const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+            await balanceResources(world, mineralCost / vespeneCost);
             planService.pausePlan = true;
             planService.continueBuild = false;
           }
@@ -161,7 +163,8 @@ const planActions = {
       } else {
         if (!agent.canAfford(unitType)) {
           console.log(`${agent.foodUsed}: Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
-          await balanceForFuture(world, unitType);
+          const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+          await balanceResources(world, mineralCost / vespeneCost);
         }
         if (targetCount !== null) {
           planService.pausePlan = true;
@@ -186,7 +189,8 @@ const planActions = {
           unpauseAndLog(world, UpgradeId[upgradeId]);
           addEarmark(data, upgradeData);
         } else {
-          await balanceForFuture(world, upgradeId);
+          const { mineralCost, vespeneCost } = data.getUpgradeData(upgradeId);
+          await balanceResources(world, mineralCost / vespeneCost);
           planService.pausePlan = true;
           planService.continueBuild = false;
         }
@@ -248,7 +252,8 @@ async function findAndPlaceBuilding(world, unitType, candidatePositions) {
       }
     } else {
       collectedActions.push(...premoveBuilderToPosition(units, planService.foundPosition));
-      await balanceForFuture(world, unitType);
+      const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+      await balanceResources(world, mineralCost / vespeneCost);
       planService.pausePlan = true;
       planService.continueBuild = false;
     }

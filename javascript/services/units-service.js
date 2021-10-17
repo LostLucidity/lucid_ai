@@ -107,6 +107,16 @@ const unitService = {
       .filter(u => u.unitType === WorkerRace[world.agent.race]);
     return workers;
   },
+  /**
+   * 
+   * @param {UnitResource} units 
+   * @param {Unit} unit 
+   * @returns 
+   */
+  getMineralFieldTarget: (units, unit) => {
+    const [ closestMineralField ] = units.getClosest(unit.pos, units.getMineralFields());
+    return closestMineralField;
+  },
   isWorker(unit) {
     return workerTypes.includes(unit.unitType);
   },
