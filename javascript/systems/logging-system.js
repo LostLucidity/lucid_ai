@@ -37,7 +37,7 @@ function addBuildStepLog(world) {
   const unitsWithConstructingOrders = resources.get().units.getConstructingWorkers();
   if (unitsWithConstructingOrders.length > 0) {
     unitsWithConstructingOrders.forEach(unit => {
-      const foundOrder = unit.orders.find(order => order.targetWorldSpacePos && distance(order.targetWorldSpacePos, unit.pos) < 2);
+      const foundOrder = unit.orders.find(order => order.targetWorldSpacePos && distance(order.targetWorldSpacePos, unit.pos) < 4);
       if (foundOrder) {
         const foundKey = Object.keys(UnitType).find(key => data.getUnitTypeData(UnitType[key]).abilityId === foundOrder.abilityId);
         const unitType = UnitType[foundKey];
