@@ -118,6 +118,12 @@ const manageResources = {
       needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? await actions.mine(unit, needyGasMine, false) : await actions.gather(unit, null, false);
     }
   },
+  /**
+   * 
+   * @param {World['data']} data 
+   * @param {any[]} steps 
+   * @returns {any}
+   */
   getResourceDemand(data, steps) {
     let totalMineralCost = 0;
     let totalVespeneCost = 0;

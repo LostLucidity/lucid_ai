@@ -41,7 +41,7 @@ module.exports = createSystem({
       let { selectedTypeToBuild } = unitTrainingService;
       unitTrainingService.selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : candidateTypeToBuild[Math.floor(Math.random() * candidateTypeToBuild.length)];
       if (selectedTypeToBuild != null) {
-        const { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, [currentStep]);
+        const { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, [plan[currentStep]]);
         let { mineralCost, vespeneCost } = data.getUnitTypeData(selectedTypeToBuild);
         if (agent.minerals < (totalMineralCost + mineralCost) || agent.vespene < (totalVespeneCost + vespeneCost)) { return; }
         await train(world, selectedTypeToBuild);
