@@ -70,9 +70,11 @@ const planActions = {
           try {
             if (map.freeGasGeysers().length > 0) {
               if (agent.canAfford(unitType)) {
-                await actions.buildGasMine();
-                unpauseAndLog(world, UnitTypeId[unitType]);
-                addEarmark(data, data.getUnitTypeData(unitType));
+                if (units.getWorkers().length > 0) {
+                  await actions.buildGasMine();
+                  unpauseAndLog(world, UnitTypeId[unitType]);
+                  addEarmark(data, data.getUnitTypeData(unitType));
+                }
               } else {
                 const position = map.freeGasGeysers()[0].pos;
                 collectedActions.push(...premoveBuilderToPosition(units, position));
