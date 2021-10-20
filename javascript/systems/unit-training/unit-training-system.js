@@ -24,7 +24,7 @@ module.exports = createSystem({
     const { outsupplied, enemyCombatSupply } = scoutService;
     const trainUnitConditions = [
       outsupplied,
-      workersTrainingTendedTo && !planService.isPlanPaused,
+      unitTrainingService.workersTrainingTendedTo && !planService.isPlanPaused,
       !shortOnWorkers(resources) && !planService.isPlanPaused,
     ];
     if (trainUnitConditions.some(condition => condition)) {

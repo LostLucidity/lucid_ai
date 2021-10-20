@@ -36,7 +36,8 @@ const unitTrainingService = {
       units.getProductionUnits(unitType).some(unit => {
         return (
           unitTrainingService.canTrainNow(data, unit, unitType) &&
-          unit.buildProgress >= 1
+          unit.buildProgress >= 1 &&
+          !unit.isEnemy()
         )
       })
     );
