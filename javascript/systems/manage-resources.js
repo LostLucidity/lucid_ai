@@ -3,7 +3,7 @@
 
 const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities, mineralFieldTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
-const { COMMANDCENTER } = require("@node-sc2/core/constants/unit-type");
+const { COMMANDCENTER, MULE } = require("@node-sc2/core/constants/unit-type");
 const { checkBuildingCount } = require("../helper");
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const { upgradeTypes } = require("../helper/groups");
@@ -136,10 +136,15 @@ const manageResources = {
     return { totalMineralCost, totalVespeneCost };
   },
 }
-
+/**
+ * 
+ * @param {UnitResource} units 
+ * @returns {any}
+ */
 function getMinerCount(units) {
   const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
-  const mineralMinerCount = units.getBases(readySelfFilter).reduce((accumulator, currentValue) => accumulator + currentValue.assignedHarvesters, 0);
+  let mineralMinerCount = units.getBases(readySelfFilter).reduce((accumulator, currentValue) => accumulator + currentValue.assignedHarvesters, 0);
+  mineralMinerCount += (units.getById(MULE).filter(mule => mule.isHarvesting()).length * (3 + 2/3));
   const vespeneMinerCount = units.getGasMines(readySelfFilter).reduce((accumulator, currentValue) => accumulator + currentValue.assignedHarvesters, 0);
   return { mineralMinerCount, vespeneMinerCount }
 }
