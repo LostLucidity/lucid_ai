@@ -175,16 +175,20 @@ const planActions = {
       }
     }
   },
+  /**
+   * @param {World} world 
+   * @param {number} upgradeId 
+   */
   upgrade: async (world, upgradeId) => {
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
-    const upgraders = units.getUpgradeFacilities(upgradeId);
+    const upgraders = units.getUpgradeFacilities(upgradeId).filter(upgrader => upgrader.alliance === Alliance.SELF);
     if (upgraders.length > 0) {
       const upgradeData = data.getUpgradeData(upgradeId)
       const { abilityId } = upgradeData;
       const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
       if (!agent.upgradeIds.includes(upgradeId) && foundUpgradeInProgress === undefined) {
-        const upgrader = units.getUpgradeFacilities(upgradeId).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
+        const upgrader = upgraders.find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
         if (upgrader) {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
