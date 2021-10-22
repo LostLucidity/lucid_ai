@@ -10,7 +10,7 @@ const { train } = require("../execute-plan/plan-actions");
 const { getResourceDemand } = require("../manage-resources");
 const scoutService = require("../scouting/scouting-service");
 const trackUnitsService = require("../track-units/track-units-service");
-const { workersTrainingTendedTo, haveAvailableProductionUnitsFor } = require("./unit-training-service");
+const { haveAvailableProductionUnitsFor } = require("./unit-training-service");
 const unitTrainingService = require("./unit-training-service");
 
 module.exports = createSystem({
@@ -30,7 +30,7 @@ module.exports = createSystem({
     if (trainUnitConditions.some(condition => condition)) {
       outsupplied ? console.log(frame.timeInSeconds(), 'Scouted higher supply', trackUnitsService.selfCombatSupply, enemyCombatSupply) : null;
       const { currentStep, plan } = planService;
-      const candidateTypeToBuild = trainingTypes.filter(type => {
+      const candidateTypesToBuild = trainingTypes.filter(type => {
         return [
           !data.getUnitTypeData(type).attributes.includes(Attribute.STRUCTURE),
           haveAvailableProductionUnitsFor(world, type),
@@ -39,7 +39,7 @@ module.exports = createSystem({
         ].every(condition => condition);
       });
       let { selectedTypeToBuild } = unitTrainingService;
-      unitTrainingService.selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : candidateTypeToBuild[Math.floor(Math.random() * candidateTypeToBuild.length)];
+      unitTrainingService.selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : selectTypeToBuild(world, candidateTypesToBuild);
       if (selectedTypeToBuild != null) {
         const { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, [plan[currentStep]]);
         let { mineralCost, vespeneCost } = data.getUnitTypeData(selectedTypeToBuild);
@@ -49,3 +49,19 @@ module.exports = createSystem({
     }
   }
 });
+
+/**
+ * @param {World} world 
+ * @param {UnitTypeId[]} candidateTypesToBuild 
+ * @returns 
+ */
+function selectTypeToBuild(world, candidateTypesToBuild) {
+  const { agent, data } = world;
+  const filteredTypes = candidateTypesToBuild.filter(type => {
+    if (agent.vespene <= 170 && data.getUnitTypeData(type).vespeneCost > 0) {
+      return false;
+    }
+    return true;
+  });
+  return filteredTypes[Math.floor(Math.random() * filteredTypes.length)];
+}
