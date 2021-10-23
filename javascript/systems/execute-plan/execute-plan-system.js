@@ -2,7 +2,8 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { Attribute } = require("@node-sc2/core/constants/enums");
+const { Attribute, Alliance } = require("@node-sc2/core/constants/enums");
+const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const planService = require("../../services/plan-service");
 const sharedService = require("../../services/shared-service");
 const { build, train, upgrade } = require("./plan-actions");
@@ -39,8 +40,11 @@ module.exports = createSystem({
     }
     data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
   },
-  async onUnitDestroyed({ }, destroyedUnit) {
-    if (destroyedUnit.isWorker()) {
+  async onUnitDestroyed({ agent }, destroyedUnit) {
+    if (
+      (WorkerRace[agent.race] === destroyedUnit.unitType) &&
+      destroyedUnit.alliance === Alliance.ALLY
+    ) {
       planService.pausePlan = false;
     }
   }
