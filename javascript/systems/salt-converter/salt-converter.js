@@ -2,23 +2,31 @@
 "use strict"
 
 const { UnitType, Upgrade } = require("@node-sc2/core/constants");
+const { Race } = require("@node-sc2/core/constants/enums");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const planService = require("../../services/plan-service");
 const mismatchMappings = require("./mismatch-mapping");
 
-module.exports = {
+const saltConverter = {
+  /**
+   * @param {*} build 
+   * @param {Race} race 
+   * @returns {void}
+   */
   convertPlan: (build, race) => {
     const convertedPlan = [];
     const unitCount = new Map();
-    build.orders.forEach(order => {
+    build.orders.forEach((/** @type {any[]} */ order) => {
       const actions = [];
-      order[1].split(',').forEach(item => {
+      order[1].split(',').forEach((/** @type {string} */ item) => {
         const splitItem = item.split(' ');
         let itemCount = 1;
         let normalizedActionName = '';
         if (splitItem[splitItem.length - 1].charAt(0) === 'x') {
           itemCount = parseInt(splitItem[splitItem.length - 1].substring(1));
           normalizedActionName = splitItem.slice(0, splitItem.length - 1).join('').toUpperCase();
+        } else if (saltConverter.isAddOnOrder(splitItem.slice(1))) {
+          normalizedActionName = splitItem.slice(1).join(' ').replace(/ /g, '').toUpperCase();
         } else {
           normalizedActionName = item.replace(/ /g, '').toUpperCase();
         }
@@ -48,4 +56,15 @@ module.exports = {
     });
     planService.setPlan(convertedPlan);
   },
+  /**
+   * @param {string[]} splitItem 
+   * @returns {boolean}
+   */
+  isAddOnOrder: (splitItem) => {
+    const joined = splitItem.join(' ');
+    const normalizedActionName = joined.replace(/ /g, '').toUpperCase();
+    return UnitType[normalizedActionName];
+  },
 }
+
+module.exports = saltConverter;

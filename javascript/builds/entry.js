@@ -3,7 +3,7 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 const AssemblePlan = require("../helper/assemble-plan");
 const { convertPlan } = require("../systems/salt-converter/salt-converter");
 const { gatherOrMine } = require("../systems/manage-resources");
@@ -73,12 +73,16 @@ const entry = createSystem({
       if (units.getBases(Alliance.SELF).length > 0) { await gatherOrMine(resources, idleUnit); }
     }
   },
+  /**
+   * @param {Race} race 
+   * @returns {any}
+   */
   getBuild(race) {
     const racePlans = plans[race];
     var keys = Object.keys(racePlans);
     const selectedPlan = racePlans[keys[ keys.length * Math.random() << 0]];
     if (selectedPlan.buildType === 'two variable') {
-      return convertPlan(selectedPlan);
+      return convertPlan(selectedPlan, race);
     } else {
       return selectedPlan;
     }

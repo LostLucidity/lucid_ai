@@ -13,6 +13,11 @@ module.exports = createSystem({
     const race = world.agent.race;
     this.getBuild(race);
   },
+  /**
+   * 
+   * @param {SC2APIProtocol.Race} race 
+   * @returns {void|any}
+   */
   getBuild(race) {
     const racePlans = plans[race];
     const selectedPlan = racePlans['138658'];
