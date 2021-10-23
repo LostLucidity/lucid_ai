@@ -1,13 +1,12 @@
 //@ts-check
 "use strict"
 
-const { WarpUnitAbility, UnitType,  UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
+const { WarpUnitAbility, UnitType, UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { PHOTONCANNON, PYLON, WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { checkBuildingCount } = require("../../helper");
 const canBuild = require("../../helper/can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
 const { countTypes } = require("../../helper/groups");
@@ -15,12 +14,14 @@ const { findPlacements, findPosition, inTheMain } = require("../../helper/placem
 const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
 const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
+const worldService = require("../../services/world-service");
 const { addEarmark, unpauseAndLog } = require("../../services/plan-service");
 const planService = require("../../services/plan-service");
 const { assignAndSendWorkerToBuild, premoveBuilderToPosition } = require("../../services/units-service");
 const { balanceResources } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
+const { checkBuildingCount } = require("../../services/world-service");
 
 const planActions = {
   /**
@@ -114,13 +115,13 @@ const planActions = {
           collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
           break;
         case addonTypes.includes(unitType):
-          let abilityId = data.getUnitTypeData(unitType).abilityId;
-          let canDoTypes = data.findUnitTypesWithAbility(abilityId);
+          const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
+          let canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
           const addOnUnits = units.withLabel('addAddOn');
-          const unitsCanDo = addOnUnits.filter(unit => unit.abilityAvailable(abilityId)).length > 0 ? addOnUnits : units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
+          const unitsCanDo = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId))).length > 0 ? addOnUnits : units.getByType(canDoTypes).filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId)));
           if (unitsCanDo.length > 0) {
             let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-            await addAddOn(world, unitCanDo, abilityId, unitType)
+            await addAddOn(world, unitCanDo, unitType)
           } else {
             const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
             await balanceResources(world, mineralCost / vespeneCost);

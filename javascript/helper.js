@@ -1,35 +1,11 @@
 //@ts-check
 "use strict"
 
-const { Alliance, Race } = require('@node-sc2/core/constants/enums');
+const { Alliance } = require('@node-sc2/core/constants/enums');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
-const { countTypes } = require('./helper/groups');
 
 const helper = {
-  /**
-   * Returns boolean on whether build step should be executed.
-   * @param {World} world 
-   * @param {UnitTypeId} unitType 
-   * @param {number} targetCount 
-   * @returns {boolean}
-   */
-  checkBuildingCount: (world, unitType, targetCount) => {
-    const { agent, data, resources } = world;
-    const { units } = resources.get();
-    const { abilityId } = data.getUnitTypeData(unitType);
-    const unitsWithOrder = units.withCurrentOrders(abilityId);
-    let count = unitsWithOrder.length;
-    const unitTypes = countTypes.get(unitType) ? countTypes.get(unitType) : [unitType];
-    unitTypes.forEach(type => {
-      let unitsToCount = units.getById(type);
-      if (agent.race === Race.TERRAN) {
-        unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= 1);
-      }
-      count += unitsToCount.length;
-    });
-    return count === targetCount;
-  },
   findSupplyPositions: (resources) => {
     const { map } = resources.get();
     // front of natural pylon for great justice

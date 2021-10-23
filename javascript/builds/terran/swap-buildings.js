@@ -7,15 +7,24 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { findPosition } = require("../../helper/placement/placement-helper");
 const { getAddOnBuildingPlacement, getAddOnPlacement } = require("../../helper/placement/placement-utilities");
 const { getStringNameOfConstant } = require("../../services/logging-service");
+const worldService = require("../../services/world-service");
 
 module.exports = {
   handleOrphanReactor: () => {
     // find orphan reactors
   },
-  checkAddOnPlacement: async ({ data, resources }, building, addOnType = REACTOR) => {
+  /**
+   * 
+   * @param {World} world 
+   * @param {Unit} building 
+   * @param {UnitTypeId} addOnType 
+   * @returns 
+   */
+  checkAddOnPlacement: async (world, building, addOnType = REACTOR) => {
+    const { data, resources } = world;
     const { map } = resources.get();
-    const abilityId = data.getUnitTypeData(addOnType).abilityId;
-    if (building.abilityAvailable(abilityId)) {
+    const abilityIds = worldService.getAbilityIdsForAddons(data, addOnType);
+    if (abilityIds.some(abilityId => building.abilityAvailable(abilityId))) {
       let position = null;
       let addOnPosition = null;
       let range = 1;

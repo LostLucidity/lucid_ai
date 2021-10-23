@@ -10,13 +10,12 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { checkBuildingCount } = require("../helper");
 const loggingService = require("../services/logging-service");
-const { getStringNameOfConstant } = require("../services/logging-service");
 const { addEarmark } = require("../services/plan-service");
 const planService = require("../services/plan-service");
 const { setPendingOrders } = require("../services/units-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
-const { countTypes } = require("./groups");
+const { countTypes, flyingTypesMapping } = require("./groups");
 const { getAddOnPlacement, getAddOnBuildingPosition } = require("./placement/placement-utilities");
 
 const terran = {
@@ -24,13 +23,14 @@ const terran = {
    * Adds addon, with placement checks and relocating logic.
    * @param {World} world 
    * @param {Unit} unit 
-   * @param {AbilityId} abilityId 
    * @param {UnitTypeId} addOnType 
    * @returns {Promise<void>}
    */
-  addAddOn: async (world, unit, abilityId, addOnType) => {
+  addAddOn: async (world, unit, addOnType) => {
     const { agent, data, resources } = world;
     const { actions, frame, map } = resources.get();
+    const unitTypeToBuild = UnitType[`${UnitTypeId[flyingTypesMapping.get(unit.unitType) || unit.unitType]}${UnitTypeId[addOnType]}`];
+    let { abilityId } = data.getUnitTypeData(unitTypeToBuild);
     if (unit.noQueue && !unit.labels.has('swapBuilding')) {
       if (unit.availableAbilities().some(ability => ability === abilityId)) {
         const unitCommand = {
