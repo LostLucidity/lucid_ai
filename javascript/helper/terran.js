@@ -8,11 +8,11 @@ const { liftingAbilities, landingAbilities, townhallTypes, rallyWorkersAbilities
 const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
-const { checkBuildingCount } = require("../helper");
 const loggingService = require("../services/logging-service");
 const { addEarmark } = require("../services/plan-service");
 const planService = require("../services/plan-service");
 const { setPendingOrders } = require("../services/units-service");
+const { checkBuildingCount } = require("../services/world-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
 const { countTypes, flyingTypesMapping } = require("./groups");

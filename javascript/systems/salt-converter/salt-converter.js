@@ -19,12 +19,16 @@ const saltConverter = {
     build.orders.forEach((/** @type {any[]} */ order) => {
       const actions = [];
       order[1].split(',').forEach((/** @type {string} */ item) => {
-        const splitItem = item.split(' ');
+        const splitItem = item.trim().split(' ');
         let itemCount = 1;
         let normalizedActionName = '';
         if (splitItem[splitItem.length - 1].charAt(0) === 'x') {
           itemCount = parseInt(splitItem[splitItem.length - 1].substring(1));
-          normalizedActionName = splitItem.slice(0, splitItem.length - 1).join('').toUpperCase();
+          if (saltConverter.isAddOnOrder(splitItem.slice(1, splitItem.length - 1))) {
+            normalizedActionName = splitItem.slice(1, splitItem.length - 1).join('').toUpperCase();
+          } else {
+            normalizedActionName = splitItem.slice(0, splitItem.length - 1).join('').toUpperCase();
+          }
         } else if (saltConverter.isAddOnOrder(splitItem.slice(1))) {
           normalizedActionName = splitItem.slice(1).join(' ').replace(/ /g, '').toUpperCase();
         } else {
