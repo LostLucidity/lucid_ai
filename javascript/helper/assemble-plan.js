@@ -16,7 +16,7 @@ const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map
 const { defend, attack, push } = require("./behavior/army-behavior");
 const threats = require("./base-threats");
 const { generalScouting, cancelEarlyScout } = require("../builds/scouting");
-const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
+const { labelQueens, inject, spreadCreep, maintainQueens, spreadCreepByQueen } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { moveAway } = require("../builds/helper");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
@@ -424,6 +424,7 @@ class AssemblePlan {
         this.collectedActions.push(...inject(this.units));
         this.collectedActions.push(...overlordCoverage(this.units));
         this.collectedActions.push(...await spreadCreep(this.resources));
+        this.collectedActions.push(...await spreadCreepByQueen(this.resources));
         break;
       case Race.TERRAN:
         this.collectedActions.push(...repairBurningStructures(this.resources));

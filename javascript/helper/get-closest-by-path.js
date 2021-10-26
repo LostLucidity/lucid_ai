@@ -13,12 +13,28 @@ module.exports = {
       return 500;
     }
   },
+  /**
+   * 
+   * @param {ResourceManager} resources 
+   * @param {Point2D} position 
+   * @param {Point2D[]} points 
+   * @param {number} n 
+   * @returns {Point2D[]}
+   */
   getClosestPositionByPath: (resources, position, points, n = 1) => {
     return points.map(point => ({ point, distance: module.exports.distanceByPath(resources, position, point) }))
       .sort((a, b) => a.distance - b.distance)
       .map(pointObject => pointObject.point)
       .slice(0, n);
   },
+  /**
+   * 
+   * @param {ResourceManager} resources 
+   * @param {Point2D} position 
+   * @param {Unit[]} units 
+   * @param {number} n 
+   * @returns {Unit[]}
+   */
   getClosestUnitByPath: (resources, position, units, n = 1) => {
     return units.map(unit => ({ unit, distance: module.exports.distanceByPath(resources, add(unit.pos, unit.radius), position) }))
       .sort((a, b) => a.distance - b.distance)
