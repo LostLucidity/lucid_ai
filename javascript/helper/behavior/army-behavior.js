@@ -15,11 +15,11 @@ const { scanCloakedEnemy } = require("../terran");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { microRangedUnit } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
-const { setPendingOrders, getSupply } = require("../../helper");
 const { pullWorkersToDefend } = require("../../services/army-management-service");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { isRepairing, canAttack } = require("../../services/units-service");
+const { isRepairing, canAttack, setPendingOrders } = require("../../services/units-service");
 const scoutService = require("../../systems/scouting/scouting-service");
+const { getSupply } = require("../../services/shared-service");
 
 const armyBehavior = {
   attack: ({ data, resources }, mainCombatTypes, supportUnitTypes) => {

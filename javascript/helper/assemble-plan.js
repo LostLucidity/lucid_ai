@@ -8,7 +8,6 @@ const { MOVE } = require("@node-sc2/core/constants/ability");
 const canBuild = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
-const { checkBuildingCount } = require("../helper");
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility, UnitType, Upgrade } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
@@ -45,6 +44,7 @@ const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const loggingService = require("../services/logging-service");
 const { getSupply } = require("../services/shared-service");
+const { checkBuildingCount } = require("../services/world-service");
 
 let actions;
 let opponentRace;
@@ -238,7 +238,7 @@ class AssemblePlan {
             const unitsCanDo = addOnUnits.length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
             if (unitsCanDo.length > 0) {
               let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-              await addAddOn(this.world, unitCanDo, abilityId, unitType)
+              await addAddOn(this.world, unitCanDo, unitType)
             } else {
               const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
               await balanceResources(this.world, mineralCost / vespeneCost);
