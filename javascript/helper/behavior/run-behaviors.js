@@ -4,7 +4,7 @@
 const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior, acrossTheMapBehavior } = require("./labelled-behavior");
 const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior } = require("./unit-behavior");
 
-async function runBehaviors(world, opponentRace) {
+async function runBehaviors(world) {
   const { resources } = world;
   const collectedActions = []
   collectedActions.push(...acrossTheMapBehavior(world));
@@ -13,7 +13,7 @@ async function runBehaviors(world, opponentRace) {
   collectedActions.push(...marineBehavior(resources));
   collectedActions.push(...observerBehavior(world));
   collectedActions.push(...overlordBehavior(world));
-  await scoutEnemyMainBehavior(world, opponentRace);
+  await scoutEnemyMainBehavior(world);
   await scoutEnemyNaturalBehavior(resources);
   collectedActions.push(...supplyDepotBehavior(resources));
   collectedActions.push(...await workerBehavior(world));

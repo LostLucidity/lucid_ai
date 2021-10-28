@@ -8,6 +8,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { retreatToExpansion } = require("../../builds/helper");
 const { isFacing } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
+const scoutService = require("../../systems/scouting/scouting-service");
 const { calculateTotalHealthRatio } = require("../calculate-health");
 const { getClosestUnitByPath } = require("../get-closest-by-path");
 const { getCombatRally, getRandomPoints, acrossTheMap } = require("../location");
@@ -66,7 +67,7 @@ module.exports = {
     }
     return collectedActions;
   },
-  scoutEnemyMainBehavior: async (world, opponentRace) => {
+  scoutEnemyMainBehavior: async (world) => {
     const { data, resources } = world;
     const { actions, map, units } = resources.get();
     const [unit] = units.withLabel('scoutEnemyMain');
@@ -84,7 +85,7 @@ module.exports = {
         } else {
           const enemyMain = map.getEnemyMain();
           const randomPointsOfInterest = [...getRandomPoints(map, 3, enemyMain.areas.areaFill)];
-          if (opponentRace === Race.ZERG) { randomPointsOfInterest.push(map.getEnemyNatural().townhallPosition); }
+          if (scoutService.opponentRace === Race.ZERG) { randomPointsOfInterest.push(map.getEnemyNatural().townhallPosition); }
           if (randomPointsOfInterest.length > unit.orders.length) {
             randomPointsOfInterest.forEach(point => {
               const unitCommand = {

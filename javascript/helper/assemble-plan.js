@@ -62,12 +62,12 @@ class AssemblePlan {
     this.supportUnitTypes = plan.unitTypes.supportUnitTypes;
   }
   onEnemyFirstSeen(seenEnemyUnit) {
-    opponentRace = seenEnemyUnit.data().race;
+    scoutService.opponentRace = seenEnemyUnit.data().race;
   }
   onGameStart(world) {
     actions = world.resources.get().actions;
     race = world.agent.race;
-    opponentRace = world.agent.opponent.race;
+    scoutService.opponentRace = world.agent.opponent.race;
   }
   /**
    * @param {World} world
@@ -143,7 +143,7 @@ class AssemblePlan {
       this.state.defendNatural = true;
     }
     await this.raceSpecificManagement();
-    this.collectedActions.push(...await runBehaviors(world, opponentRace));
+    this.collectedActions.push(...await runBehaviors(world));
     if (this.frame.getGameLoop() % 8 === 0) {
       this.units.getAlive().forEach(unit => delete unit['expansions']);
     }
