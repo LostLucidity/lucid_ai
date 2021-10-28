@@ -235,7 +235,10 @@ class AssemblePlan {
             break;
           case TownhallRace[race].includes(unitType):
             if (TownhallRace[race].indexOf(unitType) === 0) {
-              if (this.units.getBases().length !== 2) {
+              if (this.units.getBases().length === 2 && race === Race.TERRAN) {
+                candidatePositions = await inTheMain(this.resources, unitType);
+                this.collectedActions.push(...await findAndPlaceBuilding(this.world, unitType, candidatePositions));
+              } else {
                 const availableExpansions = getAvailableExpansions(this.resources);
                 candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(this.world, availableExpansions)] : [];
                 this.collectedActions.push(...await findAndPlaceBuilding(this.world, unitType, candidatePositions));
