@@ -139,7 +139,6 @@ function engineConnect() {
   return engine.connect();
 }
 
-function runGame() {
 async function runGame() {
   console.log('__dirname', __dirname);
   // console.log(path.join(__dirname, 'data', `current.json`));
