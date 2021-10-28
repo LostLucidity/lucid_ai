@@ -140,6 +140,7 @@ function engineConnect() {
 }
 
 function runGame() {
+async function runGame() {
   console.log('__dirname', __dirname);
   // console.log(path.join(__dirname, 'data', `current.json`));
   const map = maps[Math.floor(Math.random() * maps.length)];
@@ -198,12 +199,18 @@ function runGame() {
   const bogSystems = [
     boGeneratorSystem
   ];
-  bot1.use(updatedSystems);
+  bot1.use(legacySystems);
   // bot1.use(updatedSystems);
   // bot1.use(bogSystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
-  const playerTwo = createPlayer({ race: opponentRace, difficulty: agentService.difficulty, ai_build: aiBuild })
-  return engine.runGame(map, [playerOne, playerTwo]);
+  const playerTwo = createPlayer({ race: opponentRace, difficulty: agentService.difficulty, ai_build: aiBuild });
+  const players = [playerOne, playerTwo];
+  const player = players.find(p => !!p.agent);
+  player.agent.settings.race = player.race;
+  const realTime = false;
+  const randomSeed = 2;
+  await engine.createGame(map, players, realTime, randomSeed);
+  return engine.joinGame(player.agent);
 }
 
 async function processResults([{ agent, data, resources }, gameResults]) {
