@@ -15,6 +15,11 @@ const { getCombatRally, getRandomPoints, acrossTheMap } = require("../location")
 const { engageOrRetreat } = require("./army-behavior");
 
 module.exports = {
+  /**
+   * 
+   * @param {World} world 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   acrossTheMapBehavior: (world) => {
     const { resources } = world;
     const { map, units } = resources.get();
@@ -32,7 +37,7 @@ module.exports = {
         }
       });
       let [closestEnemyUnit] = getClosestUnitByPath(resources, unit.pos, enemyUnits);
-      if (closestEnemyUnit && unit.selfSupply < closestEnemyUnit.selfSupply) {
+      if (closestEnemyUnit && unit['selfDPSHealth'] < closestEnemyUnit['selfDPSHealth']) {
         collectedActions.push(...engageOrRetreat(world, combatUnits, enemyUnits, closestEnemyUnit.pos, false));
       } else {
         collectedActions.push({
