@@ -58,7 +58,7 @@ module.exports = {
         !structure.isPowered,
         !selfPowered.includes(structure.unitType),
         structure.buildProgress >= 1,
-        distance(structure.pos, closestPylon.pos) > 6.5,
+        !closestPylon || distance(structure.pos, closestPylon.pos) > 6.5,
       ].every(condition => condition);
     }));
     if (unpoweredStructure) {
