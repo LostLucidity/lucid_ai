@@ -21,7 +21,7 @@ const { assignAndSendWorkerToBuild, premoveBuilderToPosition } = require("../../
 const { balanceResources } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
-const { checkBuildingCount } = require("../../services/world-service");
+const { checkBuildingCount, findAndPlaceBuilding } = require("../../services/world-service");
 
 const planActions = {
   /**
@@ -230,49 +230,6 @@ const planActions = {
       }
     }
   }
-}
-
-/**
- * @param {World} world
- * @param {number} unitType
- * @param {Point2D[]} candidatePositions
- * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
- */
-async function findAndPlaceBuilding(world, unitType, candidatePositions) {
-  const { agent, data, resources } = world
-  const collectedActions = []
-  const { actions, units } = resources.get();
-  if (candidatePositions.length === 0) { candidatePositions = await findPlacements(world, unitType); }
-  planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(resources, unitType, candidatePositions);
-  if (planService.foundPosition) {
-    if (agent.canAfford(unitType)) {
-      if (await actions.canPlace(unitType, [planService.foundPosition])) {
-        await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
-        planService.pausePlan = false;
-        planService.continueBuild = true;
-        addEarmark(data, data.getUnitTypeData(unitType));
-        planService.foundPosition = null;
-      } else {
-        planService.foundPosition = null;
-        planService.pausePlan = true;
-        planService.continueBuild = false;
-      }
-    } else {
-      collectedActions.push(...premoveBuilderToPosition(units, planService.foundPosition));
-      const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-      await balanceResources(world, mineralCost / vespeneCost);
-      planService.pausePlan = true;
-      planService.continueBuild = false;
-    }
-  } else {
-    const [pylon] = units.getById(PYLON);
-    if (pylon && pylon.buildProgress < 1) {
-      collectedActions.push(...premoveBuilderToPosition(units, pylon.pos));
-      planService.pausePlan = true;
-      planService.continueBuild = false;
-    }
-  }
-  return collectedActions;
 }
 
 module.exports = planActions;

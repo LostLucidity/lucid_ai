@@ -3,7 +3,13 @@
 
 const { Race } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
+const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { countTypes } = require("../helper/groups");
+const { findPlacements, findPosition } = require("../helper/placement/placement-helper");
+const { balanceResources } = require("../systems/manage-resources");
+const { addEarmark } = require("./plan-service");
+const planService = require("./plan-service");
+const { assignAndSendWorkerToBuild, premoveBuilderToPosition } = require("./units-service");
 
 const worldService = {
   /**
@@ -28,6 +34,48 @@ const worldService = {
       count += unitsToCount.length;
     });
     return count === targetCount;
+  },
+  /**
+   * @param {World} world
+   * @param {number} unitType
+   * @param {Point2D[]} candidatePositions
+   * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+   */
+   findAndPlaceBuilding: async (world, unitType, candidatePositions) => {
+    const { agent, data, resources } = world
+    const collectedActions = []
+    const { actions, units } = resources.get();
+    if (candidatePositions.length === 0) { candidatePositions = await findPlacements(world, unitType); }
+    planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(resources, unitType, candidatePositions);
+    if (planService.foundPosition) {
+      if (agent.canAfford(unitType)) {
+        if (await actions.canPlace(unitType, [planService.foundPosition])) {
+          await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
+          planService.pausePlan = false;
+          planService.continueBuild = true;
+          addEarmark(data, data.getUnitTypeData(unitType));
+          planService.foundPosition = null;
+        } else {
+          planService.foundPosition = null;
+          planService.pausePlan = true;
+          planService.continueBuild = false;
+        }
+      } else {
+        collectedActions.push(...premoveBuilderToPosition(units, planService.foundPosition));
+        const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+        await balanceResources(world, mineralCost / vespeneCost);
+        planService.pausePlan = true;
+        planService.continueBuild = false;
+      }
+    } else {
+      const [pylon] = units.getById(PYLON);
+      if (pylon && pylon.buildProgress < 1) {
+        collectedActions.push(...premoveBuilderToPosition(units, pylon.pos));
+        planService.pausePlan = true;
+        planService.continueBuild = false;
+      }
+    }
+    return collectedActions;
   },
   /**
    * @param {DataStorage} data

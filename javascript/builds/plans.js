@@ -159,7 +159,7 @@ const plans = {
         [[...range(26, 200)], 'continuouslyBuild', [ ZERGLING, ROACH, HYDRALISK ]],
         [[...range(32, 33)], 'scout', ZERGLING, 'acrossTheMap'],
         [32, 'train', OVERLORD, 3],
-        [34, 'ability', MORPH_LAIR, { targetCount: 0, countType: LAIR } ],
+        [34, 'build', LAIR, 0],
         [34, 'train', QUEEN, 2],
         [36, 'build', ROACHWARREN, 0],
         [35, 'train', OVERLORD, 4],

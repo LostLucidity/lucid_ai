@@ -9,7 +9,7 @@ const canBuild = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
 const shortOnWorkers = require("./short-on-workers");
-const { WarpUnitAbility, UnitType, Upgrade } = require("@node-sc2/core/constants");
+const { WarpUnitAbility, UnitType, Upgrade, UnitTypeId } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack, push } = require("./behavior/army-behavior");
@@ -37,14 +37,16 @@ const { getStringNameOfConstant, setAndLogExecutedSteps } = require("../services
 const { keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers, deleteLabel, premoveBuilderToPosition, assignAndSendWorkerToBuild, setPendingOrders, getMineralFieldTarget } = require("../services/units-service");
 const planService = require("../services/plan-service");
-const { getNextPlanStep, getFoodUsed, addEarmark } = require("../services/plan-service");
+const { getNextPlanStep, getFoodUsed, addEarmark, unpauseAndLog } = require("../services/plan-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const loggingService = require("../services/logging-service");
 const { getSupply } = require("../services/shared-service");
-const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../services/world-service");
+const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, findAndPlaceBuilding } = require("../services/world-service");
+const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
+const planActions = require("../systems/execute-plan/plan-actions");
 
 let actions;
 let opponentRace;
@@ -197,6 +199,13 @@ class AssemblePlan {
       }
     }
   }
+  /**
+   * 
+   * @param {number} food 
+   * @param {UnitTypeId} unitType 
+   * @param {number} targetCount 
+   * @param {Point2D[]} candidatePositions 
+   */
   async build(food, unitType, targetCount, candidatePositions = []) {
     if (getFoodUsed(this.foodUsed) >= food) {
       if (checkBuildingCount(this.world, unitType, targetCount)) {
@@ -224,8 +233,21 @@ class AssemblePlan {
               planService.continueBuild = false;
             }
             break;
-          case TownhallRace[race].indexOf(unitType) > -1 && candidatePositions.length === 0:
-            { this.collectedActions.push(...await expand(this.world)); }
+          case TownhallRace[race].includes(unitType):
+            if (TownhallRace[race].indexOf(unitType) === 0) {
+              if (this.units.getBases().length !== 2) {
+                const availableExpansions = getAvailableExpansions(this.resources);
+                candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(this.world, availableExpansions)] : [];
+                this.collectedActions.push(...await findAndPlaceBuilding(this.world, unitType, candidatePositions));
+              }
+            } else {
+              const actions = await planActions.ability(this.world, this.data.getUnitTypeData(unitType).abilityId);
+              if (actions.length > 0) {
+                unpauseAndLog(this.world, UnitTypeId[unitType]);
+                addEarmark(this.data, this.data.getUnitTypeData(unitType));
+                this.collectedActions.push(...actions);
+              }
+            }
             break;
           case addonTypes.includes(unitType):
             const abilityIds = getAbilityIdsForAddons(this.data, unitType);
