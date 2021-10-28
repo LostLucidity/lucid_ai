@@ -44,7 +44,7 @@ const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const loggingService = require("../services/logging-service");
 const { getSupply } = require("../services/shared-service");
-const { checkBuildingCount } = require("../services/world-service");
+const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../services/world-service");
 
 let actions;
 let opponentRace;
@@ -228,14 +228,14 @@ class AssemblePlan {
             { this.collectedActions.push(...await expand(this.world)); }
             break;
           case addonTypes.includes(unitType):
-            let abilityId = this.data.getUnitTypeData(unitType).abilityId;
-            let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
+            const abilityIds = getAbilityIdsForAddons(this.data, unitType);
+            let canDoTypes = getUnitTypesWithAbilities(this.data, abilityIds);
             const addOnUnits = this.units.withLabel('addAddOn').filter(addOnUnit => {
               const addOnPosition = addOnUnit.labels.get('addAddOn');
               if (addOnPosition && distance(addOnUnit.pos, addOnPosition) < 1) { addOnUnit.labels.delete('addAddOn'); }
               else { return true; }
             });
-            const unitsCanDo = addOnUnits.length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
+            const unitsCanDo = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId))).length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId)));
             if (unitsCanDo.length > 0) {
               let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
               await addAddOn(this.world, unitCanDo, unitType)
