@@ -289,7 +289,7 @@ class AssemblePlan {
           const unitTypeData = this.data.getUnitTypeData(unitType);
           await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, this.foundPosition));
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
+          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), this.foundPosition);
           planService.continueBuild = false;
           this.foundPosition = null;
           addEarmark(this.data, unitTypeData);
