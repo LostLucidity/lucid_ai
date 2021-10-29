@@ -177,7 +177,7 @@ const terran = {
     });
     if (buildingsToSwap.every(building => building)) {
       if (buildingsToSwap.every(building => building.noQueue && !building.labels.has('pendingOrders'))) {
-        if (buildingsToSwap.every(building => building.availableAbilities().find(ability => liftingAbilities.includes(ability)))) {
+        if (buildingsToSwap.some(building => building.availableAbilities().find(ability => liftingAbilities.includes(ability)))) {
           await actions.do(Ability.LIFT, buildingsToSwap[0].tag);
           await actions.do(Ability.LIFT, buildingsToSwap[1].tag);
         }
