@@ -49,7 +49,6 @@ const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark } = require("../services/data-service");
 
 let actions;
-let opponentRace;
 let race;
 let ATTACKFOOD = 194;
 
@@ -329,7 +328,7 @@ class AssemblePlan {
       }
       let conditions = [];
       const enemyFilter = { alliance: Alliance.ENEMY };
-      switch (opponentRace) {
+      switch (scoutService.opponentRace) {
         case Race.PROTOSS:
           const moreThanTwoGateways = this.units.getById(GATEWAY, enemyFilter).length > 2;
           if (moreThanTwoGateways) {
