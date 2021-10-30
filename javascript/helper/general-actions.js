@@ -3,11 +3,11 @@
 
 const { UnitType } = require("@node-sc2/core/constants");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
+const { addEarmark } = require("../services/data-service");
 const { getStringNameOfConstant } = require("../services/logging-service");
-const loggingService = require("../services/logging-service");
-const { addEarmark } = require("../services/plan-service");
 const planService = require("../services/plan-service");
-const { assignAndSendWorkerToBuild, premoveBuilderToPosition } = require("../services/units-service");
+const { premoveBuilderToPosition } = require("../services/units-service");
+const { assignAndSendWorkerToBuild, setAndLogExecutedSteps } = require("../services/world-service");
 const { balanceResources } = require("../systems/manage-resources");
 const canAfford = require("./can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
@@ -32,7 +32,7 @@ module.exports = {
           const unitTypeData = data.getUnitTypeData(townhallType);
           await actions.sendAction(assignAndSendWorkerToBuild(world, townhallType, expansionLocation));
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallType));
+          setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallType));
           addEarmark(data, unitTypeData);
         }
       } else {

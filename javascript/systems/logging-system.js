@@ -6,9 +6,9 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { HALT_TERRANBUILD } = require("@node-sc2/core/constants/ability");
 const { Race } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { logActionIfNearPosition } = require("../services/logging-service");
 const loggingService = require("../services/logging-service");
 const planService = require("../services/plan-service");
+const { logActionIfNearPosition } = require("../services/world-service");
 
 module.exports = createSystem({
   name: 'Logging',

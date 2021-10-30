@@ -4,10 +4,10 @@
 const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities, mineralFieldTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { COMMANDCENTER, MULE } = require("@node-sc2/core/constants/unit-type");
-const { checkBuildingCount } = require("../helper");
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const { upgradeTypes } = require("../helper/groups");
 const planService = require("../services/plan-service");
+const { checkBuildingCount } = require("../services/world-service");
 const { checkUnitCount } = require("./track-units/track-units-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 

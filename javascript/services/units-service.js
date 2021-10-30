@@ -1,48 +1,18 @@
 //@ts-check
 "use strict"
 
-const Ability = require("@node-sc2/core/constants/ability");
 const { EFFECT_REPAIR, MOVE, STOP } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { ZERGLING, PROBE } = require("@node-sc2/core/constants/unit-type");
+const {  PROBE } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { countTypes } = require("../helper/groups");
 const { createUnitCommand } = require("./actions-service");
-const { logActionIfNearPosition } = require("./logging-service");
 const { isPendingContructing } = require("./shared-service");
 
 const unitService = {
-  /**
-   * @param {World} world 
-   * @param {UnitTypeId} unitType 
-   * @param {Point2D} position 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
-   */
-   assignAndSendWorkerToBuild: (world, unitType, position) => {
-    const { data, resources } = world;
-    const { units } = resources.get();
-    const { abilityId } = data.getUnitTypeData(unitType);
-    const collectedActions = [];
-    const builder = unitService.selectBuilder(units, abilityId, position);
-    if (builder) {
-      if (!builder.isConstructing() && !isPendingContructing(builder)) {
-        builder.labels.set('builder', true);
-        const unitCommand = {
-          abilityId,
-          unitTags: [builder.tag],
-          targetWorldSpacePos: position,
-        };
-        console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
-        logActionIfNearPosition(world, unitType, builder, position);
-        collectedActions.push(unitCommand);
-        unitService.setPendingOrders(builder, unitCommand);
-        collectedActions.push(...unitService.stopOverlappingBuilders(units, builder, abilityId, position));
-      }
-    }
-    return collectedActions;
-  },
   /**
    * Checks whether unit can attack targetUnit.
    * @param {{ get: () => { map: any; units: any; }; }} resources
@@ -101,6 +71,15 @@ const unitService = {
       ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(proxy)),
     ].filter(worker => !worker.isReturning());
     return builders;
+  },
+  /**
+   * @param {UnitResource} units
+   * @param {UnitTypeId} unitType
+   * @returns {Unit[]}
+   */
+  getUnitsById: (units, unitType) => {
+    const unitTypes = countTypes.get(unitType) ? countTypes.get(unitType) : [unitType];
+    return units.getById(unitTypes)
   },
   getEnemyWorkers(world) {
     const workers = world.resources.get().units.getAlive(Alliance.ENEMY)

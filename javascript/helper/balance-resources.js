@@ -16,7 +16,7 @@ module.exports = {
       resourceRatio > ratio,
       agent.canAfford(gasUnitId),
       units.getById(gasUnitId).filter(unit => unit.buildProgress < 1).length < 1,
-      planService.planMax.gasMine ? agent.foodUsed > planService.planMax.gasMine : units.getById(gasUnitId).length > 2,
+      planService.planMax && planService.planMax.gasMine ? agent.foodUsed > planService.planMax.gasMine : units.getById(gasUnitId).length > 2,
       units.withCurrentOrders(buildAbilityId).length <= 0,
       geyser,
     ];

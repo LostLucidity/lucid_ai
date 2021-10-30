@@ -3,18 +3,11 @@
 
 const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { supplyTypes } = require("../helper/groups");
-const { setAndLogExecutedSteps } = require("./logging-service");
+const { setAndLogExecutedSteps } = require("./world-service");
 
 const planService = {
   set pausePlan(value) {
     planService.isPlanPaused = value;
-  },
-  addEarmark: (data, orderData) => {
-    data.addEarmark({
-      name: `${planService.currentStep}`,
-      minerals: orderData.mineralCost,
-      vespene: orderData.vespeneCost,
-    });
   },
   /**
    * Unpause and log on attempted steps.
@@ -27,7 +20,7 @@ const planService = {
     const { frame } = resources.get();
     planService.pausePlan = false;
     planService.continueBuild = true;
-    setAndLogExecutedSteps(agent, frame.timeInSeconds(), name, extra);
+    setAndLogExecutedSteps(world, frame.timeInSeconds(), name, extra);
   },  
   dirtyBasePlan: false,
   continueBuild: null,

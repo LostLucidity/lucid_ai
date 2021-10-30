@@ -1,17 +1,52 @@
 //@ts-check
 "use strict"
 
+const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { countTypes } = require("../helper/groups");
 const { findPlacements, findPosition } = require("../helper/placement/placement-helper");
 const { balanceResources } = require("../systems/manage-resources");
-const { addEarmark } = require("./plan-service");
+const scoutService = require("../systems/scouting/scouting-service");
+const { addEarmark } = require("./data-service");
+const loggingService = require("./logging-service");
 const planService = require("./plan-service");
-const { assignAndSendWorkerToBuild, premoveBuilderToPosition } = require("./units-service");
+const { isPendingContructing } = require("./shared-service");
+const unitService = require("./units-service");
+const { premoveBuilderToPosition, getUnitsById } = require("./units-service");
 
 const worldService = {
+  /**
+   * @param {World} world 
+   * @param {UnitTypeId} unitType 
+   * @param {Point2D} position 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  assignAndSendWorkerToBuild: (world, unitType, position) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const { abilityId } = data.getUnitTypeData(unitType);
+    const collectedActions = [];
+    const builder = unitService.selectBuilder(units, abilityId, position);
+    if (builder) {
+      if (!builder.isConstructing() && !isPendingContructing(builder)) {
+        builder.labels.set('builder', true);
+        const unitCommand = {
+          abilityId,
+          unitTags: [builder.tag],
+          targetWorldSpacePos: position,
+        };
+        console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
+        worldService.logActionIfNearPosition(world, unitType, builder, position);
+        collectedActions.push(unitCommand);
+        unitService.setPendingOrders(builder, unitCommand);
+        collectedActions.push(...unitService.stopOverlappingBuilders(units, builder, abilityId, position));
+      }
+    }
+    return collectedActions;
+  },
   /**
   * Returns boolean on whether build step should be executed.
   * @param {World} world 
@@ -41,7 +76,7 @@ const worldService = {
    * @param {Point2D[]} candidatePositions
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
-   findAndPlaceBuilding: async (world, unitType, candidatePositions) => {
+  findAndPlaceBuilding: async (world, unitType, candidatePositions) => {
     const { agent, data, resources } = world
     const collectedActions = []
     const { actions, units } = resources.get();
@@ -50,7 +85,7 @@ const worldService = {
     if (planService.foundPosition) {
       if (agent.canAfford(unitType)) {
         if (await actions.canPlace(unitType, [planService.foundPosition])) {
-          await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
+          await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
           planService.pausePlan = false;
           planService.continueBuild = true;
           addEarmark(data, data.getUnitTypeData(unitType));
@@ -140,7 +175,38 @@ const worldService = {
       unitTypesWithAbilities.push(...data.findUnitTypesWithAbility(abilityId));
     });
     return unitTypesWithAbilities;
-  }
+  },
+  /**
+   * 
+   * @param {World} world 
+   * @param {Unit} unit 
+   * @param {Point2D} targetPosition 
+   * @param {number} unitType 
+  */
+  logActionIfNearPosition: (world, unitType, unit, targetPosition) => {
+    const {  resources } = world;
+    if (distance(unit.pos, targetPosition) < 4) {
+      const note = `Distance: ${distance(unit.pos, targetPosition)}`;
+      worldService.setAndLogExecutedSteps(world, resources.get().frame.timeInSeconds(), UnitTypeId[unitType], note);
+    }
+  },
+  /**
+   * 
+   * @param {World} world
+   * @param {number} time 
+   * @param {string} name 
+   * @param {string} notes 
+  */
+  setAndLogExecutedSteps: (world, time, name, notes = '') => {
+    const { agent } = world;
+    const { foodUsed, minerals, vespene } = agent;
+    const buildStepExecuted = [foodUsed, loggingService.formatToMinutesAndSeconds(time), name, scoutService.outsupplied, `${minerals}/${vespene}`];
+    const count = UnitType[name] ? getUnitsById(world.resources.get().units, UnitType[name]).length + 1 : 0;
+    if (count) buildStepExecuted.push(count);
+    if (notes) buildStepExecuted.push(notes);
+    console.log(buildStepExecuted);
+    loggingService.executedSteps.push(buildStepExecuted);
+  },
 }
 
 module.exports = worldService;

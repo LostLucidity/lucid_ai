@@ -33,20 +33,20 @@ const { haveAvailableProductionUnitsFor } = require("../systems/unit-training/un
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { checkUnitCount } = require("../systems/track-units/track-units-service");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
-const { getStringNameOfConstant, setAndLogExecutedSteps } = require("../services/logging-service");
+const { getStringNameOfConstant } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
-const { getEnemyWorkers, deleteLabel, premoveBuilderToPosition, assignAndSendWorkerToBuild, setPendingOrders, getMineralFieldTarget } = require("../services/units-service");
+const { getEnemyWorkers, deleteLabel, premoveBuilderToPosition, setPendingOrders, getMineralFieldTarget } = require("../services/units-service");
 const planService = require("../services/plan-service");
-const { getNextPlanStep, getFoodUsed, addEarmark, unpauseAndLog } = require("../services/plan-service");
+const { getNextPlanStep, getFoodUsed, unpauseAndLog } = require("../services/plan-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
-const loggingService = require("../services/logging-service");
 const { getSupply } = require("../services/shared-service");
-const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, findAndPlaceBuilding } = require("../services/world-service");
+const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, findAndPlaceBuilding, assignAndSendWorkerToBuild, setAndLogExecutedSteps } = require("../services/world-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 const planActions = require("../systems/execute-plan/plan-actions");
+const { addEarmark } = require("../services/data-service");
 
 let actions;
 let opponentRace;
@@ -216,7 +216,7 @@ class AssemblePlan {
                 if (this.agent.canAfford(unitType)) {
                   await actions.buildGasMine();
                   planService.pausePlan = false;
-                  loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
+                  setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), );
                 } else {
                   this.collectedActions.push(...premoveBuilderToPosition(this.units, this.map.freeGasGeysers()[0].pos));
                   const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
@@ -289,7 +289,7 @@ class AssemblePlan {
           const unitTypeData = this.data.getUnitTypeData(unitType);
           await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, this.foundPosition));
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), this.foundPosition);
+          setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), this.foundPosition);
           planService.continueBuild = false;
           this.foundPosition = null;
           addEarmark(this.data, unitTypeData);
@@ -513,7 +513,7 @@ class AssemblePlan {
             }
             this.collectedActions.push(unitCommand);
             console.log('Scout sent');
-            setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), `scouting ${targetLocationFunction}`);
+            setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType),`scouting ${targetLocationFunction}`);
           }
         }
       }
@@ -585,7 +585,7 @@ class AssemblePlan {
             }
           }
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
+          setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
           this.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
           addEarmark(this.data, unitTypeData);
@@ -617,7 +617,7 @@ class AssemblePlan {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.agent, this.frame.timeInSeconds(), upgradeName);
+          setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), upgradeName);
           addEarmark(this.data, upgradeData);
           console.log(`Upgrading ${upgradeName}`);
         } else {
