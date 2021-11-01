@@ -4,6 +4,7 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { REACTOR } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { existsInMap } = require("../../helper/location");
 const { findPosition } = require("../../helper/placement/placement-helper");
 const { getAddOnBuildingPlacement, getAddOnPlacement } = require("../../helper/placement/placement-utilities");
 const { getStringNameOfConstant } = require("../../services/logging-service");
@@ -29,7 +30,9 @@ module.exports = {
       let addOnPosition = null;
       let range = 1;
       do {
-        const nearPoints = gridsInCircle(getAddOnPlacement(building.pos), range).filter(grid => map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(building.unitType, getAddOnBuildingPlacement(grid)));
+        const nearPoints = gridsInCircle(getAddOnPlacement(building.pos), range).filter(grid => {
+          return existsInMap(map, grid) && map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(building.unitType, getAddOnBuildingPlacement(grid));
+        });
         if (nearPoints.length > 0) {
           if (Math.random() < (1 / 2)) {
             addOnPosition = nearPoints[Math.floor(Math.random() * nearPoints.length)];

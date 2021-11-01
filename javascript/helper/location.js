@@ -6,6 +6,11 @@ const { avgPoints, add } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 const location = {
+  /**
+   * @param {MapResource} map 
+   * @param {Point2D} position 
+   * @returns {boolean}
+   */
   existsInMap: (map, position) => {
     const { height } = map._grids;
     return height.hasOwnProperty(position.y) && height[position.y].hasOwnProperty(position.x);
