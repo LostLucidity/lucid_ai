@@ -359,7 +359,7 @@ class AssemblePlan {
           // 1 barracks and 1 gas, second command center
           conditions = [
             this.units.getById(BARRACKS, enemyFilter).length === 1,
-            this.units.getById(GasMineRace[opponentRace], enemyFilter).length === 1,
+            this.units.getById(GasMineRace[scoutService.opponentRace], enemyFilter).length === 1,
             !!this.map.getEnemyNatural().getBase()
           ];
           if (!conditions.every(c => c)) {
@@ -369,7 +369,7 @@ class AssemblePlan {
           }
           this.scoutReport = `${this.state.enemyBuildType} detected:
           Barracks Count: ${this.units.getById(BARRACKS, enemyFilter).length}.
-          Gas Mine Count: ${this.units.getById(GasMineRace[opponentRace], enemyFilter).length}.
+          Gas Mine Count: ${this.units.getById(GasMineRace[scoutService.opponentRace], enemyFilter).length}.
           Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}.`;
           break;
         case Race.ZERG:
