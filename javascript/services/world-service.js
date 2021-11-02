@@ -11,6 +11,7 @@ const { findPlacements, findPosition } = require("../helper/placement/placement-
 const { balanceResources } = require("../systems/manage-resources");
 const scoutService = require("../systems/scouting/scouting-service");
 const { addEarmark } = require("./data-service");
+const { formatToMinutesAndSeconds } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
@@ -184,7 +185,7 @@ const worldService = {
    * @param {number} unitType 
   */
   logActionIfNearPosition: (world, unitType, unit, targetPosition) => {
-    const {  resources } = world;
+    const { resources } = world;
     if (distance(unit.pos, targetPosition) < 4) {
       const note = `Distance: ${distance(unit.pos, targetPosition)}`;
       worldService.setAndLogExecutedSteps(world, resources.get().frame.timeInSeconds(), UnitTypeId[unitType], note);
@@ -200,12 +201,25 @@ const worldService = {
   setAndLogExecutedSteps: (world, time, name, notes = '') => {
     const { agent } = world;
     const { foodUsed, minerals, vespene } = agent;
-    const buildStepExecuted = [foodUsed, loggingService.formatToMinutesAndSeconds(time), name, scoutService.outsupplied, `${minerals}/${vespene}`];
+    const buildStepExecuted = [foodUsed, formatToMinutesAndSeconds(time), name, scoutService.outsupplied, `${minerals}/${vespene}`];
     const count = UnitType[name] ? getUnitsById(world.resources.get().units, UnitType[name]).length + 1 : 0;
     if (count) buildStepExecuted.push(count);
     if (notes) buildStepExecuted.push(notes);
     console.log(buildStepExecuted);
     loggingService.executedSteps.push(buildStepExecuted);
+  },
+  /**
+   * Unpause and log on attempted steps.
+   * @param {World} world 
+   * @param {string} name 
+   * @param {string} extra 
+  */
+  unpauseAndLog: (world, name, extra = '') => {
+    const { resources } = world;
+    const { frame } = resources.get();
+    planService.pausePlan = false;
+    planService.continueBuild = true;
+    worldService.setAndLogExecutedSteps(world, frame.timeInSeconds(), name, extra);
   },
 }
 

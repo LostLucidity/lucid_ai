@@ -1,49 +1,14 @@
 //@ts-check
 "use strict"
 
-const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities, mineralFieldTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { COMMANDCENTER, MULE } = require("@node-sc2/core/constants/unit-type");
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const { upgradeTypes } = require("../helper/groups");
-const planService = require("../services/plan-service");
-const { checkBuildingCount } = require("../services/world-service");
-const { checkUnitCount } = require("./track-units/track-units-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
-  balanceForFuture: async (world, action, stepCount = 1) => {
-    const { data } = world;
-    const { plan } = planService;
-    const currentStep = planService.currentStep;
-    if (plan !== null && currentStep !== null) {
-      const steps = [plan[currentStep]];
-      for (let step = 1; step <= stepCount; step++) {
-        const nextStep = plan[currentStep + step];
-        if (nextStep.orderType === 'UnitType') {
-          let useNextStep;
-          if (!steps.find(step => step.unitType === nextStep.unitType)) {
-            if (data.getUnitTypeData(nextStep.unitType).attributes.includes(Attribute.STRUCTURE)) {
-              useNextStep = checkBuildingCount(world, nextStep.unitType, nextStep.targetCount)
-            } else {
-              useNextStep = checkUnitCount(world, nextStep.unitType, nextStep.targetCount)
-            }
-          } else { useNextStep = true; }
-          if (useNextStep) { steps.push(nextStep); };
-        } else if (nextStep.orderType === 'Upgrade') {
-          const upgraders = world.resources.get().units.getUpgradeFacilities(nextStep.upgrade);
-          const { abilityId } = data.getUpgradeData(nextStep.upgrade);
-          const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
-          if (!world.agent.upgradeIds.includes(nextStep.upgrade) && foundUpgradeInProgress === undefined) { steps.push(nextStep); }
-        }
-      }
-      const { totalMineralCost, totalVespeneCost } = manageResources.getResourceDemand(data, steps);
-      await manageResources.balanceResources(world, totalMineralCost / totalVespeneCost);
-    } else {
-      let { mineralCost, vespeneCost } = data.getUnitTypeData(action);
-      await manageResources.balanceResources(world, mineralCost / vespeneCost);
-    }
-  },
   balanceResources: async ({ agent, data, resources }, targetRatio = 16 / 6) => {
     targetRatio = targetRatio === Infinity ? (32 / 6) : targetRatio;
     const { actions, units } = resources.get();

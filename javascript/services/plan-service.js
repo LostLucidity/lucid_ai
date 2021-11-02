@@ -3,25 +3,11 @@
 
 const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { supplyTypes } = require("../helper/groups");
-const { setAndLogExecutedSteps } = require("./world-service");
 
 const planService = {
   set pausePlan(value) {
     planService.isPlanPaused = value;
   },
-  /**
-   * Unpause and log on attempted steps.
-   * @param {World} world 
-   * @param {string} name 
-   * @param {string} extra 
-   */
-   unpauseAndLog: (world, name, extra='') => {
-    const { agent, resources } = world;
-    const { frame } = resources.get();
-    planService.pausePlan = false;
-    planService.continueBuild = true;
-    setAndLogExecutedSteps(world, frame.timeInSeconds(), name, extra);
-  },  
   dirtyBasePlan: false,
   continueBuild: null,
   currentStep: 0,

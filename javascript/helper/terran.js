@@ -9,10 +9,9 @@ const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { addEarmark } = require("../services/data-service");
-const loggingService = require("../services/logging-service");
 const planService = require("../services/plan-service");
 const { setPendingOrders } = require("../services/units-service");
-const { checkBuildingCount } = require("../services/world-service");
+const { checkBuildingCount, setAndLogExecutedSteps } = require("../services/world-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
 const { countTypes, flyingTypesMapping } = require("./groups");
@@ -41,7 +40,7 @@ const terran = {
           unitCommand.targetWorldSpacePos = unit.pos;
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), UnitTypeId[addOnType]);
+          setAndLogExecutedSteps(world, frame.timeInSeconds(), UnitTypeId[addOnType]);
           setPendingOrders(unit, unitCommand);
           addEarmark(data, data.getUnitTypeData(addOnType));
           return;
@@ -71,7 +70,7 @@ const terran = {
           }
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(agent, frame.timeInSeconds(), UnitTypeId[addOnType]);
+          setAndLogExecutedSteps(world, frame.timeInSeconds(), UnitTypeId[addOnType]);
           setPendingOrders(unit, unitCommand);
           addEarmark(data, data.getUnitTypeData(addOnType));
         }
