@@ -172,6 +172,11 @@ module.exports = {
     }
     return collectedActions;
   },
+  /**
+   * 
+   * @param {World} param0 
+   * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+   */
   workerBehavior: async ({ agent, data, resources }) => {
     const { frame, units } = resources.get();
     const collectedActions = [];
@@ -187,8 +192,8 @@ module.exports = {
           const inRangeCombatSupply = calculateHealthAdjustedSupply(data, inRangeSelfCombatUnits);
           const inRangeCombatUnitsOfEnemy = getInRangeUnits(closestEnemyUnit, units.getCombatUnits(Alliance.SELF));
           const inRangeCombatUnitsOfEnemySupply = calculateHealthAdjustedSupply(data, inRangeCombatUnitsOfEnemy);
-          closestEnemyUnit.inRangeUnits = getInRangeUnits(closestEnemyUnit, enemyUnits);
-          const inRangeEnemySupply = calculateHealthAdjustedSupply(data, closestEnemyUnit.inRangeUnits);
+          closestEnemyUnit['inRangeUnits'] = getInRangeUnits(closestEnemyUnit, enemyUnits);
+          const inRangeEnemySupply = calculateHealthAdjustedSupply(data, closestEnemyUnit['inRangeUnits']);
           const combatSupply = inRangeCombatSupply > inRangeCombatUnitsOfEnemySupply ? inRangeCombatSupply : inRangeCombatUnitsOfEnemySupply;
           if (inRangeEnemySupply > combatSupply) {
             const inRangeWorkers = getInRangeUnits(worker, workers);
