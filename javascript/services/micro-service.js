@@ -50,9 +50,16 @@ const microService = {
     }
     return collectedActions;
   },
+  /**
+   * 
+   * @param {DataStorage} data 
+   * @param {Unit} unit 
+   * @param {Unit} targetUnit 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   microRangedUnit: (data, unit, targetUnit) => {
     const collectedActions = [];
-    if (unit.weaponCooldown > 12) {
+    if (unit.weaponCooldown > 12 && data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; })) {
       const microPosition = microService.getPositionVersusTargetUnit(data, unit, targetUnit)
       collectedActions.push({
         abilityId: MOVE,

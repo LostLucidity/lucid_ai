@@ -15,9 +15,9 @@ const { isPendingContructing } = require("./shared-service");
 const unitService = {
   /**
    * Checks whether unit can attack targetUnit.
-   * @param {{ get: () => { map: any; units: any; }; }} resources
-   * @param {{ isFlying: any; isMelee: () => any; }} unit
-   * @param {{ isFlying: any; pos: any; radius: any; }} targetUnit
+   * @param {ResourceManager} resources
+   * @param {Unit} unit
+   * @param {Unit} targetUnit
    * @return {boolean}
    */
   canAttack(resources, unit, targetUnit) {
@@ -34,8 +34,8 @@ const unitService = {
   },
   /**
    * Returns whether target unit is in sightRange of unit.
-   * @param {any[]} units
-   * @param {{ isFlying?: any; pos: any; radius?: any; }} targetUnit
+   * @param {Unit[]} units
+   * @param {Unit} targetUnit
    * @return {boolean}
    */
   inSightRange(units, targetUnit) {

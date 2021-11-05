@@ -14,7 +14,6 @@ const { filterLabels } = require("../unit-selection");
 const { scanCloakedEnemy } = require("../terran");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { microRangedUnit } = require("../../services/micro-service");
-const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { pullWorkersToDefend } = require("../../services/army-management-service");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { isRepairing, canAttack, setPendingOrders } = require("../../services/units-service");
@@ -43,6 +42,15 @@ const armyBehavior = {
     }
     return collectedActions;
   },
+  /**
+   * 
+   * @param {World} world 
+   * @param {*} assemblePlan 
+   * @param {*} mainCombatTypes 
+   * @param {*} supportUnitTypes 
+   * @param {*} threats 
+   * @returns 
+   */
   defend: async (world, assemblePlan, mainCombatTypes, supportUnitTypes, threats) => {
     const { agent, data, resources } = world;
     const { units } = resources.get();
@@ -105,12 +113,12 @@ const armyBehavior = {
   },
   /**
    * Returns an array of unitCommands to give to selfUnits to engage or retreat.
-   * @param {any} param0 
-   * @param {any[]} selfUnits 
-   * @param {any[]} enemyUnits 
-   * @param {any} position 
+   * @param {World} param0 
+   * @param {Unit[]} selfUnits 
+   * @param {Unit[]} enemyUnits 
+   * @param {Point2D} position 
    * @param {boolean} clearRocks 
-   * @returns {any[]}
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   engageOrRetreat: ({ data, resources }, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { units } = resources.get();
@@ -120,16 +128,16 @@ const armyBehavior = {
       if (!workerTypes.includes(selfUnit.unitType)) {
         const [closestEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits);
         if (closestEnemyUnit && distance(selfUnit.pos, closestEnemyUnit.pos) < 16) {
-          const selfDPSHealth = selfUnit.selfDPSHealth > closestEnemyUnit.enemyDPSHealth ? selfUnit.selfDPSHealth : closestEnemyUnit.enemyDPSHealth;
+          const selfDPSHealth = selfUnit['selfDPSHealth'] > closestEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestEnemyUnit['enemyDPSHealth'];
           const noBunker = units.getById(BUNKER).length === 0;
-          if (closestEnemyUnit.selfDPSHealth > selfDPSHealth && noBunker) {
+          if (closestEnemyUnit['selfDPSHealth'] > selfDPSHealth && noBunker) {
             const unitCommand = { abilityId: MOVE }
             if (selfUnit.isFlying) {
               unitCommand.targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
               unitCommand.unitTags = [selfUnit.tag];
               collectedActions.push(unitCommand);
             } else {
-              if (selfUnit.pendingOrders === undefined || selfUnit.pendingOrders.length === 0) {
+              if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
                 const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
                 unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestArmedEnemyUnit || closestEnemyUnit);
                 unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
