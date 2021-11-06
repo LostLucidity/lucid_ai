@@ -166,11 +166,11 @@ async function runGame() {
     workerTrainingSystem,
     trackUnitsSystem,
     scoutingSystem,
+    loggingSystem,
     entry,
     workerBalanceSystem,
     enemyTrackingSystem,
     debugSystem,
-    loggingSystem,
     wallOffRampSystem,
     taggingSystem,
   ];

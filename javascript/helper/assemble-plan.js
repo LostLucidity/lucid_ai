@@ -691,6 +691,8 @@ class AssemblePlan {
         break;
       }
     }
+    planService.latestStep = planService.currentStep;
+    planService.currentStep = null;
   }
 }
 

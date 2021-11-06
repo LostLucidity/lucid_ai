@@ -16,6 +16,7 @@ const planService = {
   },
   foundPosition: null,
   isPlanPaused: null,
+  latestStep: 0,
   legacyPlan: null,
   pendingFood: 0,
   plan: null,

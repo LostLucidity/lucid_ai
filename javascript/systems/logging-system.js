@@ -26,7 +26,7 @@ module.exports = createSystem({
 function logStepStats({ agent, resources }) {
   const formattedTime = loggingService.formatToMinutesAndSeconds(resources.get().frame.timeInSeconds());
   const { foodUsed, minerals, vespene } = agent;
-  console.log(`foodUsed: ${foodUsed}, timeInSeconds: ${formattedTime}, isPlanPaused: ${planService.isPlanPaused}, step: ${planService.currentStep}, resources: ${minerals}/${vespene}`);
+  console.log(`foodUsed: ${foodUsed}, timeInSeconds: ${formattedTime}, isPlanPaused: ${planService.isPlanPaused}, step: ${planService.latestStep}, resources: ${minerals}/${vespene}`);
 }
 /**
  * @param {World} world
@@ -34,23 +34,22 @@ function logStepStats({ agent, resources }) {
  */
 function addBuildStepLog(world) {
   const { agent, data, resources } = world;
-  const unitsWithConstructingOrders = resources.get().units.getConstructingWorkers();
+  const { units } = resources.get();
+  const unitsWithConstructingOrders = units.getConstructingWorkers();
   if (unitsWithConstructingOrders.length > 0) {
     unitsWithConstructingOrders.forEach(unit => {
       const foundOrder = unit.orders.find(order => order.targetWorldSpacePos && distance(order.targetWorldSpacePos, unit.pos) < 4);
       if (foundOrder) {
         const foundKey = Object.keys(UnitType).find(key => data.getUnitTypeData(UnitType[key]).abilityId === foundOrder.abilityId);
         const unitType = UnitType[foundKey];
-        if (
-          foundOrder &&
-          (
-            (agent.race !== Race.TERRAN) ||
-            (
-              agent.race === Race.TERRAN &&
-              !unit.abilityAvailable(HALT_TERRANBUILD)
-            )
-          )
-        ) {
+        if (foundKey) {
+          if (agent.race === Race.TERRAN) {
+            if (unit.abilityAvailable(HALT_TERRANBUILD)) return;
+          }
+          if (agent.race === Race.PROTOSS) {
+            const [closestUnit] = units.getClosest(foundOrder.targetWorldSpacePos, units.getById(unitType))
+            if (closestUnit && distance(closestUnit.pos, foundOrder.targetWorldSpacePos) < 1) return;
+          }
           logActionIfNearPosition(world, unitType, unit, foundOrder.targetWorldSpacePos);
         }
       }

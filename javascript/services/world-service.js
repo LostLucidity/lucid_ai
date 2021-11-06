@@ -2,7 +2,7 @@
 "use strict"
 
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
-const { Race } = require("@node-sc2/core/constants/enums");
+const { Race, Attribute } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
@@ -199,14 +199,24 @@ const worldService = {
    * @param {string} notes 
   */
   setAndLogExecutedSteps: (world, time, name, notes = '') => {
-    const { agent } = world;
+    const { agent, data } = world;
     const { foodUsed, minerals, vespene } = agent;
-    const buildStepExecuted = [foodUsed, formatToMinutesAndSeconds(time), name, scoutService.outsupplied, `${minerals}/${vespene}`];
+    const buildStepExecuted = [foodUsed, formatToMinutesAndSeconds(time), name, planService.currentStep, scoutService.outsupplied, `${minerals}/${vespene}`];
     const count = UnitType[name] ? getUnitsById(world.resources.get().units, UnitType[name]).length + 1 : 0;
     if (count) buildStepExecuted.push(count);
     if (notes) buildStepExecuted.push(notes);
     console.log(buildStepExecuted);
-    loggingService.executedSteps.push(buildStepExecuted);
+    const lastElement = loggingService.executedSteps.length - 1;
+    const lastStep = loggingService.executedSteps[lastElement];
+    let matchingLastStep = false;
+    if (lastStep) {
+      matchingLastStep = buildStepExecuted[2] === lastStep[2] && buildStepExecuted[6] === lastStep[6];
+      const isStructure = UnitType[name] && data.getUnitTypeData(UnitType[name]).attributes.includes(Attribute.STRUCTURE);
+      if (matchingLastStep && !isStructure) {
+        matchingLastStep = matchingLastStep && buildStepExecuted[3] === lastStep[3];
+      }
+    }
+    matchingLastStep ? loggingService.executedSteps.splice(lastElement, 1, buildStepExecuted) : loggingService.executedSteps.push(buildStepExecuted);
   },
   /**
    * Unpause and log on attempted steps.
