@@ -17,6 +17,7 @@ const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const { pullWorkersToDefend } = require("../../services/army-management-service");
 const { isRepairing } = require("../../services/units-service");
+const { createUnitCommand } = require("../../services/actions-service");
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action) => {
@@ -126,21 +127,21 @@ module.exports = {
     collectedActions.push(...shadowEnemy(world, units.getById([OVERLORD, OVERSEER])));
     return collectedActions;
   },
+  /**
+   * 
+   * @param {ResourceManager} resources 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   supplyDepotBehavior: (resources) => {
-    const {
-      units,
-    } = resources.get();
+    const { units } = resources.get();
     const collectedActions = [];
-    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
+    const enemyUnits = units.getAlive(Alliance.ENEMY);
     units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).filter(depot => {
-      const unitCommand = { unitTags: [depot.tag], }
-      let [closestEnemyUnit] = units.getClosest(depot.pos, enemyUnits, 1);
+      let [closestEnemyUnit] = units.getClosest(depot.pos, enemyUnits.filter(unit => !unit.isFlying), 1);
       if (closestEnemyUnit && distance(closestEnemyUnit.pos, depot.pos) < 16) {
-        unitCommand.abilityId = MORPH_SUPPLYDEPOT_RAISE
-        collectedActions.push(unitCommand);
+        collectedActions.push(createUnitCommand(MORPH_SUPPLYDEPOT_RAISE, [depot]));
       } else {
-        unitCommand.abilityId = MORPH_SUPPLYDEPOT_LOWER
-        collectedActions.push(unitCommand);
+        collectedActions.push(createUnitCommand(MORPH_SUPPLYDEPOT_LOWER, [depot]));
       }
     });
     return collectedActions;
