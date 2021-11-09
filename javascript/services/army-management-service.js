@@ -11,7 +11,7 @@ const { getInRangeUnits, calculateNearSupply, getInRangeDestructables, calculate
 const { tankBehavior } = require("../helper/behavior/unit-behavior");
 const { getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { filterLabels } = require("../helper/unit-selection");
-const { mappedEnemyUnits } = require("../systems/enemy-tracking/enemy-tracking-service");
+const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../systems/manage-resources");
 const { micro } = require("./micro-service");
 const { isRepairing } = require("./units-service");
@@ -137,10 +137,18 @@ const armyManagementService = {
       return closestUnit;
     }
   },
+  /**
+   * 
+   * @param {World} param0 
+   * @param {Unit} worker 
+   * @param {Unit} targetUnit 
+   * @param {Unit[]} enemyUnits 
+   * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+   */
   pullWorkersToDefend: async ({ agent, data, resources }, worker, targetUnit, enemyUnits) => {
     const { units } = resources.get();
     const collectedActions = [];
-    const inRangeEnemySupply = calculateHealthAdjustedSupply(data, getInRangeUnits(targetUnit, mappedEnemyUnits));
+    const inRangeEnemySupply = calculateHealthAdjustedSupply(data, getInRangeUnits(targetUnit, [...enemyTrackingService.mappedEnemyUnits]));
     const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
     const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy', 'builder']) && !isRepairing(unit));
     const fighters = units.getClosest(targetUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
