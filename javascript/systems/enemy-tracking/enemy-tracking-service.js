@@ -17,9 +17,19 @@ const enemyTrackingService = {
   get enemyCombatUnits() {
     return enemyTrackingService.enemyUnits.filter(unit => unit.isCombatUnit());
   },
+  /**
+   * Keep track of units whose destruction hasn't been detected.
+   * @param {Unit} enemyUnit 
+   * @returns {void}
+   */
   addEnemyUnit: (enemyUnit) => {
     enemyTrackingService.enemyUnits.push(enemyUnit);
   },
+  /**
+   * Keep track of units last seen on the map including visible units.
+   * @param {UnitResource} units 
+   * * @returns {void}
+   */
   addUnmappedUnit: (units) => {
     enemyTrackingService.mappedEnemyUnits.push(...units.getAlive(Alliance.ENEMY).filter(unit => !enemyTrackingService.mappedEnemyUnits.some(mappedUnit => unit.tag === mappedUnit.tag)));
   },

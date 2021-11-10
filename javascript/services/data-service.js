@@ -16,6 +16,21 @@ const dataService = {
       vespene: orderData.vespeneCost,
     });
   },
+  /**
+   * 
+   * @param {DataStorage} data 
+   * @param {Unit[]} units 
+   */
+  getDPSHealth: (data, units) => {
+    return units.reduce((accumulator, unit) => {
+      const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
+      let dPSHealth = 0;
+      if (weapon) {
+        dPSHealth = weapon.damage / weapon.speed * (unit.health + unit.shield);
+      }
+      return accumulator + dPSHealth;
+    }, 0);
+  },
 }
 
 module.exports = dataService

@@ -9,7 +9,6 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { moveAwayPosition, retreatToExpansion } = require("../builds/helper");
 const { getInRangeUnits, calculateNearSupply, getInRangeDestructables, calculateHealthAdjustedSupply } = require("../helper/battle-analysis");
 const { tankBehavior } = require("../helper/behavior/unit-behavior");
-const { getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { filterLabels } = require("../helper/unit-selection");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../systems/manage-resources");
@@ -110,32 +109,6 @@ const armyManagementService = {
       }
     });
     return collectedActions;
-  },
-  getCombatPoint: (resources, units, target) => {
-    const label = 'combatPoint';
-    const combatPoint = units.find(unit => unit.labels.get(label));
-    if (combatPoint) {
-      let sameTarget = false;
-      if (combatPoint.orders[0]) {
-        const filteredOrder = combatPoint.orders.filter(order => !!order.targetWorldSpacePos)[0];
-        sameTarget = filteredOrder && (Math.round(filteredOrder.targetWorldSpacePos.x * 2) / 2) === target.pos.x && (Math.round(filteredOrder.targetWorldSpacePos.y * 2) / 2) === target.pos.y;
-      }
-      const newTarget = combatPoint.orders[0] && combatPoint.orders[0].targetWorldSpacePos && combatPoint.orders[0].targetWorldSpacePos.x === target.pos.x && combatPoint.orders[0].targetWorldSpacePos.y === target.pos.y;
-      if (sameTarget) {
-        return combatPoint;
-      } else {
-        combatPoint.labels.set(label, false);
-      }
-    } else {
-      let closestUnit;
-      try {
-        [closestUnit] = getClosestUnitByPath(resources, target.pos, units);
-        closestUnit.labels.set(label, true);
-      } catch (e) {
-        [closestUnit] = resources.get().units.getClosest(target.pos, units)
-      }
-      return closestUnit;
-    }
   },
   /**
    * 
