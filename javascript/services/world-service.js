@@ -187,8 +187,7 @@ const worldService = {
   logActionIfNearPosition: (world, unitType, unit, targetPosition) => {
     const { resources } = world;
     if (distance(unit.pos, targetPosition) < 4) {
-      const note = `Distance: ${distance(unit.pos, targetPosition)}`;
-      worldService.setAndLogExecutedSteps(world, resources.get().frame.timeInSeconds(), UnitTypeId[unitType], note);
+      worldService.setAndLogExecutedSteps(world, resources.get().frame.timeInSeconds(), UnitTypeId[unitType], targetPosition);
     }
   },
   /**
@@ -196,11 +195,14 @@ const worldService = {
    * @param {World} world
    * @param {number} time 
    * @param {string} name 
-   * @param {string} notes 
+   * @param {string | Point2D} notes 
   */
   setAndLogExecutedSteps: (world, time, name, notes = '') => {
     const { agent, data } = world;
     const { foodUsed, minerals, vespene } = agent;
+    /**
+     * @type {(string | number | boolean | Point2D)[]}
+     */
     const buildStepExecuted = [foodUsed, formatToMinutesAndSeconds(time), name, planService.currentStep, scoutService.outsupplied, `${minerals}/${vespene}`];
     const count = UnitType[name] ? getUnitsById(world.resources.get().units, UnitType[name]).length + 1 : 0;
     if (count) buildStepExecuted.push(count);
