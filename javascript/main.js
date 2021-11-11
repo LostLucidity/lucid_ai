@@ -6,6 +6,7 @@ const path = require('path');
 // main.js
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const {
+  AIBuild,
   Difficulty,
   PlayerType,
   Race,
@@ -145,7 +146,7 @@ async function runGame() {
   const map = maps[Math.floor(Math.random() * maps.length)];
   // const map = 'Submarine506';
   console.log('map', map);
-  const aiBuild = 2;
+  const aiBuild = AIBuild.Rush;
   const settings = {
     type: PlayerType.PARTICIPANT,
     race: Race.TERRAN,
@@ -202,7 +203,7 @@ async function runGame() {
   // bot1.use(updatedSystems);
   // bot1.use(bogSystems);
   const playerOne = createPlayer({ race: settings.race }, bot1);
-  const playerTwo = createPlayer({ race: opponentRace, difficulty: agentService.difficulty, ai_build: aiBuild });
+  const playerTwo = createPlayer({ race: opponentRace, difficulty: agentService.difficulty, aiBuild: aiBuild });
   const players = [playerOne, playerTwo];
   const player = players.find(p => !!p.agent);
   player.agent.settings.race = player.race;
