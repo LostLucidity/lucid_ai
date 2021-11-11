@@ -14,7 +14,6 @@ const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
-const { gatherOrMine } = require("../../systems/manage-resources");
 const { pullWorkersToDefend } = require("../../services/army-management-service");
 const { isRepairing } = require("../../services/units-service");
 const { createUnitCommand } = require("../../services/actions-service");
@@ -146,6 +145,7 @@ module.exports = {
     });
     return collectedActions;
   },
+
   tankBehavior: (units, target) => {
     const collectedActions = [];
     // get siege tanks
@@ -249,12 +249,4 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
     collectedActions.push(unitCommand);
   }
   return collectedActions;
-}
-
-function isFacing(targetUnit, unit) {
-  const targetFacingDegrees = toDegrees(targetUnit.facing);
-  const positionOfUnitDegrees = toDegrees(Math.atan2(unit.pos.y - targetUnit.pos.y, unit.pos.x - targetUnit.pos.x));
-  const normalizedPositionOfUnitDegrees = positionOfUnitDegrees > 0 ? positionOfUnitDegrees : 360 + positionOfUnitDegrees;
-  console.log('targetFacingDegrees, normalizedPositionOfUnitDegrees', targetFacingDegrees, normalizedPositionOfUnitDegrees);
-  return Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees) < 7;
 }
