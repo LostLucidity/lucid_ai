@@ -10,7 +10,8 @@ const { getClosestUnitByPath } = require("../../helper/get-closest-by-path");
 const { getCombatRally } = require("../../helper/location");
 const { getMiddleOfNaturalWall } = require("../../helper/placement/placement-helper");
 const armyManagementService = require("../../services/army-management-service");
-const { getCombatPoint, attackWithArmy, engageOrRetreat } = require("../../services/army-management-service");
+const { attackWithArmy, engageOrRetreat } = require("../../services/army-management-service");
+const { getCombatPoint } = require("../../services/resources-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const scoutService = require("../scouting/scouting-service");
 

@@ -7,7 +7,15 @@ const { getCombatRally } = require("./location");
 const { tankBehavior } = require("./behavior/unit-behavior");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 
-function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint = null) {
+/**
+ * 
+ * @param {World} world 
+ * @param {UnitTypeId[]} supportUnitTypes 
+ * @param {Point2D} rallyPoint 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
+  const { resources } = world
   const { units } = resources.get();
   const collectedActions = [];
   const combatUnits = units.getCombatUnits().filter(unit => unit.labels.size === 0);
@@ -23,9 +31,9 @@ function rallyUnits({ data, resources }, supportUnitTypes, rallyPoint = null) {
       const [bunker] = units.getById(BUNKER);
       rallyPoint = bunker.pos;
     }
-    const selfUnits = [...combatUnits, ...supportUnits, ...units.getById(QUEEN)];
+    const selfUnits = [...combatUnits, ...supportUnits];
     const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA));
-    collectedActions.push(...engageOrRetreat({ data, resources }, selfUnits, enemyUnits, rallyPoint));
+    collectedActions.push(...engageOrRetreat(world, selfUnits, enemyUnits, rallyPoint));
   }
   collectedActions.push(...tankBehavior(units, rallyPoint));
   return collectedActions;

@@ -15,14 +15,24 @@ module.exports = {
       return accumulator + (halfFood) + (halfFood * calculateTotalHealthRatio(currentValue));
     }, 0);
   },
+  /**
+   * 
+   * @param {DataStorage} data 
+   * @param {Unit[]} units 
+   * @returns {number}
+   */
   calculateNearDPSHealth: (data, units) => {
     return units.reduce((accumulator, unit) => {
-      const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
       let dPSHealth = 0;
-      if (weapon) {
-        dPSHealth = weapon.damage / weapon.speed * (unit.health + unit.shield);
+      if (unit.isWorker() && unit.isHarvesting()) {
+        return accumulator;
+      } else {
+        const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
+        if (weapon) {
+          dPSHealth = weapon.damage / weapon.speed * (unit.health + unit.shield);
+        }
+        return accumulator + dPSHealth;
       }
-      return accumulator + dPSHealth;
     }, 0);
   },
   getDPSOfInRangeAntiAirUnits: (data, unit) => {
