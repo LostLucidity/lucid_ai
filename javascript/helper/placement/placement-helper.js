@@ -6,14 +6,16 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { UnitType } = require('@node-sc2/core/constants');
 const { flyingTypesMapping } = require('../groups');
-const { PYLON, SUPPLYDEPOT, BARRACKS } = require('@node-sc2/core/constants/unit-type');
+const { PYLON, SUPPLYDEPOT, BARRACKS, GATEWAY, CYBERNETICSCORE } = require('@node-sc2/core/constants/unit-type');
 const { getOccupiedExpansions } = require('../expansions');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 const { getClosestPosition } = require('../get-closest');
 const { findWallOffPlacement } = require('../../systems/wall-off-ramp/wall-off-ramp-service');
 const getRandom = require('@node-sc2/core/utils/get-random');
 const { existsInMap } = require('../location');
-const pathingService = require('../../services/pathing-service');
+const wallOffNaturalService = require('../../systems/wall-off-natural/wall-off-natural-service');
+const { intersectionOfPoints } = require('../utilities');
+const { setStructurePlacements } = require('../../systems/wall-off-natural/wall-off-natural-service');
 
 const placementHelper = {
   findMineralLines: (resources) => {
@@ -48,12 +50,21 @@ const placementHelper = {
     else console.log(`Could not find position for ${unitTypeName}`);
     return foundPosition;
   },
+  /**
+   * 
+   * @param {World} world 
+   * @param {UnitTypeId} unitType 
+   * @returns {Promise<Point2D[]>}
+   */
   findPlacements: async (world, unitType) => {
     const { agent, resources } = world;
     const { race } = agent;
     const { actions, map, units } = resources.get();
     const [main, natural] = map.getExpansions();
     const mainMineralLine = main.areas.mineralLine;
+    /**
+     * @type {Point2D[]}
+     */    
     let placements = [];
     if (race === Race.PROTOSS) {
       if (unitType === PYLON) {
@@ -76,19 +87,33 @@ const placementHelper = {
         let pylonsNearProduction;
         if (units.getById(PYLON).length === 1) {
           pylonsNearProduction = units.getById(PYLON);
+          if (wallOffNaturalService.threeByThreePositions.length === 0) {
+            setStructurePlacements(resources);
+          }
         } else {
           pylonsNearProduction = units.getById(PYLON)
             .filter(u => u.buildProgress >= 1)
             .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
         }
+        const wallOffUnitTypes = [GATEWAY, CYBERNETICSCORE];
+        /**
+         * @type {Point2D[]}
+         */        
+        const wallOffPositions = [];
+        if (wallOffUnitTypes.includes(unitType)) {
+          wallOffPositions.push(...wallOffNaturalService.threeByThreePositions);
+        }
         pylonsNearProduction.forEach(pylon => {
           placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid)));
-        })
+        });
+        if (wallOffPositions.length > 0 && wallOffPositions.some(position => map.isPlaceableAt(unitType, position))) {
+          placements = intersectionOfPoints(wallOffPositions, placements);
+        }
         placements = placements.filter((point) => {
           return (
             (distance(natural.townhallPosition, point) > 5) &&
             (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
-            (natural.areas.hull.every(hp => distance(hp, point) > 2)) &&
+            wallOffPositions.length > 0 || (natural.areas.hull.every(hp => distance(hp, point) > 2)) &&
             map.isPlaceableAt(unitType, point)
           );
         });
