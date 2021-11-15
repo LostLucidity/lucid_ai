@@ -39,8 +39,7 @@ module.exports = {
             seigeTanksSiegedGrids.push(...gridsInCircle(unit.pos, unit.radius, { normalize: true }))
           });
           return [
-            existsInMap(map, grid),
-            map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(building.unitType, getAddOnBuildingPlacement(grid)),
+            existsInMap(map, grid) && map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(building.unitType, getAddOnBuildingPlacement(grid)),
             intersectionOfPoints(cellsInFootprint(grid, getFootprint(addOnType)), seigeTanksSiegedGrids).length === 0,
           ].every(condition => condition);
         });
