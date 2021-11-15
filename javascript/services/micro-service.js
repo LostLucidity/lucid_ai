@@ -16,6 +16,12 @@ const microService = {
       return targetUnit.pos;
     }
   },
+  /**
+   * 
+   * @param {Unit} unit 
+   * @param {Unit} targetUnit 
+   * @returns {boolean}
+   */
   isFacing: (unit, targetUnit) => {
     const targetFacingDegrees = toDegrees(targetUnit.facing);
     const positionOfUnitDegrees = toDegrees(Math.atan2(unit.pos.y - targetUnit.pos.y, unit.pos.x - targetUnit.pos.x));
@@ -59,7 +65,11 @@ const microService = {
    */
   microRangedUnit: (data, unit, targetUnit) => {
     const collectedActions = [];
-    if (unit.weaponCooldown > 12 && data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; })) {
+    if (
+      unit.weaponCooldown > 12 &&
+      data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; }) &&
+      microService.isFacing(unit, targetUnit)
+    ) {
       const microPosition = microService.getPositionVersusTargetUnit(data, unit, targetUnit)
       collectedActions.push({
         abilityId: MOVE,
