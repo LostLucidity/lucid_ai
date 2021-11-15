@@ -60,40 +60,6 @@ module.exports = {
     }
     return collectedActions;
   },
-  findPlacements: (agent, resources) => {
-    const { race } = agent;
-    const { map, units } = resources.get();
-    const [main, natural] = map.getExpansions();
-    const mainMineralLine = main.areas.mineralLine;
-    let placements = [];
-    if (race === Race.PROTOSS) {
-      const pylonsNearProduction = units.getById(PYLON)
-        .filter(u => u.buildProgress >= 1)
-        .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
-      placements.filter((point) => {
-        return (
-          (distance(natural.townhallPosition, point) > 4.5) &&
-          (pylonsNearProduction.some(p => distance(p.pos, point) < 6.5)) &&
-          (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
-          (natural.areas.hull.every(hp => distance(hp, point) > 2)) &&
-          (units.getStructures({ alliance: Alliance.SELF })
-            .map(u => u.pos)
-            .every(eb => distance(eb, point) > 3))
-        );
-      });
-    } else if (race === Race.ZERG) {
-      placements = map.getCreep()
-        .filter((point) => {
-          return (
-            (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
-            (units.getStructures({ alliance: Alliance.SELF })
-              .map(u => u.pos)
-              .every(eb => distance(eb, point) > 3))
-          );
-        });
-    }
-    return placements;
-  },
   upgradeOrder(data, resources, upgradeId) {
     const {
       units,
