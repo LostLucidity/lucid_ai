@@ -49,13 +49,18 @@ module.exports = {
     }
     return collectedActions;
   },
+  /**
+   * 
+   * @param {ResourceManager} resources 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   clearFromEnemyBehavior: (resources) => {
     const { map, units } = resources.get();
     const label = 'clearFromEnemy';
     const [unit] = units.withLabel(label);
     const collectedActions = [];
     if (unit) {
-      let [closestEnemyUnit] = units.getClosest(unit.pos, units.getAlive(Alliance.ENEMY), 1);
+      let [closestEnemyUnit] = units.getClosest(unit.pos, enemyTrackingService.mappedEnemyUnits, 1);
       if (
         !closestEnemyUnit ||
         distance(unit.pos, closestEnemyUnit.pos) > 16 ||

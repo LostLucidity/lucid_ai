@@ -12,6 +12,9 @@ const { getSupply } = require("../../services/shared-service");
 const enemyTrackingService = {
   enemyUnits: [],
   enemySupply: null,
+  /**
+   * @type {Unit[]}
+   */
   mappedEnemyUnits: [],
   threats: [],
   get enemyCombatUnits() {
