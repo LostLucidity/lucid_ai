@@ -7,6 +7,7 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getNeighbors, distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
+const getClosest = require("../../helper/get-closest");
 const { getClosestPosition } = require("../../helper/get-closest");
 const { pointsOverlap, intersectionOfPoints } = require("../../helper/utilities");
 
@@ -14,70 +15,98 @@ const wallOffNaturalService = {
   /**
    * @type {Point2D[]}
    */
+  adjacentToRampGrids: [],
+  /**
+   * @type {Point2D[]}
+   */
   threeByThreePositions: [],
   /**
-   * @param {ResourceManager} resources 
+   * @type {Point2D[]}
    */
-  setStructurePlacements: (resources) => {
+  wall: [],
+  /**
+   * @param {ResourceManager} resources
+   * @param {Point2D[]} wall
+   */
+  setStructurePlacements: (resources, wall) => {
     const { debug, map } = resources.get();
-    let naturalWall = map.getNatural().getWall();
     /**
      * @type {Point2D[]}
      */
     let wallOffGrids = [];
-    let placeableLeft = true
-    /**
-     * @type {Point2D[]}
-     */
-    let placeableAdjacentToWall = []
-    let doorGrid = null;
-    let wallDoorGrid = null;
-    do {
-      if (naturalWall.length <= 3 && placeableAdjacentToWall.length === 0) {
-        naturalWall.forEach(wallGrid => {
-          const newAdjacentGrids = getNeighbors(wallGrid, false).filter(circleGrid => map.isPlaceable(circleGrid) && !pointsOverlap([circleGrid], [...placeableAdjacentToWall, ...naturalWall]));
-          placeableAdjacentToWall.push(...newAdjacentGrids);
-        });
-        doorGrid = getRandom(placeableAdjacentToWall.filter(grid => !pointsOverlap([grid], wallOffGrids)));
-        if (!doorGrid) {
-          wallOffNaturalService.threeByThreePositions = [];
-          wallOffGrids = []
-          placeableAdjacentToWall = [];
-          naturalWall = map.getNatural().getWall();
-        } else {
-          [wallDoorGrid] = getClosestPosition(doorGrid, naturalWall);
-          wallOffGrids.push(doorGrid, wallDoorGrid);
-          debug.setDrawCells('drGrd', [doorGrid].map(r => ({ pos: r })), { size: 1, cube: false });
-        }
-      }
-      const cornerGrids = naturalWall.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1).filter(point => distance(point, grid) <= 2), naturalWall).length === 2);
-      const cornerGrid = doorGrid ? doorGrid : getRandom(cornerGrids);
+    let workingWall = [...wall];
+    wallOffNaturalService.threeByThreePositions = [];
+    // set first building
+    const threeByThreeGrid = getFootprint(GATEWAY);
+    if (wallOffNaturalService.threeByThreePositions.length === 0) {
+      const cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
+      const cornerGrid = getRandom(cornerGrids);
       if (cornerGrid) {
-        const cornerGridCircle = gridsInCircle(cornerGrid, 3);
-        let closestPlaceableGrids = getClosestPosition(cornerGrid, cornerGridCircle, cornerGridCircle.length).filter(grid => {
-          return map.isPlaceableAt(GATEWAY, grid) && !pointsOverlap(cellsInFootprint(grid, getFootprint(GATEWAY)), wallOffGrids);
+        // getFootprintCandidates
+        const cornerNeighbors = getNeighbors(cornerGrid, true);
+        const placementCandidates = cornerNeighbors.filter(cornerNeighbor => {
+          const threeByThreePlacement = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
+          const temporaryWall = workingWall.filter(grid => !pointsOverlap([grid], threeByThreePlacement));
+          // see if adjacent to temporary wall.
+          const [closestWallGrid] = getClosestPosition(cornerNeighbor, temporaryWall);
+          const wallGridNeighbors = getNeighbors(closestWallGrid, false);
+          return map.isPlaceableAt(GATEWAY, cornerNeighbor) && pointsOverlap(threeByThreePlacement, wallGridNeighbors) && intersectionOfPoints(threeByThreePlacement, workingWall).length > 1;
         });
-        const [closestWallGrid] = getClosestPosition(cornerGrid, cornerGridCircle.filter(grid => pointsOverlap([grid], doorGrid ? [...naturalWall, doorGrid] : naturalWall)));
-        if (closestWallGrid) {
-          const [closestPlaceableOnWall] = getClosestPosition(closestWallGrid, closestPlaceableGrids)
-          if (closestPlaceableOnWall && distance(closestWallGrid, closestPlaceableOnWall) <= 3) {
-            const structureGrids = cellsInFootprint(closestPlaceableOnWall, getFootprint(GATEWAY))
-            wallOffGrids.push(...structureGrids);
-            wallOffNaturalService.threeByThreePositions.push(closestPlaceableOnWall);
-            naturalWall = naturalWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
-          } else {
-            placeableLeft = false;
-          }
-        } else {
-          placeableLeft = false;
-        }
-      } else {
-        placeableLeft = false;
+        const selectedCandidate = getRandom(placementCandidates);
+        wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
+        wallOffNaturalService.threeByThreePositions.push(selectedCandidate);
+        workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
       }
-    } while (placeableLeft);
+    }
+    // set gap
+    if (wallOffNaturalService.threeByThreePositions.length === 1) {
+      let cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
+      const [doorGrid] = getClosestPosition(wallOffNaturalService.threeByThreePositions[0], cornerGrids);
+      wallOffGrids.push(doorGrid);
+      workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+      debug.setDrawCells('drGrd', [doorGrid].map(r => ({ pos: r })), { size: 1, cube: false });
+      // set second building
+      cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
+      const [cornerGrid] = getClosestPosition(wallOffNaturalService.threeByThreePositions[0], cornerGrids);
+      if (cornerGrid) {
+        // getFootprintCandidates
+        const cornerNeighbors = getNeighbors(cornerGrid, false);
+        const placementCandidates = cornerNeighbors.filter(cornerNeighbor => {
+          // prevent diagonal buildings.
+          const placementGrids = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
+          const diagonalBuilding = placementGrids.some(grid => intersectionOfPoints(getNeighbors(grid, true), wallOffGrids).length > 1);
+          return map.isPlaceableAt(GATEWAY, cornerNeighbor) && !pointsOverlap(wallOffGrids, placementGrids) && !diagonalBuilding;
+        });
+        if (placementCandidates.length > 0) {
+          const selectedCandidate = getRandom(placementCandidates);
+          wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
+          wallOffNaturalService.threeByThreePositions.push(selectedCandidate);
+          workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+        }
+      }
+    }
+    if (wallOffNaturalService.threeByThreePositions.length === 2) {
+      const cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
+      const cornerGrid = getRandom(cornerGrids);
+      if (cornerGrid) {
+        // getFootprintCandidates
+        const cornerNeighbors = getNeighbors(cornerGrid, true);
+        const placementCandidates = cornerNeighbors.filter(cornerNeighbor => {
+          const threeByThreePlacement = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
+          // see if adjacent to temporary wall.
+          return map.isPlaceableAt(GATEWAY, cornerNeighbor) && !pointsOverlap(threeByThreePlacement, wallOffGrids) && intersectionOfPoints(threeByThreePlacement, workingWall).length > 1;
+        });
+        const selectedCandidate = getRandom(placementCandidates);
+        if (selectedCandidate) {
+          wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
+          wallOffNaturalService.threeByThreePositions.push(selectedCandidate);
+          workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+        }
+      }
+    }
     // debug.setDrawCells('wlOfPs', wallOffPositions.map(r => ({ pos: r })), { size: 1, cube: true });
     wallOffNaturalService.threeByThreePositions.forEach((position, index) => {
-      debug.setDrawCells(`wlOfPs${index}`, cellsInFootprint(position, getFootprint(GATEWAY)).map(r => ({ pos: r })), { size: 1, cube: false });
+      debug.setDrawCells(`wlOfPs${index}`, cellsInFootprint(position, threeByThreeGrid).map(r => ({ pos: r })), { size: 1, cube: false });
     });
   }
 }

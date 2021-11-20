@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { distance, avgPoints } = require('@node-sc2/core/utils/geometry/point');
+const { distance, avgPoints, getNeighbors } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { UnitType } = require('@node-sc2/core/constants');
@@ -14,8 +14,7 @@ const { findWallOffPlacement } = require('../../systems/wall-off-ramp/wall-off-r
 const getRandom = require('@node-sc2/core/utils/get-random');
 const { existsInMap } = require('../location');
 const wallOffNaturalService = require('../../systems/wall-off-natural/wall-off-natural-service');
-const { intersectionOfPoints } = require('../utilities');
-const { setStructurePlacements } = require('../../systems/wall-off-natural/wall-off-natural-service');
+const { intersectionOfPoints, pointsOverlap } = require('../utilities');
 
 const placementHelper = {
   findMineralLines: (resources) => {
@@ -64,7 +63,7 @@ const placementHelper = {
     const mainMineralLine = main.areas.mineralLine;
     /**
      * @type {Point2D[]}
-     */    
+     */
     let placements = [];
     if (race === Race.PROTOSS) {
       if (unitType === PYLON) {
@@ -87,25 +86,31 @@ const placementHelper = {
         let pylonsNearProduction;
         if (units.getById(PYLON).length === 1) {
           pylonsNearProduction = units.getById(PYLON);
-          if (wallOffNaturalService.threeByThreePositions.length === 0) {
-            setStructurePlacements(resources);
-          }
         } else {
           pylonsNearProduction = units.getById(PYLON)
             .filter(u => u.buildProgress >= 1)
             .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
         }
-        const wallOffUnitTypes = [GATEWAY, CYBERNETICSCORE];
-        /**
-         * @type {Point2D[]}
-         */        
-        const wallOffPositions = [];
-        if (wallOffUnitTypes.includes(unitType)) {
-          wallOffPositions.push(...wallOffNaturalService.threeByThreePositions);
-        }
         pylonsNearProduction.forEach(pylon => {
           placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid)));
         });
+        const wallOffUnitTypes = [GATEWAY, CYBERNETICSCORE];
+        /**
+         * @type {Point2D[]}
+         */
+        const wallOffPositions = [];
+        if (wallOffUnitTypes.includes(unitType) && units.getById(wallOffUnitTypes).length < 3) {
+          const placeablePositions = wallOffNaturalService.threeByThreePositions.filter(position => map.isPlaceableAt(unitType, position) && pointsOverlap([position], placements));
+          if (placeablePositions.length > 0) {
+            wallOffPositions.push(...placeablePositions);
+          } else {
+            if (wallOffNaturalService.wall.length > 0) {
+              const cornerGrids = wallOffNaturalService.wall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), wallOffNaturalService.wall).length === 1);
+              const wallRadius = distance(cornerGrids[0], cornerGrids[1]) / 2;
+              wallOffPositions.push(...gridsInCircle(avgPoints(wallOffNaturalService.wall), wallRadius, { normalize: true }).filter(grid => existsInMap(map, grid)));
+            }
+          }
+        }
         if (wallOffPositions.length > 0 && wallOffPositions.some(position => map.isPlaceableAt(unitType, position))) {
           placements = intersectionOfPoints(wallOffPositions, placements);
         }
@@ -113,7 +118,7 @@ const placementHelper = {
           return (
             (distance(natural.townhallPosition, point) > 5) &&
             (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
-            wallOffPositions.length > 0 || (natural.areas.hull.every(hp => distance(hp, point) > 2)) &&
+            (wallOffPositions.length > 0 || (natural.areas.hull.every(hp => distance(hp, point) > 2))) &&
             map.isPlaceableAt(unitType, point)
           );
         });
@@ -151,29 +156,36 @@ const placementHelper = {
     }
     return placements;
   },
+  /**
+   * 
+   * @param {ResourceManager} resources 
+   * @returns {Point2D[]}
+   */
   findSupplyPositions: (resources) => {
     const { map } = resources.get();
     // front of natural pylon for great justice
     let possiblePlacements = [];
-    const naturalWall = map.getNatural().getWall();
+    const naturalWall = wallOffNaturalService.wall.length > 0 ? wallOffNaturalService.wall : map.getNatural().getWall();
     if (naturalWall) {
-      possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
+      possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
         .filter(point => naturalWall.every(wallCell => (
           (distance(wallCell, point) <= 6.5) &&
-          (distance(wallCell, point) >= 3)
+          (distance(wallCell, point) >= 3) &&
+          distance(wallCell, map.getNatural().townhallPosition) > distance(point, map.getNatural().townhallPosition)
         )));
 
       if (possiblePlacements.length <= 0) {
-        possiblePlacements = frontOfGrid({ resources }, map.getNatural().areas.areaFill)
+        possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
           .map(point => {
-            point.coverage = naturalWall.filter(wallCell => (
+            point['coverage'] = naturalWall.filter(wallCell => (
               (distance(wallCell, point) <= 6.5) &&
-              (distance(wallCell, point) >= 1)
+              (distance(wallCell, point) >= 1) &&
+              distance(wallCell, map.getNatural().townhallPosition) > distance(point, map.getNatural().townhallPosition)
             )).length;
             return point;
           })
-          .sort((a, b) => b.coverage - a.coverage)
-          .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
+          .sort((a, b) => b['coverage'] - a['coverage'])
+          .filter((cell, i, arr) => cell['coverage'] === arr[0]['coverage']);
       }
     }
     return possiblePlacements;

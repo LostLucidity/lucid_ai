@@ -41,6 +41,7 @@ const { logoutStepsExecuted } = require('./services/logging-service');
 const { saveReplay, saveExecutedStepsLog } = require('./services/file-saving-service');
 const agentService = require('./services/agent-service');
 const mulingSystem = require('./systems/muling-system');
+const wallOffNaturalSystem = require('./systems/wall-off-natural/wall-off-natural-system');
 
 agentService.difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -174,6 +175,7 @@ async function runGame() {
     debugSystem,
     wallOffRampSystem,
     taggingSystem,
+    wallOffNaturalSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,

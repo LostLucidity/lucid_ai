@@ -4,6 +4,13 @@
 const { add } = require("@node-sc2/core/utils/geometry/point");
 
 module.exports = {
+  /**
+   * 
+   * @param {ResourceManager} resources 
+   * @param {Point2D} position 
+   * @param {Point2D} targetPosition 
+   * @returns {number}
+   */
   distanceByPath: (resources, position, targetPosition) => {
     const { map, units } = resources.get();
     try {
