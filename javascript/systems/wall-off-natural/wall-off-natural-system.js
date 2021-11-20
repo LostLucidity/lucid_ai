@@ -65,12 +65,14 @@ module.exports = createSystem({
         }
       });
       debug.setDrawCells('wllCnd', wallCandidates.map(r => ({ pos: r })), { size: 1, cube: false });
-      const [placeablePairOne] = getClosestPosition(shortestEdgePair[1], getNeighbors(shortestEdgePair[0], false).filter(grid => map.isPlaceable(grid)));
-      const [placeablePairTwo] = getClosestPosition(shortestEdgePair[0], getNeighbors(shortestEdgePair[1], false).filter(grid => map.isPlaceable(grid)));
-      const pathOfShortestWall = map.path(placeablePairOne, placeablePairTwo, { diagonal: true, force: true }).map(path => ({ 'x': path[0], 'y': path[1] }));
-      wallOffNaturalService.wall = pathOfShortestWall;
-      debug.setDrawCells('shrwll', pathOfShortestWall.map(r => ({ pos: r })), { size: 1, cube: false });
-      setStructurePlacements(resources, pathOfShortestWall);
+      if (shortestEdgePair.length > 0) {
+        const [placeablePairOne] = getClosestPosition(shortestEdgePair[1], getNeighbors(shortestEdgePair[0], false).filter(grid => map.isPlaceable(grid)));
+        const [placeablePairTwo] = getClosestPosition(shortestEdgePair[0], getNeighbors(shortestEdgePair[1], false).filter(grid => map.isPlaceable(grid)));
+        const pathOfShortestWall = map.path(placeablePairOne, placeablePairTwo, { diagonal: true, force: true }).map(path => ({ 'x': path[0], 'y': path[1] }));
+        wallOffNaturalService.wall = pathOfShortestWall;
+        debug.setDrawCells('shrwll', pathOfShortestWall.map(r => ({ pos: r })), { size: 1, cube: false });
+        setStructurePlacements(resources, pathOfShortestWall);
+      }
     }
   }
 });
