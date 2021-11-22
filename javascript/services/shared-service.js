@@ -11,9 +11,6 @@ const sharedService = {
   isPendingContructing: (unit) => {
     return unit.pendingOrders && unit.pendingOrders.some(o => constructionAbilities.includes(o.abilityId));
   },
-  getSupply: (data, units) => {
-    return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
-  },
   getTrainingSupply: (world, unitTypes) => {
     const { data, resources } = world;
     const { units } = resources.get();

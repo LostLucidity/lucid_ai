@@ -34,11 +34,13 @@ module.exports = createSystem({
         );
       });
       const cornerGrids = wallOffNaturalService.adjacentToRampGrids.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), wallOffNaturalService.adjacentToRampGrids).length === 1);
-      wallOffNaturalService.adjacentToRampGrids = map.path(cornerGrids[0], cornerGrids[1], { diagonal: true, force: true }).map(path => ({ 'x': path[0], 'y': path[1] }));
-      if (wallOffNaturalService.wall.length === 0) {
-        wallOffNaturalService.wall = wallOffNaturalService.adjacentToRampGrids;
-      }
-      debug.setDrawCells('adTRmp', wallOffNaturalService.adjacentToRampGrids.map(r => ({ pos: r })), { size: 1, cube: false });
+      if (cornerGrids.length > 0) {
+        wallOffNaturalService.adjacentToRampGrids = map.path(cornerGrids[0], cornerGrids[1], { diagonal: true, force: true }).map(path => ({ 'x': path[0], 'y': path[1] }));
+        if (wallOffNaturalService.wall.length === 0) {
+          wallOffNaturalService.wall = wallOffNaturalService.adjacentToRampGrids;
+        }
+        debug.setDrawCells('adTRmp', wallOffNaturalService.adjacentToRampGrids.map(r => ({ pos: r })), { size: 1, cube: false });
+      } 
     } else {
       const wallCandidates = [];
       let shortestWall = Infinity;

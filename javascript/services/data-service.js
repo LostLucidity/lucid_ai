@@ -2,7 +2,6 @@
 "use strict"
 
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const planService = require("./plan-service");
 
 const dataService = {
@@ -23,13 +22,14 @@ const dataService = {
     });
   },
   /**
-   * 
+   * Calculate DPS health base on ally units and enemy armor upgrades.
    * @param {DataStorage} data 
-   * @param {Unit[]} units 
+   * @param {Unit[]} units
+   * @param {Unit[]} enemyUnits 
    * @returns {number}
    */
-   calculateNearDPSHealth: (data, units) => {
-    enemyTrackingService.mappedEnemyUnits.some(unit => {
+   calculateNearDPSHealth: (data, units, enemyUnits) => {
+    enemyUnits.some(unit => {
       if (unit.armorUpgradeLevel > dataService.enemyUpgradeLevel) {
         dataService.enemyUpgradeLevel = unit.armorUpgradeLevel;
         return true;
@@ -74,13 +74,21 @@ const dataService = {
   },
   /**
    * @param {DataStorage} data 
+   * @param {Unit[]} units 
+   * @returns {number}
+   */
+  getSupply: (data, units) => {
+    return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
+  },  
+  /**
+   * @param {DataStorage} data 
    * @param {Unit[]} units
    * @param {Unit[]} enemyUnits 
    */   
   setEnemyDPSHealthPower: (data, units, enemyUnits) => {
     units.forEach(unit => {
       unit['enemyUnits'] = enemyUnits.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16)
-      unit['enemyDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['enemyUnits']);
+      unit['enemyDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['enemyUnits'], units);
     });
   },  
   /**
@@ -95,13 +103,16 @@ const dataService = {
     });
   },
   /**
+   * Sets list of selfUnits and calculates DPSHealth for selfUnits within a 16 distance range.
    * @param {DataStorage} data 
-   * @param {Unit[]} units 
+   * @param {Unit[]} units
+   * @param {Unit[]} enemyUnits
+   * @returns {void}
    */    
-  setSelfDPSHealthPower: (data, units) => {
+  setSelfDPSHealthPower: (data, units, enemyUnits) => {
     units.forEach(unit => {
       unit['selfUnits'] = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
-      unit['selfDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['selfUnits']);
+      unit['selfDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['selfUnits'], enemyUnits);
     });
   },  
   /**

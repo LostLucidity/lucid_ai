@@ -18,7 +18,7 @@ module.exports = createSystem({
     const { mappedEnemyUnits } = enemyTrackingService;
     setSelfSupplyPowers(data, mappedEnemyUnits);
     setEnemySupplyPowers(data, mappedEnemyUnits, trackUnitsService.selfUnits);
-    setSelfDPSHealthPower(data, mappedEnemyUnits)
+    setSelfDPSHealthPower(data, mappedEnemyUnits, enemyTrackingService.mappedEnemyUnits)
     setEnemyDPSHealthPower(data, mappedEnemyUnits, trackUnitsService.selfUnits)
   },
   async onEnemyFirstSeen({}, seenEnemyUnit) {

@@ -27,7 +27,7 @@ module.exports = createSystem({
     trackUnitsService.selfUnits = selfUnits;
     setSelfSupplyPowers(data, selfUnits)
     setEnemySupplyPowers(data, selfUnits, enemyTrackingService.enemyUnits);
-    setSelfDPSHealthPower(data, selfUnits)
+    setSelfDPSHealthPower(data, selfUnits, enemyTrackingService.mappedEnemyUnits);
     setEnemyDPSHealthPower(data, selfUnits, enemyTrackingService.enemyUnits)
   },
   async onUnitDestroyed({}, destroyedUnit) {

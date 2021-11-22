@@ -7,7 +7,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { morphMapping } = require("../../helper/groups");
 const { existsInMap } = require("../../helper/location");
-const { getSupply } = require("../../services/shared-service");
+const { getSupply } = require("../../services/data-service");
 
 const enemyTrackingService = {
   enemyUnits: [],

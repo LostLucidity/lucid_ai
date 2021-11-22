@@ -18,11 +18,9 @@ const { pullWorkersToDefend } = require("../../services/army-management-service"
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { isRepairing, canAttack, setPendingOrders } = require("../../services/units-service");
 const scoutService = require("../../systems/scouting/scouting-service");
-const { getSupply } = require("../../services/shared-service");
-const { getDPSHealth } = require("../../services/data-service");
+const { getDPSHealth, getSupply } = require("../../services/data-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint } = require("../../services/resources-service");
-const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 
 const armyBehavior = {
   /**
