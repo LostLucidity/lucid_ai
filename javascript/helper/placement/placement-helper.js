@@ -194,7 +194,7 @@ const placementHelper = {
   },
   getMiddleOfNaturalWall: async (resources, unitType) => {
     const { actions, map } = resources.get();
-    const naturalWall = map.getNatural().getWall();
+    const naturalWall = map.getNatural().getWall() || wallOffNaturalService.wall;
     let candidates = [];
     if (naturalWall) {
       const wallPositions = naturalWall.filter(wallPosition => map.isPlaceableAt(unitType, wallPosition));
