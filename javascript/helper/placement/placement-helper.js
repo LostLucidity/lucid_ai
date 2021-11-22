@@ -5,7 +5,7 @@ const { distance, avgPoints, getNeighbors } = require('@node-sc2/core/utils/geom
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { UnitType } = require('@node-sc2/core/constants');
-const { flyingTypesMapping } = require('../groups');
+const { flyingTypesMapping, countTypes } = require('../groups');
 const { PYLON, SUPPLYDEPOT, BARRACKS, GATEWAY, CYBERNETICSCORE } = require('@node-sc2/core/constants/unit-type');
 const { getOccupiedExpansions } = require('../expansions');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
@@ -94,7 +94,7 @@ const placementHelper = {
         pylonsNearProduction.forEach(pylon => {
           placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid)));
         });
-        const wallOffUnitTypes = [GATEWAY, CYBERNETICSCORE];
+        const wallOffUnitTypes = [...countTypes.get(GATEWAY), CYBERNETICSCORE];
         /**
          * @type {Point2D[]}
          */
@@ -157,7 +157,6 @@ const placementHelper = {
     return placements;
   },
   /**
-   * 
    * @param {ResourceManager} resources 
    * @returns {Point2D[]}
    */
