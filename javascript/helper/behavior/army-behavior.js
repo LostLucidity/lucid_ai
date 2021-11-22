@@ -22,6 +22,7 @@ const { getSupply } = require("../../services/shared-service");
 const { getDPSHealth } = require("../../services/data-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint } = require("../../services/resources-service");
+const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 
 const armyBehavior = {
   /**
@@ -177,13 +178,16 @@ const armyBehavior = {
   engageOrRetreat: ({ data, resources }, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { units } = resources.get();
     const collectedActions = [];
-    selfUnits.forEach(selfUnit => {
+    selfUnits.forEach((selfUnit, index) => {
       let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType)) {
         const [closestEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits);
         if (closestEnemyUnit && distance(selfUnit.pos, closestEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestEnemyUnit['enemyDPSHealth'];
           const noBunker = units.getById(BUNKER).length === 0;
+          if (index === 0) {
+            console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestEnemyUnit['selfDPSHealth'])}`); 
+          }
           if (closestEnemyUnit['selfDPSHealth'] > selfDPSHealth && noBunker) {
             const unitCommand = { abilityId: MOVE }
             if (selfUnit.isFlying) {
