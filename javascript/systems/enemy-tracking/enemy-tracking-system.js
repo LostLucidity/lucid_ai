@@ -3,7 +3,7 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { setSelfSupplyPowers, setEnemySupplyPowers, setSelfDPSHealthPower, setEnemyDPSHealthPower } = require("../../services/shared-service");
+const { setSelfSupplyPowers, setEnemySupplyPowers, setSelfDPSHealthPower, setEnemyDPSHealthPower } = require("../../services/data-service");
 const trackUnitsService = require("../track-units/track-units-service");
 const enemyTrackingService = require("./enemy-tracking-service")
 

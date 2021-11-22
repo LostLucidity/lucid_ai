@@ -5,7 +5,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { ZERGLING } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { calculateNearSupply, calculateNearDPSHealth } = require("../helper/battle-analysis");
+const { calculateNearDPSHealth } = require("./data-service");
 
 const sharedService = {
   isPendingContructing: (unit) => {
@@ -41,30 +41,6 @@ const sharedService = {
       if (unit['pendingOrders'] && unit['pendingOrders'].length > 0) {
         unit['pendingOrders'].forEach(order => order.system = name);
       }
-    });
-  },
-  setSelfSupplyPowers: (data, units) => {
-    units.forEach(unit => {
-      unit.selfUnits = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
-      unit.selfSupply = calculateNearSupply(data, unit.selfUnits)
-    });
-  },
-  setEnemySupplyPowers: (data, units, enemyUnits) => {
-    units.forEach(unit => {
-      unit.enemyUnits = enemyUnits.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16)
-      unit.enemySupply = calculateNearSupply(data, unit.enemyUnits);
-    });
-  },
-  setSelfDPSHealthPower: (data, units) => {
-    units.forEach(unit => {
-      unit.selfUnits = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
-      unit.selfDPSHealth = calculateNearDPSHealth(data, unit.selfUnits)
-    });
-  },
-  setEnemyDPSHealthPower: (data, units, enemyUnits) => {
-    units.forEach(unit => {
-      unit.enemyUnits = enemyUnits.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16)
-      unit.enemyDPSHealth = calculateNearDPSHealth(data, unit.enemyUnits);
     });
   },
 }
