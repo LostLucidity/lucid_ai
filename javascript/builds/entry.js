@@ -9,6 +9,7 @@ const { convertPlan } = require("../systems/salt-converter/salt-converter");
 const { gatherOrMine } = require("../systems/manage-resources");
 const plans = require("./plans");
 const sharedService = require("../services/shared-service");
+const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 
 let assemblePlan = null;
 let longestTime = 0;
@@ -32,6 +33,7 @@ const entry = createSystem({
     const { map, frame } = world.resources.get();
     console.log('frame.getGameInfo().playerInfo', frame.getGameInfo().playerInfo);
     console.log('Natural Wall:', !!map.getNatural().getWall());
+    console.log('Backup Wall', wallOffNaturalService.wall.length > 0);
     // get race.
     const race = world.agent.race;
     // get build
