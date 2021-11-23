@@ -28,10 +28,10 @@ const dataService = {
    * @param {Unit[]} enemyUnits 
    * @returns {number}
    */
-   calculateNearDPSHealth: (data, units, enemyUnits) => {
+  calculateNearDPSHealth: (data, units, enemyUnits) => {
     enemyUnits.some(unit => {
-      if (unit.armorUpgradeLevel > dataService.enemyUpgradeLevel) {
-        dataService.enemyUpgradeLevel = unit.armorUpgradeLevel;
+      if (unit.armorUpgradeLevel > dataService.enemyArmorUpgradeLevel) {
+        dataService.enemyArmorUpgradeLevel = unit.armorUpgradeLevel;
         return true;
       }
     })
@@ -42,18 +42,19 @@ const dataService = {
       } else {
         const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
         if (weapon) {
-          const weaponDamage = weapon.damage - dataService.enemyArmorUpgradeLevel;
+          const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * getUpgradeBonus(weapon.damage));
+          const weaponDamage = weaponUpgradeDamage - dataService.enemyArmorUpgradeLevel;
           dPSHealth = weaponDamage / weapon.speed * (unit.health + unit.shield);
         }
         return accumulator + dPSHealth;
       }
     }, 0);
-  },  
+  },
   /**
    * 
    * @param {DataStorage} data 
    * @param {Unit[]} units 
-   */  
+   */
   calculateNearSupply: (data, units) => {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
   },
@@ -79,23 +80,23 @@ const dataService = {
    */
   getSupply: (data, units) => {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
-  },  
+  },
   /**
    * @param {DataStorage} data 
    * @param {Unit[]} units
    * @param {Unit[]} enemyUnits 
-   */   
+   */
   setEnemyDPSHealthPower: (data, units, enemyUnits) => {
     units.forEach(unit => {
       unit['enemyUnits'] = enemyUnits.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16)
       unit['enemyDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['enemyUnits'], units);
     });
-  },  
+  },
   /**
    * @param {DataStorage} data 
    * @param {Unit[]} units
    * @param {Unit[]} enemyUnits 
-   */    
+   */
   setEnemySupplyPowers: (data, units, enemyUnits) => {
     units.forEach(unit => {
       unit['enemyUnits'] = enemyUnits.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16)
@@ -108,23 +109,33 @@ const dataService = {
    * @param {Unit[]} units
    * @param {Unit[]} enemyUnits
    * @returns {void}
-   */    
+   */
   setSelfDPSHealthPower: (data, units, enemyUnits) => {
     units.forEach(unit => {
       unit['selfUnits'] = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
       unit['selfDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['selfUnits'], enemyUnits);
     });
-  },  
+  },
   /**
    * @param {DataStorage} data 
    * @param {Unit[]} units 
-   */  
-   setSelfSupplyPowers: (data, units) => {
+   */
+  setSelfSupplyPowers: (data, units) => {
     units.forEach(unit => {
       unit['selfUnits'] = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
       unit['selfSupply'] = dataService.calculateNearSupply(data, unit['selfUnits']);
     });
-  },  
+  },
 }
 
 module.exports = dataService
+
+/**
+ * 
+ * @param {number} damage 
+ */
+function getUpgradeBonus(damage) {
+  // divide damage by 10, round, min 1.
+  const roundedDamage = Math.round(damage / 10);
+  return roundedDamage > 0 ? roundedDamage : 1;
+}
