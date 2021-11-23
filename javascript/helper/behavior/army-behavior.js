@@ -21,6 +21,7 @@ const scoutService = require("../../systems/scouting/scouting-service");
 const { getDPSHealth, getSupply } = require("../../services/data-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint } = require("../../services/resources-service");
+const getRandom = require("@node-sc2/core/utils/get-random");
 
 const armyBehavior = {
   /**
@@ -176,14 +177,15 @@ const armyBehavior = {
   engageOrRetreat: ({ data, resources }, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { units } = resources.get();
     const collectedActions = [];
-    selfUnits.forEach((selfUnit, index) => {
+    const randomUnit = getRandom(selfUnits);
+    selfUnits.forEach((selfUnit) => {
       let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType)) {
         const [closestEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits);
         if (closestEnemyUnit && distance(selfUnit.pos, closestEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestEnemyUnit['enemyDPSHealth'];
           const noBunker = units.getById(BUNKER).length === 0;
-          if (index === 0) {
+          if (selfUnit.tag === randomUnit.tag) {
             console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestEnemyUnit['selfDPSHealth'])}`); 
           }
           if (closestEnemyUnit['selfDPSHealth'] > selfDPSHealth && noBunker) {
