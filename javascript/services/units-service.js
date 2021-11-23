@@ -21,10 +21,10 @@ const unitService = {
    * @return {boolean}
    */
   canAttack(resources, unit, targetUnit) {
-    const { map, units } = resources.get();
+    const { units } = resources.get();
     const rangedGroundUnit = !unit.isFlying && !unit.isMelee();
     if (rangedGroundUnit && targetUnit.isFlying) {
-      const inRangeOfVisionAndVisible = gridsInCircle(targetUnit.pos, targetUnit.radius, { normalize: true }).some(grid => map.isVisible(grid)) && unitService.inSightRange(units.getAlive(Alliance.SELF), targetUnit);
+      const inRangeOfVisionAndVisible = units.getAlive(Alliance.ENEMY).some(unit => unit.tag === targetUnit.tag) && unitService.inSightRange(units.getAlive(Alliance.SELF), targetUnit);
       return inRangeOfVisionAndVisible;
     }
     return true;
