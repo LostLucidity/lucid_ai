@@ -3,15 +3,21 @@
 
 const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { moveAwayPosition } = require("../builds/helper");
 
 const microService = {
+  /**
+   * @param {DataStorage} data 
+   * @param {Unit} unit 
+   * @param {Unit} targetUnit 
+   * @returns {Point2D}
+   */
   getPositionVersusTargetUnit: (data, unit, targetUnit) => {
     const totalRadius = unit.radius + targetUnit.radius + 1;
     const range = Math.max.apply(Math, data.getUnitTypeData(unit.unitType).weapons.map(weapon => { return weapon.range; })) + totalRadius;
     if (distance(unit.pos, targetUnit.pos) < range) {
-      return moveAwayPosition(targetUnit, unit);
+      return moveAwayPosition(targetUnit.pos, avgPoints(unit['selfUnits'].map(unit => unit.pos)));
     } else {
       return targetUnit.pos;
     }

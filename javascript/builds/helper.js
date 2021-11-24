@@ -48,12 +48,19 @@ const helper = {
     }
     return unitCommand;
   },
-  moveAwayPosition(targetUnit, unit, distance = 2) {
-    const angle = toDegrees(Math.atan2(targetUnit.pos.y - unit.pos.y, targetUnit.pos.x - unit.pos.x));
+  /**
+   * 
+   * @param {Point2D} targetPosition 
+   * @param {Point2D} position 
+   * @param {*} distance 
+   * @returns {Point2D}
+   */
+  moveAwayPosition(targetPosition, position, distance = 2) {
+    const angle = toDegrees(Math.atan2(targetPosition.y - position.y, targetPosition.x - position.x));
     const oppositeAngle = angle + 180 % 360;
     const awayPoint = {
-      x: Math.cos(oppositeAngle * Math.PI / 180) * distance + unit.pos.x,
-      y: Math.sin(oppositeAngle * Math.PI / 180) * distance + unit.pos.y
+      x: Math.cos(oppositeAngle * Math.PI / 180) * distance + position.x,
+      y: Math.sin(oppositeAngle * Math.PI / 180) * distance + position.y
     }
     return awayPoint;
   },

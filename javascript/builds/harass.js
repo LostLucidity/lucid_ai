@@ -1,10 +1,9 @@
 //@ts-check
 "use strict"
 
-const { STALKER, EGG, LARVA, HATCHERY, COMMANDCENTER, ORBITALCOMMAND, NEXUS } = require("@node-sc2/core/constants/unit-type");
+const { STALKER } = require("@node-sc2/core/constants/unit-type");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
-const microService = require("../services/micro-service");
 const { microRangedUnit } = require("../services/micro-service");
 const { createUnitCommand } = require("../services/actions-service");
 const { ATTACK_ATTACK, MOVE } = require("@node-sc2/core/constants/ability");
