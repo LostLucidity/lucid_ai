@@ -52,6 +52,9 @@ let race;
 let ATTACKFOOD = 194;
 
 class AssemblePlan {
+  /**
+   * @param {{ orders: any; unitTypes: { mainCombatTypes: any; defenseTypes: [UnitTypeId]; defenseStructures: any; supportUnitTypes: any; }; }} plan
+   */
   constructor(plan) {
     this.collectedActions = [];
     this.foundPosition = null;
@@ -107,7 +110,7 @@ class AssemblePlan {
         ].every(condition => condition);
       });
       if (haveProductionAndTechForTypes.length > 0) {
-        this.selectedTypeToBuild = this.selectedTypeToBuild ? this.selectedTypeToBuild : haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
+        this.selectedTypeToBuild = haveProductionAndTechForTypes.includes(this.selectedTypeToBuild) ? this.selectedTypeToBuild : haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
         let { mineralCost, vespeneCost } = this.data.getUnitTypeData(this.selectedTypeToBuild);
         if (this.selectedTypeToBuild === ZERGLING) {
           mineralCost += mineralCost;
