@@ -4,8 +4,6 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { ZERGLING } = require("@node-sc2/core/constants/unit-type");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { calculateNearDPSHealth } = require("./data-service");
 
 const sharedService = {
   isPendingContructing: (unit) => {
