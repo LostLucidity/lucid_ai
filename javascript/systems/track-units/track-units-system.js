@@ -3,7 +3,9 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { setSelfSupplyPowers, setEnemySupplyPowers, setSelfDPSHealthPower, setEnemyDPSHealthPower } = require("../../services/data-service");
+const { setSelfSupplyPowers, setEnemySupplyPowers } = require("../../services/data-service");
+const { setArmorUpgradeLevel } = require("../../services/units-service");
+const { setSelfDPSHealthPower, setEnemyDPSHealthPower } = require("../../services/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const { setSelfCombatSupply } = require("./track-units-service");
 const trackUnitsService = require("./track-units-service");
@@ -27,8 +29,9 @@ module.exports = createSystem({
     trackUnitsService.selfUnits = selfUnits;
     setSelfSupplyPowers(data, selfUnits)
     setEnemySupplyPowers(data, selfUnits, enemyTrackingService.enemyUnits);
-    setSelfDPSHealthPower(data, selfUnits, enemyTrackingService.mappedEnemyUnits);
-    setEnemyDPSHealthPower(data, selfUnits, enemyTrackingService.enemyUnits)
+    setSelfDPSHealthPower(world, selfUnits, enemyTrackingService.mappedEnemyUnits);
+    setEnemyDPSHealthPower(world, selfUnits, enemyTrackingService.enemyUnits);
+    setArmorUpgradeLevel(selfUnits);
   },
   async onUnitDestroyed({}, destroyedUnit) {
     trackUnitsService.missingUnits = trackUnitsService.missingUnits.filter(unit => destroyedUnit.tag !== unit.tag);

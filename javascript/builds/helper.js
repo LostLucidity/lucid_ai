@@ -10,7 +10,7 @@ const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { distanceByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { existsInMap } = require("../helper/location");
-const { isWorker } = require("../services/units-service");
+const { isWorker } = require("../services/unit-resource-service");
 
 const helper = {
   retreatToExpansion: (resources, unit, targetUnit) => {

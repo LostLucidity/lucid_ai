@@ -15,7 +15,7 @@ const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { pullWorkersToDefend } = require("../../services/army-management-service");
-const { isRepairing } = require("../../services/units-service");
+const { isRepairing } = require("../../services/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 
 module.exports = {

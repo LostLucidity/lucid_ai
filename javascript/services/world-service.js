@@ -10,13 +10,14 @@ const { countTypes } = require("../helper/groups");
 const { findPlacements, findPosition } = require("../helper/placement/placement-helper");
 const { balanceResources } = require("../systems/manage-resources");
 const scoutService = require("../systems/scouting/scouting-service");
+const dataService = require("./data-service");
 const { addEarmark } = require("./data-service");
 const { formatToMinutesAndSeconds } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
-const unitService = require("./units-service");
-const { premoveBuilderToPosition, getUnitsById } = require("./units-service");
+const unitService = require("./unit-resource-service");
+const { premoveBuilderToPosition, getUnitsById } = require("./unit-resource-service");
 
 const worldService = {
   /**
@@ -220,6 +221,35 @@ const worldService = {
     }
     matchingLastStep ? loggingService.executedSteps.splice(lastElement, 1, buildStepExecuted) : loggingService.executedSteps.push(buildStepExecuted);
   },
+  /**
+   * @param {World} world
+   * @param {Unit[]} units
+   * @param {Unit[]} enemyUnits 
+   * @returns {void}
+   */
+   setEnemyDPSHealthPower: (world, units, enemyUnits) => {
+    const { data, resources } = world;
+    units.forEach(unit => {
+      unit['enemyUnits'] = enemyUnits.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16)
+      const [closestEnemyUnit] = resources.get().units.getClosest(unit.pos, enemyUnits).filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
+      unit['enemyDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['enemyUnits'], (closestEnemyUnit && closestEnemyUnit['selfUnits']) ? closestEnemyUnit['selfUnits'] : []);
+    });
+  },  
+  /**
+   * Sets list of selfUnits and calculates DPSHealth for selfUnits within a 16 distance range.
+   * @param {World} world 
+   * @param {Unit[]} units
+   * @param {Unit[]} enemyUnits
+   * @returns {void}
+   */
+   setSelfDPSHealthPower: (world, units, enemyUnits) => {
+    const { data, resources } = world;
+    units.forEach(unit => {
+      unit['selfUnits'] = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
+      const [closestEnemyUnit] = resources.get().units.getClosest(unit.pos, enemyUnits).filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
+      unit['selfDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['selfUnits'], closestEnemyUnit ? closestEnemyUnit['selfUnits'] : []);
+    });
+  },  
   /**
    * Unpause and log on attempted steps.
    * @param {World} world 
