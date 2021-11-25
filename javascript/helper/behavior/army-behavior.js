@@ -8,7 +8,7 @@ const { getRandomPoint, getCombatRally } = require("../location");
 const { tankBehavior } = require("./unit-behavior");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const continuouslyBuild = require("../continuously-build");
-const { moveAwayPosition, retreatToExpansion } = require("../../builds/helper");
+const { moveAwayPosition } = require("../../builds/helper");
 const { getClosestUnitByPath } = require("../get-closest-by-path");
 const { filterLabels } = require("../unit-selection");
 const { scanCloakedEnemy } = require("../terran");
@@ -22,6 +22,7 @@ const { getDPSHealth, getSupply } = require("../../services/data-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
+const { retreatToExpansion } = require("../../services/resource-manager-service");
 
 const armyBehavior = {
   /**
@@ -191,7 +192,7 @@ const armyBehavior = {
           if (closestEnemyUnit['selfDPSHealth'] > selfDPSHealth && noBunker) {
             const unitCommand = { abilityId: MOVE }
             if (selfUnit.isFlying) {
-              unitCommand.targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
+              unitCommand.targetWorldSpacePos = moveAwayPosition(closestEnemyUnit.pos, selfUnit.pos);
               unitCommand.unitTags = [selfUnit.tag];
               collectedActions.push(unitCommand);
             } else {

@@ -8,15 +8,15 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getBase } = require("../expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { retreatToExpansion, shadowEnemy } = require("../../builds/helper");
 const { getInRangeUnits, calculateHealthAdjustedSupply } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
-const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { pullWorkersToDefend } = require("../../services/army-management-service");
 const { isRepairing } = require("../../services/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
+const { shadowEnemy } = require("../../builds/helper");
+const { retreatToExpansion } = require("../../services/resource-manager-service");
 
 module.exports = {
   orbitalCommandCenterBehavior: (resources, action) => {
@@ -174,7 +174,6 @@ module.exports = {
     return collectedActions;
   },
   /**
-   * 
    * @param {World} param0 
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */

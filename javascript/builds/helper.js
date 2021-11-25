@@ -8,37 +8,10 @@ const { toDegrees, gridsInCircle } = require("@node-sc2/core/utils/geometry/angl
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
-const { distanceByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { existsInMap } = require("../helper/location");
 const { isWorker } = require("../services/unit-resource-service");
 
 const helper = {
-  retreatToExpansion: (resources, unit, targetUnit) => {
-    const { map } = resources.get();
-    if (!unit.expansions) { unit.expansions = new Map(); }
-    if (!targetUnit.expansions) { targetUnit.expansions = new Map(); }
-    const candidateExpansionsCentroid = map.getExpansions().filter(expansion => {
-      const centroidString = expansion.centroid.x.toString() + expansion.centroid.y.toString();
-      if (!(centroidString in targetUnit.expansions)) {
-        let [closestToExpansion] = getClosestUnitByPath(resources, expansion.centroid, targetUnit.selfUnits);
-        targetUnit.expansions[centroidString] = {
-          'closestToExpansion': closestToExpansion,
-          'distanceByPath': distanceByPath(resources, closestToExpansion.pos, expansion.centroid),
-        }
-      }
-      if (!(centroidString in unit.expansions)) {
-        unit.expansions[centroidString] = {
-          'distanceByPath': distanceByPath(resources, unit.pos, expansion.centroid),
-        }
-      }
-      const distanceByPathToCentroid = unit.expansions[centroidString].distanceByPath;
-      return distanceByPathToCentroid !== 500 && distanceByPathToCentroid <= targetUnit.expansions[centroidString].distanceByPath;
-    }).map(expansion => expansion.centroid);
-    const [largestPathDifferenceCentroid] = candidateExpansionsCentroid
-      .sort((a, b) => (distanceByPath(resources, unit.pos, a) - distanceByPath(resources, targetUnit.pos, a)) - (distanceByPath(resources, unit.pos, b) - distanceByPath(resources, targetUnit.pos, b)))
-      .filter(centroid => distanceByPath(resources, targetUnit.pos, centroid) > 16);
-    return largestPathDifferenceCentroid ? largestPathDifferenceCentroid : module.exports.moveAwayPosition(targetUnit, unit);
-  },
   moveAway(unit, targetUnit, distance = 2) {
     const awayPoint = module.exports.moveAwayPosition(targetUnit, unit, distance);
     const unitCommand = {
@@ -64,7 +37,14 @@ const helper = {
     }
     return awayPoint;
   },
-  shadowEnemy({ data, resources }, shadowingUnits) {
+  /**
+   * 
+   * @param {World} world 
+   * @param {Unit[]} shadowingUnits 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  shadowEnemy(world, shadowingUnits) {
+    const { data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY);
@@ -83,14 +63,14 @@ const helper = {
         if (distance(unit.pos, closestThreatUnit.pos) > closestThreatUnit.data().sightRange + unit.radius + closestThreatUnit.radius) {
           collectedActions.push(moveToTarget(unit, closestThreatUnit));
         } else {
-          collectedActions.push(moveAwayFromTarget({ data, resources }, unit, closestThreatUnit, enemyUnits));
+          collectedActions.push(moveAwayFromTarget(world, unit, closestThreatUnit, enemyUnits));
         }
       } else if (closestInRangeUnit) {
         if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) { return }
         if (distance(unit.pos, closestInRangeUnit.pos) > closestInRangeUnit.data().sightRange) {
           collectedActions.push(moveToTarget(unit, closestInRangeUnit));
         } else {
-          collectedActions.push(moveAwayFromTarget({ data, resources }, unit, closestInRangeUnit, enemyUnits))
+          collectedActions.push(moveAwayFromTarget(world, unit, closestInRangeUnit, enemyUnits))
         }
       }
     });
@@ -110,6 +90,14 @@ function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
   }
 }
 
+/**
+ * 
+ * @param {World} param0 
+ * @param {Unit} unit 
+ * @param {Unit} targetUnit 
+ * @param {Unit[]} targetUnits 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand}
+ */
 function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) {
   const { map, units } = resources.get();
   const isFlying = unit.isFlying;
@@ -153,10 +141,10 @@ function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) 
         position = closestHighPoint;
       }
     }
-    position = position ? position : helper.moveAwayPosition(targetUnit, unit);
+    position = position ? position : helper.moveAwayPosition(targetUnit.pos, unit.pos);
   } else {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
-    targetUnit.inRangeUnits = enemyUnits.filter(enemyUnit => distance(targetUnit.pos, enemyUnit.pos) < 8);
+    targetUnit['inRangeUnits'] = enemyUnits.filter(enemyUnit => distance(targetUnit.pos, enemyUnit.pos) < 8);
     position = helper.retreatToExpansion(resources, unit, targetUnit);
   }
   return {
