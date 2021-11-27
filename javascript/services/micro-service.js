@@ -2,9 +2,10 @@
 "use strict"
 
 const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
-const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
+const { toDegrees, gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { moveAwayPosition } = require("../builds/helper");
+const { getClosestPosition } = require("../helper/get-closest");
 
 const microService = {
   /**
@@ -17,7 +18,9 @@ const microService = {
     const totalRadius = unit.radius + targetUnit.radius + 1;
     const range = Math.max.apply(Math, data.getUnitTypeData(unit.unitType).weapons.map(weapon => { return weapon.range; })) + totalRadius;
     if (distance(unit.pos, targetUnit.pos) < range) {
-      return moveAwayPosition(targetUnit.pos, avgPoints(unit['selfUnits'].map(unit => unit.pos)));
+      const outerRangeOfEnemy = gridsInCircle(targetUnit.pos, range).filter(grid => distance(grid, targetUnit.pos) >= (range - 0.5));
+      const [closestCandidatePosition] = getClosestPosition(avgPoints(unit['selfUnits'].map((/** @type {Unit} */ unit) => unit.pos)), outerRangeOfEnemy);
+      return closestCandidatePosition;
     } else {
       return targetUnit.pos;
     }
@@ -63,7 +66,6 @@ const microService = {
     return collectedActions;
   },
   /**
-   * 
    * @param {DataStorage} data 
    * @param {Unit} unit 
    * @param {Unit} targetUnit 
@@ -73,8 +75,7 @@ const microService = {
     const collectedActions = [];
     if (
       unit.weaponCooldown > 12 &&
-      data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; }) &&
-      microService.isFacing(unit, targetUnit)
+      data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; })
     ) {
       const microPosition = microService.getPositionVersusTargetUnit(data, unit, targetUnit)
       collectedActions.push({
