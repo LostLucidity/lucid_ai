@@ -2,6 +2,7 @@
 "use strict"
 
 const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
+const { CYCLONE } = require("@node-sc2/core/constants/unit-type");
 const { toDegrees, gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { moveAwayPosition } = require("../builds/helper");
@@ -74,7 +75,7 @@ const microService = {
   microRangedUnit: (data, unit, targetUnit) => {
     const collectedActions = [];
     if (
-      unit.weaponCooldown > 12 &&
+      (unit.weaponCooldown > 12 || unit.unitType === CYCLONE) &&
       data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; })
     ) {
       const microPosition = microService.getPositionVersusTargetUnit(data, unit, targetUnit)
