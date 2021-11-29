@@ -42,10 +42,11 @@ const scoutService = require("../systems/scouting/scouting-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
-const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, findAndPlaceBuilding, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog } = require("../services/world-service");
+const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, findAndPlaceBuilding, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog, totalSelfDPSHealth, totalEnemyDPSHealth } = require("../services/world-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
+const worldService = require("../services/world-service");
 
 let actions;
 let race;
@@ -93,14 +94,14 @@ class AssemblePlan {
     this.units = this.resources.get().units;
     this.resourceTrigger = this.agent.minerals > 512 && this.agent.vespene > 256;
     this.threats = threats(this.resources, this.state);
+    const { outpowered, totalSelfDPSHealth, totalEnemyDPSHealth } = worldService;
     const trainUnitConditions = [
-      scoutService.outsupplied,
+      outpowered,
       unitTrainingService.workersTrainingTendedTo && !planService.isPlanPaused,
       !shortOnWorkers(this.resources) && !planService.isPlanPaused,
     ];
-    const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
     if (trainUnitConditions.some(condition => condition)) {
-      scoutService.outsupplied ? console.log('Scouted higher supply', selfCombatSupply, scoutingService.enemyCombatSupply) : console.log('Free build mode.');
+      outpowered ? console.log('Scouted higher power', totalSelfDPSHealth, totalEnemyDPSHealth) : console.log('Free build mode.');
       const nextStep = getNextPlanStep(this.foodUsed);
       const haveProductionAndTechForTypes = this.defenseTypes.filter(type => {
         return [
@@ -117,7 +118,7 @@ class AssemblePlan {
           vespeneCost += vespeneCost;
         }
         const freeBuildThreshold = this.agent.minerals >= (mineralCost * 2) && this.agent.vespene >= (vespeneCost * 2);
-        if (scoutService.outsupplied || freeBuildThreshold) {
+        if (worldService.outpowered || freeBuildThreshold) {
           await this.train(this.foodUsed, this.selectedTypeToBuild, null);
         }
       }
@@ -132,7 +133,8 @@ class AssemblePlan {
         }
       }
     } else {
-      if (!scoutService.outsupplied || selfCombatSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
+      const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
+      if (!worldService.outpowered || selfCombatSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
     }
     if (this.agent.minerals > 512) { this.manageSupply(); }
     if (getFoodUsed(this.foodUsed) >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(world)); }
@@ -217,7 +219,7 @@ class AssemblePlan {
                 if (this.agent.canAfford(unitType)) {
                   await actions.buildGasMine();
                   planService.pausePlan = false;
-                  setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), );
+                  setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType),);
                 } else {
                   this.collectedActions.push(...premoveBuilderToPosition(this.units, this.map.freeGasGeysers()[0].pos));
                   const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
@@ -475,7 +477,7 @@ class AssemblePlan {
       }
     }
     if (this.units.withLabel(label).length > 0 && !this.state.cancelPush) {
-      if (scoutService.outsupplied) {
+      if (worldService.outpowered) {
         this.state.cancelPush = true;
         deleteLabel(this.units, label);
         console.log('cancelPush');
@@ -514,7 +516,7 @@ class AssemblePlan {
             }
             this.collectedActions.push(unitCommand);
             console.log('Scout sent');
-            setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType),`scouting ${targetLocationFunction}`);
+            setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), `scouting ${targetLocationFunction}`);
           }
         }
       }

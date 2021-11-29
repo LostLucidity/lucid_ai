@@ -17,6 +17,9 @@ const enemyTrackingService = {
    */
   mappedEnemyUnits: [],
   threats: [],
+  /**
+   * @returns {Unit[]}
+   */
   get enemyCombatUnits() {
     return enemyTrackingService.enemyUnits.filter(unit => unit.isCombatUnit());
   },
@@ -59,7 +62,7 @@ const enemyTrackingService = {
   getEnemyCombatSupply: (data) => {
     const {enemyCombatUnits} = enemyTrackingService;
     const morphedUnitTypes = [];
-    Object.keys(morphMapping).forEach(morphableType => morphedUnitTypes.push(...morphMapping[morphableType]))
+    Object.keys(morphMapping).forEach(morphableType => morphedUnitTypes.push(...morphMapping[morphableType]));
     const morphedUnits = enemyCombatUnits.filter(unit => morphedUnitTypes.includes(unit.unitType));
     let supplyToRemove = 0;
     morphedUnits.forEach(unit => {

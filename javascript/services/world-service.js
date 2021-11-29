@@ -8,10 +8,11 @@ const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { countTypes } = require("../helper/groups");
 const { findPlacements, findPosition } = require("../helper/placement/placement-helper");
+const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { balanceResources } = require("../systems/manage-resources");
 const scoutService = require("../systems/scouting/scouting-service");
 const dataService = require("./data-service");
-const { addEarmark } = require("./data-service");
+const { addEarmark, calculateNearDPSHealth } = require("./data-service");
 const { formatToMinutesAndSeconds } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
@@ -20,6 +21,12 @@ const unitService = require("./unit-resource-service");
 const { premoveBuilderToPosition, getUnitsById } = require("./unit-resource-service");
 
 const worldService = {
+  /** @type {boolean} */
+  outpowered: false,  
+  /** @type {number} */
+  totalEnemyDPSHealth: 0,
+  /** @type {number} */
+  totalSelfDPSHealth: 0,
   /**
    * @param {World} world 
    * @param {UnitTypeId} unitType 
@@ -249,6 +256,28 @@ const worldService = {
       const [closestEnemyUnit] = resources.get().units.getClosest(unit.pos, enemyUnits).filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
       unit['selfDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['selfUnits'], closestEnemyUnit ? closestEnemyUnit['selfUnits'] : []);
     });
+  },
+  /**
+   * @param {World} world 
+   */
+   setTotalEnemyDPSHealth: (world) => {
+    const { data, resources } = world;
+    const selfCombatUnits = resources.get().units.getCombatUnits();
+    const {enemyCombatUnits} = enemyTrackingService;
+    worldService.totalEnemyDPSHealth = enemyCombatUnits.reduce((previousValue, unit) => {
+      return previousValue + calculateNearDPSHealth(data, [unit], selfCombatUnits);
+    }, 0);
+  },
+  /**
+   * @param {World} world 
+   */
+   setTotalSelfDPSHealth: (world) => {
+    const { data, resources } = world;
+    const selfCombatUnits = resources.get().units.getCombatUnits();
+    const {enemyCombatUnits} = enemyTrackingService;
+    worldService.totalSelfDPSHealth = selfCombatUnits.reduce((previousValue, unit) => {
+      return previousValue + calculateNearDPSHealth(data, [unit], enemyCombatUnits);
+    }, 0);
   },  
   /**
    * Unpause and log on attempted steps.
