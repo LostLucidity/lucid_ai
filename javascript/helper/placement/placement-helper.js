@@ -166,11 +166,13 @@ const placementHelper = {
     let possiblePlacements = [];
     const naturalWall = wallOffNaturalService.wall.length > 0 ? wallOffNaturalService.wall : map.getNatural().getWall();
     if (naturalWall) {
+      const naturalTownhallPosition = map.getNatural().townhallPosition;
       possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
         .filter(point => naturalWall.every(wallCell => (
+          (distance(naturalTownhallPosition, point) > 4.5) &&
           (distance(wallCell, point) <= 6.5) &&
           (distance(wallCell, point) >= 3) &&
-          distance(wallCell, map.getNatural().townhallPosition) > distance(point, map.getNatural().townhallPosition)
+          distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
         )));
 
       if (possiblePlacements.length <= 0) {
@@ -179,7 +181,7 @@ const placementHelper = {
             point['coverage'] = naturalWall.filter(wallCell => (
               (distance(wallCell, point) <= 6.5) &&
               (distance(wallCell, point) >= 1) &&
-              distance(wallCell, map.getNatural().townhallPosition) > distance(point, map.getNatural().townhallPosition)
+              distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
             )).length;
             return point;
           })
