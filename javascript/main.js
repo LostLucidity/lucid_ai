@@ -168,13 +168,13 @@ async function runGame() {
     trackUnitsSystem,
     scoutingSystem,
     loggingSystem,
+    wallOffNaturalSystem,
     entry,
     workerBalanceSystem,
     enemyTrackingSystem,
     debugSystem,
     wallOffRampSystem,
-    taggingSystem,
-    wallOffNaturalSystem,
+    taggingSystem,  
   ];
   const updatedSystems = [
     saltConverterSystem,
