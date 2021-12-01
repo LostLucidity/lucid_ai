@@ -77,16 +77,24 @@ module.exports = {
     }
     return collectedActions;
   },
+  /**
+   * @param {World} world 
+   */
   scoutEnemyMainBehavior: async (world) => {
     const { data, resources } = world;
     const { actions, map, units } = resources.get();
     const [unit] = units.withLabel('scoutEnemyMain');
     const collectedActions = [];
     if (unit) {
-      const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, Alliance.ENEMY).filter(cannon => distance(cannon.pos, unit.pos) < 16);
+      const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, {alliance: Alliance.ENEMY}).filter(cannon => distance(cannon.pos, unit.pos) < 16);
       if (calculateTotalHealthRatio(unit) > 1 / 2 && !inRangeEnemyCannon) {
-        if (unit.enemyUnits.filter(enemyUnit => isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8).length > 1) {
-          let [closestEnemyUnit] = units.getClosest(unit.pos, unit.enemyUnits, 1);
+        const threateningUnits = unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => {
+          const threateningRangedUnit = isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8
+          const threateningMeleeUnit = isFacing(unit, enemyUnit) && enemyUnit.isMelee() && distance(unit.pos, enemyUnit.pos) < 4
+          return (threateningRangedUnit || threateningMeleeUnit)
+        });
+        if (threateningUnits.length > 1) {
+          let [closestEnemyUnit] = units.getClosest(unit.pos, unit['enemyUnits'], 1);
           collectedActions.push({
             abilityId: MOVE,
             unitTags: [unit.tag],
