@@ -36,7 +36,6 @@ const loggingSystem = require('./systems/logging-system');
 const boGeneratorSystem = require('./systems/bo-generator-system');
 const scoutingSystem = require('./systems/scouting/scouting-system');
 const taggingSystem = require('./systems/tagging-system');
-const loggingService = require('./services/logging-service');
 const { logoutStepsExecuted } = require('./services/logging-service');
 const { saveReplay, saveExecutedStepsLog } = require('./services/file-saving-service');
 const agentService = require('./services/agent-service');
