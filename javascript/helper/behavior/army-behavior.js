@@ -179,26 +179,26 @@ const armyBehavior = {
     const { units } = resources.get();
     const collectedActions = [];
     const randomUnit = getRandom(selfUnits);
-    selfUnits.forEach((selfUnit) => {
+    selfUnits.forEach(selfUnit => {
       let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType)) {
-        const [closestEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits);
-        if (closestEnemyUnit && distance(selfUnit.pos, closestEnemyUnit.pos) < 16) {
-          const selfDPSHealth = selfUnit['selfDPSHealth'] > closestEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestEnemyUnit['enemyDPSHealth'];
+        const [closestAttackableEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => canAttack(resources, selfUnit, enemyUnit)));
+        if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
+          const selfDPSHealth = selfUnit['selfDPSHealth'] > closestAttackableEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestAttackableEnemyUnit['enemyDPSHealth'];
           const noBunker = units.getById(BUNKER).length === 0;
           if (selfUnit.tag === randomUnit.tag) {
-            console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestEnemyUnit['selfDPSHealth'])}`); 
+            console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`); 
           }
-          if (closestEnemyUnit['selfDPSHealth'] > selfDPSHealth && noBunker) {
+          if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth && noBunker) {
             const unitCommand = { abilityId: MOVE }
             if (selfUnit.isFlying) {
-              unitCommand.targetWorldSpacePos = moveAwayPosition(closestEnemyUnit.pos, selfUnit.pos);
+              unitCommand.targetWorldSpacePos = moveAwayPosition(closestAttackableEnemyUnit.pos, selfUnit.pos);
               unitCommand.unitTags = [selfUnit.tag];
               collectedActions.push(unitCommand);
             } else {
               if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
                 const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
-                unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestArmedEnemyUnit || closestEnemyUnit);
+                unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
                 unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
                   setPendingOrders(unit, unitCommand);
                   return unit.tag;
@@ -207,19 +207,19 @@ const armyBehavior = {
               }
             }
           } else {
-            if (canAttack(resources, selfUnit, closestEnemyUnit)) {
-              if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(data, selfUnit, closestEnemyUnit)); }
+            if (canAttack(resources, selfUnit, closestAttackableEnemyUnit)) {
+              if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(data, selfUnit, closestAttackableEnemyUnit)); }
               else {
                 collectedActions.push({
                   abilityId: ATTACK_ATTACK,
-                  targetUnitTag: closestEnemyUnit.tag,
+                  targetUnitTag: closestAttackableEnemyUnit.tag,
                   unitTags: [selfUnit.tag],
                 });
               }
             } else {
               collectedActions.push({
                 abilityId: ATTACK_ATTACK,
-                targetWorldSpacePos: closestEnemyUnit.pos,
+                targetWorldSpacePos: closestAttackableEnemyUnit.pos,
                 unitTags: [selfUnit.tag],
               });
             }

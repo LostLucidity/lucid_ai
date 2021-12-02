@@ -6,7 +6,6 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const {  PROBE } = require("@node-sc2/core/constants/unit-type");
-const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { countTypes } = require("../helper/groups");
 const { createUnitCommand } = require("./actions-service");
@@ -22,10 +21,13 @@ const unitResourceService = {
    */
   canAttack(resources, unit, targetUnit) {
     const { units } = resources.get();
-    const rangedGroundUnit = !unit.isFlying && !unit.isMelee();
-    if (rangedGroundUnit && targetUnit.isFlying) {
-      const inRangeOfVisionAndVisible = units.getAlive(Alliance.ENEMY).some(unit => unit.tag === targetUnit.tag) && unitResourceService.inSightRange(units.getAlive(Alliance.SELF), targetUnit);
-      return inRangeOfVisionAndVisible;
+    if (targetUnit.isFlying) {
+      if (unit.canShootUp()) {
+        const inRangeOfVisionAndVisible = units.getAlive(Alliance.ENEMY).some(unit => unit.tag === targetUnit.tag) && unitResourceService.inSightRange(units.getAlive(Alliance.SELF), targetUnit);
+        return inRangeOfVisionAndVisible;
+      } else {
+        return false;
+      }
     }
     return true;
   },
