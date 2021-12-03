@@ -148,7 +148,13 @@ const armyBehavior = {
             }
           }
         } else {
-          for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }
+          for (const worker of workers) {
+            const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
+            if (closestEnemyUnit.isWorker() && closestEnemyUnit['selfUnits'].length === 1 && distanceToClosestEnemy > 4) {
+              return collectedActions;
+            }
+            collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits));
+          }
         }
       }
     }
