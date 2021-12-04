@@ -216,11 +216,9 @@ const armyBehavior = {
             if (canAttack(resources, selfUnit, closestAttackableEnemyUnit)) {
               if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(data, selfUnit, closestAttackableEnemyUnit)); }
               else {
-                collectedActions.push({
-                  abilityId: ATTACK_ATTACK,
-                  targetUnitTag: closestAttackableEnemyUnit.tag,
-                  unitTags: [selfUnit.tag],
-                });
+                const unitCommand = createUnitCommand(ATTACK_ATTACK, [selfUnit]);
+                unitCommand.targetWorldSpacePos = closestAttackableEnemyUnit.pos;
+                collectedActions.push(unitCommand);
               }
             } else {
               collectedActions.push({

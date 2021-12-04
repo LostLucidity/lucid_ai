@@ -7,6 +7,7 @@ const { toDegrees, gridsInCircle } = require("@node-sc2/core/utils/geometry/angl
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { moveAwayPosition } = require("../builds/helper");
 const { getClosestPosition } = require("../helper/get-closest");
+const { createUnitCommand } = require("./actions-service");
 
 const microService = {
   /**
@@ -85,11 +86,9 @@ const microService = {
         unitTags: [unit.tag],
       });
     } else {
-      collectedActions.push({
-        abilityId: ATTACK_ATTACK,
-        targetUnitTag: targetUnit.tag,
-        unitTags: [unit.tag],
-      });
+      const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
+      unitCommand.targetWorldSpacePos = targetUnit.pos;
+      collectedActions.push(unitCommand);
     }
     return collectedActions;
   }
