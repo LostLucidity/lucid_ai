@@ -38,11 +38,10 @@ const { keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers, deleteLabel, premoveBuilderToPosition, setPendingOrders, getMineralFieldTarget } = require("../services/unit-resource-service");
 const planService = require("../services/plan-service");
 const { getNextPlanStep, getFoodUsed } = require("../services/plan-service");
-const scoutService = require("../systems/scouting/scouting-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
-const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, findAndPlaceBuilding, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog, totalSelfDPSHealth, totalEnemyDPSHealth } = require("../services/world-service");
+const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, findAndPlaceBuilding, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog } = require("../services/world-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
@@ -66,12 +65,12 @@ class AssemblePlan {
     this.supportUnitTypes = plan.unitTypes.supportUnitTypes;
   }
   onEnemyFirstSeen(seenEnemyUnit) {
-    scoutService.opponentRace = seenEnemyUnit.data().race;
+    scoutingService.opponentRace = seenEnemyUnit.data().race;
   }
   onGameStart(world) {
     actions = world.resources.get().actions;
     race = world.agent.race;
-    scoutService.opponentRace = world.agent.opponent.race;
+    scoutingService.opponentRace = world.agent.opponent.race;
   }
   /**
    * @param {World} world
@@ -332,7 +331,7 @@ class AssemblePlan {
       }
       let conditions = [];
       const enemyFilter = { alliance: Alliance.ENEMY };
-      switch (scoutService.opponentRace) {
+      switch (scoutingService.opponentRace) {
         case Race.PROTOSS:
           const moreThanTwoGateways = this.units.getById(GATEWAY, enemyFilter).length > 2;
           if (moreThanTwoGateways) {
@@ -363,7 +362,7 @@ class AssemblePlan {
           // 1 barracks and 1 gas, second command center
           conditions = [
             this.units.getById(BARRACKS, enemyFilter).length === 1,
-            this.units.getById(GasMineRace[scoutService.opponentRace], enemyFilter).length === 1,
+            this.units.getById(GasMineRace[scoutingService.opponentRace], enemyFilter).length === 1,
             !!this.map.getEnemyNatural().getBase()
           ];
           if (!conditions.every(c => c)) {
@@ -373,7 +372,7 @@ class AssemblePlan {
           }
           this.scoutReport = `${this.state.enemyBuildType} detected:
           Barracks Count: ${this.units.getById(BARRACKS, enemyFilter).length}.
-          Gas Mine Count: ${this.units.getById(GasMineRace[scoutService.opponentRace], enemyFilter).length}.
+          Gas Mine Count: ${this.units.getById(GasMineRace[scoutingService.opponentRace], enemyFilter).length}.
           Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}.`;
           break;
         case Race.ZERG:
