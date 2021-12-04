@@ -12,14 +12,14 @@ const resourceManagerService = {
    * @param {Unit} targetUnit 
    * @returns {Point2D}
    */
-   retreatToExpansion: (resources, unit, targetUnit) => {
+  retreatToExpansion: (resources, unit, targetUnit) => {
     const { map } = resources.get();
     // retreat to rally if closer, else to closest expansion.
     const combatRallyPosition = getCombatRally(resources)
     if (
-        distanceByPath(resources, targetUnit.pos, combatRallyPosition) > 16 &&
-        distanceByPath(resources, unit.pos, combatRallyPosition) <= distanceByPath(resources, targetUnit.pos, combatRallyPosition)
-      ) {
+      distanceByPath(resources, targetUnit.pos, combatRallyPosition) > 16 &&
+      distanceByPath(resources, unit.pos, combatRallyPosition) <= distanceByPath(resources, targetUnit.pos, combatRallyPosition)
+    ) {
       return combatRallyPosition;
     } else {
       if (!unit['expansions']) { unit['expansions'] = new Map(); }
@@ -44,7 +44,8 @@ const resourceManagerService = {
       const [largestPathDifferenceCentroid] = candidateExpansionsCentroid
         .sort((a, b) => (distanceByPath(resources, unit.pos, a) - distanceByPath(resources, targetUnit.pos, a)) - (distanceByPath(resources, unit.pos, b) - distanceByPath(resources, targetUnit.pos, b)))
         .filter(centroid => distanceByPath(resources, targetUnit.pos, centroid) > 16);
-      return largestPathDifferenceCentroid ? largestPathDifferenceCentroid : moveAwayPosition(targetUnit.pos, unit.pos);
+      const { movementSpeed } = unit.data();
+      return largestPathDifferenceCentroid ? largestPathDifferenceCentroid : moveAwayPosition(targetUnit.pos, unit.pos, movementSpeed);
     }
   },
 }
