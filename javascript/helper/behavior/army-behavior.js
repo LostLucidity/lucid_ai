@@ -13,7 +13,6 @@ const { getClosestUnitByPath } = require("../get-closest-by-path");
 const { filterLabels } = require("../unit-selection");
 const { scanCloakedEnemy } = require("../terran");
 const { workerTypes, changelingTypes } = require("@node-sc2/core/constants/groups");
-const { microRangedUnit } = require("../../services/micro-service");
 const { pullWorkersToDefend } = require("../../services/army-management-service");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { isRepairing, canAttack, setPendingOrders } = require("../../services/unit-resource-service");
@@ -23,6 +22,7 @@ const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { retreatToExpansion } = require("../../services/resource-manager-service");
+const { microRangedUnit } = require("../../services/world-service");
 
 const armyBehavior = {
   /**
@@ -174,14 +174,15 @@ const armyBehavior = {
   },
   /**
    * Returns an array of unitCommands to give to selfUnits to engage or retreat.
-   * @param {World} param0 
+   * @param {World} world 
    * @param {Unit[]} selfUnits 
    * @param {Unit[]} enemyUnits 
    * @param {Point2D} position 
    * @param {boolean} clearRocks 
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  engageOrRetreat: ({ data, resources }, selfUnits, enemyUnits, position, clearRocks = true) => {
+  engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
+    const { resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
     const randomUnit = getRandom(selfUnits);
@@ -214,7 +215,7 @@ const armyBehavior = {
             }
           } else {
             if (canAttack(resources, selfUnit, closestAttackableEnemyUnit)) {
-              if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(data, selfUnit, closestAttackableEnemyUnit)); }
+              if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit)); }
               else {
                 const unitCommand = createUnitCommand(ATTACK_ATTACK, [selfUnit]);
                 unitCommand.targetWorldSpacePos = closestAttackableEnemyUnit.pos;
@@ -254,12 +255,13 @@ const armyBehavior = {
   },
   /**
    * 
-   * @param {World} param0 
+   * @param {World} world 
    * @param {{ combatPoint: Unit; combatUnits: Unit[]; enemyTarget: Unit; supportUnits?: any[]; }} army 
    * @param {Unit[]} enemyUnits 
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  attackWithArmy: ({ data, resources }, army, enemyUnits) => {
+  attackWithArmy: (world, army, enemyUnits) => {
+    const { resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
     const pointType = army.combatPoint.unitType;
@@ -274,11 +276,11 @@ const armyBehavior = {
       }
       collectedActions.push(killChanglingCommand);
     } else {
-      const range = Math.max.apply(Math, data.getUnitTypeData(SIEGETANKSIEGED).weapons.map(weapon => { return weapon.range; }));
+      const range = Math.max.apply(Math, world.data.getUnitTypeData(SIEGETANKSIEGED).weapons.map(weapon => { return weapon.range; }));
       const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
       [...pointTypeUnits, ...nonPointTypeUnits].forEach(unit => {
         const [closestUnit] = units.getClosest(unit.pos, enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < 16));
-        if (!unit.isMelee() && closestUnit) { collectedActions.push(...microRangedUnit(data, unit, closestUnit)); }
+        if (!unit.isMelee() && closestUnit) { collectedActions.push(...microRangedUnit(world, unit, closestUnit)); }
         else {
           const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
           if (unit.labels.get('combatPoint')) {

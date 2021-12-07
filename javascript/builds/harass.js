@@ -4,9 +4,9 @@
 const { STALKER } = require("@node-sc2/core/constants/unit-type");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
-const { microRangedUnit } = require("../services/micro-service");
 const { createUnitCommand } = require("../services/actions-service");
 const { ATTACK_ATTACK, MOVE } = require("@node-sc2/core/constants/ability");
+const { microRangedUnit } = require("../services/world-service");
 
 module.exports = {
   /**
@@ -16,7 +16,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   harass: async (world, state) => {
-    const { data, resources } = world;
+    const { resources } = world;
     const { actions, map, units } = resources.get();
     const label = 'harasser';
     if (units.getByType(STALKER).length == 4 && units.withLabel(label).length === 0) {
@@ -39,7 +39,7 @@ module.exports = {
       if (units.withLabel(label).filter(harasser => harasser.labels.get(label)).length === 4) {
         if (closestEnemyUnit && distance(closestEnemyUnit.pos, averagePoints) <= 8) {
           const harasserActions = [];
-          harassers.forEach(harasser => harasserActions.push(...microRangedUnit(data, harasser, closestEnemyUnit)));
+          harassers.forEach(harasser => harasserActions.push(...microRangedUnit(world, harasser, closestEnemyUnit)));
           await actions.sendAction(harasserActions);
         } else {
           const outOfGroupHarassers = [];

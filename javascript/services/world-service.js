@@ -2,15 +2,19 @@
 "use strict"
 
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
+const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
-const { PYLON } = require("@node-sc2/core/constants/unit-type");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { PYLON, CYCLONE } = require("@node-sc2/core/constants/unit-type");
+const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
+const { getClosestPosition } = require("../helper/get-closest");
 const { countTypes } = require("../helper/groups");
 const { findPlacements, findPosition } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { balanceResources } = require("../systems/manage-resources");
 const scoutService = require("../systems/scouting/scouting-service");
+const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
 const { addEarmark, calculateNearDPSHealth } = require("./data-service");
 const { formatToMinutesAndSeconds } = require("./logging-service");
@@ -139,6 +143,34 @@ const worldService = {
     return abilityIds;
   },
   /**
+   * @param {World} world 
+   * @param {Unit} unit 
+   * @param {Unit} targetUnit 
+   * @returns {Point2D}
+   */
+   getPositionVersusTargetUnit: (world, unit, targetUnit) => {
+    const { data, resources } = world;
+    const totalRadius = unit.radius + targetUnit.radius + 1;
+    const range = Math.max.apply(Math, data.getUnitTypeData(unit.unitType).weapons.map(weapon => { return weapon.range; })) + totalRadius;
+    if (distance(unit.pos, targetUnit.pos) < range) {
+      const corrosiveBileArea = [];
+      const RAVAGERCORROSIVEBILECP = 11;
+      const corrosiveBileRadius = data.getEffectData(RAVAGERCORROSIVEBILECP).radius;
+      resources.get().frame.getEffects().forEach(effect => {
+        if (effect.effectId === RAVAGERCORROSIVEBILECP) {
+          corrosiveBileArea.push(...gridsInCircle(effect.pos[0], corrosiveBileRadius))
+        }
+      });
+      const outerRangeOfEnemy = gridsInCircle(targetUnit.pos, range).filter(grid => {
+        return distance(grid, targetUnit.pos) >= (range - 0.5) && corrosiveBileArea.every(position => distance(position, unit.pos) > corrosiveBileRadius + unit.radius);
+      });
+      const [closestCandidatePosition] = getClosestPosition(avgPoints(unit['selfUnits'].map((/** @type {Unit} */ unit) => unit.pos)), outerRangeOfEnemy);
+      return closestCandidatePosition;
+    } else {
+      return targetUnit.pos;
+    }
+  },  
+  /**
    * @param {DataStorage} data 
    * @returns {AbilityId[]}
    */
@@ -197,6 +229,32 @@ const worldService = {
     if (distance(unit.pos, targetPosition) < 4) {
       worldService.setAndLogExecutedSteps(world, resources.get().frame.timeInSeconds(), UnitTypeId[unitType], targetPosition);
     }
+  },
+  /**
+   * @param {World} world 
+   * @param {Unit} unit 
+   * @param {Unit} targetUnit 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+   microRangedUnit: (world, unit, targetUnit) => {
+    const { data } = world;
+    const collectedActions = [];
+    if (
+      (unit.weaponCooldown > 12 || unit.unitType === CYCLONE) &&
+      data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; })
+    ) {
+      const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit)
+      collectedActions.push({
+        abilityId: MOVE,
+        targetWorldSpacePos: microPosition,
+        unitTags: [unit.tag],
+      });
+    } else {
+      const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
+      unitCommand.targetWorldSpacePos = targetUnit.pos;
+      collectedActions.push(unitCommand);
+    }
+    return collectedActions;
   },
   /**
    * 

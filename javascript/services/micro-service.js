@@ -1,34 +1,12 @@
 //@ts-check
 "use strict"
 
-const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
-const { CYCLONE } = require("@node-sc2/core/constants/unit-type");
-const { toDegrees, gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const { moveAwayPosition } = require("../builds/helper");
-const { getClosestPosition } = require("../helper/get-closest");
-const { createUnitCommand } = require("./actions-service");
+const { ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
+const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
 
 const microService = {
   /**
-   * @param {DataStorage} data 
-   * @param {Unit} unit 
-   * @param {Unit} targetUnit 
-   * @returns {Point2D}
-   */
-  getPositionVersusTargetUnit: (data, unit, targetUnit) => {
-    const totalRadius = unit.radius + targetUnit.radius + 1;
-    const range = Math.max.apply(Math, data.getUnitTypeData(unit.unitType).weapons.map(weapon => { return weapon.range; })) + totalRadius;
-    if (distance(unit.pos, targetUnit.pos) < range) {
-      const outerRangeOfEnemy = gridsInCircle(targetUnit.pos, range).filter(grid => distance(grid, targetUnit.pos) >= (range - 0.5));
-      const [closestCandidatePosition] = getClosestPosition(avgPoints(unit['selfUnits'].map((/** @type {Unit} */ unit) => unit.pos)), outerRangeOfEnemy);
-      return closestCandidatePosition;
-    } else {
-      return targetUnit.pos;
-    }
-  },
-  /**
-   * 
    * @param {Unit} unit 
    * @param {Unit} targetUnit 
    * @returns {boolean}
@@ -67,31 +45,6 @@ const microService = {
     }
     return collectedActions;
   },
-  /**
-   * @param {DataStorage} data 
-   * @param {Unit} unit 
-   * @param {Unit} targetUnit 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
-   */
-  microRangedUnit: (data, unit, targetUnit) => {
-    const collectedActions = [];
-    if (
-      (unit.weaponCooldown > 12 || unit.unitType === CYCLONE) &&
-      data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; })
-    ) {
-      const microPosition = microService.getPositionVersusTargetUnit(data, unit, targetUnit)
-      collectedActions.push({
-        abilityId: MOVE,
-        targetWorldSpacePos: microPosition,
-        unitTags: [unit.tag],
-      });
-    } else {
-      const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
-      unitCommand.targetWorldSpacePos = targetUnit.pos;
-      collectedActions.push(unitCommand);
-    }
-    return collectedActions;
-  }
 }
 
 module.exports = microService;
