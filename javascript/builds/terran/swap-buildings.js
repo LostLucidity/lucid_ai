@@ -6,6 +6,7 @@ const { REACTOR, SIEGETANKSIEGED } = require("@node-sc2/core/constants/unit-type
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+const { flyingTypesMapping } = require("../../helper/groups");
 const { existsInMap } = require("../../helper/location");
 const { findPosition } = require("../../helper/placement/placement-helper");
 const { getAddOnBuildingPlacement, getAddOnPlacement } = require("../../helper/placement/placement-utilities");
@@ -18,7 +19,6 @@ module.exports = {
     // find orphan reactors
   },
   /**
-   * 
    * @param {World} world 
    * @param {Unit} building 
    * @param {UnitTypeId} addOnType 
@@ -39,7 +39,7 @@ module.exports = {
             seigeTanksSiegedGrids.push(...gridsInCircle(unit.pos, unit.radius, { normalize: true }))
           });
           return [
-            existsInMap(map, grid) && map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(building.unitType, getAddOnBuildingPlacement(grid)),
+            existsInMap(map, grid) && map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(flyingTypesMapping.get(building.unitType) || building.unitType, getAddOnBuildingPlacement(grid)),
             intersectionOfPoints(cellsInFootprint(grid, getFootprint(addOnType)), seigeTanksSiegedGrids).length === 0,
           ].every(condition => condition);
         });
