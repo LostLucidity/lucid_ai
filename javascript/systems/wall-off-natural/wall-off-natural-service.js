@@ -53,9 +53,11 @@ const wallOffNaturalService = {
           return map.isPlaceableAt(GATEWAY, cornerNeighbor) && pointsOverlap(threeByThreePlacement, wallGridNeighbors) && intersectionOfPoints(threeByThreePlacement, workingWall).length > 1;
         });
         const selectedCandidate = getRandom(placementCandidates);
-        wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
-        wallOffNaturalService.threeByThreePositions.push(selectedCandidate);
-        workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+        if (selectedCandidate) {
+          wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
+          wallOffNaturalService.threeByThreePositions.push(selectedCandidate);
+          workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+        }
       }
     }
     // set gap
