@@ -6,7 +6,7 @@ const { WorkerRace, GasMineRace } = require("@node-sc2/core/constants/race-map")
 const buildWorkers = require("../helper/build-workers");
 const shortOnWorkers = require("../helper/short-on-workers");
 const planService = require("../services/plan-service");
-const scoutService = require("./scouting/scouting-service");
+const worldService = require("../services/world-service");
 const { haveAvailableProductionUnitsFor } = require("./unit-training/unit-training-service");
 const unitTrainingService = require("./unit-training/unit-training-service");
 
@@ -25,7 +25,7 @@ module.exports = createSystem({
       !planService.isPlanPaused,
       agent.minerals < 512 || minimumWorkerCount <= 34,
       shortOnWorkers(resources),
-      !scoutService.outsupplied,  
+      !worldService.outpowered,  
     ];
     if (conditions.every(condition => condition)) {
       unitTrainingService.workersTrainingTendedTo = false;
