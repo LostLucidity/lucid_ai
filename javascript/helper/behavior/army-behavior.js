@@ -17,7 +17,7 @@ const { pullWorkersToDefend } = require("../../services/army-management-service"
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { isRepairing, canAttack, setPendingOrders } = require("../../services/unit-resource-service");
 const scoutService = require("../../systems/scouting/scouting-service");
-const { getDPSHealth, getSupply } = require("../../services/data-service");
+const { getDPSHealth } = require("../../services/data-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
@@ -73,8 +73,9 @@ const armyBehavior = {
       const [combatPoint] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
       const workers = units.getWorkers().filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !isRepairing(unit));
       if (combatPoint) {
-        const selfDPSHealth = getDPSHealth(data, [...combatUnits, ...units.getWorkers().filter(worker => !worker.isHarvesting())]);
-        const enemyDPSHealth = getDPSHealth(data, enemyUnits);
+        const allyUnits = [...combatUnits, ...units.getWorkers().filter(worker => !worker.isHarvesting())]
+        const enemyDPSHealth = enemyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, allyUnits), 0)
+        const selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, enemyUnits), 0)
         if (selfDPSHealth >= enemyDPSHealth) {
           console.log('Defend', selfDPSHealth, enemyDPSHealth);
           if (closestEnemyUnit.isFlying) {
@@ -120,11 +121,11 @@ const armyBehavior = {
         const [combatPoint] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
         const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !isRepairing(unit));
         if (combatPoint) {
-          const enemySupply = getSupply(data, enemyUnits);
           let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
-          const selfSupply = getSupply(data, allyUnits);
-          if (selfSupply > enemySupply) {
-            console.log('Defend', selfSupply, enemySupply);
+          const enemyDPSHealth = enemyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, allyUnits), 0)
+          const selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, enemyUnits), 0)
+          if (selfDPSHealth > enemyDPSHealth) {
+            console.log('Defend', selfDPSHealth, enemyDPSHealth);
             if (closestEnemyUnit.isFlying) {
               const findAntiAir = combatUnits.find(unit => unit.canShootUp());
               if (!findAntiAir) {
@@ -139,7 +140,7 @@ const armyBehavior = {
           } else {
             console.log('building defensive units');
             await continuouslyBuild(world, assemblePlan, mainCombatTypes);
-            if (selfSupply < enemySupply) {
+            if (selfDPSHealth < enemyDPSHealth) {
               // console.log('engageOrRetreatVisible', selfSupply, enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
               // console.log('engageOrRetreatMapped', selfSupply, enemyTrackingService.mappedEnemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
               for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }

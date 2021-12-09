@@ -4,8 +4,8 @@
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
-const { PYLON, CYCLONE } = require("@node-sc2/core/constants/unit-type");
+const { reactorTypes, techLabTypes, combatTypes } = require("@node-sc2/core/constants/groups");
+const { PYLON, CYCLONE, ZERGLING } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -13,16 +13,16 @@ const { countTypes } = require("../helper/groups");
 const { findPlacements, findPosition } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { balanceResources } = require("../systems/manage-resources");
-const scoutService = require("../systems/scouting/scouting-service");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
-const { addEarmark, calculateNearDPSHealth } = require("./data-service");
+const { addEarmark, calculateNearDPSHealth, getUpgradeBonus } = require("./data-service");
 const { formatToMinutesAndSeconds } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("./unit-resource-service");
 const { premoveBuilderToPosition, getUnitsById } = require("./unit-resource-service");
+const { getArmorUpgradeLevel } = require("./units-service");
 
 const worldService = {
   /** @type {boolean} */
@@ -193,6 +193,36 @@ const worldService = {
     return techlabAbilities;
   },
   /**
+   * @param {World} world 
+   * @param {UnitTypeId[]} unitTypes 
+   * @returns 
+   */
+   getTrainingPower: (world) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const trainingUnitTypes = [];
+    combatTypes.forEach(type => {
+      let abilityId = data.getUnitTypeData(type).abilityId;
+      trainingUnitTypes.push(...units.withCurrentOrders(abilityId).map(() => type));
+    });
+    const {enemyCombatUnits} = enemyTrackingService;
+    return trainingUnitTypes.reduce((previousValue, unitType) => {
+      const weapon = data.getUnitTypeData(unitType).weapons[0];
+      let dPSHealth = 0;
+      if (weapon) {
+        const [unit] = units.getByType(unitType);
+        if (unit) {
+          const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * getUpgradeBonus(unit.alliance, weapon.damage));
+          const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyCombatUnits);
+          const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(enemyCombatUnits) + weaponBonusDamage;
+          dPSHealth = weaponDamage / weapon.speed * (unit.healthMax + unit.shieldMax);
+          dPSHealth = unitType === ZERGLING ? dPSHealth * 2 : dPSHealth;
+        }
+      }
+      return previousValue + dPSHealth
+    }, 0);
+  },  
+  /**
    * @param {UnitResource} units
    * @param {AbilityId[]} abilityIds
    * @returns {Unit[]}
@@ -269,7 +299,7 @@ const worldService = {
     /**
      * @type {(string | number | boolean | Point2D)[]}
      */
-    const buildStepExecuted = [foodUsed, formatToMinutesAndSeconds(time), name, planService.currentStep, scoutService.outsupplied, `${minerals}/${vespene}`];
+    const buildStepExecuted = [foodUsed, formatToMinutesAndSeconds(time), name, planService.currentStep, worldService.outpowered, `${minerals}/${vespene}`];
     const count = UnitType[name] ? getUnitsById(world.resources.get().units, UnitType[name]).length + 1 : 0;
     if (count) buildStepExecuted.push(count);
     if (notes) buildStepExecuted.push(notes);
@@ -336,6 +366,7 @@ const worldService = {
     worldService.totalSelfDPSHealth = selfCombatUnits.reduce((previousValue, unit) => {
       return previousValue + calculateNearDPSHealth(data, [unit], enemyCombatUnits);
     }, 0);
+    // worldService.totalSelfDPSHealth += worldService.getTrainingPower(world)
   },  
   /**
    * Unpause and log on attempted steps.

@@ -28,18 +28,10 @@ const dataService = {
    */
   calculateNearDPSHealth: (data, units, enemyUnits) => {
     return units.reduce((accumulator, unit) => {
-      let dPSHealth = 0;
       if (unit.isWorker() && unit.isHarvesting()) {
         return accumulator;
       } else {
-        const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
-        if (weapon) {
-          const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * getUpgradeBonus(unit.alliance, weapon.damage));
-          const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnits);
-          const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(enemyUnits) + weaponBonusDamage;
-          dPSHealth = weaponDamage / weapon.speed * (unit.health + unit.shield);
-        }
-        return accumulator + dPSHealth;
+        return dataService.getDPSHealth(data, unit, enemyUnits);
       }
     }, 0);
   },
@@ -70,19 +62,20 @@ const dataService = {
     return totalBonusDamage > 0 ? (totalBonusDamage / enemyUnits.length) : 0;
   },
   /**
-   * 
    * @param {DataStorage} data 
-   * @param {Unit[]} units 
+   * @param {Unit} unit
+   * @param {Unit[]} enemyUnits 
    */
-  getDPSHealth: (data, units) => {
-    return units.reduce((accumulator, unit) => {
-      const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
-      let dPSHealth = 0;
-      if (weapon) {
-        dPSHealth = weapon.damage / weapon.speed * (unit.health + unit.shield);
-      }
-      return accumulator + dPSHealth;
-    }, 0);
+  getDPSHealth: (data, unit, enemyUnits) => {
+    const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
+    let dPSHealth = 0;
+    if (weapon) {
+      const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * dataService.getUpgradeBonus(unit.alliance, weapon.damage));
+      const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnits);
+      const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(enemyUnits) + weaponBonusDamage;
+      dPSHealth = weaponDamage / weapon.speed * (unit.health + unit.shield);
+    }
+    return dPSHealth;
   },
   /**
    * @param {DataStorage} data 
@@ -91,6 +84,20 @@ const dataService = {
    */
   getSupply: (data, units) => {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
+  },
+  /**
+   * @param {number} alliance 
+   * @param {number} damage 
+   * @returns {number}
+   */
+  getUpgradeBonus: (alliance, damage) => {
+    if (alliance === Alliance.SELF) {
+      return 0;
+    } else if (alliance === Alliance.ENEMY) {
+      // divide damage by 10, round, min 1.
+      const roundedDamage = Math.round(damage / 10);
+      return roundedDamage > 0 ? roundedDamage : 1;
+    }
   },
   /**
    * @param {DataStorage} data 
@@ -116,18 +123,3 @@ const dataService = {
 }
 
 module.exports = dataService
-
-/**
- * @param {number} alliance 
- * @param {number} damage 
- * @returns {number}
- */
-function getUpgradeBonus(alliance, damage) {
-  if (alliance === Alliance.SELF) {
-    return 0;
-  } else if (alliance === Alliance.ENEMY) {
-    // divide damage by 10, round, min 1.
-    const roundedDamage = Math.round(damage / 10);
-    return roundedDamage > 0 ? roundedDamage : 1;
-  }
-}
