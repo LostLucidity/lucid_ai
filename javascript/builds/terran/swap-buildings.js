@@ -2,7 +2,7 @@
 "use strict"
 
 const { UnitType } = require("@node-sc2/core/constants");
-const { REACTOR, SIEGETANKSIEGED } = require("@node-sc2/core/constants/unit-type");
+const { REACTOR } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -10,9 +10,10 @@ const { flyingTypesMapping } = require("../../helper/groups");
 const { existsInMap } = require("../../helper/location");
 const { findPosition } = require("../../helper/placement/placement-helper");
 const { getAddOnBuildingPlacement, getAddOnPlacement } = require("../../helper/placement/placement-utilities");
-const { intersectionOfPoints } = require("../../helper/utilities");
+const { pointsOverlap } = require("../../helper/utilities");
 const { getStringNameOfConstant } = require("../../services/logging-service");
 const worldService = require("../../services/world-service");
+const unitResourceService = require("../../systems/unit-resource/unit-resource-service");
 
 module.exports = {
   handleOrphanReactor: () => {
@@ -26,7 +27,7 @@ module.exports = {
    */
   checkAddOnPlacement: async (world, building, addOnType = REACTOR) => {
     const { data, resources } = world;
-    const { map, units } = resources.get();
+    const { map } = resources.get();
     const abilityIds = worldService.getAbilityIdsForAddons(data, addOnType);
     if (abilityIds.some(abilityId => building.abilityAvailable(abilityId))) {
       let position = null;
@@ -34,13 +35,9 @@ module.exports = {
       let range = 1;
       do {
         const nearPoints = gridsInCircle(getAddOnPlacement(building.pos), range).filter(grid => {
-          const seigeTanksSiegedGrids = []
-          units.getById(SIEGETANKSIEGED).forEach(unit => {
-            seigeTanksSiegedGrids.push(...gridsInCircle(unit.pos, unit.radius, { normalize: true }))
-          });
           return [
             existsInMap(map, grid) && map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(flyingTypesMapping.get(building.unitType) || building.unitType, getAddOnBuildingPlacement(grid)),
-            intersectionOfPoints(cellsInFootprint(grid, getFootprint(addOnType)), seigeTanksSiegedGrids).length === 0,
+            !pointsOverlap(cellsInFootprint(grid, getFootprint(addOnType)), unitResourceService.seigeTanksSiegedGrids),
           ].every(condition => condition);
         });
         if (nearPoints.length > 0) {

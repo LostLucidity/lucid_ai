@@ -10,12 +10,16 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { addEarmark } = require("../services/data-service");
 const planService = require("../services/plan-service");
-const { setPendingOrders } = require("../services/unit-resource-service");
+const { setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { checkBuildingCount, setAndLogExecutedSteps } = require("../services/world-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
 const { countTypes, flyingTypesMapping } = require("./groups");
 const { getAddOnPlacement, getAddOnBuildingPosition } = require("./placement/placement-utilities");
+const { intersectionOfPoints, pointsOverlap } = require("./utilities");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 
 const terran = {
   /**
@@ -26,7 +30,7 @@ const terran = {
    * @returns {Promise<void>}
    */
   addAddOn: async (world, unit, addOnType) => {
-    const { agent, data, resources } = world;
+    const { data, resources } = world;
     const { actions, frame, map } = resources.get();
     const unitTypeToBuild = UnitType[`${UnitTypeId[flyingTypesMapping.get(unit.unitType) || unit.unitType]}${UnitTypeId[addOnType]}`];
     let { abilityId } = data.getUnitTypeData(unitTypeToBuild);
@@ -36,7 +40,11 @@ const terran = {
           abilityId,
           unitTags: [unit.tag]
         }
-        if (map.isPlaceableAt(addOnType, getAddOnPlacement(unit.pos))) {
+        const addonPlacement = getAddOnPlacement(unit.pos);
+        if (
+          map.isPlaceableAt(addOnType, addonPlacement) &&
+          !pointsOverlap(cellsInFootprint(addonPlacement, getFootprint(addOnType)), unitResourceService.seigeTanksSiegedGrids)
+        ) {
           unitCommand.targetWorldSpacePos = unit.pos;
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;

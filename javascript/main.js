@@ -41,6 +41,7 @@ const { saveReplay, saveExecutedStepsLog } = require('./services/file-saving-ser
 const agentService = require('./services/agent-service');
 const mulingSystem = require('./systems/muling-system');
 const wallOffNaturalSystem = require('./systems/wall-off-natural/wall-off-natural-system');
+const unitResourceSystem = require('./systems/unit-resource/unit-resource-system');
 
 agentService.difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -174,7 +175,8 @@ async function runGame() {
     enemyTrackingSystem,
     debugSystem,
     wallOffRampSystem,
-    taggingSystem,  
+    taggingSystem,
+    unitResourceSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,

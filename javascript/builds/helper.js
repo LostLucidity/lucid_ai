@@ -9,7 +9,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
-const { isWorker } = require("../services/unit-resource-service");
+const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 
 const helper = {
   moveAway(unit, targetUnit, distance = 2) {

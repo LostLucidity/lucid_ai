@@ -7,11 +7,13 @@ const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const {  PROBE } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { countTypes } = require("../helper/groups");
-const { createUnitCommand } = require("./actions-service");
-const { isPendingContructing } = require("./shared-service");
+const { countTypes } = require("../../helper/groups");
+const { createUnitCommand } = require("../../services/actions-service");
+const { isPendingContructing } = require("../../services/shared-service");
 
 const unitResourceService = {
+  /** @type {Point2D[]} */
+  seigeTanksSiegedGrids: [],
   /**
    * Checks whether unit can attack targetUnit.
    * @param {ResourceManager} resources

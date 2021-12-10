@@ -14,7 +14,7 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 const { gatherOrMine } = require("../systems/manage-resources");
 const { calculateNearSupply } = require("./data-service");
 const { micro } = require("./micro-service");
-const { isRepairing } = require("./unit-resource-service");
+const { isRepairing } = require("../systems/unit-resource/unit-resource-service");
 
 const armyManagementService = {
   defenseMode: false,

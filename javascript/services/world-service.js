@@ -20,8 +20,8 @@ const { formatToMinutesAndSeconds } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
-const unitService = require("./unit-resource-service");
-const { premoveBuilderToPosition, getUnitsById } = require("./unit-resource-service");
+const unitService = require("../systems/unit-resource/unit-resource-service");
+const { premoveBuilderToPosition, getUnitsById } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel } = require("./units-service");
 
 const worldService = {
