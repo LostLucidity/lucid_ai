@@ -366,7 +366,7 @@ const worldService = {
     worldService.totalSelfDPSHealth = selfCombatUnits.reduce((previousValue, unit) => {
       return previousValue + calculateNearDPSHealth(data, [unit], enemyCombatUnits);
     }, 0);
-    // worldService.totalSelfDPSHealth += worldService.getTrainingPower(world)
+    worldService.totalSelfDPSHealth += worldService.getTrainingPower(world)
   },  
   /**
    * Unpause and log on attempted steps.
