@@ -536,9 +536,9 @@ class AssemblePlan {
     );
     if (!unit) { [unit] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing() && unit.isGathering())); }
     if (unit) {
-      console.log(unit.orders[0] && unit.orders[0].abilityId)
-      unit.labels.clear();
-      if (!unit.labels.get(label)) {
+      console.log(unit.orders[0] && unit.orders[0].abilityId);
+      if (!unit.labels.has(label)) {
+        unit.labels.clear();
         unit.labels.set(label, location);
         console.log(`Set ${label}`);
       }
