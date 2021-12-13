@@ -198,20 +198,24 @@ const armyBehavior = {
             console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`); 
           }
           if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth && noBunker) {
-            const unitCommand = { abilityId: MOVE }
-            if (selfUnit.isFlying) {
-              unitCommand.targetWorldSpacePos = moveAwayPosition(closestAttackableEnemyUnit.pos, selfUnit.pos);
-              unitCommand.unitTags = [selfUnit.tag];
-              collectedActions.push(unitCommand);
+            if (selfUnit.data().movementSpeed < closestAttackableEnemyUnit.data().movementSpeed) {
+              if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit)); }
             } else {
-              if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
-                const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
-                unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
-                unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
-                  setPendingOrders(unit, unitCommand);
-                  return unit.tag;
-                });
+              const unitCommand = { abilityId: MOVE }
+              if (selfUnit.isFlying) {
+                unitCommand.targetWorldSpacePos = moveAwayPosition(closestAttackableEnemyUnit.pos, selfUnit.pos);
+                unitCommand.unitTags = [selfUnit.tag];
                 collectedActions.push(unitCommand);
+              } else {
+                if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
+                  const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
+                  unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                  unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
+                    setPendingOrders(unit, unitCommand);
+                    return unit.tag;
+                  });
+                  collectedActions.push(unitCommand);
+                }
               }
             }
           } else {
