@@ -12,6 +12,7 @@ module.exports = createSystem({
   type: 'agent',
   async onGameStart() {
     unitResourceService.unitTypeData = readUnitTypeData();
+    console.log(unitResourceService.unitTypeData);
   },
   async onStep(world) {
     unitResourceService.seigeTanksSiegedGrids = [];
