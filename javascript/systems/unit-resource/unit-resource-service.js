@@ -12,6 +12,8 @@ const { createUnitCommand } = require("../../services/actions-service");
 const { isPendingContructing } = require("../../services/shared-service");
 
 const unitResourceService = {
+  /** @type {{}} */
+  unitTypeData: {},  
   /** @type {Point2D[]} */
   seigeTanksSiegedGrids: [],
   /**
@@ -51,6 +53,25 @@ const unitResourceService = {
   isRepairing(unit) {
     return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
   },
+  /**
+   * @param {UnitResource} units
+   * @param {UnitTypeId} unitType
+   * @returns {{healthMax: number, shieldMax: number}} 
+   */
+   getUnitTypeData: (units, unitType) => {
+    const unitTypeData = unitResourceService.unitTypeData[unitType];
+    if (unitTypeData) {
+      let { healthMax, shieldMax } = unitTypeData;
+      return { healthMax, shieldMax };
+    } else {
+      const [unit] = units.getByType(unitType);
+      if (unit) {
+        let { healthMax, shieldMax } = unit;
+        unitResourceService.unitTypeData[unitType] = { healthMax, shieldMax };
+        return { healthMax, shieldMax };
+      }
+    }
+  },    
   /**
    * 
    * @param {Unit} unit 

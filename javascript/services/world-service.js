@@ -3,7 +3,7 @@
 
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
-const { Race, Attribute } = require("@node-sc2/core/constants/enums");
+const { Race, Attribute, Alliance } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes } = require("@node-sc2/core/constants/groups");
 const { PYLON, CYCLONE, ZERGLING } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
@@ -21,7 +21,7 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { premoveBuilderToPosition, getUnitsById } = require("../systems/unit-resource/unit-resource-service");
+const { premoveBuilderToPosition, getUnitsById, getUnitTypeData } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel } = require("./units-service");
 
 const worldService = {
@@ -210,12 +210,14 @@ const worldService = {
       const weapon = data.getUnitTypeData(unitType).weapons[0];
       let dPSHealth = 0;
       if (weapon) {
-        const [unit] = units.getByType(unitType);
-        if (unit) {
-          const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * getUpgradeBonus(unit.alliance, weapon.damage));
+        const unitTypeData = getUnitTypeData(units, unitType);
+        if (unitTypeData) {
+          const { healthMax, shieldMax } = unitTypeData;
+          const [unit] = units.getAlive(Alliance.SELF);
+          const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * getUpgradeBonus(Alliance.SELF, weapon.damage));
           const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyCombatUnits);
           const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(enemyCombatUnits) + weaponBonusDamage;
-          dPSHealth = weaponDamage / weapon.speed * (unit.healthMax + unit.shieldMax);
+          dPSHealth = weaponDamage / weapon.speed * (healthMax + shieldMax);
           dPSHealth = unitType === ZERGLING ? dPSHealth * 2 : dPSHealth;
         }
       }
