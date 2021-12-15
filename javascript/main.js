@@ -42,6 +42,8 @@ const agentService = require('./services/agent-service');
 const mulingSystem = require('./systems/muling-system');
 const wallOffNaturalSystem = require('./systems/wall-off-natural/wall-off-natural-system');
 const unitResourceSystem = require('./systems/unit-resource/unit-resource-system');
+const { saveUnitTypeData } = require('./filesystem');
+const unitResourceService = require('./systems/unit-resource/unit-resource-service');
 
 agentService.difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -237,6 +239,7 @@ async function processResults([{ agent, data, resources }, gameResults]) {
   fs.writeFileSync(path.join(__dirname, 'data', getFileName(data, selfUnitType, enemyUnitType)), JSON.stringify(parsedCompositions));
   const replay = await actions._client.saveReplay();
   saveReplay(replay);
-  saveExecutedStepsLog(agent, frame.getGameInfo().mapName)
+  saveExecutedStepsLog(agent, frame.getGameInfo().mapName);
+  saveUnitTypeData(unitResourceService.unitTypeData);
   actions._client.close();
 }
