@@ -46,6 +46,7 @@ const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions")
 const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
 const worldService = require("../services/world-service");
+const { calculateTotalHealthRatio } = require("./calculate-health");
 
 let actions;
 let race;
@@ -490,6 +491,13 @@ class AssemblePlan {
       console.log('cancelPush');
     }
   }
+  /**
+   * @param {number[]} foodRanges 
+   * @param {UnitTypeId} unitType 
+   * @param {string} targetLocationFunction 
+   * @param {{scoutType: string, label: string, unitType: UnitTypeId, unitCount: number}} conditions 
+   * @returns 
+   */
   scout(foodRanges, unitType, targetLocationFunction, conditions) {
     if (conditions && conditions.scoutType === 'earlyScout' && this.earlyScout === undefined) { this.earlyScout = true; }
     if (foodRanges.indexOf(this.foodUsed) > -1) {
@@ -507,7 +515,7 @@ class AssemblePlan {
         labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
         const [scout] = labelledScouts;
         if (scout) {
-          if (distance(scout.pos, targetLocation) > 16) {
+          if (distance(scout.pos, targetLocation) > 16 && calculateTotalHealthRatio(scout) > 1 / 2) {
             const unitCommand = {
               abilityId: MOVE,
               targetWorldSpacePos: targetLocation,
