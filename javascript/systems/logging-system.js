@@ -26,7 +26,7 @@ module.exports = createSystem({
 function logStepStats({ agent, resources }) {
   const formattedTime = loggingService.formatToMinutesAndSeconds(resources.get().frame.timeInSeconds());
   const { foodUsed, minerals, vespene } = agent;
-  console.log(`foodUsed: ${foodUsed}, timeInSeconds: ${formattedTime}, isPlanPaused: ${planService.isPlanPaused}, step: ${planService.latestStep}, resources: ${minerals}/${vespene}`);
+  console.log(`foodUsed: ${foodUsed}, time: ${formattedTime}, isPlanPaused: ${planService.isPlanPaused}, step: ${planService.latestStep}, resources: ${minerals}/${vespene}`);
 }
 /**
  * @param {World} world
