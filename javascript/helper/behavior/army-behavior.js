@@ -124,8 +124,8 @@ const armyBehavior = {
           let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
           const enemyDPSHealth = enemyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, allyUnits), 0)
           const selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, enemyUnits), 0)
-          if (selfDPSHealth > enemyDPSHealth) {
-            console.log('Defend', selfDPSHealth, enemyDPSHealth);
+          if (selfDPSHealth > closestEnemyUnit['selfDPSHealth']) {
+            console.log('Defend', selfDPSHealth, closestEnemyUnit['selfDPSHealth']);
             if (closestEnemyUnit.isFlying) {
               const findAntiAir = combatUnits.find(unit => unit.canShootUp());
               if (!findAntiAir) {
@@ -140,13 +140,11 @@ const armyBehavior = {
           } else {
             console.log('building defensive units');
             await continuouslyBuild(world, assemblePlan, mainCombatTypes);
-            if (selfDPSHealth < enemyDPSHealth) {
-              // console.log('engageOrRetreatVisible', selfSupply, enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
-              // console.log('engageOrRetreatMapped', selfSupply, enemyTrackingService.mappedEnemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
-              for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }
-              allyUnits = [...allyUnits, ...units.getById(QUEEN)];
-              collectedActions.push(...armyBehavior.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
-            }
+            // console.log('engageOrRetreatVisible', selfSupply, enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
+            // console.log('engageOrRetreatMapped', selfSupply, enemyTrackingService.mappedEnemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
+            for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }
+            allyUnits = [...allyUnits, ...units.getById(QUEEN)];
+            collectedActions.push(...armyBehavior.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
           }
         } else {
           for (const worker of workers) {

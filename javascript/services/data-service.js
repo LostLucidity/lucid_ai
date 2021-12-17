@@ -31,7 +31,7 @@ const dataService = {
       if (unit.isWorker() && unit.isHarvesting()) {
         return accumulator;
       } else {
-        return dataService.getDPSHealth(data, unit, enemyUnits);
+        return accumulator + dataService.getDPSHealth(data, unit, enemyUnits);
       }
     }, 0);
   },
