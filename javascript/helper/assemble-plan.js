@@ -515,7 +515,7 @@ class AssemblePlan {
         labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
         const [scout] = labelledScouts;
         if (scout) {
-          if (distance(scout.pos, targetLocation) > 16 && calculateTotalHealthRatio(scout) > 1 / 2) {
+          if (distance(scout.pos, targetLocation) > 16 && calculateTotalHealthRatio(scout) > 1 / 2 && !scout.labels.has('Threatened')) {
             const unitCommand = {
               abilityId: MOVE,
               targetWorldSpacePos: targetLocation,

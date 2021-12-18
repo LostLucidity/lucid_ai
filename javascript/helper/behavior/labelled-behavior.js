@@ -33,7 +33,9 @@ module.exports = {
         else if (combatUnit.isAttacking()) {
           const foundOrder = combatUnit.orders.find(order => order.abilityId === ATTACK_ATTACK && units.getByTag(order.targetUnitTag));
           const targetPosition = foundOrder ? units.getByTag(foundOrder.targetUnitTag).pos : combatUnit.orders.find(order => order.abilityId === ATTACK_ATTACK).targetWorldSpacePos;
-          return distance(targetPosition, unit.pos) < 16;
+          if (targetPosition) {
+            return distance(targetPosition, unit.pos) < 16;
+          }
         }
       });
       let [closestEnemyUnit] = getClosestUnitByPath(resources, unit.pos, enemyUnits);
@@ -94,6 +96,7 @@ module.exports = {
           return (threateningRangedUnit || threateningMeleeUnit)
         });
         if (threateningUnits.length > 1) {
+          unit.labels.set('Threatened');
           let [closestEnemyUnit] = units.getClosest(unit.pos, unit['enemyUnits'], 1);
           collectedActions.push({
             abilityId: MOVE,
@@ -101,6 +104,7 @@ module.exports = {
             targetWorldSpacePos: retreatToExpansion(resources, unit, closestEnemyUnit),
           });
         } else {
+          unit.labels.delete('Threatened');
           const enemyMain = map.getEnemyMain();
           const randomPointsOfInterest = [...getRandomPoints(map, 3, enemyMain.areas.areaFill)];
           if (scoutService.opponentRace === Race.ZERG) { randomPointsOfInterest.push(map.getEnemyNatural().townhallPosition); }
