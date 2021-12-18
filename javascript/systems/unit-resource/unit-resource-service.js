@@ -5,7 +5,7 @@ const { EFFECT_REPAIR, MOVE, STOP } = require("@node-sc2/core/constants/ability"
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const {  PROBE } = require("@node-sc2/core/constants/unit-type");
+const { PROBE } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { countTypes } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
@@ -13,7 +13,7 @@ const { isPendingContructing } = require("../../services/shared-service");
 
 const unitResourceService = {
   /** @type {{}} */
-  unitTypeData: {},  
+  unitTypeData: {},
   /** @type {Point2D[]} */
   seigeTanksSiegedGrids: [],
   /**
@@ -54,6 +54,20 @@ const unitResourceService = {
     return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
   },
   /**
+   * @param {[Point2D[], Point2D[]]} footprints
+   * @returns {number}
+   */
+   getSpaceBetweenFootprints(footprints) {
+    const [footprintOne, footprintTwo] = footprints;
+    let shortestDistance = Infinity;
+    footprintOne.forEach(footprintOneCell => {
+      footprintTwo.forEach(footprintTwoCell => {
+        shortestDistance = shortestDistance < distance(footprintOneCell, footprintTwoCell) ? shortestDistance : distance(footprintOneCell, footprintTwoCell);
+      });
+    });
+    return shortestDistance;
+  },
+  /**
    * @param {UnitResource} units
    * @param {UnitTypeId} unitType
    * @returns {{healthMax: number, shieldMax: number}} 
@@ -71,7 +85,7 @@ const unitResourceService = {
         return { healthMax, shieldMax };
       }
     }
-  },    
+  },
   /**
    * 
    * @param {Unit} unit 
@@ -118,7 +132,7 @@ const unitResourceService = {
    * @returns 
    */
   getMineralFieldTarget: (units, unit) => {
-    const [ closestMineralField ] = units.getClosest(unit.pos, units.getMineralFields());
+    const [closestMineralField] = units.getClosest(unit.pos, units.getMineralFields());
     return closestMineralField;
   },
   isWorker(unit) {

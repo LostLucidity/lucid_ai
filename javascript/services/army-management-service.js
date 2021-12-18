@@ -6,7 +6,7 @@ const { workerTypes, mineralFieldTypes } = require("@node-sc2/core/constants/gro
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { SIEGETANKSIEGED, BUNKER, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { moveAwayPosition, retreatToExpansion } = require("../builds/helper");
+const { moveAwayPosition } = require("../builds/helper");
 const { getInRangeUnits, getInRangeDestructables, calculateHealthAdjustedSupply } = require("../helper/battle-analysis");
 const { tankBehavior } = require("../helper/behavior/unit-behavior");
 const { filterLabels } = require("../helper/unit-selection");
@@ -15,6 +15,7 @@ const { gatherOrMine } = require("../systems/manage-resources");
 const { calculateNearSupply } = require("./data-service");
 const { micro } = require("./micro-service");
 const { isRepairing } = require("../systems/unit-resource/unit-resource-service");
+const { retreatToExpansion } = require("./resource-manager-service");
 
 const armyManagementService = {
   defenseMode: false,

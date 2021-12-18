@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { distance, avgPoints, getNeighbors } = require('@node-sc2/core/utils/geometry/point');
+const { distance, avgPoints, getNeighbors, closestPoint } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { UnitType } = require('@node-sc2/core/constants');
@@ -15,6 +15,9 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 const { existsInMap } = require('../location');
 const wallOffNaturalService = require('../../systems/wall-off-natural/wall-off-natural-service');
 const { intersectionOfPoints, pointsOverlap } = require('../utilities');
+const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
+const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
+const { getSpaceBetweenFootprints } = require('../../systems/unit-resource/unit-resource-service');
 
 const placementHelper = {
   findMineralLines: (resources) => {
@@ -107,7 +110,34 @@ const placementHelper = {
             if (wallOffNaturalService.wall.length > 0) {
               const cornerGrids = wallOffNaturalService.wall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), wallOffNaturalService.wall).length === 1);
               const wallRadius = distance(cornerGrids[0], cornerGrids[1]) / 2;
-              wallOffPositions.push(...gridsInCircle(avgPoints(wallOffNaturalService.wall), wallRadius, { normalize: true }).filter(grid => existsInMap(map, grid)));
+              wallOffPositions.push(...gridsInCircle(avgPoints(wallOffNaturalService.wall), wallRadius, { normalize: true }).filter(grid => {
+                let existsAndPlaceable = existsInMap(map, grid) && map.isPlaceable(grid);
+                if (units.getById(wallOffUnitTypes).length === 2) {
+                  const [buildingOne, buildingTwo] = units.getById(wallOffUnitTypes);
+                  // Check spacing between first two buildings.
+                  const buildingOneFootprint = cellsInFootprint(buildingOne.pos, getFootprint(buildingOne.unitType));
+                  const buildingTwoFootprint = cellsInFootprint(buildingTwo.pos, getFootprint(buildingTwo.unitType));
+                  const footprints = [buildingOneFootprint, buildingTwoFootprint];
+                  const spaceBetweenFootprints = getSpaceBetweenFootprints([buildingOneFootprint, buildingTwoFootprint]);
+                  let foundThirdWallPosition = false;
+                  if (spaceBetweenFootprints === 2) {
+                    // If 1 spacing, leave no space between 1
+                    foundThirdWallPosition = footprints.some(footprint => {
+                      const spaceBetweenFootprints = getSpaceBetweenFootprints([cellsInFootprint(grid, getFootprint(unitType)), footprint]);
+                      return spaceBetweenFootprints > 0.5 && spaceBetweenFootprints < 1.5;
+                    });                    
+                  } else {
+                    // leave 1 space.
+                    foundThirdWallPosition = footprints.some(footprint => {
+                      const spaceBetweenFootprints = getSpaceBetweenFootprints([cellsInFootprint(grid, getFootprint(unitType)), footprint]);
+                      return spaceBetweenFootprints > 1.5 && spaceBetweenFootprints < 2.5;
+                    }); 
+                  }
+                  return existsAndPlaceable && foundThirdWallPosition;
+                } else {
+                  return existsAndPlaceable;
+                }
+              }));
             }
           }
         }
