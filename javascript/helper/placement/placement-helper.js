@@ -15,9 +15,7 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 const { existsInMap } = require('../location');
 const wallOffNaturalService = require('../../systems/wall-off-natural/wall-off-natural-service');
 const { intersectionOfPoints, pointsOverlap } = require('../utilities');
-const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
-const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
-const { getSpaceBetweenFootprints } = require('../../systems/unit-resource/unit-resource-service');
+const { getThirdWallPosition } = require('../../systems/unit-resource/unit-resource-service');
 
 const placementHelper = {
   findMineralLines: (resources) => {
@@ -113,26 +111,7 @@ const placementHelper = {
               wallOffPositions.push(...gridsInCircle(avgPoints(wallOffNaturalService.wall), wallRadius, { normalize: true }).filter(grid => {
                 let existsAndPlaceable = existsInMap(map, grid) && map.isPlaceable(grid);
                 if (units.getById(wallOffUnitTypes).length === 2) {
-                  const [buildingOne, buildingTwo] = units.getById(wallOffUnitTypes);
-                  // Check spacing between first two buildings.
-                  const buildingOneFootprint = cellsInFootprint(buildingOne.pos, getFootprint(buildingOne.unitType));
-                  const buildingTwoFootprint = cellsInFootprint(buildingTwo.pos, getFootprint(buildingTwo.unitType));
-                  const footprints = [buildingOneFootprint, buildingTwoFootprint];
-                  const spaceBetweenFootprints = getSpaceBetweenFootprints([buildingOneFootprint, buildingTwoFootprint]);
-                  let foundThirdWallPosition = false;
-                  if (spaceBetweenFootprints === 2) {
-                    // If 1 spacing, leave no space between 1
-                    foundThirdWallPosition = footprints.some(footprint => {
-                      const spaceBetweenFootprints = getSpaceBetweenFootprints([cellsInFootprint(grid, getFootprint(unitType)), footprint]);
-                      return spaceBetweenFootprints > 0.5 && spaceBetweenFootprints < 1.5;
-                    });                    
-                  } else {
-                    // leave 1 space.
-                    foundThirdWallPosition = footprints.some(footprint => {
-                      const spaceBetweenFootprints = getSpaceBetweenFootprints([cellsInFootprint(grid, getFootprint(unitType)), footprint]);
-                      return spaceBetweenFootprints > 1.5 && spaceBetweenFootprints < 2.5;
-                    }); 
-                  }
+                  const foundThirdWallPosition = getThirdWallPosition(units.getById(wallOffUnitTypes), grid, unitType);
                   return existsAndPlaceable && foundThirdWallPosition;
                 } else {
                   return existsAndPlaceable;

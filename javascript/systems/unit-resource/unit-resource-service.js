@@ -6,7 +6,9 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { PROBE } = require("@node-sc2/core/constants/unit-type");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { countTypes } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
 const { isPendingContructing } = require("../../services/shared-service");
@@ -54,10 +56,39 @@ const unitResourceService = {
     return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
   },
   /**
+   * @param {Unit[]} buildings 
+   * @param {Point2D} grid 
+   * @param {UnitTypeId} unitType 
+   */
+  getThirdWallPosition(buildings, grid, unitType) {
+    // Check spacing between first two buildings.
+    const { getSpaceBetweenFootprints } = unitResourceService;
+    const [buildingOne, buildingTwo] = buildings;
+    const buildingOneFootprint = cellsInFootprint(buildingOne.pos, getFootprint(buildingOne.unitType));
+    const buildingTwoFootprint = cellsInFootprint(buildingTwo.pos, getFootprint(buildingTwo.unitType));
+    const footprints = [buildingOneFootprint, buildingTwoFootprint];
+    const spaceBetweenFootprints = getSpaceBetweenFootprints([buildingOneFootprint, buildingTwoFootprint]);
+    let foundThirdWallPosition = false;
+    if (spaceBetweenFootprints === 2) {
+      // If 1 spacing, leave no space between 1
+      foundThirdWallPosition = footprints.some(footprint => {
+        const spaceBetweenFootprints = getSpaceBetweenFootprints([cellsInFootprint(grid, getFootprint(unitType)), footprint]);
+        return spaceBetweenFootprints > 0.5 && spaceBetweenFootprints < 1.5;
+      });
+    } else {
+      // leave 1 space.
+      foundThirdWallPosition = footprints.some(footprint => {
+        const spaceBetweenFootprints = getSpaceBetweenFootprints([cellsInFootprint(grid, getFootprint(unitType)), footprint]);
+        return spaceBetweenFootprints > 1.5 && spaceBetweenFootprints < 2.5;
+      });
+    }
+    return foundThirdWallPosition;
+  },
+  /**
    * @param {[Point2D[], Point2D[]]} footprints
    * @returns {number}
    */
-   getSpaceBetweenFootprints(footprints) {
+  getSpaceBetweenFootprints(footprints) {
     const [footprintOne, footprintTwo] = footprints;
     let shortestDistance = Infinity;
     footprintOne.forEach(footprintOneCell => {
@@ -72,7 +103,7 @@ const unitResourceService = {
    * @param {UnitTypeId} unitType
    * @returns {{healthMax: number, shieldMax: number}} 
    */
-   getUnitTypeData: (units, unitType) => {
+  getUnitTypeData: (units, unitType) => {
     const unitTypeData = unitResourceService.unitTypeData[unitType];
     if (unitTypeData) {
       let { healthMax, shieldMax } = unitTypeData;
