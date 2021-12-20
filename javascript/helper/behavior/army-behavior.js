@@ -74,8 +74,8 @@ const armyBehavior = {
       const workers = units.getWorkers().filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !isRepairing(unit));
       if (combatPoint) {
         const allyUnits = [...combatUnits, ...units.getWorkers().filter(worker => !worker.isHarvesting())]
-        const enemyDPSHealth = enemyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, allyUnits), 0)
-        const selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, enemyUnits), 0)
+        const enemyDPSHealth = enemyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, allyUnits.map(allyUnit => allyUnit.unitType)), 0)
+        const selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, enemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
         if (selfDPSHealth >= enemyDPSHealth) {
           console.log('Defend', selfDPSHealth, enemyDPSHealth);
           if (closestEnemyUnit.isFlying) {
@@ -122,8 +122,7 @@ const armyBehavior = {
         const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !isRepairing(unit));
         if (combatPoint) {
           let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
-          const enemyDPSHealth = enemyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, allyUnits), 0)
-          const selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, enemyUnits), 0)
+          const selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(data, unit, enemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
           if (selfDPSHealth > closestEnemyUnit['selfDPSHealth']) {
             console.log('Defend', selfDPSHealth, closestEnemyUnit['selfDPSHealth']);
             if (closestEnemyUnit.isFlying) {

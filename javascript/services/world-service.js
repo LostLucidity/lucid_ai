@@ -15,18 +15,18 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 const { balanceResources } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
-const { addEarmark, calculateNearDPSHealth, getUpgradeBonus } = require("./data-service");
+const { addEarmark, calculateNearDPSHealth, getUpgradeBonus, calculateDPSHealthOfTrainingUnits } = require("./data-service");
 const { formatToMinutesAndSeconds } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
 const { premoveBuilderToPosition, getUnitsById, getUnitTypeData } = require("../systems/unit-resource/unit-resource-service");
-const { getArmorUpgradeLevel } = require("./units-service");
+const { getArmorUpgradeLevel, getAttackUpgradeLevel } = require("./units-service");
 
 const worldService = {
   /** @type {boolean} */
-  outpowered: false,  
+  outpowered: false,
   /** @type {number} */
   totalEnemyDPSHealth: 0,
   /** @type {number} */
@@ -148,7 +148,7 @@ const worldService = {
    * @param {Unit} targetUnit 
    * @returns {Point2D}
    */
-   getPositionVersusTargetUnit: (world, unit, targetUnit) => {
+  getPositionVersusTargetUnit: (world, unit, targetUnit) => {
     const { data, resources } = world;
     const totalRadius = unit.radius + targetUnit.radius + 1;
     const range = Math.max.apply(Math, data.getUnitTypeData(unit.unitType).weapons.map(weapon => { return weapon.range; })) + totalRadius;
@@ -169,7 +169,7 @@ const worldService = {
     } else {
       return targetUnit.pos;
     }
-  },  
+  },
   /**
    * @param {DataStorage} data 
    * @returns {AbilityId[]}
@@ -197,15 +197,11 @@ const worldService = {
    * @param {UnitTypeId[]} unitTypes 
    * @returns 
    */
-   getTrainingPower: (world) => {
+  getTrainingPower: (world) => {
     const { data, resources } = world;
     const { units } = resources.get();
-    const trainingUnitTypes = [];
-    combatTypes.forEach(type => {
-      let abilityId = data.getUnitTypeData(type).abilityId;
-      trainingUnitTypes.push(...units.withCurrentOrders(abilityId).map(() => type));
-    });
-    const {enemyCombatUnits} = enemyTrackingService;
+    const trainingUnitTypes = worldService.getTrainingUnitTypes(world);
+    const { enemyCombatUnits } = enemyTrackingService;
     return trainingUnitTypes.reduce((previousValue, unitType) => {
       const weapon = data.getUnitTypeData(unitType).weapons[0];
       let dPSHealth = 0;
@@ -214,16 +210,30 @@ const worldService = {
         if (unitTypeData) {
           const { healthMax, shieldMax } = unitTypeData;
           const [unit] = units.getAlive(Alliance.SELF);
-          const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * getUpgradeBonus(Alliance.SELF, weapon.damage));
-          const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyCombatUnits);
-          const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(enemyCombatUnits) + weaponBonusDamage;
+          const weaponUpgradeDamage = weapon.damage + (getAttackUpgradeLevel(Alliance.SELF) * getUpgradeBonus(Alliance.SELF, weapon.damage));
+          const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyCombatUnits.map(enemyCombatUnit => enemyCombatUnit.unitType));
+          const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(Alliance.SELF) + weaponBonusDamage;
           dPSHealth = weaponDamage / weapon.speed * (healthMax + shieldMax);
           dPSHealth = unitType === ZERGLING ? dPSHealth * 2 : dPSHealth;
         }
       }
       return previousValue + dPSHealth
     }, 0);
-  },  
+  },
+  /**
+   * @param {World} world
+   * @returns {UnitTypeId[]}
+   */
+  getTrainingUnitTypes: (world) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const trainingUnitTypes = [];
+    combatTypes.forEach(type => {
+      let abilityId = data.getUnitTypeData(type).abilityId;
+      trainingUnitTypes.push(...units.withCurrentOrders(abilityId).map(() => type));
+    });
+    return trainingUnitTypes;
+  },
   /**
    * @param {UnitResource} units
    * @param {AbilityId[]} abilityIds
@@ -268,7 +278,7 @@ const worldService = {
    * @param {Unit} targetUnit 
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-   microRangedUnit: (world, unit, targetUnit) => {
+  microRangedUnit: (world, unit, targetUnit) => {
     const { data } = world;
     const collectedActions = [];
     if (
@@ -324,14 +334,14 @@ const worldService = {
    * @param {Unit[]} enemyUnits 
    * @returns {void}
    */
-   setEnemyDPSHealthPower: (world, units, enemyUnits) => {
+  setEnemyDPSHealthPower: (world, units, enemyUnits) => {
     const { data, resources } = world;
     units.forEach(unit => {
       unit['enemyUnits'] = enemyUnits.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16)
       const [closestEnemyUnit] = resources.get().units.getClosest(unit.pos, enemyUnits).filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
-      unit['enemyDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['enemyUnits'], (closestEnemyUnit && closestEnemyUnit['selfUnits']) ? closestEnemyUnit['selfUnits'] : []);
+      unit['enemyDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['enemyUnits'], (closestEnemyUnit && closestEnemyUnit['selfUnits']) ? closestEnemyUnit['selfUnits'].map((/** @type {{ unitType: any; }} */ selfUnit) => selfUnit.unitType) : []);
     });
-  },  
+  },
   /**
    * Sets list of selfUnits and calculates DPSHealth for selfUnits within a 16 distance range.
    * @param {World} world 
@@ -339,37 +349,39 @@ const worldService = {
    * @param {Unit[]} enemyUnits
    * @returns {void}
    */
-   setSelfDPSHealthPower: (world, units, enemyUnits) => {
+  setSelfDPSHealthPower: (world, units, enemyUnits) => {
     const { data, resources } = world;
     units.forEach(unit => {
       unit['selfUnits'] = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
       const [closestEnemyUnit] = resources.get().units.getClosest(unit.pos, enemyUnits).filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
-      unit['selfDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['selfUnits'], closestEnemyUnit ? closestEnemyUnit['selfUnits'] : []);
+      unit['selfDPSHealth'] = dataService.calculateNearDPSHealth(data, unit['selfUnits'], closestEnemyUnit ? closestEnemyUnit['selfUnits'].map((/** @type {{ unitType: any; }} */ selfUnit) => selfUnit.unitType) : []);
     });
   },
   /**
    * @param {World} world 
    */
-   setTotalEnemyDPSHealth: (world) => {
+  setTotalEnemyDPSHealth: (world) => {
     const { data, resources } = world;
     const selfCombatUnits = resources.get().units.getCombatUnits();
-    const {enemyCombatUnits} = enemyTrackingService;
-    worldService.totalEnemyDPSHealth = enemyCombatUnits.reduce((previousValue, unit) => {
-      return previousValue + calculateNearDPSHealth(data, [unit], selfCombatUnits);
+    const { enemyCombatUnits } = enemyTrackingService;
+    worldService.totalEnemyDPSHealth = enemyCombatUnits.reduce((totalDPSHealth, unit) => {
+      return totalDPSHealth + calculateNearDPSHealth(data, [unit], [...selfCombatUnits.map(selfCombatUnit => selfCombatUnit.unitType), ...worldService.getTrainingUnitTypes(world)]);
     }, 0);
   },
   /**
    * @param {World} world 
    */
-   setTotalSelfDPSHealth: (world) => {
+  setTotalSelfDPSHealth: (world) => {
     const { data, resources } = world;
     const selfCombatUnits = resources.get().units.getCombatUnits();
-    const {enemyCombatUnits} = enemyTrackingService;
-    worldService.totalSelfDPSHealth = selfCombatUnits.reduce((previousValue, unit) => {
-      return previousValue + calculateNearDPSHealth(data, [unit], enemyCombatUnits);
+    const { enemyCombatUnits } = enemyTrackingService;
+    worldService.totalSelfDPSHealth = selfCombatUnits.reduce((totalDPSHealth, unit) => {
+      return totalDPSHealth + calculateNearDPSHealth(data, [unit], enemyCombatUnits.map(enemyCombatUnit => enemyCombatUnit.unitType));
     }, 0);
-    worldService.totalSelfDPSHealth += worldService.getTrainingPower(world)
-  },  
+    worldService.totalSelfDPSHealth += worldService.getTrainingUnitTypes(world).reduce((totalDPSHealth, unitType) => {
+      return totalDPSHealth + calculateDPSHealthOfTrainingUnits(data, [unitType], Alliance.SELF, enemyCombatUnits);
+    }, 0);
+  },
   /**
    * Unpause and log on attempted steps.
    * @param {World} world 

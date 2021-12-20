@@ -13,11 +13,18 @@ const unitsService = {
    */
   enemyArmorUpgradeLevel: 0,
   /**
-   * @param {Unit[]} units 
+   * @type number
+   */
+  selfAttackUpgradeLevel: 0,
+  /**
+   * @type number
+   */
+  enemyAttackUpgradeLevel: 0,
+  /**
+   * @param {Alliance} alliance 
    * @returns 
    */
-  getArmorUpgradeLevel: (units) => {
-    const alliance = units[0] ? units[0].alliance : 0;
+  getArmorUpgradeLevel: (alliance) => {
     let armorUpgradeLevel = 0;
     if (alliance === Alliance.SELF) {
       armorUpgradeLevel = unitsService.selfArmorUpgradeLevel;
@@ -26,6 +33,37 @@ const unitsService = {
     }
     return armorUpgradeLevel;
   },
+  /**
+   * @param {Alliance} alliance 
+   */
+  getAttackUpgradeLevel: (alliance) => {
+    let attackUpgradeLevel = 0;
+    if (alliance === Alliance.SELF) {
+      attackUpgradeLevel = unitsService.selfAttackUpgradeLevel;
+    } else if (alliance === Alliance.ENEMY) {
+      attackUpgradeLevel = unitsService.enemyAttackUpgradeLevel;
+    }
+    return attackUpgradeLevel;
+  },
+  /**
+   * @param {Unit[]} units 
+   * @returns {void}
+   */
+   setAttackUpgradeLevel: (units) => {
+    units.some(unit => {
+      if (unit.alliance === Alliance.SELF) {
+        if (unit.armorUpgradeLevel > unitsService.selfArmorUpgradeLevel) {
+          unitsService.selfArmorUpgradeLevel = unit.armorUpgradeLevel;
+          return true;
+        }
+      } else if (unit.alliance === Alliance.ENEMY) {
+        if (unit.armorUpgradeLevel > unitsService.enemyArmorUpgradeLevel) {
+          unitsService.enemyArmorUpgradeLevel = unit.armorUpgradeLevel;
+          return true;
+        }
+      }
+    });
+  },  
   /**
    * @param {Unit[]} units 
    * @returns {void}

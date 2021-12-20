@@ -4,7 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { setSelfSupplyPowers, setEnemySupplyPowers } = require("../../services/data-service");
-const { setArmorUpgradeLevel } = require("../../services/units-service");
+const { setArmorUpgradeLevel, setAttackUpgradeLevel } = require("../../services/units-service");
 const { setSelfDPSHealthPower, setEnemyDPSHealthPower, setTotalSelfDPSHealth } = require("../../services/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const { setSelfCombatSupply } = require("./track-units-service");
@@ -32,6 +32,7 @@ module.exports = createSystem({
     setSelfDPSHealthPower(world, selfUnits, enemyTrackingService.mappedEnemyUnits);
     setEnemyDPSHealthPower(world, selfUnits, enemyTrackingService.enemyUnits);
     setArmorUpgradeLevel(selfUnits);
+    setAttackUpgradeLevel(selfUnits);
     setTotalSelfDPSHealth(world);
   },
   async onUnitDestroyed({}, destroyedUnit) {
