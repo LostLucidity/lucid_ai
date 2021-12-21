@@ -2,9 +2,9 @@
 "use strict"
 
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
-const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes, combatTypes } = require("@node-sc2/core/constants/groups");
+const { reactorTypes, techLabTypes, combatTypes, vespeneGeyserTypes, mineralFieldTypes } = require("@node-sc2/core/constants/groups");
 const { PYLON, CYCLONE, ZERGLING } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
@@ -23,6 +23,7 @@ const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
 const { premoveBuilderToPosition, getUnitsById, getUnitTypeData } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel } = require("./units-service");
+const { GasMineRace } = require("@node-sc2/core/constants/race-map");
 
 const worldService = {
   /** @type {boolean} */
@@ -38,24 +39,32 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   assignAndSendWorkerToBuild: (world, unitType, position) => {
-    const { data, resources } = world;
-    const { units } = resources.get();
+    const { agent, data, resources } = world;
+    const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
     const collectedActions = [];
     const builder = unitService.selectBuilder(units, abilityId, position);
     if (builder) {
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
         builder.labels.set('builder', true);
-        const unitCommand = {
-          abilityId,
-          unitTags: [builder.tag],
-          targetWorldSpacePos: position,
-        };
+        const unitCommand = createUnitCommand(abilityId, [builder]);
+        if (GasMineRace[agent.race] === unitType) {
+          const [geyser] = map.freeGasGeysers();
+          unitCommand.targetUnitTag = geyser.tag;
+          collectedActions.push(unitCommand);
+          const smartUnitCommand = createUnitCommand(SMART, [builder]);
+          const [closestMineralField] = units.getClosest(builder.pos, units.getByType(mineralFieldTypes))
+          smartUnitCommand.targetWorldSpacePos = closestMineralField.pos;
+          smartUnitCommand.queueCommand = true;
+          collectedActions.push(smartUnitCommand);
+        } else {
+          unitCommand.targetWorldSpacePos = position;
+          collectedActions.push(unitCommand);
+        }
         console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
         worldService.logActionIfNearPosition(world, unitType, builder, position);
-        collectedActions.push(unitCommand);
         unitService.setPendingOrders(builder, unitCommand);
-        collectedActions.push(...unitService.stopOverlappingBuilders(units, builder, abilityId, position));
+        collectedActions.push(...unitService.stopOverlappingBuilders(units, builder, position));
       }
     }
     return collectedActions;

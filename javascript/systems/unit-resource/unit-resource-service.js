@@ -170,7 +170,6 @@ const unitResourceService = {
     return workerTypes.includes(unit.unitType);
   },
   /**
-   * 
    * @param {UnitResource} units 
    * @param {Point2D} position 
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
@@ -180,11 +179,10 @@ const unitResourceService = {
     const builder = unitResourceService.selectBuilder(units, MOVE, position);
     const unitCommand = builder ? createUnitCommand(MOVE, [builder]) : {};
     unitCommand.targetWorldSpacePos = position;
-    collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, MOVE, position));
+    collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
     return collectedActions;
   },
   /**
-   * 
    * @param {UnitResource} units 
    * @param {AbilityId} abilityId 
    * @param {Point2D} position 
@@ -215,15 +213,17 @@ const unitResourceService = {
    * Returns an array of unitCommands to prevent multiple builders on the same task. 
    * @param {UnitResource} units 
    * @param {Unit} builder 
-   * @param {AbilityId} abilityId 
    * @param {Point2D} position 
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  stopOverlappingBuilders: (units, builder, abilityId, position) => {
+  stopOverlappingBuilders: (units, builder, position) => {
     const collectedActions = [];
-    const overlappingBuilders = unitResourceService.getBuilders(units)
-      .filter(otherBuilder => otherBuilder.tag !== builder.tag && otherBuilder.orders
-        .find(order => order.abilityId === abilityId && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y));
+    const overlappingBuilders = unitResourceService.getBuilders(units).filter(otherBuilder => {
+      return (
+        otherBuilder.tag !== builder.tag &&
+        otherBuilder.orders.find(order => order.targetWorldSpacePos && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y)
+      );
+    });
     if (overlappingBuilders.length > 0) {
       collectedActions.push({
         abilityId: STOP,

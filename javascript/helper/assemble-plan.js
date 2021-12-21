@@ -216,12 +216,13 @@ class AssemblePlan {
           case GasMineRace[race] === unitType:
             try {
               if (this.map.freeGasGeysers().length > 0) {
+                const [geyser] = this.map.freeGasGeysers();
                 if (this.agent.canAfford(unitType)) {
-                  await actions.buildGasMine();
+                  await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, geyser.pos));
                   planService.pausePlan = false;
-                  setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType),);
+                  setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
                 } else {
-                  this.collectedActions.push(...premoveBuilderToPosition(this.units, this.map.freeGasGeysers()[0].pos));
+                  this.collectedActions.push(...premoveBuilderToPosition(this.units, geyser.pos));
                   const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
                   await balanceResources(this.world, mineralCost / vespeneCost);
                   planService.pausePlan = true;
