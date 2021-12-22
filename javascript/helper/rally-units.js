@@ -6,6 +6,8 @@ const { engageOrRetreat } = require("./behavior/army-behavior");
 const { getCombatRally } = require("./location");
 const { tankBehavior } = require("./behavior/unit-behavior");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
+const { createUnitCommand } = require("../services/actions-service");
+const { STOP } = require("@node-sc2/core/constants/ability");
 
 /**
  * 
@@ -19,6 +21,10 @@ function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
   const { units } = resources.get();
   const collectedActions = [];
   const combatUnits = units.getCombatUnits().filter(unit => unit.labels.size === 0);
+  const label = 'defending';
+  units.withLabel(label).forEach(unit => {
+    unit.labels.delete(label) && collectedActions.push(createUnitCommand(STOP, [unit]));
+  });
   if (!rallyPoint) {
     rallyPoint = getCombatRally(resources);
   }

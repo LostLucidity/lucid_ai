@@ -1,9 +1,12 @@
 //@ts-check
 "use strict"
 
-const { ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
+const { ATTACK_ATTACK, HARVEST_GATHER, MOVE } = require("@node-sc2/core/constants/ability");
+const { mineralFieldTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { moveAwayPosition } = require("../builds/helper");
+const { createUnitCommand } = require("./actions-service");
 
 const microService = {
   /**
@@ -17,14 +20,30 @@ const microService = {
     const normalizedPositionOfUnitDegrees = positionOfUnitDegrees > 0 ? positionOfUnitDegrees : 360 + positionOfUnitDegrees;
     return Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees) < 7;
   },
-  micro: (unit, targetUnit, enemyUnits, retreatCommand) => {
+  /**
+   * @param {UnitResource} units
+   * @param {Unit} unit 
+   * @param {Unit} targetUnit 
+   * @param {Unit[]} enemyUnits 
+   * @returns 
+   */
+  micro: (units, unit, targetUnit, enemyUnits) => {
     const collectedActions = [];
     // if cool down and fighting melee move back
+    const retreatCommand = createUnitCommand(MOVE, [unit]);
+    if (unit.isWorker()) {
+      const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(unit.pos, mineralField.pos) < distance(targetUnit.pos, mineralField.pos));
+      const [closestCandidateMineral] = units.getClosest(unit.pos, candidateMinerals);
+      retreatCommand.abilityId = HARVEST_GATHER;
+      retreatCommand.targetUnitTag = closestCandidateMineral.tag;
+    } else {
+      retreatCommand.targetWorldSpacePos = moveAwayPosition(targetUnit.pos, unit.pos);
+    }
     const microConditions = [
       targetUnit.isMelee(),
       (distance(unit.pos, targetUnit.pos) + 0.05) - (unit.radius + targetUnit.radius) < 0.5,
       microService.isFacing(targetUnit, unit),
-    ]
+    ];
     if (
       [...microConditions, unit.weaponCooldown > 12].every(condition => condition) ||
       [...microConditions, (unit.health + unit.shield) < (targetUnit.health + targetUnit.shield)].every(condition => condition)

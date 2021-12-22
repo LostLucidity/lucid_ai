@@ -4,7 +4,7 @@
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes, combatTypes, vespeneGeyserTypes, mineralFieldTypes } = require("@node-sc2/core/constants/groups");
+const { reactorTypes, techLabTypes, combatTypes, vespeneGeyserTypes, mineralFieldTypes, workerTypes } = require("@node-sc2/core/constants/groups");
 const { PYLON, CYCLONE, ZERGLING } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
@@ -15,15 +15,18 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 const { balanceResources } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
-const { addEarmark, calculateNearDPSHealth, getUpgradeBonus, calculateDPSHealthOfTrainingUnits } = require("./data-service");
+const { addEarmark, calculateNearDPSHealth, getUpgradeBonus } = require("./data-service");
 const { formatToMinutesAndSeconds } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { premoveBuilderToPosition, getUnitsById, getUnitTypeData } = require("../systems/unit-resource/unit-resource-service");
+const { premoveBuilderToPosition, getUnitsById, getUnitTypeData, isRepairing } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel } = require("./units-service");
-const { GasMineRace } = require("@node-sc2/core/constants/race-map");
+const { GasMineRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
+const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
+const { filterLabels } = require("../helper/unit-selection");
+const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 
 const worldService = {
   /** @type {boolean} */
@@ -69,6 +72,23 @@ const worldService = {
     }
     return collectedActions;
   },
+  /**
+   * Calculate DPS health base on ally units and enemy armor upgrades.
+   * @param {World} world 
+   * @param {UnitTypeId[]} unitTypes
+   * @param {Alliance} alliance
+   * @param {Unit[]} enemyUnits 
+   * @returns {number}
+   */
+   calculateDPSHealthOfTrainingUnits: (world, unitTypes, alliance, enemyUnits) => {
+    return unitTypes.reduce((totalDPSHealth, unitType) => {
+      if (workerTypes.includes(unitType)) {
+        return totalDPSHealth;
+      } else {
+        return totalDPSHealth + worldService.getDPSHealthOfTrainingUnit(world, unitType, alliance, enemyUnits);
+      }
+    }, 0);
+  },  
   /**
   * Returns boolean on whether build step should be executed.
   * @param {World} world 
@@ -153,6 +173,30 @@ const worldService = {
   },
   /**
    * @param {World} world 
+   * @param {UnitTypeId} unitType
+   * @param {Alliance} alliance
+   * @param {Unit[]} enemyUnits 
+   */
+   getDPSHealthOfTrainingUnit: (world, unitType, alliance, enemyUnits) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const weapon = data.getUnitTypeData(unitType).weapons[0];
+    let dPSHealth = 0;
+    if (weapon) {
+      const unitTypeData = getUnitTypeData(units, unitType);
+      if (unitTypeData) {
+        const { healthMax, shieldMax } = unitTypeData;
+        const weaponUpgradeDamage = weapon.damage + (getAttackUpgradeLevel(alliance) * dataService.getUpgradeBonus(alliance, weapon.damage));
+        const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnits.map(enemyUnit => enemyUnit.unitType));
+        const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(alliance) + weaponBonusDamage;
+        dPSHealth = weaponDamage / weapon.speed * (healthMax + shieldMax);
+        dPSHealth = unitType === ZERGLING ? dPSHealth * 2 : dPSHealth;
+      }
+    }
+    return dPSHealth;
+  },  
+  /**
+   * @param {World} world 
    * @param {Unit} unit 
    * @param {Unit} targetUnit 
    * @returns {Point2D}
@@ -204,29 +248,13 @@ const worldService = {
   /**
    * @param {World} world 
    * @param {UnitTypeId[]} unitTypes 
-   * @returns 
+   * @returns {number}
    */
   getTrainingPower: (world) => {
-    const { data, resources } = world;
-    const { units } = resources.get();
     const trainingUnitTypes = worldService.getTrainingUnitTypes(world);
     const { enemyCombatUnits } = enemyTrackingService;
-    return trainingUnitTypes.reduce((previousValue, unitType) => {
-      const weapon = data.getUnitTypeData(unitType).weapons[0];
-      let dPSHealth = 0;
-      if (weapon) {
-        const unitTypeData = getUnitTypeData(units, unitType);
-        if (unitTypeData) {
-          const { healthMax, shieldMax } = unitTypeData;
-          const [unit] = units.getAlive(Alliance.SELF);
-          const weaponUpgradeDamage = weapon.damage + (getAttackUpgradeLevel(Alliance.SELF) * getUpgradeBonus(Alliance.SELF, weapon.damage));
-          const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyCombatUnits.map(enemyCombatUnit => enemyCombatUnit.unitType));
-          const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(Alliance.SELF) + weaponBonusDamage;
-          dPSHealth = weaponDamage / weapon.speed * (healthMax + shieldMax);
-          dPSHealth = unitType === ZERGLING ? dPSHealth * 2 : dPSHealth;
-        }
-      }
-      return previousValue + dPSHealth
+    return trainingUnitTypes.reduce((totalDPSHealth, unitType) => {
+      return totalDPSHealth + worldService.getDPSHealthOfTrainingUnit(world, unitType, Alliance.SELF, enemyCombatUnits);
     }, 0);
   },
   /**
@@ -267,6 +295,21 @@ const worldService = {
       unitTypesWithAbilities.push(...data.findUnitTypesWithAbility(abilityId));
     });
     return unitTypesWithAbilities;
+  },
+  /**
+   * @param {World} world 
+   * @param {Unit} worker 
+   * @param {Unit} targetUnit 
+   * @returns {boolean}
+   */
+  defendWithUnit: (world, worker, targetUnit) => {
+    const { agent, data, resources } = world;
+    const { units } = resources.get();
+    const inRangeEnemySupply = calculateHealthAdjustedSupply(world, getInRangeUnits(targetUnit, [...enemyTrackingService.mappedEnemyUnits]));
+    const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
+    const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy', 'builder']) && !isRepairing(unit));
+    const fighters = units.getClosest(targetUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
+    return fighters.some(fighter => fighter.tag === worker.tag);
   },
   /**
    * 
@@ -388,7 +431,7 @@ const worldService = {
       return totalDPSHealth + calculateNearDPSHealth(data, [unit], enemyCombatUnits.map(enemyCombatUnit => enemyCombatUnit.unitType));
     }, 0);
     worldService.totalSelfDPSHealth += worldService.getTrainingUnitTypes(world).reduce((totalDPSHealth, unitType) => {
-      return totalDPSHealth + calculateDPSHealthOfTrainingUnits(data, [unitType], Alliance.SELF, enemyCombatUnits);
+      return totalDPSHealth + worldService.calculateDPSHealthOfTrainingUnits(world, [unitType], Alliance.SELF, enemyCombatUnits);
     }, 0);
   },
   /**

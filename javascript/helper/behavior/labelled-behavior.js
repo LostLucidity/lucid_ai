@@ -9,7 +9,7 @@ const { isFacing } = require("../../services/micro-service");
 const { retreatToExpansion } = require("../../services/resource-manager-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const scoutService = require("../../systems/scouting/scouting-service");
-const { calculateTotalHealthRatio } = require("../calculate-health");
+const { calculateTotalHealthRatio } = require("../../systems/unit-resource/unit-resource-service");
 const { getClosestUnitByPath } = require("../get-closest-by-path");
 const { getCombatRally, getRandomPoints, acrossTheMap } = require("../location");
 const { engageOrRetreat } = require("./army-behavior");
@@ -89,7 +89,7 @@ module.exports = {
     const collectedActions = [];
     if (unit) {
       const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, {alliance: Alliance.ENEMY}).filter(cannon => distance(cannon.pos, unit.pos) < 16);
-      if (calculateTotalHealthRatio(unit) > 1 / 2 && !inRangeEnemyCannon) {
+      if (calculateTotalHealthRatio(units, unit) > 1 / 2 && !inRangeEnemyCannon) {
         const threateningUnits = unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => {
           const threateningRangedUnit = isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8
           const threateningMeleeUnit = isFacing(unit, enemyUnit) && enemyUnit.isMelee() && distance(unit.pos, enemyUnit.pos) < 4
@@ -137,7 +137,7 @@ module.exports = {
     const collectedActions = [];
     if (unit) {
       const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, Alliance.ENEMY).filter(cannon => distance(cannon.pos, unit.pos) < 16);
-      if (calculateTotalHealthRatio(unit) > 1 / 2 && !inRangeEnemyCannon) {
+      if (calculateTotalHealthRatio(units, unit) > 1 / 2 && !inRangeEnemyCannon) {
         const enemyNatural = map.getEnemyNatural();
         const randomPointsOfInterest = [...getRandomPoints(map, 3, enemyNatural.areas.areaFill)];
         if (randomPointsOfInterest.length > unit.orders.length) {

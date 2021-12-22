@@ -35,7 +35,7 @@ const { checkUnitCount } = require("../systems/track-units/track-units-service")
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
-const { getEnemyWorkers, deleteLabel, premoveBuilderToPosition, setPendingOrders, getMineralFieldTarget } = require("../systems/unit-resource/unit-resource-service");
+const { getEnemyWorkers, deleteLabel, premoveBuilderToPosition, setPendingOrders, getMineralFieldTarget, calculateTotalHealthRatio } = require("../systems/unit-resource/unit-resource-service");
 const planService = require("../services/plan-service");
 const { getNextPlanStep, getFoodUsed } = require("../services/plan-service");
 const scoutingService = require("../systems/scouting/scouting-service");
@@ -46,7 +46,6 @@ const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions")
 const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
 const worldService = require("../services/world-service");
-const { calculateTotalHealthRatio } = require("./calculate-health");
 
 let actions;
 let race;
@@ -516,7 +515,7 @@ class AssemblePlan {
         labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
         const [scout] = labelledScouts;
         if (scout) {
-          if (distance(scout.pos, targetLocation) > 16 && calculateTotalHealthRatio(scout) > 1 / 2 && !scout.labels.has('Threatened')) {
+          if (distance(scout.pos, targetLocation) > 16 && calculateTotalHealthRatio(this.units, scout) > 1 / 2 && !scout.labels.has('Threatened')) {
             const unitCommand = {
               abilityId: MOVE,
               targetWorldSpacePos: targetLocation,

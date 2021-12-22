@@ -113,17 +113,17 @@ const armyManagementService = {
     return collectedActions;
   },
   /**
-   * 
-   * @param {World} param0 
+   * @param {World} world 
    * @param {Unit} worker 
    * @param {Unit} targetUnit 
    * @param {Unit[]} enemyUnits 
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
-  pullWorkersToDefend: async ({ agent, data, resources }, worker, targetUnit, enemyUnits) => {
+  pullWorkersToDefend: async (world, worker, targetUnit, enemyUnits) => {
+    const { agent, data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
-    const inRangeEnemySupply = calculateHealthAdjustedSupply(data, getInRangeUnits(targetUnit, [...enemyTrackingService.mappedEnemyUnits]));
+    const inRangeEnemySupply = calculateHealthAdjustedSupply(world, getInRangeUnits(targetUnit, [...enemyTrackingService.mappedEnemyUnits]));
     const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
     const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy', 'builder']) && !isRepairing(unit));
     const fighters = units.getClosest(targetUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
@@ -131,13 +131,7 @@ const armyManagementService = {
       const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(worker.pos, mineralField.pos) < distance(targetUnit.pos, mineralField.pos));
       const [closestCandidateMineral] = units.getClosest(worker.pos, candidateMinerals);
       if (closestCandidateMineral) {
-        const retreatCommand = {
-          abilityId: HARVEST_GATHER,
-          targetUnitTag: closestCandidateMineral.tag,
-          unitTags: [worker.tag],
-          queueCommand: false,
-        }
-        collectedActions.push(...micro(worker, targetUnit, enemyUnits, retreatCommand));
+        collectedActions.push(...micro(units, worker, targetUnit, enemyUnits));
       }
     } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === targetUnit.tag) {
       await gatherOrMine(resources, worker);

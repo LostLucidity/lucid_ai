@@ -22,10 +22,10 @@ const helper = {
     return unitCommand;
   },
   /**
-   * 
+   * return position directly away from targetPosition based on position
    * @param {Point2D} targetPosition 
    * @param {Point2D} position 
-   * @param {*} distance 
+   * @param {number} distance 
    * @returns {Point2D}
    */
   moveAwayPosition(targetPosition, position, distance = 2) {

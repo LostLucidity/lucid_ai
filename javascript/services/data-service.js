@@ -2,9 +2,7 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const planService = require("./plan-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel } = require("./units-service");
 
@@ -20,23 +18,6 @@ const dataService = {
       minerals: orderData.mineralCost,
       vespene: orderData.vespeneCost,
     });
-  },
-  /**
-   * Calculate DPS health base on ally units and enemy armor upgrades.
-   * @param {DataStorage} data 
-   * @param {UnitTypeId[]} unitTypes
-   * @param {Alliance} alliance
-   * @param {Unit[]} enemyUnits 
-   * @returns {number}
-   */
-  calculateDPSHealthOfTrainingUnits: (data, unitTypes, alliance, enemyUnits) => {
-    return unitTypes.reduce((totalDPSHealth, unitType) => {
-      if (workerTypes.includes(unitType)) {
-        return totalDPSHealth;
-      } else {
-        return totalDPSHealth + dataService.getDPSHealthOfTrainingUnit(data, unitType, alliance, enemyUnits);
-      }
-    }, 0);
   },
   /**
    * Calculate DPS health base on ally units and enemy armor upgrades.
@@ -93,24 +74,6 @@ const dataService = {
       const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnitTypes);
       const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(unit.alliance) + weaponBonusDamage;
       dPSHealth = weaponDamage / weapon.speed * (unit.health + unit.shield);
-    }
-    return dPSHealth;
-  },
-  /**
-   * @param {DataStorage} data 
-   * @param {UnitTypeId} unitType
-   * @param {Alliance} alliance
-   * @param {Unit[]} enemyUnits 
-   */
-  getDPSHealthOfTrainingUnit: (data, unitType, alliance, enemyUnits) => {
-    const weapon = data.getUnitTypeData(unitType).weapons[0];
-    let dPSHealth = 0;
-    if (weapon) {
-      const weaponUpgradeDamage = weapon.damage + (getAttackUpgradeLevel(alliance) * dataService.getUpgradeBonus(alliance, weapon.damage));
-      const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnits.map(enemyUnit => enemyUnit.unitType));
-      const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(alliance) + weaponBonusDamage;
-      const { healthMax, shieldMax } = unitResourceService.unitTypeData[unitType]
-      dPSHealth = weaponDamage / weapon.speed * (healthMax + shieldMax);
     }
     return dPSHealth;
   },

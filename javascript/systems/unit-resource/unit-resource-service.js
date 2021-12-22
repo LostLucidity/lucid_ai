@@ -19,6 +19,17 @@ const unitResourceService = {
   /** @type {Point2D[]} */
   seigeTanksSiegedGrids: [],
   /**
+   * @param {UnitResource} units 
+   * @param {Unit} unit 
+   * @returns {number}
+   */
+   calculateTotalHealthRatio: (units, unit) => {
+    const { healthMax, shieldMax } = unitResourceService.getUnitTypeData(units, unit.unitType)
+    const totalHealthShield = unit.health + unit.shield;
+    const maxHealthShield = healthMax + shieldMax;
+    return totalHealthShield / maxHealthShield;
+  },
+  /**
    * Checks whether unit can attack targetUnit.
    * @param {ResourceManager} resources
    * @param {Unit} unit

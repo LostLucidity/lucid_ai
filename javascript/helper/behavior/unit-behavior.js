@@ -174,10 +174,11 @@ module.exports = {
     return collectedActions;
   },
   /**
-   * @param {World} param0 
+   * @param {World} world 
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
-  workerBehavior: async ({ agent, data, resources }) => {
+  workerBehavior: async (world) => {
+    const { agent, data, resources } = world
     const { frame, units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
@@ -189,15 +190,15 @@ module.exports = {
         const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
         if (distanceToClosestEnemy < 16) {
           const inRangeSelfCombatUnits = getInRangeUnits(worker, units.getCombatUnits(Alliance.SELF));
-          const inRangeCombatSupply = calculateHealthAdjustedSupply(data, inRangeSelfCombatUnits);
+          const inRangeCombatSupply = calculateHealthAdjustedSupply(world, inRangeSelfCombatUnits);
           const inRangeCombatUnitsOfEnemy = getInRangeUnits(closestEnemyUnit, units.getCombatUnits(Alliance.SELF));
-          const inRangeCombatUnitsOfEnemySupply = calculateHealthAdjustedSupply(data, inRangeCombatUnitsOfEnemy);
+          const inRangeCombatUnitsOfEnemySupply = calculateHealthAdjustedSupply(world, inRangeCombatUnitsOfEnemy);
           closestEnemyUnit['inRangeUnits'] = getInRangeUnits(closestEnemyUnit, enemyUnits);
-          const inRangeEnemySupply = calculateHealthAdjustedSupply(data, closestEnemyUnit['inRangeUnits']);
+          const inRangeEnemySupply = calculateHealthAdjustedSupply(world, closestEnemyUnit['inRangeUnits']);
           const combatSupply = inRangeCombatSupply > inRangeCombatUnitsOfEnemySupply ? inRangeCombatSupply : inRangeCombatUnitsOfEnemySupply;
           if (inRangeEnemySupply > combatSupply) {
             const inRangeWorkers = getInRangeUnits(worker, workers);
-            const inRangeWorkerSupply = calculateHealthAdjustedSupply(data, inRangeWorkers);
+            const inRangeWorkerSupply = calculateHealthAdjustedSupply(world, inRangeWorkers);
             if (inRangeEnemySupply > inRangeWorkerSupply) {
               const position = retreatToExpansion(resources, worker, closestEnemyUnit);
               const unitCommand = {
@@ -221,7 +222,7 @@ module.exports = {
                   continue;
                 }
               }
-              collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits));
+              collectedActions.push(...await pullWorkersToDefend(world, worker, closestEnemyUnit, enemyUnits));
             }
           }
         }

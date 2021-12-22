@@ -22,7 +22,8 @@ const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { retreatToExpansion } = require("../../services/resource-manager-service");
-const { microRangedUnit } = require("../../services/world-service");
+const { microRangedUnit, defendWithUnit } = require("../../services/world-service");
+const { micro } = require("../../services/micro-service");
 
 const armyBehavior = {
   /**
@@ -89,7 +90,7 @@ const armyBehavior = {
               collectedActions.push(...armyBehavior.attackWithArmy(world, army, enemyUnits));
             }
           } else {
-            for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }
+            for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend(world, worker, closestEnemyUnit, enemyUnits)); }
             combatUnits = [...combatUnits, ...units.getById(QUEEN)]
             collectedActions.push(...armyBehavior.engageOrRetreat(world, combatUnits, enemyUnits, rallyPoint));
           }
@@ -141,17 +142,23 @@ const armyBehavior = {
             await continuouslyBuild(world, assemblePlan, mainCombatTypes);
             // console.log('engageOrRetreatVisible', selfSupply, enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
             // console.log('engageOrRetreatMapped', selfSupply, enemyTrackingService.mappedEnemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0));
-            for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits)); }
+            for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend(world, worker, closestEnemyUnit, enemyUnits)); }
             allyUnits = [...allyUnits, ...units.getById(QUEEN)];
             collectedActions.push(...armyBehavior.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
           }
         } else {
+          const workersToDefend = [];
           for (const worker of workers) {
             const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
             if (closestEnemyUnit.isWorker() && closestEnemyUnit['selfUnits'].length === 1 && distanceToClosestEnemy > 4) {
               return collectedActions;
             }
-            collectedActions.push(...await pullWorkersToDefend({ agent, data, resources }, worker, closestEnemyUnit, enemyUnits));
+            if (defendWithUnit(world, worker, closestEnemyUnit)) {
+              workersToDefend.push(worker);
+              workersToDefend.forEach(worker => worker.labels.set('defending'));
+            }
+            console.log(`Pulling ${workersToDefend.length} to defend with.`);
+            collectedActions.push(...armyBehavior.engageOrRetreat(world, workersToDefend, enemyUnits, rallyPoint));
           }
         }
       }
@@ -192,11 +199,15 @@ const armyBehavior = {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestAttackableEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestAttackableEnemyUnit['enemyDPSHealth'];
           const noNearbyBunker = units.getById(BUNKER).filter(bunker => distance(bunker.pos, selfUnit.pos) < 16).length === 0;
           if (selfUnit.tag === randomUnit.tag) {
-            console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`); 
+            console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`);
           }
           if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth && noNearbyBunker) {
             if (selfUnit.data().movementSpeed < closestAttackableEnemyUnit.data().movementSpeed) {
-              if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit)); }
+              if (selfUnit.isMelee()) {
+                collectedActions.push(...micro(units, selfUnit, closestAttackableEnemyUnit, enemyUnits));
+              } else {
+                collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
+              }
             } else {
               const unitCommand = { abilityId: MOVE }
               if (selfUnit.isFlying) {
