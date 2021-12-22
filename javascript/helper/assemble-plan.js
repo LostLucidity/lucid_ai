@@ -93,14 +93,14 @@ class AssemblePlan {
     this.units = this.resources.get().units;
     this.resourceTrigger = this.agent.minerals > 512 && this.agent.vespene > 256;
     this.threats = threats(this.resources, this.state);
-    const { outpowered, totalSelfDPSHealth, totalEnemyDPSHealth } = worldService;
+    const { outpowered } = worldService;
     const trainUnitConditions = [
       outpowered,
       unitTrainingService.workersTrainingTendedTo && !planService.isPlanPaused,
       !shortOnWorkers(this.resources) && !planService.isPlanPaused,
     ];
     if (trainUnitConditions.some(condition => condition)) {
-      outpowered ? console.log('Scouted higher power', totalSelfDPSHealth, totalEnemyDPSHealth) : console.log('Free build mode.');
+      outpowered ? console.log('Scouted higher power') : console.log('Free build mode.');
       const nextStep = getNextPlanStep(this.foodUsed);
       const haveProductionAndTechForTypes = this.defenseTypes.filter(type => {
         return [
