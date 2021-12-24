@@ -127,7 +127,7 @@ const planActions = {
           } else {
             const busyCanDoTypes = units.getById(canDoTypes);
             const randomBusyTrainingUnit = getRandom(busyCanDoTypes.filter(unit => isTrainingUnit(data, unit)));
-            if (!worldService.outpowered && randomBusyTrainingUnit) {
+            if (!worldService.outpowered && randomBusyTrainingUnit && randomBusyTrainingUnit.orders[0].progress <= 0.5) {
               await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
             } else {
               const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
