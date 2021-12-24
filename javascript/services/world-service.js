@@ -15,18 +15,19 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 const { balanceResources } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
-const { addEarmark, calculateNearDPSHealth, getUpgradeBonus } = require("./data-service");
+const { addEarmark, calculateNearDPSHealth } = require("./data-service");
 const { formatToMinutesAndSeconds } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { premoveBuilderToPosition, getUnitsById, getUnitTypeData, isRepairing } = require("../systems/unit-resource/unit-resource-service");
+const { getUnitsById, getUnitTypeData, isRepairing } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel } = require("./units-service");
 const { GasMineRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
+const { distanceByPath } = require("../helper/get-closest-by-path");
 
 const worldService = {
   /** @type {boolean} */
@@ -80,7 +81,7 @@ const worldService = {
    * @param {Unit[]} enemyUnits 
    * @returns {number}
    */
-   calculateDPSHealthOfTrainingUnits: (world, unitTypes, alliance, enemyUnits) => {
+  calculateDPSHealthOfTrainingUnits: (world, unitTypes, alliance, enemyUnits) => {
     return unitTypes.reduce((totalDPSHealth, unitType) => {
       if (workerTypes.includes(unitType)) {
         return totalDPSHealth;
@@ -88,7 +89,7 @@ const worldService = {
         return totalDPSHealth + worldService.getDPSHealthOfTrainingUnit(world, unitType, alliance, enemyUnits);
       }
     }, 0);
-  },  
+  },
   /**
   * Returns boolean on whether build step should be executed.
   * @param {World} world 
@@ -138,8 +139,8 @@ const worldService = {
           planService.continueBuild = false;
         }
       } else {
-        collectedActions.push(...premoveBuilderToPosition(units, planService.foundPosition));
         const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+        collectedActions.push(...worldService.premoveBuilderToPosition(world, planService.foundPosition, unitType));
         await balanceResources(world, mineralCost / vespeneCost);
         planService.pausePlan = true;
         planService.continueBuild = false;
@@ -147,7 +148,7 @@ const worldService = {
     } else {
       const [pylon] = units.getById(PYLON);
       if (pylon && pylon.buildProgress < 1) {
-        collectedActions.push(...premoveBuilderToPosition(units, pylon.pos));
+        collectedActions.push(...worldService.premoveBuilderToPosition(world, pylon.pos, pylon.unitType));
         planService.pausePlan = true;
         planService.continueBuild = false;
       }
@@ -177,7 +178,7 @@ const worldService = {
    * @param {Alliance} alliance
    * @param {Unit[]} enemyUnits 
    */
-   getDPSHealthOfTrainingUnit: (world, unitType, alliance, enemyUnits) => {
+  getDPSHealthOfTrainingUnit: (world, unitType, alliance, enemyUnits) => {
     const { data, resources } = world;
     const { units } = resources.get();
     const weapon = data.getUnitTypeData(unitType).weapons[0];
@@ -194,7 +195,7 @@ const worldService = {
       }
     }
     return dPSHealth;
-  },  
+  },
   /**
    * @param {World} world 
    * @param {Unit} unit 
@@ -347,6 +348,34 @@ const worldService = {
       const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
       unitCommand.targetWorldSpacePos = targetUnit.pos;
       collectedActions.push(unitCommand);
+    }
+    return collectedActions;
+  },
+  /**
+   * @param {World} world 
+   * @param {Point2D} position 
+   * @param {number} mineralCost
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  premoveBuilderToPosition: (world, position, unitType) => {
+    const { agent, data, resources } = world;
+    const { frame, units } = resources.get();
+    const collectedActions = [];
+    const builder = unitResourceService.selectBuilder(units, MOVE, position);
+    if (builder) {
+      // get speed, distance and average collection rate
+      const { movementSpeed } = builder.data();
+      const distanceToPosition = distanceByPath(resources, builder.pos, position);
+      const unitCommand = builder ? createUnitCommand(MOVE, [builder]) : {};
+      const { collectionRateMinerals } = frame.getObservation().score.scoreDetails;
+      const timeToPosition = distanceToPosition / movementSpeed;
+      const { mineralCost } = data.getUnitTypeData(unitType);
+      const mineralsLeft = mineralCost - agent.minerals;
+      const timeToTargetCost = mineralsLeft / (collectionRateMinerals / 60);
+      if (timeToTargetCost <= timeToPosition) {
+        unitCommand.targetWorldSpacePos = position;
+        collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
+      }
     }
     return collectedActions;
   },

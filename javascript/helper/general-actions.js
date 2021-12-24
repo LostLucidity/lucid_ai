@@ -6,15 +6,13 @@ const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { addEarmark } = require("../services/data-service");
 const { getStringNameOfConstant } = require("../services/logging-service");
 const planService = require("../services/plan-service");
-const { premoveBuilderToPosition } = require("../systems/unit-resource/unit-resource-service");
-const { assignAndSendWorkerToBuild, setAndLogExecutedSteps } = require("../services/world-service");
+const { assignAndSendWorkerToBuild, setAndLogExecutedSteps, premoveBuilderToPosition } = require("../services/world-service");
 const { balanceResources } = require("../systems/manage-resources");
 const canAfford = require("./can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 
 module.exports = {
   /**
-   * 
    * @param {World} world 
    * @returns 
    */
@@ -36,7 +34,7 @@ module.exports = {
           addEarmark(data, unitTypeData);
         }
       } else {
-        collectedActions.push(...premoveBuilderToPosition(units, expansionLocation));
+        collectedActions.push(...premoveBuilderToPosition(world, expansionLocation, townhallType));
         const { mineralCost, vespeneCost } = data.getUnitTypeData(townhallType);
         await balanceResources(world, mineralCost / vespeneCost);
         planService.pausePlan = true;

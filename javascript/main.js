@@ -160,6 +160,7 @@ async function runGame() {
     interface: {
       raw: true,
       rawCropToPlayableArea: true,
+      score: true,
       showBurrowedShadows: true,
       showCloaked: true
     }

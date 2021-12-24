@@ -10,7 +10,6 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { countTypes } = require("../../helper/groups");
-const { createUnitCommand } = require("../../services/actions-service");
 const { isPendingContructing } = require("../../services/shared-service");
 
 const unitResourceService = {
@@ -179,19 +178,6 @@ const unitResourceService = {
   },
   isWorker(unit) {
     return workerTypes.includes(unit.unitType);
-  },
-  /**
-   * @param {UnitResource} units 
-   * @param {Point2D} position 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
-   */
-  premoveBuilderToPosition: (units, position) => {
-    const collectedActions = [];
-    const builder = unitResourceService.selectBuilder(units, MOVE, position);
-    const unitCommand = builder ? createUnitCommand(MOVE, [builder]) : {};
-    unitCommand.targetWorldSpacePos = position;
-    collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
-    return collectedActions;
   },
   /**
    * @param {UnitResource} units 

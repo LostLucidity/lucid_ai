@@ -10,18 +10,17 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const canBuild = require("../../helper/can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
 const { countTypes } = require("../../helper/groups");
-const { findPlacements, findPosition, inTheMain } = require("../../helper/placement/placement-helper");
+const { inTheMain } = require("../../helper/placement/placement-helper");
 const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
 const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
 const worldService = require("../../services/world-service");
-const { addEarmark, unpauseAndLog } = require("../../services/plan-service");
 const planService = require("../../services/plan-service");
-const { assignAndSendWorkerToBuild, premoveBuilderToPosition } = require("../unit-resource/unit-resource-service");
 const { balanceResources } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
-const { checkBuildingCount, findAndPlaceBuilding } = require("../../services/world-service");
+const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition } = require("../../services/world-service");
+const { addEarmark } = require("../../services/data-service");
 
 const planActions = {
   /**
@@ -78,7 +77,7 @@ const planActions = {
                 }
               } else {
                 const position = map.freeGasGeysers()[0].pos;
-                collectedActions.push(...premoveBuilderToPosition(units, position));
+                collectedActions.push(...premoveBuilderToPosition(world, position, unitType));
                 const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
                 await balanceResources(world, mineralCost / vespeneCost);
                 planService.pausePlan = true;
