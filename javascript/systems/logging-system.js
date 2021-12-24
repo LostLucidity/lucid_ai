@@ -28,7 +28,7 @@ function logStepStats({ agent, resources }) {
   const formattedTime = loggingService.formatToMinutesAndSeconds(resources.get().frame.timeInSeconds());
   const { foodUsed, minerals, vespene } = agent;
   const { totalSelfDPSHealth, totalEnemyDPSHealth } = worldService;
-  console.log(`foodUsed: ${foodUsed}, time: ${formattedTime}, isPlanPaused: ${planService.isPlanPaused}, step: ${planService.latestStep}, resources: ${minerals}/${vespene}, powerLevels: ${totalSelfDPSHealth}/${totalEnemyDPSHealth}`);
+  console.log(`foodUsed: ${foodUsed}, time: ${formattedTime}, isPlanPaused: ${planService.isPlanPaused}, step: ${planService.latestStep}, resources: ${minerals}/${vespene}, powerLevels: ${totalSelfDPSHealth}/${totalEnemyDPSHealth}(${totalSelfDPSHealth/totalEnemyDPSHealth})`);
 }
 /**
  * @param {World} world
