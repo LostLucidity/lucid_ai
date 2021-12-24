@@ -9,7 +9,7 @@ const canBuild = require("./can-afford");
 const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
 const shortOnWorkers = require("./short-on-workers");
-const { WarpUnitAbility, UnitType, Upgrade, UnitTypeId } = require("@node-sc2/core/constants");
+const { WarpUnitAbility, UnitType, Upgrade, UnitTypeId, Ability } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack, push } = require("./behavior/army-behavior");
@@ -546,12 +546,16 @@ class AssemblePlan {
     );
     if (!unit) { [unit] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing() && unit.isGathering())); }
     if (unit) {
-      console.log(unit.orders[0] && unit.orders[0].abilityId);
+      const scoutLog = [];
+      if (unit.orders[0]) {
+        scoutLog.push('Scout order', getStringNameOfConstant(Ability, unit.orders[0].abilityId));
+      }
       if (!unit.labels.has(label)) {
         unit.labels.clear();
         unit.labels.set(label, location);
-        console.log(`Set ${label}`);
+        scoutLog.push(`Set ${label}`);
       }
+      console.log(scoutLog);
     }
   }
   /**
