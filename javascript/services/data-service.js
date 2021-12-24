@@ -1,6 +1,7 @@
 //@ts-check
 "use strict"
 
+const { UnitTypeId, UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const planService = require("./plan-service");
@@ -98,6 +99,15 @@ const dataService = {
       const roundedDamage = Math.round(damage / 10);
       return roundedDamage > 0 ? roundedDamage : 1;
     }
+  },
+  /**
+   * @param {DataStorage} data
+   * @param {Unit} unit 
+   */
+  isTrainingUnit: (data, unit) => {
+    return unit.orders.some(order => {
+      return Object.keys(UnitType).some(key => order.abilityId === data.getUnitTypeData(UnitType[key]).abilityId);
+    });
   },
   /**
    * @param {DataStorage} data 

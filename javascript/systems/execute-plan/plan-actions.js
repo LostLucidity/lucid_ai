@@ -20,7 +20,10 @@ const { balanceResources } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
 const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition } = require("../../services/world-service");
-const { addEarmark } = require("../../services/data-service");
+const { addEarmark, isTrainingUnit } = require("../../services/data-service");
+const getRandom = require("@node-sc2/core/utils/get-random");
+const { createUnitCommand } = require("../../services/actions-service");
+const { CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
 
 const planActions = {
   /**
@@ -122,10 +125,16 @@ const planActions = {
             let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
             await addAddOn(world, unitCanDo, unitType)
           } else {
-            const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-            await balanceResources(world, mineralCost / vespeneCost);
-            planService.pausePlan = true;
-            planService.continueBuild = false;
+            const busyCanDoTypes = units.getById(canDoTypes);
+            const randomBusyTrainingUnit = getRandom(busyCanDoTypes.filter(unit => isTrainingUnit(data, unit)));
+            if (randomBusyTrainingUnit) {
+              await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
+            } else {
+              const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+              await balanceResources(world, mineralCost / vespeneCost);
+              planService.pausePlan = true;
+              planService.continueBuild = false;
+            }
           }
           break;
         default:
@@ -134,6 +143,12 @@ const planActions = {
     }
     await actions.sendAction(collectedActions);
   },
+  /**
+   * @param {World} world 
+   * @param {UnitTypeId} unitType 
+   * @param {number} targetCount 
+   * @returns {Promise<void>}
+   */
   train: async (world, unitType, targetCount = null) => {
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
