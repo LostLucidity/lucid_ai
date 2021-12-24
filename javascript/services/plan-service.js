@@ -5,6 +5,9 @@ const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { supplyTypes } = require("../helper/groups");
 
 const planService = {
+  /**
+   * @param {boolean} value
+   */
   set pausePlan(value) {
     planService.isPlanPaused = value;
   },
@@ -15,6 +18,7 @@ const planService = {
     return foodused + planService.pendingFood;
   },
   foundPosition: null,
+  /** @type {boolean} */
   isPlanPaused: null,
   latestStep: 0,
   legacyPlan: null,
