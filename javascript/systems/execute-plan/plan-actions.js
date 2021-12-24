@@ -5,7 +5,7 @@ const { WarpUnitAbility, UnitType, UnitTypeId, UpgradeId } = require("@node-sc2/
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
-const { PHOTONCANNON, PYLON, WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
+const { PHOTONCANNON, WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const canBuild = require("../../helper/can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
@@ -127,7 +127,7 @@ const planActions = {
           } else {
             const busyCanDoTypes = units.getById(canDoTypes);
             const randomBusyTrainingUnit = getRandom(busyCanDoTypes.filter(unit => isTrainingUnit(data, unit)));
-            if (randomBusyTrainingUnit) {
+            if (!worldService.outpowered && randomBusyTrainingUnit) {
               await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
             } else {
               const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
