@@ -12,13 +12,17 @@ const microService = {
   /**
    * @param {Unit} unit 
    * @param {Unit} targetUnit 
+   * @param {number} degrees
    * @returns {boolean}
    */
-  isFacing: (unit, targetUnit) => {
+  isFacing: (unit, targetUnit, degrees=7, log=false) => {
     const targetFacingDegrees = toDegrees(targetUnit.facing);
     const positionOfUnitDegrees = toDegrees(Math.atan2(unit.pos.y - targetUnit.pos.y, unit.pos.x - targetUnit.pos.x));
     const normalizedPositionOfUnitDegrees = positionOfUnitDegrees > 0 ? positionOfUnitDegrees : 360 + positionOfUnitDegrees;
-    return Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees) < 7;
+    // if (log) {
+    //   console.log('Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees)', Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees));
+    // }
+    return Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees) < degrees;
   },
   /**
    * @param {UnitResource} units

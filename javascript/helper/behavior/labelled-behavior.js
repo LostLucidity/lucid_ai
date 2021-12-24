@@ -88,11 +88,11 @@ module.exports = {
     const [unit] = units.withLabel('scoutEnemyMain');
     const collectedActions = [];
     if (unit) {
-      const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, {alliance: Alliance.ENEMY}).filter(cannon => distance(cannon.pos, unit.pos) < 16);
+      const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, { alliance: Alliance.ENEMY }).filter(cannon => distance(cannon.pos, unit.pos) < 16);
       if (calculateTotalHealthRatio(units, unit) > 1 / 2 && !inRangeEnemyCannon) {
         const threateningUnits = unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => {
           const threateningRangedUnit = isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8
-          const threateningMeleeUnit = isFacing(unit, enemyUnit) && enemyUnit.isMelee() && distance(unit.pos, enemyUnit.pos) < 4
+          const threateningMeleeUnit = enemyUnit.isMelee() && distance(unit.pos, enemyUnit.pos) < 4 && isFacing(unit, enemyUnit, 180 / 16, true);
           return (threateningRangedUnit || threateningMeleeUnit)
         });
         if (threateningUnits.length > 1) {
