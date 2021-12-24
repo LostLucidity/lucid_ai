@@ -2,7 +2,7 @@
 "use strict"
 
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
-const { MOVE, ATTACK_ATTACK, SMART } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, vespeneGeyserTypes, mineralFieldTypes, workerTypes } = require("@node-sc2/core/constants/groups");
 const { PYLON, CYCLONE, ZERGLING } = require("@node-sc2/core/constants/unit-type");
@@ -354,7 +354,7 @@ const worldService = {
   /**
    * @param {World} world 
    * @param {Point2D} position 
-   * @param {number} mineralCost
+   * @param {UnitTypeId} unitType
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   premoveBuilderToPosition: (world, position, unitType) => {
@@ -375,6 +375,10 @@ const worldService = {
       if (timeToTargetCost <= timeToPosition) {
         unitCommand.targetWorldSpacePos = position;
         collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
+      } else {
+        if (builder.orders.some(order => order.targetWorldSpacePos && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y)) {
+          collectedActions.push(createUnitCommand(STOP, [builder]));
+        }
       }
     }
     return collectedActions;
