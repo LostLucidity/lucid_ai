@@ -125,7 +125,7 @@ const planActions = {
             let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
             await addAddOn(world, unitCanDo, unitType)
           } else {
-            const busyCanDoTypes = units.getById(canDoTypes);
+            const busyCanDoTypes = units.getById(canDoTypes).filter(unit => unit.addOnTag === '0');
             const randomBusyTrainingUnit = getRandom(busyCanDoTypes.filter(unit => isTrainingUnit(data, unit)));
             if (!worldService.outpowered && randomBusyTrainingUnit && randomBusyTrainingUnit.orders[0].progress <= 0.5) {
               await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
