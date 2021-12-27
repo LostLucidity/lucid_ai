@@ -18,10 +18,6 @@ const scoutService = {
   },
   setOutsupplied: () => {
     scoutService.outsupplied = scoutService.enemyCombatSupply > trackUnitsService.selfCombatSupply;
-    if (!planService.dirtyBasePlan && scoutService.outsupplied) {
-      planService.dirtyBasePlan = true;
-      console.log('dirtyBasePlan'.toUpperCase());
-    }
   },
   setScout: (units, location, unitType, label) => {
     let [unit] = units.getClosest(
