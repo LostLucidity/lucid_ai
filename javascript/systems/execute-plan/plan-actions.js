@@ -83,14 +83,18 @@ const planActions = {
                 collectedActions.push(...premoveBuilderToPosition(world, position, unitType));
                 const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
                 await balanceResources(world, mineralCost / vespeneCost);
-                planService.pausePlan = true;
-                planService.continueBuild = false;
+                if (targetCount !== null) {
+                  planService.pausePlan = true;
+                  planService.continueBuild = false;
+                }
               }
             }
           } catch (error) {
             console.log(error);
-            planService.pausePlan = true;
-            planService.continueBuild = false;
+            if (targetCount !== null) {
+              planService.pausePlan = true;
+              planService.continueBuild = false;
+            }
           }
           break;
         case TownhallRace[race].includes(unitType):
@@ -132,8 +136,10 @@ const planActions = {
             } else {
               const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
               await balanceResources(world, mineralCost / vespeneCost);
-              planService.pausePlan = true;
-              planService.continueBuild = false;
+              if (targetCount !== null) {
+                planService.pausePlan = true;
+                planService.continueBuild = false;
+              }
             }
           }
           break;
@@ -169,7 +175,9 @@ const planActions = {
           if (warpGates.length > 0) {
             await warpIn(resources, this, unitType);
           } else {
-            planService.pausePlan = true;
+            if (targetCount !== null) {
+              planService.pausePlan = true;
+            }
             return;
           }
         }
