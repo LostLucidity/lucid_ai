@@ -117,7 +117,7 @@ class AssemblePlan {
           vespeneCost += vespeneCost;
         }
         const freeBuildThreshold = this.agent.minerals >= (mineralCost * 2) && this.agent.vespene >= (vespeneCost * 2);
-        if (worldService.outpowered || freeBuildThreshold) {
+        if (outpowered || freeBuildThreshold) {
           await this.train(this.foodUsed, this.selectedTypeToBuild, null);
         }
       }
