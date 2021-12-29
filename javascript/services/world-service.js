@@ -4,8 +4,8 @@
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes, combatTypes, vespeneGeyserTypes, mineralFieldTypes, workerTypes } = require("@node-sc2/core/constants/groups");
-const { PYLON, CYCLONE, ZERGLING } = require("@node-sc2/core/constants/unit-type");
+const { reactorTypes, techLabTypes, combatTypes, vespeneGeyserTypes, mineralFieldTypes, workerTypes, townhallTypes } = require("@node-sc2/core/constants/groups");
+const { PYLON, CYCLONE, ZERGLING, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -28,6 +28,7 @@ const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/ba
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const { distanceByPath } = require("../helper/get-closest-by-path");
+const canAfford = require("../helper/can-afford");
 
 const worldService = {
   /** @type {boolean} */
@@ -74,6 +75,28 @@ const worldService = {
     return collectedActions;
   },
   /**
+   * @param {World} world 
+   * @returns {Promise<void>}
+   */
+  buildWorkers: async (world) => {
+    const { agent, data, resources } = world;
+    const { actions, units } = resources.get();
+    const workerType = WorkerRace[agent.race];
+    if (canAfford(agent, data, workerType)) {
+      if (agent.race === Race.ZERG) {
+        if (units.getById(LARVA).length > 0) {
+          try { await actions.train(workerType); } catch (error) { console.log(error) }
+        }
+      } else {
+        const idleTownhalls = units.getById(townhallTypes, { alliance: Alliance.SELF, buildProgress: 1, noQueue: true })
+          .filter(townhall => townhall.abilityAvailable(data.getUnitTypeData(workerType).abilityId));
+        if (idleTownhalls.length > 0) {
+          try { await actions.train(workerType); } catch (error) { console.log(error) }
+        }
+      }
+    }
+  },
+  /**
    * Calculate DPS health base on ally units and enemy armor upgrades.
    * @param {World} world 
    * @param {UnitTypeId[]} unitTypes
@@ -81,6 +104,7 @@ const worldService = {
    * @param {Unit[]} enemyUnits 
    * @returns {number}
    */
+
   calculateDPSHealthOfTrainingUnits: (world, unitTypes, alliance, enemyUnits) => {
     return unitTypes.reduce((totalDPSHealth, unitType) => {
       if (workerTypes.includes(unitType)) {

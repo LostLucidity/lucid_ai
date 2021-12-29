@@ -3,9 +3,9 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { WorkerRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
-const buildWorkers = require("../helper/build-workers");
 const shortOnWorkers = require("../helper/short-on-workers");
 const planService = require("../services/plan-service");
+const { buildWorkers } = require("../services/world-service");
 const worldService = require("../services/world-service");
 const { haveAvailableProductionUnitsFor } = require("./unit-training/unit-training-service");
 const unitTrainingService = require("./unit-training/unit-training-service");
@@ -29,7 +29,7 @@ module.exports = createSystem({
     ];
     if (conditions.every(condition => condition)) {
       unitTrainingService.workersTrainingTendedTo = false;
-      try { await buildWorkers(agent, data, resources); } catch (error) { console.log(error); }
+      try { await buildWorkers(world); } catch (error) { console.log(error); }
     } else {
       unitTrainingService.workersTrainingTendedTo = true;
     }
