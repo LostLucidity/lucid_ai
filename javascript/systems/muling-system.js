@@ -4,7 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { EFFECT_CALLDOWNMULE } = require("@node-sc2/core/constants/ability");
 const { createUnitCommand } = require("../services/actions-service");
-const { getMineralFieldTarget } = require("../services/units-service");
+const { getMineralFieldTarget } = require("./unit-resource/unit-resource-service");
 
 module.exports = createSystem({
   name: 'MulingSystem',

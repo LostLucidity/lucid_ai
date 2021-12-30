@@ -7,7 +7,6 @@ const { MOVE, ATTACK_ATTACK, ATTACK, SMART, LOAD_BUNKER } = require("@node-sc2/c
 const { getRandomPoint, getCombatRally } = require("../location");
 const { tankBehavior } = require("./unit-behavior");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const continuouslyBuild = require("../continuously-build");
 const { moveAwayPosition } = require("../../builds/helper");
 const { getClosestUnitByPath } = require("../get-closest-by-path");
 const { filterLabels } = require("../unit-selection");
