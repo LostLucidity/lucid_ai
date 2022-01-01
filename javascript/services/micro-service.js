@@ -49,7 +49,7 @@ const microService = {
       microService.isFacing(targetUnit, unit),
     ];
     if (
-      [...microConditions, unit.weaponCooldown > 12].every(condition => condition) ||
+      [...microConditions, unit.weaponCooldown > 8].every(condition => condition) ||
       [...microConditions, (unit.health + unit.shield) < (targetUnit.health + targetUnit.shield)].every(condition => condition)
     ) {
       console.log('unit.weaponCooldown', unit.weaponCooldown);
