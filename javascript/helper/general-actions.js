@@ -29,10 +29,10 @@ module.exports = {
         if ((units.inProgress(townhallType).length + units.withCurrentOrders(buildAbilityId).length) < 1) {
           const unitTypeData = data.getUnitTypeData(townhallType);
           await actions.sendAction(assignAndSendWorkerToBuild(world, townhallType, expansionLocation));
-          planService.pausePlan = false;
           setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallType));
           addEarmark(data, unitTypeData);
         }
+        planService.pausePlan = false;
       } else {
         collectedActions.push(...premoveBuilderToPosition(world, expansionLocation, townhallType));
         const { mineralCost, vespeneCost } = data.getUnitTypeData(townhallType);
