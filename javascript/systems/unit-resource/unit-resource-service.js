@@ -5,7 +5,7 @@ const { EFFECT_REPAIR, MOVE, STOP } = require("@node-sc2/core/constants/ability"
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { PROBE } = require("@node-sc2/core/constants/unit-type");
+const { PROBE, COLOSSUS } = require("@node-sc2/core/constants/unit-type");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -18,11 +18,37 @@ const unitResourceService = {
   /** @type {Point2D[]} */
   seigeTanksSiegedGrids: [],
   /**
+   * @param {UnitResource} units
+   * @param {UnitTypeId} unitType 
+   * @param {UnitTypeId[]} targetUnitTypes
+   * @returns {number}
+   */
+  calculateSplashDamage: (units, unitType, targetUnitTypes) => {
+    if (targetUnitTypes.length > 0) {
+      if (unitType === COLOSSUS) {
+        let groundUnitsCount = 0;
+        const totalGroundDiameter = targetUnitTypes.reduce((totalDiameter, unitType) => {
+          const unitDataType = unitResourceService.getUnitTypeData(units, unitType);
+          if (!unitDataType.isFlying) {
+            groundUnitsCount += 1;
+            return totalDiameter + (unitDataType.radius * 2);
+          }
+        }, 0);
+        const splashDiameter = 2.8;
+        const averageGroundDiameter = totalGroundDiameter / groundUnitsCount;
+        const potentialSplashCount = splashDiameter / averageGroundDiameter;
+        const splashCount = potentialSplashCount < groundUnitsCount ? potentialSplashCount : groundUnitsCount;
+        return splashCount > 1 ? splashCount : 1;
+      }
+    }
+    return 1;
+  },
+  /**
    * @param {UnitResource} units 
    * @param {Unit} unit 
    * @returns {number}
    */
-   calculateTotalHealthRatio: (units, unit) => {
+  calculateTotalHealthRatio: (units, unit) => {
     const { healthMax, shieldMax } = unitResourceService.getUnitTypeData(units, unit.unitType)
     const totalHealthShield = unit.health + unit.shield;
     const maxHealthShield = healthMax + shieldMax;
@@ -111,20 +137,19 @@ const unitResourceService = {
   /**
    * @param {UnitResource} units
    * @param {UnitTypeId} unitType
-   * @returns {{healthMax: number, shieldMax: number}} 
+   * @returns {{ healthMax: number; isFlying: boolean; radius: number; shieldMax: number; }} 
    */
   getUnitTypeData: (units, unitType) => {
     const unitTypeData = unitResourceService.unitTypeData[unitType];
     if (unitTypeData) {
-      let { healthMax, shieldMax } = unitTypeData;
-      return { healthMax, shieldMax };
-    } else {
-      const [unit] = units.getByType(unitType);
-      if (unit) {
-        let { healthMax, shieldMax } = unit;
-        unitResourceService.unitTypeData[unitType] = { healthMax, shieldMax };
-        return { healthMax, shieldMax };
+      if (['healthMax', 'isFlying', 'radius', 'shieldMax'].every(property => unitTypeData.hasOwnProperty(property))) {
+        let { healthMax, isFlying, radius, shieldMax } = unitTypeData;
+        return { healthMax, isFlying, radius, shieldMax };
+      } else {
+        return unitResourceService.saveAndGetUnitTypeData(units, unitType);
       }
+    } else {
+      return unitResourceService.saveAndGetUnitTypeData(units, unitType);
     }
   },
   /**
@@ -175,6 +200,20 @@ const unitResourceService = {
   getMineralFieldTarget: (units, unit) => {
     const [closestMineralField] = units.getClosest(unit.pos, units.getMineralFields());
     return closestMineralField;
+  },
+  /**
+   * 
+   * @param {UnitResource} units 
+   * @param {UnitTypeId} unitType 
+   * @returns 
+   */
+  saveAndGetUnitTypeData: (units, unitType) => {
+    const [unit] = units.getByType(unitType);
+    if (unit) {
+      let { healthMax, isFlying, radius, shieldMax } = unit;
+      unitResourceService.unitTypeData[unitType] = { healthMax, isFlying, radius, shieldMax };
+      return { healthMax, isFlying, radius, shieldMax };
+    }
   },
   isWorker(unit) {
     return workerTypes.includes(unit.unitType);
@@ -231,4 +270,4 @@ const unitResourceService = {
   }
 }
 
-module.exports = unitResourceService
+module.exports = unitResourceService;

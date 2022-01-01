@@ -1,11 +1,10 @@
 //@ts-check
 "use strict"
 
-const { UnitTypeId, UnitType } = require("@node-sc2/core/constants");
+const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const planService = require("./plan-service");
-const { getArmorUpgradeLevel, getAttackUpgradeLevel } = require("./units-service");
 
 const dataService = {
   /**
@@ -21,29 +20,13 @@ const dataService = {
     });
   },
   /**
-   * Calculate DPS health base on ally units and enemy armor upgrades.
-   * @param {DataStorage} data 
-   * @param {Unit[]} units
-   * @param {UnitTypeId[]} enemyUnitTypes 
-   * @returns {number}
-   */
-  calculateNearDPSHealth: (data, units, enemyUnitTypes) => {
-    return units.reduce((accumulator, unit) => {
-      if (unit.isWorker() && unit.isHarvesting()) {
-        return accumulator;
-      } else {
-        return accumulator + dataService.getDPSHealth(data, unit, enemyUnitTypes);
-      }
-    }, 0);
-  },
-  /**
    * 
    * @param {DataStorage} data 
    * @param {Unit[]} units 
    */
   calculateNearSupply: (data, units) => {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
-  },
+  }, 
   /**
    * @param {DataStorage} data
    * @param {SC2APIProtocol.Weapon} weapon 
@@ -61,22 +44,6 @@ const dataService = {
       return previousValue + damage;
     }, 0);
     return totalBonusDamage > 0 ? (totalBonusDamage / enemyUnitTypes.length) : 0;
-  },
-  /**
-   * @param {DataStorage} data 
-   * @param {Unit} unit
-   * @param {UnitTypeId[]} enemyUnitTypes 
-   */
-  getDPSHealth: (data, unit, enemyUnitTypes) => {
-    const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
-    let dPSHealth = 0;
-    if (weapon) {
-      const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * dataService.getUpgradeBonus(unit.alliance, weapon.damage));
-      const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnitTypes);
-      const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(unit.alliance) + weaponBonusDamage;
-      dPSHealth = weaponDamage / weapon.speed * (unit.health + unit.shield);
-    }
-    return dPSHealth;
   },
   /**
    * @param {DataStorage} data 
