@@ -14,7 +14,7 @@ module.exports = createSystem({
   name: 'WorkerTrainingSystem',
   type: 'agent',
   async onStep(world) {
-    const { agent, data, resources } = world;
+    const { agent, resources } = world;
     const { race } = agent;
     const { units } = resources.get();
     const workerCount = units.getById(WorkerRace[race]).length;
