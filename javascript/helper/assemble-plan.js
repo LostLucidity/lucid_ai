@@ -106,7 +106,7 @@ class AssemblePlan {
         return [
           haveAvailableProductionUnitsFor(world, type),
           this.agent.hasTechFor(type),
-          nextStep ? this.data.getUnitTypeData(type).foodRequired <= nextStep[0] - this.foodUsed : true,
+          outpowered || (nextStep ? this.data.getUnitTypeData(type).foodRequired <= nextStep[0] - this.foodUsed : true),
         ].every(condition => condition);
       });
       if (haveProductionAndTechForTypes.length > 0) {
