@@ -155,6 +155,7 @@ async function runGame() {
     race: Race.TERRAN,
   }
   const opponentRace = Race.TERRAN;
+  /** @type {EventReader<AgentObject>} */
   const blueprint = {
     settings,
     interface: {
