@@ -5,10 +5,10 @@ const { createSystem } = require("@node-sc2/core");
 const { ATTACK_ATTACK, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { moveAwayPosition, retreatToExpansion } = require("../builds/helper");
+const { moveAwayPosition } = require("../builds/helper");
 const threats = require("../helper/base-threats");
 const { getInRangeUnits, assessBattleField, decideEngagement } = require("../helper/battle-analysis");
-const { getCombatPoint, attackWithArmy, getInRangeDestructables } = require("../helper/behavior/army-behavior");
+const { attackWithArmy, getInRangeDestructables } = require("../helper/behavior/army-behavior");
 const { getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { getCombatRally } = require("../helper/location");
 const { scanCloakedEnemy } = require("../helper/terran");
@@ -19,6 +19,8 @@ const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { getFileName } = require("../helper/get-races");
 const { larvaOrEgg } = require("../helper/groups");
 const { readFromMatchup, writeToCurrent } = require("../filesystem");
+const { getCombatPoint } = require("../services/resources-service");
+const { retreatToExpansion } = require("../services/resource-manager-service");
 
 module.exports = createSystem({
   name: 'BattleManagerSystem',
@@ -39,7 +41,12 @@ module.exports = createSystem({
       readFromMatchup(this.state, data, selfUnit, enemyUnit);
     }
   },
-  async onStep({agent, data, resources}) {
+  /**
+   * 
+   * @param {World} world 
+   */
+  async onStep(world) {
+    const {agent, resources} = world;
     const { actions, frame, units } = resources.get();
     const collectedActions = [];
     this.threats = threats(resources, this.state);
@@ -64,7 +71,7 @@ module.exports = createSystem({
               if (combatPoint) {
                 const combatUnits = selfUnits;
                 const army = { combatPoint, combatUnits, supportUnits: [], enemyTarget: closestEnemyUnit}
-                collectedActions.push(...attackWithArmy(data, units, army));
+                collectedActions.push(...attackWithArmy(world, army, enemyUnits));
               }
             } else {
               selfUnits.forEach(selfUnit => {
@@ -89,7 +96,7 @@ module.exports = createSystem({
                     let targetWorldSpacePos;
                     const isFlying = selfUnit.isFlying;
                     if (isFlying) {
-                      targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
+                      targetWorldSpacePos = moveAwayPosition(closestEnemyUnit.pos, selfUnit.pos);
                     } else {
                       targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestEnemyUnit);
                     }
