@@ -239,9 +239,9 @@ async function processResults([{ agent, data, resources }, gameResults]) {
   const [selfUnitType] = Object.keys(parsedCompositions[0].selfComposition);
   const [enemyUnitType] = Object.keys(parsedCompositions[0].enemyComposition);
   fs.writeFileSync(path.join(__dirname, 'data', getFileName(data, selfUnitType, enemyUnitType)), JSON.stringify(parsedCompositions));
+  saveUnitTypeData(unitResourceService.unitTypeData);
+  saveExecutedStepsLog(agent, frame.getGameInfo().mapName);
   const replay = await actions._client.saveReplay();
   saveReplay(replay);
-  saveExecutedStepsLog(agent, frame.getGameInfo().mapName);
-  saveUnitTypeData(unitResourceService.unitTypeData);
   actions._client.close();
 }
