@@ -203,16 +203,44 @@ const placementHelper = {
   getCandidatePositions: async (resources, positions, unitType) => {
     return typeof positions === 'string' ? await placementHelper[positions](resources, unitType) : positions
   },
+  /**
+   * 
+   * @param {ResourceManager} resources 
+   * @param {UnitTypeId} unitType 
+   * @returns {Promise<false[] | Point2D[]>}
+   */
   getMiddleOfNaturalWall: async (resources, unitType) => {
     const { actions, map } = resources.get();
     const naturalWall = map.getNatural().getWall() || wallOffNaturalService.wall;
     let candidates = [];
     if (naturalWall) {
-      const wallPositions = naturalWall.filter(wallPosition => map.isPlaceableAt(unitType, wallPosition));
+      const wallPositions = placementHelper.getPlaceableAtPositions(naturalWall, map, unitType);
       const middleOfWall = getClosestPosition(avgPoints(wallPositions), wallPositions, 2);
       candidates = [await actions.canPlace(unitType, middleOfWall)];
     }
     return candidates;
+  },
+  /**
+   * @param {Point2D[]} candidates
+   * @param {MapResource} map
+   * @param {UnitTypeId} unitType
+   * @returns {Point2D[]}
+   */
+  getPlaceableAtPositions: (candidates, map, unitType) => {
+    const filteredCandidates = candidates.filter(wallPosition => map.isPlaceableAt(unitType, wallPosition));
+    if (filteredCandidates.length === 0) {
+      /** @type {Point2D[]} */
+      let expandedCandidates = [];
+      candidates.forEach(candidate => {
+        expandedCandidates.push(candidate, ...getNeighbors(candidate));
+        expandedCandidates = expandedCandidates.filter((candidate, index, self) => {
+          return self.findIndex(selfCandidate => selfCandidate.x === candidate.x && selfCandidate.y === candidate.y) === index;
+        });
+      });
+      return placementHelper.getPlaceableAtPositions(expandedCandidates, map, unitType);
+    } else {
+      return filteredCandidates;
+    }
   },
   inTheMain: async (resources, unitType) => {
     const { actions, map } = resources.get();
