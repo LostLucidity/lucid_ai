@@ -5,7 +5,7 @@ const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes } = require("@node-sc2/core/constants/groups");
-const { PYLON, CYCLONE, ZERGLING, LARVA } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -322,7 +322,8 @@ const worldService = {
     const { data, resources } = world;
     const { units } = resources.get();
     const trainingUnitTypes = [];
-    combatTypes.forEach(type => {
+    const combatTypesPlusQueens = [...combatTypes, QUEEN];
+    combatTypesPlusQueens.forEach(type => {
       let abilityId = data.getUnitTypeData(type).abilityId;
       trainingUnitTypes.push(...units.withCurrentOrders(abilityId).map(() => type));
     });
@@ -503,7 +504,8 @@ const worldService = {
    */
   setTotalEnemyDPSHealth: (world) => {
     const { resources } = world;
-    const selfCombatUnits = resources.get().units.getCombatUnits();
+    const { units } = resources.get();
+    const selfCombatUnits = [...units.getCombatUnits(), ...units.getById(QUEEN)];
     const { enemyCombatUnits } = enemyTrackingService;
     worldService.totalEnemyDPSHealth = enemyCombatUnits.reduce((totalDPSHealth, unit) => {
       return totalDPSHealth + worldService.calculateNearDPSHealth(world, [unit], [...selfCombatUnits.map(selfCombatUnit => selfCombatUnit.unitType), ...worldService.getTrainingUnitTypes(world)]);
@@ -514,7 +516,8 @@ const worldService = {
    */
   setTotalSelfDPSHealth: (world) => {
     const { resources } = world;
-    const selfCombatUnits = resources.get().units.getCombatUnits();
+    const { units } = resources.get();
+    const selfCombatUnits = [...units.getCombatUnits(), ...units.getById(QUEEN)];
     const { enemyCombatUnits } = enemyTrackingService;
     worldService.totalSelfDPSHealth = selfCombatUnits.reduce((totalDPSHealth, unit) => {
       return totalDPSHealth + worldService.calculateNearDPSHealth(world, [unit], enemyCombatUnits.map(enemyCombatUnit => enemyCombatUnit.unitType));
