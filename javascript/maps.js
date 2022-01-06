@@ -1,7 +1,9 @@
 maps = [
+  "CuriousMindsAIE",
   "DeathAuraLE",
   "EternalEmpireLE",
   "EverDreamLE",
+  "GlitteringAshesAIE",
   "GoldenWallLE",
   "IceandChromeLE",
   "JagannathaLE",
