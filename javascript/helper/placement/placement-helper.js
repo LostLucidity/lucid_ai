@@ -177,26 +177,16 @@ const placementHelper = {
     if (naturalWall) {
       const naturalTownhallPosition = map.getNatural().townhallPosition;
       possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
-        .filter(point => naturalWall.every(wallCell => (
-          (distance(naturalTownhallPosition, point) > 4.5) &&
-          (distance(wallCell, point) <= 6.5) &&
-          (distance(wallCell, point) >= 3) &&
-          distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
-        )));
-
-      if (possiblePlacements.length <= 0) {
-        possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
-          .map(point => {
-            point['coverage'] = naturalWall.filter(wallCell => (
-              (distance(wallCell, point) <= 6.5) &&
-              (distance(wallCell, point) >= 1) &&
-              distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
-            )).length;
-            return point;
-          })
-          .sort((a, b) => b['coverage'] - a['coverage'])
-          .filter((cell, i, arr) => cell['coverage'] === arr[0]['coverage']);
-      }
+        .map(point => {
+          point['coverage'] = naturalWall.filter(wallCell => (
+            (distance(wallCell, point) <= 6.5) &&
+            (distance(wallCell, point) >= 1) &&
+            distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
+          )).length;
+          return point;
+        })
+        .sort((a, b) => b['coverage'] - a['coverage'])
+        .filter((cell, i, arr) => cell['coverage'] === arr[0]['coverage'])
     }
     return possiblePlacements;
   },
