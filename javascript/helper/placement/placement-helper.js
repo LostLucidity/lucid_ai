@@ -93,7 +93,7 @@ const placementHelper = {
             .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
         }
         pylonsNearProduction.forEach(pylon => {
-          placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid)));
+          placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid) && distance(grid, pylon.pos) < 6.5));
         });
         const wallOffUnitTypes = [...countTypes.get(GATEWAY), CYBERNETICSCORE];
         /**
@@ -120,7 +120,7 @@ const placementHelper = {
             }
           }
         }
-        if (wallOffPositions.length > 0 && wallOffPositions.some(position => map.isPlaceableAt(unitType, position))) {
+        if (wallOffPositions.length > 0 && intersectionOfPoints(wallOffPositions, placements).some(position => map.isPlaceableAt(unitType, position))) {
           placements = intersectionOfPoints(wallOffPositions, placements);
         }
         placements = placements.filter((point) => {
@@ -177,16 +177,25 @@ const placementHelper = {
     if (naturalWall) {
       const naturalTownhallPosition = map.getNatural().townhallPosition;
       possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
-        .map(point => {
-          point['coverage'] = naturalWall.filter(wallCell => (
-            (distance(wallCell, point) <= 6.5) &&
-            (distance(wallCell, point) >= 1) &&
-            distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
-          )).length;
-          return point;
-        })
-        .sort((a, b) => b['coverage'] - a['coverage'])
-        .filter((cell, i, arr) => cell['coverage'] === arr[0]['coverage'])
+        .filter(point => naturalWall.every(wallCell => (
+          (distance(naturalTownhallPosition, point) > 4.5) &&
+          (distance(wallCell, point) <= 6.5) &&
+          (distance(wallCell, point) >= 3) &&
+          distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
+        )));
+      if (possiblePlacements.length === 0) {
+        possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
+          .map(point => {
+            point['coverage'] = naturalWall.filter(wallCell => (
+              (distance(wallCell, point) <= 6.5) &&
+              (distance(wallCell, point) >= 1) &&
+              distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
+            )).length;
+            return point;
+          })
+          .sort((a, b) => b['coverage'] - a['coverage'])
+          .filter((cell, i, arr) => cell['coverage'] === arr[0]['coverage'])
+      }
     }
     return possiblePlacements;
   },
