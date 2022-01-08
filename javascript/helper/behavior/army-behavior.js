@@ -22,6 +22,7 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { retreatToExpansion } = require("../../services/resource-manager-service");
 const { microRangedUnit, defendWithUnit, getDPSHealth } = require("../../services/world-service");
 const { micro } = require("../../services/micro-service");
+const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 
 const armyBehavior = {
   /**
@@ -100,14 +101,13 @@ const armyBehavior = {
   /**
    * 
    * @param {World} world 
-   * @param {*} assemblePlan 
    * @param {UnitTypeId[]} mainCombatTypes 
    * @param {UnitTypeId[]} supportUnitTypes 
    * @param {Unit[]} threats 
    * @returns 
    */
-  defend: async (world, assemblePlan, mainCombatTypes, supportUnitTypes, threats) => {
-    const { agent, data, resources } = world;
+  defend: async (world, mainCombatTypes, supportUnitTypes, threats) => {
+    const { agent, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY);
@@ -322,26 +322,31 @@ const armyBehavior = {
     collectedActions.push(...tankBehavior(units));
     return collectedActions;
   },
-  push: async (world, mainCombatTypes, supportUnitTypes) => {
-    const { data, resources } = world;
+  /**
+   * @param {World} world 
+   * @param {UnitTypeId} mainCombatTypes 
+   * @param {UnitTypeId} supportUnitTypes 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  push: (world, mainCombatTypes, supportUnitTypes) => {
+    const { resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
     let [closestEnemyBase] = getClosestUnitByPath(resources, getCombatRally(resources), units.getBases(Alliance.ENEMY), 1);
-    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
+    const { mappedEnemyUnits } = enemyTrackingService;
     const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
     const avgCombatUnitsPoint = avgPoints(combatUnits.map(unit => unit.pos));
-    let [closestEnemyUnit] = getClosestUnitByPath(resources, avgCombatUnitsPoint, enemyUnits, 1);
+    let [closestEnemyUnit] = getClosestUnitByPath(resources, avgCombatUnitsPoint, mappedEnemyUnits, 1);
     const closestEnemyTarget = closestEnemyBase || closestEnemyUnit;
     if (closestEnemyTarget) {
       const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
       collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
       const [combatPoint] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
       if (combatPoint) {
-        const enemySupply = enemyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
         let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
-        const selfSupply = allyUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-        console.log('Push', selfSupply, enemySupply);
-        collectedActions.push(...armyBehavior.engageOrRetreat(world, allyUnits, enemyUnits, closestEnemyTarget.pos, false));
+        let selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, mappedEnemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
+        console.log('Push', selfDPSHealth, closestEnemyTarget['selfDPSHealth']);
+        collectedActions.push(...armyBehavior.engageOrRetreat(world, allyUnits, mappedEnemyUnits, closestEnemyTarget.pos, false));
       }
       collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
     } else {

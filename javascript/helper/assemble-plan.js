@@ -126,7 +126,7 @@ class AssemblePlan {
     if (this.foodUsed < ATTACKFOOD) {
       if (!this.state.pushMode) {
         if (this.state.defenseMode) {
-          this.collectedActions.push(...await defend(world, this, this.mainCombatTypes, this.supportUnitTypes, this.threats));
+          this.collectedActions.push(...await defend(world, this.mainCombatTypes, this.supportUnitTypes, this.threats));
         } else {
           this.collectedActions.push(...rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation));
         }
