@@ -1,7 +1,9 @@
 //@ts-check
 "use strict"
 
+const { HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { createUnitCommand } = require("./actions-service");
 
 const unitsService = {
   /**
@@ -46,10 +48,21 @@ const unitsService = {
     return attackUpgradeLevel;
   },
   /**
+   * @param {Unit} worker 
+   * @param {Unit} target 
+   * @param {boolean} queue 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand}
+   */
+  mine: (worker, target, queue = true) => {
+    const unitCommand =  createUnitCommand(HARVEST_GATHER, [worker], queue);
+    unitCommand.targetUnitTag = target.tag;
+    return unitCommand;
+  },
+  /**
    * @param {Unit[]} units 
    * @returns {void}
    */
-   setAttackUpgradeLevel: (units) => {
+  setAttackUpgradeLevel: (units) => {
     units.some(unit => {
       if (unit.alliance === Alliance.SELF) {
         if (unit.armorUpgradeLevel > unitsService.selfArmorUpgradeLevel) {
@@ -63,7 +76,7 @@ const unitsService = {
         }
       }
     });
-  },  
+  },
   /**
    * @param {Unit[]} units 
    * @returns {void}

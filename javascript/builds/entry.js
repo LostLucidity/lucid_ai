@@ -26,7 +26,7 @@ const entry = createSystem({
       pushMode: false,
     },
   },
-  async onEnemyFirstSeen({}, seenEnemyUnit) {
+  async onEnemyFirstSeen({ }, seenEnemyUnit) {
     assemblePlan.onEnemyFirstSeen(seenEnemyUnit);
   },
   async onGameStart(world) {
@@ -58,21 +58,27 @@ const entry = createSystem({
     const { actions } = resources.get();
     const totalHealthShield = damagedUnit.health + damagedUnit.shield;
     const maxHealthShield = damagedUnit.healthMax + damagedUnit.shieldMax;
-    if ((totalHealthShield / maxHealthShield) < 1/3) {
+    if ((totalHealthShield / maxHealthShield) < 1 / 3) {
       if (damagedUnit.isStructure() && damagedUnit.buildProgress < 1) {
         const unitCommand = {
           abilityId: CANCEL_BUILDINPROGRESS,
-          unitTags: [ damagedUnit.tag ],
+          unitTags: [damagedUnit.tag],
         };
         await actions.sendAction(unitCommand);
       }
     }
     await assemblePlan.onUnitDamaged(resources, damagedUnit)
   },
+  /**
+   * 
+   * @param {World} param0 
+   * @param {Unit} idleUnit 
+   * @returns {Promise<SC2APIProtocol.ResponseAction|void>}
+   */
   async onUnitIdle({ resources }, idleUnit) {
     if (idleUnit.isWorker() && idleUnit.noQueue) {
-      const { units } = resources.get();
-      if (units.getBases(Alliance.SELF).length > 0) { await gatherOrMine(resources, idleUnit); }
+      const { actions, units } = resources.get();
+      if (units.getBases(Alliance.SELF).length > 0) { return actions.sendAction(gatherOrMine(resources, idleUnit)); }
     }
   },
   /**
@@ -82,7 +88,7 @@ const entry = createSystem({
   getBuild(race) {
     const racePlans = plans[race];
     var keys = Object.keys(racePlans);
-    const selectedPlan = racePlans[keys[ keys.length * Math.random() << 0]];
+    const selectedPlan = racePlans[keys[keys.length * Math.random() << 0]];
     if (selectedPlan.buildType === 'two variable') {
       return convertPlan(selectedPlan, race);
     } else {

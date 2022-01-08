@@ -43,12 +43,18 @@ module.exports = createSystem({
       }
     }
   },
+  /**
+   * 
+   * @param {World} param0 
+   * @param {Unit} idleUnit 
+   * @returns {Promise<SC2APIProtocol.ResponseAction|void>}
+   */
   async onUnitIdle({ resources }, idleUnit) {
     if (idleUnit.isWorker() && idleUnit.noQueue) {
-      const { units } = resources.get();
+      const { actions, units } = resources.get();
       if (units.getBases(Alliance.SELF).length > 0) {
         console.log('gatherOrMine');
-        await gatherOrMine(resources, idleUnit);
+        return actions.sendAction(gatherOrMine(resources, idleUnit));
       }
     }
   },

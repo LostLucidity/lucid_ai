@@ -8,6 +8,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { isFacing } = require("../../services/micro-service");
 const { retreatToExpansion } = require("../../services/resource-manager-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
+const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
 const { calculateTotalHealthRatio } = require("../../systems/unit-resource/unit-resource-service");
 const { getClosestUnitByPath } = require("../get-closest-by-path");
@@ -16,7 +17,6 @@ const { engageOrRetreat } = require("./army-behavior");
 
 module.exports = {
   /**
-   * 
    * @param {World} world 
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
@@ -66,16 +66,18 @@ module.exports = {
       if (
         !closestEnemyUnit ||
         distance(unit.pos, closestEnemyUnit.pos) > 16 ||
-        distance(unit.pos, map.getCombatRally()) < 1
+        distance(unit.pos, map.getCombatRally()) < 2
       ) {
         unit.labels.clear();
         console.log('clear!');
+        collectedActions.push(gatherOrMine(resources, unit));
+      } else {
+        collectedActions.push({
+          abilityId: MOVE,
+          targetWorldSpacePos: map.getCombatRally(),
+          unitTags: [unit.tag],
+        });
       }
-      collectedActions.push({
-        abilityId: MOVE,
-        targetWorldSpacePos: map.getCombatRally(),
-        unitTags: [unit.tag],
-      });
     }
     return collectedActions;
   },

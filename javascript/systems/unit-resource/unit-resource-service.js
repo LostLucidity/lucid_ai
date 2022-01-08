@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { EFFECT_REPAIR, MOVE, STOP } = require("@node-sc2/core/constants/ability");
+const { EFFECT_REPAIR, MOVE, STOP, SMART } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
@@ -10,6 +10,7 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { countTypes } = require("../../helper/groups");
+const { createUnitCommand } = require("../../services/actions-service");
 const { isPendingContructing } = require("../../services/shared-service");
 
 const unitResourceService = {
@@ -90,6 +91,44 @@ const unitResourceService = {
   },
   isRepairing(unit) {
     return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
+  },
+  /**
+     * @param {UnitResource} units
+     * @param {Unit} unit 
+     * @param {Unit} mineralField 
+     * @param {boolean} queue 
+     * @returns {SC2APIProtocol.ActionRawUnitCommand}
+     */
+  gather: (units, unit, mineralField, queue = true) => {
+    if (unit.labels.has('command') && queue === false) {
+      console.warn('WARNING! unit with command erroniously told to force gather! Forcing queue');
+      queue = true;
+    }
+    const ownBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1);
+    let target;
+    if (mineralField && mineralField.tag) {
+      target = mineralField;
+    } else {
+      let targetBase;
+      const needyBase = ownBases.sort((a, b) => {
+        // sort by the closest base to the idle worker
+        return distance(unit.pos, a.pos) - distance(unit.pos, b.pos);
+      })
+        // try to find a base that's needy, closest first
+        .find(base => base.assignedHarvesters < base.idealHarvesters);
+      if (!needyBase) {
+        [targetBase] = ownBases;
+      } else {
+        targetBase = needyBase;
+      }
+      const currentMineralFields = units.getMineralFields();
+      const targetBaseFields = units.getClosest(targetBase.pos, currentMineralFields, 3);
+      [target] = units.getClosest(unit.pos, targetBaseFields);
+    }
+    const sendToGather = createUnitCommand(SMART, [unit]);
+    sendToGather.targetUnitTag = target.tag;
+    sendToGather.queueCommand = queue;
+    return sendToGather;
   },
   /**
    * @param {Unit[]} buildings 

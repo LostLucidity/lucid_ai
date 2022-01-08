@@ -134,7 +134,7 @@ const armyManagementService = {
         collectedActions.push(...micro(units, worker, targetUnit, enemyUnits));
       }
     } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === targetUnit.tag) {
-      await gatherOrMine(resources, worker);
+      collectedActions.push(gatherOrMine(resources, worker));
     }
     return collectedActions;
   }
