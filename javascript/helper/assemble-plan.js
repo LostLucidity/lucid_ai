@@ -263,7 +263,10 @@ class AssemblePlan {
               if (addOnPosition && distance(addOnUnit.pos, addOnPosition) < 1) { addOnUnit.labels.delete('addAddOn'); }
               else { return true; }
             });
-            const unitsCanDo = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId))).length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId)));
+            const availableAddOnUnits = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && (!unit['pendingOrders'] || unit['pendingOrders'].length === 0)));
+            const unitsCanDo = availableAddOnUnits.length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => {
+              return abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && (!unit['pendingOrders'] || unit['pendingOrders'].length === 0));
+            });
             if (unitsCanDo.length > 0) {
               let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
               await addAddOn(this.world, unitCanDo, unitType)

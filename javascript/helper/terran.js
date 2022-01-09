@@ -152,6 +152,10 @@ const terran = {
     }
     return collectedActions;
   },
+  /**
+   * @param {World} world 
+   * @param {[]} conditions 
+   */
   swapBuildings: async (world, conditions = []) => {
     // get first building, if addon get building offset
     const { actions, units } = world.resources.get();
@@ -172,7 +176,7 @@ const terran = {
             return building;
           }
         } else {
-          const [building] = units.getById(countTypes.get(unitType)).filter(unit => unit.noQueue && (unit.addOnTag === '0' || unit.addOnTag === 0) && unit.buildProgress >= 1);
+          const [building] = units.getById(countTypes.get(unitType)).filter(unit => unit.noQueue && (unit.addOnTag === '0' || parseInt(unit.addOnTag) === 0) && unit.buildProgress >= 1);
           if (building) {
             building.labels.set(label, index);
             return building;
