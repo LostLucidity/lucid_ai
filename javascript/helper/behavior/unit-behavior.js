@@ -200,6 +200,7 @@ module.exports = {
             const inRangeWorkers = getInRangeUnits(worker, workers);
             const inRangeWorkerSupply = calculateHealthAdjustedSupply(world, inRangeWorkers);
             if (inRangeEnemySupply > inRangeWorkerSupply) {
+              worker.labels.set('retreating');
               const position = retreatToExpansion(resources, worker, closestEnemyUnit);
               const unitCommand = {
                 abilityId: MOVE,

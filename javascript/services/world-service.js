@@ -122,7 +122,7 @@ const worldService = {
    */
   calculateNearDPSHealth: (world, units, enemyUnitTypes) => {
     return units.reduce((accumulator, unit) => {
-      if (unit.isWorker() && unit.isHarvesting()) {
+      if (unit.isWorker() && unit.isHarvesting() && !unit.labels.has('retreating')) {
         return accumulator;
       } else {
         return accumulator + worldService.getDPSHealth(world, unit, enemyUnitTypes);
@@ -492,7 +492,7 @@ const worldService = {
    * @returns {void}
    */
   setSelfDPSHealthPower: (world, units, enemyUnits) => {
-    const { data, resources } = world;
+    const { resources } = world;
     units.forEach(unit => {
       unit['selfUnits'] = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
       const [closestEnemyUnit] = resources.get().units.getClosest(unit.pos, enemyUnits).filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
