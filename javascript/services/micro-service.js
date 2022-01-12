@@ -5,8 +5,8 @@ const { ATTACK_ATTACK, HARVEST_GATHER, MOVE } = require("@node-sc2/core/constant
 const { mineralFieldTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { moveAwayPosition } = require("../builds/helper");
 const { createUnitCommand } = require("./actions-service");
+const { moveAwayPosition } = require("./position-service");
 
 const microService = {
   /**

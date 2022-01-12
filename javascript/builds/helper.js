@@ -4,38 +4,30 @@
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
-const { toDegrees, gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
+const { moveAwayPosition } = require("../services/position-service");
+const { retreatToExpansion } = require("../services/resource-manager-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 
 const helper = {
+  /**
+   * @param {Unit} unit 
+   * @param {Unit} targetUnit 
+   * @param {number} distance 
+   * @returns 
+   */
   moveAway(unit, targetUnit, distance = 2) {
-    const awayPoint = module.exports.moveAwayPosition(targetUnit, unit, distance);
+    const awayPoint = moveAwayPosition(targetUnit.pos, unit.pos, distance);
     const unitCommand = {
       abilityId: MOVE,
       targetWorldSpacePos: awayPoint,
       unitTags: [unit.tag]
     }
     return unitCommand;
-  },
-  /**
-   * return position directly away from targetPosition based on position
-   * @param {Point2D} targetPosition 
-   * @param {Point2D} position 
-   * @param {number} distance 
-   * @returns {Point2D}
-   */
-  moveAwayPosition(targetPosition, position, distance = 2) {
-    const angle = toDegrees(Math.atan2(targetPosition.y - position.y, targetPosition.x - position.x));
-    const oppositeAngle = angle + 180 % 360;
-    const awayPoint = {
-      x: Math.cos(oppositeAngle * Math.PI / 180) * distance + position.x,
-      y: Math.sin(oppositeAngle * Math.PI / 180) * distance + position.y
-    }
-    return awayPoint;
   },
   /**
    * 
@@ -141,11 +133,11 @@ function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) 
         position = closestHighPoint;
       }
     }
-    position = position ? position : helper.moveAwayPosition(targetUnit.pos, unit.pos);
+    position = position ? position : moveAwayPosition(targetUnit.pos, unit.pos);
   } else {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     targetUnit['inRangeUnits'] = enemyUnits.filter(enemyUnit => distance(targetUnit.pos, enemyUnit.pos) < 8);
-    position = helper.retreatToExpansion(resources, unit, targetUnit);
+    position = retreatToExpansion(resources, unit, targetUnit);
   }
   return {
     abilityId: MOVE,

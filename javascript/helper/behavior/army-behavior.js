@@ -7,7 +7,6 @@ const { MOVE, ATTACK_ATTACK, ATTACK, SMART, LOAD_BUNKER } = require("@node-sc2/c
 const { getRandomPoint, getCombatRally } = require("../location");
 const { tankBehavior } = require("./unit-behavior");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const { moveAwayPosition } = require("../../builds/helper");
 const { getClosestUnitByPath } = require("../get-closest-by-path");
 const { filterLabels } = require("../unit-selection");
 const { scanCloakedEnemy } = require("../terran");
@@ -23,6 +22,7 @@ const { retreatToExpansion } = require("../../services/resource-manager-service"
 const { microRangedUnit, defendWithUnit, getDPSHealth } = require("../../services/world-service");
 const { micro } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
+const { moveAwayPosition } = require("../../services/position-service");
 
 const armyBehavior = {
   /**

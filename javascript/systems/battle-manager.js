@@ -5,7 +5,6 @@ const { createSystem } = require("@node-sc2/core");
 const { ATTACK_ATTACK, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { moveAwayPosition } = require("../builds/helper");
 const threats = require("../helper/base-threats");
 const { getInRangeUnits, assessBattleField, decideEngagement } = require("../helper/battle-analysis");
 const { attackWithArmy, getInRangeDestructables } = require("../helper/behavior/army-behavior");
@@ -21,6 +20,7 @@ const { larvaOrEgg } = require("../helper/groups");
 const { readFromMatchup, writeToCurrent } = require("../filesystem");
 const { getCombatPoint } = require("../services/resources-service");
 const { retreatToExpansion } = require("../services/resource-manager-service");
+const { moveAwayPosition } = require("../services/position-service");
 
 module.exports = createSystem({
   name: 'BattleManagerSystem',

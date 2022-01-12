@@ -1,9 +1,9 @@
 //@ts-check
 "use strict"
 
-const { moveAwayPosition } = require("../builds/helper");
 const { distanceByPath, getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { getCombatRally } = require("../helper/location");
+const { moveAwayPosition } = require("./position-service");
 
 const resourceManagerService = {
   /**
