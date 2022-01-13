@@ -5,7 +5,7 @@ const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes } = require("@node-sc2/core/constants/groups");
-const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN, OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -23,12 +23,11 @@ const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
 const { getUnitsById, getUnitTypeData, isRepairing, calculateSplashDamage } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel } = require("./units-service");
-const { GasMineRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
+const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const { distanceByPath } = require("../helper/get-closest-by-path");
-const canAfford = require("../helper/can-afford");
 
 const worldService = {
   /** @type {boolean} */
@@ -81,17 +80,17 @@ const worldService = {
   buildWorkers: async (world) => {
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
-    const workerType = WorkerRace[agent.race];
-    if (canAfford(agent, data, workerType)) {
+    const workerTypeId = WorkerRace[agent.race];
+    if (worldService.canBuild(world, workerTypeId)) {
       if (agent.race === Race.ZERG) {
         if (units.getById(LARVA).length > 0) {
-          try { await actions.train(workerType); } catch (error) { console.log(error) }
+          try { await actions.train(workerTypeId); } catch (error) { console.log(error) }
         }
       } else {
         const idleTownhalls = units.getById(townhallTypes, { alliance: Alliance.SELF, buildProgress: 1, noQueue: true })
-          .filter(townhall => townhall.abilityAvailable(data.getUnitTypeData(workerType).abilityId));
+          .filter(townhall => townhall.abilityAvailable(data.getUnitTypeData(workerTypeId).abilityId));
         if (idleTownhalls.length > 0) {
-          try { await actions.train(workerType); } catch (error) { console.log(error) }
+          try { await actions.train(workerTypeId); } catch (error) { console.log(error) }
         }
       }
     }
@@ -128,6 +127,20 @@ const worldService = {
         return accumulator + worldService.getDPSHealth(world, unit, enemyUnitTypes);
       }
     }, 0);
+  },
+  /**
+   * @param {World} world 
+   * @param {UnitTypeId} unitTypeId 
+   * @returns {boolean}
+   */
+  canBuild: (world, unitTypeId) => {
+    const { agent } = world;
+    const { foodCap, foodUsed, } = agent;
+    let supplyLeft = 1
+    if (unitTypeId !== OVERLORD) {
+      supplyLeft = foodCap - foodUsed;
+    }
+    return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && !worldService.isSupplyNeeded(world)
   },
   /**
   * Returns boolean on whether build step should be executed.
@@ -353,6 +366,31 @@ const worldService = {
       unitTypesWithAbilities.push(...data.findUnitTypesWithAbility(abilityId));
     });
     return unitTypesWithAbilities;
+  },
+  /**
+   * @param {World} world 
+   * @param {number} buffer 
+   * @returns {boolean} 
+   */
+  isSupplyNeeded: (world, buffer = 0) => {
+    const { agent, data, resources } = world;
+    const { foodCap, foodUsed } = agent;
+    const { units } = resources.get()
+    const supplyUnitId = SupplyUnitRace[agent.race];
+    const buildAbilityId = data.getUnitTypeData(supplyUnitId).abilityId;
+    const pendingSupply = (
+      (units.inProgress(supplyUnitId).length * 8) +
+      (units.withCurrentOrders(buildAbilityId).length * 8)
+    );
+    const pendingSupplyCap = foodCap + pendingSupply;
+    const supplyLeft = foodCap - foodUsed;
+    const pendingSupplyLeft = supplyLeft + pendingSupply;
+    const conditions = [
+      pendingSupplyLeft < pendingSupplyCap * buffer,
+      !(foodCap == 200),
+      agent.canAfford(supplyUnitId), // can afford to build a pylon
+    ];
+    return conditions.every(c => c);
   },
   /**
    * @param {World} world 

@@ -7,7 +7,6 @@ const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { PHOTONCANNON, WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const canBuild = require("../../helper/can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
 const { countTypes } = require("../../helper/groups");
 const { inTheMain } = require("../../helper/placement/placement-helper");
@@ -19,7 +18,7 @@ const planService = require("../../services/plan-service");
 const { balanceResources } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
-const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition } = require("../../services/world-service");
+const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, canBuild } = require("../../services/world-service");
 const { addEarmark, isTrainingUnit } = require("../../services/data-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
@@ -155,14 +154,14 @@ const planActions = {
    * @param {number} targetCount 
    * @returns {Promise<void>}
    */
-  train: async (world, unitType, targetCount = null) => {
+  train: async (world, unitTypeId, targetCount = null) => {
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
-    let unitTypeData = data.getUnitTypeData(unitType);
+    let unitTypeData = data.getUnitTypeData(unitTypeId);
     let { abilityId } = unitTypeData;
-    if (checkUnitCount(world, unitType, targetCount) || targetCount === null) {
-      if (canBuild(agent, data, unitType)) {
-        const trainer = units.getProductionUnits(unitType).find(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId));
+    if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
+      if (canBuild(world, unitTypeId)) {
+        const trainer = units.getProductionUnits(unitTypeId).find(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId));
         if (trainer) {
           const unitCommand = {
             abilityId,
@@ -170,10 +169,10 @@ const planActions = {
           }
           await actions.sendAction([unitCommand]);
         } else {
-          abilityId = WarpUnitAbility[unitType]
+          abilityId = WarpUnitAbility[unitTypeId]
           const warpGates = units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
           if (warpGates.length > 0) {
-            await warpIn(resources, this, unitType);
+            await warpIn(resources, this, unitTypeId);
           } else {
             if (targetCount !== null) {
               planService.pausePlan = true;
@@ -181,14 +180,14 @@ const planActions = {
             return;
           }
         }
-        unpauseAndLog(world, UnitTypeId[unitType]);
-        addEarmark(data, data.getUnitTypeData(unitType));
-        console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
+        unpauseAndLog(world, UnitTypeId[unitTypeId]);
+        addEarmark(data, data.getUnitTypeData(unitTypeId));
+        console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
-        if (!agent.canAfford(unitType)) {
-          console.log(`${agent.foodUsed}: Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
-          const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+        if (!agent.canAfford(unitTypeId)) {
+          console.log(`${agent.foodUsed}: Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`, planService.isPlanPaused);
+          const { mineralCost, vespeneCost } = data.getUnitTypeData(unitTypeId);
           await balanceResources(world, mineralCost / vespeneCost);
         }
         if (targetCount !== null) {

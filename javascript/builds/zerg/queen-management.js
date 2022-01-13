@@ -5,7 +5,6 @@ const { EFFECT_INJECTLARVA, BUILD_CREEPTUMOR_QUEEN, BUILD_CREEPTUMOR_TUMOR } = r
 const { QUEEN, CREEPTUMORBURROWED, CREEPTUMOR, HATCHERY, LAIR } = require("@node-sc2/core/constants/unit-type");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance, add } = require("@node-sc2/core/utils/geometry/point");
-const canAfford = require("../../helper/can-afford");
 const { getClosestPositionByPath, getClosestUnitByPath } = require("../../helper/get-closest-by-path");
 const { intersectionOfPoints } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
@@ -13,6 +12,7 @@ const { findPosition } = require("../../helper/placement/placement-helper");
 const { creepGenerators } = require("@node-sc2/core/constants/groups");
 const { getClosestPosition } = require("../../helper/get-closest");
 const getClosest = require("../../helper/get-closest");
+const { canBuild } = require("../../services/world-service");
 
 module.exports = {
   labelQueens: (units) => {
@@ -42,13 +42,17 @@ module.exports = {
     }
     return collectedActions;
   },
-  maintainQueens: async (resources, data, agent) => {
+  /**
+   * @param {World} world 
+   */
+  maintainQueens: async (world) => {
+    const { data, resources } = world;
     const { actions, units, } = resources.get();
     const queenBuildAbilityId = data.getUnitTypeData(QUEEN).abilityId;
     const queenCount = units.getById(QUEEN).length + units.withCurrentOrders(queenBuildAbilityId).length;
     const baseCount = units.getBases().length;
     if (queenCount <= baseCount) {
-      if (canAfford(agent, data, QUEEN)) {
+      if (canBuild(world, QUEEN)) {
         const trainer = units.getProductionUnits(QUEEN).find(unit => unit.noQueue && unit.buildProgress >= 1);
         if (trainer) {
           try { await actions.train(QUEEN); } catch (error) { console.log(error) }

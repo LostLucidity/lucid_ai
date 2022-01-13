@@ -2,13 +2,20 @@
 "use strict"
 
 const { LARVA, ZERGLING, WARPGATE } = require("@node-sc2/core/constants/unit-type");
-const canAfford = require("./can-afford");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { WarpUnitAbility } = require("@node-sc2/core/constants");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { warpIn } = require("./protoss");
+const { canBuild } = require("../services/world-service");
 
-async function continuouslyBuild({ agent, data, resources }, assemblePlan, unitTypes, addOn=false) {
+/**
+ * @param {World} world 
+ * @param {*} assemblePlan 
+ * @param {UnitTypeId[]} unitTypes 
+ * @param {boolean} addOn 
+ */
+async function continuouslyBuild(world, assemblePlan, unitTypes, addOn=false) {
+  const { agent, data, resources } = world;
   const { foodUsed, minerals } = agent;
   const { actions, units } = resources.get();
   const collectedActions = [];
@@ -16,7 +23,7 @@ async function continuouslyBuild({ agent, data, resources }, assemblePlan, unitT
     agent.race !== Race.ZERG || units.getById(LARVA).length > 0 &&
     foodUsed < 198
   ) {
-    const affordableTypes = unitTypes.filter(type => !(type == ZERGLING && minerals < 50) && canAfford(agent, data, type));
+    const affordableTypes = unitTypes.filter(typeId => !(typeId == ZERGLING && minerals < 50) && canBuild(world, typeId));
     if (affordableTypes.length > 0) {
       const unitType = affordableTypes[Math.floor(Math.random() * affordableTypes.length)];
       let abilityId = data.getUnitTypeData(unitType).abilityId;

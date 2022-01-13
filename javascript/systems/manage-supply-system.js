@@ -4,17 +4,17 @@
 const { createSystem } = require("@node-sc2/core");
 const { Race } = require("@node-sc2/core/constants/enums");
 const { SUPPLYDEPOT, PYLON, OVERLORD } = require("@node-sc2/core/constants/unit-type");
-const isSupplyNeeded = require("../helper/supply");
 const planService = require("../services/plan-service");
+const { isSupplyNeeded } = require("../services/world-service");
 const { build, train } = require("./execute-plan/plan-actions");
 
 module.exports = createSystem({
   name: 'ManageSupplySystem',
   type: 'agent',
   async onStep(world) {
-    const { agent, data, resources } = world;
+    const { agent } = world;
     const conditions = [
-      isSupplyNeeded(agent, data, resources) &&
+      isSupplyNeeded(world) &&
       (agent.foodUsed > planService.planMax.supplyDepot || agent.minerals > 512)
     ];
     if (conditions.some(condition => condition)) {

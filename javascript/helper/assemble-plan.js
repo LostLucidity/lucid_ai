@@ -5,8 +5,6 @@ const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { MOVE } = require("@node-sc2/core/constants/ability");
-const canBuild = require("./can-afford");
-const isSupplyNeeded = require("./supply");
 const rallyUnits = require("./rally-units");
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility, UnitType, Upgrade, UnitTypeId, Ability } = require("@node-sc2/core/constants");
@@ -41,7 +39,7 @@ const { getNextPlanStep, getFoodUsed } = require("../services/plan-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
-const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, findAndPlaceBuilding, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog, premoveBuilderToPosition } = require("../services/world-service");
+const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, findAndPlaceBuilding, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog, premoveBuilderToPosition, isSupplyNeeded, canBuild } = require("../services/world-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
@@ -227,7 +225,6 @@ class AssemblePlan {
                   planService.pausePlan = true;
                   planService.continueBuild = false;
                 }
-
               }
             }
             catch (error) {
@@ -426,11 +423,14 @@ class AssemblePlan {
     return await inTheMain(this.resources, unitType);
   }
 
-  async manageSupply(foodRanges) {
+  /**
+   * @param {null|number[]} foodRanges 
+   * @returns {Promise<void>}
+   */
+  async manageSupply(foodRanges=null) {
     if (!foodRanges || foodRanges.indexOf(this.foodUsed) > -1) {
-      if (isSupplyNeeded(this.agent, this.data, this.resources)) {
+      if (isSupplyNeeded(this.world, 0.2)) {
         switch (race) {
-          // TODO: remove third parameter and handle undefined in train function.
           case Race.TERRAN:
             await this.build(this.foodUsed, SUPPLYDEPOT, this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length);
             break;
@@ -572,7 +572,7 @@ class AssemblePlan {
     if (getFoodUsed(this.foodUsed) >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
       if (checkUnitCount(this.world, unitType, targetCount) || targetCount === null) {
-        if (canBuild(this.agent, this.world.data, unitType)) {
+        if (canBuild(this.world, unitType)) {
           const trainer = this.units.getProductionUnits(unitType).find(unit => {
             const pendingOrders = unit['pendingOrders'] ? unit['pendingOrders'] : [];
             const noQueue = unit.noQueue && pendingOrders.length === 0;
@@ -609,7 +609,9 @@ class AssemblePlan {
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
           addEarmark(this.data, unitTypeData);
         } else {
-          if (!this.agent.canAfford(unitType)) {
+          if (isSupplyNeeded) {
+            await this.manageSupply();
+          } else if (!this.agent.canAfford(unitType)) {
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
             const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
             await balanceResources(this.world, mineralCost / vespeneCost);
@@ -640,6 +642,7 @@ class AssemblePlan {
           addEarmark(this.data, upgradeData);
           console.log(`Upgrading ${upgradeName}`);
         } else {
+          console.log(`Cannot afford ${upgradeName}`);
           const { mineralCost, vespeneCost } = this.data.getUpgradeData(upgradeId);
           await balanceResources(this.world, mineralCost / vespeneCost);
           planService.pausePlan = true;
@@ -679,7 +682,7 @@ class AssemblePlan {
             if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
           case 'harass': if (this.state.enemyBuildType === 'standard') { await harass(this.world, this.state); } break;
           case 'liftToThird': if (getFoodUsed(this.foodUsed) >= foodTarget) { await liftToThird(this.resources); break; }
-          case 'maintainQueens': if (getFoodUsed(this.foodUsed) >= foodTarget) { await maintainQueens(this.resources, this.data, this.agent); } break;
+          case 'maintainQueens': if (getFoodUsed(this.foodUsed) >= foodTarget) { await maintainQueens(this.world); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
           case 'push': this.push(foodTarget); break;
           case 'scout':

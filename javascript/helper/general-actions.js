@@ -6,9 +6,8 @@ const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { addEarmark } = require("../services/data-service");
 const { getStringNameOfConstant } = require("../services/logging-service");
 const planService = require("../services/plan-service");
-const { assignAndSendWorkerToBuild, setAndLogExecutedSteps, premoveBuilderToPosition } = require("../services/world-service");
+const { assignAndSendWorkerToBuild, setAndLogExecutedSteps, premoveBuilderToPosition, canBuild } = require("../services/world-service");
 const { balanceResources } = require("../systems/manage-resources");
-const canAfford = require("./can-afford");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 
 module.exports = {
@@ -23,19 +22,19 @@ module.exports = {
     const availableExpansions = getAvailableExpansions(resources);
     const expansionLocation = availableExpansions.length > 0 ? await getNextSafeExpansion(world, availableExpansions) : null;
     if (expansionLocation) {
-      const townhallType = TownhallRace[agent.race][0];
-      if (canAfford(agent, data, townhallType)) {
-        const buildAbilityId = data.getUnitTypeData(townhallType).abilityId;
-        if ((units.inProgress(townhallType).length + units.withCurrentOrders(buildAbilityId).length) < 1) {
-          const unitTypeData = data.getUnitTypeData(townhallType);
-          await actions.sendAction(assignAndSendWorkerToBuild(world, townhallType, expansionLocation));
-          setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallType));
+      const townhallTypeId = TownhallRace[agent.race][0];
+      if (canBuild(world, townhallTypeId)) {
+        const buildAbilityId = data.getUnitTypeData(townhallTypeId).abilityId;
+        if ((units.inProgress(townhallTypeId).length + units.withCurrentOrders(buildAbilityId).length) < 1) {
+          const unitTypeData = data.getUnitTypeData(townhallTypeId);
+          await actions.sendAction(assignAndSendWorkerToBuild(world, townhallTypeId, expansionLocation));
+          setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallTypeId));
           addEarmark(data, unitTypeData);
         }
         planService.pausePlan = false;
       } else {
-        collectedActions.push(...premoveBuilderToPosition(world, expansionLocation, townhallType));
-        const { mineralCost, vespeneCost } = data.getUnitTypeData(townhallType);
+        collectedActions.push(...premoveBuilderToPosition(world, expansionLocation, townhallTypeId));
+        const { mineralCost, vespeneCost } = data.getUnitTypeData(townhallTypeId);
         await balanceResources(world, mineralCost / vespeneCost);
         planService.pausePlan = true;
         planService.continueBuild = false;
