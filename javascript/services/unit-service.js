@@ -3,9 +3,14 @@
 
 const { HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { ZEALOT } = require("@node-sc2/core/constants/unit-type");
 const { createUnitCommand } = require("./actions-service");
 
-const unitsService = {
+const unitService = {
+  /**
+   * @type boolean
+   */
+  enemyCharge: false,
   /**
    * @type number
    */
@@ -29,9 +34,9 @@ const unitsService = {
   getArmorUpgradeLevel: (alliance) => {
     let armorUpgradeLevel = 0;
     if (alliance === Alliance.SELF) {
-      armorUpgradeLevel = unitsService.selfArmorUpgradeLevel;
+      armorUpgradeLevel = unitService.selfArmorUpgradeLevel;
     } else if (alliance === Alliance.ENEMY) {
-      armorUpgradeLevel = unitsService.enemyArmorUpgradeLevel;
+      armorUpgradeLevel = unitService.enemyArmorUpgradeLevel;
     }
     return armorUpgradeLevel;
   },
@@ -41,11 +46,21 @@ const unitsService = {
   getAttackUpgradeLevel: (alliance) => {
     let attackUpgradeLevel = 0;
     if (alliance === Alliance.SELF) {
-      attackUpgradeLevel = unitsService.selfAttackUpgradeLevel;
+      attackUpgradeLevel = unitService.selfAttackUpgradeLevel;
     } else if (alliance === Alliance.ENEMY) {
-      attackUpgradeLevel = unitsService.enemyAttackUpgradeLevel;
+      attackUpgradeLevel = unitService.enemyAttackUpgradeLevel;
     }
     return attackUpgradeLevel;
+  },
+  /**
+   * @param {Unit} unit 
+   */
+  getEnemyMovementSpeed: (unit) => {
+    let {movementSpeed} = unit.data();
+    if (unit.unitType === ZEALOT && unitService.enemyCharge) {
+      movementSpeed = 4.72;
+    }
+    return movementSpeed;
   },
   /**
    * @param {Unit} worker 
@@ -65,13 +80,13 @@ const unitsService = {
   setAttackUpgradeLevel: (units) => {
     units.some(unit => {
       if (unit.alliance === Alliance.SELF) {
-        if (unit.armorUpgradeLevel > unitsService.selfArmorUpgradeLevel) {
-          unitsService.selfArmorUpgradeLevel = unit.armorUpgradeLevel;
+        if (unit.armorUpgradeLevel > unitService.selfArmorUpgradeLevel) {
+          unitService.selfArmorUpgradeLevel = unit.armorUpgradeLevel;
           return true;
         }
       } else if (unit.alliance === Alliance.ENEMY) {
-        if (unit.armorUpgradeLevel > unitsService.enemyArmorUpgradeLevel) {
-          unitsService.enemyArmorUpgradeLevel = unit.armorUpgradeLevel;
+        if (unit.armorUpgradeLevel > unitService.enemyArmorUpgradeLevel) {
+          unitService.enemyArmorUpgradeLevel = unit.armorUpgradeLevel;
           return true;
         }
       }
@@ -84,13 +99,13 @@ const unitsService = {
   setArmorUpgradeLevel: (units) => {
     units.some(unit => {
       if (unit.alliance === Alliance.SELF) {
-        if (unit.armorUpgradeLevel > unitsService.selfArmorUpgradeLevel) {
-          unitsService.selfArmorUpgradeLevel = unit.armorUpgradeLevel;
+        if (unit.armorUpgradeLevel > unitService.selfArmorUpgradeLevel) {
+          unitService.selfArmorUpgradeLevel = unit.armorUpgradeLevel;
           return true;
         }
       } else if (unit.alliance === Alliance.ENEMY) {
-        if (unit.armorUpgradeLevel > unitsService.enemyArmorUpgradeLevel) {
-          unitsService.enemyArmorUpgradeLevel = unit.armorUpgradeLevel;
+        if (unit.armorUpgradeLevel > unitService.enemyArmorUpgradeLevel) {
+          unitService.enemyArmorUpgradeLevel = unit.armorUpgradeLevel;
           return true;
         }
       }
@@ -98,4 +113,4 @@ const unitsService = {
   },
 }
 
-module.exports = unitsService;
+module.exports = unitService;

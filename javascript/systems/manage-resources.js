@@ -6,7 +6,7 @@ const { gatheringAbilities, mineralFieldTypes, gasMineTypes } = require("@node-s
 const { COMMANDCENTER, MULE } = require("@node-sc2/core/constants/unit-type");
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const { upgradeTypes } = require("../helper/groups");
-const { mine } = require("../services/units-service");
+const { mine } = require("../services/unit-service");
 const { gather } = require("./unit-resource/unit-resource-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 

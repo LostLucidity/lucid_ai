@@ -23,6 +23,7 @@ const { microRangedUnit, defendWithUnit, getDPSHealth } = require("../../service
 const { micro } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { moveAwayPosition } = require("../../services/position-service");
+const { getEnemyMovementSpeed } = require("../../services/unit-service");
 
 const armyBehavior = {
   /**
@@ -207,7 +208,7 @@ const armyBehavior = {
             console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`);
           }
           if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth && noNearbyBunker) {
-            if (selfUnit.data().movementSpeed < closestAttackableEnemyUnit.data().movementSpeed) {
+            if (selfUnit.data().movementSpeed < getEnemyMovementSpeed(closestAttackableEnemyUnit)) {
               if (selfUnit.isMelee()) {
                 collectedActions.push(...micro(units, selfUnit, closestAttackableEnemyUnit, enemyUnits));
               } else {
