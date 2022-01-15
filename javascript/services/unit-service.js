@@ -56,9 +56,9 @@ const unitService = {
    * @param {Unit} unit 
    */
   getEnemyMovementSpeed: (unit) => {
-    let {movementSpeed} = unit.data();
+    let { movementSpeed } = unit.data();
     if (unit.unitType === ZEALOT && unitService.enemyCharge) {
-      movementSpeed = 4.72;
+      movementSpeed = 4.72 / 1.4;
     }
     return movementSpeed;
   },
@@ -69,7 +69,7 @@ const unitService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand}
    */
   mine: (worker, target, queue = true) => {
-    const unitCommand =  createUnitCommand(HARVEST_GATHER, [worker], queue);
+    const unitCommand = createUnitCommand(HARVEST_GATHER, [worker], queue);
     unitCommand.targetUnitTag = target.tag;
     return unitCommand;
   },
