@@ -1,11 +1,16 @@
 //@ts-check
 "use strict"
 
-const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior, acrossTheMapBehavior } = require("./labelled-behavior");
+const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior, acrossTheMapBehavior, recruitToBattleBehavior } = require("./labelled-behavior");
 const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior } = require("./unit-behavior");
 
+/**
+ * @param {World} world 
+ * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+ */
 async function runBehaviors(world) {
   const { resources } = world;
+  const { units } = resources.get();
   const collectedActions = []
   collectedActions.push(...acrossTheMapBehavior(world));
   collectedActions.push(...clearFromEnemyBehavior(resources));
@@ -17,6 +22,7 @@ async function runBehaviors(world) {
   await scoutEnemyNaturalBehavior(resources);
   collectedActions.push(...supplyDepotBehavior(resources));
   collectedActions.push(...await workerBehavior(world));
+  collectedActions.push(...recruitToBattleBehavior(units));
   return collectedActions;
 }
 

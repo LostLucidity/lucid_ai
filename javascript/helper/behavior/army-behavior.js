@@ -201,6 +201,7 @@ const armyBehavior = {
       let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType)) {
         const [closestAttackableEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => canAttack(resources, selfUnit, enemyUnit)));
+        const attackablePosition = closestAttackableEnemyUnit ? closestAttackableEnemyUnit.pos : null;
         if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestAttackableEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestAttackableEnemyUnit['enemyDPSHealth'];
           const noNearbyBunker = units.getById(BUNKER).filter(bunker => distance(bunker.pos, selfUnit.pos) < 16).length === 0;
@@ -217,7 +218,7 @@ const armyBehavior = {
             } else {
               const unitCommand = { abilityId: MOVE }
               if (selfUnit.isFlying) {
-                unitCommand.targetWorldSpacePos = moveAwayPosition(closestAttackableEnemyUnit.pos, selfUnit.pos);
+                unitCommand.targetWorldSpacePos = moveAwayPosition(attackablePosition, selfUnit.pos);
                 unitCommand.unitTags = [selfUnit.tag];
                 collectedActions.push(unitCommand);
               } else {
@@ -233,17 +234,18 @@ const armyBehavior = {
               }
             }
           } else {
+            setRecruitToBattleLabel(selfUnit, attackablePosition)
             if (canAttack(resources, selfUnit, closestAttackableEnemyUnit)) {
               if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit)); }
               else {
                 const unitCommand = createUnitCommand(ATTACK_ATTACK, [selfUnit]);
-                unitCommand.targetWorldSpacePos = closestAttackableEnemyUnit.pos;
+                unitCommand.targetWorldSpacePos = attackablePosition;
                 collectedActions.push(unitCommand);
               }
             } else {
               collectedActions.push({
                 abilityId: ATTACK_ATTACK,
-                targetWorldSpacePos: closestAttackableEnemyUnit.pos,
+                targetWorldSpacePos: attackablePosition,
                 unitTags: [selfUnit.tag],
               });
             }
@@ -397,6 +399,22 @@ function groupUnits(units, mainCombatTypes, supportUnitTypes) {
     supportUnits.push(...units.getById(type).filter(unit => !unit.labels.get('scout') && !unit.labels.get('creeper') && !unit.labels.get('injector')));
   });
   return [combatUnits, supportUnits];
+}
+
+/**
+ * @param {Unit} unit 
+ * @param {Point2D} position 
+ */
+function setRecruitToBattleLabel(unit, position) {
+  unit['selfUnits'].forEach((/** @type {Unit} */ selfUnit) => {
+    if (distance(selfUnit.pos, position) > 16) {
+      if (selfUnit.isWorker() && selfUnit.isHarvesting() && !selfUnit.labels.has('retreating')) {
+        return;
+      } else {
+        selfUnit.labels.set('recruitToBattle', position);
+      }
+    }
+  });
 }
 
 module.exports = armyBehavior;

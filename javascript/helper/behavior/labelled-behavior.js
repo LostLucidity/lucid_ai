@@ -5,6 +5,7 @@ const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { createUnitCommand } = require("../../services/actions-service");
 const { isFacing } = require("../../services/micro-service");
 const { retreatToExpansion } = require("../../services/resource-manager-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
@@ -79,6 +80,25 @@ module.exports = {
         });
       }
     }
+    return collectedActions;
+  },
+  /**
+   * @param {UnitResource} units 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  recruitToBattleBehavior: (units) => {
+    const label = 'recruitToBattle';
+    const collectedActions = [];
+    units.withLabel(label).forEach(unit => {
+      const targetPosition = unit.labels.get(label);
+      if (distance(unit.pos, targetPosition) < 16) {
+        unit.labels.delete(label);
+      } else {
+        const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
+        unitCommand.targetWorldSpacePos = targetPosition;
+        collectedActions.push(unitCommand);
+      }
+    });
     return collectedActions;
   },
   /**
