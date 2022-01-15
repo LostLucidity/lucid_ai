@@ -35,7 +35,7 @@ function detectCharge(resources) {
       fastestZealot = fastestZealot > zealotSpeed ? fastestZealot : zealotSpeed; 
     }
   });
-  if (fastestZealot > 3.15) {
+  if (fastestZealot > 3.16) {
     unitService.enemyCharge = true;
     console.log('enemy charge detected');
   } 
