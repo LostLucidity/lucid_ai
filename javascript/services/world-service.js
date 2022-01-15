@@ -430,7 +430,7 @@ const worldService = {
     const { data } = world;
     const collectedActions = [];
     if (
-      (unit.weaponCooldown > 12 || unit.unitType === CYCLONE) &&
+      (unit.weaponCooldown > 8 || unit.unitType === CYCLONE) &&
       data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; })
     ) {
       const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit)
