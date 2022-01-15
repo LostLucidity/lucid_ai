@@ -25,11 +25,13 @@ module.exports = createSystem({
       !planService.isPlanPaused,
       agent.minerals < 512 || minimumWorkerCount <= 34,
       shortOnWorkers(resources),
-      !worldService.outpowered,  
+      !worldService.outpowered,
     ];
     if (conditions.every(condition => condition)) {
       unitTrainingService.workersTrainingTendedTo = false;
-      try { await buildWorkers(world); } catch (error) { console.log(error); }
+      const { abilityId } = world.data.getUnitTypeData(WorkerRace[race])
+      const productionUnit = resources.get().units.getProductionUnits(WorkerRace[race]).find(u => u.noQueue && u.abilityAvailable(abilityId));
+      try { if (productionUnit) await buildWorkers(world); } catch (error) { console.log(error); }
     } else {
       unitTrainingService.workersTrainingTendedTo = true;
     }
