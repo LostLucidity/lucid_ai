@@ -44,6 +44,7 @@ const wallOffNaturalSystem = require('./systems/wall-off-natural/wall-off-natura
 const unitResourceSystem = require('./systems/unit-resource/unit-resource-system');
 const { saveUnitTypeData } = require('./filesystem');
 const unitResourceService = require('./systems/unit-resource/unit-resource-service');
+const detectUpgradeSystem = require('./systems/detect-upgrade-system');
 
 agentService.difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -181,6 +182,7 @@ async function runGame() {
     wallOffRampSystem,
     taggingSystem,
     unitResourceSystem,
+    detectUpgradeSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,
