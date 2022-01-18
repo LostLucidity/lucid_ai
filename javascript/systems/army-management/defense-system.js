@@ -5,13 +5,13 @@ const { createSystem } = require("@node-sc2/core");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 const { QUEEN, BUNKER } = require("@node-sc2/core/constants/unit-type");
 const { salvageBunker } = require("../../builds/terran/salvage-bunker");
-const canAfford = require("../../helper/can-afford");
 const { getClosestUnitByPath } = require("../../helper/get-closest-by-path");
 const { getCombatRally } = require("../../helper/location");
 const { getMiddleOfNaturalWall } = require("../../helper/placement/placement-helper");
 const armyManagementService = require("../../services/army-management-service");
 const { attackWithArmy, engageOrRetreat } = require("../../services/army-management-service");
 const { getCombatPoint } = require("../../services/resources-service");
+const { canBuild } = require("../../services/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const scoutService = require("../scouting/scouting-service");
 
@@ -76,19 +76,22 @@ function decideDefendingActions(world, rallyPoint) {
   }
   return collectedActions;
 }
-
-async function defenseSetup({ agent, data, resources }) {
+/**
+ * @param {World} world 
+ */
+async function defenseSetup(world) {
+  const { agent, data, resources } = world;
   const { actions, map, units } = resources.get();
   if (!scoutService.earlyScout && scoutService.enemyBuildType === 'cheese') {
     let buildAbilityId;
     switch (agent.race) {
       case Race.TERRAN:
         buildAbilityId = data.getUnitTypeData(BUNKER).abilityId;
-        if ((units.getById(BUNKER).length + units.withCurrentOrders(buildAbilityId)) < 1) {
+        if ((units.getById(BUNKER).length + units.withCurrentOrders(buildAbilityId).length) < 1) {
           const natural = map.getNatural();
           const naturalWall = natural.getWall();
           if (naturalWall) {
-            if (canAfford(agent, data, BUNKER)) {
+            if (canBuild(world, BUNKER)) {
               try {
                 const [foundPosition] = await getMiddleOfNaturalWall(resources, BUNKER);
                 if (foundPosition) {
