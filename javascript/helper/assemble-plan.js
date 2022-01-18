@@ -427,7 +427,7 @@ class AssemblePlan {
    * @param {null|number[]} foodRanges 
    * @returns {Promise<void>}
    */
-  async manageSupply(foodRanges=null) {
+  async manageSupply(foodRanges = null) {
     if (!foodRanges || foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.world, 0.2)) {
         switch (race) {
@@ -438,7 +438,7 @@ class AssemblePlan {
             await this.build(this.foodUsed, PYLON, this.units.getById(PYLON).length);
             break;
           case Race.ZERG:
-            let abilityId = this.data.getUnitTypeData(OVERLORD).abilityId;
+            let { abilityId } = this.data.getUnitTypeData(OVERLORD);
             await this.train(this.foodUsed, OVERLORD, this.units.getById(OVERLORD).length + this.units.withCurrentOrders(abilityId).length);
             break;
         }
@@ -609,7 +609,7 @@ class AssemblePlan {
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
           addEarmark(this.data, unitTypeData);
         } else {
-          if (isSupplyNeeded) {
+          if (isSupplyNeeded && unitType !== OVERLORD) {
             await this.manageSupply();
           } else if (!this.agent.canAfford(unitType)) {
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
