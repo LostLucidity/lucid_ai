@@ -33,7 +33,7 @@ const unitResourceService = {
           if (!unitDataType.isFlying) {
             groundUnitsCount += 1;
             return totalDiameter + (unitDataType.radius * 2);
-          }
+          } else { return totalDiameter; }
         }, 0);
         const splashDiameter = 2.8;
         const averageGroundDiameter = totalGroundDiameter / groundUnitsCount;
