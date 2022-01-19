@@ -3,16 +3,18 @@
 
 const fs = require('fs');
 const path = require('path');
+const unitTypeData = require('./constants/unit-type-data');
 const { getFileName } = require('./helper/get-races');
 
 module.exports = {
   /**
-   * @returns {[]}
+   * @returns {{}}
    */
   readUnitTypeData: () => {
-    return JSON.parse(fs.readFileSync(
-      path.join(__dirname, 'data', `unit-type-data.json`)).toString()
-    );
+    // return JSON.parse(fs.readFileSync(
+    //   path.join(__dirname, 'data', `unit-type-data.json`)).toString()
+    // );
+    return unitTypeData;
   },
   /**
    * @param {{}} unitTypeData 
