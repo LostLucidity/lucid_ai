@@ -1,4 +1,5 @@
 maps = [
+  "BerlingradAIE",
   "CuriousMindsAIE",
   "DeathAuraLE",
   "EternalEmpireLE",
