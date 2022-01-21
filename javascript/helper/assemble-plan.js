@@ -9,7 +9,7 @@ const rallyUnits = require("./rally-units");
 const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility, UnitType, Upgrade, UnitTypeId, Ability } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
-const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
+const { TownhallRace, GasMineRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack, push } = require("./behavior/army-behavior");
 const threats = require("./base-threats");
 const { generalScouting, cancelEarlyScout } = require("../builds/scouting");
@@ -25,7 +25,7 @@ const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
 const { liftToThird, addAddOn, swapBuildings } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
-const { addonTypes } = require("@node-sc2/core/constants/groups");
+const { addonTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const runBehaviors = require("./behavior/run-behaviors");
 const { haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
@@ -44,6 +44,9 @@ const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions")
 const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
 const worldService = require("../services/world-service");
+const getClosestByPath = require("./get-closest-by-path");
+const { getClosestUnitByPath } = require("./get-closest-by-path");
+const { createUnitCommand } = require("../services/actions-service");
 
 let actions;
 let race;
@@ -207,7 +210,12 @@ class AssemblePlan {
    * @param {Point2D[]} candidatePositions 
    */
   async build(food, unitType, targetCount, candidatePositions = []) {
-    if (getFoodUsed(this.foodUsed) >= food) {
+    if (getFoodUsed(this.foodUsed) + 1 >= food) {
+      const stepAhead = getFoodUsed(this.foodUsed) + 1 === food;
+      if (stepAhead) {
+        const stepAheadData = this.data.getUnitTypeData(WorkerRace[race]);
+        this.data.addEarmark({ name: 'stepAhead', minerals: stepAheadData.mineralCost, vespene: stepAheadData.vespeneCost });
+      }
       if (checkBuildingCount(this.world, unitType, targetCount)) {
         switch (true) {
           case GasMineRace[race] === unitType:
@@ -278,13 +286,18 @@ class AssemblePlan {
             candidatePositions = this.map.getNatural().areas.placementGrid;
           default:
             if (candidatePositions.length === 0) { candidatePositions = await findPlacements(this.world, unitType); }
-            await this.buildBuilding(unitType, candidatePositions);
+            await this.buildBuilding(unitType, candidatePositions, stepAhead);
         }
       }
     }
   }
 
-  async buildBuilding(unitType, candidatePositions) {
+  /**
+   * @param {UnitTypeId} unitType 
+   * @param {Point2D[]} candidatePositions 
+   * @param {boolean} stepAhead 
+   */
+  async buildBuilding(unitType, candidatePositions, stepAhead) {
     this.foundPosition = this.foundPosition ? this.foundPosition : await findPosition(this.resources, unitType, candidatePositions);
     if (this.foundPosition) {
       if (this.agent.canAfford(unitType)) {
@@ -299,17 +312,21 @@ class AssemblePlan {
         } else {
           this.foundPosition = keepPosition(this.resources, unitType, this.foundPosition) ? this.foundPosition : null;
           if (this.foundPosition) {
-            this.collectedActions.push(...premoveBuilderToPosition(this.world, this.foundPosition, unitType));
+            this.collectedActions.push(...premoveBuilderToPosition(this.world, this.foundPosition, unitType, stepAhead));
           }
+          if (!stepAhead) {
+            planService.pausePlan = true;
+            planService.continueBuild = false;
+          }
+        }
+      } else {
+        this.collectedActions.push(...premoveBuilderToPosition(this.world, this.foundPosition, unitType, stepAhead));
+        if (!stepAhead) {
+          const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
+          await balanceResources(this.world, mineralCost / vespeneCost);
           planService.pausePlan = true;
           planService.continueBuild = false;
         }
-      } else {
-        this.collectedActions.push(...premoveBuilderToPosition(this.world, this.foundPosition, unitType));
-        const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-        await balanceResources(this.world, mineralCost / vespeneCost);
-        planService.pausePlan = true;
-        planService.continueBuild = false;
       }
     }
   }

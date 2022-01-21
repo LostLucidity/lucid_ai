@@ -259,17 +259,17 @@ const unitResourceService = {
   },
   /**
    * @param {UnitResource} units 
-   * @param {AbilityId} abilityId 
    * @param {Point2D} position 
    * @returns {Unit}
    */
-  selectBuilder: (units, abilityId, position) => {
-    const builders = unitResourceService.getBuilders(units);
-    if (abilityId !== MOVE || builders.length === 0) {
-      builders.push(...units.getWorkers().filter(worker => worker.noQueue || worker.isGathering()));
+  selectBuilder: (units, position) => {
+    const builderCandidates = unitResourceService.getBuilders(units);
+    if (builderCandidates.length === 0) {
+      builderCandidates.push(...units.getWorkers().filter(worker => {
+        return worker.noQueue || worker.isGathering() || worker.orders.findIndex(order => order.targetWorldSpacePos && (distance(order.targetWorldSpacePos, position) < 1)) > -1;
+      }));
     }
-    const [builder] = units.getClosest(position, builders);
-    if (builder) builder.labels.set('builder', true);
+    const [builder] = units.getClosest(position, builderCandidates);
     return builder;
   },
   /**

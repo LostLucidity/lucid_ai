@@ -27,7 +27,9 @@ const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/cons
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { distanceByPath } = require("../helper/get-closest-by-path");
+const { distanceByPath, getClosestUnitByPath, getClosestPositionByPath } = require("../helper/get-closest-by-path");
+const { rallyWorkerToPosition, rallyWorkerToMinerals } = require("./resource-manager-service");
+const { getPathablePositionsForStructure } = require("./map-resource-service");
 
 const worldService = {
   /** @type {boolean} */
@@ -47,7 +49,7 @@ const worldService = {
     const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
     const collectedActions = [];
-    const builder = unitService.selectBuilder(units, abilityId, position);
+    const builder = unitService.selectBuilder(units, position);
     if (builder) {
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
         builder.labels.set('builder', true);
@@ -450,27 +452,45 @@ const worldService = {
    * @param {World} world 
    * @param {Point2D} position 
    * @param {UnitTypeId} unitType
+   * @param {boolean} stepAhead
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  premoveBuilderToPosition: (world, position, unitType) => {
+  premoveBuilderToPosition: (world, position, unitType, stepAhead=false) => {
     const { agent, data, resources } = world;
-    const { frame, units } = resources.get();
+    const { frame, map, units } = resources.get();
     const collectedActions = [];
-    const builder = unitResourceService.selectBuilder(units, MOVE, position);
+    const builder = unitResourceService.selectBuilder(units, position);
     if (builder) {
       // get speed, distance and average collection rate
       const { movementSpeed } = builder.data();
-      const distanceToPosition = distanceByPath(resources, builder.pos, position);
+      let distanceToPosition = distanceByPath(resources, builder.pos, position);
+      let rallyBase = false;
+      if (stepAhead) {
+        const [closestBaseByPath] = getClosestUnitByPath(resources, position, resources.get().units.getBases())
+        if (closestBaseByPath) {
+          const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
+          const [pathableStructurePosition] = getClosestPositionByPath(resources, position, pathablePositions);
+          const distanceOfBaseToPosition = distanceByPath(resources, pathableStructurePosition, position);
+          rallyBase = distanceToPosition > distanceOfBaseToPosition ? true : false;
+          distanceToPosition = rallyBase ? distanceOfBaseToPosition : distanceToPosition;
+        }
+      }
       const unitCommand = builder ? createUnitCommand(MOVE, [builder]) : {};
       const { collectionRateMinerals } = frame.getObservation().score.scoreDetails;
       const timeToPosition = distanceToPosition / movementSpeed;
       const { mineralCost } = data.getUnitTypeData(unitType);
-      const mineralsLeft = mineralCost - agent.minerals;
+      const mineralsLeft = mineralCost + data.getEarmarkTotals('stepAhead').minerals - agent.minerals;
       const timeToTargetCost = mineralsLeft / (collectionRateMinerals / 60);
       if (timeToTargetCost <= timeToPosition) {
-        unitCommand.targetWorldSpacePos = position;
-        collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
+        if (rallyBase) {
+          collectedActions.push(...rallyWorkerToPosition(resources, position));
+        } else {
+          unitCommand.targetWorldSpacePos = position;
+          builder.labels.set('builder', true);
+          collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
+        }
       } else {
+        collectedActions.push(...rallyWorkerToMinerals(resources, position));
         if (builder.orders.some(order => order.targetWorldSpacePos && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y)) {
           collectedActions.push(createUnitCommand(STOP, [builder]));
         }
