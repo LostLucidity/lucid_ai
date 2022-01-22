@@ -6,6 +6,7 @@ maps = [
   "EverDreamLE",
   "GlitteringAshesAIE",
   "GoldenWallLE",
+  "HardwireAIE",
   "IceandChromeLE",
   "JagannathaLE",
   "LightshadeLE",
