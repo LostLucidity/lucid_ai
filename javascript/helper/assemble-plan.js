@@ -222,16 +222,18 @@ class AssemblePlan {
             try {
               if (this.map.freeGasGeysers().length > 0) {
                 const [geyser] = this.map.freeGasGeysers();
-                if (this.agent.canAfford(unitType)) {
+                if (this.agent.canAfford(unitType) && !stepAhead) {
                   await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, geyser.pos));
                   planService.pausePlan = false;
                   setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
                 } else {
                   this.collectedActions.push(...premoveBuilderToPosition(this.world, geyser.pos, unitType));
-                  const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-                  await balanceResources(this.world, mineralCost / vespeneCost);
-                  planService.pausePlan = true;
-                  planService.continueBuild = false;
+                  if (!stepAhead) {
+                    const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
+                    await balanceResources(this.world, mineralCost / vespeneCost);
+                    planService.pausePlan = true;
+                    planService.continueBuild = false;
+                  }
                 }
               }
             }
@@ -245,18 +247,20 @@ class AssemblePlan {
             if (TownhallRace[race].indexOf(unitType) === 0) {
               if (this.units.getBases().length === 2 && race === Race.TERRAN) {
                 candidatePositions = await inTheMain(this.resources, unitType);
-                this.collectedActions.push(...await findAndPlaceBuilding(this.world, unitType, candidatePositions));
+                await this.buildBuilding(unitType, candidatePositions, stepAhead);
               } else {
                 const availableExpansions = getAvailableExpansions(this.resources);
                 candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(this.world, availableExpansions)] : [];
-                this.collectedActions.push(...await findAndPlaceBuilding(this.world, unitType, candidatePositions));
+                await this.buildBuilding(unitType, candidatePositions, stepAhead);
               }
             } else {
-              const actions = await planActions.ability(this.world, this.data.getUnitTypeData(unitType).abilityId);
-              if (actions.length > 0) {
-                unpauseAndLog(this.world, UnitTypeId[unitType]);
-                addEarmark(this.data, this.data.getUnitTypeData(unitType));
-                this.collectedActions.push(...actions);
+              if (!stepAhead) {
+                const actions = await planActions.ability(this.world, this.data.getUnitTypeData(unitType).abilityId);
+                if (actions.length > 0) {
+                  unpauseAndLog(this.world, UnitTypeId[unitType]);
+                  addEarmark(this.data, this.data.getUnitTypeData(unitType));
+                  this.collectedActions.push(...actions);
+                }
               }
             }
             break;
@@ -276,10 +280,12 @@ class AssemblePlan {
               let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
               await addAddOn(this.world, unitCanDo, unitType)
             } else {
-              const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-              await balanceResources(this.world, mineralCost / vespeneCost);
-              planService.pausePlan = true;
-              planService.continueBuild = false;
+              if (!stepAhead) {
+                const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
+                await balanceResources(this.world, mineralCost / vespeneCost);
+                planService.pausePlan = true;
+                planService.continueBuild = false;
+              }
             }
             break;
           case PHOTONCANNON === unitType:
@@ -300,7 +306,7 @@ class AssemblePlan {
   async buildBuilding(unitType, candidatePositions, stepAhead) {
     this.foundPosition = this.foundPosition ? this.foundPosition : await findPosition(this.resources, unitType, candidatePositions);
     if (this.foundPosition) {
-      if (this.agent.canAfford(unitType)) {
+      if (this.agent.canAfford(unitType) && !stepAhead) {
         if (await actions.canPlace(unitType, [this.foundPosition])) {
           const unitTypeData = this.data.getUnitTypeData(unitType);
           await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, this.foundPosition));
