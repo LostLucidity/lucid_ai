@@ -14,7 +14,7 @@ module.exports = createSystem({
   name: 'WorkerBalanceSystem',
   type: 'agent',
   defaultOptions: {
-    stepIncrement: 50,
+    stepIncrement: 48,
     state: {},
   },
   async onStep(world) {
@@ -25,7 +25,13 @@ module.exports = createSystem({
     const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
     const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
 
-    const needyTownhall = units.getBases(readySelfFilter).find(base => base.assignedHarvesters < base.idealHarvesters);
+    const needyTownhall = townhalls.filter(townhall => {
+      let [closestEnemyUnit] = units.getClosest(townhall.pos, townhall['enemyUnits'], 1);
+      if (closestEnemyUnit) {
+        return townhall['selfDPSHealth'] >= closestEnemyUnit['selfDPSHealth'];
+      }
+      return true;
+    }).find(base => base.assignedHarvesters < base.idealHarvesters);
 
     if (needyTownhall) {
       const possibleDonerThs = townhalls.filter(townhall => townhall.assignedHarvesters > needyTownhall.assignedHarvesters + 1);
