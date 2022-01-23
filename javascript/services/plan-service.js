@@ -24,7 +24,7 @@ const planService = {
   latestStep: 0,
   legacyPlan: null,
   pendingFood: 0,
-  /** @type {{ unitType: UnitTypeId; food: number }[]} */
+  /** @type {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number }[]} */
   plan: null,
   planMax: {
     gasMine: null,
@@ -32,7 +32,7 @@ const planService = {
   },
   planMin: {},
   /**
-   * @param {{ unitType: UnitTypeId; food: number }[]}  plan 
+   * @param {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number }[]}  plan 
    */
   setPlan: (plan) => {
     planService.plan = plan;

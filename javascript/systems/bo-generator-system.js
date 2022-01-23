@@ -2,22 +2,75 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { Attribute } = require("@node-sc2/core/constants/enums");
-const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const UnitAbilityMap = require("@node-sc2/core/constants/unit-ability-map");
-const unitType = require("@node-sc2/core/constants/unit-type");
-const { haveAvailableProductionUnitsFor } = require("./unit-training/unit-training-service");
+const { Upgrade, UnitType } = require("@node-sc2/core/constants");
+const { Attribute, Alliance } = require("@node-sc2/core/constants/enums");
+const getRandom = require("@node-sc2/core/utils/get-random");
+const planService = require("../services/plan-service");
+const { getUnitTypeCount } = require("../services/world-service");
+const { build, train, upgrade, runPlan } = require("./execute-plan/plan-actions");
 
+let unitTypeAbilities = [];
+let upgradeAbilities = [];
 module.exports = createSystem({
-  async onStep(world) {
-    const { agent, data } = world;
-    const workerType = WorkerRace[agent.race];
-    const canOrder = Object.values(unitType).filter(type => {
-      if (data.getUnitTypeData(type).attributes.includes(Attribute.STRUCTURE)) {
-        return UnitAbilityMap[workerType].includes(data.getUnitTypeData(type).abilityId) && world.resources.get().units.getById(data.getUnitTypeData(type).techRequirement, { buildProgress: 1 }).length > 0;
-      } else {
-        return haveAvailableProductionUnitsFor(world, type) && agent.hasTechFor(type)
-      }
+  async onGameStart({ data }) {
+    unitTypeAbilities = [];
+    upgradeAbilities = [];
+    planService.plan = [];
+    Array.from(Object.values(UnitType)).forEach(unitTypeId => {
+      unitTypeAbilities[data.getUnitTypeData(unitTypeId).abilityId.toString()] = unitTypeId;
     });
+    Array.from(Object.values(Upgrade)).forEach(upgrade => {
+      upgradeAbilities[data.getUpgradeData(upgrade).abilityId.toString()] = upgrade;
+    });
+  },
+  async onStep(world) {
+    const { agent, data, resources } = world;
+    const { units } = resources.get();
+    // get all unique available abilities
+    const allAvailableAbilities = new Map();
+    units.getAlive(Alliance.SELF).forEach(unit => {
+      const availableAbilities = unit.availableAbilities();
+      availableAbilities.forEach(ability => {
+        if (!allAvailableAbilities.has(ability)) {
+          if (Object.keys(unitTypeAbilities).some(unitTypeAbility => parseInt(unitTypeAbility) === ability)) {
+            allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeAbilities[ability] });
+          } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
+            allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
+          }
+        }
+      })
+    });
+    await runPlan(world);
+    if (planService.continueBuild) {
+      const randomAction = getRandom(Array.from(allAvailableAbilities.values()));
+      if (randomAction) {
+        const { orderType, unitType } = randomAction;
+        if (orderType === 'UnitType') {
+          const isMatchingPlan = planService.plan.slice(-(planService.plan.length / 12)).some(step => {
+            return (
+              step.unitType === unitType &&
+              step.food === agent.foodUsed &&
+              step.targetCount === getUnitTypeCount(world, unitType)
+            );
+          });
+          if (!isMatchingPlan) {
+            planService.plan.push({
+              orderType, unitType, food: agent.foodUsed, targetCount: getUnitTypeCount(world, unitType)
+            });
+            if (world.data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
+              await build(world, unitType);
+            } else {
+              await train(world, unitType);
+            };
+          }
+        } else if (orderType === 'Upgrade') {
+          planService.plan.push({
+            orderType, upgrade: randomAction.upgrade, food: agent.foodUsed
+          });
+          await upgrade(world, randomAction.upgrade);
+        }
+      }
+    }
+    data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
   }
 });

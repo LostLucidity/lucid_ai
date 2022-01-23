@@ -2,7 +2,7 @@
 "use strict"
 
 const { WarpUnitAbility, UnitType, UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { PHOTONCANNON, WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
@@ -250,7 +250,35 @@ const planActions = {
         }
       }
     }
-  }
+  },
+  /**
+ * @param {World} world 
+ */
+  runPlan: async (world) => {
+    planService.continueBuild = true;
+    const { plan } = planService;
+    for (let step = 0; step < plan.length; step++) {
+      if (planService.continueBuild) {
+        planService.currentStep = step;
+        const planStep = plan[step];
+        const { food, orderType, unitType } = planStep;
+        if (world.agent.foodUsed >= food) {
+          if (orderType === 'UnitType') {
+            const { targetCount } = planStep;
+            if (world.data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
+              await planActions.build(world, unitType, targetCount);
+            } else {
+              await planActions.train(world, unitType, targetCount);
+            };
+          } else if (orderType === 'Upgrade') {
+            await planActions.upgrade(world, planStep.upgrade);
+          }
+        } else { break; }
+      } else {
+        break;
+      }
+    }
+  },
 }
 
 module.exports = planActions;

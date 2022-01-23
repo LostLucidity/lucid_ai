@@ -152,20 +152,7 @@ const worldService = {
   * @returns {boolean}
   */
   checkBuildingCount: (world, unitType, targetCount) => {
-    const { agent, data, resources } = world;
-    const { units } = resources.get();
-    const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
-    const unitsWithCurrentOrders = worldService.getUnitsWithCurrentOrders(units, abilityIds);
-    let count = unitsWithCurrentOrders.length;
-    const unitTypes = countTypes.get(unitType) ? countTypes.get(unitType) : [unitType];
-    unitTypes.forEach(type => {
-      let unitsToCount = units.getById(type);
-      if (agent.race === Race.TERRAN) {
-        unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= 1);
-      }
-      count += unitsToCount.length;
-    });
-    return count === targetCount;
+    return worldService.getUnitTypeCount(world, unitType) === targetCount;
   },
   /**
    * @param {World} world
@@ -358,6 +345,28 @@ const worldService = {
   },
   /**
    * 
+   * @param {World} world 
+   * @param {UnitTypeId} unitType
+   * @returns {number}
+   */
+  getUnitTypeCount: (world, unitType) => {
+    const { agent, data, resources } = world;
+    const { units } = resources.get();
+    const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
+    const unitsWithCurrentOrders = worldService.getUnitsWithCurrentOrders(units, abilityIds);
+    let count = unitsWithCurrentOrders.length;
+    const unitTypes = countTypes.get(unitType) ? countTypes.get(unitType) : [unitType];
+    unitTypes.forEach(type => {
+      let unitsToCount = units.getById(type);
+      if (agent.race === Race.TERRAN) {
+        unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= 1);
+      }
+      count += unitsToCount.length;
+    });
+    return count;
+  },
+  /**
+   * 
    * @param {DataStorage} data 
    * @param {AbilityId[]} abilityIds
    * @returns {UnitTypeId[]}
@@ -455,7 +464,7 @@ const worldService = {
    * @param {boolean} stepAhead
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  premoveBuilderToPosition: (world, position, unitType, stepAhead=false) => {
+  premoveBuilderToPosition: (world, position, unitType, stepAhead = false) => {
     const { agent, data, resources } = world;
     const { frame, map, units } = resources.get();
     const collectedActions = [];
