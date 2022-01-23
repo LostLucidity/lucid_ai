@@ -59,7 +59,7 @@ const helper = {
         }
       } else if (closestInRangeUnit) {
         if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) { return }
-        if (distance(unit.pos, closestInRangeUnit.pos) > closestInRangeUnit.data().sightRange) {
+        if (inRangeUnits.every(inRangeUnit => distance(unit.pos, inRangeUnit.pos) > inRangeUnit.data().sightRange)) {
           collectedActions.push(moveToTarget(unit, closestInRangeUnit));
         } else {
           collectedActions.push(moveAwayFromTarget(world, unit, closestInRangeUnit, enemyUnits))
@@ -68,6 +68,13 @@ const helper = {
     });
     return collectedActions;
   }
+}
+/**
+ * @param {Unit[]} inRangeUnits 
+ * @returns {boolean}
+ */
+function inSightRangeOfUnits(unit, inRangeUnits) {
+  return inRangeUnits.some(inRangeUnit => distance(unit.pos, inRangeUnit.pos) > inRangeUnit.data().sightRange);
 }
 
 function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
