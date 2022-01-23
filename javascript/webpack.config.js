@@ -4,7 +4,8 @@
 const path = require('path');
 const race = process.env.race || '';
 const initial = race ? race.charAt(0).toUpperCase() : '';
-const filename = `Lucid${initial}JS.js`;
+const botName = process.env.botName || ''
+const filename = botName ? `${botName}.js` : `Lucid${initial}JS.js`;
 
 module.exports = {
   target: "node",
