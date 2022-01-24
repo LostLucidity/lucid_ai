@@ -46,10 +46,9 @@ module.exports = createSystem({
       if (randomAction) {
         const { orderType, unitType } = randomAction;
         if (orderType === 'UnitType') {
-          const isMatchingPlan = planService.plan.slice(-(planService.plan.length / 12)).some(step => {
+          const isMatchingPlan = planService.plan.some(step => {
             return (
               step.unitType === unitType &&
-              step.food === agent.foodUsed &&
               step.targetCount === getUnitTypeCount(world, unitType)
             );
           });
