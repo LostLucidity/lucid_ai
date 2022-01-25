@@ -48,11 +48,12 @@ const resourceManagerService = {
    * @param {Unit} targetUnit 
    * @returns {Point2D}
    */
-  retreatToExpansion: (resources, unit, targetUnit) => {
+  retreatToExpansion: (resources, unit, targetUnit, toCombatRally = true) => {
     const { map } = resources.get();
     // retreat to rally if closer, else to closest expansion.
     const combatRallyPosition = getCombatRally(resources)
     if (
+      toCombatRally &&
       distanceByPath(resources, targetUnit.pos, combatRallyPosition) > 16 &&
       distanceByPath(resources, unit.pos, combatRallyPosition) <= distanceByPath(resources, targetUnit.pos, combatRallyPosition)
     ) {

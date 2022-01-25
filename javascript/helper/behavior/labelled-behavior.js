@@ -12,7 +12,7 @@ const enemyTrackingService = require("../../systems/enemy-tracking/enemy-trackin
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
 const { calculateTotalHealthRatio } = require("../../systems/unit-resource/unit-resource-service");
-const { getClosestUnitByPath } = require("../get-closest-by-path");
+const { getClosestUnitByPath, distanceByPath } = require("../get-closest-by-path");
 const { getCombatRally, getRandomPoints, acrossTheMap } = require("../location");
 const { engageOrRetreat } = require("./army-behavior");
 
@@ -62,22 +62,38 @@ module.exports = {
     const label = 'clearFromEnemy';
     const [unit] = units.withLabel(label);
     const collectedActions = [];
+    const combatRallyPosition = map.getCombatRally();
     if (unit) {
       let [closestEnemyUnit] = units.getClosest(unit.pos, enemyTrackingService.mappedEnemyUnits, 1);
       if (
         !closestEnemyUnit ||
         distance(unit.pos, closestEnemyUnit.pos) > 16 ||
-        distance(unit.pos, map.getCombatRally()) < 2
+        distance(unit.pos, combatRallyPosition) < 2
       ) {
         unit.labels.clear();
         console.log('clear!');
         collectedActions.push(gatherOrMine(resources, unit));
       } else {
-        collectedActions.push({
-          abilityId: MOVE,
-          targetWorldSpacePos: map.getCombatRally(),
-          unitTags: [unit.tag],
-        });
+        const [closestSelfUnit] = units.getClosest(combatRallyPosition, units.getAlive(Alliance.SELF).filter(unit => distance(unit.pos, combatRallyPosition) <= 16));
+        if (closestSelfUnit && (closestSelfUnit['selfDPSHealth'] > closestEnemyUnit['selfDPSHealth'])) {
+          collectedActions.push({
+            abilityId: MOVE,
+            targetWorldSpacePos: combatRallyPosition,
+            unitTags: [unit.tag],
+          });
+        } else {
+          const unitCommand = createUnitCommand(MOVE, [unit]);
+          const enemyOutOfRangeButCloserToRally = (
+            distanceByPath(resources, closestEnemyUnit.pos, combatRallyPosition) > 16 &&
+            distanceByPath(resources, unit.pos, combatRallyPosition) >= distanceByPath(resources, closestEnemyUnit.pos, combatRallyPosition)
+          );
+          if (enemyOutOfRangeButCloserToRally) {
+            unitCommand.targetWorldSpacePos = combatRallyPosition;
+          } else {
+            unitCommand.targetWorldSpacePos = retreatToExpansion(resources, unit, closestEnemyUnit, false);
+          }
+          collectedActions.push(unitCommand);
+        }
       }
     }
     return collectedActions;
