@@ -56,7 +56,7 @@ module.exports = createSystem({
             planService.plan.push({
               orderType, unitType, food: agent.foodUsed, targetCount: getUnitTypeCount(world, unitType)
             });
-            if (world.data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
+            if (data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
               await build(world, unitType);
             } else {
               await train(world, unitType);
