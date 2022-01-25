@@ -56,7 +56,11 @@ const worldService = {
         const unitCommand = createUnitCommand(abilityId, [builder]);
         if (GasMineRace[agent.race] === unitType) {
           const [geyser] = map.freeGasGeysers();
+          const moveCommand = createUnitCommand(MOVE, [builder]);
+          moveCommand.targetWorldSpacePos = geyser.pos;
+          collectedActions.push(moveCommand);
           unitCommand.targetUnitTag = geyser.tag;
+          unitCommand.queueCommand = true;
           collectedActions.push(unitCommand);
           const smartUnitCommand = createUnitCommand(SMART, [builder]);
           const [closestMineralField] = units.getClosest(builder.pos, units.getByType(mineralFieldTypes))

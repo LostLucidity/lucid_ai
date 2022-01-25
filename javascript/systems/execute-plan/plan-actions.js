@@ -18,11 +18,12 @@ const planService = require("../../services/plan-service");
 const { balanceResources } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
-const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, canBuild } = require("../../services/world-service");
+const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, canBuild, assignAndSendWorkerToBuild, setAndLogExecutedSteps } = require("../../services/world-service");
 const { addEarmark, isTrainingUnit } = require("../../services/data-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
 const { CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
+const { getStringNameOfConstant } = require("../../services/logging-service");
 
 const planActions = {
   /**
@@ -63,7 +64,7 @@ const planActions = {
   build: async (world, unitType, targetCount = null) => {
     const collectedActions = [];
     const { agent, data, resources } = world;
-    const { actions, map, units } = resources.get();
+    const { actions, frame, map, units } = resources.get();
     if (checkBuildingCount(world, unitType, targetCount) || targetCount === null) {
       const { race } = world.agent;
       let candidatePositions = [];
@@ -71,21 +72,17 @@ const planActions = {
         case GasMineRace[race] === unitType:
           try {
             if (map.freeGasGeysers().length > 0) {
+              const [geyser] = map.freeGasGeysers();
               if (agent.canAfford(unitType)) {
-                if (units.getWorkers().length > 0) {
-                  await actions.buildGasMine();
-                  unpauseAndLog(world, UnitTypeId[unitType]);
-                  addEarmark(data, data.getUnitTypeData(unitType));
-                }
+                await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, geyser.pos));
+                planService.pausePlan = false;
+                setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
               } else {
-                const position = map.freeGasGeysers()[0].pos;
-                collectedActions.push(...premoveBuilderToPosition(world, position, unitType));
+                collectedActions.push(...premoveBuilderToPosition(world, geyser.pos, unitType));
                 const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
                 await balanceResources(world, mineralCost / vespeneCost);
-                if (targetCount !== null) {
-                  planService.pausePlan = true;
-                  planService.continueBuild = false;
-                }
+                planService.pausePlan = true;
+                planService.continueBuild = false;
               }
             }
           } catch (error) {
