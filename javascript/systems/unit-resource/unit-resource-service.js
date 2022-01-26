@@ -264,11 +264,9 @@ const unitResourceService = {
    */
   selectBuilder: (units, position) => {
     const builderCandidates = unitResourceService.getBuilders(units);
-    if (builderCandidates.length === 0) {
-      builderCandidates.push(...units.getWorkers().filter(worker => {
-        return worker.noQueue || worker.isGathering() || worker.orders.findIndex(order => order.targetWorldSpacePos && (distance(order.targetWorldSpacePos, position) < 1)) > -1;
-      }));
-    }
+    builderCandidates.push(...units.getWorkers().filter(worker => {
+      return worker.noQueue || worker.isGathering() || worker.orders.findIndex(order => order.targetWorldSpacePos && (distance(order.targetWorldSpacePos, position) < 1)) > -1;
+    }));
     const [builder] = units.getClosest(position, builderCandidates);
     return builder;
   },
