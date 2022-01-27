@@ -80,7 +80,7 @@ module.exports = {
   warpIn: async (resources, assemblePlan, unitType) => {
     const { actions } = resources.get();
     let nearPosition;
-    if (assemblePlan.state.defenseMode && scoutService.outsupplied) {
+    if (assemblePlan && assemblePlan.state && assemblePlan.state.defenseMode && scoutService.outsupplied) {
       nearPosition = module.exports.findWarpInLocations(resources);
     } else {
       nearPosition = getCombatRally(resources);
