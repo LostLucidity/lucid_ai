@@ -6,6 +6,7 @@ const { Upgrade, UnitType } = require("@node-sc2/core/constants");
 const { Attribute, Alliance } = require("@node-sc2/core/constants/enums");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const planService = require("../services/plan-service");
+const sharedService = require("../services/shared-service");
 const { getUnitTypeCount } = require("../services/world-service");
 const { build, train, upgrade, runPlan } = require("./execute-plan/plan-actions");
 
@@ -26,6 +27,7 @@ module.exports = createSystem({
   async onStep(world) {
     const { agent, data, resources } = world;
     const { units } = resources.get();
+    sharedService.removePendingOrders(units);
     // get all unique available abilities
     const allAvailableAbilities = new Map();
     units.getAlive(Alliance.SELF).forEach(unit => {
