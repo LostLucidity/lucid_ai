@@ -26,9 +26,11 @@ module.exports = createSystem({
     const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
 
     const needyTownhall = townhalls.filter(townhall => {
-      let [closestEnemyUnit] = units.getClosest(townhall.pos, townhall['enemyUnits'], 1);
-      if (closestEnemyUnit) {
-        return townhall['selfDPSHealth'] >= closestEnemyUnit['selfDPSHealth'];
+      if (townhall['enemyUnits']) {
+        let [closestEnemyUnit] = units.getClosest(townhall.pos, townhall['enemyUnits'], 1);
+        if (closestEnemyUnit) {
+          return townhall['selfDPSHealth'] >= closestEnemyUnit['selfDPSHealth'];
+        }
       }
       return true;
     }).find(base => base.assignedHarvesters < base.idealHarvesters);
