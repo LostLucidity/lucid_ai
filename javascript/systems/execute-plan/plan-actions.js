@@ -59,15 +59,15 @@ const planActions = {
    * @param {World} world 
    * @param {number} unitType 
    * @param {null | number} targetCount
+   * @param {Point2D[]} candidatePositions
    * @returns {Promise<void>}
    */
-  build: async (world, unitType, targetCount = null) => {
+  build: async (world, unitType, targetCount = null, candidatePositions = []) => {
     const collectedActions = [];
     const { agent, data, resources } = world;
     const { actions, frame, map, units } = resources.get();
     if (checkBuildingCount(world, unitType, targetCount) || targetCount === null) {
       const { race } = world.agent;
-      let candidatePositions = [];
       switch (true) {
         case GasMineRace[race] === unitType:
           try {
@@ -261,9 +261,9 @@ const planActions = {
         const { food, orderType, unitType } = planStep;
         if (world.agent.foodUsed >= food) {
           if (orderType === 'UnitType') {
-            const { targetCount } = planStep;
+            const { candidatePositions, targetCount } = planStep;
             if (world.data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
-              await planActions.build(world, unitType, targetCount);
+              await planActions.build(world, unitType, targetCount, candidatePositions);
             } else {
               await planActions.train(world, unitType, targetCount);
             };

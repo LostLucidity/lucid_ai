@@ -24,7 +24,7 @@ const planService = {
   latestStep: 0,
   legacyPlan: null,
   pendingFood: 0,
-  /** @type {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number }[]} */
+  /** @type {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number, candidatePositions: Point2D[] }[]} */
   plan: null,
   planMax: {
     gasMine: null,
