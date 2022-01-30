@@ -2,7 +2,7 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { SIEGETANK, SIEGETANKSIEGED, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED, OVERLORD, OVERSEER, OBSERVER } = require("@node-sc2/core/constants/unit-type");
+const { SIEGETANK, SIEGETANKSIEGED, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED, OVERLORD, OVERSEER, OBSERVER, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK, EFFECT_REPAIR, STOP, HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getBase } = require("../expansions");
@@ -17,8 +17,33 @@ const { isRepairing } = require("../../systems/unit-resource/unit-resource-servi
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { retreatToExpansion } = require("../../services/resource-manager-service");
+const { moveAwayPosition } = require("../../services/position-service");
+const { getCombatRally } = require("../location");
+const { rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 
 module.exports = {
+  /**
+   * @param {ResourceManager} resources 
+   * @returns {Point2D[]}
+   */
+  barracksBehavior: (resources) => {
+    const collectedActions = [];
+    const { units } = resources.get();
+    units.getByType(BARRACKS).forEach(unit => {
+      const foundRallyAbility = unit.availableAbilities().find(ability => ability === Ability.RALLY_BUILDING);
+      if (foundRallyAbility) {
+        const unitCommand = createUnitCommand(foundRallyAbility, [unit]);
+        let rallyPosition = getCombatRally(resources);
+        const [closestEnemyUnit] = units.getClosest(unit.pos, units.getAlive(Alliance.ENEMY)).filter(enemyUnit => distance(enemyUnit.pos, unit.pos) < 16);
+        if (closestEnemyUnit && unit['selfDPSHealth'] < closestEnemyUnit['selfDPSHealth']) {
+          rallyPosition = moveAwayPosition(closestEnemyUnit.pos, unit.pos);
+        }
+        unitCommand.targetWorldSpacePos = rallyPosition;
+        collectedActions.push(unitCommand);
+      }
+    });
+    return collectedActions;
+  },
   orbitalCommandCenterBehavior: (resources, action) => {
     const {
       units,

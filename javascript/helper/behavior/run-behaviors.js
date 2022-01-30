@@ -2,7 +2,7 @@
 "use strict"
 
 const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior, acrossTheMapBehavior, recruitToBattleBehavior } = require("./labelled-behavior");
-const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior } = require("./unit-behavior");
+const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior, barracksBehavior } = require("./unit-behavior");
 
 /**
  * @param {World} world 
@@ -13,6 +13,7 @@ async function runBehaviors(world) {
   const { units } = resources.get();
   const collectedActions = []
   collectedActions.push(...acrossTheMapBehavior(world));
+  collectedActions.push(...barracksBehavior(resources));
   collectedActions.push(...clearFromEnemyBehavior(resources));
   collectedActions.push(...liberatorBehavior(resources));
   collectedActions.push(...marineBehavior(resources));
