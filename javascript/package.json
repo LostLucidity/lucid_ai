@@ -9,6 +9,7 @@
     "@node-sc2/system-protoss-supply": "^0.7.0-alpha.0"
   },
   "devDependencies": {
+    "eslint": "^8.8.0",
     "pkg": "^4.4.8",
     "webpack": "^4.43.0",
     "webpack-cli": "^3.3.11"
