@@ -14,7 +14,7 @@ module.exports = createSystem({
   async onStep(world) {
     const { agent } = world;
     const conditions = [
-      isSupplyNeeded(world) &&
+      isSupplyNeeded(world, 0.2) &&
       (agent.foodUsed > planService.planMax.supplyDepot || agent.minerals > 512)
     ];
     if (conditions.some(condition => condition)) {

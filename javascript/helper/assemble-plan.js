@@ -627,7 +627,7 @@ class AssemblePlan {
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
           addEarmark(this.data, unitTypeData);
         } else {
-          if (isSupplyNeeded && unitType !== OVERLORD) {
+          if (isSupplyNeeded(this.world) && unitType !== OVERLORD) {
             await this.manageSupply();
           } else if (!this.agent.canAfford(unitType)) {
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
