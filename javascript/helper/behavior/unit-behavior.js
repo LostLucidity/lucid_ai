@@ -3,7 +3,7 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { SIEGETANK, SIEGETANKSIEGED, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED, OVERLORD, OVERSEER, OBSERVER, BARRACKS } = require("@node-sc2/core/constants/unit-type");
-const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE, ATTACK_ATTACK, EFFECT_REPAIR, STOP, HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
+const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getBase } = require("../expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
@@ -19,7 +19,6 @@ const { shadowEnemy } = require("../../builds/helper");
 const { retreatToExpansion } = require("../../services/resource-manager-service");
 const { moveAwayPosition } = require("../../services/position-service");
 const { getCombatRally } = require("../location");
-const { rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 
 module.exports = {
   /**
