@@ -13,6 +13,9 @@ const { build, train, upgrade, runPlan } = require("./execute-plan/plan-actions"
 let unitTypeAbilities = [];
 let upgradeAbilities = [];
 module.exports = createSystem({
+  defaultOptions: {
+    stepIncrement: 64,
+  },
   async onGameStart({ data }) {
     unitTypeAbilities = [];
     upgradeAbilities = [];
@@ -28,49 +31,52 @@ module.exports = createSystem({
     const { agent, data, resources } = world;
     const { units } = resources.get();
     sharedService.removePendingOrders(units);
-    // get all unique available abilities
-    const allAvailableAbilities = new Map();
-    units.getAlive(Alliance.SELF).forEach(unit => {
-      const availableAbilities = unit.availableAbilities();
-      availableAbilities.forEach(ability => {
-        if (!allAvailableAbilities.has(ability)) {
-          if (Object.keys(unitTypeAbilities).some(unitTypeAbility => parseInt(unitTypeAbility) === ability)) {
-            allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeAbilities[ability] });
-          } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
-            allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
-          }
-        }
-      })
-    });
     await runPlan(world);
-    if (planService.continueBuild) {
-      const randomAction = getRandom(Array.from(allAvailableAbilities.values()));
-      if (randomAction) {
-        const { orderType, unitType } = randomAction;
-        if (orderType === 'UnitType') {
-          const isMatchingPlan = planService.plan.some(step => {
-            return (
-              step.unitType === unitType &&
-              step.targetCount === getUnitTypeCount(world, unitType)
-            );
-          });
-          if (!isMatchingPlan) {
-            planService.plan.push({
-              orderType, unitType, food: agent.foodUsed, targetCount: getUnitTypeCount(world, unitType)
+    if (getRandom([0, 1]) === 0) {
+      if (planService.continueBuild) {
+        const allAvailableAbilities = new Map();
+        units.getAlive(Alliance.SELF).forEach(unit => {
+          const availableAbilities = unit.availableAbilities();
+          availableAbilities.forEach(ability => {
+            if (!allAvailableAbilities.has(ability)) {
+              if (Object.keys(unitTypeAbilities).some(unitTypeAbility => parseInt(unitTypeAbility) === ability)) {
+                allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeAbilities[ability] });
+              } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
+                allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
+              }
+            }
+          })
+        });
+        const randomAction = getRandom(Array.from(allAvailableAbilities.values()));
+        if (randomAction) {
+          const { orderType, unitType } = randomAction;
+          if (orderType === 'UnitType') {
+            const isMatchingPlan = planService.plan.some(step => {
+              return (
+                step.unitType === unitType &&
+                step.targetCount === getUnitTypeCount(world, unitType)
+              );
             });
-            if (data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
-              await build(world, unitType);
-            } else {
-              await train(world, unitType);
-            };
+            if (!isMatchingPlan) {
+              planService.plan.push({
+                orderType, unitType, food: agent.foodUsed, targetCount: getUnitTypeCount(world, unitType)
+              });
+              if (data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
+                await build(world, unitType);
+              } else {
+                await train(world, unitType);
+              }
+            }
+          } else if (orderType === 'Upgrade') {
+            planService.plan.push({
+              orderType, upgrade: randomAction.upgrade, food: agent.foodUsed
+            });
+            await upgrade(world, randomAction.upgrade);
           }
-        } else if (orderType === 'Upgrade') {
-          planService.plan.push({
-            orderType, upgrade: randomAction.upgrade, food: agent.foodUsed
-          });
-          await upgrade(world, randomAction.upgrade);
         }
       }
+    } else {
+      console.log('skip this step');
     }
     data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
   }
