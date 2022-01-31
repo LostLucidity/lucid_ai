@@ -253,6 +253,7 @@ const planActions = {
  */
   runPlan: async (world) => {
     planService.continueBuild = true;
+    planService.pausedThisRound = false;
     const { plan } = planService;
     for (let step = 0; step < plan.length; step++) {
       if (planService.continueBuild) {
@@ -266,7 +267,7 @@ const planActions = {
               await planActions.build(world, unitType, targetCount, candidatePositions);
             } else {
               await planActions.train(world, unitType, targetCount);
-            };
+            }
           } else if (orderType === 'Upgrade') {
             await planActions.upgrade(world, planStep.upgrade);
           }
@@ -274,6 +275,9 @@ const planActions = {
       } else {
         break;
       }
+    }
+    if (!planService.pausedThisRound) {
+      planService.pausePlan = false;
     }
   },
 }

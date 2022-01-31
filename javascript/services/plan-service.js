@@ -11,6 +11,7 @@ const planService = {
    */
   set pausePlan(value) {
     planService.isPlanPaused = value;
+    planService.pausedThisRound = value;
   },
   dirtyBasePlan: false,
   continueBuild: null,
@@ -23,6 +24,8 @@ const planService = {
   isPlanPaused: null,
   latestStep: 0,
   legacyPlan: null,
+  /** @type {boolean} */
+  pausedThisRound: false,
   pendingFood: 0,
   /** @type {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number, candidatePositions?: Point2D[] }[]} */
   plan: null,
