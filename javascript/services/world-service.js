@@ -4,10 +4,10 @@
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes } = require("@node-sc2/core/constants/groups");
-const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN, OVERLORD } = require("@node-sc2/core/constants/unit-type");
+const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities } = require("@node-sc2/core/constants/groups");
+const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
+const { distance, avgPoints, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { countTypes } = require("../helper/groups");
 const { findPlacements, findPosition } = require("../helper/placement/placement-helper");
@@ -30,6 +30,8 @@ const unitResourceService = require("../systems/unit-resource/unit-resource-serv
 const { distanceByPath, getClosestUnitByPath, getClosestPositionByPath } = require("../helper/get-closest-by-path");
 const { rallyWorkerToPosition, rallyWorkerToMinerals } = require("./resource-manager-service");
 const { getPathablePositionsForStructure } = require("./map-resource-service");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const worldService = {
   /** @type {boolean} */
@@ -141,11 +143,6 @@ const worldService = {
    */
   canBuild: (world, unitTypeId) => {
     const { agent } = world;
-    const { foodCap, foodUsed, } = agent;
-    let supplyLeft = 1
-    if (unitTypeId !== OVERLORD) {
-      supplyLeft = foodCap - foodUsed;
-    }
     return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && !worldService.isSupplyNeeded(world)
   },
   /**
@@ -216,6 +213,26 @@ const worldService = {
       abilityIds.push(abilityId);
     }
     return abilityIds;
+  },
+  /**
+   * @param {World} world
+   * @returns {Point2D[]}
+   */
+  getCurrentlyEnrouteConstructionGrids: (world) => {
+    const { data, resources } = world;
+    const contructionGrids = [];
+    resources.get().units.getWorkers().forEach(worker => {
+      if (worker.isConstructing()) {
+        const foundOrder = worker.orders.find(order => constructionAbilities.includes(order.abilityId));
+        if (foundOrder && foundOrder.targetWorldSpacePos) {
+          const foundUnitTypeName = Object.keys(UnitType).find(unitType => data.getUnitTypeData(UnitType[unitType]).abilityId === foundOrder.abilityId);
+          if (foundUnitTypeName) {
+            contructionGrids.push(...cellsInFootprint(createPoint2D(foundOrder.targetWorldSpacePos), getFootprint(UnitType[foundUnitTypeName])));
+          }
+        }
+      }
+    });
+    return contructionGrids;
   },
   /**
    * @param {World} world 

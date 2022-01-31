@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { distance, avgPoints, getNeighbors, closestPoint } = require('@node-sc2/core/utils/geometry/point');
+const { distance, avgPoints, getNeighbors, createPoint2D } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { UnitType } = require('@node-sc2/core/constants');
@@ -16,6 +16,9 @@ const { existsInMap } = require('../location');
 const wallOffNaturalService = require('../../systems/wall-off-natural/wall-off-natural-service');
 const { intersectionOfPoints, pointsOverlap } = require('../utilities');
 const { getThirdWallPosition } = require('../../systems/unit-resource/unit-resource-service');
+const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
+const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
+const { getCurrentlyEnrouteConstructionGrids } = require('../../services/world-service');
 
 const placementHelper = {
   findMineralLines: (resources) => {
@@ -101,7 +104,11 @@ const placementHelper = {
          */
         const wallOffPositions = [];
         if (wallOffUnitTypes.includes(unitType) && units.getById(wallOffUnitTypes).length < 3) {
-          const placeablePositions = wallOffNaturalService.threeByThreePositions.filter(position => map.isPlaceableAt(unitType, position) && pointsOverlap([position], placements));
+          const currentlyEnrouteConstructionGrids = getCurrentlyEnrouteConstructionGrids(world);
+          const placeablePositions = wallOffNaturalService.threeByThreePositions.filter(position => {
+            const footprint = cellsInFootprint(createPoint2D(position), getFootprint(unitType));
+            return map.isPlaceableAt(unitType, position) && pointsOverlap([...footprint], [...placements]) && !pointsOverlap([...footprint], [...currentlyEnrouteConstructionGrids])
+          });
           if (placeablePositions.length > 0) {
             wallOffPositions.push(...placeablePositions);
           } else {
