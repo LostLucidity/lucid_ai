@@ -16,9 +16,9 @@ const { pullWorkersToDefend } = require("../../services/army-management-service"
 const { isRepairing } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
-const { retreatToExpansion } = require("../../services/resource-manager-service");
 const { moveAwayPosition } = require("../../services/position-service");
 const { getCombatRally } = require("../location");
+const { retreatToExpansion } = require("../../services/world-service");
 
 module.exports = {
   /**
@@ -225,7 +225,7 @@ module.exports = {
             const inRangeWorkerSupply = calculateHealthAdjustedSupply(world, inRangeWorkers);
             if (inRangeEnemySupply > inRangeWorkerSupply) {
               worker.labels.set('retreating');
-              const position = retreatToExpansion(resources, worker, closestEnemyUnit);
+              const position = retreatToExpansion(world, worker, closestEnemyUnit);
               const unitCommand = {
                 abilityId: MOVE,
                 targetWorldSpacePos: position,

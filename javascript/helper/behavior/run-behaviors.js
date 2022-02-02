@@ -14,7 +14,7 @@ async function runBehaviors(world) {
   const collectedActions = []
   collectedActions.push(...acrossTheMapBehavior(world));
   collectedActions.push(...barracksBehavior(resources));
-  collectedActions.push(...clearFromEnemyBehavior(resources));
+  collectedActions.push(...clearFromEnemyBehavior(world));
   collectedActions.push(...liberatorBehavior(resources));
   collectedActions.push(...marineBehavior(resources));
   collectedActions.push(...observerBehavior(world));

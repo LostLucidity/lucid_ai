@@ -14,8 +14,8 @@ const { gatherOrMine } = require("../systems/manage-resources");
 const { calculateNearSupply } = require("./data-service");
 const { micro } = require("./micro-service");
 const { isRepairing } = require("../systems/unit-resource/unit-resource-service");
-const { retreatToExpansion } = require("./resource-manager-service");
 const { moveAwayPosition } = require("./position-service");
+const { retreatToExpansion } = require("./world-service");
 
 const armyManagementService = {
   defenseMode: false,
@@ -56,7 +56,8 @@ const armyManagementService = {
   calculateSupplyPower(data, unit, Units) {
     return calculateNearSupply(data, getInRangeUnits(unit, Units));
   },
-  engageOrRetreat: ({ data, resources }, selfUnits, enemyUnits, position, clearRocks = true) => {
+  engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
+    const { data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
     selfUnits.forEach(selfUnit => {
@@ -78,7 +79,7 @@ const armyManagementService = {
             if (isFlying) {
               targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
             } else {
-              targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestEnemyUnit);
+              targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestEnemyUnit);
             }
             if (targetWorldSpacePos) {
               const unitCommand = {

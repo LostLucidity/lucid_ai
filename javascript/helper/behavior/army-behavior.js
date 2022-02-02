@@ -18,8 +18,7 @@ const scoutService = require("../../systems/scouting/scouting-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { retreatToExpansion } = require("../../services/resource-manager-service");
-const { microRangedUnit, defendWithUnit, getDPSHealth } = require("../../services/world-service");
+const { microRangedUnit, defendWithUnit, getDPSHealth, retreatToExpansion } = require("../../services/world-service");
 const { micro } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { moveAwayPosition } = require("../../services/position-service");
@@ -224,7 +223,7 @@ const armyBehavior = {
               } else {
                 if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
                   const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
-                  unitCommand.targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                  unitCommand.targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
                   unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
                     setPendingOrders(unit, unitCommand);
                     return unit.tag;

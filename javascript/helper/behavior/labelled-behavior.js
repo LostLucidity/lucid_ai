@@ -7,7 +7,7 @@ const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { isFacing } = require("../../services/micro-service");
-const { retreatToExpansion } = require("../../services/resource-manager-service");
+const { retreatToExpansion } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
@@ -54,10 +54,11 @@ module.exports = {
   },
   /**
    * 
-   * @param {ResourceManager} resources 
+   * @param {World} world 
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  clearFromEnemyBehavior: (resources) => {
+  clearFromEnemyBehavior: (world) => {
+    const { resources } = world;
     const { map, units } = resources.get();
     const label = 'clearFromEnemy';
     const [unit] = units.withLabel(label);
@@ -90,7 +91,7 @@ module.exports = {
           if (enemyOutOfRangeButCloserToRally) {
             unitCommand.targetWorldSpacePos = combatRallyPosition;
           } else {
-            unitCommand.targetWorldSpacePos = retreatToExpansion(resources, unit, closestEnemyUnit, false);
+            unitCommand.targetWorldSpacePos = retreatToExpansion(world, unit, closestEnemyUnit, false);
           }
           collectedActions.push(unitCommand);
         }
@@ -139,7 +140,7 @@ module.exports = {
           collectedActions.push({
             abilityId: MOVE,
             unitTags: [unit.tag],
-            targetWorldSpacePos: retreatToExpansion(resources, unit, closestEnemyUnit),
+            targetWorldSpacePos: retreatToExpansion(world, unit, closestEnemyUnit),
           });
         } else {
           unit.labels.delete('Threatened');

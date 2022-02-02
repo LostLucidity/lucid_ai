@@ -91,13 +91,14 @@ function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
 
 /**
  * 
- * @param {World} param0 
+ * @param {World} world 
  * @param {Unit} unit 
  * @param {Unit} targetUnit 
  * @param {Unit[]} targetUnits 
  * @returns {SC2APIProtocol.ActionRawUnitCommand}
  */
-function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) {
+function moveAwayFromTarget(world, unit, targetUnit, targetUnits) {
+  const { data, resources } = world;
   const { map, units } = resources.get();
   const isFlying = unit.isFlying;
   let position;
@@ -144,7 +145,7 @@ function moveAwayFromTarget({ data, resources }, unit, targetUnit, targetUnits) 
   } else {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     targetUnit['inRangeUnits'] = enemyUnits.filter(enemyUnit => distance(targetUnit.pos, enemyUnit.pos) < 8);
-    position = retreatToExpansion(resources, unit, targetUnit);
+    position = retreatToExpansion(world, unit, targetUnit);
   }
   return {
     abilityId: MOVE,

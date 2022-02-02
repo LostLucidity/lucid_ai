@@ -98,7 +98,7 @@ module.exports = createSystem({
                     if (isFlying) {
                       targetWorldSpacePos = moveAwayPosition(closestEnemyUnit.pos, selfUnit.pos);
                     } else {
-                      targetWorldSpacePos = retreatToExpansion(resources, selfUnit, closestEnemyUnit);
+                      targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestEnemyUnit);
                     }
                     if (targetWorldSpacePos) {
                       const unitCommand = {
