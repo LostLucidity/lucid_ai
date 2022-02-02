@@ -45,7 +45,7 @@ module.exports = createSystem({
       if (candidateTypesToBuild.length > 0) {
         let { selectedTypeToBuild } = unitTrainingService;
         selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : selectTypeToBuild(world, candidateTypesToBuild);
-        if (selectedTypeToBuild !== null) {
+        if (selectedTypeToBuild !== undefined && selectedTypeToBuild !== null) {
           let { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, [plan[currentStep]]);
           let { mineralCost, vespeneCost } = data.getUnitTypeData(selectedTypeToBuild);
           if (selectedTypeToBuild === ZERGLING) {
