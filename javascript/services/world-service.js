@@ -5,12 +5,12 @@ const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities } = require("@node-sc2/core/constants/groups");
-const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN, GATEWAY, CYBERNETICSCORE, SUPPLYDEPOT, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, avgPoints, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
+const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { countTypes } = require("../helper/groups");
-const { findPlacements, findPosition } = require("../helper/placement/placement-helper");
+const { findPosition } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { balanceResources } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
@@ -21,7 +21,7 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getUnitsById, getUnitTypeData, isRepairing, calculateSplashDamage } = require("../systems/unit-resource/unit-resource-service");
+const { getUnitsById, getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
@@ -32,6 +32,12 @@ const { rallyWorkerToPosition, rallyWorkerToMinerals } = require("./resource-man
 const { getPathablePositionsForStructure } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+const { getOccupiedExpansions } = require("../helper/expansions");
+const { existsInMap, getCombatRally } = require("../helper/location");
+const { pointsOverlap, intersectionOfPoints } = require("../helper/utilities");
+const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
+const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
+const { moveAwayPosition } = require("./position-service");
 
 const worldService = {
   /** @type {boolean} */
@@ -165,7 +171,7 @@ const worldService = {
     const { agent, data, resources } = world
     const collectedActions = []
     const { actions, units } = resources.get();
-    if (candidatePositions.length === 0) { candidatePositions = await findPlacements(world, unitType); }
+    if (candidatePositions.length === 0) { candidatePositions = await worldService.findPlacements(world, unitType); }
     planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(resources, unitType, candidatePositions);
     if (planService.foundPosition) {
       if (agent.canAfford(unitType)) {
@@ -196,6 +202,125 @@ const worldService = {
       }
     }
     return collectedActions;
+  },
+  /**
+ *
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @returns {Promise<Point2D[]>}
+ */
+  findPlacements: async (world, unitType) => {
+    const { agent, resources } = world;
+    const { race } = agent;
+    const { actions, map, units } = resources.get();
+    const [main, natural] = map.getExpansions();
+    const mainMineralLine = main.areas.mineralLine;
+    /**
+     * @type {Point2D[]}
+     */
+    let placements = [];
+    if (race === Race.PROTOSS) {
+      if (unitType === PYLON) {
+        const occupiedExpansions = getOccupiedExpansions(resources);
+        const occupiedExpansionsPlacementGrid = [...occupiedExpansions.map(expansion => expansion.areas.placementGrid)];
+        const placementGrids = [];
+        occupiedExpansionsPlacementGrid.forEach(grid => placementGrids.push(...grid));
+        placements = placementGrids
+          .filter((point) => {
+            return (
+              (distance(natural.townhallPosition, point) > 4.5) &&
+              (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
+              (natural.areas.hull.every(hp => distance(hp, point) > 3)) &&
+              (units.getStructures({ alliance: Alliance.SELF })
+                .map(u => u.pos)
+                .every(eb => distance(eb, point) > 3))
+            );
+          });
+      } else {
+        let pylonsNearProduction;
+        if (units.getById(PYLON).length === 1) {
+          pylonsNearProduction = units.getById(PYLON);
+        } else {
+          pylonsNearProduction = units.getById(PYLON)
+            .filter(u => u.buildProgress >= 1)
+            .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
+        }
+        pylonsNearProduction.forEach(pylon => {
+          placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid) && distance(grid, pylon.pos) < 6.5));
+        });
+        const wallOffUnitTypes = [...countTypes.get(GATEWAY), CYBERNETICSCORE];
+        /**
+         * @type {Point2D[]}
+         */
+        const wallOffPositions = [];
+        if (wallOffUnitTypes.includes(unitType) && units.getById(wallOffUnitTypes).length < 3) {
+          const currentlyEnrouteConstructionGrids = worldService.getCurrentlyEnrouteConstructionGrids(world);
+          const placeablePositions = wallOffNaturalService.threeByThreePositions.filter(position => {
+            const footprint = cellsInFootprint(createPoint2D(position), getFootprint(unitType));
+            return map.isPlaceableAt(unitType, position) && pointsOverlap([...footprint], [...placements]) && !pointsOverlap([...footprint], [...currentlyEnrouteConstructionGrids])
+          });
+          if (placeablePositions.length > 0) {
+            wallOffPositions.push(...placeablePositions);
+          } else {
+            if (wallOffNaturalService.wall.length > 0) {
+              const cornerGrids = wallOffNaturalService.wall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), wallOffNaturalService.wall).length === 1);
+              const wallRadius = distance(cornerGrids[0], cornerGrids[1]) / 2;
+              wallOffPositions.push(...gridsInCircle(avgPoints(wallOffNaturalService.wall), wallRadius, { normalize: true }).filter(grid => {
+                let existsAndPlaceable = existsInMap(map, grid) && map.isPlaceable(grid);
+                if (units.getById(wallOffUnitTypes).length === 2) {
+                  const foundThirdWallPosition = getThirdWallPosition(units.getById(wallOffUnitTypes), grid, unitType);
+                  return existsAndPlaceable && foundThirdWallPosition;
+                } else {
+                  return existsAndPlaceable;
+                }
+              }));
+            }
+          }
+        }
+        if (wallOffPositions.length > 0 && intersectionOfPoints(wallOffPositions, placements).some(position => map.isPlaceableAt(unitType, position))) {
+          placements = intersectionOfPoints(wallOffPositions, placements);
+        }
+        placements = placements.filter((point) => {
+          return (
+            (distance(natural.townhallPosition, point) > 5) &&
+            (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
+            (wallOffPositions.length > 0 || (natural.areas.hull.every(hp => distance(hp, point) > 2))) &&
+            map.isPlaceableAt(unitType, point)
+          );
+        });
+      }
+    } else if (race === Race.TERRAN) {
+      const placementGrids = [];
+      const wallOffUnitTypes = [SUPPLYDEPOT, BARRACKS];
+      if (wallOffUnitTypes.includes(unitType)) {
+        const wallOffPositions = findWallOffPlacement(unitType);
+        if (wallOffPositions.length > 0 && await actions.canPlace(unitType, wallOffPositions)) {
+          return wallOffPositions;
+        }
+      }
+      getOccupiedExpansions(world.resources).forEach(expansion => {
+        placementGrids.push(...expansion.areas.placementGrid);
+      });
+      placements = placementGrids
+        .map(pos => ({ pos, rand: Math.random() }))
+        .sort((a, b) => a.rand - b.rand)
+        .map(a => a.pos)
+        .slice(0, 20);
+    } else if (race === Race.ZERG) {
+      placements = map.getCreep()
+        .filter((point) => {
+          const [closestMineralLine] = getClosestPosition(point, mainMineralLine);
+          const [closestStructure] = units.getClosest(point, units.getStructures());
+          const [closestTownhallPosition] = getClosestPosition(point, map.getExpansions().map(expansion => expansion.townhallPosition));
+          return (
+            distance(point, closestMineralLine) > 1.5 &&
+            distance(point, closestStructure.pos) > 3 &&
+            distance(point, closestStructure.pos) <= 12.5 &&
+            distance(point, closestTownhallPosition) > 3
+          );
+        });
+    }
+    return placements;
   },
   /**
    * @param {DataStorage} data
