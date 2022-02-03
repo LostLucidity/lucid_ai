@@ -3,7 +3,7 @@
 
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
-const { Race, Attribute, Alliance } = require("@node-sc2/core/constants/enums");
+const { Race, Attribute, Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN, GATEWAY, CYBERNETICSCORE, SUPPLYDEPOT, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
@@ -598,8 +598,27 @@ const worldService = {
       });
     } else {
       const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
-      unitCommand.targetWorldSpacePos = targetUnit.pos;
-      collectedActions.push(unitCommand);
+      const foundGroundRangedWeapon = data.getUnitTypeData(unit.unitType).weapons.find(weapon => weapon.type === WeaponTargetType.GROUND && weapon.range > 1);
+      if (foundGroundRangedWeapon) {
+        const enemyUnitsInRange = getInRangeUnits(unit, [...enemyTrackingService.mappedEnemyUnits], foundGroundRangedWeapon.range);
+        const weakestEnemyUnitInRange = enemyUnitsInRange.reduce((weakest, enemyUnit) => {
+          if (weakest) {
+            return enemyUnit.health < weakest.health ? enemyUnit : weakest;
+          } else {
+            return enemyUnit;
+          }
+        }, null);
+        if (weakestEnemyUnitInRange) {
+          unitCommand.targetUnitTag = weakestEnemyUnitInRange.tag;
+          collectedActions.push(unitCommand);
+        } else {
+          unitCommand.targetWorldSpacePos = targetUnit.pos;
+          collectedActions.push(unitCommand);
+        }
+      } else {
+        unitCommand.targetWorldSpacePos = targetUnit.pos;
+        collectedActions.push(unitCommand);
+      }
     }
     return collectedActions;
   },

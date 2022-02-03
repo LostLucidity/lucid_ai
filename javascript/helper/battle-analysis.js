@@ -28,8 +28,14 @@ module.exports = {
       return accumulator + dPS;
     }, 0);
   },
-  getInRangeUnits: (unit, targetUnits) => {
-    return targetUnits.filter(targetUnit => distance(unit.pos, targetUnit.pos) < 16);
+  /**
+   * @param {Unit} unit 
+   * @param {Unit[]} targetUnits 
+   * @param {number} range 
+   * @returns {Unit[]}
+   */
+  getInRangeUnits: (unit, targetUnits, range=16) => {
+    return targetUnits.filter(targetUnit => distance(unit.pos, targetUnit.pos) < range);
   },
   getInRangeDestructables: (units, selfUnit) => {
     let tag = null;
