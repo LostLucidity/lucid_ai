@@ -158,13 +158,13 @@ const terran = {
    */
   swapBuildings: async (world, conditions = []) => {
     // get first building, if addon get building offset
-    const { actions, units } = world.resources.get();
+    const { units } = world.resources.get();
     const label = 'swapBuilding';
     let buildingsToSwap = [...conditions].map((condition, index) => {
       const addOnValue = `addOn${index}`;
       const unitType = condition[0];
       let [building] = units.withLabel(label).filter(unit => unit.labels.get(label) === index);
-      if (!checkBuildingCount(world, unitType, condition[1]) && !building) { return };
+      if (!checkBuildingCount(world, unitType, condition[1]) && !building) { return }
       let [addOn] = units.withLabel(label).filter(unit => unit.labels.get(label) === addOnValue);
       if (!building) {
         if (addonTypes.includes(unitType)) {
@@ -172,13 +172,11 @@ const terran = {
           const [building] = addOn ? units.getClosest(getAddOnBuildingPosition(addOn.pos), units.getStructures()) : [];
           if (addOn && building) {
             addOn.labels.set(label, addOnValue);
-            building.labels.set(label, index);
             return building;
           }
         } else {
           const [building] = units.getById(countTypes.get(unitType)).filter(unit => unit.noQueue && (unit.addOnTag === '0' || parseInt(unit.addOnTag) === 0) && unit.buildProgress >= 1);
           if (building) {
-            building.labels.set(label, index);
             return building;
           }
         }
@@ -186,22 +184,10 @@ const terran = {
         return building;
       }
     });
+    
     if (buildingsToSwap.every(building => building)) {
-      if (buildingsToSwap.every(building => building.noQueue && !building.labels.has('pendingOrders'))) {
-        if (buildingsToSwap.some(building => building.availableAbilities().find(ability => liftingAbilities.includes(ability)))) {
-          await actions.do(Ability.LIFT, buildingsToSwap[0].tag);
-          await actions.do(Ability.LIFT, buildingsToSwap[1].tag);
-        }
-        if (buildingsToSwap.every(building => building.availableAbilities().find(ability => landingAbilities.includes(ability)))) {
-          await actions.do(Ability.LAND, buildingsToSwap[0].tag, { target: buildingsToSwap[1].pos });
-          await actions.do(Ability.LAND, buildingsToSwap[1].tag, { target: buildingsToSwap[0].pos });
-        }
-      }
-      terran.removeLabelsWhenInTargetRange(units.withLabel(label), label);
-    } else {
-      units.withLabel(label).forEach((building) => {
-        building.labels.delete(label);
-      });
+      buildingsToSwap[0].labels.set(label, buildingsToSwap[1].pos);
+      buildingsToSwap[1].labels.set(label, buildingsToSwap[0].pos);
     }
   },
   removeLabelsWhenInTargetRange: (buildings, label) => {

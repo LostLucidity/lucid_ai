@@ -183,6 +183,7 @@ async function runGame() {
     taggingSystem,
     unitResourceSystem,
     detectUpgradeSystem,
+    swapBuildingSystem,
   ];
   const updatedSystems = [
     saltConverterSystem,
