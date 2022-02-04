@@ -282,9 +282,10 @@ class AssemblePlan {
               }
             }
             break;
-          case PHOTONCANNON === unitType:
-            candidatePositions = this.map.getNatural().areas.placementGrid;
           default:
+            if (PHOTONCANNON === unitType) { 
+              candidatePositions = this.map.getNatural().areas.placementGrid;
+            }
             if (candidatePositions.length === 0) { candidatePositions = await findPlacements(this.world, unitType); }
             await this.buildBuilding(unitType, candidatePositions, stepAhead);
         }
