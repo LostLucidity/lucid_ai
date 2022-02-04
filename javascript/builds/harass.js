@@ -10,22 +10,20 @@ const { microRangedUnit } = require("../services/world-service");
 
 module.exports = {
   /**
-   * 
    * @param {World} world 
-   * @param {{ harassOn: boolean; }} state 
+   * @param {{ harassOn: boolean, harassFinished: boolean; }} state 
    * @returns {Promise<void>}
    */
   harass: async (world, state) => {
     const { resources } = world;
     const { actions, map, units } = resources.get();
     const label = 'harasser';
-    if (units.getByType(STALKER).length == 4 && units.withLabel(label).length === 0) {
+    if (units.getById(STALKER).length === 4) { 
       state.harassOn = true;
       const stalkers = units.getById(STALKER);
       stalkers.forEach(stalker => stalker.labels.set(label, true));
     }
-    if (state.harassOn === true) {
-      // focus fire enemy
+    if (state.harassOn === true && !state.harassFinished) {
       const harassers = units.withLabel(label);
       const positionsOfHarassers = harassers.map(harasser => harasser.pos);
       const averagePoints = avgPoints(positionsOfHarassers);
@@ -56,6 +54,7 @@ module.exports = {
       } else {
         if (!closestEnemyUnit || distance(closestEnemyUnit.pos, averagePoints) > 8) {
           state.harassOn = false;
+          state.harassFinished = true;
           harassers.forEach(harasser => harasser.labels.delete(label));
         }
         await actions.move(harassers, map.getCombatRally());
