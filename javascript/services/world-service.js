@@ -655,7 +655,7 @@ const worldService = {
       const { mineralCost } = data.getUnitTypeData(unitType);
       const mineralsLeft = mineralCost + data.getEarmarkTotals('stepAhead').minerals - agent.minerals;
       const timeToTargetCost = mineralsLeft / (collectionRateMinerals / 60);
-      if (timeToTargetCost <= timeToPosition) {
+      if (timeToTargetCost > 0 && (timeToTargetCost <= timeToPosition)) {
         if (rallyBase) {
           collectedActions.push(...rallyWorkerToPosition(resources, position));
         } else {
