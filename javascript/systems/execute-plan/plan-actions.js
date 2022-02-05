@@ -116,20 +116,23 @@ const planActions = {
           candidatePositions = map.getNatural().areas.placementGrid;
           collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
           break;
-        case addonTypes.includes(unitType):
+        case addonTypes.includes(unitType): {
           const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
-          let canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
+          const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
+          const canDoTypeUnits = units.getById(canDoTypes);
           const addOnUnits = units.withLabel('addAddOn');
-          const unitsCanDo = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId))).length > 0 ? addOnUnits : units.getByType(canDoTypes).filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId)));
-          if (unitsCanDo.length > 0) {
-            let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+          const unitsCanDoWithoutAddOnAndIdle = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId))).length > 0 ? addOnUnits : canDoTypeUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId)));
+          const unitsCanDoIdle = unitsCanDoWithoutAddOnAndIdle.length > 0 ? unitsCanDoWithoutAddOnAndIdle : getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits);
+          if (unitsCanDoIdle.length > 0) {
+            let unitCanDo = unitsCanDoIdle[Math.floor(Math.random() * unitsCanDoIdle.length)];
             await addAddOn(world, unitCanDo, unitType)
           } else {
-            const busyCanDoTypes = units.getById(canDoTypes).filter(unit => unit.addOnTag === '0');
-            const randomBusyTrainingUnit = getRandom(busyCanDoTypes.filter(unit => isTrainingUnit(data, unit)));
+            const busyCanDoUnits = canDoTypeUnits.filter(unit => unit.addOnTag === '0').filter(unit => isTrainingUnit(data, unit));
+            const randomBusyTrainingUnit = getRandom(busyCanDoUnits);
             if (!worldService.outpowered && randomBusyTrainingUnit && randomBusyTrainingUnit.orders[0].progress <= 0.5) {
               await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
             } else {
+
               const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
               await balanceResources(world, mineralCost / vespeneCost);
               if (targetCount !== null) {
@@ -139,6 +142,7 @@ const planActions = {
             }
           }
           break;
+        }
         default:
           collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
       }
@@ -282,4 +286,11 @@ const planActions = {
   },
 }
 
+/**
+ * @param {Unit[]} canDoTypeUnits
+ * @returns {Unit[]}
+ */
+function getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits) {
+  return canDoTypeUnits.every(unit => unit.buildProgress >= 1 || unit.buildProgress < 0.5) ? canDoTypeUnits.filter(unit => unit.addOnTag !== '0' && unit.isIdle()) : [];
+}
 module.exports = planActions;
