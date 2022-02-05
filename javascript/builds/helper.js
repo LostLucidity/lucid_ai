@@ -69,13 +69,6 @@ const helper = {
     return collectedActions;
   }
 }
-/**
- * @param {Unit[]} inRangeUnits 
- * @returns {boolean}
- */
-function inSightRangeOfUnits(unit, inRangeUnits) {
-  return inRangeUnits.some(inRangeUnit => distance(unit.pos, inRangeUnit.pos) > inRangeUnit.data().sightRange);
-}
 
 function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
   const { map, units } = resources.get();
