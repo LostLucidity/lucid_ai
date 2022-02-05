@@ -4,6 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { Upgrade, UnitType } = require("@node-sc2/core/constants");
 const { Attribute, Alliance } = require("@node-sc2/core/constants/enums");
+const { DRONE } = require("@node-sc2/core/constants/unit-type");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const planService = require("../services/plan-service");
 const sharedService = require("../services/shared-service");
@@ -52,9 +53,10 @@ module.exports = createSystem({
           const { orderType, unitType } = randomAction;
           if (orderType === 'UnitType') {
             const isMatchingPlan = planService.plan.some(step => {
+              const unitTypeCount = getUnitTypeCount(world, unitType) + (unitType === DRONE ? units.getStructures().length - 1 : 0);
               return (
                 step.unitType === unitType &&
-                step.targetCount === getUnitTypeCount(world, unitType)
+                step.targetCount === unitTypeCount
               );
             });
             if (!isMatchingPlan) {
