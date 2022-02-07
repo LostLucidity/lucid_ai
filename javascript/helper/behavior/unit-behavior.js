@@ -13,7 +13,7 @@ const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
 const { pullWorkersToDefend } = require("../../services/army-management-service");
-const { isRepairing } = require("../../systems/unit-resource/unit-resource-service");
+const { isRepairing, canAttack, setPendingOrders } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { moveAwayPosition } = require("../../services/position-service");
@@ -225,13 +225,17 @@ module.exports = {
             const inRangeWorkerSupply = calculateHealthAdjustedSupply(world, inRangeWorkers);
             if (inRangeEnemySupply > inRangeWorkerSupply) {
               worker.labels.set('retreating');
-              const position = retreatToExpansion(world, worker, closestEnemyUnit);
-              const unitCommand = {
-                abilityId: MOVE,
-                targetWorldSpacePos: position,
-                unitTags: [worker.tag],
+              const unitCommand = { abilityId: MOVE }
+              if (worker['pendingOrders'] === undefined || worker['pendingOrders'].length === 0) {
+                const [closestArmedEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
+                const [closestAttackableEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(enemyUnit => canAttack(resources, worker, enemyUnit)));
+                unitCommand.targetWorldSpacePos = retreatToExpansion(world, worker, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                unitCommand.unitTags = workers.filter(unit => distance(unit.pos, worker.pos) <= 1).map(unit => {
+                  setPendingOrders(unit, unitCommand);
+                  return unit.tag;
+                });
+                collectedActions.push(unitCommand);
               }
-              collectedActions.push(unitCommand);
             } else {
               if (worker.labels.get('builder')) {
                 const buildOnStandby = (worker.orders.length === 0 || worker.isGathering()) || worker.isConstructing();
