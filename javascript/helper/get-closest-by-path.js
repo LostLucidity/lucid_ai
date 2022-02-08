@@ -1,11 +1,10 @@
 //@ts-check
 "use strict"
 
-const { add } = require("@node-sc2/core/utils/geometry/point");
+const { add, distance } = require("@node-sc2/core/utils/geometry/point");
 
 module.exports = {
   /**
-   * 
    * @param {ResourceManager} resources 
    * @param {Point2D} position 
    * @param {Point2D} targetPosition 
@@ -14,10 +13,14 @@ module.exports = {
   distanceByPath: (resources, position, targetPosition) => {
     const { map, units } = resources.get();
     try {
-      targetPosition = map.isPlaceable(targetPosition) ? targetPosition : getUnitCornerPosition(units.getClosest(targetPosition, units.getAlive())[0]);
-      return map.path(position, targetPosition).length ? map.path(position, targetPosition).length : 500;
-    } catch {
-      return 500;
+      targetPosition = map.isPathable(targetPosition) ? targetPosition : getUnitCornerPosition(units.getClosest(position, units.getAlive())[0]);
+      const calculatedZeroPath = map.path(position, targetPosition).length === 0;
+      const isZeroPathDistance = calculatedZeroPath && distance(position, targetPosition) <= 2 ? true : false;
+      const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
+      const pathLength = isZeroPathDistance ? 0 : isNotPathable ? Infinity : map.path(position, targetPosition).length;
+      return pathLength;
+    } catch (error) {
+      return Infinity;
     }
   },
   /**
