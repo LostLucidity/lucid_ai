@@ -42,4 +42,10 @@ module.exports = {
      * @returns {Boolean}
      */
     pointsOverlap: (firstArray, secondArray) => firstArray.some(first => secondArray.some(second => distance(first, second) < 1)),
+    /**
+     * @param {Point2D[]} points
+     * @param {Point2D[]} grids
+     * @returns {Boolean}
+     */
+    allPointsWithinGrid: (points, grids) => points.every(point => grids.some(second => distance(point, second) < 1)),
 }

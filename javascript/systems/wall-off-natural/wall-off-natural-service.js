@@ -1,21 +1,22 @@
 //@ts-check
 "use strict"
 
-const { GATEWAY } = require("@node-sc2/core/constants/unit-type");
+const { GATEWAY, PYLON } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { getNeighbors, distance } = require("@node-sc2/core/utils/geometry/point");
+const { getNeighbors, avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const getClosest = require("../../helper/get-closest");
 const { getClosestPosition } = require("../../helper/get-closest");
-const { pointsOverlap, intersectionOfPoints } = require("../../helper/utilities");
+const { pointsOverlap, intersectionOfPoints, allPointsWithinGrid } = require("../../helper/utilities");
 
 const wallOffNaturalService = {
   /**
    * @type {Point2D[]}
    */
   adjacentToRampGrids: [],
+  /** @type {Point2D} */
+  pylonPlacement: null,
   /**
    * @type {Point2D[]}
    */
@@ -27,90 +28,195 @@ const wallOffNaturalService = {
   /**
    * @param {ResourceManager} resources
    * @param {Point2D[]} wall
+   * @param {{x: number; y: number; size: number; path: { x: number; y: number; }[]; pathLength: number }[]} twoWallInfo
    */
-  setStructurePlacements: (resources, wall) => {
+  setStructurePlacements: (resources, wall, twoWallInfo) => {
     const { debug, map } = resources.get();
-    /**
-     * @type {Point2D[]}
-     */
-    let wallOffGrids = [];
-    let workingWall = [...wall];
     wallOffNaturalService.threeByThreePositions = [];
-    // set first building
+    // shuffle twoWallInfo
+    twoWallInfo = shuffle(twoWallInfo);
     const threeByThreeGrid = getFootprint(GATEWAY);
-    if (wallOffNaturalService.threeByThreePositions.length === 0) {
-      const cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
-      const cornerGrid = getRandom(cornerGrids);
-      if (cornerGrid) {
-        // getFootprintCandidates
-        const cornerNeighbors = getNeighbors(cornerGrid, true);
-        const placementCandidates = cornerNeighbors.filter(cornerNeighbor => {
-          const threeByThreePlacement = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
-          const temporaryWall = workingWall.filter(grid => !pointsOverlap([grid], threeByThreePlacement));
-          // see if adjacent to temporary wall.
-          const [closestWallGrid] = getClosestPosition(cornerNeighbor, temporaryWall);
-          const wallGridNeighbors = getNeighbors(closestWallGrid, false);
-          return map.isPlaceableAt(GATEWAY, cornerNeighbor) && pointsOverlap(threeByThreePlacement, wallGridNeighbors) && intersectionOfPoints(threeByThreePlacement, workingWall).length > 1;
-        });
-        const selectedCandidate = getRandom(placementCandidates);
-        if (selectedCandidate) {
-          wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
-          wallOffNaturalService.threeByThreePositions.push(selectedCandidate);
-          workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+    for (let i = 0; i < twoWallInfo.length; i++) {
+      // find pylon placement that covers threeByThreePositions starting from middle of wall to townhall position.
+      // const middleOfWall = avgPoints(wall);
+      const middleOfWall = avgPoints(twoWallInfo[i].path);
+      const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, map.getNatural().townhallPosition));
+      // add neighboring points to wallToTownhallPoints excluding those that already exist in wallToTownhallPoints
+      debug.setDrawCells('wl2thp', wallToTownhallPoints.map(r => ({ pos: r })), { size: 1, cube: false });
+      const wallToTownhallPointsWithNeighbors = wallToTownhallPoints.reduce((acc, point) => {
+        const neighbors = getNeighbors(point, false);
+        const neighborsNotInWall = neighbors.filter(neighbor => !wallToTownhallPoints.some(point => point.x === neighbor.x && point.y === neighbor.y));
+        return [...acc, ...neighborsNotInWall];
+      }, []);
+      // map for each point in wallToTownhallPointsWithNeighbors, where three by three grids can be placed with pylon power area
+      const wallToTownhallPointsWithNeighborsMapped = wallToTownhallPointsWithNeighbors.map(point => {
+        const pylonPowerArea = getPylonPowerArea(point);
+        let wallOffGrids = [];
+        let workingWall = [...wall];
+        const threeByThreePositions = [];
+        if (threeByThreePositions.length === 0) {
+          const cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
+          const shuffledCornerGrids = shuffle(cornerGrids);
+          for (const cornerGrid of shuffledCornerGrids) {
+            // getFootprintCandidates
+            const cornerNeighbors = getNeighbors(cornerGrid, true);
+            const placementCandidates = cornerNeighbors.filter(cornerNeighbor => {
+              const threeByThreePlacement = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
+              const temporaryWall = workingWall.filter(grid => !pointsOverlap([grid], threeByThreePlacement));
+              // see if adjacent to temporary wall.
+              const [closestWallGrid] = getClosestPosition(cornerNeighbor, temporaryWall);
+              const wallGridNeighbors = getNeighbors(closestWallGrid, false);
+              // can be covered by pylon
+              return (
+                map.isPlaceableAt(GATEWAY, cornerNeighbor) &&
+                pointsOverlap(threeByThreePlacement, wallGridNeighbors) &&
+                intersectionOfPoints(threeByThreePlacement, workingWall).length > 1 &&
+                allPointsWithinGrid(threeByThreePlacement, pylonPowerArea)
+              );
+            });
+            const selectedCandidate = getRandom(placementCandidates);
+            if (selectedCandidate) {
+              wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
+              threeByThreePositions.push(selectedCandidate);
+              workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+              break;
+            }
+          }
         }
+        // set gap
+        if (threeByThreePositions.length === 1) {
+          let cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
+          const [doorGrid] = getClosestPosition(threeByThreePositions[0], cornerGrids);
+          wallOffGrids.push(doorGrid);
+          workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+          debug.setDrawCells('drGrd', [doorGrid].map(r => ({ pos: r })), { size: 1, cube: false });
+          // set second building
+          cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
+          const [cornerGrid] = getClosestPosition(threeByThreePositions[0], cornerGrids);
+          if (cornerGrid) {
+            // getFootprintCandidates
+            const cornerNeighbors = getNeighbors(cornerGrid, false);
+            const placementCandidates = cornerNeighbors.filter(cornerNeighbor => {
+              // prevent diagonal buildings.
+              const placementGrids = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
+              const diagonalBuilding = placementGrids.some(grid => intersectionOfPoints(getNeighbors(grid, true), wallOffGrids).length > 1);
+              return (
+                map.isPlaceableAt(GATEWAY, cornerNeighbor) &&
+                !pointsOverlap(wallOffGrids, placementGrids) &&
+                !diagonalBuilding &&
+                allPointsWithinGrid(placementGrids, pylonPowerArea)
+              );
+            });
+            if (placementCandidates.length > 0) {
+              const selectedCandidate = getRandom(placementCandidates);
+              wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
+              threeByThreePositions.push(selectedCandidate);
+              workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+            }
+          }
+        }
+        if (threeByThreePositions.length === 2) {
+          const cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
+          const shuffledCornerGrids = shuffle(cornerGrids);
+          for (const cornerGrid of shuffledCornerGrids) {
+            // getFootprintCandidates
+            const cornerNeighbors = getNeighbors(cornerGrid, true);
+            const placementCandidates = cornerNeighbors.filter(cornerNeighbor => {
+              const threeByThreePlacement = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
+              // see if adjacent to temporary wall.
+              return (
+                map.isPlaceableAt(GATEWAY, cornerNeighbor) &&
+                !pointsOverlap(threeByThreePlacement, wallOffGrids) &&
+                intersectionOfPoints(threeByThreePlacement, workingWall).length > 1 &&
+                allPointsWithinGrid(threeByThreePlacement, pylonPowerArea)
+              );
+            });
+            const selectedCandidate = getRandom(placementCandidates);
+            if (selectedCandidate) {
+              wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
+              threeByThreePositions.push(selectedCandidate);
+              workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+              break;
+            }
+          }
+        }
+        return {
+          point,
+          pylonPowerArea,
+          threeByThreePositions,
+          wallOffGrids,
+          workingWall,
+        };
+      });
+
+      // shuffle and sort wallToTownhallPointsWithNeighborsMapped by shortest workingWall length
+      const wallToTownhallPointsWithNeighborsMappedSorted = shuffle(wallToTownhallPointsWithNeighborsMapped).sort((a, b) => a.workingWall.length - b.workingWall.length);
+      // pick the first one
+      const { point, threeByThreePositions } = wallToTownhallPointsWithNeighborsMappedSorted[0];
+      if (threeByThreePositions.length === 3) {
+        setFoundPositions(threeByThreePositions, point, debug);
+        break;
+      } else {
+        setFoundPositions(threeByThreePositions, point, debug);
       }
     }
-    // set gap
-    if (wallOffNaturalService.threeByThreePositions.length === 1) {
-      let cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
-      const [doorGrid] = getClosestPosition(wallOffNaturalService.threeByThreePositions[0], cornerGrids);
-      wallOffGrids.push(doorGrid);
-      workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
-      debug.setDrawCells('drGrd', [doorGrid].map(r => ({ pos: r })), { size: 1, cube: false });
-      // set second building
-      cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
-      const [cornerGrid] = getClosestPosition(wallOffNaturalService.threeByThreePositions[0], cornerGrids);
-      if (cornerGrid) {
-        // getFootprintCandidates
-        const cornerNeighbors = getNeighbors(cornerGrid, false);
-        const placementCandidates = cornerNeighbors.filter(cornerNeighbor => {
-          // prevent diagonal buildings.
-          const placementGrids = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
-          const diagonalBuilding = placementGrids.some(grid => intersectionOfPoints(getNeighbors(grid, true), wallOffGrids).length > 1);
-          return map.isPlaceableAt(GATEWAY, cornerNeighbor) && !pointsOverlap(wallOffGrids, placementGrids) && !diagonalBuilding;
-        });
-        if (placementCandidates.length > 0) {
-          const selectedCandidate = getRandom(placementCandidates);
-          wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
-          wallOffNaturalService.threeByThreePositions.push(selectedCandidate);
-          workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
-        }
-      }
-    }
-    if (wallOffNaturalService.threeByThreePositions.length === 2) {
-      const cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
-      const cornerGrid = getRandom(cornerGrids);
-      if (cornerGrid) {
-        // getFootprintCandidates
-        const cornerNeighbors = getNeighbors(cornerGrid, true);
-        const placementCandidates = cornerNeighbors.filter(cornerNeighbor => {
-          const threeByThreePlacement = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
-          // see if adjacent to temporary wall.
-          return map.isPlaceableAt(GATEWAY, cornerNeighbor) && !pointsOverlap(threeByThreePlacement, wallOffGrids) && intersectionOfPoints(threeByThreePlacement, workingWall).length > 1;
-        });
-        const selectedCandidate = getRandom(placementCandidates);
-        if (selectedCandidate) {
-          wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
-          wallOffNaturalService.threeByThreePositions.push(selectedCandidate);
-          workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
-        }
-      }
-    }
-    // debug.setDrawCells('wlOfPs', wallOffPositions.map(r => ({ pos: r })), { size: 1, cube: true });
-    wallOffNaturalService.threeByThreePositions.forEach((position, index) => {
-      debug.setDrawCells(`wlOfPs${index}`, cellsInFootprint(position, threeByThreeGrid).map(r => ({ pos: r })), { size: 1, cube: false });
-    });
   }
+}
+
+/**
+ * Get pylon power area
+ * @param {Point2D} position
+ * @returns {Point2D[]}
+ */
+function getPylonPowerArea(position) {
+  const pylonFootprint = cellsInFootprint(position, getFootprint(PYLON));
+  const pylonPowerCircleGrids = gridsInCircle(position, 7, { normalize: true }).filter(grid => distance(grid, position) <= 6.5);
+  const pylonPowerCircleGridsExcludingPylonPlacements = pylonPowerCircleGrids.filter(grid => !pointsOverlap(pylonFootprint, [grid]));
+  return pylonPowerCircleGridsExcludingPylonPlacements;
+}
+
+/**
+ * @param {number[][]} path 
+ * @returns {Point2D[]}
+ */
+function getPathCoordinates(path) {
+  return path.map(path => ({ 'x': path[0], 'y': path[1] }));
+}
+/**
+ * @param {Point2D[]} threeByThreePositions
+ * @param {Point2D} point
+ * @param {Debugger} debug
+ */
+function setFoundPositions(threeByThreePositions, point, debug) {
+  const threeByThreeGrid = getFootprint(GATEWAY);
+  wallOffNaturalService.threeByThreePositions = threeByThreePositions;
+  wallOffNaturalService.pylonPlacement = point;
+  debug.setDrawCells('pylon', cellsInFootprint(point, getFootprint(PYLON)).map(r => ({ pos: r })), { size: 1, cube: false });
+  wallOffNaturalService.threeByThreePositions.forEach((position, index) => {
+    debug.setDrawCells(`wlOfPs${index}`, cellsInFootprint(position, threeByThreeGrid).map(r => ({ pos: r })), { size: 1, cube: false });
+  });
+}
+/**
+ * https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
+ * @param {any[]} array 
+ * @returns {any[]}
+ */
+function shuffle(array) {
+  let currentIndex = array.length, randomIndex;
+
+  // While there remain elements to shuffle...
+  while (currentIndex != 0) {
+
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+
+    // And swap it with the current element.
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex], array[currentIndex]];
+  }
+
+  return array;
 }
 
 module.exports = wallOffNaturalService;
