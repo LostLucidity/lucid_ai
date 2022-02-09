@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { LARVA, QUEEN, BUNKER, SIEGETANKSIEGED, OVERSEER } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK, SMART, LOAD_BUNKER } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("../location");
@@ -194,6 +194,7 @@ const armyBehavior = {
   engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { resources } = world;
     const { units } = resources.get();
+    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
     const randomUnit = getRandom(selfUnits);
     selfUnits.forEach(selfUnit => {
@@ -223,12 +224,26 @@ const armyBehavior = {
               } else {
                 if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
                   const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
-                  unitCommand.targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
-                  unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
-                    setPendingOrders(unit, unitCommand);
-                    return unit.tag;
-                  });
-                  collectedActions.push(unitCommand);
+                  // get enemy weapon that can hit ground units
+                  const foundEnemyWeapon = getWeaponThatCanAttack(closestArmedEnemyUnit, selfUnit);
+                  // if found enemy weapon, micro ranged unit if enemy range is less and just outside of range of enemy
+                  if (foundEnemyWeapon) {
+                    if ((foundEnemyWeapon.range + closestArmedEnemyUnit.radius + 1) < distance(selfUnit.pos, closestArmedEnemyUnit.pos)) {
+                      collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit));
+                    } else {
+                      unitCommand.targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                      unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
+                        setPendingOrders(unit, unitCommand);
+                        return unit.tag;
+                      });
+                      collectedActions.push(unitCommand);
+                    }
+                  } else {
+                    collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit));
+                  }
+                } else {
+                  // skip action if pending orders
+                  return;
                 }
               }
             }
@@ -414,6 +429,28 @@ function setRecruitToBattleLabel(unit, position) {
       }
     }
   });
+}
+
+/**
+ * Get weapon that can attack target
+ * @param {Unit} unit
+ * @param {Unit} target
+ * @returns {SC2APIProtocol.Weapon}
+ */
+function getWeaponThatCanAttack(unit, target) {
+  const { weapons } = unit.data();
+  // find weapon that can attack target
+  const weapon = weapons.find(weapon => {
+    const { type } = weapon;
+    if (type === WeaponTargetType.GROUND && target.isFlying) {
+      return false;
+    }
+    if (type === WeaponTargetType.AIR && !target.isFlying) {
+      return false;
+    }
+    return true;
+  });
+  return weapon;
 }
 
 module.exports = armyBehavior;
