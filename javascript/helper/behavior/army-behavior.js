@@ -252,9 +252,27 @@ const armyBehavior = {
             if (canAttack(resources, selfUnit, closestAttackableEnemyUnit)) {
               if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit)); }
               else {
-                const unitCommand = createUnitCommand(ATTACK_ATTACK, [selfUnit]);
-                unitCommand.targetWorldSpacePos = attackablePosition;
-                collectedActions.push(unitCommand);
+                // if ally ranged unit that can attack ground within 16 distance of melee selfUnit, move melee unit into ally range.
+                const [closestAllyRangedUnitWithRightWeapon] = units.getClosest(selfUnit.pos, selfUnit['selfUnits']
+                  .filter((/** @type {Unit} */ unit) => unit.data().weapons.some(w => w.range > 1) && getWeaponThatCanAttack(unit, closestAttackableEnemyUnit) !== undefined));
+                if (closestAllyRangedUnitWithRightWeapon) {
+                  // get distance between selfUnit and closestAllyRangedUnitWithRightWeapon
+                  const distanceBetweenUnits = distance(selfUnit.pos, closestAllyRangedUnitWithRightWeapon.pos);
+                  // if distance between selfUnit and closestAllyRangedUnitWithRightWeapon is less than 16, move selfUnit into range of closestAllyRangedUnitWithRightWeapon
+                  if (distanceBetweenUnits < 16 && distanceBetweenUnits > getWeaponThatCanAttack(closestAllyRangedUnitWithRightWeapon, closestAttackableEnemyUnit).range) {
+                    const unitCommand = createUnitCommand(MOVE, [selfUnit]);
+                    unitCommand.targetWorldSpacePos = closestAllyRangedUnitWithRightWeapon.pos;
+                    collectedActions.push(unitCommand);
+                  } else {
+                    const unitCommand = createUnitCommand(ATTACK_ATTACK, [selfUnit]);
+                    unitCommand.targetWorldSpacePos = attackablePosition;
+                    collectedActions.push(unitCommand);
+                  }
+                } else {
+                  const unitCommand = createUnitCommand(ATTACK_ATTACK, [selfUnit]);
+                  unitCommand.targetWorldSpacePos = attackablePosition;
+                  collectedActions.push(unitCommand);
+                }
               }
             } else {
               collectedActions.push({
