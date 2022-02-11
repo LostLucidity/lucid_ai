@@ -10,7 +10,8 @@ module.exports = createSystem({
   name: 'MulingSystem',
   type: 'agent',
   async onStep(world) {
-    const { actions, units } = world.resources.get();
+    const { agent, resources } = world;
+    const { actions, units } = resources.get();
     const bases = units.getBases();
     const canCallDownMules = bases.filter(orbitalCommand => orbitalCommand.abilityAvailable(EFFECT_CALLDOWNMULE));
     /**
@@ -18,10 +19,13 @@ module.exports = createSystem({
      */
     const collectedActions = [];
     canCallDownMules.forEach(canCallDownMule => {
-      const mineralField = getMineralFieldTarget(units, canCallDownMule);
-      const unitCommand = createUnitCommand(EFFECT_CALLDOWNMULE, [canCallDownMule]);
-      unitCommand.targetUnitTag = mineralField.tag;
-      collectedActions.push(unitCommand);
+      // call down mule when minerals are less than or equal to 512
+      if (agent.minerals <= 512) {
+        const mineralField = getMineralFieldTarget(units, canCallDownMule);
+        const unitCommand = createUnitCommand(EFFECT_CALLDOWNMULE, [canCallDownMule]);
+        unitCommand.targetUnitTag = mineralField.tag;
+        collectedActions.push(unitCommand);
+      }
     });
     await actions.sendAction(collectedActions);
   }
