@@ -9,6 +9,7 @@ const shortOnWorkers = require("../../helper/short-on-workers");
 const { getFoodUsed } = require("../../services/plan-service");
 const planService = require("../../services/plan-service");
 const sharedService = require("../../services/shared-service");
+const { getUnitTypeCount } = require("../../services/world-service");
 const worldService = require("../../services/world-service");
 const { train } = require("../execute-plan/plan-actions");
 const { getResourceDemand } = require("../manage-resources");
@@ -22,7 +23,7 @@ module.exports = createSystem({
     const { agent, data, resources } = world;
     const { foodUsed } = agent;
     const { units } = resources.get();
-    const { planMin, trainingTypes } = planService;
+    const { planMin, trainingTypes, unitMax } = planService;
     sharedService.removePendingOrders(units);
     const { outpowered } = worldService;
     const trainUnitConditions = [
@@ -39,7 +40,9 @@ module.exports = createSystem({
           haveAvailableProductionUnitsFor(world, type),
           agent.hasTechFor(type),
           data.getUnitTypeData(type).foodRequired <= plan[currentStep].food - getFoodUsed(foodUsed),
-          outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed(foodUsed)
+          outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed(foodUsed),
+          // check if unit type has reached max
+          !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]]),
         ].every(condition => condition);
       });
       if (candidateTypesToBuild.length > 0) {

@@ -23,6 +23,7 @@ module.exports = createSystem({
     const selectedPlan = racePlans['138658'];
     if (selectedPlan.buildType === 'two variable') {
       planService.scouts = selectedPlan.scouts;
+      planService.unitMax = selectedPlan.unitMax;
       planService.wallOff = selectedPlan.wallOff;
       convertPlan(selectedPlan, race);
     } else {

@@ -51,6 +51,8 @@ const planService = {
   scouting: [],
   /** @type {number[]} */
   trainingTypes: null,
+  /** @type {{string: number}} */
+  unitMax: null,
   wallOff: null,
 }
 
