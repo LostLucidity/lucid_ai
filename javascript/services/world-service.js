@@ -694,10 +694,15 @@ const worldService = {
       if (!targetUnit['expansions']) { targetUnit['expansions'] = new Map(); }
       const candidateExpansionsCentroid = map.getExpansions().filter(expansion => {
         const centroidString = expansion.centroid.x.toString() + expansion.centroid.y.toString();
-        let [closestToExpansion] = getClosestUnitByPath(resources, expansion.centroid, targetUnit['selfUnits'].filter(unit => worldService.getDPSHealth(world, unit, unit['selfUnits'].map((/** @type {{ unitType: any; }} */ unit) => unit.unitType)) > 0));
+        let [closestToExpansion] = getClosestUnitByPath(
+          resources,
+          expansion.centroid,
+          targetUnit['selfUnits'].filter((/** @type {Unit} */ unit) => worldService.getDPSHealth(world, unit, unit['selfUnits'].map((/** @type {Unit} */ unit) => unit.unitType)) > 0)
+        );
+        const closestToExpansionOrTargetUnit = closestToExpansion ? closestToExpansion : targetUnit;
         targetUnit['expansions'][centroidString] = {
-          'closestToExpansion': closestToExpansion,
-          'distanceByPath': distanceByPath(resources, closestToExpansion.pos, expansion.centroid),
+          'closestToExpansion': closestToExpansionOrTargetUnit,
+          'distanceByPath': distanceByPath(resources, closestToExpansionOrTargetUnit.pos, expansion.centroid),
         }
         unit['expansions'][centroidString] = {
           'distanceByPath': distanceByPath(resources, unit.pos, expansion.centroid),
