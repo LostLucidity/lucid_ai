@@ -9,6 +9,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { getClosestPosition } = require("../../helper/get-closest");
 const { pointsOverlap, intersectionOfPoints, allPointsWithinGrid } = require("../../helper/utilities");
+const { getPathCoordinates } = require("../../services/path-service");
 
 const wallOffNaturalService = {
   /**
@@ -40,7 +41,8 @@ const wallOffNaturalService = {
       // find pylon placement that covers threeByThreePositions starting from middle of wall to townhall position.
       // const middleOfWall = avgPoints(wall);
       const middleOfWall = avgPoints(twoWallInfo[i].path);
-      const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, map.getNatural().townhallPosition));
+      // get path coordinates and filter out points not placeable for pylons
+      const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, map.getNatural().townhallPosition)).filter(point => map.isPlaceableAt(PYLON, point));
       // add neighboring points to wallToTownhallPoints excluding those that already exist in wallToTownhallPoints
       debug.setDrawCells('wl2thp', wallToTownhallPoints.map(r => ({ pos: r })), { size: 1, cube: false });
       const wallToTownhallPointsWithNeighbors = wallToTownhallPoints.reduce((acc, point) => {
@@ -173,14 +175,6 @@ function getPylonPowerArea(position) {
   const pylonPowerCircleGrids = gridsInCircle(position, 7, { normalize: true }).filter(grid => distance(grid, position) <= 6.5);
   const pylonPowerCircleGridsExcludingPylonPlacements = pylonPowerCircleGrids.filter(grid => !pointsOverlap(pylonFootprint, [grid]));
   return pylonPowerCircleGridsExcludingPylonPlacements;
-}
-
-/**
- * @param {number[][]} path 
- * @returns {Point2D[]}
- */
-function getPathCoordinates(path) {
-  return path.map(path => ({ 'x': path[0], 'y': path[1] }));
 }
 /**
  * @param {Point2D[]} threeByThreePositions
