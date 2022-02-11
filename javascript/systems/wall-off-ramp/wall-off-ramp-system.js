@@ -2,16 +2,16 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { distance, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../../helper/get-closest");
 const wallOffRampService = require("./wall-off-ramp-service");
-const { distanceByPath } = require("../../helper/get-closest-by-path");
-const { intersectionOfPoints } = require("../../helper/utilities");
+const { intersectionOfPoints, allPointsWithinGrid } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { BARRACKS, SUPPLYDEPOT } = require("@node-sc2/core/constants/unit-type");
 const { getAddOnPlacement, isBuildingAndAddonPlaceable, getAddOnBuildingPlacement, getBuildingAndAddonGrids } = require("../../helper/placement/placement-utilities");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+const pathService = require("../../services/path-service");
 
 module.exports = createSystem({
   name: 'WallOffRamp',
@@ -21,10 +21,13 @@ module.exports = createSystem({
     debug.setDrawCells('ramps', map._ramps.map(r => ({ pos: r })), { size: 1, cube: true });
     const naturalTownhallPosition = map.getNatural().townhallPosition;
     wallOffRampService.adjacentToRampGrids = map.getMain().areas.placementGrid.filter(grid => {
-      return (
-        distance(grid, getClosestPosition(grid, map._ramps)[0]) < 2 &&
-        distanceByPath(resources, naturalTownhallPosition, grid) < distanceByPath(resources, naturalTownhallPosition, map.getMain().townhallPosition)
-      );
+      // check if grid is adjacent to ramp
+      const adjacentGrids = getNeighbors(grid);
+      const isAdjacent = adjacentGrids.some(adjacentGrid => map.isRamp(adjacentGrid));
+      // check if path to grid is within natural townhall to main townhall
+      const path = pathService.getPathCoordinates(map.path(naturalTownhallPosition, grid));
+      const isWithinPath = path.some(point => map.isRamp(point));
+      return isAdjacent && isWithinPath;
     });
     debug.setDrawCells('adToRamp', wallOffRampService.adjacentToRampGrids.map(r => ({ pos: r })), { size: 1, cube: true });
     const supplyDepotPlacements = setSupplyDepotPlacements(map);
