@@ -186,6 +186,7 @@ function setFoundPositions(threeByThreePositions, point, debug) {
   wallOffNaturalService.threeByThreePositions = threeByThreePositions;
   wallOffNaturalService.pylonPlacement = point;
   debug.setDrawCells('pylon', cellsInFootprint(point, getFootprint(PYLON)).map(r => ({ pos: r })), { size: 1, cube: false });
+  console.log('pylon placement', point);
   wallOffNaturalService.threeByThreePositions.forEach((position, index) => {
     debug.setDrawCells(`wlOfPs${index}`, cellsInFootprint(position, threeByThreeGrid).map(r => ({ pos: r })), { size: 1, cube: false });
   });
