@@ -5,7 +5,7 @@ const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities } = require("@node-sc2/core/constants/groups");
-const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN, GATEWAY, CYBERNETICSCORE, SUPPLYDEPOT, BARRACKS } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN, GATEWAY, CYBERNETICSCORE, SUPPLYDEPOT, BARRACKS, OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -149,7 +149,7 @@ const worldService = {
    */
   canBuild: (world, unitTypeId) => {
     const { agent } = world;
-    return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && !worldService.isSupplyNeeded(world)
+    return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && (!worldService.isSupplyNeeded(world) || unitTypeId === OVERLORD)
   },
   /**
   * Returns boolean on whether build step should be executed.
