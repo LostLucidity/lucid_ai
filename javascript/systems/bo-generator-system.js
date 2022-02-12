@@ -37,16 +37,19 @@ module.exports = createSystem({
       if (planService.continueBuild) {
         const allAvailableAbilities = new Map();
         units.getAlive(Alliance.SELF).forEach(unit => {
-          const availableAbilities = unit.availableAbilities();
-          availableAbilities.forEach(ability => {
-            if (!allAvailableAbilities.has(ability)) {
-              if (Object.keys(unitTypeAbilities).some(unitTypeAbility => parseInt(unitTypeAbility) === ability)) {
-                allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeAbilities[ability] });
-              } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
-                allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
+          // get all available abilities of non-structure units, idle structures or from reactors with only one order
+          if (!unit.isStructure() || unit.isIdle() || unit.hasReactor() && unit.orders.length === 1) {
+            const availableAbilities = unit.availableAbilities();
+            availableAbilities.forEach(ability => {
+              if (!allAvailableAbilities.has(ability)) {
+                if (Object.keys(unitTypeAbilities).some(unitTypeAbility => parseInt(unitTypeAbility) === ability)) {
+                  allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeAbilities[ability] });
+                } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
+                  allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
+                }
               }
-            }
-          })
+            })
+          }
         });
         const randomAction = getRandom(Array.from(allAvailableAbilities.values()));
         if (randomAction) {
