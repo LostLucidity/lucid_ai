@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { BUNKER, LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
+const { BUNKER, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { engageOrRetreat } = require("./behavior/army-behavior");
 const { getCombatRally } = require("./location");
 const { tankBehavior } = require("./behavior/unit-behavior");
