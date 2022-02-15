@@ -2,7 +2,8 @@
 "use strict"
 
 const { UnitType } = require("@node-sc2/core/constants");
-const { REACTOR } = require("@node-sc2/core/constants/unit-type");
+const { Alliance } = require("@node-sc2/core/constants/enums");
+const { REACTOR, TECHLAB } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -27,7 +28,7 @@ module.exports = {
    */
   checkAddOnPlacement: async (world, building, addOnType = REACTOR) => {
     const { data, resources } = world;
-    const { map } = resources.get();
+    const { map, units } = resources.get();
     const abilityIds = worldService.getAbilityIdsForAddons(data, addOnType);
     if (abilityIds.some(abilityId => building.abilityAvailable(abilityId))) {
       let position = null;
@@ -35,9 +36,14 @@ module.exports = {
       let range = 1;
       do {
         const nearPoints = gridsInCircle(getAddOnPlacement(building.pos), range).filter(grid => {
+          // filter out addOnBuildingPlacements for orphan addOns
+          const addOnBuildingPlacementsForOrphanAddOns = units.getAlive(Alliance.SELF).filter(techLab => techLab.unitType === TECHLAB).reduce((acc, techLab) => {
+            return [...acc, ...cellsInFootprint(getAddOnBuildingPlacement(techLab.pos), { h: 3, w: 3 })];
+          }, []);
+          const getBuildingAndAddOnPlacement = [...cellsInFootprint(grid, getFootprint(addOnType)), ...cellsInFootprint(getAddOnBuildingPlacement(grid), { h: 3, w: 3 })];
           return [
             existsInMap(map, grid) && map.isPlaceableAt(addOnType, grid) && map.isPlaceableAt(flyingTypesMapping.get(building.unitType) || building.unitType, getAddOnBuildingPlacement(grid)),
-            !pointsOverlap(cellsInFootprint(grid, getFootprint(addOnType)), unitResourceService.seigeTanksSiegedGrids),
+            !pointsOverlap(getBuildingAndAddOnPlacement, [...unitResourceService.seigeTanksSiegedGrids, ...addOnBuildingPlacementsForOrphanAddOns]),
           ].every(condition => condition);
         });
         if (nearPoints.length > 0) {
