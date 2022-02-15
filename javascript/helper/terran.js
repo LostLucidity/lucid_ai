@@ -32,6 +32,14 @@ const terran = {
   addAddOn: async (world, unit, addOnType) => {
     const { data, resources } = world;
     const { actions, frame, map } = resources.get();
+    // get key by value from Map
+    for (const [key, value] of countTypes.entries()) {
+      // find addOnType in value
+      if (value.includes(addOnType)) {
+        addOnType = key;
+        break;
+      }
+    }
     const unitTypeToBuild = UnitType[`${UnitTypeId[flyingTypesMapping.get(unit.unitType) || unit.unitType]}${UnitTypeId[addOnType]}`];
     let { abilityId } = data.getUnitTypeData(unitTypeToBuild);
     if (unit.noQueue && !unit.labels.has('swapBuilding')) {
