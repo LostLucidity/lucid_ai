@@ -227,27 +227,67 @@ const planActions = {
     } else {
       // find techlabs
       const techLabs = units.getAlive(Alliance.SELF).filter(unit => techLabTypes.includes(unit.unitType));
-      const orphanTechLab = techLabs.filter(techLab => techLab.unitType === TECHLAB);
-      if (orphanTechLab.length > 0) { }
-      else {
-        const nonOrphanTechLab = techLabs.filter(techLab => techLab.unitType !== TECHLAB);
+      const orphanTechLabs = techLabs.filter(techLab => techLab.unitType === TECHLAB);
+      if (orphanTechLabs.length > 0) {
+        // get completed and idle barracks
+        let completedBarracks = units.getById(countTypes.get(BARRACKS)).filter(barracks => barracks.buildProgress >= 1);
+        let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
+        // if no idle barracks, get closest barracks to tech lab.
+        const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => isTrainingUnit(data, barracks) && barracks.orders[0].progress <= 0.5);
+        if (barracks.length > 0) {
+          let closestPair = [];
+          barracks.forEach(barracks => {
+            orphanTechLabs.forEach(techLab => {
+              const addOnBuildingPosition = getAddOnBuildingPosition(techLab.pos);
+              if (closestPair.length > 0) {
+                closestPair = distance(barracks.pos, addOnBuildingPosition) < distance(closestPair[0].pos, closestPair[1]) ? [barracks, addOnBuildingPosition] : closestPair;
+              } else { closestPair = [barracks, addOnBuildingPosition]; }
+            });
+          });
+          if (closestPair.length > 0) {
+            // if barracks is training unit, cancel training.
+            if (isTrainingUnit(data, closestPair[0])) {
+              // for each training unit, cancel training.
+              for (let i = 0; i < closestPair[0].orders.length; i++) {
+                await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
+              }
+            } else {
+              const label = 'reposition';
+              closestPair[0].labels.set(label, closestPair[1]);
+            }
+          }
+        }
+      } else {
+        const nonOrphanTechLabs = techLabs.filter(techLab => techLab.unitType !== TECHLAB);
         // find idle building with tech lab.
-        const idleBuildingsWithTechLab = nonOrphanTechLab.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]).filter(building => building.noQueue);;
+        const idleBuildingsWithTechLab = nonOrphanTechLabs.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]).filter(building => building.noQueue);;
         // find closest barracks to closest tech lab.
         let closestPair = [];
-        units.getById(countTypes.get(BARRACKS)).forEach(barracks => {
-          if (barracks.buildProgress >= 1 && barracks.noQueue) {
-            idleBuildingsWithTechLab.forEach(techLab => {
+        // get completed and idle barracks.
+        let completedBarracks = units.getById(countTypes.get(BARRACKS)).filter(barracks => barracks.buildProgress >= 1);
+        let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
+        // if no idle barracks, get closest barracks to tech lab.
+        const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => isTrainingUnit(data, barracks) && barracks.orders[0].progress <= 0.5);
+        if (barracks.length > 0) {
+          barracks.forEach(barracks => {
+            idleBuildingsWithTechLab.forEach(idleBuildingsWithtechLab => {
               if (closestPair.length > 0) {
-                closestPair = distance(barracks.pos, techLab.pos) < distance(closestPair[0].pos, closestPair[1].pos) ? [barracks, techLab] : closestPair;
-              } else { closestPair = [barracks, techLab]; }
+                closestPair = distance(barracks.pos, idleBuildingsWithtechLab.pos) < distance(closestPair[0].pos, closestPair[1].pos) ? [barracks, idleBuildingsWithtechLab] : closestPair;
+              } else { closestPair = [barracks, idleBuildingsWithtechLab]; }
             });
-          }
-        });
+          });
+        }
         if (closestPair.length > 0) {
-          const label = 'swapBuilding';
-          closestPair[0].labels.set(label, closestPair[1].pos);
-          closestPair[1].labels.set(label, closestPair[0].pos);
+          // if barracks is training unit, cancel training.
+          if (isTrainingUnit(data, closestPair[0])) {
+            for (let i = 0; i < closestPair[0].orders.length; i++) {
+              await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
+            }
+          } else {
+            const label = 'swapBuilding';
+            closestPair[0].labels.set(label, closestPair[1].pos);
+            closestPair[1].labels.set(label, closestPair[0].pos);
+          }
         }
       }
     }
