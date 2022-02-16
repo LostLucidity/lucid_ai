@@ -5,7 +5,7 @@ const { WarpUnitAbility, UnitType, UnitTypeId, UpgradeId } = require("@node-sc2/
 const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
-const { PHOTONCANNON, WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
+const { WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
 const { countTypes } = require("../../helper/groups");
@@ -111,10 +111,6 @@ const planActions = {
               collectedActions.push(...actions);
             }
           }
-          break;
-        case PHOTONCANNON === unitType:
-          candidatePositions = map.getNatural().areas.placementGrid;
-          collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
           break;
         case addonTypes.includes(unitType): {
           const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
