@@ -118,7 +118,11 @@ const placementHelper = {
           return self.findIndex(selfCandidate => selfCandidate.x === candidate.x && selfCandidate.y === candidate.y) === index;
         });
       });
-      return placementHelper.getPlaceableAtPositions(expandedCandidates, map, unitType);
+      if (expandedCandidates.length > 0) {
+        return placementHelper.getPlaceableAtPositions(expandedCandidates, map, unitType);
+      } else {
+        return [];
+      }
     } else {
       return filteredCandidates;
     }
