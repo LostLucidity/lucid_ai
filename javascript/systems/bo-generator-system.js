@@ -43,7 +43,13 @@ module.exports = createSystem({
             availableAbilities.forEach(ability => {
               if (!allAvailableAbilities.has(ability)) {
                 if (Object.keys(unitTypeAbilities).some(unitTypeAbility => parseInt(unitTypeAbility) === ability)) {
-                  allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeAbilities[ability] });
+                  // make sure unitTypeData for ability has unitAlias value of 0
+                  const unitTypeData = data.getUnitTypeData(unitTypeAbilities[ability]);
+                  if (unitTypeData.unitAlias === 0) {
+                    allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeAbilities[ability] });
+                  } else {
+                    // ignore
+                  }
                 } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
                   allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
                 }
@@ -79,6 +85,8 @@ module.exports = createSystem({
             await upgrade(world, randomAction.upgrade);
           }
         }
+      } else {
+        // skip step
       }
     } else {
       console.log('skip this step');
