@@ -11,8 +11,9 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { findPosition } = require("../../helper/placement/placement-helper");
 const { creepGenerators } = require("@node-sc2/core/constants/groups");
 const { getClosestPosition } = require("../../helper/get-closest");
-const getClosest = require("../../helper/get-closest");
-const { canBuild } = require("../../services/world-service");
+const { canBuild, getDPSHealth } = require("../../services/world-service");
+const { mappedEnemyUnits } = require("../../systems/enemy-tracking/enemy-tracking-service");
+const { createUnitCommand } = require("../../services/actions-service");
 
 module.exports = {
   labelQueens: (units) => {
@@ -25,21 +26,29 @@ module.exports = {
       setLabel(units, 'creeper');
     }
   },
-  inject: (units) => {
-    const collectedActions = []
-    const queen = units.withLabel('injector').find(injector => injector.energy >= 25);
-    if (queen) {
-      const nonInjectedBases = units.getBases().filter(base => !base.buffIds.includes(11));
-      const [townhall] = units.getClosest(queen.pos, units.getClosest(queen.pos, nonInjectedBases));
-      if (townhall) {
-        const unitCommand = {
-          abilityId: EFFECT_INJECTLARVA,
-          targetUnitTag: townhall.tag,
-          unitTags: [queen.tag]
+  /**
+   * @param {World} world 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  inject: (world) => {
+    const { units } = world.resources.get();
+    const collectedActions = [];
+    // get injector queens, with injector ability
+    const injectorQueens = units.withLabel('injector').filter(queen => queen.availableAbilities().includes(EFFECT_INJECTLARVA));
+    // inject larva only if QUEEN leaving battle doesn't make the army weaker.
+    injectorQueens.forEach(queen => {
+      // subtract own DPSHealth from selfDPSHealth and compare to enemy selfDPSHealth
+      const [closestEnemy] = units.getClosest(queen.pos, queen['enemyUnits']);
+      if (closestEnemy) {
+        const queenDPSHealth = getDPSHealth(world, queen, queen['enemyUnits'].map((/** @type {Unit} */ unit) => unit.unitType));
+        const leftOverDPSHealth = queen['selfDPSHealth'] - queenDPSHealth;
+        if (leftOverDPSHealth > closestEnemy['selfDPSHealth']) {
+          collectedActions.push(...findTargetBaseAndInject(units, queen));
         }
-        collectedActions.push(unitCommand);
+      } else {
+        collectedActions.push(...findTargetBaseAndInject(units, queen));
       }
-    }
+    });
     return collectedActions;
   },
   /**
@@ -221,4 +230,21 @@ function setLabel(units, label) {
     foundQueen.labels.clear();
     foundQueen.labels.set(label, true);
   }
+}
+
+/**
+ * @param {UnitResource} units 
+ * @param {Unit} queen 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function findTargetBaseAndInject(units, queen) {
+  const collectedActions = [];
+  const nonInjectedBases = units.getBases().filter(base => !base.buffIds.includes(11));
+  const [townhall] = units.getClosest(queen.pos, units.getClosest(queen.pos, nonInjectedBases));
+  if (townhall) {
+    const unitCommand = createUnitCommand(EFFECT_INJECTLARVA, [queen]);
+    unitCommand.targetUnitTag = townhall.tag;
+    collectedActions.push(unitCommand);
+  }
+  return collectedActions;
 }
