@@ -100,24 +100,29 @@ class AssemblePlan {
     if (trainUnitConditions.some(condition => condition)) {
       outpowered ? console.log('Scouted higher power') : console.log('Free build mode.');
       const nextStep = getNextPlanStep(this.foodUsed);
-      const haveProductionAndTechForTypes = this.defenseTypes.filter(type => {
-        return [
-          haveAvailableProductionUnitsFor(world, type),
-          this.agent.hasTechFor(type),
-          outpowered || (nextStep ? this.data.getUnitTypeData(type).foodRequired <= nextStep[0] - this.foodUsed : true),
-        ].every(condition => condition);
-      });
-      if (haveProductionAndTechForTypes.length > 0) {
-        this.selectedTypeToBuild = haveProductionAndTechForTypes.includes(this.selectedTypeToBuild) ? this.selectedTypeToBuild : haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
-        let { mineralCost, vespeneCost } = this.data.getUnitTypeData(this.selectedTypeToBuild);
-        if (this.selectedTypeToBuild === ZERGLING) {
-          mineralCost += mineralCost;
-          vespeneCost += vespeneCost;
+      worldService.unitProductionAvailable = this.defenseTypes.some(type => haveAvailableProductionUnitsFor(world, type));
+      if (worldService.unitProductionAvailable) {
+        const haveProductionAndTechForTypes = this.defenseTypes.filter(type => {
+          return [
+            haveAvailableProductionUnitsFor(world, type),
+            this.agent.hasTechFor(type),
+            outpowered || (nextStep ? this.data.getUnitTypeData(type).foodRequired <= nextStep[0] - this.foodUsed : true),
+          ].every(condition => condition);
+        });
+        if (haveProductionAndTechForTypes.length > 0) {
+          this.selectedTypeToBuild = haveProductionAndTechForTypes.includes(this.selectedTypeToBuild) ? this.selectedTypeToBuild : haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
+          let { mineralCost, vespeneCost } = this.data.getUnitTypeData(this.selectedTypeToBuild);
+          if (this.selectedTypeToBuild === ZERGLING) {
+            mineralCost += mineralCost;
+            vespeneCost += vespeneCost;
+          }
+          const freeBuildThreshold = this.agent.minerals >= (mineralCost * 2) && this.agent.vespene >= (vespeneCost * 2);
+          if (outpowered || freeBuildThreshold) {
+            await this.train(this.foodUsed, this.selectedTypeToBuild, null);
+          }
         }
-        const freeBuildThreshold = this.agent.minerals >= (mineralCost * 2) && this.agent.vespene >= (vespeneCost * 2);
-        if (outpowered || freeBuildThreshold) {
-          await this.train(this.foodUsed, this.selectedTypeToBuild, null);
-        }
+      } else {
+        // if we have no production units available, we need to skip production
       }
     }
     await this.runPlan();
@@ -473,7 +478,7 @@ class AssemblePlan {
     switch (race) {
       case Race.ZERG:
         labelQueens(this.units);
-        this.collectedActions.push(...inject(this.units));
+        this.collectedActions.push(...inject(this.world));
         this.collectedActions.push(...overlordCoverage(this.units));
         this.collectedActions.push(...await spreadCreep(this.resources));
         this.collectedActions.push(...await spreadCreepByQueen(this.resources));

@@ -46,6 +46,8 @@ const worldService = {
   totalEnemyDPSHealth: 0,
   /** @type {number} */
   totalSelfDPSHealth: 0,
+  /** @type {boolean} */
+  unitProductionAvailable: true,
   /**
    * @param {World} world 
    * @param {UnitTypeId} unitType 
