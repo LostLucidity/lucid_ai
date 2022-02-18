@@ -368,13 +368,19 @@ const worldService = {
    */
   getDPSHealth: (world, unit, enemyUnitTypes) => {
     const { data, resources } = world;
-    const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
     let dPSHealth = 0;
-    if (weapon) {
-      const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * dataService.getUpgradeBonus(unit.alliance, weapon.damage));
-      const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnitTypes);
-      const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(unit.alliance) + weaponBonusDamage;
-      dPSHealth = (weaponDamage * weapon.attacks * calculateSplashDamage(resources.get().units, unit.unitType, enemyUnitTypes)) / weapon.speed * (unit.health + unit.shield);
+    if (unit.buildProgress >= 1) {
+      const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
+      if (weapon) {
+        const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * dataService.getUpgradeBonus(unit.alliance, weapon.damage));
+        const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnitTypes);
+        const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(unit.alliance) + weaponBonusDamage;
+        dPSHealth = (weaponDamage * weapon.attacks * calculateSplashDamage(resources.get().units, unit.unitType, enemyUnitTypes)) / weapon.speed * (unit.health + unit.shield);
+      } else {
+        // if no weapon, ignore
+      }
+    } else {
+      // if not finished, ignore
     }
     return dPSHealth;
   },
