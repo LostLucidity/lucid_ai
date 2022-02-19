@@ -35,12 +35,24 @@ module.exports = {
     }
     return collectedActions;
   },
+  /**
+   * @param {ResourceManager} resources 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   repairDamagedMechUnits: (resources) => {
     const { units, } = resources.get();
     const collectedActions = [];
     const [ damagedMechanicalUnit ] = units.getAlive(Alliance.SELF).filter(unit => unit.data().attributes.includes(Attribute.MECHANICAL) && unit.health / unit.healthMax < 1 / 3);
     if (damagedMechanicalUnit) {
-      const [ closestWorker ] = units.getClosest(damagedMechanicalUnit.pos, units.getWorkers().filter(worker => worker.tag !== damagedMechanicalUnit.tag && !worker.isConstructing() && !isPendingContructing(worker)));
+      const [closestWorker] = units.getClosest(damagedMechanicalUnit.pos, units.getWorkers()
+        .filter(worker => {
+          return (
+            worker.tag !== damagedMechanicalUnit.tag &&
+            !worker.isConstructing() &&
+            !isPendingContructing(worker) &&
+            distance(worker.pos, damagedMechanicalUnit.pos) <= 16
+          )
+        }));
       if (closestWorker) {
         const unitCommand = {
           abilityId: EFFECT_REPAIR,
