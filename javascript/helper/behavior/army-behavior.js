@@ -216,36 +216,43 @@ const armyBehavior = {
                 collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
               }
             } else {
-              const unitCommand = { abilityId: MOVE }
+              const unitCommand = createUnitCommand(MOVE, [selfUnit]);
               if (selfUnit.isFlying) {
                 unitCommand.targetWorldSpacePos = moveAwayPosition(attackablePosition, selfUnit.pos);
-                unitCommand.unitTags = [selfUnit.tag];
-                collectedActions.push(unitCommand);
               } else {
                 if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
                   const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
-                  // get enemy weapon that can hit ground units
-                  const foundEnemyWeapon = getWeaponThatCanAttack(closestArmedEnemyUnit, selfUnit);
-                  // if found enemy weapon, micro ranged unit if enemy range is less and just outside of range of enemy
-                  if (foundEnemyWeapon) {
-                    if ((foundEnemyWeapon.range + closestArmedEnemyUnit.radius + 1) < distance(selfUnit.pos, closestArmedEnemyUnit.pos)) {
-                      collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit));
+                  // micro ranged units when faster than enemy
+                  if (!selfUnit.isMelee()) {
+                    // get enemy weapon that can hit ground units
+                    const foundEnemyWeapon = getWeaponThatCanAttack(closestArmedEnemyUnit, selfUnit);
+                    // if found enemy weapon, micro ranged unit if enemy range is less and just outside of range of enemy
+                    if (foundEnemyWeapon) {
+                      if ((foundEnemyWeapon.range + closestArmedEnemyUnit.radius + 1) < distance(selfUnit.pos, closestArmedEnemyUnit.pos)) {
+                        collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit));
+                        return;
+                      } else {
+                        unitCommand.targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                        unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
+                          setPendingOrders(unit, unitCommand);
+                          return unit.tag;
+                        });
+                      }
                     } else {
-                      unitCommand.targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
-                      unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
-                        setPendingOrders(unit, unitCommand);
-                        return unit.tag;
-                      });
-                      collectedActions.push(unitCommand);
+                      // no weapon found, micro ranged unit
+                      collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit));
+                      return;
                     }
                   } else {
-                    collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit));
+                    // retreat if melee
+                    unitCommand.targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
                   }
                 } else {
                   // skip action if pending orders
                   return;
                 }
               }
+              collectedActions.push(unitCommand);
             }
           } else {
             setRecruitToBattleLabel(selfUnit, attackablePosition)
