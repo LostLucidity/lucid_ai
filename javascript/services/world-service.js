@@ -663,7 +663,7 @@ const worldService = {
       const { mineralCost } = data.getUnitTypeData(unitType);
       const mineralsLeft = mineralCost + data.getEarmarkTotals('stepAhead').minerals - agent.minerals;
       const timeToTargetCost = mineralsLeft / (collectionRateMinerals / 60);
-      if (timeToTargetCost > 0 && (timeToTargetCost <= timeToPosition)) {
+      if (shouldPremoveNow(world, timeToTargetCost, timeToPosition)) {
         if (rallyBase) {
           collectedActions.push(...rallyWorkerToPosition(resources, position));
         } else {
@@ -824,6 +824,54 @@ const worldService = {
     planService.continueBuild = true;
     worldService.setAndLogExecutedSteps(world, frame.timeInSeconds(), name, extra);
   },
+}
+/**
+ * @param {World} world
+ * @param {number} timeToTargetCost 
+ * @param {number} timeToPosition 
+ * @returns {boolean}
+ */
+function shouldPremoveNow(world, timeToTargetCost, timeToPosition) {
+  const { agent, data, resources } = world;
+  const { units } = resources.get();
+  const willHaveEnoughMineralsByArrival = timeToTargetCost <= timeToPosition;
+  // if race is protoss
+  if (agent.race === Race.PROTOSS) {
+    const pylons = units.getById(PYLON);
+    // get time left for first pylon to warp in
+    if (pylons.length === 1) {
+      const [pylon] = pylons;
+      if (pylon.buildProgress < 1) {
+        const timeToFinish = calculateTimeToFinishStructure(data, pylon);
+        // if time left for first pylon to warp in is less than time to target cost and time to position, then we should pre-move
+        return willHaveEnoughMineralsByArrival && timeToFinish <= timeToPosition;
+      } else {
+        // ignore in progress pylons beyound first pylon
+      }
+    } else {
+      // if there are more than one pylon or no pylon, then no need to calculate time to finish
+    }
+  }
+  return timeToTargetCost > 0 && willHaveEnoughMineralsByArrival;
+}
+/**
+ * @param {DataStorage} data
+ * @param {Unit} unit 
+ */
+function calculateTimeToFinishStructure(data, unit) {
+  const { buildProgress } = unit;
+  const { buildTime } = data.getUnitTypeData(unit.unitType);
+  const timeElapsed = buildTime * buildProgress;
+  const timeLeft = getTimeInSeconds(buildTime - timeElapsed);
+  return timeLeft;
+}
+/**
+ * 
+ * @param {number} frames 
+ * @returns {number}
+ */
+function getTimeInSeconds(frames) {
+  return frames / 22.4;
 }
 
 module.exports = worldService;
