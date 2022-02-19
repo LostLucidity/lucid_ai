@@ -211,11 +211,10 @@ class AssemblePlan {
   async build(food, unitType, targetCount, candidatePositions = []) {
     if (getFoodUsed(this.foodUsed) + 1 >= food) {
       const stepAhead = getFoodUsed(this.foodUsed) + 1 === food;
-      if (stepAhead) {
-        const stepAheadData = this.data.getUnitTypeData(WorkerRace[race]);
-        this.data.addEarmark({ name: 'stepAhead', minerals: stepAheadData.mineralCost, vespene: stepAheadData.vespeneCost });
-      }
       if (checkBuildingCount(this.world, unitType, targetCount)) {
+        if (stepAhead) {
+          addEarmark(this.data, this.data.getUnitTypeData(WorkerRace[race]));
+        }
         switch (true) {
           case GasMineRace[race] === unitType:
             try {
@@ -260,6 +259,8 @@ class AssemblePlan {
                   addEarmark(this.data, this.data.getUnitTypeData(unitType));
                   this.collectedActions.push(...actions);
                 }
+              } else {
+                addEarmark(this.data, this.data.getUnitTypeData(unitType));
               }
             }
             break;
