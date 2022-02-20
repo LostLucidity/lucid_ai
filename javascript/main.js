@@ -45,6 +45,7 @@ const unitResourceSystem = require('./systems/unit-resource/unit-resource-system
 const { saveUnitTypeData } = require('./filesystem');
 const unitResourceService = require('./systems/unit-resource/unit-resource-service');
 const detectUpgradeSystem = require('./systems/detect-upgrade-system');
+const setRallySystem = require('./systems/set-rally-system');
 
 agentService.difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -205,6 +206,7 @@ async function runGame() {
     debugSystem,
     loggingSystem,
     mulingSystem,
+    setRallySystem,
   ];
   const bogSystems = [
     boGeneratorSystem,
