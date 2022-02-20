@@ -4,6 +4,7 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints, add } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
+const resourceManagerService = require("../services/resource-manager-service");
 
 const location = {
   /**
@@ -15,9 +16,17 @@ const location = {
     const { height } = map._grids;
     return height.hasOwnProperty(position.y) && height[position.y].hasOwnProperty(position.x);
   },
+  /**
+   * @param {ResourceManager} resources 
+   * @param {Point2D} position 
+   * @returns {Point2D}
+   */
   getCombatRally: (resources) => {
     const { map, units } = resources.get();
-    return map.getNatural() ? map.getCombatRally() : location.getRallyPointByBases(map, units);
+    return resourceManagerService.combatRally ?
+      resourceManagerService.combatRally :
+      map.getNatural() ?
+        map.getCombatRally() : location.getRallyPointByBases(map, units);
   },
   getRallyPointByBases: (map, units) => {
     const averageBasePosition = avgPoints(units.getBases().map(base => base.pos))
@@ -39,13 +48,13 @@ const location = {
     }
     return points;
   },
-  acrossTheMap: (map) => {
+  getAcrossTheMap: (map) => {
     const naturalToEnemyNaturalPath = map.path(add(map.getNatural().townhallPosition, 3), add(map.getEnemyNatural().townhallPosition, 3)).map(pathItem => ({ 'x': pathItem[0], 'y': pathItem[1] }));
     const pathIncrements = Math.round(naturalToEnemyNaturalPath.length / 6);
     const targetPosition = naturalToEnemyNaturalPath[naturalToEnemyNaturalPath.length - pathIncrements - 1];
     return targetPosition;
   },
-  outInFront: (map) => {
+  getOutInFront: (map) => {
     const naturalToEnemyNaturalPath = map.path(add(map.getNatural().townhallPosition, 3), add(map.getEnemyNatural().townhallPosition, 3)).map(pathItem => ({ 'x': pathItem[0], 'y': pathItem[1] }));
     const pathIncrements = Math.round(naturalToEnemyNaturalPath.length / 6);
     const targetPosition = naturalToEnemyNaturalPath[pathIncrements - 1];

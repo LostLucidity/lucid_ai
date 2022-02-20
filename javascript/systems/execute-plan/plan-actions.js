@@ -9,7 +9,7 @@ const { WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-t
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
 const { countTypes } = require("../../helper/groups");
-const { inTheMain } = require("../../helper/placement/placement-helper");
+const { getInTheMain } = require("../../helper/placement/placement-helper");
 const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
 const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
@@ -100,7 +100,7 @@ const planActions = {
               candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(world, availableExpansions)] : [];
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             } else {
-              candidatePositions = await inTheMain(resources, unitType);
+              candidatePositions = await getInTheMain(resources, unitType);
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             }
           } else {

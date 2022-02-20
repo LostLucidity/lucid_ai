@@ -48,6 +48,7 @@ const planService = {
   getNextPlanStep: (foodUsed) => {
     return planService.legacyPlan.find(order => Number.isInteger(order[0]) && order[0] > foodUsed);
   },
+  rallies: [],
   scouting: [],
   /** @type {number[]} */
   trainingTypes: null,

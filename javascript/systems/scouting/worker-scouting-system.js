@@ -26,6 +26,7 @@ async function setAndSendScout(world) {
   const collectedActions = [];
   planService.scouts.forEach(scout => {
     let { food, targetLocationFunction, scoutType, unitType } = scout;
+    targetLocationFunction = `get${targetLocationFunction}`;
     unitType = UnitType[unitType]
     if (world.agent.foodUsed >= food) {
       const targetLocation = (map[targetLocationFunction] && map[targetLocationFunction]()) ? map[targetLocationFunction]().centroid : locationHelper[targetLocationFunction](map);

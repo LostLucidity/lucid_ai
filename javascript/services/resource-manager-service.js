@@ -6,6 +6,8 @@ const { getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { createUnitCommand } = require("./actions-service");
 
 const resourceManagerService = {
+  /** @type {Point2D} */
+  combatRally: null,
   /**
    * @param {ResourceManager} resources 
    * @param {Point2D} position 

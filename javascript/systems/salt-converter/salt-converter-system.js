@@ -22,6 +22,7 @@ module.exports = createSystem({
     const racePlans = plans[race];
     const selectedPlan = racePlans['138658'];
     if (selectedPlan.buildType === 'two variable') {
+      planService.rallies = selectedPlan.rallies;
       planService.scouts = selectedPlan.scouts;
       planService.unitMax = selectedPlan.unitMax;
       planService.wallOff = selectedPlan.wallOff;

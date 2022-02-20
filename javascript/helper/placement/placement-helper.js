@@ -81,8 +81,27 @@ const placementHelper = {
     }
     return possiblePlacements;
   },
-  getCandidatePositions: async (resources, positions, unitType) => {
-    return typeof positions === 'string' ? await placementHelper[positions](resources, unitType) : positions
+  /**
+   * 
+   * @param {ResourceManager} resources 
+   * @param {Point2D[]|string} positions 
+   * @param {UnitTypeId} unitType 
+   * @returns {Promise<Point2D[]>}
+   */
+  getCandidatePositions: async (resources, positions, unitType = null) => {
+    return typeof positions === 'string' ? await placementHelper[`get${positions}`](resources, unitType) : positions
+  },
+  /**
+   * @param {ResourceManager} resources 
+   */
+  getByMainRamp: async (resources) => {
+    const { map } = resources.get();
+    // get pathable main area within 8 distance of ramp
+    const getMainPositionsByRamp = map.getMain().areas.areaFill.filter(point => {
+      return getNeighbors(point).some(neighbor => map.isRamp(neighbor));
+    });
+    const pathableMainAreas = map.getMain().areas.areaFill.filter(point => map.isPathable(point) && distance(avgPoints(getMainPositionsByRamp), point) <= 8);
+    return pathableMainAreas;
   },
   /**
    * 
@@ -127,7 +146,7 @@ const placementHelper = {
       return filteredCandidates;
     }
   },
-  inTheMain: async (resources, unitType) => {
+  getInTheMain: async (resources, unitType) => {
     const { actions, map } = resources.get();
     const candidatePositions = map.getMain().areas.areaFill
     return [await actions.canPlace(unitType, candidatePositions)];

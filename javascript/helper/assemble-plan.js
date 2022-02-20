@@ -694,7 +694,7 @@ class AssemblePlan {
             conditions = planStep[3];
             await this.ability(foodTarget, abilityId, conditions);
             break;
-          case 'build':
+          case 'build': {
             unitType = planStep[2];
             this.unitType = unitType;
             const enemyBuild = planStep[5];
@@ -702,6 +702,7 @@ class AssemblePlan {
             const candidatePositions = planStep[4] ? await getCandidatePositions(this.resources, planStep[4], unitType) : [];
             await this.build(foodTarget, unitType, targetCount, candidatePositions);
             break;
+          }
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
             if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
@@ -710,7 +711,7 @@ class AssemblePlan {
           case 'maintainQueens': if (getFoodUsed(this.foodUsed) >= foodTarget) { await maintainQueens(this.world); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
           case 'push': this.push(foodTarget); break;
-          case 'scout':
+          case 'scout': {
             unitType = planStep[2];
             const targetLocationFunction = planStep[3];
             conditions = planStep[4];
@@ -721,8 +722,9 @@ class AssemblePlan {
             } else {
               conditions.label = targetLocationFunction
             }
-            this.scout(foodTarget, unitType, targetLocationFunction, conditions);
+            this.scout(foodTarget, unitType, `get${targetLocationFunction}`, conditions);
             break;
+          }
           case 'train':
             unitType = planStep[2];
             try { await this.train(foodTarget, unitType, targetCount); } catch (error) { console.log(error) } break;
