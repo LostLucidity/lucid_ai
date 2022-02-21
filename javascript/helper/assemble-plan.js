@@ -225,7 +225,7 @@ class AssemblePlan {
                   planService.pausePlan = false;
                   setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
                 } else {
-                  this.collectedActions.push(...premoveBuilderToPosition(this.world, geyser.pos, unitType));
+                  this.collectedActions.push(...premoveBuilderToPosition(this.world, geyser.pos, unitType, stepAhead));
                   if (!stepAhead) {
                     const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
                     await balanceResources(this.world, mineralCost / vespeneCost);
