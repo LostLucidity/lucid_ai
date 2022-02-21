@@ -45,47 +45,10 @@ const placementHelper = {
     return foundPosition;
   },
   /**
-   * @param {ResourceManager} resources 
-   * @returns {Point2D[]}
-   */
-  findSupplyPositions: (resources) => {
-    const { map } = resources.get();
-    // front of natural pylon for great justice
-    let possiblePlacements = [];
-    const naturalWall = wallOffNaturalService.wall.length > 0 ? wallOffNaturalService.wall : map.getNatural().getWall();
-    if (naturalWall) {
-      const naturalTownhallPosition = map.getNatural().townhallPosition;
-      possiblePlacements = wallOffNaturalService.pylonPlacement ? [wallOffNaturalService.pylonPlacement] : [];
-      if (possiblePlacements.length === 0) {
-        possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
-          .filter(point => naturalWall.every(wallCell => (
-            (distance(naturalTownhallPosition, point) > 4.5) &&
-            (distance(wallCell, point) <= 6.5) &&
-            (distance(wallCell, point) >= 3) &&
-            distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
-          )));
-      }
-      if (possiblePlacements.length === 0) {
-        possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
-          .map(point => {
-            point['coverage'] = naturalWall.filter(wallCell => (
-              (distance(wallCell, point) <= 6.5) &&
-              (distance(wallCell, point) >= 1) &&
-              distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
-            )).length;
-            return point;
-          })
-          .sort((a, b) => b['coverage'] - a['coverage'])
-          .filter((cell, i, arr) => cell['coverage'] === arr[0]['coverage'])
-      }
-    }
-    return possiblePlacements;
-  },
-  /**
-   * 
-   * @param {ResourceManager} resources 
-   * @param {Point2D[]|string} positions 
-   * @param {UnitTypeId} unitType 
+   *
+   * @param {ResourceManager} resources
+   * @param {Point2D[]|string} positions
+   * @param {UnitTypeId} unitType
    * @returns {Promise<Point2D[]>}
    */
   getCandidatePositions: async (resources, positions, unitType = null) => {
@@ -119,6 +82,43 @@ const placementHelper = {
       candidates = [await actions.canPlace(unitType, middleOfWall)];
     }
     return candidates;
+  },
+  /**
+   * @param {ResourceManager} resources
+   * @returns {Point2D[]}
+   */
+  getNaturalWallPylon: (resources) => {
+    const { map } = resources.get();
+    // front of natural pylon for great justice
+    let possiblePlacements = [];
+    const naturalWall = wallOffNaturalService.wall.length > 0 ? wallOffNaturalService.wall : map.getNatural().getWall();
+    if (naturalWall) {
+      const naturalTownhallPosition = map.getNatural().townhallPosition;
+      possiblePlacements = wallOffNaturalService.pylonPlacement ? [wallOffNaturalService.pylonPlacement] : [];
+      if (possiblePlacements.length === 0) {
+        possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
+          .filter(point => naturalWall.every(wallCell => (
+            (distance(naturalTownhallPosition, point) > 4.5) &&
+            (distance(wallCell, point) <= 6.5) &&
+            (distance(wallCell, point) >= 3) &&
+            distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
+          )));
+      }
+      if (possiblePlacements.length === 0) {
+        possiblePlacements = frontOfGrid(resources, map.getNatural().areas.areaFill)
+          .map(point => {
+            point['coverage'] = naturalWall.filter(wallCell => (
+              (distance(wallCell, point) <= 6.5) &&
+              (distance(wallCell, point) >= 1) &&
+              distance(wallCell, naturalTownhallPosition) > distance(point, naturalTownhallPosition)
+            )).length;
+            return point;
+          })
+          .sort((a, b) => b['coverage'] - a['coverage'])
+          .filter((cell, i, arr) => cell['coverage'] === arr[0]['coverage'])
+      }
+    }
+    return possiblePlacements;
   },
   /**
    * @param {Point2D[]} candidates

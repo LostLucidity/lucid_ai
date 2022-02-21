@@ -228,7 +228,7 @@ const plans = {
         supportUnitTypes: [OBSERVER, WARPPRISM],
       },
       orders: [
-        [14, 'build', PYLON, 0, 'findSupplyPositions'],
+        [14, 'build', PYLON, 0, 'NaturalWallPylon'],
         [[...range(14, 19)], 'scout', PROBE, 'EnemyMain', { unitType: PYLON, unitCount: 1, scoutType: 'earlyScout' }],
         [15, 'build', GATEWAY, 0],
         [16, 'ability', EFFECT_CHRONOBOOSTENERGYCOST, { targetType: NEXUS, continuous: false }],
