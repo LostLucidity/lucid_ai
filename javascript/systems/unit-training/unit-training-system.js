@@ -32,7 +32,7 @@ module.exports = createSystem({
       !shortOnWorkers(resources) && !planService.isPlanPaused,
     ];
     if (trainUnitConditions.some(condition => condition)) {
-      outpowered ? console.log('Scouted higher power') : console.log('Free build mode.');
+      let trainingConditionsLog = outpowered ? 'Scouted higher power' : 'Free build mode.';
       const { currentStep, plan } = planService;
       const candidateTypesToBuild = trainingTypes.filter(type => {
         return [
@@ -45,16 +45,20 @@ module.exports = createSystem({
           !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]]),
         ].every(condition => condition);
       });
+      trainingConditionsLog += ` currentStep: ${currentStep}`;
       if (candidateTypesToBuild.length > 0) {
+        trainingConditionsLog += ` candidateTypesToBuild: ${candidateTypesToBuild}`;
         let { selectedTypeToBuild } = unitTrainingService;
         selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : selectTypeToBuild(world, candidateTypesToBuild);
         if (selectedTypeToBuild !== undefined && selectedTypeToBuild !== null) {
+          trainingConditionsLog += ` selectedTypeToBuild: ${selectedTypeToBuild}`;
           let { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, [plan[currentStep]]);
           let { mineralCost, vespeneCost } = data.getUnitTypeData(selectedTypeToBuild);
           if (selectedTypeToBuild === ZERGLING) {
             totalMineralCost += mineralCost;
             totalVespeneCost += vespeneCost;
           }
+          trainingConditionsLog += ` totalMineralCost: ${totalMineralCost} totalVespeneCost: ${totalVespeneCost}`;
           const enoughMinerals = agent.minerals >= (totalMineralCost + mineralCost);
           const enoughVespene = (vespeneCost === 0) || (agent.vespene >= (totalVespeneCost + vespeneCost));
           const freeBuildThreshold = enoughMinerals && enoughVespene;
@@ -64,6 +68,7 @@ module.exports = createSystem({
         }
         unitTrainingService.selectedTypeToBuild = selectedTypeToBuild;
       }
+      console.log(trainingConditionsLog);
     }
   }
 });
