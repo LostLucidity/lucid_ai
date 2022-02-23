@@ -92,5 +92,8 @@ module.exports = createSystem({
       console.log('skip this step');
     }
     data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
+  },
+  async onEnemyFirstSeen(_world, seenEnemyUnit) {
+    scoutingService.opponentRace = seenEnemyUnit.data().race;
   }
 });
