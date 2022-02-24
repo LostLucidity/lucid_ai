@@ -43,7 +43,7 @@ const plans = {
         [49, 'build', SUPPLYDEPOT, 5],
         [[...range(49, 200)], 'manageSupply'],
         [[...range(53, 54)], 'scout', MARINE, 'outInFront',],
-        [[...range(53, 54)], 'scout', MARINE, 'acrossTheMap',],
+        [[...range(53, 54)], 'scout', MARINE, 'AcrossTheMap',],
         [58, 'build', BARRACKS, 1],
         [58, 'build', BARRACKS, 2],
         [62, 'build', REACTOR, 1],

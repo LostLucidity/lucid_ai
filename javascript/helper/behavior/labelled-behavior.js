@@ -13,7 +13,7 @@ const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
 const { calculateTotalHealthRatio } = require("../../systems/unit-resource/unit-resource-service");
 const { getClosestUnitByPath, distanceByPath } = require("../get-closest-by-path");
-const { getCombatRally, getRandomPoints, acrossTheMap } = require("../location");
+const { getCombatRally, getRandomPoints, getAcrossTheMap } = require("../location");
 const { engageOrRetreat } = require("./army-behavior");
 
 module.exports = {
@@ -25,7 +25,7 @@ module.exports = {
     const { resources } = world;
     const { map, units } = resources.get();
     const collectedActions = [];
-    const label = 'acrossTheMap';
+    const label = 'AcrossTheMap';
     const [unit] = units.withLabel(label);
     if (unit) {
       const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(enemyUnit => !(unit.unitType === LARVA) && distance(enemyUnit.pos, unit.pos) < 16);
