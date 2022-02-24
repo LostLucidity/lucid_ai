@@ -2,7 +2,7 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { Upgrade, UnitType } = require("@node-sc2/core/constants");
+const { Upgrade, UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { Attribute, Alliance } = require("@node-sc2/core/constants/enums");
 const { DRONE } = require("@node-sc2/core/constants/unit-type");
 const getRandom = require("@node-sc2/core/utils/get-random");
@@ -23,6 +23,7 @@ module.exports = createSystem({
     planService.plan = [];
     Array.from(Object.values(UnitType)).forEach(unitTypeId => {
       unitTypeAbilities[data.getUnitTypeData(unitTypeId).abilityId.toString()] = unitTypeId;
+      WarpUnitAbility[unitTypeId] && (unitTypeAbilities[WarpUnitAbility[unitTypeId].toString()] = unitTypeId);
     });
     Array.from(Object.values(Upgrade)).forEach(upgrade => {
       upgradeAbilities[data.getUpgradeData(upgrade).abilityId.toString()] = upgrade;
