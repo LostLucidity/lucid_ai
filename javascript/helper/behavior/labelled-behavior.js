@@ -39,15 +39,15 @@ module.exports = {
           }
         }
       });
-      let [closestEnemyUnit] = getClosestUnitByPath(resources, unit.pos, enemyUnits);
-      if (closestEnemyUnit && unit['selfDPSHealth'] < closestEnemyUnit['selfDPSHealth']) {
-        collectedActions.push(...engageOrRetreat(world, combatUnits, enemyUnits, closestEnemyUnit.pos, false));
+      // if an enemy unit within distance of 16, use engageOrRetreat logic, else ATTACK_ATTACK across the map
+      if (enemyUnits.length > 0) {
+        // get the closest enemy unit by path
+        const [closestEnemyUnit] = getClosestUnitByPath(resources, unit.pos, enemyUnits);
+        collectedActions.push(...engageOrRetreat(world, combatUnits, enemyUnits, closestEnemyUnit.pos));
       } else {
-        collectedActions.push({
-          abilityId: ATTACK_ATTACK,
-          unitTags: [unit.tag],
-          targetWorldSpacePos: acrossTheMap(map),
-        });
+        const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
+        unitCommand.targetWorldSpacePos = getAcrossTheMap(map);
+        collectedActions.push(unitCommand);
       }
     }
     return collectedActions;

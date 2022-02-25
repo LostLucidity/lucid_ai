@@ -20,7 +20,7 @@ const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
 const { harass } = require("../builds/harass");
-const { getMiddleOfNaturalWall, findPosition, inTheMain, getCandidatePositions } = require("./placement/placement-helper");
+const { getMiddleOfNaturalWall, findPosition, getCandidatePositions, getInTheMain } = require("./placement/placement-helper");
 const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
 const { liftToThird, addAddOn, swapBuildings } = require("./terran");
@@ -244,7 +244,7 @@ class AssemblePlan {
           case TownhallRace[race].includes(unitType):
             if (TownhallRace[race].indexOf(unitType) === 0) {
               if (this.units.getBases().length === 2 && race === Race.TERRAN) {
-                candidatePositions = await inTheMain(this.resources, unitType);
+                candidatePositions = await getInTheMain(this.resources, unitType);
                 await this.buildBuilding(unitType, candidatePositions, stepAhead);
               } else {
                 const availableExpansions = getAvailableExpansions(this.resources);
@@ -441,10 +441,6 @@ class AssemblePlan {
 
   async getMiddleOfNaturalWall(unitType) {
     return await getMiddleOfNaturalWall(this.resources, unitType);
-  };
-
-  async inTheMain(unitType) {
-    return await inTheMain(this.resources, unitType);
   }
 
   /**
@@ -716,12 +712,8 @@ class AssemblePlan {
             const targetLocationFunction = planStep[3];
             conditions = planStep[4];
             if (!conditions) { conditions = {}; }
-            if (targetLocationFunction.includes('get')) {
-              const label = targetLocationFunction.replace('get', 'scout')
-              conditions.label = label;
-            } else {
-              conditions.label = targetLocationFunction
-            }
+            const label = `scout${targetLocationFunction}`
+            conditions.label = label;
             this.scout(foodTarget, unitType, `get${targetLocationFunction}`, conditions);
             break;
           }

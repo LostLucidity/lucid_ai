@@ -12,7 +12,7 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 const wallOffNaturalService = require('../../systems/wall-off-natural/wall-off-natural-service');
 
 const placementHelper = {
-  findMineralLines: (resources) => {
+  getMineralLines: (resources) => {
     const { map, units } = resources.get();
     const occupiedExpansions = map.getOccupiedExpansions()
     const mineralLineCandidates = [];
