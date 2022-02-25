@@ -6,17 +6,16 @@ const { Upgrade, UnitType, WarpUnitAbility } = require("@node-sc2/core/constants
 const { Attribute, Alliance } = require("@node-sc2/core/constants/enums");
 const { DRONE } = require("@node-sc2/core/constants/unit-type");
 const getRandom = require("@node-sc2/core/utils/get-random");
+const foodUsedService = require("../services/food-used-service");
 const planService = require("../services/plan-service");
 const sharedService = require("../services/shared-service");
 const { getUnitTypeCount } = require("../services/world-service");
 const { build, train, upgrade, runPlan } = require("./execute-plan/plan-actions");
+const scoutingService = require("./scouting/scouting-service");
 
 let unitTypeAbilities = [];
 let upgradeAbilities = [];
 module.exports = createSystem({
-  defaultOptions: {
-    stepIncrement: 64,
-  },
   async onGameStart({ data }) {
     unitTypeAbilities = [];
     upgradeAbilities = [];
@@ -28,6 +27,8 @@ module.exports = createSystem({
     Array.from(Object.values(Upgrade)).forEach(upgrade => {
       upgradeAbilities[data.getUpgradeData(upgrade).abilityId.toString()] = upgrade;
     });
+    foodUsedService.minimumAmountToAttackWith = Math.round(Math.random() * 200);
+    console.log(`Minimum amount of food to attack with: ${foodUsedService.minimumAmountToAttackWith}`);
   },
   async onStep(world) {
     const { agent, data, resources } = world;
