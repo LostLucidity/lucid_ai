@@ -18,7 +18,12 @@ module.exports = createSystem({
     if (!armyManagementService.defenseMode) {
       const { units } = resources.get();
       const collectedActions = [];
-      const combatUnits = units.getCombatUnits().filter(unit => !unit.labels.get('harasser') && !unit.labels.get('scout'));
+      const combatUnits = units.getCombatUnits().filter(unit => { 
+        (
+          !unit.labels.get('harasser') && 
+          ![...unit.labels.keys()].some(key => { key.includes('scout') })
+        )
+      });
       let rallyPoint = getCombatRally(resources);
       if (combatUnits.length > 0) {
         if (units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1).length > 0) {

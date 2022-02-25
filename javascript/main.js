@@ -22,7 +22,6 @@ const executePlanSystem = require('./systems/execute-plan/execute-plan-system');
 const unitTrainingSystem = require('./systems/unit-training/unit-training-system');
 const workerTrainingSystem = require('./systems/worker-training-system');
 const wallOffRampSystem = require('./systems/wall-off-ramp/wall-off-ramp-system');
-const workerScoutingSystem = require('./systems/scouting/worker-scouting-system');
 const runBehaviorsSystem = require('./systems/run-behaviors-system');
 const enemyTrackingSystem = require('./systems/enemy-tracking/enemy-tracking-system');
 const rallySystem = require('./systems/army-management/rally-system');
@@ -195,7 +194,6 @@ async function runGame() {
     unitTrainingSystem,
     executePlanSystem,
     workerBalanceSystem,
-    workerScoutingSystem,
     runBehaviorsSystem,
     // defenseSystem,
     enemyTrackingSystem,
