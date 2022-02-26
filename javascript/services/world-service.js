@@ -28,7 +28,7 @@ const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/ba
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const { distanceByPath, getClosestUnitByPath, getClosestPositionByPath } = require("../helper/get-closest-by-path");
-const { rallyWorkerToPosition, rallyWorkerToMinerals } = require("./resource-manager-service");
+const { rallyWorkerToTarget } = require("./resource-manager-service");
 const { getPathablePositionsForStructure } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -665,14 +665,14 @@ const worldService = {
       const timeToTargetCost = mineralsLeft / (collectionRateMinerals / 60);
       if (shouldPremoveNow(world, timeToTargetCost, timeToPosition)) {
         if (rallyBase) {
-          collectedActions.push(...rallyWorkerToPosition(resources, position));
+          collectedActions.push(...rallyWorkerToTarget(world, position));
         } else {
           unitCommand.targetWorldSpacePos = position;
           builder.labels.set('builder', true);
           collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
         }
       } else {
-        collectedActions.push(...rallyWorkerToMinerals(resources, position));
+        collectedActions.push(...rallyWorkerToTarget(world, position, true));
         if (!stepAhead) {
           if (builder.orders.some(order => order.targetWorldSpacePos && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y)) {
             collectedActions.push(createUnitCommand(STOP, [builder]));
