@@ -32,10 +32,12 @@ module.exports = createSystem({
   },
   async onStep(world) {
     const { agent, data, resources } = world;
-    const { units } = resources.get();
+    const { frame, units } = resources.get();
     sharedService.removePendingOrders(units);
+    const { collectionRateMinerals } = frame.getObservation().score.scoreDetails;
+    const actionActivity = collectionRateMinerals / (8400 * 4);
     await runPlan(world);
-    if (getRandom([0, 1]) === 0) {
+    if (Math.random() < actionActivity) {
       if (planService.continueBuild) {
         const allAvailableAbilities = new Map();
         units.getAlive(Alliance.SELF).forEach(unit => {
