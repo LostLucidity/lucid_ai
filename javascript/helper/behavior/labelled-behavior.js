@@ -137,11 +137,21 @@ module.exports = {
         if (threateningUnits.length > 1) {
           unit.labels.set('Threatened');
           let [closestEnemyUnit] = units.getClosest(unit.pos, unit['enemyUnits'], 1);
-          collectedActions.push({
-            abilityId: MOVE,
-            unitTags: [unit.tag],
-            targetWorldSpacePos: retreatToExpansion(world, unit, closestEnemyUnit),
-          });
+          // retreat to farthest empty expansion that is closer to the unit than the enemy unit
+          if (closestEnemyUnit) {
+            const emptyExpansions = getEmptyExpansions(resources);
+            const [farthestEmptyExpansionClosertToUnit] = emptyExpansions
+              .filter(expansion => distanceByPath(resources, unit.pos, expansion.centroid) < distanceByPath(resources, closestEnemyUnit.pos, expansion.centroid));
+            if (farthestEmptyExpansionClosertToUnit) {
+              const unitCommand = createUnitCommand(MOVE, [unit]);
+              unitCommand.targetWorldSpacePos = farthestEmptyExpansionClosertToUnit.centroid;
+              collectedActions.push(unitCommand);
+            } else {
+              const unitCommand = createUnitCommand(MOVE, [unit]);
+              unitCommand.targetWorldSpacePos = retreatToExpansion(world, unit, closestEnemyUnit, false);
+              collectedActions.push(unitCommand);
+            }
+          }
         } else {
           unit.labels.delete('Threatened');
           const enemyMain = map.getEnemyMain();
@@ -201,4 +211,17 @@ module.exports = {
     }
     collectedActions.length > 0 && await actions.sendAction(collectedActions);
   },
+}
+/**
+ * @param {ResourceManager} resources 
+ * @returns {Expansion[]}
+ */
+function getEmptyExpansions(resources) {
+  const { map, units } = resources.get();
+  const emptyExpansions = map.getExpansions().filter(expansion => {
+    const enemyUnits = units.getAlive({ alliance: Alliance.ENEMY }).filter(unit => distance(unit.pos, expansion.centroid) < 16);
+    const selfUnits = units.getAlive({ alliance: Alliance.SELF }).filter(unit => distance(unit.pos, expansion.centroid) < 16);
+    return enemyUnits.length === 0 && selfUnits.length === 0;
+  });
+  return emptyExpansions;
 }
