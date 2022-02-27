@@ -213,7 +213,14 @@ const armyBehavior = {
               if (selfUnit.isMelee()) {
                 collectedActions.push(...micro(units, selfUnit, closestAttackableEnemyUnit, enemyUnits));
               } else {
-                collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
+                const enemyInAttackRange = isEnemyInAttackRange(selfUnit, closestAttackableEnemyUnit);
+                if (enemyInAttackRange) {
+                  collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
+                } else {
+                  const unitCommand = createUnitCommand(MOVE, [selfUnit]);
+                  unitCommand.targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestAttackableEnemyUnit);
+                  collectedActions.push(unitCommand);
+                }
               }
             } else {
               const unitCommand = createUnitCommand(MOVE, [selfUnit]);
@@ -476,6 +483,15 @@ function getWeaponThatCanAttack(unit, target) {
     return true;
   });
   return weapon;
+}
+/**
+ * @param {Unit} unit 
+ * @param {Unit} targetUnit 
+ * @returns {Boolean}
+ */
+function isEnemyInAttackRange(unit, targetUnit) {
+  const foundWeapon = getWeaponThatCanAttack(unit, targetUnit);
+  return foundWeapon ? (foundWeapon.range >= distance(unit.pos, targetUnit.pos) + unit.radius + targetUnit.radius) : false;
 }
 
 module.exports = armyBehavior;
