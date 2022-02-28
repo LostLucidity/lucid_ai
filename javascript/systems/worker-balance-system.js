@@ -18,13 +18,12 @@ module.exports = createSystem({
     state: {},
   },
   async onStep(world) {
-    const { units, actions } = world.resources.get();
-    if (!planService.isPlanPaused) { balanceResources(world) };
+    const { resources } = world;
+    const { units, actions } = resources.get();
+    if (!planService.isPlanPaused) { balanceResources(world) }
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
-
     const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
     const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
-
     const needyTownhall = townhalls.filter(townhall => {
       if (townhall['enemyUnits']) {
         let [closestEnemyUnit] = units.getClosest(townhall.pos, townhall['enemyUnits'], 1);
@@ -34,7 +33,6 @@ module.exports = createSystem({
       }
       return true;
     }).find(base => base.assignedHarvesters < base.idealHarvesters);
-
     if (needyTownhall) {
       const possibleDonerThs = townhalls.filter(townhall => townhall.assignedHarvesters > needyTownhall.assignedHarvesters + 1);
       // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
@@ -50,6 +48,10 @@ module.exports = createSystem({
         await actions.gather(donatingWorker, mineralFieldTarget, false);
       }
     }
+    // catch missed idle units and have them gather or mine
+    const collectedActions = [];
+    collectedActions.push(...gatherOrMineIdleGroup(world));
+    await actions.sendAction(collectedActions);
   },
   /**
    * 
@@ -102,3 +104,31 @@ module.exports = createSystem({
     await actions.sendAction(collectedActions);
   }
 });
+/**
+ * @param {World} world 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function gatherOrMineIdleGroup(world) {
+  const { resources } = world;
+  const { units, } = world.resources.get();
+  const collectedActions = [];
+  // idle workers should include workers that have a move command onto a structure
+  const idleWorkers = units.getWorkers().filter(worker => {
+    return (
+      worker.orders.length === 0 ||
+      worker.orders.some(order => {
+        return (
+          order.abilityId === Ability.MOVE &&
+          order.targetUnitTag !== undefined &&
+          units.getByTag(order.targetUnitTag).isStructure()
+        )
+      })
+    );
+  });
+  // const idleWorkers = units.getWorkers().filter(worker => worker.isIdle());
+  idleWorkers.forEach(idleWorker => {
+    console.log('idle worker.orders', idleWorker.orders);
+    collectedActions.push(gatherOrMine(resources, idleWorker));
+  });
+  return collectedActions;
+}
