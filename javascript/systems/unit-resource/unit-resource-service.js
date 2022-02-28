@@ -192,14 +192,23 @@ const unitResourceService = {
     }
   },
   /**
-   * 
+   * @param {UnitResource} units
    * @param {Unit} unit 
    * @returns {boolean}
    */
-  getWithLabelAvailable: (unit) => {
+  getWithLabelAvailable: (units, unit) => {
+    // if unit has constructing order, if building at order position has a buildProgress of 1, then unitIsConstructing is false
+    let unitIsConstructiing = unit.isConstructing();
+    if (unitIsConstructiing) {
+      const constructionPosition = unit.orders[0].targetWorldSpacePos ? unit.orders[0].targetWorldSpacePos : units.getByTag(unit.orders[0].targetUnitTag).pos;
+      const buildingAtOrderPosition = units.getAlive().filter(unit => unit.isStructure()).find(structure => unit.orders[0].targetWorldSpacePos && distance(structure.pos, constructionPosition) < 1);
+      if (buildingAtOrderPosition && buildingAtOrderPosition.buildProgress >= 1) {
+        unitIsConstructiing = false;
+      }
+    }
     return (
-      !unit.isConstructing() ||
-      (unit.isConstructing() && unit.unitType === PROBE)) &&
+      !unitIsConstructiing ||
+      (unitIsConstructiing && unit.unitType === PROBE)) &&
       !unit.isAttacking() &&
       !isPendingContructing(unit);
   },
@@ -211,8 +220,8 @@ const unitResourceService = {
   getBuilders: (units) => {
     const { getWithLabelAvailable } = unitResourceService;
     let builders = [
-      ...units.withLabel('builder').filter(builder => getWithLabelAvailable(builder)),
-      ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(proxy)),
+      ...units.withLabel('builder').filter(builder => getWithLabelAvailable(units, builder)),
+      ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(units, proxy)),
     ].filter(worker => !worker.isReturning());
     return builders;
   },
