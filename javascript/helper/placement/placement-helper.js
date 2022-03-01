@@ -40,7 +40,7 @@ const placementHelper = {
         foundPosition = getRandom(candidatePositions.filter(position => map.isPlaceableAt(unitType, position)));
       }
     }
-    if (foundPosition) console.log(`FoundPosition for ${unitTypeName}`, foundPosition);
+    if (foundPosition) console.log(`Found position for ${unitTypeName}`, foundPosition);
     else console.log(`Could not find position for ${unitTypeName}`);
     return foundPosition;
   },
