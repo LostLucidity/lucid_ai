@@ -128,7 +128,7 @@ function checkEnemyBuild(world) {
 async function setAndSendScout(world) {
   const { actions, frame, map, units } = world.resources.get();
   const collectedActions = [];
-  planService.scouts.forEach(scout => {
+  planService.scouts && planService.scouts.forEach((/** @type {{ end: any; start: any; targetLocationFunction: any; unitType: any; }} */ scout) => {
     let { end, start, targetLocationFunction, unitType } = scout;
     targetLocationFunction = `get${targetLocationFunction}`;
     unitType = UnitType[unitType];
