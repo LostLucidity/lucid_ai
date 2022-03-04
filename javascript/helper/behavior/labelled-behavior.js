@@ -25,7 +25,7 @@ module.exports = {
     const { resources } = world;
     const { map, units } = resources.get();
     const collectedActions = [];
-    const label = 'AcrossTheMap';
+    const label = 'scoutAcrossTheMap';
     const [unit] = units.withLabel(label);
     if (unit) {
       const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(enemyUnit => !(unit.unitType === LARVA) && distance(enemyUnit.pos, unit.pos) < 16);
