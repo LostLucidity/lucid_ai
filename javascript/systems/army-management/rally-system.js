@@ -19,7 +19,7 @@ module.exports = createSystem({
       const { units } = resources.get();
       const collectedActions = [];
       const combatUnits = units.getCombatUnits().filter(unit => { 
-        (
+        return (
           !unit.labels.get('harasser') && 
           ![...unit.labels.keys()].some(key => { key.includes('scout') })
         )
