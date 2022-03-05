@@ -16,9 +16,6 @@ const planService = {
   dirtyBasePlan: false,
   continueBuild: null,
   currentStep: 0,
-  getFoodUsed: (foodused) => {
-    return foodused + planService.pendingFood;
-  },
   foundPosition: null,
   /** @type {boolean} */
   isPlanPaused: null,

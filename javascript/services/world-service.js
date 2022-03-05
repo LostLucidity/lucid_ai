@@ -409,6 +409,16 @@ const worldService = {
     return dPSHealth;
   },
   /**
+   * @param {World} world
+   */
+  getFoodUsed: (world) => {
+    const { agent, resources } = world;
+    const { units } = resources.get();
+    const { foodUsed, race } = agent;
+    const pendingFoodUsed = race === Race.ZERG ? units.getWorkers().filter(worker => worker.isConstructing()).length : 0;
+    return foodUsed + planService.pendingFood - pendingFoodUsed;
+  },
+  /**
    * @param {World} world 
    * @param {Unit} unit 
    * @param {Unit} targetUnit 

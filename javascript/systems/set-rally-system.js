@@ -4,9 +4,9 @@
 const { createSystem } = require("@node-sc2/core");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { getCandidatePositions } = require("../helper/placement/placement-helper");
-const { getFoodUsed } = require("../services/plan-service");
 const planService = require("../services/plan-service");
 const resourceManagerService = require("../services/resource-manager-service");
+const { getFoodUsed } = require("../services/world-service");
 
 module.exports = createSystem({
   name: 'SetRallySystem',
@@ -27,14 +27,14 @@ module.exports = createSystem({
  * @returns {Promise<Point2D[]>}
  */
 async function getRally(world) {
-  const { agent, resources } = world;
+  const { resources } = world;
   const { units } = resources.get();
   const foundRally = planService.rallies.find(rally => {
     // return true if foodUsed is greater than conditionStart and less than unitType count
     let conditionStartSatisfied = false;
     let conditionEndSatisfied = false;
     if (Object.prototype.hasOwnProperty.call(rally.conditionStart, 'food')) {
-      conditionStartSatisfied = getFoodUsed(agent.foodUsed) >= rally.conditionStart.food;
+      conditionStartSatisfied = getFoodUsed(world) >= rally.conditionStart.food;
     }
     if (Object.prototype.hasOwnProperty.call(rally.conditionEnd, 'unitType')) {
       conditionEndSatisfied = units.getById(rally.conditionEnd.unitType).length >= rally.conditionEnd.count;
