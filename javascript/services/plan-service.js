@@ -13,9 +13,13 @@ const planService = {
     planService.isPlanPaused = value;
     planService.pausedThisRound = value;
   },
+  /** @type {boolean} */
+  bogIsActive: false,
   dirtyBasePlan: false,
   continueBuild: null,
   currentStep: 0,
+  /** @type {number} */
+  foodMark: 12,
   foundPosition: null,
   /** @type {boolean} */
   isPlanPaused: null,
@@ -48,9 +52,9 @@ const planService = {
   rallies: [],
   scouting: [],
   /** @type {number[]} */
-  trainingTypes: null,
-  /** @type {{string: number}} */
-  unitMax: null,
+  trainingTypes: [],
+  /** @type {{}} */
+  unitMax: {},
   wallOff: null,
 }
 

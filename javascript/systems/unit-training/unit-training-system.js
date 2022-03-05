@@ -32,7 +32,9 @@ module.exports = createSystem({
     if (trainUnitConditions.some(condition => condition)) {
       let trainingConditionsLog = outpowered ? 'Scouted higher power' : 'Free build mode.';
       const { currentStep, plan } = planService;
-      const candidateTypesToBuild = trainingTypes.filter(type => {
+      // if trainingTypes is empty, get currently exiting non-structure unitTypes
+      const plannedTrainingTypes = trainingTypes.length > 0 ? trainingTypes : getExistingTrainingTypes(units);
+      const candidateTypesToBuild = plannedTrainingTypes.filter(type => {
         return [
           !data.getUnitTypeData(type).attributes.includes(Attribute.STRUCTURE),
           haveAvailableProductionUnitsFor(world, type),
@@ -70,7 +72,6 @@ module.exports = createSystem({
     }
   }
 });
-
 /**
  * @param {World} world 
  * @param {UnitTypeId[]} candidateTypesToBuild 
@@ -85,4 +86,19 @@ function selectTypeToBuild(world, candidateTypesToBuild) {
     return true;
   });
   return filteredTypes[Math.floor(Math.random() * filteredTypes.length)];
+}
+/**
+ * @description get currently exiting non-structure unitTypes
+ * @param {UnitResource} units
+ * @returns {UnitTypeId[]}
+ * @example getExistingTrainingTypes(units)
+ * @example getExistingTrainingTypes(units).includes(UnitTypeId.ZERGLING)
+ */
+function getExistingTrainingTypes(units) {
+  return units.getAlive().reduce((types, unit) => {
+    if (types.includes(unit.unitType)) {
+      return types;
+    }
+    return [...types, unit.unitType];
+  }, []);
 }

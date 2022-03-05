@@ -21,14 +21,18 @@ module.exports = createSystem({
     const assignedWorkerCount = [...units.getBases(), ...units.getById(GasMineRace[race])].reduce((assignedWorkerCount, base) => base.assignedHarvesters + assignedWorkerCount, 0);
     const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
     const { outpowered, unitProductionAvailable } = worldService
-    const conditions = [
-      haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
-      !planService.isPlanPaused,
-      agent.minerals < 512 || minimumWorkerCount <= 34,
-      shortOnWorkers(resources),
-      !outpowered || (outpowered && !unitProductionAvailable)
-    ];
-    if (conditions.every(condition => condition)) {
+    let conditionsMet = planService.bogIsActive && minimumWorkerCount <= 11;
+    if (!planService.bogIsActive) {
+      const conditions = [
+        haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
+        !planService.isPlanPaused,
+        agent.minerals < 512 || minimumWorkerCount <= 34,
+        shortOnWorkers(resources),
+        !outpowered || (outpowered && !unitProductionAvailable)
+      ];
+      conditionsMet = conditions.every(condition => condition);
+    }
+    if (conditionsMet) {
       unitTrainingService.workersTrainingTendedTo = false;
       const { abilityId } = world.data.getUnitTypeData(WorkerRace[race])
       const productionUnit = resources.get().units.getProductionUnits(WorkerRace[race]).find(u => u.noQueue && u.abilityAvailable(abilityId));
