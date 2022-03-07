@@ -14,7 +14,6 @@ const { workerTypes, changelingTypes } = require("@node-sc2/core/constants/group
 const { pullWorkersToDefend } = require("../../services/army-management-service");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { isRepairing, canAttack, setPendingOrders } = require("../../systems/unit-resource/unit-resource-service");
-const scoutService = require("../../systems/scouting/scouting-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
@@ -23,6 +22,7 @@ const { micro } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { moveAwayPosition } = require("../../services/position-service");
 const { getEnemyMovementSpeed } = require("../../services/unit-service");
+const worldService = require("../../services/world-service");
 
 const armyBehavior = {
   /**
@@ -303,7 +303,7 @@ const armyBehavior = {
               unitTags: [selfUnit.tag],
             }
             const destructableTag = armyBehavior.getInRangeDestructables(units, selfUnit);
-            if (destructableTag && clearRocks && !scoutService.outsupplied) { unitCommand.targetUnitTag = destructableTag; }
+            if (destructableTag && clearRocks && !worldService.outpowered) { unitCommand.targetUnitTag = destructableTag; }
             else {
               const [closestCompletedBunker] = units.getClosest(selfUnit.pos, units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1));
               if (closestCompletedBunker && closestCompletedBunker.abilityAvailable(LOAD_BUNKER)) {
