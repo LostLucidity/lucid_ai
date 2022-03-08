@@ -5,7 +5,6 @@ const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities } = require("@node-sc2/core/constants/groups");
-const { PYLON, CYCLONE, ZERGLING, LARVA, QUEEN, GATEWAY, CYBERNETICSCORE, SUPPLYDEPOT, BARRACKS, OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -38,6 +37,7 @@ const { pointsOverlap, intersectionOfPoints } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const { moveAwayPosition } = require("./position-service");
+const getRandom = require("@node-sc2/core/utils/get-random");
 
 const worldService = {
   /** @type {boolean} */
@@ -99,7 +99,7 @@ const worldService = {
     const workerTypeId = WorkerRace[agent.race];
     if (worldService.canBuild(world, workerTypeId)) {
       if (agent.race === Race.ZERG) {
-        if (units.getById(LARVA).length > 0) {
+        if (units.getById(UnitType.LARVA).length > 0) {
           try { await actions.train(workerTypeId); } catch (error) { console.log(error) }
         }
       } else {
@@ -151,7 +151,7 @@ const worldService = {
    */
   canBuild: (world, unitTypeId) => {
     const { agent } = world;
-    return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && (!worldService.isSupplyNeeded(world) || unitTypeId === OVERLORD)
+    return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && (!worldService.isSupplyNeeded(world) || unitTypeId === UnitType.OVERLORD)
   },
   /**
   * Returns boolean on whether build step should be executed.
@@ -176,27 +176,33 @@ const worldService = {
     if (candidatePositions.length === 0) { candidatePositions = await worldService.findPlacements(world, unitType); }
     planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(resources, unitType, candidatePositions);
     if (planService.foundPosition) {
-      if (agent.canAfford(unitType)) {
-        if (await actions.canPlace(unitType, [planService.foundPosition])) {
-          await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
-          planService.pausePlan = false;
-          planService.continueBuild = true;
-          addEarmark(data, data.getUnitTypeData(unitType));
-          planService.foundPosition = null;
+      // get unitTypes that can build the building
+      const { abilityId } = data.getUnitTypeData(unitType);
+      const unitTypes = data.findUnitTypesWithAbility(abilityId);
+      if (!unitTypes.includes(UnitType.NYDUSNETWORK)) {
+        if (agent.canAfford(unitType)) {
+          if (await actions.canPlace(unitType, [planService.foundPosition])) {
+            await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
+            planService.pausePlan = false;
+            planService.continueBuild = true;
+            addEarmark(data, data.getUnitTypeData(unitType));
+            planService.foundPosition = null;
+          } else {
+            planService.foundPosition = null;
+            planService.pausePlan = true;
+            planService.continueBuild = false;
+          }
         } else {
-          planService.foundPosition = null;
+          const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+          collectedActions.push(...worldService.premoveBuilderToPosition(world, planService.foundPosition, unitType));
+          await balanceResources(world, mineralCost / vespeneCost);
           planService.pausePlan = true;
           planService.continueBuild = false;
         }
       } else {
-        const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-        collectedActions.push(...worldService.premoveBuilderToPosition(world, planService.foundPosition, unitType));
-        await balanceResources(world, mineralCost / vespeneCost);
-        planService.pausePlan = true;
-        planService.continueBuild = false;
+        collectedActions.push(...await buildWithNydusNetwork(world, unitType, abilityId));
       }
-    } else {
-      const [pylon] = units.getById(PYLON);
+      const [pylon] = units.getById(UnitType.PYLON);
       if (pylon && pylon.buildProgress < 1) {
         collectedActions.push(...worldService.premoveBuilderToPosition(world, pylon.pos, pylon.unitType));
         planService.pausePlan = true;
@@ -222,7 +228,7 @@ const worldService = {
      */
     let placements = [];
     if (race === Race.PROTOSS) {
-      if (unitType === PYLON) {
+      if (unitType === UnitType.PYLON) {
         const occupiedExpansions = getOccupiedExpansions(resources);
         const occupiedExpansionsPlacementGrid = [...occupiedExpansions.map(expansion => expansion.areas.placementGrid)];
         const placementGrids = [];
@@ -240,17 +246,17 @@ const worldService = {
           });
       } else {
         let pylonsNearProduction;
-        if (units.getById(PYLON).length === 1) {
-          pylonsNearProduction = units.getById(PYLON);
+        if (units.getById(UnitType.PYLON).length === 1) {
+          pylonsNearProduction = units.getById(UnitType.PYLON);
         } else {
-          pylonsNearProduction = units.getById(PYLON)
+          pylonsNearProduction = units.getById(UnitType.PYLON)
             .filter(u => u.buildProgress >= 1)
             .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
         }
         pylonsNearProduction.forEach(pylon => {
           placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid) && distance(grid, pylon.pos) < 6.5));
         });
-        const wallOffUnitTypes = [...countTypes.get(GATEWAY), CYBERNETICSCORE];
+        const wallOffUnitTypes = [...countTypes.get(UnitType.GATEWAY), UnitType.CYBERNETICSCORE];
         /**
          * @type {Point2D[]}
          */
@@ -293,7 +299,7 @@ const worldService = {
       }
     } else if (race === Race.TERRAN) {
       const placementGrids = [];
-      const wallOffUnitTypes = [SUPPLYDEPOT, BARRACKS];
+      const wallOffUnitTypes = [UnitType.SUPPLYDEPOT, UnitType.BARRACKS];
       if (wallOffUnitTypes.includes(unitType)) {
         const wallOffPositions = findWallOffPlacement(unitType);
         if (wallOffPositions.length > 0 && await actions.canPlace(unitType, wallOffPositions)) {
@@ -309,18 +315,7 @@ const worldService = {
         .map(a => a.pos)
         .slice(0, 20);
     } else if (race === Race.ZERG) {
-      placements = map.getCreep()
-        .filter((point) => {
-          const [closestMineralLine] = getClosestPosition(point, mainMineralLine);
-          const [closestStructure] = units.getClosest(point, units.getStructures());
-          const [closestTownhallPosition] = getClosestPosition(point, map.getExpansions().map(expansion => expansion.townhallPosition));
-          return (
-            distance(point, closestMineralLine) > 1.5 &&
-            distance(point, closestStructure.pos) > 3 &&
-            distance(point, closestStructure.pos) <= 12.5 &&
-            distance(point, closestTownhallPosition) > 3
-          );
-        });
+      placements.push(...findZergPlacements(resources, unitType))
     }
     return placements;
   },
@@ -403,7 +398,7 @@ const worldService = {
         const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnits.map(enemyUnit => enemyUnit.unitType));
         const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(alliance) + weaponBonusDamage;
         dPSHealth = weaponDamage / weapon.speed * (healthMax + shieldMax);
-        dPSHealth = unitType === ZERGLING ? dPSHealth * 2 : dPSHealth;
+        dPSHealth = unitType === UnitType.ZERGLING ? dPSHealth * 2 : dPSHealth;
       }
     }
     return dPSHealth;
@@ -488,7 +483,7 @@ const worldService = {
     const { data, resources } = world;
     const { units } = resources.get();
     const trainingUnitTypes = [];
-    const combatTypesPlusQueens = [...combatTypes, QUEEN];
+    const combatTypesPlusQueens = [...combatTypes, UnitType.QUEEN];
     combatTypesPlusQueens.forEach(type => {
       let abilityId = data.getUnitTypeData(type).abilityId;
       trainingUnitTypes.push(...units.withCurrentOrders(abilityId).map(() => type));
@@ -523,7 +518,8 @@ const worldService = {
     unitTypes.forEach(type => {
       let unitsToCount = units.getById(type);
       if (agent.race === Race.TERRAN) {
-        unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= 1);
+        const completed = type === UnitType.ORBITALCOMMAND ? 0.998 : 1;
+        unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= completed);
       }
       count += unitsToCount.length;
     });
@@ -605,7 +601,7 @@ const worldService = {
     const { data } = world;
     const collectedActions = [];
     if (
-      (unit.weaponCooldown > 8 || unit.unitType === CYCLONE) &&
+      (unit.weaponCooldown > 8 || unit.unitType === UnitType.CYCLONE) &&
       data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; })
     ) {
       const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit)
@@ -802,7 +798,7 @@ const worldService = {
   setTotalEnemyDPSHealth: (world) => {
     const { resources } = world;
     const { units } = resources.get();
-    const selfCombatUnits = [...units.getCombatUnits(), ...units.getById(QUEEN)];
+    const selfCombatUnits = [...units.getCombatUnits(), ...units.getById(UnitType.QUEEN)];
     const { enemyCombatUnits } = enemyTrackingService;
     worldService.totalEnemyDPSHealth = enemyCombatUnits.reduce((totalDPSHealth, unit) => {
       return totalDPSHealth + worldService.calculateNearDPSHealth(world, [unit], [...selfCombatUnits.map(selfCombatUnit => selfCombatUnit.unitType), ...worldService.getTrainingUnitTypes(world)]);
@@ -814,7 +810,7 @@ const worldService = {
   setTotalSelfDPSHealth: (world) => {
     const { resources } = world;
     const { units } = resources.get();
-    const selfCombatUnits = [...units.getCombatUnits(), ...units.getById(QUEEN)];
+    const selfCombatUnits = [...units.getCombatUnits(), ...units.getById(UnitType.QUEEN)];
     const { enemyCombatUnits } = enemyTrackingService;
     worldService.totalSelfDPSHealth = selfCombatUnits.reduce((totalDPSHealth, unit) => {
       return totalDPSHealth + worldService.calculateNearDPSHealth(world, [unit], enemyCombatUnits.map(enemyCombatUnit => enemyCombatUnit.unitType));
@@ -849,7 +845,7 @@ function shouldPremoveNow(world, timeToTargetCost, timeToPosition) {
   const willHaveEnoughMineralsByArrival = timeToTargetCost <= timeToPosition;
   // if race is protoss
   if (agent.race === Race.PROTOSS) {
-    const pylons = units.getById(PYLON);
+    const pylons = units.getById(UnitType.PYLON);
     // get time left for first pylon to warp in
     if (pylons.length === 1) {
       const [pylon] = pylons;
@@ -885,5 +881,77 @@ function calculateTimeToFinishStructure(data, unit) {
 function getTimeInSeconds(frames) {
   return frames / 22.4;
 }
+/**
+ * @param {ResourceManager} resources 
+ * @param {UnitTypeId} unitType
+ * @returns {Point2D[]}
+ */
+function findZergPlacements(resources, unitType) {
+  const { map, units } = resources.get();
+  // get all mineral line points
+  const mineralLinePoints = map.getExpansions().reduce((mineralLines, expansion) => {
+    const { mineralLine } = expansion.areas;
+    return [...mineralLines, ...mineralLine];
+  }, []);
+  const candidatePositions = [];
+  if (unitType !== UnitType.NYDUSCANAL) {
+    // get all points with creep within 12.5 distance of ally structure
+    const creepCandidates = map.getCreep().filter((point) => {
+      const [closestMineralLine] = getClosestPosition(point, mineralLinePoints);
+      const [closestStructure] = units.getClosest(point, units.getStructures());
+      return (
+        distance(point, closestMineralLine) > 1.5 &&
+        distance(point, closestStructure.pos) > 3 &&
+        distance(point, closestStructure.pos) <= 12.5
+      );
+    });
+    candidatePositions.push(...creepCandidates);
+  } else {
+    // get all points in vision
+    const visionPoints = map.getVisibility().filter((point) => {
+      const [closestMineralLine] = getClosestPosition(point, mineralLinePoints);
+      const [closestStructure] = units.getClosest(point, units.getStructures());
+      return (
+        distance(point, closestMineralLine) > 1.5 &&
+        distance(point, closestStructure.pos) > 3
+      );
+    });
+    candidatePositions.push(...visionPoints);
+  }
+  return candidatePositions;
+}
 
 module.exports = worldService;
+
+/**
+ * @param {World} world 
+ * @param {UnitTypeId} unitType
+ * @param {AbilityId} abilityId
+ * @return {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+ */
+async function buildWithNydusNetwork(world, unitType, abilityId) {
+  const { agent, resources, data } = world;
+  const { actions, units } = resources.get();
+  const collectedActions = [];
+  const nydusNetworks = units.getById(UnitType.NYDUSNETWORK, { alliance: Alliance.SELF });
+  if (nydusNetworks.length > 0) {
+    // randomly pick a nydus network
+    const nydusNetwork = getRandom(nydusNetworks);
+    if (agent.canAfford(unitType)) {
+      if (await actions.canPlace(unitType, [planService.foundPosition])) {
+        const unitCommand = createUnitCommand(abilityId, [nydusNetwork]);
+        unitCommand.targetWorldSpacePos = planService.foundPosition;
+        collectedActions.push(unitCommand);
+        planService.pausePlan = false;
+        planService.continueBuild = true;
+        addEarmark(data, data.getUnitTypeData(unitType));
+        planService.foundPosition = null;
+      } else {
+        planService.foundPosition = null;
+        planService.pausePlan = true;
+        planService.continueBuild = false;
+      }
+    }
+  }
+  return collectedActions;
+}
