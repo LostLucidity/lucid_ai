@@ -735,6 +735,9 @@ class AssemblePlan {
     }
     planService.latestStep = planService.currentStep;
     planService.currentStep = null;
+    if (!planService.pausedThisRound) {
+      planService.pausePlan = false;
+    }
   }
 }
 
