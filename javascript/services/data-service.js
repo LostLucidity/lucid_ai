@@ -4,6 +4,7 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { getTimeInSeconds } = require("./frames-service");
 const planService = require("./plan-service");
 
 const dataService = {
@@ -44,6 +45,16 @@ const dataService = {
       return previousValue + damage;
     }, 0);
     return totalBonusDamage > 0 ? (totalBonusDamage / enemyUnitTypes.length) : 0;
+  },
+  /**
+   * @param {DataStorage} data
+   * @param {Unit} unit
+   * @returns {number}
+   */
+  getBuildTimeElapsed(data, unit) {
+    const { buildProgress } = unit;
+    const { buildTime } = data.getUnitTypeData(unit.unitType);
+    return getTimeInSeconds(buildTime) * buildProgress;
   },
   /**
    * @param {DataStorage} data 

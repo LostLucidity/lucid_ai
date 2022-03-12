@@ -176,14 +176,14 @@ const unitResourceService = {
   /**
    * @param {UnitResource} units
    * @param {UnitTypeId} unitType
-   * @returns {{ healthMax: number; isFlying: boolean; radius: number; shieldMax: number; }} 
+   * @returns {{ healthMax: number; isFlying: boolean; radius: number; shieldMax: number, weaponCooldownMax: number; }} 
    */
   getUnitTypeData: (units, unitType) => {
     const unitTypeData = unitResourceService.unitTypeData[unitType];
     if (unitTypeData) {
-      if (['healthMax', 'isFlying', 'radius', 'shieldMax'].every(property => unitTypeData.hasOwnProperty(property))) {
-        let { healthMax, isFlying, radius, shieldMax } = unitTypeData;
-        return { healthMax, isFlying, radius, shieldMax };
+      if (['healthMax', 'isFlying', 'radius', 'shieldMax', 'weaponCooldownMax'].every(property => Object.prototype.hasOwnProperty.call(unitTypeData, property))) {
+        let { healthMax, isFlying, radius, shieldMax, weaponCooldownMax } = unitTypeData;
+        return { healthMax, isFlying, radius, shieldMax, weaponCooldownMax };
       } else {
         return unitResourceService.saveAndGetUnitTypeData(units, unitType);
       }
@@ -261,9 +261,10 @@ const unitResourceService = {
   saveAndGetUnitTypeData: (units, unitType) => {
     const [unit] = units.getByType(unitType);
     if (unit) {
-      let { healthMax, isFlying, radius, shieldMax } = unit;
-      unitResourceService.unitTypeData[unitType] = { healthMax, isFlying, radius, shieldMax };
-      return { healthMax, isFlying, radius, shieldMax };
+      let { healthMax, isFlying, radius, shieldMax, weaponCooldown } = unit;
+      const weaponCooldownMax = weaponCooldown;
+      unitResourceService.unitTypeData[unitType] = { healthMax, isFlying, radius, shieldMax, weaponCooldownMax };
+      return { healthMax, isFlying, radius, shieldMax, weaponCooldownMax };
     }
   },
   isWorker(unit) {

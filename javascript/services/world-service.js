@@ -14,7 +14,7 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 const { balanceResources } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
-const { addEarmark } = require("./data-service");
+const { addEarmark, getBuildTimeElapsed } = require("./data-service");
 const { formatToMinutesAndSeconds } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
@@ -38,6 +38,7 @@ const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natu
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const { moveAwayPosition } = require("./position-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
+const { getTimeInSeconds } = require("./frames-service");
 
 const worldService = {
   /** @type {boolean} */
@@ -363,6 +364,7 @@ const worldService = {
    */
   getDPSHealth: (world, unit, enemyUnitTypes) => {
     const { data, resources } = world;
+    const { units } = resources.get();
     let dPSHealth = 0;
     if (unit.buildProgress >= 1) {
       const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
@@ -370,7 +372,13 @@ const worldService = {
         const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * dataService.getUpgradeBonus(unit.alliance, weapon.damage));
         const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnitTypes);
         const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(unit.alliance) + weaponBonusDamage;
-        dPSHealth = (weaponDamage * weapon.attacks * calculateSplashDamage(resources.get().units, unit.unitType, enemyUnitTypes)) / weapon.speed * (unit.health + unit.shield);
+        const weaponSplashDamage = calculateSplashDamage(units, unit.unitType, enemyUnitTypes);
+        const weaponDPS = (weaponDamage * weapon.attacks * weaponSplashDamage) / weapon.speed;
+        // get unit speed minus cooldown plus range plus radius
+        const { weaponCooldownMax } = getUnitTypeData(units, unit.unitType);
+        setWeaponCooldownMax(units, unit);
+        const speedRangeFactor = (unit.data().movementSpeed * 1.4 - getTimeInSeconds(weaponCooldownMax)) + weapon.range + unit.radius;
+        dPSHealth = weaponDPS * (unit.health + unit.shield) * speedRangeFactor;
       } else {
         // if no weapon, ignore
       }
@@ -388,16 +396,20 @@ const worldService = {
   getDPSHealthOfTrainingUnit: (world, unitType, alliance, enemyUnits) => {
     const { data, resources } = world;
     const { units } = resources.get();
-    const weapon = data.getUnitTypeData(unitType).weapons[0];
     let dPSHealth = 0;
+    const weapon = data.getUnitTypeData(unitType).weapons[0];
+    const { movementSpeed } = data.getUnitTypeData(unitType);
     if (weapon) {
       const unitTypeData = getUnitTypeData(units, unitType);
       if (unitTypeData) {
-        const { healthMax, shieldMax } = unitTypeData;
+        const { healthMax, shieldMax, weaponCooldownMax } = unitTypeData;
         const weaponUpgradeDamage = weapon.damage + (getAttackUpgradeLevel(alliance) * dataService.getUpgradeBonus(alliance, weapon.damage));
         const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnits.map(enemyUnit => enemyUnit.unitType));
         const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(alliance) + weaponBonusDamage;
-        dPSHealth = weaponDamage / weapon.speed * (healthMax + shieldMax);
+        const weaponSplashDamage = calculateSplashDamage(units, unitType, enemyUnits.map(enemyUnit => enemyUnit.unitType));
+        const weaponDPS = (weaponDamage * weapon.attacks * weaponSplashDamage) / weapon.speed;
+        const speedRangeFactor = (movementSpeed * 1.4 - getTimeInSeconds(weaponCooldownMax)) + weapon.range + unitTypeData.radius;
+        dPSHealth = weaponDPS * (healthMax + shieldMax) * speedRangeFactor;
         dPSHealth = unitType === UnitType.ZERGLING ? dPSHealth * 2 : dPSHealth;
       }
     }
@@ -874,14 +886,6 @@ function calculateTimeToFinishStructure(data, unit) {
   return timeLeft;
 }
 /**
- * 
- * @param {number} frames 
- * @returns {number}
- */
-function getTimeInSeconds(frames) {
-  return frames / 22.4;
-}
-/**
  * @param {ResourceManager} resources 
  * @param {UnitTypeId} unitType
  * @returns {Point2D[]}
@@ -954,4 +958,16 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
     }
   }
   return collectedActions;
+}
+
+/**
+ * @param {UnitResource} units
+ * @param {Unit} unit 
+ */
+function setWeaponCooldownMax(units, unit) {
+  const { unitType, weaponCooldown } = unit;
+  const { weaponCooldownMax } = getUnitTypeData(units, unitType);
+  if (weaponCooldown > weaponCooldownMax) {
+    unitResourceService.unitTypeData[unitType].weaponCooldownMax = weaponCooldown;
+  }
 }

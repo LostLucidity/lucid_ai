@@ -62,10 +62,11 @@ const unitTypeData = {
     "shieldMax": 0
   },
   "23": {
-    "healthMax": 0,
+    "healthMax": 250,
     "isFlying": false,
     "radius": 1.125,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 0
   },
   "24": {
     "healthMax": 400,
@@ -77,7 +78,8 @@ const unitTypeData = {
     "healthMax": 150,
     "isFlying": false,
     "radius": 1,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 0
   },
   "32": {
     "healthMax": 175,
@@ -89,19 +91,22 @@ const unitTypeData = {
     "healthMax": 175,
     "isFlying": false,
     "radius": 0.875,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 0
   },
   "34": {
     "healthMax": 135,
     "isFlying": false,
     "radius": 0.75,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 0
   },
   "35": {
     "healthMax": 135,
     "isFlying": true,
     "radius": 0.75,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 0
   },
   "37": {
     "healthMax": 0,
@@ -119,7 +124,8 @@ const unitTypeData = {
     "healthMax": 45,
     "isFlying": false,
     "radius": 0.375,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 0
   },
   "47": {
     "healthMax": 400,
@@ -131,19 +137,22 @@ const unitTypeData = {
     "healthMax": 45,
     "isFlying": false,
     "radius": 0.375,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 0
   },
   "49": {
     "healthMax": 60,
     "isFlying": false,
     "radius": 0.375,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 0
   },
   "51": {
     "healthMax": 125,
     "isFlying": false,
     "radius": 0.5625,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 0
   },
   "52": {
     "healthMax": 400,
@@ -359,7 +368,8 @@ const unitTypeData = {
     "healthMax": 400,
     "isFlying": false,
     "radius": 0.875,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 0
   },
   "100": {
     "healthMax": 2000,
@@ -377,13 +387,15 @@ const unitTypeData = {
     "healthMax": 40,
     "isFlying": false,
     "radius": 0.375,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 21.979248046875
   },
   "105": {
     "healthMax": 35,
     "isFlying": false,
     "radius": 0.375,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 10.13525390625
   },
   "106": {
     "healthMax": 200,
@@ -395,13 +407,15 @@ const unitTypeData = {
     "healthMax": 90,
     "isFlying": false,
     "radius": 0.625,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 11.1875
   },
   "110": {
     "healthMax": 145,
     "isFlying": false,
     "radius": 0.5,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 30.99853515625
   },
   "111": {
     "healthMax": 90,
@@ -443,7 +457,8 @@ const unitTypeData = {
     "healthMax": 175,
     "isFlying": false,
     "radius": 0.875,
-    "shieldMax": 0
+    "shieldMax": 0,
+    "weaponCooldownMax": 13.4599609375
   },
   "127": {
     "healthMax": 0,
