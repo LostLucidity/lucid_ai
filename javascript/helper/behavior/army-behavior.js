@@ -23,6 +23,7 @@ const enemyTrackingService = require("../../systems/enemy-tracking/enemy-trackin
 const { moveAwayPosition } = require("../../services/position-service");
 const { getEnemyMovementSpeed } = require("../../services/unit-service");
 const worldService = require("../../services/world-service");
+const { distanceTraveledPerStep } = require("../../services/frames-service");
 
 const armyBehavior = {
   /**
@@ -60,7 +61,7 @@ const armyBehavior = {
    * @param {Unit[]} threats 
    */
   defend0: async (world, threats) => {
-    const { agent, data, resources } = world;
+    const { resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
     // attack with army if stronger. Include attacking workers.
@@ -193,7 +194,7 @@ const armyBehavior = {
    */
   engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { resources } = world;
-    const { units } = resources.get();
+    const { frame, units } = resources.get();
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
     const randomUnit = getRandom(selfUnits);
@@ -206,7 +207,7 @@ const armyBehavior = {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestAttackableEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestAttackableEnemyUnit['enemyDPSHealth'];
           const noNearbyBunker = units.getById(BUNKER).filter(bunker => distance(bunker.pos, selfUnit.pos) < 16).length === 0;
           if (selfUnit.tag === randomUnit.tag) {
-            console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`);
+            console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`, distance(selfUnit.pos, closestAttackableEnemyUnit.pos));
           }
           if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth && noNearbyBunker) {
             if (selfUnit.data().movementSpeed < getEnemyMovementSpeed(closestAttackableEnemyUnit)) {
@@ -233,9 +234,9 @@ const armyBehavior = {
                   if (!selfUnit.isMelee()) {
                     // get enemy weapon that can hit ground units
                     const foundEnemyWeapon = getWeaponThatCanAttack(closestArmedEnemyUnit, selfUnit);
-                    // if found enemy weapon, micro ranged unit if enemy range is less and just outside of range of enemy
                     if (foundEnemyWeapon) {
-                      if ((foundEnemyWeapon.range + closestArmedEnemyUnit.radius + 1) < distance(selfUnit.pos, closestArmedEnemyUnit.pos)) {
+                      const bufferDistance = foundEnemyWeapon.range + selfUnit.radius + closestArmedEnemyUnit.radius + distanceTraveledPerStep(frame, closestArmedEnemyUnit);
+                      if ((bufferDistance) < distance(selfUnit.pos, closestArmedEnemyUnit.pos)) {
                         collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit));
                         return;
                       } else {
@@ -495,3 +496,4 @@ function isEnemyInAttackRange(unit, targetUnit) {
 }
 
 module.exports = armyBehavior;
+
