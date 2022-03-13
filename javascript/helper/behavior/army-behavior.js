@@ -156,16 +156,16 @@ const armyBehavior = {
           const workersToDefend = [];
           for (const worker of workers) {
             const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
-            if (closestEnemyUnit.isWorker() && closestEnemyUnit['selfUnits'].length === 1 && distanceToClosestEnemy > 4) {
-              return collectedActions;
+            if (closestEnemyUnit.isWorker() && closestEnemyUnit['selfUnits'].length === 1 && distanceToClosestEnemy > 16) {
+              continue;
             }
             if (defendWithUnit(world, worker, closestEnemyUnit)) {
               workersToDefend.push(worker);
               worker.labels.set('defending')
             }
-            // console.log(`Pulling ${workersToDefend.length} to defend with.`);
-            collectedActions.push(...armyBehavior.engageOrRetreat(world, workersToDefend, enemyUnits, rallyPoint));
           }
+          console.log(`Pulling ${workersToDefend.length} to defend with.`);
+          collectedActions.push(...armyBehavior.engageOrRetreat(world, workersToDefend, enemyUnits, rallyPoint));
         }
       }
     }
@@ -200,7 +200,7 @@ const armyBehavior = {
     const randomUnit = getRandom(selfUnits);
     selfUnits.forEach(selfUnit => {
       let targetPosition = position;
-      if (!workerTypes.includes(selfUnit.unitType)) {
+      if (!workerTypes.includes(selfUnit.unitType) || selfUnit.labels.has('defending')) {
         const [closestAttackableEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => canAttack(resources, selfUnit, enemyUnit)));
         const attackablePosition = closestAttackableEnemyUnit ? closestAttackableEnemyUnit.pos : null;
         if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {

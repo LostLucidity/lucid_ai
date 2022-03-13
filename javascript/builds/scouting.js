@@ -6,7 +6,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 
 module.exports = {
-  cancelEarlyScout: (units, scoutReport) => {
+  cancelEarlyScout: (units) => {
     const earlyScouts = units.getAlive(Alliance.SELF).filter(unit => {
       return unit.labels.has('scoutEnemyMain') || unit.labels.has('scoutEnemyNatural');
     });

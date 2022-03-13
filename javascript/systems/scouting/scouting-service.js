@@ -8,6 +8,7 @@ const trackUnitsService = require("../track-units/track-units-service");
 
 const scoutService = {
   earlyScout: true,
+  earlyScoutTime: 122,
   enemyBuildType: null,
   enemyCombatSupply: 0,
   outsupplied: false,

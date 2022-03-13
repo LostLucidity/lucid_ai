@@ -38,6 +38,8 @@ const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natu
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const { moveAwayPosition } = require("./position-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
+const { SPAWNINGPOOL } = require("@node-sc2/core/constants/unit-type");
+const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds } = require("./frames-service");
 
 const worldService = {
@@ -549,6 +551,48 @@ const worldService = {
       unitTypesWithAbilities.push(...data.findUnitTypesWithAbility(abilityId));
     });
     return unitTypesWithAbilities;
+  },
+  /**
+   * @param {World} world
+   */
+  getZergEarlyBuild(world) {
+    const { data, resources } = world;
+    const { frame, map, units } = resources.get();
+    // check ZERGLINGS detected with no enemy natural
+    const zerglings = enemyTrackingService.mappedEnemyUnits.filter(unit => unit.unitType === UnitType.ZERGLING);
+    // find SPAWNING_POOL with highest buildProgress
+    const spawningPool = units.getById(SPAWNINGPOOL, { alliance: Alliance.ENEMY }).sort((a, b) => b.buildProgress - a.buildProgress)[0];
+    // spawningPoolExists if spawningPool or zerglings exist
+    const spawningPoolExists = spawningPool || zerglings.length > 0;
+    // calculate when spawning pool was started
+    const spawningPoolStartTime = spawningPool ? frame.timeInSeconds() - getBuildTimeElapsed(data, spawningPool) : null;
+    // find enemy HATCHERY with highest buildProgress
+    const enemyNaturalHatchery = map.getEnemyNatural().getBase();
+    // calculate when enemy hatchery was started
+    const enemyNaturalHatcheryStartTime = enemyNaturalHatchery ? frame.timeInSeconds() - getBuildTimeElapsed(data, enemyNaturalHatchery) : null;
+    // get build start time of second self command center
+    const naturalCommandCenter = map.getNatural().getBase();
+    const naturalCommandCenterStartTime = naturalCommandCenter ? frame.timeInSeconds() - getBuildTimeElapsed(data, naturalCommandCenter) : null;
+    // if spawning pool exists with no natural hatchery after earlyScout time, then it's cheese
+    const spawningPoolOnly = spawningPoolExists && !enemyNaturalHatchery;
+    // if spawning pool exists with no natural hatchery cancel earlyScout
+    if (spawningPoolOnly) {
+      scoutingService.earlyScout = false;
+    } else {
+      const bothStructuresExist = spawningPoolExists && enemyNaturalHatchery;
+      // if spawning pool exists with natural hatchery, then if it's start time is before natural hatchery start time, then it's cheese
+      const spawningPoolBeforeNatural = bothStructuresExist && spawningPoolStartTime < enemyNaturalHatcheryStartTime;
+      // if spawning pool exists with natural hatchery, then if it's start time is after natural hatchery start time, then it's standard
+      // if natural command center exists, then if it's start time is before natural hatchery start time, then it's cheese
+      const naturalCommandCenterBeforeNatural = naturalCommandCenter && enemyNaturalHatchery && naturalCommandCenterStartTime < enemyNaturalHatcheryStartTime;
+      if (spawningPoolBeforeNatural || naturalCommandCenterBeforeNatural) {
+        scoutingService.earlyScout = false;
+        scoutingService.enemyBuildType = 'cheese';
+        return;
+      } else {
+        scoutingService.enemyBuildType = 'standard';
+      }
+    }
   },
   /**
    * @param {World} world 

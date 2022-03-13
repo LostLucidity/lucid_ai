@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, BARRACKS, SPAWNINGPOOL, GATEWAY, ZERGLING, PHOTONCANNON, PROBE } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, BARRACKS, GATEWAY, ZERGLING, PHOTONCANNON, PROBE } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { MOVE } = require("@node-sc2/core/constants/ability");
@@ -39,7 +39,7 @@ const { getNextPlanStep } = require("../services/plan-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
-const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog, premoveBuilderToPosition, isSupplyNeeded, canBuild, findPlacements, getFoodUsed } = require("../services/world-service");
+const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog, premoveBuilderToPosition, isSupplyNeeded, canBuild, findPlacements, getFoodUsed, getZergEarlyBuild } = require("../services/world-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
@@ -145,7 +145,7 @@ class AssemblePlan {
     if (completedBases.length >= 3) {
       this.collectedActions.push(...salvageBunker(this.units));
       this.state.defendNatural = false;
-      this.state.enemyBuildType = 'midgame';
+      scoutingService.enemyBuildType = 'midgame';
     } else {
       this.state.defendNatural = true;
     }
@@ -339,101 +339,74 @@ class AssemblePlan {
   }
   checkEnemyBuild() {
     const { frame } = this.resources.get();
-    if (this.earlyScout) {
+    if (scoutingService.earlyScout) {
       if (frame.timeInSeconds() > 122) {
-        this.earlyScout = false;
-        console.log(this.scoutReport);
+        scoutingService.earlyScout = false;
+        console.log(scoutingService.scoutReport);
         cancelEarlyScout(this.units);
         return;
-      }
-      const suspiciousWorkerCount = getEnemyWorkers(this.world).filter(worker => distance(worker.pos, this.map.getEnemyMain().townhallPosition) > 16).length;
-      if (suspiciousWorkerCount > 2) {
-        this.state.enemyBuildType = 'cheese';
-        this.scoutReport = `${this.state.enemyBuildType} detected:
-          Worker Rush Detected: ${suspiciousWorkerCount} sus workers.`;
-        this.earlyScout = false;
-        console.log(this.scoutReport);
-        cancelEarlyScout(this.units);
-        return;
-      }
-      let conditions = [];
-      const enemyFilter = { alliance: Alliance.ENEMY };
-      switch (scoutingService.opponentRace) {
-        case Race.PROTOSS:
-          const moreThanTwoGateways = this.units.getById(GATEWAY, enemyFilter).length > 2;
-          if (moreThanTwoGateways) {
-            console.log(frame.timeInSeconds(), 'More than two gateways');
-            this.state.enemyBuildType = 'cheese';
-            this.earlyScout = false;
-          }
-          conditions = [
-            this.units.getById(GATEWAY, enemyFilter).length === 2,
-          ];
-          if (!conditions.every(c => c)) {
-            this.state.enemyBuildType = 'cheese';
-          } else {
-            this.state.enemyBuildType = 'standard';
-          }
-          this.scoutReport = `${this.state.enemyBuildType} detected:
-          Gateway Count: ${this.units.getById(GATEWAY, enemyFilter).length}.`;
-          break;
-        case Race.TERRAN:
-          // scout alive, more than 1 barracks.
-          const moreThanOneBarracks = this.units.getById(BARRACKS, enemyFilter).length > 1;
-          if (this.state.enemyBuildType !== 'cheese') {
-            if (moreThanOneBarracks) {
-              console.log(frame.timeInSeconds(), 'More than one barracks');
-              this.state.enemyBuildType = 'cheese';
+      } else {
+        const suspiciousWorkerCount = getEnemyWorkers(this.world).filter(worker => distance(worker.pos, this.map.getEnemyMain().townhallPosition) > 16).length;
+        if (suspiciousWorkerCount > 2) {
+          scoutingService.enemyBuildType = 'cheese';
+          scoutingService.scoutReport = `${scoutingService.enemyBuildType} detected:
+            Worker Rush Detected: ${suspiciousWorkerCount} sus workers.`;
+          scoutingService.earlyScout = false;
+          console.log(scoutingService.scoutReport);
+          cancelEarlyScout(this.units);
+          return;
+        }
+        let conditions = [];
+        const enemyFilter = { alliance: Alliance.ENEMY };
+        switch (scoutingService.opponentRace) {
+          case Race.PROTOSS: {
+            const moreThanTwoGateways = this.units.getById(GATEWAY, enemyFilter).length > 2;
+            if (moreThanTwoGateways) {
+              console.log(frame.timeInSeconds(), 'More than two gateways');
+              scoutingService.enemyBuildType = 'cheese';
+              scoutingService.earlyScout = false;
             }
-          }
-          // 1 barracks and 1 gas, second command center
-          conditions = [
-            this.units.getById(BARRACKS, enemyFilter).length === 1,
-            this.units.getById(GasMineRace[scoutingService.opponentRace], enemyFilter).length === 1,
-            !!this.map.getEnemyNatural().getBase()
-          ];
-          if (!conditions.every(c => c)) {
-            this.state.enemyBuildType = 'cheese';
-          } else {
-            this.state.enemyBuildType = 'standard';
-          }
-          this.scoutReport = `${this.state.enemyBuildType} detected:
-          Barracks Count: ${this.units.getById(BARRACKS, enemyFilter).length}.
-          Gas Mine Count: ${this.units.getById(GasMineRace[scoutingService.opponentRace], enemyFilter).length}.
-          Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}.`;
-          break;
-        case Race.ZERG:
-          const spawningPoolDetected = this.units.getById(SPAWNINGPOOL, enemyFilter).length > 0 || this.units.getById(ZERGLING, enemyFilter).length > 0;
-          const enemyNaturalDetected = this.map.getEnemyNatural().getBase();
-          if (this.state.enemyBuildType !== 'cheese') {
-            if (spawningPoolDetected && !enemyNaturalDetected) {
-              console.log(frame.timeInSeconds(), 'Pool first. Cheese detected');
-              this.state.enemyBuildType = 'cheese';
-              this.scoutReport = `${this.state.enemyBuildType} detected:
-              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, enemyFilter).length > 0}.
-              Zerglings: ${this.units.getById(ZERGLING, enemyFilter).length > 0}
-              Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}`;
-              this.earlyScout = false;
-            } else if (!spawningPoolDetected && enemyNaturalDetected) {
-              console.log(frame.timeInSeconds(), 'Hatchery first. Standard.');
-              this.state.enemyBuildType = 'standard';
-              this.scoutReport = `${this.state.enemyBuildType} detected:
-              Spawning Pool: ${this.units.getById(SPAWNINGPOOL, enemyFilter).length > 0}.
-              Zerglings: ${this.units.getById(ZERGLING, enemyFilter).length > 0}
-              Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}`;
-              this.earlyScout = false;
+            conditions = [
+              this.units.getById(GATEWAY, enemyFilter).length === 2,
+            ];
+            if (!conditions.every(c => c)) {
+              scoutingService.enemyBuildType = 'cheese';
+            } else {
+              scoutingService.enemyBuildType = 'standard';
             }
-            if (!enemyNaturalDetected && !!this.map.getNatural().getBase()) {
-              console.log(frame.timeInSeconds(), 'Enemy expanding slower. Cheese detected');
-              this.state.enemyBuildType = 'cheese';
-              this.scoutReport = `Enemy expanding slower. Cheese detected`;
-              this.earlyScout = false;
-            }
+            scoutingService.scoutReport = `${scoutingService.enemyBuildType} detected:
+            Gateway Count: ${this.units.getById(GATEWAY, enemyFilter).length}.`;
+            break;
           }
-          break;
+          case Race.TERRAN:
+            // scout alive, more than 1 barracks.
+            const moreThanOneBarracks = this.units.getById(BARRACKS, enemyFilter).length > 1;
+            if (scoutingService.enemyBuildType !== 'cheese') {
+              if (moreThanOneBarracks) {
+                console.log(frame.timeInSeconds(), 'More than one barracks');
+                scoutingService.enemyBuildType = 'cheese';
+              }
+            }
+            // 1 barracks and 1 gas, second command center
+            conditions = [
+              this.units.getById(BARRACKS, enemyFilter).length === 1,
+              this.units.getById(GasMineRace[scoutingService.opponentRace], enemyFilter).length === 1,
+              !!this.map.getEnemyNatural().getBase()
+            ];
+            if (!conditions.every(c => c)) {
+              scoutingService.enemyBuildType = 'cheese';
+            } else {
+              scoutingService.enemyBuildType = 'standard';
+            }
+            scoutingService.scoutReport = `${scoutingService.enemyBuildType} detected:
+            Barracks Count: ${this.units.getById(BARRACKS, enemyFilter).length}.
+            Gas Mine Count: ${this.units.getById(GasMineRace[scoutingService.opponentRace], enemyFilter).length}.
+            Enemy Natural detected: ${!!this.map.getEnemyNatural().getBase()}.`;
+            break;
+        }
       }
-      if (!this.earlyScout) {
-        console.log(this.scoutReport);
+      if (!scoutingService.earlyScout) {
+        console.log(scoutingService.scoutReport);
         cancelEarlyScout(this.units);
       }
     }
@@ -525,7 +498,6 @@ class AssemblePlan {
    * @returns 
    */
   scout(foodRanges, unitType, targetLocationFunction, conditions) {
-    if (conditions && conditions.scoutType === 'earlyScout' && this.earlyScout === undefined) { this.earlyScout = true; }
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().centroid : locationHelper[targetLocationFunction](this.map);
       const label = conditions && conditions.label ? conditions.label : 'scout';
@@ -533,7 +505,7 @@ class AssemblePlan {
       const hasOrderToTargetLocation = labelledScouts.filter(scout => scout.orders.find(order => order.targetWorldSpacePos && distance(order.targetWorldSpacePos, targetLocation) < 16)).length > 0;
       if (!hasOrderToTargetLocation) {
         if (conditions) {
-          if (conditions.scoutType && !this[conditions.scoutType]) { return; }
+          if (conditions.scoutType && !scoutingService[conditions.scoutType]) { return; }
           if (conditions.unitType) {
             if (this.units.getByType(conditions.unitType).length === conditions.unitCount) { this.setScout(unitType, label, targetLocation); }
           } else { this.setScout(unitType, label, targetLocation); }
@@ -694,7 +666,7 @@ class AssemblePlan {
             unitType = planStep[2];
             this.unitType = unitType;
             const enemyBuild = planStep[5];
-            if (enemyBuild && this.state.enemyBuildType !== enemyBuild && !this.earlyScout) { break; }
+            if (enemyBuild && scoutingService.enemyBuildType !== enemyBuild && !scoutingService.earlyScout) { break; }
             const candidatePositions = planStep[4] ? await getCandidatePositions(this.resources, planStep[4], unitType) : [];
             await this.build(foodTarget, unitType, targetCount, candidatePositions);
             break;
@@ -702,7 +674,7 @@ class AssemblePlan {
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
             if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
-          case 'harass': if (this.state.enemyBuildType === 'standard') { await harass(this.world, this.state); } break;
+          case 'harass': if (scoutingService.enemyBuildType === 'standard') { await harass(this.world, this.state); } break;
           case 'liftToThird': if (getFoodUsed(this.world) >= foodTarget) { await liftToThird(this.resources); } break;
           case 'maintainQueens': if (getFoodUsed(this.world) >= foodTarget) { await maintainQueens(this.world); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
