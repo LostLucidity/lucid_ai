@@ -11,10 +11,10 @@ module.exports = {
    * @returns {{}}
    */
   readUnitTypeData: () => {
-    // return JSON.parse(fs.readFileSync(
-    //   path.join(__dirname, 'data', `unit-type-data.json`)).toString()
-    // );
-    return unitTypeData;
+    return JSON.parse(fs.readFileSync(
+      path.join(__dirname, 'data', `unit-type-data.json`)).toString()
+    );
+    // return unitTypeData;
   },
   /**
    * @param {{}} unitTypeData 
