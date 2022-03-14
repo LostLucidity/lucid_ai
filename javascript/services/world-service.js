@@ -140,7 +140,7 @@ const worldService = {
    */
   calculateNearDPSHealth: (world, units, enemyUnitTypes) => {
     return units.reduce((accumulator, unit) => {
-      if (unit.isWorker() && unit.isHarvesting() && !unit.labels.has('retreating')) {
+      if (unit.isWorker() && unit.isHarvesting() && !unit.labels.has('retreating') && !unit.labels.has('defending')) {
         return accumulator;
       } else {
         return accumulator + worldService.getDPSHealth(world, unit, enemyUnitTypes);

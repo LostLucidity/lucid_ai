@@ -249,13 +249,14 @@ module.exports = {
                 if ((buildOnStandby || moveOrder) && distance(position, closestEnemyUnit.pos) > 3) {
                   console.log('Ignore out of build range enemy.');
                   continue;
+                } else {
+                  collectedActions.push(...await pullWorkersToDefend(world, worker, closestEnemyUnit, enemyUnits));    
                 }
               }
-              collectedActions.push(...await pullWorkersToDefend(world, worker, closestEnemyUnit, enemyUnits));
             }
           }
         }
-      };
+      }
     }
     return collectedActions;
   }
