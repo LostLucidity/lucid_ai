@@ -16,6 +16,6 @@ const actionsService = {
       queueCommand: queue,
     };
     return unitCommand;
-  }
+  },
 }
 module.exports = actionsService;

@@ -478,8 +478,7 @@ const worldService = {
     return techlabAbilities;
   },
   /**
-   * @param {World} world 
-   * @param {UnitTypeId[]} unitTypes 
+   * @param {World} world
    * @returns {number}
    */
   getTrainingPower: (world) => {

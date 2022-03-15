@@ -128,7 +128,6 @@ const planActions = {
             if (!worldService.outpowered && randomBusyTrainingUnit && randomBusyTrainingUnit.orders[0].progress <= 0.5) {
               await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
             } else {
-
               const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
               await balanceResources(world, mineralCost / vespeneCost);
               if (targetCount !== null) {
@@ -147,7 +146,7 @@ const planActions = {
   },
   /**
    * @param {World} world 
-   * @param {UnitTypeId} unitType 
+   * @param {UnitTypeId} unitTypeId 
    * @param {number} targetCount 
    * @returns {Promise<void>}
    */
@@ -256,7 +255,7 @@ const planActions = {
       } else {
         const nonOrphanTechLabs = techLabs.filter(techLab => techLab.unitType !== TECHLAB);
         // find idle building with tech lab.
-        const idleBuildingsWithTechLab = nonOrphanTechLabs.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]).filter(building => building.noQueue);;
+        const idleBuildingsWithTechLab = nonOrphanTechLabs.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]).filter(building => building.noQueue);
         // find closest barracks to closest tech lab.
         let closestPair = [];
         // get completed and idle barracks.

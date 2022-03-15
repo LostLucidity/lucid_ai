@@ -250,7 +250,7 @@ module.exports = {
                   console.log('Ignore out of build range enemy.');
                   continue;
                 } else {
-                  collectedActions.push(...await pullWorkersToDefend(world, worker, closestEnemyUnit, enemyUnits));    
+                  collectedActions.push(...await pullWorkersToDefend(world, worker, closestEnemyUnit, enemyUnits));
                 }
               }
             }
