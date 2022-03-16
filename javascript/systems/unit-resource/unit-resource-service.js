@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { EFFECT_REPAIR, MOVE, STOP, SMART } = require("@node-sc2/core/constants/ability");
+const { EFFECT_REPAIR, STOP, SMART } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
@@ -50,10 +50,12 @@ const unitResourceService = {
    * @returns {number}
    */
   calculateTotalHealthRatio: (units, unit) => {
-    const { healthMax, shieldMax } = unitResourceService.getUnitTypeData(units, unit.unitType)
-    const totalHealthShield = unit.health + unit.shield;
-    const maxHealthShield = healthMax + shieldMax;
-    return totalHealthShield / maxHealthShield;
+    if (unitResourceService.getUnitTypeData(units, unit.unitType)) {
+      const { healthMax, shieldMax } = unitResourceService.getUnitTypeData(units, unit.unitType)
+      const totalHealthShield = unit.health + unit.shield;
+      const maxHealthShield = healthMax + shieldMax;
+      return totalHealthShield / maxHealthShield;
+    }
   },
   /**
    * Checks whether unit can attack targetUnit.
