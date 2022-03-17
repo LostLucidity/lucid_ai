@@ -80,6 +80,10 @@ const entry = createSystem({
       const { actions, units } = resources.get();
       if (units.getBases(Alliance.SELF).length > 0) { return actions.sendAction(gatherOrMine(resources, idleUnit)); }
     }
+    // delete combatPoint label if idle
+    if (idleUnit.labels.has('combatPoint')) {
+      idleUnit.labels.delete('combatPoint');
+    }
   },
   /**
    * @param {Race} race 
