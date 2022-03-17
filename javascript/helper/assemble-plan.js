@@ -292,7 +292,7 @@ class AssemblePlan {
             if (PHOTONCANNON === unitType) { 
               candidatePositions = this.map.getNatural().areas.placementGrid;
             }
-            if (candidatePositions.length === 0) { candidatePositions = await findPlacements(this.world, unitType); }
+            if (candidatePositions.length === 0 && (this.foundPosition === null || this.foundPosition === undefined)) { candidatePositions = await findPlacements(this.world, unitType); }
             await this.buildBuilding(unitType, candidatePositions, stepAhead);
         }
       }
