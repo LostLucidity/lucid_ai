@@ -46,6 +46,7 @@ const unitResourceService = require('./systems/unit-resource/unit-resource-servi
 const detectUpgradeSystem = require('./systems/detect-upgrade-system');
 const setRallySystem = require('./systems/set-rally-system');
 const attackSystem = require('./systems/army-management/attack-system');
+const { saveBuildOrder } = require('./services/world-service');
 
 agentService.difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
@@ -228,8 +229,14 @@ async function runGame() {
 }
 
 async function processResults([{ agent, data, resources }, gameResults]) {
+/**
+ * @param {GameResult} gameResult 
+ */
+async function processResults(gameResult) {
+  const [world, gameResults] = gameResult;
   console.log('GAME RESULTS: ', gameResults);
   logoutStepsExecuted();
+  const { agent, resources } = world;
   const { actions, frame } = resources.get();
   const parsedCompositions = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `current.json`)).toString())
   parsedCompositions.forEach(composition => {
@@ -248,6 +255,8 @@ async function processResults([{ agent, data, resources }, gameResults]) {
   fs.writeFileSync(path.join(__dirname, 'data', getFileName(data, selfUnitType, enemyUnitType)), JSON.stringify(parsedCompositions));
   saveUnitTypeData(unitResourceService.unitTypeData);
   saveExecutedStepsLog(agent, frame.getGameInfo().mapName);
+  const selfResult = gameResults.find(result => result.playerId === agent.playerId);
+  saveBuildOrder(world, selfResult);
   const replay = await actions._client.saveReplay();
   saveReplay(replay);
   actions._client.close();

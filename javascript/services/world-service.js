@@ -1,9 +1,10 @@
 //@ts-check
 "use strict"
 
+const fs = require('fs');
 const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
-const { Race, Attribute, Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
+const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
@@ -41,6 +42,8 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { SPAWNINGPOOL } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds } = require("./frames-service");
+const scoutService = require("../systems/scouting/scouting-service");
+const path = require('path');
 
 const worldService = {
   /** @type {boolean} */
@@ -787,7 +790,57 @@ const worldService = {
       const { movementSpeed } = unit.data();
       return largestPathDifferenceCentroid ? largestPathDifferenceCentroid : moveAwayPosition(targetUnit.pos, unit.pos, movementSpeed);
     }
-  },  
+  },
+  /**
+   * @param {World} world
+   * @param {SC2APIProtocol.PlayerResult} selfResult
+   */
+  saveBuildOrder: (world, selfResult) => {
+    const { agent } = world;
+    let selfRace = RaceId[agent.race];
+    let opponentRace = RaceId[scoutService.opponentRace];
+    console.log('__dirname', __dirname);
+    const plans = JSON.parse(fs.readFileSync(
+      // path.join(__dirname, '../', 'data', `plans.json`)).toString()
+      path.join(__dirname, 'data', `plans.json`)).toString()
+    );
+    // if selfRace doesn't exist in plans, create it
+    if (!plans[selfRace]) {
+      plans[selfRace] = {};
+      // if opponentRace doesn't exist in plans[selfRace], create it
+      if (!plans[selfRace][opponentRace]) {
+        plans[selfRace][opponentRace] = {};
+      }
+    }
+    const executedSteps = loggingService.executedSteps.map(step => {
+      // set step[7] if it exists, else nothing leave item unset
+      const convertedStep = [
+        step[0],
+        step[2],
+      ];
+      if (step[7]) {
+        convertedStep.push(step[7]);
+      }
+      return convertedStep;
+    });
+    // if executed build order uuid doesn't exist in plans[selfRace][opponentRace], create it
+    if (!plans[selfRace][opponentRace][planService.uuid]) {
+      plans[selfRace][opponentRace][planService.uuid] = {};
+      plans[selfRace][opponentRace][planService.uuid]['result'] = {wins: 0, losses: 0};
+    }
+    plans[selfRace][opponentRace][planService.uuid]['orders'] = executedSteps;
+    if (selfResult.result === 1) {
+      plans[selfRace][opponentRace][planService.uuid]['result'].wins++;
+    } else {
+      plans[selfRace][opponentRace][planService.uuid]['result'].losses++;
+    }
+    plans[selfRace][opponentRace][planService.uuid]['attackFood'] = foodUsedService.minimumAmountToAttackWith;
+    fs.writeFileSync(
+      // path.join(__dirname, '../', 'data', `plans.json`),
+      path.join(__dirname, 'data', `plans.json`),
+      JSON.stringify(plans, null, 2)
+    );
+  },
   /**
    * 
    * @param {World} world

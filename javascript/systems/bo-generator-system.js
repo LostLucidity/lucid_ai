@@ -5,8 +5,8 @@ const { createSystem } = require("@node-sc2/core");
 const { Upgrade, UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { Attribute, Alliance, Race } = require("@node-sc2/core/constants/enums");
 const { townhallTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
-const { WorkerRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
-const { DRONE, EXTRACTOR } = require("@node-sc2/core/constants/unit-type");
+const { WorkerRace } = require("@node-sc2/core/constants/race-map");
+const { DRONE } = require("@node-sc2/core/constants/unit-type");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const shortOnWorkers = require("../helper/short-on-workers");
 const foodUsedService = require("../services/food-used-service");
@@ -15,6 +15,7 @@ const sharedService = require("../services/shared-service");
 const { getUnitTypeCount, getFoodUsed } = require("../services/world-service");
 const { build, train, upgrade, runPlan } = require("./execute-plan/plan-actions");
 const scoutingService = require("./scouting/scouting-service");
+const { v4: uuidv4 } = require('uuid');
 
 let unitTypeAbilities = [];
 let upgradeAbilities = [];
@@ -26,6 +27,8 @@ module.exports = createSystem({
     upgradeAbilities = [];
     planService.plan = [];
     planService.bogIsActive = true;
+    // create a uuid
+    planService.uuid = uuidv4();
     planService.mineralThreshold = race === Race.ZERG ? 300 : 400;
     Array.from(Object.values(UnitType)).forEach(unitTypeId => {
       unitTypeAbilities[data.getUnitTypeData(unitTypeId).abilityId.toString()] = unitTypeId;
