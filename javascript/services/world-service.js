@@ -560,40 +560,37 @@ const worldService = {
   getZergEarlyBuild(world) {
     const { data, resources } = world;
     const { frame, map, units } = resources.get();
-    // check ZERGLINGS detected with no enemy natural
     const zerglings = enemyTrackingService.mappedEnemyUnits.filter(unit => unit.unitType === UnitType.ZERGLING);
-    // find SPAWNING_POOL with highest buildProgress
     const spawningPool = units.getById(SPAWNINGPOOL, { alliance: Alliance.ENEMY }).sort((a, b) => b.buildProgress - a.buildProgress)[0];
-    // spawningPoolExists if spawningPool or zerglings exist
     const spawningPoolExists = spawningPool || zerglings.length > 0;
-    // calculate when spawning pool was started
     const spawningPoolStartTime = spawningPool ? frame.timeInSeconds() - getBuildTimeElapsed(data, spawningPool) : null;
-    // find enemy HATCHERY with highest buildProgress
     const enemyNaturalHatchery = map.getEnemyNatural().getBase();
-    // calculate when enemy hatchery was started
     const enemyNaturalHatcheryStartTime = enemyNaturalHatchery ? frame.timeInSeconds() - getBuildTimeElapsed(data, enemyNaturalHatchery) : null;
-    // get build start time of second self command center
     const naturalCommandCenter = map.getNatural().getBase();
     const naturalCommandCenterStartTime = naturalCommandCenter ? frame.timeInSeconds() - getBuildTimeElapsed(data, naturalCommandCenter) : null;
-    // if spawning pool exists with no natural hatchery after earlyScout time, then it's cheese
     const spawningPoolOnly = spawningPoolExists && !enemyNaturalHatchery;
-    // if spawning pool exists with no natural hatchery cancel earlyScout
+    const bothStructuresExist = spawningPoolExists && enemyNaturalHatchery;
+    const spawningPoolBeforeEnemyNatural = bothStructuresExist && spawningPoolStartTime < enemyNaturalHatcheryStartTime;
+    const naturalCommandCenterBeforeEnemyNatural = naturalCommandCenter && enemyNaturalHatchery && naturalCommandCenterStartTime < enemyNaturalHatcheryStartTime;
     if (spawningPoolOnly) {
-      scoutingService.earlyScout = false;
-    } else {
-      const bothStructuresExist = spawningPoolExists && enemyNaturalHatchery;
-      // if spawning pool exists with natural hatchery, then if it's start time is before natural hatchery start time, then it's cheese
-      const spawningPoolBeforeNatural = bothStructuresExist && spawningPoolStartTime < enemyNaturalHatcheryStartTime;
-      // if spawning pool exists with natural hatchery, then if it's start time is after natural hatchery start time, then it's standard
-      // if natural command center exists, then if it's start time is before natural hatchery start time, then it's cheese
-      const naturalCommandCenterBeforeNatural = naturalCommandCenter && enemyNaturalHatchery && naturalCommandCenterStartTime < enemyNaturalHatcheryStartTime;
-      if (spawningPoolBeforeNatural || naturalCommandCenterBeforeNatural) {
+      scoutingService.enemyBuildType = 'cheese';
+      scoutingService.scoutReport = 'Spawning pool only';
+    } else if (spawningPoolBeforeEnemyNatural) {
+      scoutingService.enemyBuildType = 'standard';
+      scoutingService.scoutReport = `Early scout cancelled: ${spawningPoolBeforeEnemyNatural ? 'spawning pool' : 'natural command center'} before enemy natural`;
+      if (bothStructuresExist) {
+        // cancel early scout if both structures exist
         scoutingService.earlyScout = false;
-        scoutingService.enemyBuildType = 'cheese';
-        return;
-      } else {
-        scoutingService.enemyBuildType = 'standard';
       }
+      return;
+    } else if (naturalCommandCenterBeforeEnemyNatural) {
+      scoutingService.enemyBuildType = 'cheese';
+      scoutingService.scoutReport = `Early scout cancelled: ${naturalCommandCenterBeforeEnemyNatural ? 'natural command center' : 'natural hatchery'} before enemy natural`;
+      // if natural command center and natural hatchery exist, cancel early scout
+      if (naturalCommandCenter && enemyNaturalHatchery) {
+        scoutingService.earlyScout = false;
+      }
+      return;
     }
   },
   /**
