@@ -202,7 +202,7 @@ module.exports = {
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
   workerBehavior: async (world) => {
-    const { agent, data, resources } = world
+    const { agent, resources } = world
     const { frame, units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));

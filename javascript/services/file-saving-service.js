@@ -25,7 +25,7 @@ const fileSavingService = {
     loggingService.executedSteps.forEach(step => {
       file.write(`${JSON.stringify(step).replace(/,/g, ', ')},` + '\n');
     });
-  }
+  },
 }
 
 module.exports = fileSavingService;

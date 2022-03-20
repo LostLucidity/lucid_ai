@@ -579,14 +579,12 @@ const worldService = {
       scoutingService.enemyBuildType = 'standard';
       scoutingService.scoutReport = `Early scout cancelled: ${spawningPoolBeforeEnemyNatural ? 'spawning pool' : 'natural command center'} before enemy natural`;
       if (bothStructuresExist) {
-        // cancel early scout if both structures exist
         scoutingService.earlyScout = false;
       }
       return;
     } else if (naturalCommandCenterBeforeEnemyNatural) {
       scoutingService.enemyBuildType = 'cheese';
       scoutingService.scoutReport = `Early scout cancelled: ${naturalCommandCenterBeforeEnemyNatural ? 'natural command center' : 'natural hatchery'} before enemy natural`;
-      // if natural command center and natural hatchery exist, cancel early scout
       if (naturalCommandCenter && enemyNaturalHatchery) {
         scoutingService.earlyScout = false;
       }
