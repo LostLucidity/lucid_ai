@@ -46,6 +46,7 @@ const unitResourceService = require('./systems/unit-resource/unit-resource-servi
 const detectUpgradeSystem = require('./systems/detect-upgrade-system');
 const setRallySystem = require('./systems/set-rally-system');
 const attackSystem = require('./systems/army-management/attack-system');
+const injectorSystem = require('./systems/injector-system');
 const { saveBuildOrder } = require('./services/world-service');
 
 agentService.difficulty = Difficulty.VERYHARD;
@@ -213,6 +214,8 @@ async function runGame() {
     loggingSystem,
     workerBalanceSystem,
     attackSystem,
+    manageSupplySystem,
+    injectorSystem,
   ];
   bot1.use(legacySystems);
   // bot1.use(updatedSystems);
