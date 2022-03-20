@@ -26,7 +26,7 @@ module.exports = createSystem({
       const conditions = [
         haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
         !planService.isPlanPaused,
-        agent.minerals < 512 || minimumWorkerCount <= 34,
+        agent.minerals < 512 || minimumWorkerCount <= 36,
         shortOnWorkers(resources),
         !outpowered || (outpowered && !unitProductionAvailable)
       ];
