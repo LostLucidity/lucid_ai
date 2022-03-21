@@ -5,12 +5,12 @@ const { MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
 const { moveAwayPosition } = require("../services/position-service");
-const { retreatToExpansion } = require("../services/resource-manager-service");
+const { retreatToExpansion } = require("../services/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 
 const helper = {
@@ -55,7 +55,7 @@ const helper = {
         if (distance(unit.pos, closestThreatUnit.pos) > closestThreatUnit.data().sightRange + unit.radius + closestThreatUnit.radius) {
           collectedActions.push(moveToTarget(unit, closestThreatUnit));
         } else {
-          collectedActions.push(moveAwayFromTarget(world, unit, closestThreatUnit, enemyUnits));
+          collectedActions.push(moveAwayFromTarget(world, unit, closestThreatUnit, unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => enemyUnit.canShootUp())));
         }
       } else if (closestInRangeUnit) {
         if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) { return }
@@ -134,7 +134,8 @@ function moveAwayFromTarget(world, unit, targetUnit, targetUnits) {
         position = closestHighPoint;
       }
     }
-    position = position ? position : moveAwayPosition(targetUnit.pos, unit.pos);
+    const averageEnemyPos = avgPoints(targetUnits.map(unit => unit.pos));
+    position = position ? position : moveAwayPosition(averageEnemyPos, unit.pos);
   } else {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     targetUnit['inRangeUnits'] = enemyUnits.filter(enemyUnit => distance(targetUnit.pos, enemyUnit.pos) < 8);
