@@ -16,7 +16,7 @@ const { balanceResources } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
 const { addEarmark, getBuildTimeElapsed } = require("./data-service");
-const { formatToMinutesAndSeconds } = require("./logging-service");
+const { formatToMinutesAndSeconds, getStringNameOfConstant } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
@@ -44,6 +44,7 @@ const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const path = require('path');
+const { keepPosition } = require('./placement-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -173,12 +174,13 @@ const worldService = {
    * @param {World} world
    * @param {number} unitType
    * @param {Point2D[]} candidatePositions
+   * @param {boolean} stepAhead
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
-  findAndPlaceBuilding: async (world, unitType, candidatePositions) => {
+  findAndPlaceBuilding: async (world, unitType, candidatePositions, stepAhead) => {
     const { agent, data, resources } = world
     const collectedActions = []
-    const { actions, units } = resources.get();
+    const { actions, frame, units } = resources.get();
     if (candidatePositions.length === 0) { candidatePositions = await worldService.findPlacements(world, unitType); }
     planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(resources, unitType, candidatePositions);
     if (planService.foundPosition) {
@@ -186,31 +188,39 @@ const worldService = {
       const { abilityId } = data.getUnitTypeData(unitType);
       const unitTypes = data.findUnitTypesWithAbility(abilityId);
       if (!unitTypes.includes(UnitType.NYDUSNETWORK)) {
-        if (agent.canAfford(unitType)) {
+        if (agent.canAfford(unitType) && !stepAhead) {
           if (await actions.canPlace(unitType, [planService.foundPosition])) {
             await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
             planService.pausePlan = false;
+            worldService.setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), planService.foundPosition);
             planService.continueBuild = true;
             addEarmark(data, data.getUnitTypeData(unitType));
             planService.foundPosition = null;
           } else {
-            planService.foundPosition = null;
+            planService.foundPosition = keepPosition(resources, unitType, planService.foundPosition) ? planService.foundPosition : null;
+            if (planService.foundPosition) {
+              collectedActions.push(...worldService.premoveBuilderToPosition(world, planService.foundPosition, unitType, stepAhead));
+            }
+            if (!stepAhead) {
+              planService.pausePlan = true;
+              planService.continueBuild = false;
+            }
+          }
+        } else {
+          collectedActions.push(...worldService.premoveBuilderToPosition(world, planService.foundPosition, unitType, stepAhead));
+          if (!stepAhead) {
+            const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+            await balanceResources(world, mineralCost / vespeneCost);
             planService.pausePlan = true;
             planService.continueBuild = false;
           }
-        } else {
-          const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-          collectedActions.push(...worldService.premoveBuilderToPosition(world, planService.foundPosition, unitType));
-          await balanceResources(world, mineralCost / vespeneCost);
-          planService.pausePlan = true;
-          planService.continueBuild = false;
         }
       } else {
         collectedActions.push(...await buildWithNydusNetwork(world, unitType, abilityId));
       }
       const [pylon] = units.getById(UnitType.PYLON);
       if (pylon && pylon.buildProgress < 1) {
-        collectedActions.push(...worldService.premoveBuilderToPosition(world, pylon.pos, pylon.unitType));
+        collectedActions.push(...worldService.premoveBuilderToPosition(world, pylon.pos, pylon.unitType, stepAhead));
         planService.pausePlan = true;
         planService.continueBuild = false;
       }

@@ -44,6 +44,7 @@ const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions")
 const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
 const worldService = require("../services/world-service");
+const { buildGasMine } = require("../systems/execute-plan/plan-actions");
 
 let actions;
 let race;
@@ -217,29 +218,7 @@ class AssemblePlan {
         }
         switch (true) {
           case GasMineRace[race] === unitType:
-            try {
-              if (this.map.freeGasGeysers().length > 0) {
-                const [geyser] = this.map.freeGasGeysers();
-                if (this.agent.canAfford(unitType) && !stepAhead) {
-                  await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, geyser.pos));
-                  planService.pausePlan = false;
-                  setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
-                } else {
-                  this.collectedActions.push(...premoveBuilderToPosition(this.world, geyser.pos, unitType, stepAhead));
-                  if (!stepAhead) {
-                    const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-                    await balanceResources(this.world, mineralCost / vespeneCost);
-                    planService.pausePlan = true;
-                    planService.continueBuild = false;
-                  }
-                }
-              }
-            }
-            catch (error) {
-              console.log(error);
-              planService.pausePlan = true;
-              planService.continueBuild = false;
-            }
+            this.collectedActions.push(...await buildGasMine(this.world, unitType, targetCount, stepAhead));
             break;
           case TownhallRace[race].includes(unitType):
             if (TownhallRace[race].indexOf(unitType) === 0) {

@@ -4,7 +4,7 @@
 const { WarpUnitAbility, UnitType, UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
 const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
-const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
+const { GasMineRace, TownhallRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
@@ -18,7 +18,7 @@ const planService = require("../../services/plan-service");
 const { balanceResources } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
-const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, canBuild, assignAndSendWorkerToBuild, setAndLogExecutedSteps } = require("../../services/world-service");
+const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, canBuild, assignAndSendWorkerToBuild, setAndLogExecutedSteps, getFoodUsed } = require("../../services/world-service");
 const { addEarmark, isTrainingUnit } = require("../../services/data-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
@@ -60,48 +60,32 @@ const planActions = {
    * @param {number} unitType 
    * @param {null | number} targetCount
    * @param {Point2D[]} candidatePositions
+   * @param {boolean} stepAhead
    * @returns {Promise<void>}
    */
-  build: async (world, unitType, targetCount = null, candidatePositions = []) => {
+  build: async (world, unitType, targetCount = null, candidatePositions = [], stepAhead) => {
+    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
     const { agent, data, resources } = world;
-    const { actions, frame, map, units } = resources.get();
+    const { actions, units } = resources.get();
     if (checkBuildingCount(world, unitType, targetCount) || targetCount === null) {
-      const { race } = world.agent;
+      const { race } = agent;
+      if (stepAhead) {
+        addEarmark(this.data, this.data.getUnitTypeData(WorkerRace[race]));
+      }
       switch (true) {
         case GasMineRace[race] === unitType:
-          try {
-            if (map.freeGasGeysers().length > 0) {
-              const [geyser] = map.freeGasGeysers();
-              if (agent.canAfford(unitType)) {
-                await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, geyser.pos));
-                planService.pausePlan = false;
-                setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
-              } else {
-                collectedActions.push(...premoveBuilderToPosition(world, geyser.pos, unitType));
-                const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-                await balanceResources(world, mineralCost / vespeneCost);
-                planService.pausePlan = true;
-                planService.continueBuild = false;
-              }
-            }
-          } catch (error) {
-            console.log(error);
-            if (targetCount !== null) {
-              planService.pausePlan = true;
-              planService.continueBuild = false;
-            }
-          }
+          collectedActions.push(...await planActions.buildGasMine(world, unitType, targetCount, stepAhead));
           break;
         case TownhallRace[race].includes(unitType):
           if (TownhallRace[race].indexOf(unitType) === 0) {
             if (units.getBases().length !== 2) {
               const availableExpansions = getAvailableExpansions(resources);
               candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(world, availableExpansions)] : [];
-              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
+              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
             } else {
               candidatePositions = await getInTheMain(resources, unitType);
-              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
+              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
             }
           } else {
             const actions = await planActions.ability(world, data.getUnitTypeData(unitType).abilityId);
@@ -143,6 +127,43 @@ const planActions = {
       }
     }
     await actions.sendAction(collectedActions);
+  },
+  /**
+ * @param {World} world
+ * @param {number} unitType
+ * @param {number} targetCount
+ * @param {boolean} stepAhead
+ * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+ */
+  buildGasMine: async (world, unitType, targetCount, stepAhead) => {
+    const { agent, data, resources } = world;
+    const { actions, frame, map } = resources.get();
+    const collectedActions = [];
+    try {
+      if (map.freeGasGeysers().length > 0) {
+        const [geyser] = map.freeGasGeysers();
+        if (agent.canAfford(unitType) && !stepAhead) {
+          await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, geyser.pos));
+          planService.pausePlan = false;
+          setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
+        } else {
+          collectedActions.push(...premoveBuilderToPosition(world, geyser.pos, unitType));
+          if (!stepAhead) {
+            const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+            await balanceResources(world, mineralCost / vespeneCost);
+            planService.pausePlan = true;
+            planService.continueBuild = false;
+          }
+        }
+      }
+    } catch (error) {
+      console.log(error);
+      if (targetCount !== null) {
+        planService.pausePlan = true;
+        planService.continueBuild = false;
+      }
+    }
+    return collectedActions;
   },
   /**
    * @param {World} world 
@@ -303,7 +324,8 @@ const planActions = {
           if (orderType === 'UnitType') {
             const { candidatePositions, targetCount } = planStep;
             if (world.data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
-              await planActions.build(world, unitType, targetCount, candidatePositions);
+              const stepAhead = getFoodUsed(this.world) + 1 === food;
+              await planActions.build(world, unitType, targetCount, candidatePositions, stepAhead);
             } else {
               await planActions.train(world, unitType, targetCount);
             }
