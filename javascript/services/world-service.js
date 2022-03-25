@@ -22,7 +22,7 @@ const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
 const { getUnitsById, getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition } = require("../systems/unit-resource/unit-resource-service");
-const { getArmorUpgradeLevel, getAttackUpgradeLevel } = require("./unit-service");
+const { getArmorUpgradeLevel, getAttackUpgradeLevel, getEnemyMovementSpeed } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
@@ -37,7 +37,6 @@ const { existsInMap, getCombatRally } = require("../helper/location");
 const { pointsOverlap, intersectionOfPoints } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
-const { moveAwayPosition } = require("./position-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { SPAWNINGPOOL } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
@@ -792,8 +791,7 @@ const worldService = {
       const [largestPathDifferenceCentroid] = candidateExpansionsCentroid
         .sort((a, b) => (distanceByPath(resources, unit.pos, a) - distanceByPath(resources, targetUnit.pos, a)) - (distanceByPath(resources, unit.pos, b) - distanceByPath(resources, targetUnit.pos, b)))
         .filter(centroid => distanceByPath(resources, targetUnit.pos, centroid) > 16);
-      const { movementSpeed } = unit.data();
-      return largestPathDifferenceCentroid ? largestPathDifferenceCentroid : moveAwayPosition(targetUnit.pos, unit.pos, movementSpeed);
+      return largestPathDifferenceCentroid ? largestPathDifferenceCentroid : findClosestSafePosition(resources, unit, targetUnit);
     }
   },
   /**
@@ -828,7 +826,6 @@ const worldService = {
       }
       return convertedStep;
     });
-    // if executed build order uuid doesn't exist in plans[selfRace][opponentRace], create it
     if (!plans[selfRace][opponentRace][planService.uuid]) {
       plans[selfRace][opponentRace][planService.uuid] = {};
       plans[selfRace][opponentRace][planService.uuid]['result'] = {wins: 0, losses: 0};
@@ -1062,6 +1059,96 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
 }
 
 /**
+ * @param {ResourceManager} resources
+ * @param {Unit} unit 
+ * @param {Unit} targetUnit 
+ * @returns {Point2D}
+ */
+function findClosestSafePosition(resources, unit, targetUnit) {
+  const { map } = resources.get();
+  // get points within 16 distance of target unit and filter out points that are not safe
+  const safePoints = gridsInCircle(targetUnit.pos, 16).filter((point) => {
+    // check is point is farther than unit from target unit
+    const fartherThanUnit = distance(point, targetUnit.pos) > distance(point, unit.pos);
+    if (existsInMap(map, point) && fartherThanUnit) {
+      // get grid height of point in map
+      const pointWithHeight = {
+        ...point,
+        z: map.getHeight(point),
+      }
+      return isSafePositionFromTarget(map, unit, targetUnit, pointWithHeight);
+    } else {
+      return false;
+    }
+  });
+  // get closest point for flying unit, closest point by path distance for ground unit
+  if (unit.isFlying) {
+    const [closestPoint] = getClosestPosition(unit.pos, safePoints);
+    return closestPoint;
+  } else {
+    const [closestPoint] = getClosestPositionByPath(resources, unit.pos, safePoints);
+    return closestPoint;
+  }
+}
+/**
+ * @param {MapResource} map
+ * @param {Point2D} point
+ * @returns {boolean}
+ */
+function isPointInMap(map, point) {
+  return point.x >= 0 && point.x < map._mapSize.x && point.y >= 0 && point.y < map._mapSize.y;
+}
+/**
+ * @param {MapResource} map
+ * @param {Unit} unit 
+ * @param {Unit} targetUnit 
+ * @param {Point3D} point 
+ * @returns {boolean}
+ */
+function isSafePositionFromTarget(map, unit, targetUnit, point) {
+  // check if point is out or range of unit
+  // if point.z is not greater than 2 of unit.pos.z, then check highest range of ground weapon
+  // if point.z is greater than 2 of unit.pos.z, then check highest range of air weapon
+  let weaponTargetType = null;
+  if (point.z > unit.pos.z + 2) {
+    weaponTargetType = WeaponTargetType.AIR;
+    // return false if point is outside of map
+    if (!isPointInMap(map, point)) {
+      return false;
+    }
+  } else {
+    weaponTargetType = WeaponTargetType.GROUND;
+    // return false if point is outside of map and point is not pathable
+    if (!isPointInMap(map, point) || !map.isPathable(point)) {
+      return false;
+    }
+  }
+  const weapon = getHighestRangeWeapon(unit, weaponTargetType);
+  // return true if no weapon found
+  if (!weapon) {
+    return true;
+  }
+  const weaponRange = weapon.range;
+  const distanceToTarget = distance(point, targetUnit.pos);
+  const movementSpeed = getEnemyMovementSpeed(targetUnit);
+  return distanceToTarget > weaponRange + unit.radius + targetUnit.radius + movementSpeed;
+}
+/**
+ * @param {Unit} unit 
+ * @param {WeaponTargetType} weaponTargetType 
+ * @returns {SC2APIProtocol.Weapon}
+ */
+function getHighestRangeWeapon(unit, weaponTargetType) {
+  const { weapons } = unit.data();
+  const [highestRange] = weapons.filter((weapon) => {
+    return weapon.type === weaponTargetType || weapon.type === WeaponTargetType.ANY;
+  }).sort((a, b) => {
+    return b.range - a.range;
+  });
+  return highestRange;
+}
+
+/**
  * @param {UnitResource} units
  * @param {Unit} unit 
  */
@@ -1072,3 +1159,4 @@ function setWeaponCooldownMax(units, unit) {
     unitResourceService.unitTypeData[unitType].weaponCooldownMax = weaponCooldown;
   }
 }
+

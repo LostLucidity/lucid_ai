@@ -13,8 +13,14 @@ const location = {
    * @returns {boolean}
    */
   existsInMap: (map, position) => {
-    const { height } = map._grids;
-    return height.hasOwnProperty(position.y) && height[position.y].hasOwnProperty(position.x);
+    const mapSize = map.getSize();
+    // return true if the position is within the map
+    return (
+      position.x >= 0 &&
+      position.x < mapSize.x &&
+      position.y >= 0 &&
+      position.y < mapSize.y
+    );
   },
   /**
    * @param {ResourceManager} resources 

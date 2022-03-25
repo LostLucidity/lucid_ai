@@ -140,11 +140,11 @@ module.exports = {
           // retreat to farthest empty expansion that is closer to the unit than the enemy unit
           if (closestEnemyUnit) {
             const emptyExpansions = getEmptyExpansions(resources);
-            const [farthestEmptyExpansionClosertToUnit] = emptyExpansions
+            const [farthestEmptyExpansionCloserToUnit] = emptyExpansions
               .filter(expansion => distanceByPath(resources, unit.pos, expansion.centroid) < distanceByPath(resources, closestEnemyUnit.pos, expansion.centroid));
-            if (farthestEmptyExpansionClosertToUnit) {
+            if (farthestEmptyExpansionCloserToUnit) {
               const unitCommand = createUnitCommand(MOVE, [unit]);
-              unitCommand.targetWorldSpacePos = farthestEmptyExpansionClosertToUnit.centroid;
+              unitCommand.targetWorldSpacePos = farthestEmptyExpansionCloserToUnit.centroid;
               collectedActions.push(unitCommand);
             } else {
               const unitCommand = createUnitCommand(MOVE, [unit]);

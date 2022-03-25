@@ -13,7 +13,7 @@ module.exports = {
   distanceByPath: (resources, position, targetPosition) => {
     const { map, units } = resources.get();
     try {
-      targetPosition = map.isPathable(targetPosition) ? targetPosition : getUnitCornerPosition(units.getClosest(position, units.getAlive())[0]);
+      targetPosition = map.isPathable(targetPosition) ? targetPosition : getUnitCornerPosition(units.getClosest(targetPosition, units.getAlive())[0]);
       const calculatedZeroPath = map.path(position, targetPosition).length === 0;
       const isZeroPathDistance = calculatedZeroPath && distance(position, targetPosition) <= 2 ? true : false;
       const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
