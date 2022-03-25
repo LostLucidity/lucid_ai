@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { ATTACK_ATTACK, MOVE, ATTACK, HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
+const { ATTACK_ATTACK, MOVE, ATTACK } = require("@node-sc2/core/constants/ability");
 const { workerTypes, mineralFieldTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { SIEGETANKSIEGED, BUNKER, QUEEN } = require("@node-sc2/core/constants/unit-type");
@@ -126,7 +126,13 @@ const armyManagementService = {
     const collectedActions = [];
     const inRangeEnemySupply = calculateHealthAdjustedSupply(world, getInRangeUnits(targetUnit, [...enemyTrackingService.mappedEnemyUnits]));
     const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
-    const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy', 'builder']) && !isRepairing(unit));
+    const workers = units.getById(WorkerRace[agent.race]).filter(worker => {
+      return (
+        filterLabels(worker, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy', 'builder']) &&
+        !isRepairing(worker) &&
+        !worker.isReturning()
+      );
+    });
     const fighters = units.getClosest(targetUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
     if (fighters.find(fighter => fighter.tag === worker.tag)) {
       const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(worker.pos, mineralField.pos) < distance(targetUnit.pos, mineralField.pos));
