@@ -69,7 +69,9 @@ const wallOffNaturalService = {
               const [closestWallGrid] = getClosestPosition(cornerNeighbor, temporaryWall);
               const wallGridNeighbors = getNeighbors(closestWallGrid, false);
               // can be covered by pylon
+              // point must be closer to natural townhall position than cornerNeighbor  
               return (
+                distance(point, map.getNatural().townhallPosition) < distance(cornerNeighbor, map.getNatural().townhallPosition) &&
                 map.isPlaceableAt(GATEWAY, cornerNeighbor) &&
                 pointsOverlap(threeByThreePlacement, wallGridNeighbors) &&
                 intersectionOfPoints(threeByThreePlacement, workingWall).length > 1 &&
@@ -103,6 +105,7 @@ const wallOffNaturalService = {
               const placementGrids = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
               const diagonalBuilding = placementGrids.some(grid => intersectionOfPoints(getNeighbors(grid, true), wallOffGrids).length > 1);
               return (
+                distance(point, map.getNatural().townhallPosition) < distance(cornerNeighbor, map.getNatural().townhallPosition) &&
                 map.isPlaceableAt(GATEWAY, cornerNeighbor) &&
                 !pointsOverlap(wallOffGrids, placementGrids) &&
                 !diagonalBuilding &&
@@ -127,6 +130,7 @@ const wallOffNaturalService = {
               const threeByThreePlacement = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
               // see if adjacent to temporary wall.
               return (
+                distance(point, map.getNatural().townhallPosition) < distance(cornerNeighbor, map.getNatural().townhallPosition) &&
                 map.isPlaceableAt(GATEWAY, cornerNeighbor) &&
                 !pointsOverlap(threeByThreePlacement, wallOffGrids) &&
                 intersectionOfPoints(threeByThreePlacement, workingWall).length > 1 &&
