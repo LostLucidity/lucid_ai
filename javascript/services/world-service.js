@@ -43,6 +43,7 @@ const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const path = require('path');
+const foodUsedService = require('./food-used-service');
 const { keepPosition } = require('./placement-service');
 
 const worldService = {
