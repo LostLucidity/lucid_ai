@@ -66,7 +66,7 @@ const worldService = {
     const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
     const collectedActions = [];
-    const builder = unitService.selectBuilder(units, position);
+    const builder = unitService.selectBuilder(resources, position);
     if (builder) {
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
         builder.labels.set('builder', true);
@@ -710,7 +710,7 @@ const worldService = {
     const { agent, data, resources } = world;
     const { frame, map, units } = resources.get();
     const collectedActions = [];
-    const builder = unitResourceService.selectBuilder(units, position);
+    const builder = unitResourceService.selectBuilder(resources, position);
     if (builder) {
       // get speed, distance and average collection rate
       const { movementSpeed } = builder.data();

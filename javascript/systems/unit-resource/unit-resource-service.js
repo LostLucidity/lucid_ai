@@ -9,6 +9,7 @@ const { PROBE, COLOSSUS } = require("@node-sc2/core/constants/unit-type");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+const { getClosestUnitByPath } = require("../../helper/get-closest-by-path");
 const { countTypes } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
 const { isPendingContructing } = require("../../services/shared-service");
@@ -273,17 +274,18 @@ const unitResourceService = {
     return workerTypes.includes(unit.unitType);
   },
   /**
-   * @param {UnitResource} units 
+   * @param {ResourceManager} resources 
    * @param {Point2D} position 
    * @returns {Unit}
    */
-  selectBuilder: (units, position) => {
+  selectBuilder: (resources, position) => {
+    const { units } = resources.get();
     const builderCandidates = unitResourceService.getBuilders(units);
     builderCandidates.push(...units.getWorkers().filter(worker => {
       return worker.noQueue || worker.isGathering() || worker.orders.findIndex(order => order.targetWorldSpacePos && (distance(order.targetWorldSpacePos, position) < 1)) > -1;
     }));
-    const [builder] = units.getClosest(position, builderCandidates);
-    return builder;
+    const [closestBuilder] = getClosestUnitByPath(resources, position, builderCandidates);
+    return closestBuilder;
   },
   /**
    * @param {Unit} unit 
