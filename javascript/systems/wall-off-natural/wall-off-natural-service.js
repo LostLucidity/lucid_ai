@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { GATEWAY, PYLON } = require("@node-sc2/core/constants/unit-type");
+const { GATEWAY, PYLON, NEXUS } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getNeighbors, avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
@@ -41,8 +41,13 @@ const wallOffNaturalService = {
       // find pylon placement that covers threeByThreePositions starting from middle of wall to townhall position.
       // const middleOfWall = avgPoints(wall);
       const middleOfWall = avgPoints(twoWallInfo[i].path);
-      // get path coordinates and filter out points not placeable for pylons
-      const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, map.getNatural().townhallPosition)).filter(point => map.isPlaceableAt(PYLON, point));
+      // get path coordinates and filter out points not placeable for pylons and not overlap townhall footprint at townhall position.
+      const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, map.getNatural().townhallPosition))
+        .filter(point => {
+          const pylonFootprint = cellsInFootprint(point, getFootprint(PYLON));
+          const townhallFootprint = cellsInFootprint(map.getNatural().townhallPosition, getFootprint(NEXUS));
+          return map.isPlaceableAt(PYLON, point) && !pointsOverlap(pylonFootprint, townhallFootprint);
+        });
       // add neighboring points to wallToTownhallPoints excluding those that already exist in wallToTownhallPoints
       debug.setDrawCells('wl2thp', wallToTownhallPoints.map(r => ({ pos: r })), { size: 1, cube: false });
       const wallToTownhallPointsWithNeighbors = wallToTownhallPoints.reduce((acc, point) => {
