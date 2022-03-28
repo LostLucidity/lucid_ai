@@ -808,16 +808,13 @@ const worldService = {
       // path.join(__dirname, '../', 'data', `plans.json`)).toString()
       path.join(__dirname, 'data', `plans.json`)).toString()
     );
-    // if selfRace doesn't exist in plans, create it
     if (!plans[selfRace]) {
       plans[selfRace] = {};
-      // if opponentRace doesn't exist in plans[selfRace], create it
-      if (!plans[selfRace][opponentRace]) {
-        plans[selfRace][opponentRace] = {};
-      }
+    }
+    if (!plans[selfRace][opponentRace]) {
+      plans[selfRace][opponentRace] = {};
     }
     const executedSteps = loggingService.executedSteps.map(step => {
-      // set step[7] if it exists, else nothing leave item unset
       const convertedStep = [
         step[0],
         step[2],
