@@ -10,7 +10,7 @@ const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
 const { moveAwayPosition } = require("../services/position-service");
-const { retreatToExpansion } = require("../services/world-service");
+const { retreat } = require("../services/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 
 const helper = {
@@ -139,7 +139,7 @@ function moveAwayFromTarget(world, unit, targetUnit, targetUnits) {
   } else {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     targetUnit['inRangeUnits'] = enemyUnits.filter(enemyUnit => distance(targetUnit.pos, enemyUnit.pos) < 8);
-    position = retreatToExpansion(world, unit, targetUnit);
+    position = retreat(world, unit, targetUnit);
   }
   return {
     abilityId: MOVE,

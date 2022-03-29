@@ -17,7 +17,7 @@ const { isRepairing, canAttack, setPendingOrders } = require("../../systems/unit
 const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { microRangedUnit, defendWithUnit, getDPSHealth, retreatToExpansion } = require("../../services/world-service");
+const { microRangedUnit, defendWithUnit, getDPSHealth, retreat } = require("../../services/world-service");
 const { micro } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { moveAwayPosition } = require("../../services/position-service");
@@ -218,7 +218,7 @@ const armyBehavior = {
                   collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
                 } else {
                   const unitCommand = createUnitCommand(MOVE, [selfUnit]);
-                  unitCommand.targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestAttackableEnemyUnit);
+                  unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestAttackableEnemyUnit);
                   collectedActions.push(unitCommand);
                 }
               }
@@ -239,7 +239,7 @@ const armyBehavior = {
                         collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit));
                         return;
                       } else {
-                        unitCommand.targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                        unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
                         unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
                           setPendingOrders(unit, unitCommand);
                           return unit.tag;
@@ -252,7 +252,7 @@ const armyBehavior = {
                     }
                   } else {
                     // retreat if melee
-                    unitCommand.targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                    unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
                   }
                 } else {
                   // skip action if pending orders

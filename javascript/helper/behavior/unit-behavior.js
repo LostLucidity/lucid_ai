@@ -18,7 +18,7 @@ const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { moveAwayPosition } = require("../../services/position-service");
 const { getCombatRally } = require("../location");
-const { retreatToExpansion } = require("../../services/world-service");
+const { retreat } = require("../../services/world-service");
 
 module.exports = {
   /**
@@ -229,7 +229,7 @@ module.exports = {
               if (worker['pendingOrders'] === undefined || worker['pendingOrders'].length === 0) {
                 const [closestArmedEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
                 const [closestAttackableEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(enemyUnit => canAttack(resources, worker, enemyUnit)));
-                unitCommand.targetWorldSpacePos = retreatToExpansion(world, worker, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                unitCommand.targetWorldSpacePos = retreat(world, worker, closestArmedEnemyUnit || closestAttackableEnemyUnit);
                 unitCommand.unitTags = workers.filter(unit => distance(unit.pos, worker.pos) <= 1).map(unit => {
                   setPendingOrders(unit, unitCommand);
                   return unit.tag;

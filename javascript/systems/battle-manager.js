@@ -19,7 +19,7 @@ const { getFileName } = require("../helper/get-races");
 const { larvaOrEgg } = require("../helper/groups");
 const { readFromMatchup, writeToCurrent } = require("../filesystem");
 const { getCombatPoint } = require("../services/resources-service");
-const { retreatToExpansion } = require("../services/resource-manager-service");
+const { retreat } = require("../services/resource-manager-service");
 const { moveAwayPosition } = require("../services/position-service");
 
 module.exports = createSystem({
@@ -98,7 +98,7 @@ module.exports = createSystem({
                     if (isFlying) {
                       targetWorldSpacePos = moveAwayPosition(closestEnemyUnit.pos, selfUnit.pos);
                     } else {
-                      targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestEnemyUnit);
+                      targetWorldSpacePos = retreat(world, selfUnit, closestEnemyUnit);
                     }
                     if (targetWorldSpacePos) {
                       const unitCommand = {

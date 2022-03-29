@@ -15,7 +15,7 @@ const { calculateNearSupply } = require("./data-service");
 const { micro } = require("./micro-service");
 const { isRepairing } = require("../systems/unit-resource/unit-resource-service");
 const { moveAwayPosition } = require("./position-service");
-const { retreatToExpansion } = require("./world-service");
+const { retreat } = require("./world-service");
 
 const armyManagementService = {
   defenseMode: false,
@@ -79,7 +79,7 @@ const armyManagementService = {
             if (isFlying) {
               targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
             } else {
-              targetWorldSpacePos = retreatToExpansion(world, selfUnit, closestEnemyUnit);
+              targetWorldSpacePos = retreat(world, selfUnit, closestEnemyUnit);
             }
             if (targetWorldSpacePos) {
               const unitCommand = {
