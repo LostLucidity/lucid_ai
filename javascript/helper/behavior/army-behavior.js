@@ -205,11 +205,10 @@ const armyBehavior = {
         const attackablePosition = closestAttackableEnemyUnit ? closestAttackableEnemyUnit.pos : null;
         if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestAttackableEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestAttackableEnemyUnit['enemyDPSHealth'];
-          const noNearbyBunker = units.getById(BUNKER).filter(bunker => distance(bunker.pos, selfUnit.pos) < 16).length === 0;
           if (selfUnit.tag === randomUnit.tag) {
             console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`, distance(selfUnit.pos, closestAttackableEnemyUnit.pos));
           }
-          if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth && noNearbyBunker) {
+          if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth) {
             if (selfUnit.data().movementSpeed < getEnemyMovementSpeed(closestAttackableEnemyUnit)) {
               if (selfUnit.isMelee()) {
                 collectedActions.push(...micro(units, selfUnit, closestAttackableEnemyUnit, enemyUnits));
