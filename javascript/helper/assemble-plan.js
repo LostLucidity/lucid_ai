@@ -288,13 +288,11 @@ class AssemblePlan {
     if (this.foundPosition) {
       if (this.agent.canAfford(unitType) && !stepAhead) {
         if (await actions.canPlace(unitType, [this.foundPosition])) {
-          const unitTypeData = this.data.getUnitTypeData(unitType);
           await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, this.foundPosition));
           planService.pausePlan = false;
           setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), this.foundPosition);
           planService.continueBuild = true;
           this.foundPosition = null;
-          addEarmark(this.data, unitTypeData);
         } else {
           this.foundPosition = keepPosition(this.resources, unitType, this.foundPosition) ? this.foundPosition : null;
           if (this.foundPosition) {

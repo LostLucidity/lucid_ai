@@ -24,7 +24,6 @@ const location = {
   },
   /**
    * @param {ResourceManager} resources 
-   * @param {Point2D} position 
    * @returns {Point2D}
    */
   getCombatRally: (resources) => {

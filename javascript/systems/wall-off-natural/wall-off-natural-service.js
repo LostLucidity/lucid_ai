@@ -41,7 +41,6 @@ const wallOffNaturalService = {
       // find pylon placement that covers threeByThreePositions starting from middle of wall to townhall position.
       // const middleOfWall = avgPoints(wall);
       const middleOfWall = avgPoints(twoWallInfo[i].path);
-      // get path coordinates and filter out points not placeable for pylons and not overlap townhall footprint at townhall position.
       const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, map.getNatural().townhallPosition))
         .filter(point => {
           const pylonFootprint = cellsInFootprint(point, getFootprint(PYLON));
