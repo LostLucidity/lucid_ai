@@ -91,6 +91,7 @@ const worldService = {
         console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
         worldService.logActionIfNearPosition(world, unitType, builder, position);
         unitService.setPendingOrders(builder, unitCommand);
+        addEarmark(data, data.getUnitTypeData(unitType));
         collectedActions.push(...unitService.stopOverlappingBuilders(units, builder, position));
       }
     }
@@ -729,8 +730,8 @@ const worldService = {
       const unitCommand = builder ? createUnitCommand(MOVE, [builder]) : {};
       const { collectionRateMinerals } = frame.getObservation().score.scoreDetails;
       const timeToPosition = distanceToPosition / movementSpeed;
-      const { mineralCost } = data.getUnitTypeData(unitType);
-      const mineralsLeft = mineralCost + data.getEarmarkTotals('stepAhead').minerals - agent.minerals;
+      addEarmark(data, data.getUnitTypeData(unitType));
+      const mineralsLeft = data.getEarmarkTotals('stepAhead').minerals - agent.minerals;
       const timeToTargetCost = mineralsLeft / (collectionRateMinerals / 60);
       if (shouldPremoveNow(world, timeToTargetCost, timeToPosition)) {
         if (rallyBase) {

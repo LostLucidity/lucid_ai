@@ -15,7 +15,8 @@ const dataService = {
    */
   addEarmark: (data, orderData) => {
     data.addEarmark({
-      name: `${planService.currentStep}`,
+      // set name as name and current step
+      name: `${orderData.name}_${planService.currentStep}`,
       minerals: orderData.mineralCost,
       vespene: orderData.vespeneCost,
     });
