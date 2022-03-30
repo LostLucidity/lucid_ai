@@ -3,7 +3,7 @@
 
 const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { LARVA, QUEEN, BUNKER, SIEGETANKSIEGED, OVERSEER } = require("@node-sc2/core/constants/unit-type");
-const { MOVE, ATTACK_ATTACK, ATTACK, SMART, LOAD_BUNKER } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, ATTACK, SMART, LOAD_BUNKER, STOP } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("../location");
 const { tankBehavior } = require("./unit-behavior");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
@@ -162,6 +162,11 @@ const armyBehavior = {
             if (defendWithUnit(world, worker, closestEnemyUnit)) {
               workersToDefend.push(worker);
               worker.labels.set('defending')
+            } else {
+              if (targetUnitTag(worker) === closestEnemyUnit.tag) {
+                worker.labels.has('defending') && worker.labels.delete('defending');
+                collectedActions.push(...stop(worker));
+              }
             }
           }
           console.log(`Pulling ${workersToDefend.length} to defend with.`);
@@ -492,6 +497,27 @@ function getWeaponThatCanAttack(unit, target) {
 function isEnemyInAttackRange(unit, targetUnit) {
   const foundWeapon = getWeaponThatCanAttack(unit, targetUnit);
   return foundWeapon ? (foundWeapon.range >= distance(unit.pos, targetUnit.pos) + unit.radius + targetUnit.radius) : false;
+}
+/**
+ * @param {Unit} unit 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function stop(unit) {
+  const collectedActions = [];
+  collectedActions.push(createUnitCommand(STOP, [unit]));
+  return collectedActions;
+}
+/**
+ * @param {Unit} unit 
+ * @returns {string | null}
+ */
+function targetUnitTag(unit) {
+  const foundOrder = unit.orders.find(order => {
+    if (order.targetUnitTag) {
+      return true;
+    }
+  });
+  return foundOrder ? foundOrder.targetUnitTag : null;
 }
 
 module.exports = armyBehavior;
