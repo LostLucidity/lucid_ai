@@ -131,7 +131,7 @@ module.exports = {
       if (calculateTotalHealthRatio(units, unit) > 1 / 2 && !inRangeEnemyCannon) {
         const threateningUnits = unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => {
           const threateningRangedUnit = isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8
-          const threateningMeleeUnit = enemyUnit.isMelee() && distance(unit.pos, enemyUnit.pos) < 4 && isFacing(unit, enemyUnit, 180 / 16, true);
+          const threateningMeleeUnit = enemyUnit.isMelee() && distance(unit.pos, enemyUnit.pos) < 4 && isFacing(unit, enemyUnit, 180 / 16);
           return (threateningRangedUnit || threateningMeleeUnit)
         });
         if (threateningUnits.length > 1) {
