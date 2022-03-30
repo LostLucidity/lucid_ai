@@ -758,42 +758,36 @@ const worldService = {
    * @param {Unit} targetUnit 
    * @returns {Point2D}
    */
-  retreatToExpansion: (world, unit, targetUnit, toCombatRally = true) => {
+  retreat: (world, unit, targetUnit, toCombatRally = true) => {
     const { resources } = world;
-    const { map } = resources.get();
-    // retreat to rally if closer, else to closest expansion.
-    const combatRallyPosition = getCombatRally(resources)
+    const { units } = resources.get();
+    // completed BUNKERS
+    const closestBunkerPositionByPath = units.getById(UnitType.BUNKER)
+      .filter((unit) => unit.buildProgress === 1)
+      .map((unit) => unit.pos)
+      .sort((a, b) => distanceByPath(resources, a, unit.pos) - distanceByPath(resources, b, unit.pos))[0];
+    // get closest position to unit by path
+    const combatRally = getCombatRally(resources);
+    const combatRallyCloser = distanceByPath(resources, combatRally, unit.pos) < distanceByPath(resources, closestBunkerPositionByPath, unit.pos);
     if (
       toCombatRally &&
-      distanceByPath(resources, targetUnit.pos, combatRallyPosition) > 16 &&
-      distanceByPath(resources, unit.pos, combatRallyPosition) <= distanceByPath(resources, targetUnit.pos, combatRallyPosition)
+      combatRallyCloser &&
+      distanceByPath(resources, targetUnit.pos, combatRally) > 16 &&
+      distanceByPath(resources, unit.pos, combatRally) <= distanceByPath(resources, targetUnit.pos, combatRally)
     ) {
-      return combatRallyPosition;
+      return combatRally;
+    } else if (closestBunkerPositionByPath) {
+      return closestBunkerPositionByPath;
     } else {
-      if (!unit['expansions']) { unit['expansions'] = new Map(); }
-      if (!targetUnit['expansions']) { targetUnit['expansions'] = new Map(); }
-      const candidateExpansionsCentroid = map.getExpansions().filter(expansion => {
-        const centroidString = expansion.centroid.x.toString() + expansion.centroid.y.toString();
-        let [closestToExpansion] = getClosestUnitByPath(
-          resources,
-          expansion.centroid,
-          targetUnit['selfUnits'].filter((/** @type {Unit} */ unit) => worldService.getDPSHealth(world, unit, unit['selfUnits'].map((/** @type {Unit} */ unit) => unit.unitType)) > 0)
-        );
-        const closestToExpansionOrTargetUnit = closestToExpansion ? closestToExpansion : targetUnit;
-        targetUnit['expansions'][centroidString] = {
-          'closestToExpansion': closestToExpansionOrTargetUnit,
-          'distanceByPath': distanceByPath(resources, closestToExpansionOrTargetUnit.pos, expansion.centroid),
-        }
-        unit['expansions'][centroidString] = {
-          'distanceByPath': distanceByPath(resources, unit.pos, expansion.centroid),
-        }
-        const distanceByPathToCentroid = unit['expansions'][centroidString].distanceByPath;
-        return distanceByPathToCentroid !== 500 && distanceByPathToCentroid <= targetUnit['expansions'][centroidString].distanceByPath;
-      }).map(expansion => expansion.centroid);
-      const [largestPathDifferenceCentroid] = candidateExpansionsCentroid
-        .sort((a, b) => (distanceByPath(resources, unit.pos, a) - distanceByPath(resources, targetUnit.pos, a)) - (distanceByPath(resources, unit.pos, b) - distanceByPath(resources, targetUnit.pos, b)))
-        .filter(centroid => distanceByPath(resources, targetUnit.pos, centroid) > 16);
-      return largestPathDifferenceCentroid ? largestPathDifferenceCentroid : findClosestSafePosition(resources, unit, targetUnit);
+      if (!unit['retreatCandidates']) { unit['retreatCandidates'] = new Map(); }
+      if (!targetUnit['retreatCandidates']) { targetUnit['retreatCandidates'] = new Map(); }
+      const retreatCandidates = getRetreatCandidates(world, unit, targetUnit);
+      const [largestPathDifferenceRetreat] = retreatCandidates.filter((point) => {
+        return distanceByPath(resources, unit.pos, point) > 16;
+      }).sort((a, b) => {
+        return distanceByPath(resources, unit.pos, a) - distanceByPath(resources, unit.pos, b);
+      });
+      return largestPathDifferenceRetreat ? largestPathDifferenceRetreat : findClosestSafePosition(resources, unit, targetUnit);
     }
   },
   /**
@@ -1090,6 +1084,14 @@ function findClosestSafePosition(resources, unit, targetUnit) {
   }
 }
 /**
+ * @param {World} world
+ * @param {Unit[]} units
+ * @returns
+ */
+function getDamageDealingUnits(world, units) {
+  return units.filter((/** @type {Unit} */ unit) => worldService.getDPSHealth(world, unit, unit['selfUnits'].map((/** @type {Unit} */ unit) => unit.unitType)) > 0)
+}
+/**
  * @param {MapResource} map
  * @param {Point2D} point
  * @returns {boolean}
@@ -1146,7 +1148,37 @@ function getHighestRangeWeapon(unit, weaponTargetType) {
   });
   return highestRange;
 }
-
+/**
+ * @param {World} world
+ * @param {Unit} unit
+ * @param {Unit} targetUnit
+ * @returns {Point2D[]}
+*/
+function getRetreatCandidates(world, unit, targetUnit) {
+  const { resources } = world;
+  const { map } = resources.get();
+  // all expansion locations
+  const expansionLocations = map.getExpansions().map((expansion) => expansion.centroid);
+  return [...expansionLocations].filter((point) => {
+    const positionString = `${point.x},${point.y}`;
+    const damageDealingEnemies = getDamageDealingUnits(world, targetUnit['selfUnits']);
+    let [closestToRetreat] = getClosestUnitByPath(resources, point, damageDealingEnemies);
+    if (closestToRetreat) {
+      const closestToRetreatOrTargetUnit = closestToRetreat ? closestToRetreat : targetUnit;
+      targetUnit['retreatCandidates'][positionString] = {
+        'closestToRetreat': closestToRetreatOrTargetUnit,
+        'distanceByPath': distanceByPath(resources, closestToRetreatOrTargetUnit.pos, point),
+      }
+      unit['retreatCandidates'][positionString] = {
+        'distanceByPath': distanceByPath(resources, unit.pos, point),
+      }
+      const distanceByPathToRetreat = unit['retreatCandidates'][positionString]['distanceByPath'];
+      return distanceByPathToRetreat <= targetUnit['retreatCandidates'][positionString]['distanceByPath'];
+    } else {
+      return false;
+    }
+  });
+}
 /**
  * @param {UnitResource} units
  * @param {Unit} unit 
