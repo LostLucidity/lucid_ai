@@ -71,7 +71,7 @@ const planActions = {
     if (checkBuildingCount(world, unitType, targetCount) || targetCount === null) {
       const { race } = agent;
       if (stepAhead) {
-        addEarmark(this.data, this.data.getUnitTypeData(WorkerRace[race]));
+        addEarmark(data, data.getUnitTypeData(WorkerRace[race]));
       }
       switch (true) {
         case GasMineRace[race] === unitType:
@@ -320,11 +320,11 @@ const planActions = {
         planService.currentStep = step;
         const planStep = plan[step];
         const { food, orderType, unitType } = planStep;
-        if (world.agent.foodUsed >= food) {
+        if (getFoodUsed(world) + 1 >= food) {
           if (orderType === 'UnitType') {
             const { candidatePositions, targetCount } = planStep;
             if (world.data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
-              const stepAhead = getFoodUsed(this.world) + 1 === food;
+              const stepAhead = getFoodUsed(world) + 1 === food;
               await planActions.build(world, unitType, targetCount, candidatePositions, stepAhead);
             } else {
               await planActions.train(world, unitType, targetCount);
