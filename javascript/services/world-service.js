@@ -579,13 +579,16 @@ const worldService = {
     const enemyNaturalHatcheryStartTime = enemyNaturalHatchery ? frame.timeInSeconds() - getBuildTimeElapsed(data, enemyNaturalHatchery) : null;
     const naturalCommandCenter = map.getNatural().getBase();
     const naturalCommandCenterStartTime = naturalCommandCenter ? frame.timeInSeconds() - getBuildTimeElapsed(data, naturalCommandCenter) : null;
-    const spawningPoolOnly = spawningPoolExists && !enemyNaturalHatchery;
     const bothStructuresExist = spawningPoolExists && enemyNaturalHatchery;
     const spawningPoolBeforeEnemyNatural = bothStructuresExist && spawningPoolStartTime < enemyNaturalHatcheryStartTime;
     const naturalCommandCenterBeforeEnemyNatural = naturalCommandCenter && enemyNaturalHatchery && naturalCommandCenterStartTime < enemyNaturalHatcheryStartTime;
-    if (spawningPoolOnly) {
+    const { lastSeen } = scoutService;
+    // if spawningPoolStartTime is less than lastSeen['enemyNaturalTownhallFootprint'] with no enemy natural, then we can assume we can set earlyScout to false and enemyBuildType to 'cheese'
+    if (spawningPoolStartTime && spawningPoolStartTime < lastSeen['enemyNaturalTownhallFootprint'] && !enemyNaturalHatchery) {
+      scoutingService.earlyScout = false;
       scoutingService.enemyBuildType = 'cheese';
-      scoutingService.scoutReport = 'Spawning pool only';
+      scoutingService.scoutReport = 'Early scout set to false because Spawning Pool start time is less than time enemy natural position was last seen and no enemy natural was found';
+      return;
     } else if (spawningPoolBeforeEnemyNatural) {
       scoutingService.enemyBuildType = 'standard';
       scoutingService.scoutReport = `Early scout cancelled: ${spawningPoolBeforeEnemyNatural ? 'spawning pool' : 'natural command center'} before enemy natural`;

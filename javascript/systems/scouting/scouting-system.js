@@ -5,9 +5,11 @@ const { createSystem } = require("@node-sc2/core");
 const { UnitType } = require("@node-sc2/core/constants");
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
-const { GasMineRace } = require("@node-sc2/core/constants/race-map");
+const { GasMineRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { GATEWAY, BARRACKS } = require("@node-sc2/core/constants/unit-type");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cancelEarlyScout } = require("../../builds/scouting");
 const placementHelper = require("../../helper/placement/placement-helper");
 const planService = require("../../services/plan-service");
@@ -21,10 +23,11 @@ module.exports = createSystem({
   name: 'ScoutingSystem',
   type: 'agent',
   async onStep(world) {
-    const { data } = world;
+    const { agent, data, resources } = world;
     checkEnemyBuild(world);
     await setAndSendScout(world);
     setEnemyCombatSupply(data);
+    setPositionLastSeen(resources, TownhallRace[agent.race][0]);
     setOutsupplied();
     setOutpowered();
   }
@@ -91,7 +94,7 @@ function checkEnemyBuild(world) {
           case Race.ZERG:
             getZergEarlyBuild(world);
             break;
-          }
+        }
       }
     }
     if (!scoutingService.earlyScout) {
@@ -144,7 +147,22 @@ async function setAndSendScout(world) {
   });
   await actions.sendAction(collectedActions);
 }
-
+/**
+ * 
+ * @param {ResourceManager} resources 
+ * @param {UnitTypeId} unitType 
+ */
+function setPositionLastSeen(resources, unitType) {
+  const { map, frame, units } = resources.get();
+  // get townhall footprint from enemy natural
+  const townhallFootprint = cellsInFootprint(map.getEnemyNatural().townhallPosition, getFootprint(unitType));
+  // check if any self units are in sight range of townhall footprint
+  const selfUnits = units.getAlive(Alliance.SELF).filter(unit => townhallFootprint.some(cell => distance(cell, unit.pos) <= unit.data().sightRange + unit.radius));
+  // if any self units are in sight range of townhall footprint, set time of last seen to current frame time
+  if (selfUnits.length > 0) {
+    scoutingService.lastSeen['enemyNaturalTownhallFootprint'] = frame.timeInSeconds();
+  }
+}
 function setOutpowered() {
   worldService.outpowered = worldService.totalEnemyDPSHealth > worldService.totalSelfDPSHealth;
   if (!planService.dirtyBasePlan && worldService.outpowered) {

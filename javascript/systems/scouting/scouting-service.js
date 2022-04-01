@@ -13,6 +13,7 @@ const scoutService = {
   enemyCombatSupply: 0,
   outsupplied: false,
   scoutReport: null,
+  lastSeen: {},
   setEnemyCombatSupply: (data) => {
     scoutService.enemyCombatSupply = getEnemyCombatSupply(data);
   },
