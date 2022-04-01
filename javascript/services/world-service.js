@@ -390,11 +390,7 @@ const worldService = {
         const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(unit.alliance) + weaponBonusDamage;
         const weaponSplashDamage = calculateSplashDamage(units, unit.unitType, enemyUnitTypes);
         const weaponDPS = (weaponDamage * weapon.attacks * weaponSplashDamage) / weapon.speed;
-        // get unit speed minus cooldown plus range plus radius
-        const { weaponCooldownMax } = getUnitTypeData(units, unit.unitType);
-        setWeaponCooldownMax(units, unit);
-        const speedRangeFactor = (unit.data().movementSpeed * 1.4 - getTimeInSeconds(weaponCooldownMax)) + weapon.range + unit.radius;
-        dPSHealth = weaponDPS * (unit.health + unit.shield) * speedRangeFactor;
+        dPSHealth = weaponDPS * (unit.health + unit.shield);
       } else {
         // if no weapon, ignore
       }
@@ -414,18 +410,16 @@ const worldService = {
     const { units } = resources.get();
     let dPSHealth = 0;
     const weapon = data.getUnitTypeData(unitType).weapons[0];
-    const { movementSpeed } = data.getUnitTypeData(unitType);
     if (weapon) {
       const unitTypeData = getUnitTypeData(units, unitType);
       if (unitTypeData) {
-        const { healthMax, shieldMax, weaponCooldownMax } = unitTypeData;
+        const { healthMax, shieldMax } = unitTypeData;
         const weaponUpgradeDamage = weapon.damage + (getAttackUpgradeLevel(alliance) * dataService.getUpgradeBonus(alliance, weapon.damage));
         const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnits.map(enemyUnit => enemyUnit.unitType));
         const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(alliance) + weaponBonusDamage;
         const weaponSplashDamage = calculateSplashDamage(units, unitType, enemyUnits.map(enemyUnit => enemyUnit.unitType));
         const weaponDPS = (weaponDamage * weapon.attacks * weaponSplashDamage) / weapon.speed;
-        const speedRangeFactor = (movementSpeed * 1.4 - getTimeInSeconds(weaponCooldownMax)) + weapon.range + unitTypeData.radius;
-        dPSHealth = weaponDPS * (healthMax + shieldMax) * speedRangeFactor;
+        dPSHealth = weaponDPS * (healthMax + shieldMax);
         dPSHealth = unitType === UnitType.ZERGLING ? dPSHealth * 2 : dPSHealth;
       }
     }
@@ -1181,16 +1175,5 @@ function getRetreatCandidates(world, unit, targetUnit) {
       return false;
     }
   });
-}
-/**
- * @param {UnitResource} units
- * @param {Unit} unit 
- */
-function setWeaponCooldownMax(units, unit) {
-  const { unitType, weaponCooldown } = unit;
-  const { weaponCooldownMax } = getUnitTypeData(units, unitType);
-  if (weaponCooldown > weaponCooldownMax) {
-    unitResourceService.unitTypeData[unitType].weaponCooldownMax = weaponCooldown;
-  }
 }
 
