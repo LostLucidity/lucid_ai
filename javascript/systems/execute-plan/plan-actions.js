@@ -88,11 +88,13 @@ const planActions = {
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
             }
           } else {
-            const actions = await planActions.ability(world, data.getUnitTypeData(unitType).abilityId);
-            if (actions.length > 0) {
-              unpauseAndLog(world, UnitTypeId[unitType]);
-              addEarmark(data, data.getUnitTypeData(unitType));
-              collectedActions.push(...actions);
+            if (!stepAhead) {
+              const actions = await planActions.ability(world, data.getUnitTypeData(unitType).abilityId);
+              if (actions.length > 0) {
+                unpauseAndLog(world, UnitTypeId[unitType]);
+                addEarmark(data, data.getUnitTypeData(unitType));
+                collectedActions.push(...actions);
+              }
             }
           }
           break;
@@ -321,15 +323,17 @@ const planActions = {
         const planStep = plan[step];
         const { food, orderType, unitType } = planStep;
         if (getFoodUsed(world) + 1 >= food) {
+          const stepAhead = getFoodUsed(world) + 1 === food;
           if (orderType === 'UnitType') {
             const { candidatePositions, targetCount } = planStep;
             if (world.data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
-              const stepAhead = getFoodUsed(world) + 1 === food;
               await planActions.build(world, unitType, targetCount, candidatePositions, stepAhead);
             } else {
+              if (stepAhead) return;
               await planActions.train(world, unitType, targetCount);
             }
           } else if (orderType === 'Upgrade') {
+            if (stepAhead) return;
             await planActions.upgrade(world, planStep.upgrade);
           }
         } else { break; }
