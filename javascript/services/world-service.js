@@ -68,6 +68,7 @@ const worldService = {
     const collectedActions = [];
     const builder = unitService.selectBuilder(resources, position);
     if (builder) {
+      addEarmark(data, data.getUnitTypeData(unitType));
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
         builder.labels.set('builder', true);
         const unitCommand = createUnitCommand(abilityId, [builder]);
@@ -91,7 +92,6 @@ const worldService = {
         console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
         worldService.logActionIfNearPosition(world, unitType, builder, position);
         unitService.setPendingOrders(builder, unitCommand);
-        addEarmark(data, data.getUnitTypeData(unitType));
         collectedActions.push(...unitService.stopOverlappingBuilders(units, builder, position));
       }
     }
