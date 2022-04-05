@@ -179,7 +179,7 @@ const worldService = {
    * @param {boolean} stepAhead
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
-  findAndPlaceBuilding: async (world, unitType, candidatePositions, stepAhead) => {
+  findAndPlaceBuilding: async (world, unitType, candidatePositions, stepAhead=false) => {
     const { agent, data, resources } = world
     const collectedActions = []
     const { actions, frame, units } = resources.get();

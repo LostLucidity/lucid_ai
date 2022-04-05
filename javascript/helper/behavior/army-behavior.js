@@ -163,7 +163,7 @@ const armyBehavior = {
               workersToDefend.push(worker);
               worker.labels.set('defending')
             } else {
-              if (targetUnitTag(worker) === closestEnemyUnit.tag) {
+              if (isTargetUnitInOrders(worker, closestEnemyUnit, [ATTACK, ATTACK_ATTACK])) {
                 worker.labels.has('defending') && worker.labels.delete('defending');
                 collectedActions.push(...stop(worker));
               }
@@ -509,24 +509,30 @@ function isEnemyInAttackRange(unit, targetUnit) {
 }
 /**
  * @param {Unit} unit 
+ * @param {Unit} targetUnit 
+ * @param {AbilityId[]} abilityIds
+ * @returns {boolean}
+ */
+function isTargetUnitInOrders(unit, targetUnit, abilityIds) {
+  return unit.orders.some(order => {
+    if (abilityIds.includes(order.abilityId)) {
+      if (order.targetUnitTag === targetUnit.tag) {
+        return true;
+      } else if (order.targetWorldSpacePos && distance(order.targetWorldSpacePos, targetUnit.pos) < 1) {
+        return true;
+      }
+    }
+    return false;
+  });
+}
+/**
+ * @param {Unit} unit 
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function stop(unit) {
   const collectedActions = [];
   collectedActions.push(createUnitCommand(STOP, [unit]));
   return collectedActions;
-}
-/**
- * @param {Unit} unit 
- * @returns {string | null}
- */
-function targetUnitTag(unit) {
-  const foundOrder = unit.orders.find(order => {
-    if (order.targetUnitTag) {
-      return true;
-    }
-  });
-  return foundOrder ? foundOrder.targetUnitTag : null;
 }
 
 module.exports = armyBehavior;
