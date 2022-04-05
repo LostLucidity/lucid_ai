@@ -2,7 +2,7 @@
 "use strict"
 
 const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
-const { LARVA, QUEEN, BUNKER, SIEGETANKSIEGED, OVERSEER } = require("@node-sc2/core/constants/unit-type");
+const { LARVA, QUEEN, BUNKER, SIEGETANKSIEGED, OVERSEER, ADEPTPHASESHIFT } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK, SMART, LOAD_BUNKER, STOP } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("../location");
 const { tankBehavior } = require("./unit-behavior");
@@ -21,7 +21,7 @@ const { microRangedUnit, defendWithUnit, getDPSHealth, retreat } = require("../.
 const { micro } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { moveAwayPosition } = require("../../services/position-service");
-const { getEnemyMovementSpeed } = require("../../services/unit-service");
+const { getMovementSpeed } = require("../../services/unit-service");
 const worldService = require("../../services/world-service");
 const { distanceTraveledPerStep } = require("../../services/frames-service");
 
@@ -211,12 +211,18 @@ const armyBehavior = {
         if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestAttackableEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestAttackableEnemyUnit['enemyDPSHealth'];
           if (selfUnit.tag === randomUnit.tag) {
-            console.log(`${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`, distance(selfUnit.pos, closestAttackableEnemyUnit.pos));
+            const selfOverEnemyDPSHealth = `${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`;
+            const distanceFromEnemy = distance(selfUnit.pos, closestAttackableEnemyUnit.pos);
+            const selfOverEnemyUnitType = `${selfUnit.unitType}/${closestAttackableEnemyUnit.unitType}`;
+            console.log(selfOverEnemyDPSHealth, distanceFromEnemy, selfOverEnemyUnitType);
           }
           if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth) {
-            if (selfUnit.data().movementSpeed < getEnemyMovementSpeed(closestAttackableEnemyUnit)) {
+            if (getMovementSpeed(selfUnit) < getMovementSpeed(closestAttackableEnemyUnit)) {
               if (selfUnit.isMelee()) {
                 collectedActions.push(...micro(units, selfUnit, closestAttackableEnemyUnit, enemyUnits));
+                if (units.withLabel('scoutAcrossTheMap')) {
+                  console.log('Scout across the map');
+                }
               } else {
                 const enemyInAttackRange = isEnemyInAttackRange(selfUnit, closestAttackableEnemyUnit);
                 if (enemyInAttackRange) {
@@ -227,13 +233,16 @@ const armyBehavior = {
                   collectedActions.push(unitCommand);
                 }
               }
+              if (units.withLabel('scoutAcrossTheMap')) {
+                console.log('collectedActions', collectedActions);
+              }
             } else {
               const unitCommand = createUnitCommand(MOVE, [selfUnit]);
               if (selfUnit.isFlying) {
                 unitCommand.targetWorldSpacePos = moveAwayPosition(attackablePosition, selfUnit.pos);
               } else {
                 if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
-                  const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
+                  const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0) || unit.unitType === ADEPTPHASESHIFT));
                   // micro ranged units when faster than enemy
                   if (!selfUnit.isMelee()) {
                     // get enemy weapon that can hit ground units

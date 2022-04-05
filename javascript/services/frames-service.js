@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { getEnemyMovementSpeed } = require("./unit-service");
+const { getMovementSpeed } = require("./unit-service");
 
 const frameService = {
   /**
@@ -9,7 +9,7 @@ const frameService = {
    * @param {Unit} enemyUnit 
    */
   distanceTraveledPerStep(frame, enemyUnit) {
-    const enemyUnitSpeed = getEnemyMovementSpeed(enemyUnit);
+    const enemyUnitSpeed = getMovementSpeed(enemyUnit);
     const stepSize = 8;
     const timeElapsedPerStep = stepSize / 22.4;
     return enemyUnitSpeed * 1.4 * timeElapsedPerStep;

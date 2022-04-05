@@ -10,6 +10,7 @@ const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
 const { moveAwayPosition } = require("../services/position-service");
+const { getMovementSpeed } = require("../services/unit-service");
 const { retreat } = require("../services/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 
@@ -128,7 +129,7 @@ function moveAwayFromTarget(world, unit, targetUnit, targetUnits) {
       const dPSOfInRangeUnits = getDPSOfInRangeAntiAirUnits(data, targetUnit);
       const timeToBeKilled = (unit.health + unit.shield) / dPSOfInRangeUnits;
       const distanceToHighPoint = distance(unit.pos, closestHighPoint);
-      const speed = unit.data().movementSpeed;
+      const speed = getMovementSpeed(unit);
       const timeToTarget = distanceToHighPoint / speed;
       if (timeToBeKilled > timeToTarget) {
         position = closestHighPoint;

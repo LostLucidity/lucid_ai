@@ -22,7 +22,7 @@ const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
 const { getUnitsById, getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition } = require("../systems/unit-resource/unit-resource-service");
-const { getArmorUpgradeLevel, getAttackUpgradeLevel, getEnemyMovementSpeed } = require("./unit-service");
+const { getArmorUpgradeLevel, getAttackUpgradeLevel, getMovementSpeed } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
@@ -38,13 +38,14 @@ const { pointsOverlap, intersectionOfPoints } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const path = require('path');
 const foodUsedService = require('./food-used-service');
 const { keepPosition } = require('./placement-service');
+const trackUnitsService = require('../systems/track-units/track-units-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -132,7 +133,7 @@ const worldService = {
       if (workerTypes.includes(unitType)) {
         return totalDPSHealth;
       } else {
-        return totalDPSHealth + worldService.getDPSHealthOfTrainingUnit(world, unitType, alliance, enemyUnits);
+        return totalDPSHealth + worldService.getDPSHealthOfTrainingUnit(world, unitType, alliance, enemyUnits.map(enemyUnit => enemyUnit.unitType));
       }
     }, 0);
   },
@@ -359,10 +360,12 @@ const worldService = {
    */
   getCurrentlyEnrouteConstructionGrids: (world) => {
     const { data, resources } = world;
+    const { units } = resources.get();
     const contructionGrids = [];
-    resources.get().units.getWorkers().forEach(worker => {
-      if (worker.isConstructing()) {
-        const foundOrder = worker.orders.find(order => constructionAbilities.includes(order.abilityId));
+    units.getWorkers().forEach(worker => {
+      if (worker.isConstructing() || isPendingContructing(worker)) {
+        const orders = [...worker.orders, ...worker['pendingOrders']];
+        const foundOrder = orders.find(order => constructionAbilities.includes(order.abilityId));
         if (foundOrder && foundOrder.targetWorldSpacePos) {
           const foundUnitTypeName = Object.keys(UnitType).find(unitType => data.getUnitTypeData(UnitType[unitType]).abilityId === foundOrder.abilityId);
           if (foundUnitTypeName) {
@@ -382,20 +385,23 @@ const worldService = {
     const { data, resources } = world;
     const { units } = resources.get();
     let dPSHealth = 0;
-    if (unit.buildProgress >= 1) {
-      const weapon = data.getUnitTypeData(unit.unitType).weapons[0];
-      if (weapon) {
-        const weaponUpgradeDamage = weapon.damage + (unit.attackUpgradeLevel * dataService.getUpgradeBonus(unit.alliance, weapon.damage));
-        const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnitTypes);
-        const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(unit.alliance) + weaponBonusDamage;
-        const weaponSplashDamage = calculateSplashDamage(units, unit.unitType, enemyUnitTypes);
-        const weaponDPS = (weaponDamage * weapon.attacks * weaponSplashDamage) / weapon.speed;
-        dPSHealth = weaponDPS * (unit.health + unit.shield);
+    // if unit.unitType is an ADEPTPHASESHIFT, use values of ADEPT assigned to it
+    let { alliance, unitType } = unit;
+    unitType = unitType !== UnitType.ADEPTPHASESHIFT ? unitType : ADEPT;
+    const weapon = data.getUnitTypeData(unitType).weapons[0];
+    unit = getUnitForDPSCalculation(resources, unit);
+    if (weapon) {
+      let healthAndShield = 0;
+      if (unit && unit.buildProgress >= 1) {
+        healthAndShield = unit.health + unit.shield;
       } else {
-        // if no weapon, ignore
+        const unitTypeData = getUnitTypeData(units, unitType);
+        if (unitTypeData) {
+          const { healthMax, shieldMax } = unitTypeData;
+          healthAndShield = healthMax + shieldMax;
+        }
       }
-    } else {
-      // if not finished, ignore
+      dPSHealth = calculateWeaponDPS(world, weapon, unitType, alliance, enemyUnitTypes) * healthAndShield;
     }
     return dPSHealth;
   },
@@ -403,9 +409,9 @@ const worldService = {
    * @param {World} world 
    * @param {UnitTypeId} unitType
    * @param {Alliance} alliance
-   * @param {Unit[]} enemyUnits 
+   * @param {UnitTypeId[]} enemyUnitTypes
    */
-  getDPSHealthOfTrainingUnit: (world, unitType, alliance, enemyUnits) => {
+  getDPSHealthOfTrainingUnit: (world, unitType, alliance, enemyUnitTypes) => {
     const { data, resources } = world;
     const { units } = resources.get();
     let dPSHealth = 0;
@@ -414,12 +420,7 @@ const worldService = {
       const unitTypeData = getUnitTypeData(units, unitType);
       if (unitTypeData) {
         const { healthMax, shieldMax } = unitTypeData;
-        const weaponUpgradeDamage = weapon.damage + (getAttackUpgradeLevel(alliance) * dataService.getUpgradeBonus(alliance, weapon.damage));
-        const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnits.map(enemyUnit => enemyUnit.unitType));
-        const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(alliance) + weaponBonusDamage;
-        const weaponSplashDamage = calculateSplashDamage(units, unitType, enemyUnits.map(enemyUnit => enemyUnit.unitType));
-        const weaponDPS = (weaponDamage * weapon.attacks * weaponSplashDamage) / weapon.speed;
-        dPSHealth = weaponDPS * (healthMax + shieldMax);
+        dPSHealth = calculateWeaponDPS(world, weapon, unitType, alliance, enemyUnitTypes) * (healthMax + shieldMax);
         dPSHealth = unitType === UnitType.ZERGLING ? dPSHealth * 2 : dPSHealth;
       }
     }
@@ -493,7 +494,7 @@ const worldService = {
     const trainingUnitTypes = worldService.getTrainingUnitTypes(world);
     const { enemyCombatUnits } = enemyTrackingService;
     return trainingUnitTypes.reduce((totalDPSHealth, unitType) => {
-      return totalDPSHealth + worldService.getDPSHealthOfTrainingUnit(world, unitType, Alliance.SELF, enemyCombatUnits);
+      return totalDPSHealth + worldService.getDPSHealthOfTrainingUnit(world, unitType, Alliance.SELF, enemyCombatUnits.map(enemyUnit => enemyUnit.unitType));
     }, 0);
   },
   /**
@@ -885,6 +886,7 @@ const worldService = {
    * @returns {void}
    */
   setSelfDPSHealthPower: (world, units, enemyUnits) => {
+    // get array of unique unitTypes from enemyUnits
     const { resources } = world;
     units.forEach(unit => {
       unit['selfUnits'] = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
@@ -1128,7 +1130,7 @@ function isSafePositionFromTarget(map, unit, targetUnit, point) {
   }
   const weaponRange = weapon.range;
   const distanceToTarget = distance(point, targetUnit.pos);
-  const movementSpeed = getEnemyMovementSpeed(targetUnit);
+  const movementSpeed = getMovementSpeed(targetUnit);
   return distanceToTarget > weaponRange + unit.radius + targetUnit.radius + movementSpeed;
 }
 /**
@@ -1176,4 +1178,69 @@ function getRetreatCandidates(world, unit, targetUnit) {
     }
   });
 }
-
+/**
+ * 
+ * @param {World} world 
+ * @param {SC2APIProtocol.Weapon} weapon 
+ * @param {UnitTypeId} unitType
+ * @param {Alliance} alliance
+ * @param {UnitTypeId[]} enemyUnitTypes 
+ * @returns {number}
+ */
+function calculateWeaponDPS(world, weapon, unitType, alliance, enemyUnitTypes) {
+  const { data, resources } = world;
+  const { units } = resources.get();
+  const weaponUpgradeDamage = weapon.damage + (getAttackUpgradeLevel(alliance) * dataService.getUpgradeBonus(alliance, weapon.damage));
+  const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, enemyUnitTypes);
+  const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(alliance) + weaponBonusDamage;
+  const weaponSplashDamage = calculateSplashDamage(units, unitType, enemyUnitTypes);
+  return (weaponDamage * weapon.attacks * weaponSplashDamage) / weapon.speed;
+}
+/**
+ * @param {ResourceManager} resources
+ * @param {Unit} unit 
+ * @returns {Unit}
+ */
+function getUnitForDPSCalculation(resources, unit) {
+  const { units } = resources.get();
+  if (unit.unitType === UnitType.ADEPTPHASESHIFT) {
+    const label = 'ADEPT';
+    if (unit.hasLabel(label)) {
+      unit = getByTag(unit.getLabel(label));
+    } else {
+      // find the closest ADEPT that has not been assigned to unit
+      const [closestAdept] = getUnitsByAllianceAndType(unit.alliance, ADEPT).filter(adept => {
+        // return true if adept.tag does not exist in units.withLabel('ADEPT');
+        return !units.withLabel(label).some(unit => unit.labels.get(label) === adept.tag);
+      }).sort((a, b) => distanceByPath(resources, a.pos, unit.pos) - distanceByPath(resources, b.pos, unit.pos));
+      if (closestAdept) {
+        unit.labels.set(label, closestAdept.tag);
+        console.log(`${unit.unitType} ${unit.tag} assigned to ${closestAdept.unitType} ${closestAdept.tag}`);
+      }
+      return closestAdept;
+    }
+  }
+  return unit;
+}
+/**
+ * 
+ * @param {SC2APIProtocol.Alliance} alliance
+ * @param {UnitTypeId} unitType 
+ * @returns {Unit[]}
+ */
+function getUnitsByAllianceAndType(alliance, unitType) {
+  if (alliance === Alliance.SELF) {
+    return trackUnitsService.selfUnits.filter(unit => unit.unitType === unitType);
+  } else if (alliance === Alliance.ENEMY) {
+    return enemyTrackingService.mappedEnemyUnits.filter(unit => unit.unitType === unitType);
+  } else {
+    return [];
+  }
+}
+/**
+ * @param {string} tag 
+ * @returns {Unit}
+ */
+function getByTag(tag) {
+  return enemyTrackingService.mappedEnemyUnits.find(unit => unit.tag === tag);
+}

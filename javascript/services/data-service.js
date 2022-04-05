@@ -66,7 +66,7 @@ const dataService = {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
   },
   /**
-   * @param {number} alliance 
+   * @param {Alliance} alliance
    * @param {number} damage 
    * @returns {number}
    */

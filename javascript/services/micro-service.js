@@ -3,6 +3,7 @@
 
 const { ATTACK_ATTACK, HARVEST_GATHER, MOVE } = require("@node-sc2/core/constants/ability");
 const { mineralFieldTypes } = require("@node-sc2/core/constants/groups");
+const { ADEPTPHASESHIFT } = require("@node-sc2/core/constants/unit-type");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("./actions-service");
@@ -61,8 +62,12 @@ const microService = {
       targetUnit = weakestInRange || targetUnit;
       const unitCommand = {
         abilityId: ATTACK_ATTACK,
-        targetUnitTag: targetUnit.tag,
         unitTags: [unit.tag],
+      }
+      if (targetUnit.unitType === ADEPTPHASESHIFT) {
+        unitCommand.targetWorldSpacePos = targetUnit.pos;
+      } else {
+        unitCommand.targetUnitTag = targetUnit.tag;
       }
       collectedActions.push(unitCommand);
     }

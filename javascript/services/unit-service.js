@@ -5,7 +5,7 @@ const Ability = require("@node-sc2/core/constants/ability");
 const { HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
-const { ZEALOT } = require("@node-sc2/core/constants/unit-type");
+const { ZEALOT, ZERGLING } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
@@ -16,6 +16,10 @@ const unitService = {
    * @type boolean
    */
   enemyCharge: false,
+  /**
+   * @type boolean
+   */
+  enemyMetabolicBoost: false,
   /**
    * @type number
    */
@@ -60,10 +64,17 @@ const unitService = {
   /**
    * @param {Unit} unit 
    */
-  getEnemyMovementSpeed: (unit) => {
+  getMovementSpeed: (unit) => {
     let { movementSpeed } = unit.data();
-    if (unit.unitType === ZEALOT && unitService.enemyCharge) {
-      movementSpeed = 4.72 / 1.4;
+    if (unit.unitType === ZEALOT) {
+      if (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) {
+        movementSpeed = movementSpeed * 1.5
+      }
+    }
+    if (unit.unitType === ZERGLING) {
+      if (unit.alliance === Alliance.ENEMY && unitService.enemyMetabolicBoost) {
+        movementSpeed = movementSpeed * 1.6
+      }
     }
     return movementSpeed;
   },
