@@ -63,7 +63,7 @@ const planActions = {
    * @param {boolean} stepAhead
    * @returns {Promise<void>}
    */
-  build: async (world, unitType, targetCount = null, candidatePositions = [], stepAhead) => {
+  build: async (world, unitType, targetCount = null, candidatePositions = [], stepAhead = false) => {
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
     const { agent, data, resources } = world;

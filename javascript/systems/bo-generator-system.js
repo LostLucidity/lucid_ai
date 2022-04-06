@@ -61,6 +61,7 @@ module.exports = createSystem({
         if (shortOnWorkers(resources) && Math.random() > (1 / 3)) {
           await train(world, WorkerRace[agent.race]);
         }
+        data.get('earmarks').forEach((/** @type {Earmark} */ earmark) => data.settleEarmark(earmark.name));
         return;
       }
     } else if (trueFoodUsed > planService.foodMark) {
