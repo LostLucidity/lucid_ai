@@ -220,9 +220,6 @@ const armyBehavior = {
             if (getMovementSpeed(selfUnit) < getMovementSpeed(closestAttackableEnemyUnit)) {
               if (selfUnit.isMelee()) {
                 collectedActions.push(...micro(units, selfUnit, closestAttackableEnemyUnit, enemyUnits));
-                if (units.withLabel('scoutAcrossTheMap')) {
-                  console.log('Scout across the map');
-                }
               } else {
                 const enemyInAttackRange = isEnemyInAttackRange(selfUnit, closestAttackableEnemyUnit);
                 if (enemyInAttackRange) {
@@ -232,9 +229,6 @@ const armyBehavior = {
                   unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestAttackableEnemyUnit);
                   collectedActions.push(unitCommand);
                 }
-              }
-              if (units.withLabel('scoutAcrossTheMap')) {
-                console.log('collectedActions', collectedActions);
               }
             } else {
               const unitCommand = createUnitCommand(MOVE, [selfUnit]);
