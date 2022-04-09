@@ -7,8 +7,12 @@ const { createSystem } = require('@node-sc2/core');
 const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
+const { distance } = require('@node-sc2/core/utils/geometry/point');
+const { getClosestUnitByPath } = require('../helper/get-closest-by-path');
+const { shuffle } = require('../helper/utilities');
 const planService = require('../services/plan-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
+const unitResourceService = require('./unit-resource/unit-resource-service');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',
@@ -16,6 +20,12 @@ module.exports = createSystem({
   defaultOptions: {
     stepIncrement: 48,
     state: {},
+  },
+  async onGameStart(world) {
+    const { resources } = world;
+    const collectedActions = [];
+    collectedActions.push(...splitWorkers(resources));
+    return collectedActions;
   },
   async onStep(world) {
     const { resources } = world;
@@ -50,6 +60,7 @@ module.exports = createSystem({
     }
     // catch missed idle units and have them gather or mine
     const collectedActions = [];
+    collectedActions.push(...splitWorkers(resources));
     collectedActions.push(...gatherOrMineIdleGroup(world));
     await actions.sendAction(collectedActions);
   },
@@ -129,6 +140,44 @@ function gatherOrMineIdleGroup(world) {
   idleWorkers.forEach(idleWorker => {
     console.log('idle worker.orders', idleWorker.orders);
     collectedActions.push(gatherOrMine(resources, idleWorker));
+  });
+  return collectedActions;
+}
+
+/**
+ * 
+ * @param {ResourceManager} resources 
+ */
+function splitWorkers(resources) {
+  const { map, units } = resources.get();
+  const workers = units.getWorkers().filter(worker => worker.isGathering('minerals'));
+  const collectedActions = [];
+  workers.forEach(worker => {
+    const [closestBase] = getClosestUnitByPath(resources, worker.pos, units.getBases());
+    if (closestBase) {
+      const [closestExpansion] = map.getExpansions().sort((a, b) => {
+        return distance(a.townhallPosition, closestBase.pos) - distance(b.townhallPosition, closestBase.pos);
+      });
+      const { mineralFields } = closestExpansion.cluster;
+      const foundGatheringOrder = worker.orders.find(order => gatheringAbilities.includes(order.abilityId));
+      const selfTargetWorkers = workers.filter(worker => worker.orders.some(order => order.targetUnitTag === foundGatheringOrder.targetUnitTag));
+      const selfTargetWorkerCount = selfTargetWorkers.length;
+      if (selfTargetWorkerCount >= 4) {
+        const shuffledMineralFields = shuffle(mineralFields);
+        const mineralField = shuffledMineralFields.find(mineralField => {
+          const targetByCount = workers.filter(worker => {
+            return (
+              worker.orders.some(order => order.targetUnitTag === mineralField.tag) &&
+              worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.ActionRawUnitCommand} */ order) => order.targetUnitTag !== mineralField.tag)
+            );
+          });
+          return targetByCount.length <= 2;
+        });
+        const unitCommand = gatherOrMine(resources, worker, mineralField);
+        collectedActions.push(unitCommand);
+        unitResourceService.setPendingOrders(worker, unitCommand);
+      }
+    }
   });
   return collectedActions;
 }

@@ -8,7 +8,7 @@ const { getNeighbors, avgPoints, distance } = require("@node-sc2/core/utils/geom
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { getClosestPosition } = require("../../helper/get-closest");
-const { pointsOverlap, intersectionOfPoints, allPointsWithinGrid } = require("../../helper/utilities");
+const { pointsOverlap, intersectionOfPoints, allPointsWithinGrid, shuffle } = require("../../helper/utilities");
 const { getPathCoordinates } = require("../../services/path-service");
 
 const wallOffNaturalService = {
@@ -198,28 +198,6 @@ function setFoundPositions(threeByThreePositions, point, debug) {
   wallOffNaturalService.threeByThreePositions.forEach((position, index) => {
     debug.setDrawCells(`wlOfPs${index}`, cellsInFootprint(position, threeByThreeGrid).map(r => ({ pos: r })), { size: 1, cube: false });
   });
-}
-/**
- * https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
- * @param {any[]} array 
- * @returns {any[]}
- */
-function shuffle(array) {
-  let currentIndex = array.length, randomIndex;
-
-  // While there remain elements to shuffle...
-  while (currentIndex != 0) {
-
-    // Pick a remaining element...
-    randomIndex = Math.floor(Math.random() * currentIndex);
-    currentIndex--;
-
-    // And swap it with the current element.
-    [array[currentIndex], array[randomIndex]] = [
-      array[randomIndex], array[currentIndex]];
-  }
-
-  return array;
 }
 
 module.exports = wallOffNaturalService;

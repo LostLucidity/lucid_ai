@@ -77,13 +77,13 @@ const manageResources = {
    * @param {Unit} unit
    * @returns {SC2APIProtocol.ActionRawUnitCommand}
    */
-  gatherOrMine(resources, unit) {
+  gatherOrMine(resources, unit, mineralField=null) {
     const { units } = resources.get();
     if (units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1).length > 0) {
       const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
       const needyGasMine = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
       const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
-      return needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? mine(unit, needyGasMine, false) : gather(units, unit, null, false);
+      return needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? mine(unit, needyGasMine, false) : gather(units, unit, mineralField, false);
     }
   },
   /**
