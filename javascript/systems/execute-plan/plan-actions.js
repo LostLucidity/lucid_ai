@@ -5,7 +5,7 @@ const { WarpUnitAbility, UnitType, UnitTypeId, UpgradeId } = require("@node-sc2/
 const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { WARPGATE, TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
+const { WARPGATE, TECHLAB, BARRACKS, GREATERSPIRE } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
 const { countTypes } = require("../../helper/groups");
@@ -89,12 +89,7 @@ const planActions = {
             }
           } else {
             if (!stepAhead) {
-              const actions = await planActions.ability(world, data.getUnitTypeData(unitType).abilityId);
-              if (actions.length > 0) {
-                unpauseAndLog(world, UnitTypeId[unitType]);
-                addEarmark(data, data.getUnitTypeData(unitType));
-                collectedActions.push(...actions);
-              }
+              collectedActions.push(...await morphStructureAction(world, unitType));
             }
           }
           break;
@@ -125,7 +120,11 @@ const planActions = {
           break;
         }
         default:
-          collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
+          if (!stepAhead && unitType === GREATERSPIRE) {
+            collectedActions.push(...await morphStructureAction(world, unitType));
+          } else {
+            collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
+          }
       }
     }
     await actions.sendAction(collectedActions);
@@ -354,4 +353,19 @@ const planActions = {
 function getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits) {
   return canDoTypeUnits.every(unit => unit.buildProgress >= 1 || unit.buildProgress < 0.5) ? canDoTypeUnits.filter(unit => unit.addOnTag !== '0' && unit.isIdle()) : [];
 }
-module.exports = planActions;
+
+/**
+ * @param {World} world 
+ * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+ */
+async function morphStructureAction(world, unitType) {
+  const { data } = world;
+  const collectedActions = [];
+  const actions = await planActions.ability(world, data.getUnitTypeData(unitType).abilityId);
+  if (actions.length > 0) {
+    unpauseAndLog(world, UnitTypeId[unitType]);
+    addEarmark(data, data.getUnitTypeData(unitType));
+    collectedActions.push(...actions);
+  }
+  return collectedActions;
+}
