@@ -84,14 +84,15 @@ module.exports = {
           });
         } else {
           const unitCommand = createUnitCommand(MOVE, [unit]);
+          const distanceEnemyToRally = distanceByPath(resources, closestEnemyUnit.pos, combatRallyPosition);
           const enemyOutOfRangeButCloserToRally = (
-            distanceByPath(resources, closestEnemyUnit.pos, combatRallyPosition) > 16 &&
-            distanceByPath(resources, unit.pos, combatRallyPosition) >= distanceByPath(resources, closestEnemyUnit.pos, combatRallyPosition)
+            distanceEnemyToRally > 16 &&
+            distanceByPath(resources, unit.pos, combatRallyPosition) >= distanceEnemyToRally
           );
           if (enemyOutOfRangeButCloserToRally) {
-            unitCommand.targetWorldSpacePos = combatRallyPosition;
-          } else {
             unitCommand.targetWorldSpacePos = retreat(world, unit, closestEnemyUnit, false);
+          } else {
+            unitCommand.targetWorldSpacePos = combatRallyPosition;
           }
           collectedActions.push(unitCommand);
         }
