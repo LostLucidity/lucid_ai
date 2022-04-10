@@ -145,9 +145,22 @@ const worldService = {
    * @returns {number}
    */
   calculateNearDPSHealth: (world, units, enemyUnitTypes) => {
+    const { resources } = world;
+    const { map } = resources.get();
     return units.reduce((accumulator, unit) => {
-      if (unit.isWorker() && unit.isHarvesting() && !unit.labels.has('retreating') && !unit.labels.has('defending')) {
-        return accumulator;
+      if (unit.isWorker()) {
+        if (unit.alliance === Alliance.SELF) {
+          if (unit.isHarvesting() && !unit.labels.has('retreating') && !unit.labels.has('defending')) {
+            return accumulator;
+          }
+        } else if (unit.alliance === Alliance.ENEMY) {
+          const closestExpansion = map.getExpansions().sort((a, b) => distance(a.townhallPosition, unit.pos) - distance(b.townhallPosition, unit.pos))[0];
+          if (pointsOverlap(closestExpansion.areas.mineralLine, [unit.pos])) {
+            return accumulator;
+          }
+        } else {
+          return accumulator + worldService.getDPSHealth(world, unit, enemyUnitTypes);
+        }
       } else {
         return accumulator + worldService.getDPSHealth(world, unit, enemyUnitTypes);
       }
@@ -292,7 +305,8 @@ const worldService = {
               const cornerGrids = wallOffNaturalService.wall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), wallOffNaturalService.wall).length === 1);
               const wallRadius = distance(cornerGrids[0], cornerGrids[1]) / 2;
               wallOffPositions.push(...gridsInCircle(avgPoints(wallOffNaturalService.wall), wallRadius, { normalize: true }).filter(grid => {
-                let existsAndPlaceable = existsInMap(map, grid) && map.isPlaceable(grid);
+                const footprint = cellsInFootprint(createPoint2D(grid), getFootprint(unitType));
+                let existsAndPlaceable = existsInMap(map, grid) && map.isPlaceable(grid) && pointsOverlap([...footprint], [...placements]) && !pointsOverlap([...footprint], [...currentlyEnrouteConstructionGrids]);
                 if (units.getById(wallOffUnitTypes).length === 2) {
                   const foundThirdWallPosition = getThirdWallPosition(units.getById(wallOffUnitTypes), grid, unitType);
                   return existsAndPlaceable && foundThirdWallPosition;
