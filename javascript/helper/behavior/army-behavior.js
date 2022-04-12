@@ -270,7 +270,7 @@ const armyBehavior = {
               collectedActions.push(unitCommand);
             }
           } else {
-            setRecruitToBattleLabel(selfUnit, attackablePosition)
+            setRecruitToBattleLabel(selfUnit, attackablePosition);
             if (canAttack(resources, selfUnit, closestAttackableEnemyUnit)) {
               if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit)); }
               else {
@@ -462,11 +462,12 @@ function groupUnits(units, mainCombatTypes, supportUnitTypes) {
 function setRecruitToBattleLabel(unit, position) {
   unit['selfUnits'].forEach((/** @type {Unit} */ selfUnit) => {
     if (distance(selfUnit.pos, position) > 16) {
-      if (selfUnit.isWorker() && selfUnit.isHarvesting() && !selfUnit.labels.has('retreating')) {
-        return;
-      } else {
-        selfUnit.labels.set('recruitToBattle', position);
+      if (selfUnit.isWorker()) {
+        if (selfUnit.isHarvesting() || selfUnit.isConstructing() || selfUnit.labels.has('retreating')) {
+          return;
+        }
       }
+      selfUnit.labels.set('recruitToBattle', position);
     }
   });
 }
