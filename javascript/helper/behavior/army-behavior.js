@@ -217,7 +217,7 @@ const armyBehavior = {
             console.log(selfOverEnemyDPSHealth, distanceFromEnemy, selfOverEnemyUnitType);
           }
           if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth) {
-            if (getMovementSpeed(selfUnit) < getMovementSpeed(closestAttackableEnemyUnit)) {
+            if (getMovementSpeed(selfUnit) < getMovementSpeed(closestAttackableEnemyUnit) && closestAttackableEnemyUnit.unitType !== ADEPTPHASESHIFT) {
               if (selfUnit.isMelee()) {
                 collectedActions.push(...micro(units, selfUnit, closestAttackableEnemyUnit, enemyUnits));
               } else {
