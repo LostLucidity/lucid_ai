@@ -50,7 +50,7 @@ const planService = {
     return planService.legacyPlan.find(order => Number.isInteger(order[0]) && order[0] > foodUsed);
   },
   rallies: [],
-  scouting: [],
+  scouts: [],
   /** @type {number[]} */
   trainingTypes: [],
   /** @type {{}} */

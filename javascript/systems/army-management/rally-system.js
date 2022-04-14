@@ -21,7 +21,7 @@ module.exports = createSystem({
       const combatUnits = units.getCombatUnits().filter(unit => { 
         return (
           !unit.labels.get('harasser') && 
-          ![...unit.labels.keys()].some(key => { key.includes('scout') })
+          ![...unit.labels.keys()].some(key => key.includes('scout'))
         )
       });
       let rallyPoint = getCombatRally(resources);
