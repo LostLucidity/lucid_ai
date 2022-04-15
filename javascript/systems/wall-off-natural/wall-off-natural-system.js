@@ -2,23 +2,32 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
+const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getClosestPosition } = require("../../helper/get-closest");
 const { distanceByPath } = require("../../helper/get-closest-by-path");
 const { existsInMap } = require("../../helper/location");
-const { intersectionOfPoints } = require("../../helper/utilities");
+const { intersectionOfPoints, pointsOverlap } = require("../../helper/utilities");
+const { getPathCoordinates } = require("../../services/path-service");
 const { setStructurePlacements } = require("./wall-off-natural-service");
 const wallOffNaturalService = require("./wall-off-natural-service");
 
 module.exports = createSystem({
   name: 'WallOffNatural',
   type: 'agent',
-  async onGameStart({ resources }) {
+  async onGameStart({ agent, resources }) {
     const { debug, map } = resources.get();
     const natural = map.getNatural();
-    const gridsToEnemy = natural.pathFromEnemy.map(path => ({ 'x': path[0], 'y': path[1] }));
-    const slicedGridsToEnemy = gridsToEnemy.slice(7, 13);
+    const pathToEnemy = map.path(map.getNatural().townhallPosition, map.getEnemyNatural().townhallPosition);
+    const coordinatesToEnemy = getPathCoordinates(pathToEnemy).filter(coordinate => {
+      const baseFootprint = getFootprint(TownhallRace[agent.race][0]);
+      const baseCells = cellsInFootprint(natural.townhallPosition, baseFootprint);
+      return !pointsOverlap([coordinate], baseCells)
+    });
+    const slicedGridsToEnemy = coordinatesToEnemy.slice(0, 13);
     debug.setDrawCells('pthTEnm', slicedGridsToEnemy.map(r => ({ pos: r })), { size: 1, cube: false });
     const rampIntoNatural = slicedGridsToEnemy.some(grid => map.isRamp(grid));
     if (rampIntoNatural) {
@@ -52,6 +61,7 @@ module.exports = createSystem({
             wallCandidates.every(candidate => distance(candidate, sortedGrid) > 1),
             !map.isPathable(sortedGrid),
             nonPathableGrids.every(nonPathableGrid => distance(nonPathableGrid, sortedGrid) >= 9 && distance(nonPathableGrid, sortedGrid) < 12),
+            getNeighbors(sortedGrid, false, false).filter(neighbor => map.isPlaceable(neighbor)).length > 0
           ].every(condition => condition)) {
             nonPathableGrids.push(sortedGrid);
           }
