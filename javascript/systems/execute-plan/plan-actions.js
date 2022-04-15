@@ -146,9 +146,9 @@ const planActions = {
         if (agent.canAfford(unitType) && !stepAhead) {
           await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, geyser.pos));
           planService.pausePlan = false;
-          setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
+          setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), geyser.pos);
         } else {
-          collectedActions.push(...premoveBuilderToPosition(world, geyser.pos, unitType));
+          collectedActions.push(...premoveBuilderToPosition(world, geyser.pos, unitType, stepAhead));
           if (!stepAhead) {
             const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
             await balanceResources(world, mineralCost / vespeneCost);
