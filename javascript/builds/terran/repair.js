@@ -15,7 +15,7 @@ module.exports = {
     } = resources.get();
     const collectedActions = [];
     // get burning structure.
-    const [ burningStructure ] = units.getStructures(structure => structure.health / structure.healthMax < 1 / 3 && structure.buildProgress);
+    const [burningStructure] = units.getStructures(structure => structure.health / structure.healthMax < 1 / 3 && structure.buildProgress >= 1);
     if (burningStructure) {
       // select worker and repair stucture
       const builders = [
@@ -42,7 +42,9 @@ module.exports = {
   repairDamagedMechUnits: (resources) => {
     const { units, } = resources.get();
     const collectedActions = [];
-    const [ damagedMechanicalUnit ] = units.getAlive(Alliance.SELF).filter(unit => unit.data().attributes.includes(Attribute.MECHANICAL) && unit.health / unit.healthMax < 1 / 3);
+    const [damagedMechanicalUnit] = units.getAlive(Alliance.SELF).filter(unit => {
+      return unit.data().attributes.includes(Attribute.MECHANICAL) && unit.health / unit.healthMax < 1 / 3 && unit.buildProgress >= 1;
+    });
     if (damagedMechanicalUnit) {
       const [closestWorker] = units.getClosest(damagedMechanicalUnit.pos, units.getWorkers()
         .filter(worker => {
