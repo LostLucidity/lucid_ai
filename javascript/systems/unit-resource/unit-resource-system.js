@@ -2,8 +2,10 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { SIEGETANKSIEGED } = require("@node-sc2/core/constants/unit-type");
+const { SIEGETANKSIEGED, SUPPLYDEPOT, SUPPLYDEPOTLOWERED } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { readUnitTypeData } = require("../../filesystem");
 const unitResourceService = require("./unit-resource-service");
 
@@ -15,9 +17,22 @@ module.exports = createSystem({
     console.log(unitResourceService.unitTypeData);
   },
   async onStep(world) {
+    const { resources } = world;
+    const { map, units } = resources.get();
     unitResourceService.seigeTanksSiegedGrids = [];
-    world.resources.get().units.getById(SIEGETANKSIEGED).forEach(unit => {
+    units.getById(SIEGETANKSIEGED).forEach(unit => {
       unitResourceService.seigeTanksSiegedGrids.push(...gridsInCircle(unit.pos, unit.radius, { normalize: true }))
+    });
+    const supplyDepots = units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]);
+    supplyDepots.forEach(supplyDepot => {
+      const cells = cellsInFootprint(supplyDepot.pos, getFootprint(supplyDepot.unitType));
+      cells.forEach(cell => {
+        if (supplyDepot.unitType === SUPPLYDEPOT) {
+          map.setPathable(cell, false);
+        } else {
+          map.setPathable(cell, true);
+        }
+      });
     });
   },
 });
