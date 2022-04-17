@@ -281,7 +281,10 @@ const armyBehavior = {
                   // get distance between selfUnit and closestAllyRangedUnitWithRightWeapon
                   const distanceBetweenUnits = distance(selfUnit.pos, closestAllyRangedUnitWithRightWeapon.pos);
                   // if distance between selfUnit and closestAllyRangedUnitWithRightWeapon is less than 16, move selfUnit into range of closestAllyRangedUnitWithRightWeapon
-                  if (distanceBetweenUnits < 16 && distanceBetweenUnits > getWeaponThatCanAttack(closestAllyRangedUnitWithRightWeapon, closestAttackableEnemyUnit).range) {
+                  if (
+                    distanceBetweenUnits < 16 &&
+                    distanceBetweenUnits > (getWeaponThatCanAttack(closestAllyRangedUnitWithRightWeapon, closestAttackableEnemyUnit).range + selfUnit.radius)
+                  ) {
                     const unitCommand = createUnitCommand(MOVE, [selfUnit]);
                     unitCommand.targetWorldSpacePos = closestAllyRangedUnitWithRightWeapon.pos;
                     collectedActions.push(unitCommand);
