@@ -1,13 +1,15 @@
 //@ts-check
 "use strict"
 
-const { UnitType } = require("@node-sc2/core/constants");
+const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getTimeInSeconds } = require("./frames-service");
 const planService = require("./plan-service");
 
 const dataService = {
+  /** @type {Map<number, number>} */
+  unitTypeTrainingAbilities: new Map(),
   /**
    * 
    * @param {World['data']} data 
@@ -109,6 +111,15 @@ const dataService = {
       unit['selfSupply'] = dataService.calculateNearSupply(data, unit['selfUnits']);
     });
   },
+  /**
+   * @param {DataStorage} data 
+   */
+  setUnitTypeTrainingAbilityMapping: (data) => {
+    Array.from(Object.values(UnitType)).forEach(unitTypeId => {
+      dataService.unitTypeTrainingAbilities.set(data.getUnitTypeData(unitTypeId).abilityId, unitTypeId);
+      WarpUnitAbility[unitTypeId] && (dataService.unitTypeTrainingAbilities.set(WarpUnitAbility[unitTypeId], unitTypeId));
+    });
+  }
 }
 
 module.exports = dataService

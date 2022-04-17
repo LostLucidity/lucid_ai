@@ -2,7 +2,7 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { Upgrade, UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
+const { Upgrade, UnitType } = require("@node-sc2/core/constants");
 const { Attribute, Alliance, Race } = require("@node-sc2/core/constants/enums");
 const { townhallTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
@@ -20,6 +20,8 @@ const { v4: uuidv4 } = require('uuid');
 let unitTypeAbilities = [];
 let upgradeAbilities = [];
 module.exports = createSystem({
+  name: 'BoGeneratorSystem',
+  type: 'agent',
   async onGameStart(world) {
     const { agent, data } = world;
     const { race } = agent;
@@ -30,10 +32,6 @@ module.exports = createSystem({
     // create a uuid
     planService.uuid = uuidv4();
     planService.mineralThreshold = race === Race.ZERG ? 300 : 400;
-    Array.from(Object.values(UnitType)).forEach(unitTypeId => {
-      unitTypeAbilities[data.getUnitTypeData(unitTypeId).abilityId.toString()] = unitTypeId;
-      WarpUnitAbility[unitTypeId] && (unitTypeAbilities[WarpUnitAbility[unitTypeId].toString()] = unitTypeId);
-    });
     Array.from(Object.values(Upgrade)).forEach(upgrade => {
       upgradeAbilities[data.getUpgradeData(upgrade).abilityId.toString()] = upgrade;
     });

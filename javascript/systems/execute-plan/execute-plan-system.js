@@ -4,6 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
+const { setUnitTypeTrainingAbilityMapping } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
 const sharedService = require("../../services/shared-service");
 const { runPlan } = require("./plan-actions");
@@ -11,6 +12,10 @@ const { runPlan } = require("./plan-actions");
 module.exports = createSystem({
   name: 'ExecutePlanSystem',
   type: 'agent',
+  async onGameStart(world) {
+    const { data } = world;
+    setUnitTypeTrainingAbilityMapping(data);
+  },
   async onStep(world) {
     const { data, resources } = world;
     const { units } = resources.get();

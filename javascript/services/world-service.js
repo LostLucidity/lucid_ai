@@ -727,25 +727,36 @@ const worldService = {
     if (builder) {
       // get speed, distance and average collection rate
       const { movementSpeed } = builder.data();
-      let distanceToPosition = distanceByPath(resources, builder.pos, position);
+      let builderDistanceToPosition = distanceByPath(resources, builder.pos, position);
+      let timeToPosition = builderDistanceToPosition / movementSpeed;
       let rallyBase = false;
+      let buildTimeLeft = 0;
       if (stepAhead) {
-        const [closestBaseByPath] = getClosestUnitByPath(resources, position, resources.get().units.getBases())
+        const completedBases = units.getBases().filter(base => base.buildProgress >= 1);
+        const [closestBaseByPath] = getClosestUnitByPath(resources, position, completedBases);
         if (closestBaseByPath) {
           const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
           const [pathableStructurePosition] = getClosestPositionByPath(resources, position, pathablePositions);
-          const distanceOfBaseToPosition = distanceByPath(resources, pathableStructurePosition, position);
-          rallyBase = distanceToPosition > distanceOfBaseToPosition ? true : false;
-          distanceToPosition = rallyBase ? distanceOfBaseToPosition : distanceToPosition;
+          const baseDistanceToPosition = distanceByPath(resources, pathableStructurePosition, position);
+          // check if closestBaseByPath is training a worker
+          const { unitTypeTrainingAbilities } = dataService;
+          const workerCurrentlyTraining = closestBaseByPath.orders.findIndex(order => workerTypes.includes(unitTypeTrainingAbilities.get(order.abilityId))) === 0;
+          if (workerCurrentlyTraining) {
+            const { buildTime } = data.getUnitTypeData(WorkerRace[agent.race]);
+            const { progress } = closestBaseByPath.orders[0];
+            buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * progress));
+            let baseTimeToPosition = (baseDistanceToPosition / movementSpeed) + buildTimeLeft;
+            rallyBase = timeToPosition > baseTimeToPosition ? true : false;
+            timeToPosition = rallyBase ? baseTimeToPosition : timeToPosition;
+          }
         }
       }
       const unitCommand = builder ? createUnitCommand(MOVE, [builder]) : {};
       const { collectionRateMinerals } = frame.getObservation().score.scoreDetails;
-      const timeToPosition = distanceToPosition / movementSpeed;
       addEarmark(data, data.getUnitTypeData(unitType));
       const mineralsLeft = data.getEarmarkTotals('stepAhead').minerals - agent.minerals;
       const timeToTargetCost = mineralsLeft / (collectionRateMinerals / 60);
-      if (shouldPremoveNow(world, timeToTargetCost, timeToPosition)) {
+      if (shouldPremoveNow(world, timeToTargetCost, timeToPosition) && buildTimeLeft <= timeToPosition) {
         if (rallyBase) {
           collectedActions.push(...rallyWorkerToTarget(world, position));
         } else {
@@ -976,7 +987,7 @@ function shouldPremoveNow(world, timeToTargetCost, timeToPosition) {
       // if there are more than one pylon or no pylon, then no need to calculate time to finish
     }
   }
-  return timeToTargetCost > 0 && willHaveEnoughMineralsByArrival;
+  return willHaveEnoughMineralsByArrival;
 }
 /**
  * @param {DataStorage} data
