@@ -10,6 +10,7 @@ const { gatherOrMine } = require("../systems/manage-resources");
 const plans = require("./plans");
 const sharedService = require("../services/shared-service");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
+const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
 
 let assemblePlan = null;
 let longestTime = 0;
@@ -30,7 +31,8 @@ const entry = createSystem({
     assemblePlan.onEnemyFirstSeen(seenEnemyUnit);
   },
   async onGameStart(world) {
-    const { map, frame } = world.resources.get();
+    const { data, resources } = world;
+    const { map, frame } = resources.get();
     console.log('frame.getGameInfo().playerInfo', frame.getGameInfo().playerInfo);
     console.log('Natural Wall:', !!map.getNatural().getWall());
     console.log('Backup Wall', wallOffNaturalService.wall.length > 0);
@@ -42,6 +44,7 @@ const entry = createSystem({
     // load build
     assemblePlan = new AssemblePlan(plan);
     assemblePlan.onGameStart(world);
+    setUnitTypeTrainingAbilityMapping(data);
   },
   async onStep(world) {
     const { units } = world.resources.get();
