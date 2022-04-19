@@ -23,7 +23,7 @@ const enemyTrackingService = require("../../systems/enemy-tracking/enemy-trackin
 const { moveAwayPosition } = require("../../services/position-service");
 const { getMovementSpeed } = require("../../services/unit-service");
 const worldService = require("../../services/world-service");
-const { distanceTraveledPerStep } = require("../../services/frames-service");
+const { travelDistancePerStep } = require("../../services/frames-service");
 
 const armyBehavior = {
   /**
@@ -242,7 +242,7 @@ const armyBehavior = {
                     // get enemy weapon that can hit ground units
                     const foundEnemyWeapon = getWeaponThatCanAttack(closestArmedEnemyUnit, selfUnit);
                     if (foundEnemyWeapon) {
-                      const bufferDistance = foundEnemyWeapon.range + selfUnit.radius + closestArmedEnemyUnit.radius + distanceTraveledPerStep(frame, closestArmedEnemyUnit);
+                      const bufferDistance = foundEnemyWeapon.range + selfUnit.radius + closestArmedEnemyUnit.radius + travelDistancePerStep(closestArmedEnemyUnit);
                       if ((bufferDistance) < distance(selfUnit.pos, closestArmedEnemyUnit.pos)) {
                         collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit));
                         return;
@@ -274,19 +274,18 @@ const armyBehavior = {
             if (canAttack(resources, selfUnit, closestAttackableEnemyUnit)) {
               if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit)); }
               else {
-                // if ally ranged unit that can attack ground within 16 distance of melee selfUnit, move melee unit into ally range.
-                const [closestAllyRangedUnitWithRightWeapon] = units.getClosest(selfUnit.pos, selfUnit['selfUnits']
+                const [rangedUnitAlly] = units.getClosest(selfUnit.pos, selfUnit['selfUnits']
                   .filter((/** @type {Unit} */ unit) => unit.data().weapons.some(w => w.range > 1) && getWeaponThatCanAttack(unit, closestAttackableEnemyUnit) !== undefined));
-                if (closestAllyRangedUnitWithRightWeapon) {
-                  // get distance between selfUnit and closestAllyRangedUnitWithRightWeapon
-                  const distanceBetweenUnits = distance(selfUnit.pos, closestAllyRangedUnitWithRightWeapon.pos);
-                  // if distance between selfUnit and closestAllyRangedUnitWithRightWeapon is less than 16, move selfUnit into range of closestAllyRangedUnitWithRightWeapon
+                if (rangedUnitAlly) {
+                  const distanceBetweenUnits = distance(selfUnit.pos, rangedUnitAlly.pos);
+                  const rangedAllyEdgeDistance = distance(rangedUnitAlly.pos, closestAttackableEnemyUnit.pos) - rangedUnitAlly.radius - closestAttackableEnemyUnit.radius;
+                  const weaponRange = getWeaponThatCanAttack(rangedUnitAlly, closestAttackableEnemyUnit).range + selfUnit.radius;
                   if (
                     distanceBetweenUnits < 16 &&
-                    distanceBetweenUnits > (getWeaponThatCanAttack(closestAllyRangedUnitWithRightWeapon, closestAttackableEnemyUnit).range + selfUnit.radius)
+                    rangedAllyEdgeDistance > weaponRange + travelDistancePerStep(rangedUnitAlly)
                   ) {
                     const unitCommand = createUnitCommand(MOVE, [selfUnit]);
-                    unitCommand.targetWorldSpacePos = closestAllyRangedUnitWithRightWeapon.pos;
+                    unitCommand.targetWorldSpacePos = rangedUnitAlly.pos;
                     collectedActions.push(unitCommand);
                   } else {
                     const unitCommand = createUnitCommand(ATTACK_ATTACK, [selfUnit]);
