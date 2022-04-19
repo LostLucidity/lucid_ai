@@ -25,13 +25,14 @@ module.exports = createSystem({
   async onGameStart(world) {
     const { agent, data } = world;
     const { race } = agent;
-    unitTypeAbilities = [];
     upgradeAbilities = [];
     planService.plan = [];
     planService.bogIsActive = true;
     // create a uuid
     planService.uuid = uuidv4();
-    planService.mineralThreshold = race === Race.ZERG ? 300 : 400;
+    planService.mineralMaxThreshold = race === Race.ZERG ? 300 : 400;
+    planService.mineralMinThreshold = 100;
+    setUnitTypeTrainingAbilityMapping(data);
     Array.from(Object.values(Upgrade)).forEach(upgrade => {
       upgradeAbilities[data.getUpgradeData(upgrade).abilityId.toString()] = upgrade;
     });
@@ -41,13 +42,15 @@ module.exports = createSystem({
   async onStep(world) {
     const { agent, data, resources } = world;
     const { map, units } = resources.get();
-    const { mineralThreshold } = planService;
+    const { mineralMaxThreshold, mineralMinThreshold } = planService;
     sharedService.removePendingOrders(units);
     // starting at 12 food, while at current food, 1/3 chance of action else build drone and increment food by 1
     await runPlan(world);
     const trueFoodUsed = getFoodUsed(world)
+    // decide worker training when minerals greater then mineralMinThreshold and less then mineralMaxThreshold
+    const decideWorkerTraining = agent.minerals > mineralMinThreshold && agent.minerals < mineralMaxThreshold;
     if (trueFoodUsed === planService.foodMark) {
-      if (agent.minerals < mineralThreshold) {
+      if (decideWorkerTraining) {
         if (shortOnWorkers(resources) && Math.random() > (1 / 3)) {
           await train(world, WorkerRace[agent.race]);
           planService.foodMark++
@@ -55,7 +58,7 @@ module.exports = createSystem({
         return;
       }
     } else if (trueFoodUsed < planService.foodMark) {
-      if (agent.minerals < mineralThreshold) {
+      if (decideWorkerTraining) {
         if (shortOnWorkers(resources) && Math.random() > (1 / 3)) {
           await train(world, WorkerRace[agent.race]);
         }
@@ -66,7 +69,7 @@ module.exports = createSystem({
       planService.foodMark = trueFoodUsed;
       return;
     }
-    if (planService.continueBuild) {
+    if (agent.minerals > mineralMaxThreshold && planService.continueBuild) {
       const allAvailableAbilities = new Map();
       units.getAlive(Alliance.SELF).forEach(unit => {
         // get all available abilities of non-structure units, idle structures or from reactors with only one order
