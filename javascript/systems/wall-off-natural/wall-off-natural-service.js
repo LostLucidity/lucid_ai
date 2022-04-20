@@ -162,12 +162,14 @@ const wallOffNaturalService = {
       // shuffle and sort wallToTownhallPointsWithNeighborsMapped by shortest workingWall length
       const wallToTownhallPointsWithNeighborsMappedSorted = shuffle(wallToTownhallPointsWithNeighborsMapped).sort((a, b) => a.workingWall.length - b.workingWall.length);
       // pick the first one
-      const { point, threeByThreePositions } = wallToTownhallPointsWithNeighborsMappedSorted[0];
-      if (threeByThreePositions.length === 3) {
-        setFoundPositions(threeByThreePositions, point, debug);
-        break;
-      } else {
-        setFoundPositions(threeByThreePositions, point, debug);
+      if (wallToTownhallPointsWithNeighborsMappedSorted.length > 0) {
+        const { point, threeByThreePositions } = wallToTownhallPointsWithNeighborsMappedSorted[0];
+        if (threeByThreePositions.length === 3) {
+          setFoundPositions(threeByThreePositions, point, debug);
+          break;
+        } else {
+          setFoundPositions(threeByThreePositions, point, debug);
+        }
       }
     }
   }
