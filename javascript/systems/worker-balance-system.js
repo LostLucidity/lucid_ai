@@ -8,9 +8,9 @@ const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
-const { getClosestUnitByPath } = require('../helper/get-closest-by-path');
 const { shuffle } = require('../helper/utilities');
 const planService = require('../services/plan-service');
+const { getClosestUnitByPath } = require('../services/resources-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
 const unitResourceService = require('./unit-resource/unit-resource-service');
 

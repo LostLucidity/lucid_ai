@@ -1,7 +1,9 @@
 //@ts-check
 "use strict"
 
-const { add, distance } = require("@node-sc2/core/utils/geometry/point");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { getPathCoordinates } = require("../services/path-service");
+const { getUnitCornerPosition } = require("../services/unit-service");
 
 module.exports = {
   /**
@@ -17,7 +19,17 @@ module.exports = {
       const calculatedZeroPath = map.path(position, targetPosition).length === 0;
       const isZeroPathDistance = calculatedZeroPath && distance(position, targetPosition) <= 2 ? true : false;
       const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
-      const pathLength = isZeroPathDistance ? 0 : isNotPathable ? Infinity : map.path(position, targetPosition).length;
+      // get totalDistanceOfPathCoordinates by sequencially adding the distances of each coordinate
+      const { totalDistance } = getPathCoordinates(map.path(position, targetPosition)).reduce((acc, curr) => {
+        return {
+          totalDistance: acc.totalDistance + distance(curr, acc.previousPosition),
+          previousPosition: curr
+        }
+      }, {
+        totalDistance: 0,
+        previousPosition: position
+      });
+      const pathLength = isZeroPathDistance ? 0 : isNotPathable ? Infinity : totalDistance;
       return pathLength;
     } catch (error) {
       return Infinity;
@@ -36,23 +48,5 @@ module.exports = {
       .sort((a, b) => a.distance - b.distance)
       .map(pointObject => pointObject.point)
       .slice(0, n);
-  },
-  /**
-   * 
-   * @param {ResourceManager} resources 
-   * @param {Point2D} position 
-   * @param {Unit[]} units 
-   * @param {number} n 
-   * @returns {Unit[]}
-   */
-  getClosestUnitByPath: (resources, position, units, n = 1) => {
-    return units.map(unit => ({ unit, distance: module.exports.distanceByPath(resources, add(unit.pos, unit.radius), position) }))
-      .sort((a, b) => a.distance - b.distance)
-      .map(u => u.unit)
-      .slice(0, n);
   }
-}
-
-function getUnitCornerPosition(unit) {
-  return add(unit.pos, unit.radius);
 }

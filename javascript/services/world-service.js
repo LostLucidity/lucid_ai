@@ -27,7 +27,7 @@ const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/cons
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { distanceByPath, getClosestUnitByPath, getClosestPositionByPath } = require("../helper/get-closest-by-path");
+const { distanceByPath, getClosestPositionByPath } = require("../helper/get-closest-by-path");
 const { rallyWorkerToTarget } = require("./resource-manager-service");
 const { getPathablePositionsForStructure } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
@@ -46,6 +46,7 @@ const path = require('path');
 const foodUsedService = require('./food-used-service');
 const { keepPosition } = require('./placement-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
+const { getClosestUnitByPath, getBuilder } = require('./resources-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -67,7 +68,7 @@ const worldService = {
     const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
     const collectedActions = [];
-    const builder = unitService.selectBuilder(resources, position);
+    const builder = getBuilder(resources, position);
     if (builder) {
       addEarmark(data, data.getUnitTypeData(unitType));
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
@@ -723,7 +724,7 @@ const worldService = {
     const { agent, data, resources } = world;
     const { frame, map, units } = resources.get();
     const collectedActions = [];
-    const builder = unitResourceService.selectBuilder(resources, position);
+    const builder = getBuilder(resources, position);
     if (builder) {
       // get speed, distance and average collection rate
       const { movementSpeed } = builder.data();

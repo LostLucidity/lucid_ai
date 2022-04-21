@@ -6,7 +6,7 @@ const { HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
 const { ZEALOT, ZERGLING } = require("@node-sc2/core/constants/unit-type");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { distance, add } = require("@node-sc2/core/utils/geometry/point");
 const { setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const planService = require("./plan-service");
@@ -60,6 +60,13 @@ const unitService = {
       attackUpgradeLevel = unitService.enemyAttackUpgradeLevel;
     }
     return attackUpgradeLevel;
+  },
+  /**
+   * @param {Unit} unit 
+   * @returns {Point2D}
+   */
+  getUnitCornerPosition: (unit) => {
+    return add(unit.pos, unit.radius);
   },
   /**
    * @param {Unit} unit 

@@ -5,8 +5,8 @@ const { createSystem } = require("@node-sc2/core");
 const { EFFECT_INJECTLARVA } = require("@node-sc2/core/constants/ability");
 const { QUEENSPAWNLARVATIMER } = require("@node-sc2/core/constants/buff");
 const { LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
-const { getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { createUnitCommand } = require("../services/actions-service");
+const { getClosestUnitByPath } = require("../services/resources-service");
 const { train } = require("./execute-plan/plan-actions");
 
 module.exports = createSystem({

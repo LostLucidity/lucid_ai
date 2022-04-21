@@ -5,8 +5,8 @@ const { RALLY_BUILDING } = require("@node-sc2/core/constants/ability");
 const { Race } = require("@node-sc2/core/constants/enums");
 const { rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { EGG, DRONE } = require("@node-sc2/core/constants/unit-type");
-const { getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { createUnitCommand } = require("./actions-service");
+const { getClosestUnitByPath } = require("./resources-service");
 
 const resourceManagerService = {
   /** @type {Point2D} */

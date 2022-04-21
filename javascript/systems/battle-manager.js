@@ -8,7 +8,6 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const threats = require("../helper/base-threats");
 const { getInRangeUnits, assessBattleField, decideEngagement } = require("../helper/battle-analysis");
 const { attackWithArmy, getInRangeDestructables } = require("../helper/behavior/army-behavior");
-const { getClosestUnitByPath } = require("../helper/get-closest-by-path");
 const { getCombatRally } = require("../helper/location");
 const { scanCloakedEnemy } = require("../helper/terran");
 const fs = require('fs');
@@ -18,7 +17,7 @@ const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { getFileName } = require("../helper/get-races");
 const { larvaOrEgg } = require("../helper/groups");
 const { readFromMatchup, writeToCurrent } = require("../filesystem");
-const { getCombatPoint } = require("../services/resources-service");
+const { getCombatPoint, getClosestUnitByPath } = require("../services/resources-service");
 const { retreat } = require("../services/resource-manager-service");
 const { moveAwayPosition } = require("../services/position-service");
 

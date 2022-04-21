@@ -5,15 +5,15 @@ const { EFFECT_INJECTLARVA, BUILD_CREEPTUMOR_QUEEN, BUILD_CREEPTUMOR_TUMOR } = r
 const { QUEEN, CREEPTUMORBURROWED, CREEPTUMOR, HATCHERY, LAIR } = require("@node-sc2/core/constants/unit-type");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance, add } = require("@node-sc2/core/utils/geometry/point");
-const { getClosestPositionByPath, getClosestUnitByPath } = require("../../helper/get-closest-by-path");
+const { getClosestPositionByPath } = require("../../helper/get-closest-by-path");
 const { intersectionOfPoints } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { findPosition } = require("../../helper/placement/placement-helper");
 const { creepGenerators } = require("@node-sc2/core/constants/groups");
 const { getClosestPosition } = require("../../helper/get-closest");
 const { canBuild, getDPSHealth } = require("../../services/world-service");
-const { mappedEnemyUnits } = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { createUnitCommand } = require("../../services/actions-service");
+const { getClosestUnitByPath } = require("../../services/resources-service");
 
 module.exports = {
   labelQueens: (units) => {
