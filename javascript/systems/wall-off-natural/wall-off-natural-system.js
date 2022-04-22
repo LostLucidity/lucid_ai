@@ -27,7 +27,7 @@ module.exports = createSystem({
       const baseCells = cellsInFootprint(natural.townhallPosition, baseFootprint);
       return !pointsOverlap([coordinate], baseCells)
     });
-    const slicedGridsToEnemy = coordinatesToEnemy.slice(0, 13);
+    const slicedGridsToEnemy = coordinatesToEnemy.slice(4, 13);
     debug.setDrawCells('pthTEnm', slicedGridsToEnemy.map(r => ({ pos: r })), { size: 1, cube: false });
     const rampIntoNatural = slicedGridsToEnemy.some(grid => map.isRamp(grid));
     if (rampIntoNatural) {
