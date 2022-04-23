@@ -16,8 +16,9 @@ const { getUnitTypeCount, getFoodUsed } = require("../services/world-service");
 const { build, train, upgrade, runPlan } = require("./execute-plan/plan-actions");
 const scoutingService = require("./scouting/scouting-service");
 const { v4: uuidv4 } = require('uuid');
+const dataService = require("../services/data-service");
+const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
 
-let unitTypeAbilities = [];
 let upgradeAbilities = [];
 module.exports = createSystem({
   name: 'BoGeneratorSystem',
@@ -72,16 +73,16 @@ module.exports = createSystem({
     if (agent.minerals > mineralMaxThreshold && planService.continueBuild) {
       const allAvailableAbilities = new Map();
       units.getAlive(Alliance.SELF).forEach(unit => {
-        // get all available abilities of non-structure units, idle structures or from reactors with only one order
         if (!unit.isStructure() || unit.isIdle() || unit.hasReactor() && unit.orders.length === 1) {
           const availableAbilities = unit.availableAbilities();
           availableAbilities.forEach(ability => {
             if (!allAvailableAbilities.has(ability)) {
-              if (Object.keys(unitTypeAbilities).some(unitTypeAbility => parseInt(unitTypeAbility) === ability)) {
-                // make sure unitTypeData for ability has unitAlias value of 0
-                const unitTypeData = data.getUnitTypeData(unitTypeAbilities[ability]);
+              const unitTypeTrainingAbilities = dataService.unitTypeTrainingAbilities;
+              unitTypeTrainingAbilities.entries()
+              if (Array.from(unitTypeTrainingAbilities.keys()).some(unitTypeAbility => unitTypeAbility === ability)) {
+                const unitTypeData = data.getUnitTypeData(unitTypeTrainingAbilities.get(ability));
                 if (unitTypeData.unitAlias === 0) {
-                  allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeAbilities[ability] });
+                  allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeTrainingAbilities.get(ability) });
                 } else {
                   // ignore
                 }
