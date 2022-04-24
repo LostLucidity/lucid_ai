@@ -8,10 +8,10 @@ const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
-const { shuffle } = require('../helper/utilities');
 const planService = require('../services/plan-service');
 const { getClosestUnitByPath } = require('../services/resources-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
+const { gather } = require('./unit-resource/unit-resource-service');
 const unitResourceService = require('./unit-resource/unit-resource-service');
 
 module.exports = createSystem({
@@ -150,34 +150,52 @@ function gatherOrMineIdleGroup(world) {
  */
 function splitWorkers(resources) {
   const { map, units } = resources.get();
-  const workers = units.getWorkers().filter(worker => worker.isGathering('minerals'));
+  const gatheringMineralWorkers = units.getWorkers()
+    .filter(worker => worker.isGathering('minerals') || worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ order) => gatheringAbilities.includes(order.abilityId)));
   const collectedActions = [];
-  workers.forEach(worker => {
+  gatheringMineralWorkers.forEach(worker => {
     const [closestBase] = getClosestUnitByPath(resources, worker.pos, units.getBases());
     if (closestBase) {
       const [closestExpansion] = map.getExpansions().sort((a, b) => {
         return distance(a.townhallPosition, closestBase.pos) - distance(b.townhallPosition, closestBase.pos);
       });
       const { mineralFields } = closestExpansion.cluster;
-      const foundGatheringOrder = worker.orders.find(order => gatheringAbilities.includes(order.abilityId));
-      const selfTargetWorkers = workers.filter(worker => worker.orders.some(order => order.targetUnitTag === foundGatheringOrder.targetUnitTag));
-      const selfTargetWorkerCount = selfTargetWorkers.length;
-      if (selfTargetWorkerCount >= 4) {
-        const shuffledMineralFields = shuffle(mineralFields);
-        const mineralField = shuffledMineralFields.find(mineralField => {
-          const targetByCount = workers.filter(worker => {
-            return (
-              worker.orders.some(order => order.targetUnitTag === mineralField.tag) &&
-              worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.ActionRawUnitCommand} */ order) => order.targetUnitTag !== mineralField.tag)
-            );
-          });
-          return targetByCount.length <= 2;
+      const mineralFieldCounts = mineralFields.map(mineralField => {
+        const targetMineralFieldWorkers = gatheringMineralWorkers.filter(worker => {
+          const foundOrder = findGatheringOrder(units, worker);
+          return foundOrder && foundOrder.targetUnitTag === mineralField.tag;
         });
-        const unitCommand = gatherOrMine(resources, worker, mineralField);
-        collectedActions.push(unitCommand);
-        unitResourceService.setPendingOrders(worker, unitCommand);
+        return { mineralFieldTag: mineralField.tag, count: targetMineralFieldWorkers.length };
+      }).sort((a, b) => a.count - b.count);
+      const currentMineralFieldTarget = findGatheringOrder(units, worker).targetUnitTag;
+      const currentMineralFieldTargetCount = mineralFieldCounts.find(({ mineralFieldTag }) => mineralFieldTag === currentMineralFieldTarget);
+      if (currentMineralFieldTargetCount && distance(worker.pos, units.getByTag(currentMineralFieldTarget).pos) > 1.62) {
+        const mineralFieldCandidates = mineralFieldCounts.filter(({ count }) => count + 1 < currentMineralFieldTargetCount.count);
+        if (mineralFieldCandidates.length > 0) {
+          const minimalCandidates = mineralFieldCandidates.filter(({ count }) => count === mineralFieldCandidates[0].count);
+          const [closestMineralField] = getClosestUnitByPath(resources, worker.pos, minimalCandidates.map(({ mineralFieldTag }) => units.getByTag(mineralFieldTag)));
+          const unitCommand = gather(units, worker, closestMineralField, false);
+          collectedActions.push(unitCommand);
+          unitResourceService.setPendingOrders(worker, unitCommand);
+        }
       }
     }
   });
   return collectedActions;
+}
+
+/**
+ * @param {UnitResource} units
+ * @param {Unit} worker
+ * @returns {SC2APIProtocol.UnitOrder}
+ */
+function findGatheringOrder(units, worker) {
+  const foundPendingOrder = worker['pendingOrders'] && worker['pendingOrders'].find((/** @type {SC2APIProtocol.ActionRawUnitCommand} */ order) => {
+    return order.targetUnitTag && units.getByTag(order.targetUnitTag).isMineralField();
+  });
+  if (foundPendingOrder) {
+    return foundPendingOrder;
+  } else {
+    return worker.orders.find(order => gatheringAbilities.includes(order.abilityId));
+  }
 }
