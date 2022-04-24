@@ -159,12 +159,9 @@ const worldService = {
           if (pointsOverlap(closestExpansion.areas.mineralLine, [unit.pos])) {
             return accumulator;
           }
-        } else {
-          return accumulator + worldService.getDPSHealth(world, unit, enemyUnitTypes);
         }
-      } else {
-        return accumulator + worldService.getDPSHealth(world, unit, enemyUnitTypes);
       }
+      return accumulator + worldService.getDPSHealth(world, unit, enemyUnitTypes);
     }, 0);
   },
   /**
