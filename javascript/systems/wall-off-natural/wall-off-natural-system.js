@@ -94,16 +94,17 @@ module.exports = createSystem({
       const shortestWallSizesMapped = shortestWallSizes.map(grid => {
         const [placeablePairOne] = getClosestPosition(grid.edgePair[1], getNeighbors(grid.edgePair[0], false).filter(grid => map.isPlaceable(grid)));
         const [placeablePairTwo] = getClosestPosition(grid.edgePair[0], getNeighbors(grid.edgePair[1], false).filter(grid => map.isPlaceable(grid)));
-        const pathOfShortestWall = map.path(placeablePairOne, placeablePairTwo, { diagonal: true, force: true }).map(path => ({ 'x': path[0], 'y': path[1] }));
-        return {
-          'x': grid.x,
-          'y': grid.y,
-          'size': grid.size,
-          'path': pathOfShortestWall,
-          'pathLength': pathOfShortestWall.length,
-        };
-      });
-
+        if (placeablePairOne && placeablePairTwo) {
+          const pathOfShortestWall = map.path(placeablePairOne, placeablePairTwo, { diagonal: true, force: true }).map(path => ({ 'x': path[0], 'y': path[1] }));
+          return {
+            'x': grid.x,
+            'y': grid.y,
+            'size': grid.size,
+            'path': pathOfShortestWall,
+            'pathLength': pathOfShortestWall.length,
+          };
+        }
+      })
       if (shortestEdgePair.length > 0) {
         const [placeablePairOne] = getClosestPosition(shortestEdgePair[1], getNeighbors(shortestEdgePair[0], false).filter(grid => map.isPlaceable(grid)));
         const [placeablePairTwo] = getClosestPosition(shortestEdgePair[0], getNeighbors(shortestEdgePair[1], false).filter(grid => map.isPlaceable(grid)));
