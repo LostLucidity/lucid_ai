@@ -8,7 +8,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { isFacing } = require("../../services/micro-service");
 const { getClosestUnitByPath } = require("../../services/resources-service");
-const { retreat } = require("../../services/world-service");
+const { retreat, getDamageDealingUnits } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
@@ -66,7 +66,7 @@ module.exports = {
     const collectedActions = [];
     const combatRallyPosition = map.getCombatRally();
     if (unit) {
-      let [closestEnemyUnit] = units.getClosest(unit.pos, enemyTrackingService.mappedEnemyUnits, 1);
+      let [closestEnemyUnit] = units.getClosest(unit.pos, getDamageDealingUnits(world, enemyTrackingService.mappedEnemyUnits), 1);
       if (
         !closestEnemyUnit ||
         distance(unit.pos, closestEnemyUnit.pos) > 16 ||

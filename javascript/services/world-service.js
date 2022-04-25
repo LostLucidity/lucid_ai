@@ -389,9 +389,18 @@ const worldService = {
     return contructionGrids;
   },
   /**
+   * @param {World} world
+   * @param {Unit[]} units
+   * @returns
+   */
+  getDamageDealingUnits: (world, units) => {
+    return units.filter((/** @type {Unit} */ unit) => worldService.getDPSHealth(world, unit, unit['selfUnits'].map((/** @type {Unit} */ unit) => unit.unitType)) > 0)
+  },
+  /**
    * @param {World} world 
    * @param {Unit} unit
    * @param {UnitTypeId[]} enemyUnitTypes 
+   * @returns {number}
    */
   getDPSHealth: (world, unit, enemyUnitTypes) => {
     const { data, resources } = world;
@@ -442,7 +451,7 @@ const worldService = {
    * @param {World} world
    */
   getFoodUsed: (world) => {
-    const { agent, resources } = world;
+    const {  agent, resources } = world;
     const { units } = resources.get();
     const { foodUsed, race } = agent;
     const pendingFoodUsed = race === Race.ZERG ? units.getWorkers().filter(worker => worker.isConstructing()).length : 0;
@@ -1106,14 +1115,6 @@ function findClosestSafePosition(resources, unit, targetUnit) {
   }
 }
 /**
- * @param {World} world
- * @param {Unit[]} units
- * @returns
- */
-function getDamageDealingUnits(world, units) {
-  return units.filter((/** @type {Unit} */ unit) => worldService.getDPSHealth(world, unit, unit['selfUnits'].map((/** @type {Unit} */ unit) => unit.unitType)) > 0)
-}
-/**
  * @param {MapResource} map
  * @param {Point2D} point
  * @returns {boolean}
@@ -1183,7 +1184,7 @@ function getRetreatCandidates(world, unit, targetUnit) {
   const expansionLocations = map.getExpansions().map((expansion) => expansion.centroid);
   return [...expansionLocations].filter((point) => {
     const positionString = `${point.x},${point.y}`;
-    const damageDealingEnemies = getDamageDealingUnits(world, targetUnit['selfUnits']);
+    const damageDealingEnemies = worldService.getDamageDealingUnits(world, targetUnit['selfUnits']);
     let [closestToRetreat] = getClosestUnitByPath(resources, point, damageDealingEnemies);
     if (closestToRetreat) {
       const closestToRetreatOrTargetUnit = closestToRetreat ? closestToRetreat : targetUnit;
