@@ -65,7 +65,7 @@ const resourcesService = {
     builderCandidates.push(...units.getWorkers().filter(worker => {
       return (
         worker.noQueue ||
-        worker.isGathering() && distance(worker.pos, units.getByTag(worker.orders[0].targetUnitTag).pos) > 1.62 ||
+        worker.isGathering() && distance(worker.pos, worker.orders[0].targetWorldSpacePos || units.getByTag(worker.orders[0].targetUnitTag).pos) > 1.62 ||
         worker.orders.findIndex(order => order.targetWorldSpacePos && (distance(order.targetWorldSpacePos, position) < 1)) > -1
       );
     }));
