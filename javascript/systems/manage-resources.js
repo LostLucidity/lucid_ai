@@ -75,6 +75,7 @@ const manageResources = {
   /**
    * @param {ResourceManager} resources
    * @param {Unit} unit
+   * @param {Unit|null} mineralField
    * @returns {SC2APIProtocol.ActionRawUnitCommand}
    */
   gatherOrMine(resources, unit, mineralField=null) {

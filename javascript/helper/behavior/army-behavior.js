@@ -198,7 +198,7 @@ const armyBehavior = {
    */
   engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { resources } = world;
-    const { frame, units } = resources.get();
+    const { units } = resources.get();
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
     const randomUnit = getRandom(selfUnits);
