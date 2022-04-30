@@ -8,6 +8,7 @@ const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
+const { getClosestExpansion } = require('../services/map-resource-service');
 const planService = require('../services/plan-service');
 const { getClosestUnitByPath } = require('../services/resources-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
@@ -24,7 +25,7 @@ module.exports = createSystem({
   async onGameStart(world) {
     const { resources } = world;
     const collectedActions = [];
-    collectedActions.push(...splitWorkers(resources));
+    collectedActions.push(...assignWorkers(resources));
     return collectedActions;
   },
   async onStep(world) {
@@ -54,13 +55,33 @@ module.exports = createSystem({
         debugSilly('chosen closest th', givingTownhall.tag);
         const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringWorkers);
         debugSilly('chosen worker', donatingWorker.tag);
-        const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, units.getMineralFields());
-        await actions.gather(donatingWorker, mineralFieldTarget, false);
+        const mineralFields = units.getMineralFields().filter(field => {
+          return (
+            (distance(field.pos, needyTownhall.pos) < 8) &&
+            (!field.labels.has('workerCount') || field.labels.get('workerCount') < 2)
+          );
+        });
+        const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, mineralFields);
+        if (mineralFieldTarget) {
+          donatingWorker.labels.set('mineralField', mineralFieldTarget);
+          if (!mineralFieldTarget.labels.has('workerCount')) {
+            mineralFieldTarget.labels.set('workerCount', 0);
+          } else {
+            mineralFieldTarget.labels.set('workerCount', mineralFieldTarget.labels.get('workerCount') + 1);
+          }
+          await actions.gather(donatingWorker, mineralFieldTarget, false);
+        } else {
+          const mineralFields = units.getMineralFields();
+          const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, mineralFields);
+          if (mineralFieldTarget) {
+            donatingWorker.labels.delete('mineralField');
+            await actions.gather(donatingWorker, mineralFieldTarget, false);
+          }
+        }
       }
     }
-    // catch missed idle units and have them gather or mine
     const collectedActions = [];
-    collectedActions.push(...splitWorkers(resources));
+    collectedActions.push(...assignWorkers(resources));
     collectedActions.push(...gatherOrMineIdleGroup(world));
     await actions.sendAction(collectedActions);
   },
@@ -147,36 +168,51 @@ function gatherOrMineIdleGroup(world) {
 /**
  * 
  * @param {ResourceManager} resources 
+ * @returns 
  */
-function splitWorkers(resources) {
+function assignWorkers(resources) {
   const { map, units } = resources.get();
-  const gatheringMineralWorkers = units.getWorkers()
-    .filter(worker => worker.isGathering('minerals') || worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ order) => gatheringAbilities.includes(order.abilityId)));
   const collectedActions = [];
+  const gatheringMineralWorkers = getGatheringWorkers(units, 'minerals');
+  // for each gathering worker, find the closest mineral field and assign it to it
+  // continue until all gathering workers are assigned with a maximum of 2 workers per mineral field
   gatheringMineralWorkers.forEach(worker => {
     const [closestBase] = getClosestUnitByPath(resources, worker.pos, units.getBases());
     if (closestBase) {
-      const [closestExpansion] = map.getExpansions().sort((a, b) => {
-        return distance(a.townhallPosition, closestBase.pos) - distance(b.townhallPosition, closestBase.pos);
-      });
+      const [closestExpansion] = getClosestExpansion(map, closestBase.pos);
       const { mineralFields } = closestExpansion.cluster;
-      const mineralFieldCounts = mineralFields.map(mineralField => {
-        const targetMineralFieldWorkers = gatheringMineralWorkers.filter(worker => {
-          const foundOrder = findGatheringOrder(units, worker);
-          return foundOrder && foundOrder.targetUnitTag === mineralField.tag;
-        });
-        return { mineralFieldTag: mineralField.tag, count: targetMineralFieldWorkers.length };
-      }).sort((a, b) => a.count - b.count);
-      const currentMineralFieldTarget = findGatheringOrder(units, worker).targetUnitTag;
-      const currentMineralFieldTargetCount = mineralFieldCounts.find(({ mineralFieldTag }) => mineralFieldTag === currentMineralFieldTarget);
-      if (currentMineralFieldTargetCount && distance(worker.pos, units.getByTag(currentMineralFieldTarget).pos) > 1.62) {
-        const mineralFieldCandidates = mineralFieldCounts.filter(({ count }) => count + 1 < currentMineralFieldTargetCount.count);
-        if (mineralFieldCandidates.length > 0) {
-          const minimalCandidates = mineralFieldCandidates.filter(({ count }) => count === mineralFieldCandidates[0].count);
-          const [closestMineralField] = getClosestUnitByPath(resources, worker.pos, minimalCandidates.map(({ mineralFieldTag }) => units.getByTag(mineralFieldTag)));
-          const unitCommand = gather(units, worker, closestMineralField, false);
+      const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
+        .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2)
+        .sort((a, b) => a.count - b.count);
+      /** @type {Unit} */
+      const assignedMineralField = worker.labels.get('mineralField');
+      if (assignedMineralField) {
+        // check if the current mineral field is still valid
+        const currentMineralField = units.getByTag(assignedMineralField.tag);
+        if (currentMineralField) {
+          // check if gathering order is targeting the current mineral field
+          // if gathering order is not targeting the current mineral field, order the worker to gather the current mineral field
+          const gatheringOrder = findGatheringOrder(units, worker);
+          if (gatheringOrder) {
+            if (gatheringOrder.targetUnitTag !== currentMineralField.tag) {
+              const unitCommand = gather(units, worker, currentMineralField, false);
+              collectedActions.push(unitCommand);
+              unitResourceService.setPendingOrders(worker, unitCommand);
+            }
+          }
+        } else {
+          // if the current mineral field is no longer valid, delete the mineral field tag from the worker
+          worker.labels.delete('mineralField');
+        }
+      } else {
+        // if the worker is not assigned to a mineral field, order the worker to gather the first mineral field
+        if (mineralFieldCounts.length > 0) {
+          const mineralField = mineralFieldCounts[0];
+          const { mineralFieldTag } = mineralField;
+          const unitCommand = gather(units, worker, units.getByTag(mineralFieldTag), false);
           collectedActions.push(unitCommand);
           unitResourceService.setPendingOrders(worker, unitCommand);
+          worker.labels.set('mineralField', units.getByTag(mineralFieldTag));
         }
       }
     }
@@ -198,4 +234,37 @@ function findGatheringOrder(units, worker) {
   } else {
     return worker.orders.find(order => gatheringAbilities.includes(order.abilityId));
   }
+}
+
+/**
+ * 
+ * @param {UnitResource} units 
+ * @param {'minerals' | 'vespene'} type 
+ * @returns 
+ */
+function getGatheringWorkers(units, type) {
+  return units.getWorkers()
+    .filter(worker => {
+      return (
+        worker.isGathering(type) ||
+        (worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ order) => gatheringAbilities.includes(order.abilityId)))
+      );
+    });
+}
+
+/**
+ * @param {UnitResource} units
+ * @param {Unit[]} mineralFields 
+ * @returns {{ mineralFieldTag: string, count: number }[]}
+ */
+function getMineralFieldAssignments(units, mineralFields) {
+  const harvestingMineralWorkers = units.getWorkers().filter(worker => worker.isHarvesting('minerals'));
+  return mineralFields.map(mineralField => {
+    const targetMineralFieldWorkers = harvestingMineralWorkers.filter(worker => {
+      const assignedMineralField = worker.labels.get('mineralField');
+      return assignedMineralField && assignedMineralField.tag === mineralField.tag;
+    });
+    mineralField.labels.set('workerCount', targetMineralFieldWorkers.length);
+    return { mineralFieldTag: mineralField.tag, count: targetMineralFieldWorkers.length };
+  })
 }

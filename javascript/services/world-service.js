@@ -29,7 +29,7 @@ const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const { distanceByPath, getClosestPositionByPath } = require("../helper/get-closest-by-path");
 const { rallyWorkerToTarget } = require("./resource-manager-service");
-const { getPathablePositionsForStructure } = require("./map-resource-service");
+const { getPathablePositionsForStructure, getClosestExpansion } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getOccupiedExpansions } = require("../helper/expansions");
@@ -155,9 +155,11 @@ const worldService = {
             return accumulator;
           }
         } else if (unit.alliance === Alliance.ENEMY) {
-          const closestExpansion = map.getExpansions().sort((a, b) => distance(a.townhallPosition, unit.pos) - distance(b.townhallPosition, unit.pos))[0];
-          if (pointsOverlap(closestExpansion.areas.mineralLine, [unit.pos])) {
-            return accumulator;
+          const [closestExpansion] = getClosestExpansion(map, unit.pos);
+          if (closestExpansion) {
+            if (pointsOverlap(closestExpansion.areas.mineralLine, [unit.pos])) {
+              return accumulator;
+            }
           }
         }
       }
