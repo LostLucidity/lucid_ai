@@ -131,12 +131,12 @@ module.exports = {
     if (unit) {
       const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, { alliance: Alliance.ENEMY }).filter(cannon => distance(cannon.pos, unit.pos) < 16);
       if (calculateTotalHealthRatio(units, unit) > 1 / 2 && !inRangeEnemyCannon) {
-        const threateningUnits = unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => {
+        const threateningUnits = unit['enemyUnits'] && unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => {
           const threateningRangedUnit = isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8
           const threateningMeleeUnit = enemyUnit.isMelee() && distance(unit.pos, enemyUnit.pos) < 4 && isFacing(unit, enemyUnit, 180 / 16);
           return (threateningRangedUnit || threateningMeleeUnit)
         });
-        if (threateningUnits.length > 1) {
+        if (threateningUnits && threateningUnits.length > 1) {
           unit.labels.set('Threatened');
           let [closestEnemyUnit] = units.getClosest(unit.pos, unit['enemyUnits'], 1);
           // retreat to farthest empty expansion that is closer to the unit than the enemy unit
