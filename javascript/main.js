@@ -208,6 +208,7 @@ async function runGame() {
     loggingSystem,
     mulingSystem,
     setRallySystem,
+    unitResourceSystem,
   ];
   const bogSystems = [
     boGeneratorSystem,
@@ -216,6 +217,8 @@ async function runGame() {
     attackSystem,
     manageSupplySystem,
     injectorSystem,
+    workerTrainingSystem,
+    runBehaviorsSystem,
   ];
   bot1.use(legacySystems);
   // bot1.use(updatedSystems);
