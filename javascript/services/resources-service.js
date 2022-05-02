@@ -65,7 +65,7 @@ const resourcesService = {
     builderCandidates.push(...units.getWorkers().filter(worker => {
       return (
         worker.noQueue ||
-        worker.isGathering() && distance(worker.pos, worker.orders[0].targetWorldSpacePos || units.getByTag(worker.orders[0].targetUnitTag).pos) > 1.62 ||
+        worker.isGathering() && getOrderTargetPosition(units, worker) && distance(worker.pos, getOrderTargetPosition(units, worker)) > 1.62 ||
         worker.orders.findIndex(order => order.targetWorldSpacePos && (distance(order.targetWorldSpacePos, position) < 1)) > -1
       );
     }));
@@ -95,3 +95,12 @@ const resourcesService = {
 }
 
 module.exports = resourcesService;
+
+/**
+ * @param {UnitResource} units
+ * @param {Unit} worker 
+ * @returns {Point2D|undefined}
+ */
+function getOrderTargetPosition(units, worker) {
+  return worker.orders[0].targetWorldSpacePos || units.getByTag(worker.orders[0].targetUnitTag).pos;
+}
