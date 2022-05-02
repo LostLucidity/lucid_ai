@@ -689,7 +689,7 @@ const worldService = {
       (unit.weaponCooldown > 8 || unit.unitType === UnitType.CYCLONE) &&
       data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; })
     ) {
-      const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit)
+      const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit);
       collectedActions.push({
         abilityId: MOVE,
         targetWorldSpacePos: microPosition,
