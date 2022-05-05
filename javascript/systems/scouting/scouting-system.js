@@ -141,6 +141,7 @@ async function setAndSendScout(world) {
       if (labelledScouts.length > 0) {
         labelledScouts.forEach(scout => {
           scout.removeLabel(label);
+          scout.labels.set('clearFromEnemy', true);
         });
       }
     }
