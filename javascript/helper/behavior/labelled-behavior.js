@@ -7,13 +7,12 @@ const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { isFacing } = require("../../services/micro-service");
-const { getClosestUnitByPath } = require("../../services/resources-service");
+const { getClosestUnitByPath, distanceByPath } = require("../../services/resources-service");
 const { retreat, getDamageDealingUnits } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
 const { calculateTotalHealthRatio } = require("../../systems/unit-resource/unit-resource-service");
-const { distanceByPath } = require("../get-closest-by-path");
 const { getCombatRally, getRandomPoints, getAcrossTheMap } = require("../location");
 const { engageOrRetreat } = require("./army-behavior");
 

@@ -8,10 +8,10 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getClosestPosition } = require("../../helper/get-closest");
-const { distanceByPath } = require("../../helper/get-closest-by-path");
 const { existsInMap } = require("../../helper/location");
 const { intersectionOfPoints, pointsOverlap } = require("../../helper/utilities");
 const { getPathCoordinates } = require("../../services/path-service");
+const { distanceByPath } = require("../../services/resources-service");
 const { setStructurePlacements } = require("./wall-off-natural-service");
 const wallOffNaturalService = require("./wall-off-natural-service");
 

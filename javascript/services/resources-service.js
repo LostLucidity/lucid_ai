@@ -2,11 +2,45 @@
 "use strict"
 
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { distanceByPath } = require("../helper/get-closest-by-path");
 const { getBuilders } = require("../systems/unit-resource/unit-resource-service");
+const { getPathCoordinates } = require("./path-service");
 const { getUnitCornerPosition } = require("./unit-service");
 
 const resourcesService = {
+  /**
+   * @param {ResourceManager} resources 
+  * @param {
+  Point2D
+} position
+  * @param {
+  Point2D
+} targetPosition
+  * @returns {
+  number
+}
+  */
+  distanceByPath: (resources, position, targetPosition) => {
+    const { map, units } = resources.get();
+    try {
+      targetPosition = map.isPathable(targetPosition) ? targetPosition : getUnitCornerPosition(units.getClosest(targetPosition, units.getAlive())[0]);
+      const calculatedZeroPath = map.path(position, targetPosition).length === 0;
+      const isZeroPathDistance = calculatedZeroPath && distance(position, targetPosition) <= 2 ? true : false;
+      const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
+      const { totalDistance } = getPathCoordinates(map.path(position, targetPosition)).reduce((acc, curr) => {
+        return {
+          totalDistance: acc.totalDistance + distance(curr, acc.previousPosition),
+          previousPosition: curr
+        }
+      }, {
+        totalDistance: 0,
+        previousPosition: position
+      });
+      const pathLength = isZeroPathDistance ? 0 : isNotPathable ? Infinity : totalDistance;
+      return pathLength;
+    } catch (error) {
+      return Infinity;
+    }
+  },
   /**
    * @param {ResourceManager} resources 
    * @param {Unit[]} units 
@@ -33,6 +67,20 @@ const resourcesService = {
     }
   },
   /**
+   * 
+   * @param {ResourceManager} resources 
+   * @param {Point2D} position 
+   * @param {Point2D[]} points
+   * @param {number} n
+   * @returns {Point2D[]}
+   */
+  getClosestPositionByPath: (resources, position, points, n = 1) => {
+    return points.map(point => ({ point, distance: resourcesService.distanceByPath(resources, position, point) }))
+      .sort((a, b) => a.distance - b.distance)
+      .map(pointObject => pointObject.point)
+      .slice(0, n);
+  },
+  /**
    *
    * @param {ResourceManager} resources
    * @param {Point2D} position
@@ -46,7 +94,7 @@ const resourcesService = {
       if (unit.isFlying) {
         mappedUnits.distance = distance(unit.pos, position);
       } else {
-        mappedUnits.distance = distanceByPath(resources, getUnitCornerPosition(unit), position);
+        mappedUnits.distance = resourcesService.distanceByPath(resources, getUnitCornerPosition(unit), position);
       }
       return mappedUnits;
     })
