@@ -12,7 +12,7 @@ const { getClosestExpansion } = require('../services/map-resource-service');
 const planService = require('../services/plan-service');
 const { getClosestUnitByPath } = require('../services/resources-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
-const { gather } = require('./unit-resource/unit-resource-service');
+const { gather, getMineralFieldAssignments } = require('./unit-resource/unit-resource-service');
 const unitResourceService = require('./unit-resource/unit-resource-service');
 
 module.exports = createSystem({
@@ -250,21 +250,4 @@ function getGatheringWorkers(units, type) {
         (worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ order) => gatheringAbilities.includes(order.abilityId)))
       );
     });
-}
-
-/**
- * @param {UnitResource} units
- * @param {Unit[]} mineralFields 
- * @returns {{ mineralFieldTag: string, count: number }[]}
- */
-function getMineralFieldAssignments(units, mineralFields) {
-  const harvestingMineralWorkers = units.getWorkers().filter(worker => worker.isHarvesting('minerals'));
-  return mineralFields.map(mineralField => {
-    const targetMineralFieldWorkers = harvestingMineralWorkers.filter(worker => {
-      const assignedMineralField = worker.labels.get('mineralField');
-      return assignedMineralField && assignedMineralField.tag === mineralField.tag;
-    });
-    mineralField.labels.set('workerCount', targetMineralFieldWorkers.length);
-    return { mineralFieldTag: mineralField.tag, count: targetMineralFieldWorkers.length };
-  })
 }

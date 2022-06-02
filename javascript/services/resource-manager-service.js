@@ -5,7 +5,9 @@ const { RALLY_BUILDING } = require("@node-sc2/core/constants/ability");
 const { Race } = require("@node-sc2/core/constants/enums");
 const { rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { EGG, DRONE } = require("@node-sc2/core/constants/unit-type");
+const { getMineralFieldAssignments } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
+const { getClosestExpansion } = require("./map-resource-service");
 const { getClosestUnitByPath } = require("./resources-service");
 
 const resourceManagerService = {
@@ -18,7 +20,7 @@ const resourceManagerService = {
    */
   rallyWorkerToTarget: (world, position, mineralTarget = false) => {
     const { data, resources } = world;
-    const { units } = resources.get();
+    const { map, units } = resources.get();
     const collectedActions = [];
     const workerSourceByPath = getWorkerSourceByPath(world, position);
     let rallyAbility = null;
@@ -32,8 +34,18 @@ const resourceManagerService = {
       if (rallyAbility) {
         const unitCommand = createUnitCommand(rallyAbility, [workerSourceByPath]);
         if (mineralTarget) {
-          const [mineralFieldTarget] = units.getClosest(workerSourceByPath.pos, units.getMineralFields());
-          unitCommand.targetUnitTag = mineralFieldTarget.tag;
+          const [closestBase] = getClosestUnitByPath(resources, workerSourceByPath.pos, units.getBases());
+          if (closestBase) {
+            const [closestExpansion] = getClosestExpansion(map, closestBase.pos);
+            const { mineralFields } = closestExpansion.cluster;
+            const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
+              .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2)
+              .sort((a, b) => a.count - b.count);
+            if (mineralFieldCounts.length > 0) {
+              const mineralField = mineralFieldCounts[0];
+              unitCommand.targetUnitTag = mineralField.mineralFieldTag;
+            }
+          }
         } else {
           unitCommand.targetWorldSpacePos = position;
         }

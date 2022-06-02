@@ -11,7 +11,6 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { countTypes } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
-const { getClosestUnitByPath } = require("../../services/resources-service");
 const { isPendingContructing } = require("../../services/shared-service");
 
 const unitResourceService = {
@@ -254,6 +253,22 @@ const unitResourceService = {
   getMineralFieldTarget: (units, unit) => {
     const [closestMineralField] = units.getClosest(unit.pos, units.getMineralFields());
     return closestMineralField;
+  },
+  /**
+ * @param {UnitResource} units
+ * @param {Unit[]} mineralFields
+ * @returns {{ mineralFieldTag: string, count: number }[]}
+ */
+  getMineralFieldAssignments: (units, mineralFields) => {
+    const harvestingMineralWorkers = units.getWorkers().filter(worker => worker.isHarvesting('minerals'));
+    return mineralFields.map(mineralField => {
+      const targetMineralFieldWorkers = harvestingMineralWorkers.filter(worker => {
+        const assignedMineralField = worker.labels.get('mineralField');
+        return assignedMineralField && assignedMineralField.tag === mineralField.tag;
+      });
+      mineralField.labels.set('workerCount', targetMineralFieldWorkers.length);
+      return { mineralFieldTag: mineralField.tag, count: targetMineralFieldWorkers.length };
+    })
   },
   /**
    * 
