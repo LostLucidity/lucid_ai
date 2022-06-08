@@ -770,6 +770,7 @@ const worldService = {
         } else {
           unitCommand.targetWorldSpacePos = position;
           builder.labels.set('builder', true);
+          builder.labels.delete('mineralField');
           collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
         }
       } else {
