@@ -775,10 +775,11 @@ const worldService = {
         }
       } else {
         collectedActions.push(...rallyWorkerToTarget(world, position, true));
-        if (!stepAhead) {
-          if (builder.orders.some(order => order.targetWorldSpacePos && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y)) {
-            collectedActions.push(createUnitCommand(STOP, [builder]));
-          }
+        if (
+          builder.orders.length === 1 &&
+          builder.orders.some(order => order.targetWorldSpacePos && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y)
+        ) {
+          collectedActions.push(createUnitCommand(STOP, [builder]));
         }
       }
     }
