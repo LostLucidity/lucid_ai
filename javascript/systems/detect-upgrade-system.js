@@ -37,7 +37,7 @@ function detectCharge(world) {
   // calculate zealot position difference of enemy.
   const unitsById = units.getById(ZEALOT, { alliance: Alliance.ENEMY });
   const fastestUnitSpeed = getFastestUnitSpeed(unitsById, timeElapsed);
-  if (fastestUnitSpeed + 0.01 > data.getUnitTypeData(ZEALOT).movementSpeed) {
+  if (fastestUnitSpeed - 0.01 > data.getUnitTypeData(ZEALOT).movementSpeed) {
     unitService.enemyCharge = true;
     console.log('enemy charge detected');
   } 
@@ -56,7 +56,7 @@ function detectMetabolicBoost(world) {
   // calculate unit position difference of enemy.
   const unitsById = units.getById(ZERGLING, { alliance: Alliance.ENEMY });
   const fastestUnitSpeed = getFastestUnitSpeed(unitsById, timeElapsed);
-  if (fastestUnitSpeed > data.getUnitTypeData(ZERGLING).movementSpeed) {
+  if (fastestUnitSpeed - 0.01 > data.getUnitTypeData(ZERGLING).movementSpeed) {
     unitService.enemyMetabolicBoost = true;
     console.log('enemy metabolic boost detected');
   }
