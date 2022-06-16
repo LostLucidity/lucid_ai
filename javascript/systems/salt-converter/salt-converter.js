@@ -3,6 +3,7 @@
 
 const { UnitType, Upgrade } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
+const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const planService = require("../../services/plan-service");
 const mismatchMappings = require("./mismatch-mapping");
@@ -47,14 +48,14 @@ const saltConverter = {
           const unitType = UnitType[unitTypeAction];
           unitCount.set(unitType, unitCount.has(unitType) ? unitCount.get(unitType) + 1 : TownhallRace[race].indexOf(unitType) === 0 ? 1 : 0);
           planStep.unitType = unitType;
-          planStep.targetCount = unitCount.get(unitType);
+          planStep.targetCount = unitCount.get(unitType) + (workerTypes.includes(unitType) ? 12 : 0);
         } else if (Upgrade[upgradeAction]) {
           planStep.orderType = "Upgrade";
           action = Upgrade[action] ? action : mismatchMappings[action];
           planStep.upgrade = Upgrade[upgradeAction];
         }
         planStep.food = order[0];
-        planStep.candidatePositions = order[2];
+        planStep.candidatePositions = [order[2]];
         convertedPlan.push(planStep);
       });
       planService.trainingTypes = Array.from(unitCount.keys());

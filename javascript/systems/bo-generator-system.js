@@ -27,7 +27,6 @@ module.exports = createSystem({
     const { agent, data } = world;
     const { race } = agent;
     upgradeAbilities = [];
-    planService.plan = [];
     planService.bogIsActive = true;
     // create a uuid
     planService.uuid = uuidv4();

@@ -91,7 +91,6 @@ const worldService = {
           collectedActions.push(unitCommand);
         }
         console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
-        worldService.logActionIfNearPosition(world, unitType, builder, position);
         unitService.setPendingOrders(builder, unitCommand);
         collectedActions.push(...unitService.stopOverlappingBuilders(units, builder, position));
       }
@@ -206,7 +205,6 @@ const worldService = {
           if (await actions.canPlace(unitType, [planService.foundPosition])) {
             await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
             planService.pausePlan = false;
-            worldService.setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), planService.foundPosition);
             planService.continueBuild = true;
             addEarmark(data, data.getUnitTypeData(unitType));
             planService.foundPosition = null;
@@ -883,7 +881,9 @@ const worldService = {
      * @type {(string | number | boolean | Point2D)[]}
      */
     const buildStepExecuted = [foodUsed, formatToMinutesAndSeconds(time), name, planService.currentStep, worldService.outpowered, `${minerals}/${vespene}`];
-    const count = UnitType[name] ? getUnitsById(world.resources.get().units, UnitType[name]).length + 1 : 0;
+    const isStructure = UnitType[name] && data.getUnitTypeData(UnitType[name]).attributes.includes(Attribute.STRUCTURE);
+    const unitCount = getUnitsById(world.resources.get().units, UnitType[name]).length + (isStructure ? 0 : 1);
+    const count = UnitType[name] ? unitCount : 0;
     if (count) buildStepExecuted.push(count);
     if (notes) buildStepExecuted.push(notes);
     console.log(buildStepExecuted);
@@ -892,7 +892,6 @@ const worldService = {
     let matchingLastStep = false;
     if (lastStep) {
       matchingLastStep = buildStepExecuted[2] === lastStep[2] && buildStepExecuted[6] === lastStep[6];
-      const isStructure = UnitType[name] && data.getUnitTypeData(UnitType[name]).attributes.includes(Attribute.STRUCTURE);
       if (matchingLastStep && !isStructure) {
         matchingLastStep = matchingLastStep && buildStepExecuted[3] === lastStep[3];
       }

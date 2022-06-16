@@ -146,7 +146,6 @@ const planActions = {
         if (agent.canAfford(unitType) && !stepAhead) {
           await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, geyser.pos));
           planService.pausePlan = false;
-          setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), geyser.pos);
         } else {
           collectedActions.push(...premoveBuilderToPosition(world, geyser.pos, unitType, stepAhead));
           if (!stepAhead) {

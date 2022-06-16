@@ -18,6 +18,12 @@ module.exports = createSystem({
     logStepStats(world);
     addBuildStepLog(world);
   },
+  async onUnitCreated(world, unit) {
+    const gameLoop = world.resources.get().frame.getGameLoop()
+    if (unit.isStructure() && gameLoop > 0) {
+      logActionIfNearPosition(world, unit.unitType, unit, unit.pos);
+    }
+  }
 });
 /**
  * 
