@@ -13,7 +13,7 @@ module.exports = createSystem({
   async onGameStart({ agent }) {
     scoutService.opponentRace = agent.opponent.race;
   },
-  async onEnemyFirstSeen({}, seenEnemyUnit) {
+  async onEnemyFirstSeen(_world, seenEnemyUnit) {
     scoutService.opponentRace = seenEnemyUnit.data().race;
   },
   async onStep(world) {
