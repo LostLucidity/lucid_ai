@@ -4,6 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { EFFECT_INJECTLARVA } = require("@node-sc2/core/constants/ability");
 const { QUEENSPAWNLARVATIMER } = require("@node-sc2/core/constants/buff");
+const { Race } = require("@node-sc2/core/constants/enums");
 const { LARVA, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { createUnitCommand } = require("../services/actions-service");
 const { getClosestUnitByPath } = require("../services/resources-service");
@@ -13,14 +14,16 @@ module.exports = createSystem({
   name: "InjectorSystem",
   type: "agent",
   async onStep(world) {
-    const { resources } = world;
-    const { actions, units } = resources.get();
-    const collectedActions = [];
-    collectedActions.push(...injectLarva(resources));
-    if (units.getById(LARVA).length === 0) {
-      await train(world, QUEEN);
+    const { agent, resources } = world;
+    if (agent.race === Race.ZERG) {
+      const { actions, units } = resources.get();
+      const collectedActions = [];
+      collectedActions.push(...injectLarva(resources));
+      if (units.getById(LARVA).length === 0) {
+        await train(world, QUEEN);
+      }
+      await actions.sendAction(collectedActions);
     }
-    await actions.sendAction(collectedActions);
   }
 });
 /**
