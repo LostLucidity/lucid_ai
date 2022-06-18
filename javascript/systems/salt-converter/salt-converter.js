@@ -55,7 +55,7 @@ const saltConverter = {
           planStep.upgrade = Upgrade[upgradeAction];
         }
         planStep.food = order[0];
-        planStep.candidatePositions = [order[2]];
+        planStep.candidatePositions = order[2] ? [order[2]] : [];
         convertedPlan.push(planStep);
       });
       planService.trainingTypes = Array.from(unitCount.keys());
