@@ -154,7 +154,11 @@ module.exports = {
             }
           }
         } else {
-          unit.labels.delete('Threatened');
+          let queueCommand = true;
+          if (unit.labels.has('Threatened')) {
+            unit.labels.delete('Threatened');
+            queueCommand = false;
+          }
           const enemyMain = map.getEnemyMain();
           const randomPointsOfInterest = [...getRandomPoints(map, 3, enemyMain.areas.areaFill)];
           if (scoutService.opponentRace === Race.ZERG) { randomPointsOfInterest.push(map.getEnemyNatural().townhallPosition); }
@@ -163,7 +167,7 @@ module.exports = {
               const unitCommand = {
                 abilityId: MOVE,
                 unitTags: [unit.tag],
-                queueCommand: true,
+                queueCommand: queueCommand,
                 targetWorldSpacePos: point,
               };
               collectedActions.push(unitCommand);
