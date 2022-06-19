@@ -65,7 +65,7 @@ module.exports = createSystem({
         if (mineralFieldTarget) {
           donatingWorker.labels.set('mineralField', mineralFieldTarget);
           if (!mineralFieldTarget.labels.has('workerCount')) {
-            mineralFieldTarget.labels.set('workerCount', 0);
+            mineralFieldTarget.labels.set('workerCount', 1);
           } else {
             mineralFieldTarget.labels.set('workerCount', mineralFieldTarget.labels.get('workerCount') + 1);
           }
