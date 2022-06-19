@@ -752,7 +752,7 @@ const worldService = {
             const { progress } = closestBaseByPath.orders[0];
             buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * progress));
             let baseTimeToPosition = (baseDistanceToPosition / movementSpeed) + buildTimeLeft;
-            rallyBase = timeToPosition > baseTimeToPosition ? true : false;
+            rallyBase = timeToPosition < baseTimeToPosition;
             timeToPosition = rallyBase ? baseTimeToPosition : timeToPosition;
           }
         }
