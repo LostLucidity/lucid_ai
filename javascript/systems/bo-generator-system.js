@@ -70,28 +70,7 @@ module.exports = createSystem({
       return;
     }
     if (agent.minerals > mineralMaxThreshold && planService.continueBuild) {
-      const allAvailableAbilities = new Map();
-      units.getAlive(Alliance.SELF).forEach(unit => {
-        if (!unit.isStructure() || unit.isIdle() || unit.hasReactor() && unit.orders.length === 1) {
-          const availableAbilities = unit.availableAbilities();
-          availableAbilities.forEach(ability => {
-            if (!allAvailableAbilities.has(ability)) {
-              const unitTypeTrainingAbilities = dataService.unitTypeTrainingAbilities;
-              unitTypeTrainingAbilities.entries()
-              if (Array.from(unitTypeTrainingAbilities.keys()).some(unitTypeAbility => unitTypeAbility === ability)) {
-                const unitTypeData = data.getUnitTypeData(unitTypeTrainingAbilities.get(ability));
-                if (unitTypeData.unitAlias === 0) {
-                  allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeTrainingAbilities.get(ability) });
-                } else {
-                  // ignore
-                }
-              } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
-                allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
-              }
-            }
-          })
-        }
-      });
+      const allAvailableAbilities = getAllAvailableAbilities(data, units);
       const randomAction = getRandom(Array.from(allAvailableAbilities.values()));
       if (randomAction) {
         const { orderType, unitType } = randomAction;
@@ -160,6 +139,38 @@ function isGasExtractorWithoutFreeGasGeyser(map, unitType) {
  */
 function diminishChanceToBuildStructure(data, unitType, unitTypeCount) {
   const isStructure = data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE);
-  const divisorToDiminish = [...gasMineTypes, ...townhallTypes].includes(unitType) ? unitTypeCount : unitTypeCount * 2;
+  const divisorToDiminish = [...gasMineTypes, ...townhallTypes].includes(unitType) ? unitTypeCount : unitTypeCount * 4;
   return isStructure && (1 / (divisorToDiminish + 1)) < Math.random();
+}
+
+/**
+ * 
+ * @param {DataStorage} data 
+ * @param {UnitResource} units 
+ * @returns {Map<UnitTypeId, number>}
+ */
+function getAllAvailableAbilities(data, units) {
+  const allAvailableAbilities = new Map();
+  units.getAlive(Alliance.SELF).forEach(unit => {
+    if (!unit.isStructure() || unit.isIdle() || unit.hasReactor() && unit.orders.length === 1) {
+      const availableAbilities = unit.availableAbilities();
+      availableAbilities.forEach(ability => {
+        if (!allAvailableAbilities.has(ability)) {
+          const unitTypeTrainingAbilities = dataService.unitTypeTrainingAbilities;
+          unitTypeTrainingAbilities.entries()
+          if (Array.from(unitTypeTrainingAbilities.keys()).some(unitTypeAbility => unitTypeAbility === ability)) {
+            const unitTypeData = data.getUnitTypeData(unitTypeTrainingAbilities.get(ability));
+            if (unitTypeData.unitAlias === 0) {
+              allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeTrainingAbilities.get(ability) });
+            } else {
+              // ignore
+            }
+          } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
+            allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
+          }
+        }
+      })
+    }
+  });
+  return allAvailableAbilities;
 }
