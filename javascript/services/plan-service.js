@@ -29,7 +29,7 @@ const planService = {
   pausedThisRound: false,
   pendingFood: 0,
   /** @type {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number, candidatePositions?: Point2D[] }[]} */
-  plan: null,
+  plan: [],
   planMax: {
     gasMine: null,
     supplyDepot: null,

@@ -2,7 +2,7 @@
 "use strict"
 
 const foodUsedService = {
-  minimumAmountToAttackWith: null,
+  minimumAmountToAttackWith: 0,
 }
 
 module.exports = foodUsedService;
