@@ -23,7 +23,6 @@ const { addEarmark, isTrainingUnit } = require("../../services/data-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
 const { CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
-const { getStringNameOfConstant } = require("../../services/logging-service");
 
 const planActions = {
   /**
