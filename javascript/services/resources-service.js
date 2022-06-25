@@ -1,8 +1,12 @@
 //@ts-check
 "use strict"
 
+const { constructionAbilities } = require("@node-sc2/core/constants/groups");
+const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getBuilders } = require("../systems/unit-resource/unit-resource-service");
+const dataService = require("./data-service");
+const { getTimeInSeconds } = require("./frames-service");
 const { getPathCoordinates } = require("./path-service");
 const { getUnitCornerPosition } = require("./unit-service");
 
@@ -20,9 +24,8 @@ const resourcesService = {
 }
   */
   distanceByPath: (resources, position, targetPosition) => {
-    const { map, units } = resources.get();
+    const { map } = resources.get();
     try {
-      targetPosition = map.isPathable(targetPosition) ? targetPosition : getUnitCornerPosition(units.getClosest(targetPosition, units.getAlive())[0]);
       const calculatedZeroPath = map.path(position, targetPosition).length === 0;
       const isZeroPathDistance = calculatedZeroPath && distance(position, targetPosition) <= 2 ? true : false;
       const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
@@ -103,14 +106,16 @@ const resourcesService = {
       .slice(0, n);
   },
   /**
-   * @param {ResourceManager} resources 
+   * @param {World} world 
    * @param {Point2D} position 
-   * @returns {Unit}
+   * @returns {Unit|null}
    */
-  getBuilder: (resources, position) => {
+  getBuilder: (world, position) => {
+    const {  data, resources } = world;
     const { units } = resources.get();
     const builderCandidates = getBuilders(units);
-    builderCandidates.push(...units.getWorkers().filter(worker => {
+    const workers = units.getWorkers();
+    builderCandidates.push(...workers.filter(worker => {
       return (
         worker.noQueue ||
         worker.isGathering() && getOrderTargetPosition(units, worker) && distance(worker.pos, getOrderTargetPosition(units, worker)) > 1.62 ||
@@ -118,7 +123,45 @@ const resourcesService = {
       );
     }));
     const [closestBuilder] = resourcesService.getClosestUnitByPath(resources, position, builderCandidates);
-    return closestBuilder;
+    const constructingWorkers = units.getConstructingWorkers();
+    // calculate build time left plus distance to position by path
+    const mappedWorkers = constructingWorkers.map(worker => {
+      // get unit type of building in construction
+      const constructingOrder = worker.orders.find(order => constructionAbilities.includes(order.abilityId));
+      const unitType = dataService.unitTypeTrainingAbilities.get(constructingOrder.abilityId);
+      const { buildTime } = data.getUnitTypeData(unitType);
+      // get closest unit type to worker position if within unit type radius
+      const closestUnitType = units.getClosest(worker.pos, units.getById(unitType)).filter(unit => distance(unit.pos, worker.pos) < 3)[0];
+      let timeToPosition = Infinity;
+      if (closestUnitType) {
+        const { buildProgress } = closestUnitType;
+        const buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * buildProgress));
+        const distanceByPath = resourcesService.distanceByPath(resources, worker.pos, position);
+        const { movementSpeed } = worker.data();
+        timeToPosition = buildTimeLeft + (distanceByPath / movementSpeed);
+      }
+      return {
+        worker,
+        timeToPosition
+      };
+    });
+    const [closestConstructingWorker] = mappedWorkers.sort((a, b) => a.timeToPosition - b.timeToPosition);
+    // get timeToPosition of closestBuilder
+    let closestBuilderTimeToPosition = Infinity;
+    if (closestBuilder) {
+      const distanceByPath = resourcesService.distanceByPath(resources, closestBuilder.pos, position);
+      const { movementSpeed } = closestBuilder.data();
+      closestBuilderTimeToPosition = distanceByPath / movementSpeed;
+      if (closestConstructingWorker) {
+        return closestBuilderTimeToPosition < closestConstructingWorker.timeToPosition ? closestBuilder : closestConstructingWorker.worker;
+      } else {
+        return closestBuilder;
+      }
+    } else if (closestConstructingWorker) {
+      return closestConstructingWorker.worker;
+    } else {
+      return null;
+    }
   },
   /**
    * @param {ResourceManager} resources 

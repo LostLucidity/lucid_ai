@@ -67,7 +67,7 @@ const worldService = {
     const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
     const collectedActions = [];
-    const builder = getBuilder(resources, position);
+    const builder = getBuilder(world, position);
     if (builder) {
       addEarmark(data, data.getUnitTypeData(unitType));
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
@@ -729,7 +729,7 @@ const worldService = {
     const { agent, data, resources } = world;
     const { frame, map, units } = resources.get();
     const collectedActions = [];
-    const builder = getBuilder(resources, position);
+    const builder = getBuilder(world, position);
     if (builder) {
       // get speed, distance and average collection rate
       const { movementSpeed } = builder.data();
@@ -752,7 +752,7 @@ const worldService = {
             const { progress } = closestBaseByPath.orders[0];
             buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * progress));
             let baseTimeToPosition = (baseDistanceToPosition / movementSpeed) + buildTimeLeft;
-            rallyBase = timeToPosition < baseTimeToPosition;
+            rallyBase = timeToPosition > baseTimeToPosition;
             timeToPosition = rallyBase ? baseTimeToPosition : timeToPosition;
           }
         }
