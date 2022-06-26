@@ -4,6 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { ZEALOT, ZERGLING } = require("@node-sc2/core/constants/unit-type");
+const { GLIALRECONSTITUTION } = require("@node-sc2/core/constants/upgrade");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const unitService = require("../services/unit-service");
 
@@ -11,7 +12,7 @@ module.exports = createSystem({
   name: 'DetectUpgrade',
   type: 'agent',
   async onStep(world) {
-    const { resources } = world;
+    const { agent, resources } = world;
     const { frame, units } = resources.get();
     const unitTypes = [];
     if (!unitService.enemyCharge) {
@@ -21,6 +22,12 @@ module.exports = createSystem({
     if (!unitService.enemyMetabolicBoost) {
       detectMetabolicBoost(world);
       unitTypes.push(ZERGLING);
+    }
+    if (!unitService.selfGlialReconstitution) {
+      unitService.selfGlialReconstitution = agent.upgradeIds.includes(GLIALRECONSTITUTION);
+      if (unitService.selfGlialReconstitution) {
+        console.log('self glial reconstitution detected');
+      }
     }
     previousUnitsPositions = units.getById(unitTypes, { alliance: Alliance.ENEMY }).map(unit => ({ 'tag': unit.tag, 'pos': unit.pos }));
     previousStepTime = frame.getGameLoop();

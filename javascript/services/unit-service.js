@@ -5,7 +5,7 @@ const Ability = require("@node-sc2/core/constants/ability");
 const { HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
-const { ZEALOT, ZERGLING } = require("@node-sc2/core/constants/unit-type");
+const { ZEALOT, ZERGLING, ROACH } = require("@node-sc2/core/constants/unit-type");
 const { distance, add } = require("@node-sc2/core/utils/geometry/point");
 const { setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
@@ -20,6 +20,10 @@ const unitService = {
    * @type boolean
    */
   enemyMetabolicBoost: false,
+  /**
+   * @type boolean
+   */
+  selfGlialReconstitution: false,
   /**
    * @type number
    */
@@ -73,6 +77,11 @@ const unitService = {
    */
   getMovementSpeed: (unit) => {
     let { movementSpeed } = unit.data();
+    if (unit.unitType === ROACH) {
+      if (unit.alliance === Alliance.SELF && unitService.selfGlialReconstitution) {
+        movementSpeed += 0.75;
+      }
+    }
     if (unit.unitType === ZEALOT) {
       if (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) {
         movementSpeed = movementSpeed * 1.5
