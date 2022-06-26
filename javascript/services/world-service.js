@@ -886,8 +886,10 @@ const worldService = {
     /**
      * @type {(string | number | boolean | Point2D)[]}
      */
-    const buildStepExecuted = [foodUsed, formatToMinutesAndSeconds(time), name, planService.currentStep, worldService.outpowered, `${minerals}/${vespene}`];
     const isStructure = UnitType[name] && data.getUnitTypeData(UnitType[name]).attributes.includes(Attribute.STRUCTURE);
+    // set foodCount to foodUsed plus 1 if it's a structure and race is zerg
+    const foodCount = (isStructure && agent.race === Race.ZERG) ? foodUsed + 1 : foodUsed;
+    const buildStepExecuted = [foodCount, formatToMinutesAndSeconds(time), name, planService.currentStep, worldService.outpowered, `${minerals}/${vespene}`];
     const unitCount = getUnitsById(world.resources.get().units, UnitType[name]).length + (isStructure ? 0 : 1);
     const count = UnitType[name] ? unitCount : 0;
     if (count) buildStepExecuted.push(count);

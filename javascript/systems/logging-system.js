@@ -58,7 +58,6 @@ function addBuildStepLog(world) {
             const [closestUnit] = units.getClosest(foundOrder.targetWorldSpacePos, units.getById(unitType))
             if (closestUnit && distance(closestUnit.pos, foundOrder.targetWorldSpacePos) < 1) return;
           }
-          logActionIfNearPosition(world, unitType, unit, foundOrder.targetWorldSpacePos);
         }
       }
     });
