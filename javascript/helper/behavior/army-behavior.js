@@ -210,10 +210,7 @@ const armyBehavior = {
         if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestAttackableEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestAttackableEnemyUnit['enemyDPSHealth'];
           if (selfUnit.tag === randomUnit.tag) {
-            const selfOverEnemyDPSHealth = `${Math.round(selfDPSHealth)}/${Math.round(closestAttackableEnemyUnit['selfDPSHealth'])}`;
-            const distanceFromEnemy = distance(selfUnit.pos, closestAttackableEnemyUnit.pos);
-            const selfOverEnemyUnitType = `${selfUnit.unitType}/${closestAttackableEnemyUnit.unitType}`;
-            console.log(selfOverEnemyDPSHealth, distanceFromEnemy, selfOverEnemyUnitType);
+            logBattleFieldSituation(selfUnit, closestAttackableEnemyUnit, selfDPSHealth);
           }
           if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth) {
             if (getMovementSpeed(selfUnit) < getMovementSpeed(closestAttackableEnemyUnit) && closestAttackableEnemyUnit.unitType !== ADEPTPHASESHIFT) {
@@ -235,18 +232,16 @@ const armyBehavior = {
                 unitCommand.targetWorldSpacePos = moveAwayPosition(attackablePosition, selfUnit.pos);
               } else {
                 if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
-                  const [closestArmedEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0) || unit.unitType === ADEPTPHASESHIFT));
-                  // micro ranged units when faster than enemy
+                  const closestEnemyRange = getClosestEnemyByRange(selfUnit, enemyUnits)
                   if (!selfUnit.isMelee()) {
-                    // get enemy weapon that can hit ground units
-                    const foundEnemyWeapon = getWeaponThatCanAttack(closestArmedEnemyUnit, selfUnit);
+                    const foundEnemyWeapon = getWeaponThatCanAttack(closestEnemyRange, selfUnit);
                     if (foundEnemyWeapon) {
-                      const bufferDistance = foundEnemyWeapon.range + selfUnit.radius + closestArmedEnemyUnit.radius + travelDistancePerStep(closestArmedEnemyUnit);
-                      if ((bufferDistance) < distance(selfUnit.pos, closestArmedEnemyUnit.pos)) {
-                        collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit));
+                      const bufferDistance = foundEnemyWeapon.range + selfUnit.radius + closestEnemyRange.radius + travelDistancePerStep(closestEnemyRange) + travelDistancePerStep(selfUnit);
+                      if ((bufferDistance) < distance(selfUnit.pos, closestEnemyRange.pos)) {
+                        collectedActions.push(...microRangedUnit(world, selfUnit, closestEnemyRange));
                         return;
                       } else {
-                        unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                        unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestEnemyRange || closestAttackableEnemyUnit);
                         unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
                           setPendingOrders(unit, unitCommand);
                           return unit.tag;
@@ -254,12 +249,12 @@ const armyBehavior = {
                       }
                     } else {
                       // no weapon found, micro ranged unit
-                      collectedActions.push(...microRangedUnit(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit));
+                      collectedActions.push(...microRangedUnit(world, selfUnit, closestEnemyRange || closestAttackableEnemyUnit));
                       return;
                     }
                   } else {
                     // retreat if melee
-                    unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                    unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestEnemyRange || closestAttackableEnemyUnit);
                   }
                 } else {
                   // skip action if pending orders
@@ -529,6 +524,40 @@ function stop(unit) {
   const collectedActions = [];
   collectedActions.push(createUnitCommand(STOP, [unit]));
   return collectedActions;
+}
+/**
+ * @param {Unit} selfUnit
+ * @param {Unit} targetUnit
+ * @param {number} selfDPSHealth
+ * @returns {void}
+ */
+function logBattleFieldSituation(selfUnit, targetUnit, selfDPSHealth) {
+  const selfOverEnemyDPSHealth = `${Math.round(selfDPSHealth)}/${Math.round(targetUnit['selfDPSHealth'])}`;
+  const distanceFromEnemy = distance(selfUnit.pos, targetUnit.pos);
+  const selfOverEnemyUnitType = `${selfUnit.unitType}/${targetUnit.unitType}`;
+  console.log(selfOverEnemyDPSHealth, distanceFromEnemy, selfOverEnemyUnitType);
+}
+
+/**
+ * @param {Unit} unit
+ * @param {Unit[]} enemyUnits
+ * @returns {Unit|null}
+ */
+function getClosestEnemyByRange(unit, enemyUnits) {
+  let shortestDifference = Number.MAX_VALUE;
+  return enemyUnits.reduce((closestEnemyByRange, enemyUnit) => {
+    const weapon = getWeaponThatCanAttack(enemyUnit, unit);
+    if (weapon) {
+      const range = weapon.range + unit.radius + enemyUnit.radius + travelDistancePerStep(enemyUnit);
+      const distanceToUnit = distance(unit.pos, enemyUnit.pos);
+      const difference = distanceToUnit - range;
+      if (difference < shortestDifference) {
+        shortestDifference = difference;
+        closestEnemyByRange = enemyUnit;
+      }
+    }
+    return closestEnemyByRange;
+  });
 }
 
 module.exports = armyBehavior;

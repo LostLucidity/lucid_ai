@@ -39,7 +39,7 @@ const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { SPAWNINGPOOL, ADEPT } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
-const { getTimeInSeconds } = require("./frames-service");
+const { getTimeInSeconds, travelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const path = require('path');
 const foodUsedService = require('./food-used-service');
@@ -792,33 +792,39 @@ const worldService = {
   retreat: (world, unit, targetUnit, toCombatRally = true) => {
     const { resources } = world;
     const { units } = resources.get();
-    // completed BUNKERS
-    const closestBunkerPositionByPath = units.getById(UnitType.BUNKER)
-      .filter((unit) => unit.buildProgress === 1)
-      .map((unit) => unit.pos)
-      .sort((a, b) => distanceByPath(resources, a, unit.pos) - distanceByPath(resources, b, unit.pos))[0];
-    // get closest position to unit by path
-    const combatRally = getCombatRally(resources);
-    const combatRallyCloser = distanceByPath(resources, combatRally, unit.pos) < distanceByPath(resources, closestBunkerPositionByPath, unit.pos);
-    if (
-      toCombatRally &&
-      combatRallyCloser &&
-      distanceByPath(resources, targetUnit.pos, combatRally) > 16 &&
-      distanceByPath(resources, unit.pos, combatRally) <= distanceByPath(resources, targetUnit.pos, combatRally)
-    ) {
-      return combatRally;
-    } else if (closestBunkerPositionByPath) {
-      return closestBunkerPositionByPath;
+    const closestSafePosition = findClosestSafePosition(resources, unit, targetUnit);
+    if (distance(unit.pos, closestSafePosition) < travelDistancePerStep(unit)) {
+      const closestBunkerPositionByPath = units.getById(UnitType.BUNKER)
+        .filter((unit) => unit.buildProgress === 1)
+        .map((unit) => unit.pos)
+        .sort((a, b) => distanceByPath(resources, a, unit.pos) - distanceByPath(resources, b, unit.pos))[0];
+      // get closest position to unit by path
+      const combatRally = getCombatRally(resources);
+      const unitToCombatRallyDistance = distanceByPath(resources, unit.pos, combatRally);
+      const targetUnitToCombatRallyDistance = distanceByPath(resources, targetUnit.pos, combatRally);
+      const combatRallyCloser = distanceByPath(resources, combatRally, unit.pos) < distanceByPath(resources, closestBunkerPositionByPath, unit.pos);
+      if (
+        toCombatRally &&
+        combatRallyCloser &&
+        unitToCombatRallyDistance > 16 && unitToCombatRallyDistance !== Infinity &&
+        unitToCombatRallyDistance <= targetUnitToCombatRallyDistance
+      ) {
+        return combatRally;
+      } else if (closestBunkerPositionByPath) {
+        return closestBunkerPositionByPath;
+      } else {
+        if (!unit['retreatCandidates']) { unit['retreatCandidates'] = new Map(); }
+        if (!targetUnit['retreatCandidates']) { targetUnit['retreatCandidates'] = new Map(); }
+        const retreatCandidates = getRetreatCandidates(world, unit, targetUnit);
+        const [largestPathDifferenceRetreat] = retreatCandidates.filter((point) => {
+          return distanceByPath(resources, unit.pos, point) > 16;
+        }).sort((a, b) => {
+          return distanceByPath(resources, unit.pos, a) - distanceByPath(resources, unit.pos, b);
+        });
+        return largestPathDifferenceRetreat ? largestPathDifferenceRetreat : closestSafePosition;
+      }
     } else {
-      if (!unit['retreatCandidates']) { unit['retreatCandidates'] = new Map(); }
-      if (!targetUnit['retreatCandidates']) { targetUnit['retreatCandidates'] = new Map(); }
-      const retreatCandidates = getRetreatCandidates(world, unit, targetUnit);
-      const [largestPathDifferenceRetreat] = retreatCandidates.filter((point) => {
-        return distanceByPath(resources, unit.pos, point) > 16;
-      }).sort((a, b) => {
-        return distanceByPath(resources, unit.pos, a) - distanceByPath(resources, unit.pos, b);
-      });
-      return largestPathDifferenceRetreat ? largestPathDifferenceRetreat : findClosestSafePosition(resources, unit, targetUnit);
+      return closestSafePosition;
     }
   },
   /**
@@ -1092,8 +1098,7 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
  */
 function findClosestSafePosition(resources, unit, targetUnit) {
   const { map } = resources.get();
-  // get points within 16 distance of target unit and filter out points that are not safe
-  const safePoints = gridsInCircle(targetUnit.pos, 16).filter((point) => {
+  const safePoints = gridsInCircle(unit.pos, 16).filter((point) => {
     // check is point is farther than unit from target unit
     const fartherThanUnit = distance(point, targetUnit.pos) > distance(point, unit.pos);
     if (existsInMap(map, point) && fartherThanUnit) {
@@ -1149,15 +1154,14 @@ function isSafePositionFromTarget(map, unit, targetUnit, point) {
       return false;
     }
   }
-  const weapon = getHighestRangeWeapon(unit, weaponTargetType);
+  const weapon = getHighestRangeWeapon(targetUnit, weaponTargetType);
   // return true if no weapon found
   if (!weapon) {
     return true;
   }
   const weaponRange = weapon.range;
   const distanceToTarget = distance(point, targetUnit.pos);
-  const movementSpeed = getMovementSpeed(targetUnit);
-  return distanceToTarget > weaponRange + unit.radius + targetUnit.radius + movementSpeed;
+  return distanceToTarget > weaponRange + unit.radius + targetUnit.radius + travelDistancePerStep(targetUnit) + travelDistancePerStep(unit);
 }
 /**
  * @param {Unit} unit 
