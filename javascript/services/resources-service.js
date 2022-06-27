@@ -2,13 +2,12 @@
 "use strict"
 
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
-const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getBuilders } = require("../systems/unit-resource/unit-resource-service");
 const dataService = require("./data-service");
 const { getTimeInSeconds } = require("./frames-service");
+const { getPathablePositions } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
-const { getUnitCornerPosition } = require("./unit-service");
 
 const resourcesService = {
   /**
@@ -97,7 +96,7 @@ const resourcesService = {
       if (unit.isFlying) {
         mappedUnits.distance = distance(unit.pos, position);
       } else {
-        mappedUnits.distance = resourcesService.distanceByPath(resources, getUnitCornerPosition(unit), position);
+        mappedUnits.distance = resourcesService.distanceByPath(resources, unit.pos, position);
       }
       return mappedUnits;
     })
@@ -111,8 +110,9 @@ const resourcesService = {
    * @returns {Unit|null}
    */
   getBuilder: (world, position) => {
-    const {  data, resources } = world;
-    const { units } = resources.get();
+    const { data, resources } = world;
+    const { map, units } = resources.get();
+    [position] = resourcesService.getClosestPositionByPath(resources, position, getPathablePositions(map, position));
     const builderCandidates = getBuilders(units);
     const workers = units.getWorkers();
     builderCandidates.push(...workers.filter(worker => {
@@ -149,10 +149,10 @@ const resourcesService = {
     // get timeToPosition of closestBuilder
     let closestBuilderTimeToPosition = Infinity;
     if (closestBuilder) {
-      const distanceByPath = resourcesService.distanceByPath(resources, closestBuilder.pos, position);
-      const { movementSpeed } = closestBuilder.data();
-      closestBuilderTimeToPosition = distanceByPath / movementSpeed;
       if (closestConstructingWorker) {
+        const distanceByPath = resourcesService.distanceByPath(resources, closestBuilder.pos, position);
+        const { movementSpeed } = closestBuilder.data();
+        closestBuilderTimeToPosition = distanceByPath / movementSpeed;
         return closestBuilderTimeToPosition < closestConstructingWorker.timeToPosition ? closestBuilder : closestConstructingWorker.worker;
       } else {
         return closestBuilder;

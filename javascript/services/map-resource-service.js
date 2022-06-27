@@ -14,6 +14,23 @@ const MapResourceService = {
   },
   /**
    * @param {MapResource} map
+   * @param {Point2D} position 
+   * @return {Point2D[]}
+   */
+  getPathablePositions: (map, position) => {
+    let pathablePositions = [];
+    let radius = 0;
+    if (map.isPathable(position)) {
+      pathablePositions.push(position);
+    }
+    while (pathablePositions.length === 0) {
+      pathablePositions = gridsInCircle(position, radius).filter(grid => map.isPathable(grid));
+      radius += 1;
+    }
+    return pathablePositions;
+  },
+  /**
+   * @param {MapResource} map
    * @param {Unit} structure 
    * @return {Point2D[]}
    */
