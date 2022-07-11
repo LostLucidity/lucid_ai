@@ -289,7 +289,6 @@ class AssemblePlan {
     if (this.foundPosition) {
       if (this.agent.canAfford(unitType) && !stepAhead) {
         if (await actions.canPlace(unitType, [this.foundPosition])) {
-          // get middle of structure
           await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, getMiddleOfStructure(unitType, this.foundPosition)));
           planService.pausePlan = false;
           planService.continueBuild = true;
