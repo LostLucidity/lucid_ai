@@ -56,7 +56,6 @@ const terran = {
           unitCommand.targetWorldSpacePos = unit.pos;
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
-          setAndLogExecutedSteps(world, frame.timeInSeconds(), UnitTypeId[addOnType]);
           setPendingOrders(unit, unitCommand);
           addEarmark(data, data.getUnitTypeData(addOnType));
           return;
@@ -86,7 +85,6 @@ const terran = {
           }
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
-          setAndLogExecutedSteps(world, frame.timeInSeconds(), UnitTypeId[addOnType]);
           setPendingOrders(unit, unitCommand);
           addEarmark(data, data.getUnitTypeData(addOnType));
         }
