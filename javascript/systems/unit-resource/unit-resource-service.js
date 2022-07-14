@@ -251,8 +251,15 @@ const unitResourceService = {
    * @returns 
    */
   getMineralFieldTarget: (units, unit) => {
-    const [closestMineralField] = units.getClosest(unit.pos, units.getMineralFields());
-    return closestMineralField;
+    const mineralFields = units.getClosest(unit.pos, units.getMineralFields(), units.getMineralFields().length).filter(mineralField => distance(mineralField.pos, unit.pos) < 8);
+    return mineralFields.reduce((mineralFieldWithHighestAmount, mineralField) => {
+      if (mineralFieldWithHighestAmount.mineralContents < mineralField.mineralContents) {
+        return mineralField;
+      } else {
+        return mineralFieldWithHighestAmount;
+      }
+    }
+    , { mineralContents: 0 });
   },
   /**
  * @param {UnitResource} units
