@@ -2,7 +2,7 @@
 "use strict"
 
 const { WarpUnitAbility, UnitType, UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
-const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
+const { Alliance, Attribute, Race } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { GasMineRace, TownhallRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { WARPGATE, TECHLAB, BARRACKS, GREATERSPIRE } = require("@node-sc2/core/constants/unit-type");
@@ -78,12 +78,12 @@ const planActions = {
           break;
         case TownhallRace[race].includes(unitType):
           if (TownhallRace[race].indexOf(unitType) === 0) {
-            if (units.getBases().length !== 2) {
-              const availableExpansions = getAvailableExpansions(resources);
-              candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(world, availableExpansions)] : [];
+            if (units.getBases().length == 2 && agent.race === Race.TERRAN) {
+              candidatePositions = await getInTheMain(resources, unitType);
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
             } else {
-              candidatePositions = await getInTheMain(resources, unitType);
+              const availableExpansions = getAvailableExpansions(resources);
+              candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(world, availableExpansions)] : [];
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
             }
           } else {
