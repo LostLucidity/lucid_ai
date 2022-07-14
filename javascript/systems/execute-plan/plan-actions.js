@@ -196,7 +196,9 @@ const planActions = {
             return;
           }
         }
-        unpauseAndLog(world, UnitTypeId[unitTypeId]);
+        if (!(WorkerRace[agent.race] === unitTypeId)) {
+          unpauseAndLog(world, UnitTypeId[unitTypeId]);
+        }
         addEarmark(data, data.getUnitTypeData(unitTypeId));
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
         unitTrainingService.selectedTypeToBuild = null;
