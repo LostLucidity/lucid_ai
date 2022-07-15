@@ -1102,28 +1102,43 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
  */
 function findClosestSafePosition(resources, unit, targetUnit) {
   const { map } = resources.get();
-  const safePoints = gridsInCircle(unit.pos, 16).filter((point) => {
-    // check is point is farther than unit from target unit
-    const fartherThanUnit = distance(point, targetUnit.pos) > distance(point, unit.pos);
-    if (existsInMap(map, point) && fartherThanUnit) {
-      // get grid height of point in map
-      const pointWithHeight = {
-        ...point,
-        z: map.getHeight(point),
-      }
-      return isSafePositionFromTarget(map, unit, targetUnit, pointWithHeight);
-    } else {
-      return false;
-    }
-  });
+  const safePositions = getSafePositions(map, unit, targetUnit);
   // get closest point for flying unit, closest point by path distance for ground unit
   if (unit.isFlying) {
-    const [closestPoint] = getClosestPosition(unit.pos, safePoints);
+    const [closestPoint] = getClosestPosition(unit.pos, safePositions);
     return closestPoint;
   } else {
-    const [closestPoint] = getClosestPositionByPath(resources, unit.pos, safePoints);
+    const [closestPoint] = getClosestPositionByPath(resources, unit.pos, safePositions);
     return closestPoint;
   }
+}
+/**
+ * @param {MapResource} map
+ * @param {Unit} unit
+ * @param {Unit} targetUnit
+ * @returns {Point2D[]}
+ **/
+function getSafePositions(map, unit, targetUnit) {
+  let safePositions = [];
+  let radius = 0;
+  while (safePositions.length === 0) {
+    safePositions = gridsInCircle(unit.pos, radius).filter((point) => {
+      // check is point is farther than unit from target unit
+      const fartherThanUnit = distance(point, targetUnit.pos) > distance(point, unit.pos);
+      if (existsInMap(map, point) && fartherThanUnit) {
+        // get grid height of point in map
+        const pointWithHeight = {
+          ...point,
+          z: map.getHeight(point),
+        }
+        return isSafePositionFromTarget(map, unit, targetUnit, pointWithHeight);
+      } else {
+        return false;
+      }
+    });
+    radius += 1;
+  }
+  return safePositions;
 }
 /**
  * @param {MapResource} map

@@ -11,16 +11,10 @@ const { getPathCoordinates } = require("./path-service");
 
 const resourcesService = {
   /**
-   * @param {ResourceManager} resources 
-  * @param {
-  Point2D
-} position
-  * @param {
-  Point2D
-} targetPosition
-  * @returns {
-  number
-}
+  * @param {ResourceManager} resources
+  * @param {Point2D} position
+  * @param {Point2D} targetPosition
+  * @returns number
   */
   distanceByPath: (resources, position, targetPosition) => {
     const { map } = resources.get();
