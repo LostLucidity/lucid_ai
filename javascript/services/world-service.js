@@ -28,7 +28,7 @@ const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/ba
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const { rallyWorkerToTarget } = require("./resource-manager-service");
-const { getPathablePositionsForStructure, getClosestExpansion } = require("./map-resource-service");
+const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getOccupiedExpansions } = require("../helper/expansions");
@@ -733,7 +733,9 @@ const worldService = {
     if (builder) {
       // get speed, distance and average collection rate
       const { movementSpeed } = builder.data();
-      let builderDistanceToPosition = distanceByPath(resources, builder.pos, position);
+      const pathablePositions = getPathablePositions(map, position);
+      const [closestPositionByPath] = getClosestPositionByPath(resources, position, pathablePositions);
+      let builderDistanceToPosition = distanceByPath(resources, builder.pos, closestPositionByPath);
       let timeToPosition = builderDistanceToPosition / movementSpeed;
       let rallyBase = false;
       let buildTimeLeft = 0;
