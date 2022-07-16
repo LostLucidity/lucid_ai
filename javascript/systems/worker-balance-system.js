@@ -183,6 +183,7 @@ function assignWorkers(resources) {
       const { mineralFields } = closestExpansion.cluster;
       const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
         .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2)
+        .sort((a, b) => b.mineralContents - a.mineralContents)
         .sort((a, b) => a.count - b.count);
       /** @type {Unit} */
       const assignedMineralField = worker.labels.get('mineralField');

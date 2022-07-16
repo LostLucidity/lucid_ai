@@ -264,7 +264,7 @@ const unitResourceService = {
   /**
  * @param {UnitResource} units
  * @param {Unit[]} mineralFields
- * @returns {{ mineralFieldTag: string, count: number }[]}
+ * @returns {{ count: number, mineralContents: number, mineralFieldTag: string }[]}
  */
   getMineralFieldAssignments: (units, mineralFields) => {
     const harvestingMineralWorkers = units.getWorkers().filter(worker => worker.isHarvesting('minerals'));
@@ -274,8 +274,8 @@ const unitResourceService = {
         return assignedMineralField && assignedMineralField.tag === mineralField.tag;
       });
       mineralField.labels.set('workerCount', targetMineralFieldWorkers.length);
-      return { mineralFieldTag: mineralField.tag, count: targetMineralFieldWorkers.length };
-    })
+      return { count: targetMineralFieldWorkers.length, mineralContents: mineralField.mineralContents, mineralFieldTag: mineralField.tag };
+    });
   },
   /**
    * 
