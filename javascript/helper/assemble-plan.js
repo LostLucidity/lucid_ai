@@ -45,7 +45,6 @@ const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
 const worldService = require("../services/world-service");
 const { buildGasMine } = require("../systems/execute-plan/plan-actions");
-const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 let actions;
 let race;
@@ -289,7 +288,7 @@ class AssemblePlan {
     if (this.foundPosition) {
       if (this.agent.canAfford(unitType) && !stepAhead) {
         if (await actions.canPlace(unitType, [this.foundPosition])) {
-          await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, getMiddleOfStructure(unitType, this.foundPosition)));
+          await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, this.foundPosition));
           planService.pausePlan = false;
           planService.continueBuild = true;
           this.foundPosition = null;
@@ -688,20 +687,6 @@ class AssemblePlan {
       planService.pausePlan = false;
     }
   }
-}
-
-/**
- * @param {UnitTypeId} unitType
- * @param {Point2D} position 
- * @returns {Point2D}
- */
-function getMiddleOfStructure(unitType, position) {
-  let { x, y } = position;
-  if (getFootprint(unitType).h % 2 === 1) {
-    x += 0.5;
-    y += 0.5;
-  }
-  return { x, y };
 }
 
 module.exports = AssemblePlan;

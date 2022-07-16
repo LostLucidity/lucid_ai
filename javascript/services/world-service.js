@@ -46,6 +46,7 @@ const foodUsedService = require('./food-used-service');
 const { keepPosition } = require('./placement-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
 const { getClosestUnitByPath, getBuilder, distanceByPath, getClosestPositionByPath } = require('./resources-service');
+const { getMiddleOfStructure } = require('./position-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -729,12 +730,13 @@ const worldService = {
     const { agent, data, resources } = world;
     const { frame, map, units } = resources.get();
     const collectedActions = [];
+    position = getMiddleOfStructure(position, unitType)
     const builder = getBuilder(world, position);
     if (builder) {
       // get speed, distance and average collection rate
       const { movementSpeed } = builder.data();
       const pathablePositions = getPathablePositions(map, position);
-      const [closestPositionByPath] = getClosestPositionByPath(resources, position, pathablePositions);
+      const [closestPositionByPath] = getClosestPositionByPath(resources, builder.pos, pathablePositions);
       let builderDistanceToPosition = distanceByPath(resources, builder.pos, closestPositionByPath);
       let timeToPosition = builderDistanceToPosition / movementSpeed;
       let rallyBase = false;
