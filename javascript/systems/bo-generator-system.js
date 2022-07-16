@@ -139,7 +139,7 @@ function isGasExtractorWithoutFreeGasGeyser(map, unitType) {
  */
 function diminishChanceToBuildStructure(data, unitType, unitTypeCount) {
   const isStructure = data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE);
-  const divisorToDiminish = [...gasMineTypes, ...townhallTypes].includes(unitType) ? unitTypeCount : unitTypeCount * 4;
+  const divisorToDiminish = [...gasMineTypes, ...townhallTypes].includes(unitType) ? unitTypeCount : unitTypeCount * 8;
   return isStructure && (1 / (divisorToDiminish + 1)) < Math.random();
 }
 
