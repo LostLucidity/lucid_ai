@@ -20,10 +20,10 @@ module.exports = createSystem({
     const { resources } = world;
     const { map, units } = resources.get();
     unitResourceService.seigeTanksSiegedGrids = [];
-    units.getById(SIEGETANKSIEGED).forEach(unit => {
+    units.getByType(SIEGETANKSIEGED).forEach(unit => {
       unitResourceService.seigeTanksSiegedGrids.push(...gridsInCircle(unit.pos, unit.radius, { normalize: true }))
     });
-    const supplyDepots = units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]);
+    const supplyDepots = units.getByType([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]);
     supplyDepots.forEach(supplyDepot => {
       const cells = cellsInFootprint(supplyDepot.pos, getFootprint(supplyDepot.unitType));
       cells.forEach(cell => {
