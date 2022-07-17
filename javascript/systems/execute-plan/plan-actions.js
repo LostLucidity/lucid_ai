@@ -23,6 +23,7 @@ const { addEarmark, isTrainingUnit } = require("../../services/data-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
 const { CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
+const { setPendingOrders } = require("../unit-resource/unit-resource-service");
 
 const planActions = {
   /**
@@ -183,6 +184,7 @@ const planActions = {
             abilityId,
             unitTags: [trainer.tag],
           }
+          setPendingOrders(trainer, unitCommand);
           await actions.sendAction([unitCommand]);
         } else {
           abilityId = WarpUnitAbility[unitTypeId]
