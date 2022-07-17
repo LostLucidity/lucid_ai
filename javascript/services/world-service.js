@@ -2,7 +2,7 @@
 "use strict"
 
 const fs = require('fs');
-const { UnitTypeId, Ability, UnitType } = require("@node-sc2/core/constants");
+const { UnitTypeId, Ability, UnitType, Buff } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities } = require("@node-sc2/core/constants/groups");
@@ -422,7 +422,7 @@ const worldService = {
           healthAndShield = healthMax + shieldMax;
         }
       }
-      dPSHealth = calculateWeaponDPS(world, weapon, unitType, alliance, enemyUnitTypes) * healthAndShield;
+      dPSHealth = calculateWeaponDPS(world, weapon, unitType, alliance, enemyUnitTypes) * healthAndShield * (unit.buffIds.includes(Buff.STIMPACK) ? 1.5 : 1);
     }
     return dPSHealth;
   },
@@ -730,7 +730,7 @@ const worldService = {
     const { agent, data, resources } = world;
     const { frame, map, units } = resources.get();
     const collectedActions = [];
-    position = getMiddleOfStructure(position, unitType)
+    position = getMiddleOfStructure(position, unitType);
     const builder = getBuilder(world, position);
     if (builder) {
       // get speed, distance and average collection rate

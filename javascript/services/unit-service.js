@@ -1,11 +1,12 @@
 //@ts-check
 "use strict"
 
+const Buff = require("@node-sc2/core/constants/buff");
 const Ability = require("@node-sc2/core/constants/ability");
 const { HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
-const { ZEALOT, ZERGLING, ROACH } = require("@node-sc2/core/constants/unit-type");
+const { ZEALOT, ZERGLING, ROACH, MARINE } = require("@node-sc2/core/constants/unit-type");
 const { distance, add } = require("@node-sc2/core/utils/geometry/point");
 const { setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
@@ -91,6 +92,9 @@ const unitService = {
       if (unit.alliance === Alliance.ENEMY && unitService.enemyMetabolicBoost) {
         movementSpeed = movementSpeed * 1.6
       }
+    }
+    if (unit.buffIds.includes(Buff.STIMPACK)) {
+      movementSpeed = movementSpeed * 1.5
     }
     return movementSpeed;
   },
