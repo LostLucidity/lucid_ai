@@ -531,7 +531,6 @@ class AssemblePlan {
     }
   }
   /**
-   * Collects training actions if conditions are met based on params.
    * @param {number} food
    * @param {number} unitType
    * @param {null|number} targetCount
@@ -593,7 +592,12 @@ class AssemblePlan {
       }
     }
   }
+  /**
+   * @param {number} food
+   * @param {number} upgradeId
+   */
   async upgrade(food, upgradeId) {
+    const { agent } = this.world;
     if (getFoodUsed(this.world) >= food) {
       const upgradeName = getStringNameOfConstant(Upgrade, upgradeId)
       upgradeId = mismatchMappings[upgradeName] ? Upgrade[mismatchMappings[upgradeName]] : Upgrade[upgradeName];
@@ -601,7 +605,7 @@ class AssemblePlan {
       const upgradeData = this.data.getUpgradeData(upgradeId);
       const { abilityId } = upgradeData;
       const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
-      if (!this.agent.upgradeIds.includes(upgradeId) && foundUpgradeInProgress === undefined) {
+      if (agent.canAfford(upgradeId) && !agent.upgradeIds.includes(upgradeId) && foundUpgradeInProgress === undefined) {
         const upgrader = this.units.getUpgradeFacilities(upgradeId).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
         if (upgrader) {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
