@@ -409,7 +409,7 @@ const worldService = {
     // if unit.unitType is an ADEPTPHASESHIFT, use values of ADEPT assigned to it
     let { alliance, unitType } = unit;
     unitType = unitType !== UnitType.ADEPTPHASESHIFT ? unitType : ADEPT;
-    const weapon = data.getUnitTypeData(unitType).weapons[0];
+    const weapon = getWeapon(data, unitType);
     unit = getUnitForDPSCalculation(resources, unit);
     if (weapon) {
       let healthAndShield = 0;
@@ -683,10 +683,9 @@ const worldService = {
   microRangedUnit: (world, unit, targetUnit) => {
     const { data } = world;
     const collectedActions = [];
-    if (
-      (unit.weaponCooldown > 8 || unit.unitType === UnitType.CYCLONE) &&
-      data.getUnitTypeData(targetUnit.unitType).weapons.some(weapon => { return weapon.range; })
-    ) {
+    const weaponCooldownOverStepSize = unit.weaponCooldown > 8;
+    const enemyWeapon = getWeapon(data, targetUnit.unitType);
+    if ((weaponCooldownOverStepSize || unit.unitType === UnitType.CYCLONE) && enemyWeapon) {
       const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit);
       collectedActions.push({
         abilityId: MOVE,
@@ -1112,6 +1111,25 @@ function findClosestSafePosition(resources, unit, targetUnit) {
   } else {
     const [closestPoint] = getClosestPositionByPath(resources, unit.pos, safePositions);
     return closestPoint;
+  }
+}
+/**
+ * @param {DataStorage} data
+ * @param {UnitTypeId} unitType
+ * @returns {SC2APIProtocol.Weapon}
+ **/
+function getWeapon(data, unitType) {
+  if (unitType === UnitType.SENTRY) {
+    return {
+      attacks: 1,
+      damage: 6,
+      damageBonus: [],
+      range: 5,
+      speed: 1,
+      type: WeaponTargetType.ANY,
+    }
+  } else {
+    return data.getUnitTypeData(unitType).weapons[0];
   }
 }
 /**
