@@ -727,7 +727,7 @@ const worldService = {
    */
   premoveBuilderToPosition: (world, position, unitType, stepAhead = false) => {
     const { agent, data, resources } = world;
-    const { frame, map, units } = resources.get();
+    const { map, units } = resources.get();
     const collectedActions = [];
     position = getMiddleOfStructure(position, unitType);
     const builder = getBuilder(world, position);
@@ -761,10 +761,7 @@ const worldService = {
         }
       }
       const unitCommand = builder ? createUnitCommand(MOVE, [builder]) : {};
-      const { collectionRateMinerals } = frame.getObservation().score.scoreDetails;
-      addEarmark(data, data.getUnitTypeData(unitType));
-      const mineralsLeft = data.getEarmarkTotals('stepAhead').minerals - agent.minerals;
-      const timeToTargetCost = mineralsLeft / (collectionRateMinerals / 60);
+      const timeToTargetCost = getTimeToTargetCost(world, unitType);
       if (shouldPremoveNow(world, timeToTargetCost, timeToPosition) && buildTimeLeft <= timeToPosition) {
         if (rallyBase) {
           collectedActions.push(...rallyWorkerToTarget(world, position));
@@ -1313,3 +1310,21 @@ function getUnitsByAllianceAndType(alliance, unitType) {
 function getByTag(tag) {
   return enemyTrackingService.mappedEnemyUnits.find(unit => unit.tag === tag);
 }
+/**
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @returns {number}
+ **/
+function getTimeToTargetCost(world, unitType) {
+  const { agent, data, resources } = world;
+  const { frame } = resources.get();
+  const { collectionRateMinerals, collectionRateVespene } = frame.getObservation().score.scoreDetails;
+  addEarmark(data, data.getUnitTypeData(unitType));
+  const mineralsLeft = data.getEarmarkTotals('stepAhead').minerals - agent.minerals;
+  const vespeneLeft = data.getEarmarkTotals('stepAhead').vespene - agent.vespene;
+  const timeToTargetMinerals = mineralsLeft / (collectionRateMinerals / 60);
+  const { vespeneCost } = data.getUnitTypeData(unitType);
+  const timeToTargetVespene = vespeneCost > 0 ? vespeneLeft / (collectionRateVespene / 60) : 0;
+  return Math.max(timeToTargetMinerals, timeToTargetVespene);
+}
+
