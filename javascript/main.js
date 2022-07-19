@@ -219,6 +219,7 @@ async function runGame() {
     injectorSystem,
     workerTrainingSystem,
     runBehaviorsSystem,
+    wallOffRampSystem,
   ];
   bot1.use(legacySystems);
   // bot1.use(updatedSystems);
