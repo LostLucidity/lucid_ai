@@ -16,7 +16,7 @@ const planService = {
   /** @type {boolean} */
   bogIsActive: false,
   dirtyBasePlan: false,
-  continueBuild: null,
+  continueBuild: true,
   currentStep: 0,
   /** @type {number} */
   foodMark: 12,

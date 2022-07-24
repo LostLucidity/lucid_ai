@@ -330,11 +330,11 @@ const planActions = {
             if (world.data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
               await planActions.build(world, unitType, targetCount, candidatePositions, stepAhead);
             } else {
-              if (stepAhead) return;
+              if (stepAhead) break;
               await planActions.train(world, unitType, targetCount);
             }
           } else if (orderType === 'Upgrade') {
-            if (stepAhead) return;
+            if (stepAhead) break;
             await planActions.upgrade(world, planStep.upgrade);
           }
         } else { break; }

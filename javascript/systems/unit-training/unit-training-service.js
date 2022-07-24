@@ -5,6 +5,7 @@ const { WarpUnitAbility } = require("@node-sc2/core/constants");
 const { WARPGATE, TECHLAB } = require("@node-sc2/core/constants/unit-type");
 
 const unitTrainingService = {
+  /** @type {number|null} */
   selectedTypeToBuild: null,
   /**
    * Check unit can train now.
