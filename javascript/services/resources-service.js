@@ -6,7 +6,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getBuilders } = require("../systems/unit-resource/unit-resource-service");
 const dataService = require("./data-service");
 const { getTimeInSeconds } = require("./frames-service");
-const { getPathablePositions } = require("./map-resource-service");
+const { getPathablePositions, getMapPath } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
 
 const resourcesService = {
@@ -19,7 +19,8 @@ const resourcesService = {
   distanceByPath: (resources, position, targetPosition) => {
     const { map } = resources.get();
     try {
-      const calculatedZeroPath = map.path(position, targetPosition).length === 0;
+      let path = getMapPath(map, position, targetPosition);
+      const calculatedZeroPath = path.length === 0;
       const isZeroPathDistance = calculatedZeroPath && distance(position, targetPosition) <= 2 ? true : false;
       const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
       const { totalDistance } = getPathCoordinates(map.path(position, targetPosition)).reduce((acc, curr) => {

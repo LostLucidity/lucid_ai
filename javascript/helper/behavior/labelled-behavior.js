@@ -6,6 +6,7 @@ const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
+const { getMapPath } = require("../../services/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
 const { getClosestUnitByPath, distanceByPath } = require("../../services/resources-service");
 const { retreat, getDamageDealingUnits } = require("../../services/world-service");
@@ -91,8 +92,10 @@ module.exports = {
           );
           if (enemyOutOfRangeButCloserToRally) {
             unitCommand.targetWorldSpacePos = retreat(world, unit, closestEnemyUnit, false);
+            console.log('retreat!', unitCommand.targetWorldSpacePos, getMapPath(map, unit.pos, unitCommand.targetWorldSpacePos).length);
           } else {
             unitCommand.targetWorldSpacePos = combatRallyPosition;
+            console.log('rally!', unitCommand.targetWorldSpacePos, getMapPath(map, unit.pos, unitCommand.targetWorldSpacePos).length);
           }
           collectedActions.push(unitCommand);
         }
@@ -129,12 +132,12 @@ module.exports = {
     const collectedActions = [];
     if (unit) {
       const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, { alliance: Alliance.ENEMY }).filter(cannon => distance(cannon.pos, unit.pos) < 16);
+      const threateningUnits = unit['enemyUnits'] && unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => {
+        const threateningRangedUnit = isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8
+        const threateningMeleeUnit = enemyUnit.isMelee() && distance(unit.pos, enemyUnit.pos) < 4 && isFacing(unit, enemyUnit, 180 / 16);
+        return (threateningRangedUnit || threateningMeleeUnit)
+      });
       if (calculateTotalHealthRatio(units, unit) > 1 / 2 && !inRangeEnemyCannon) {
-        const threateningUnits = unit['enemyUnits'] && unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => {
-          const threateningRangedUnit = isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8
-          const threateningMeleeUnit = enemyUnit.isMelee() && distance(unit.pos, enemyUnit.pos) < 4 && isFacing(unit, enemyUnit, 180 / 16);
-          return (threateningRangedUnit || threateningMeleeUnit)
-        });
         if (threateningUnits && threateningUnits.length > 1) {
           unit.labels.set('Threatened');
           let [closestEnemyUnit] = units.getClosest(unit.pos, unit['enemyUnits'], 1);
@@ -175,11 +178,15 @@ module.exports = {
           }
         }
       } else {
-        const unitCommand = {
-          abilityId: MOVE,
-          unitTags: [unit.tag],
-          targetWorldSpacePos: getCombatRally(resources),
-        };
+        let [closestThreateningUnit] = units.getClosest(unit.pos, threateningUnits, 1);
+        const unitCommand = createUnitCommand(MOVE, [unit]);
+        if (closestThreateningUnit) {
+          unitCommand.targetWorldSpacePos = retreat(world, unit, closestThreateningUnit, false);
+          console.log('retreat!', unitCommand.targetWorldSpacePos, getMapPath(map, unit.pos, unitCommand.targetWorldSpacePos).length);
+        } else {
+          unitCommand.targetWorldSpacePos = getCombatRally(resources);
+          console.log('rally!', unitCommand.targetWorldSpacePos, getMapPath(map, unit.pos, unitCommand.targetWorldSpacePos).length);
+        }
         collectedActions.push(unitCommand);
       }
     }

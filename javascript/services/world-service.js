@@ -39,14 +39,14 @@ const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { SPAWNINGPOOL, ADEPT } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
-const { getTimeInSeconds, travelDistancePerStep } = require("./frames-service");
+const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const path = require('path');
 const foodUsedService = require('./food-used-service');
 const { keepPosition } = require('./placement-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
 const { getClosestUnitByPath, getBuilder, distanceByPath, getClosestPositionByPath } = require('./resources-service');
-const { getMiddleOfStructure } = require('./position-service');
+const { getMiddleOfStructure, moveAwayPosition } = require('./position-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -785,6 +785,38 @@ const worldService = {
   },
   /**
    * @param {World} world 
+   * @param {Unit} worker 
+   * @param {Unit} targetUnit 
+   * @param {Unit[]} enemyUnits 
+   * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+   */
+  pullWorkersToDefend: async (world, worker, targetUnit, enemyUnits) => {
+    const { agent, data, resources } = world;
+    const { units } = resources.get();
+    const collectedActions = [];
+    const inRangeEnemySupply = calculateHealthAdjustedSupply(world, getInRangeUnits(targetUnit, [...enemyTrackingService.mappedEnemyUnits]));
+    const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
+    const workers = units.getById(WorkerRace[agent.race]).filter(worker => {
+      return (
+        filterLabels(worker, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy', 'builder']) &&
+        !isRepairing(worker) &&
+        !worker.isReturning()
+      );
+    });
+    const fighters = units.getClosest(targetUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
+    if (fighters.find(fighter => fighter.tag === worker.tag)) {
+      const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(worker.pos, mineralField.pos) < distance(targetUnit.pos, mineralField.pos));
+      const [closestCandidateMineral] = units.getClosest(worker.pos, candidateMinerals);
+      if (closestCandidateMineral) {
+        collectedActions.push(...micro(units, worker, targetUnit, enemyUnits));
+      }
+    } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === targetUnit.tag) {
+      collectedActions.push(gatherOrMine(resources, worker));
+    }
+    return collectedActions;
+  },
+  /**
+   * @param {World} world 
    * @param {Unit} unit 
    * @param {Unit} targetUnit 
    * @returns {Point2D}
@@ -793,38 +825,48 @@ const worldService = {
     const { resources } = world;
     const { units } = resources.get();
     const closestSafePosition = findClosestSafePosition(resources, unit, targetUnit);
-    if (distance(unit.pos, closestSafePosition) < travelDistancePerStep(unit)) {
-      const closestBunkerPositionByPath = units.getById(UnitType.BUNKER)
-        .filter((unit) => unit.buildProgress === 1)
-        .map((unit) => unit.pos)
-        .sort((a, b) => distanceByPath(resources, a, unit.pos) - distanceByPath(resources, b, unit.pos))[0];
-      // get closest position to unit by path
-      const combatRally = getCombatRally(resources);
-      const unitToCombatRallyDistance = distanceByPath(resources, unit.pos, combatRally);
-      const targetUnitToCombatRallyDistance = distanceByPath(resources, targetUnit.pos, combatRally);
-      const combatRallyCloser = distanceByPath(resources, combatRally, unit.pos) < distanceByPath(resources, closestBunkerPositionByPath, unit.pos);
-      if (
-        toCombatRally &&
-        combatRallyCloser &&
-        unitToCombatRallyDistance > 16 && unitToCombatRallyDistance !== Infinity &&
-        unitToCombatRallyDistance <= targetUnitToCombatRallyDistance
-      ) {
-        return combatRally;
-      } else if (closestBunkerPositionByPath) {
-        return closestBunkerPositionByPath;
+    const travelDistancePerStep = getTravelDistancePerStep(unit);
+    if (closestSafePosition) {
+      if (distance(unit.pos, closestSafePosition) < travelDistancePerStep) {
+        const closestBunkerPositionByPath = units.getById(UnitType.BUNKER)
+          .filter((unit) => unit.buildProgress === 1)
+          .map((unit) => unit.pos)
+          .sort((a, b) => distanceByPath(resources, a, unit.pos) - distanceByPath(resources, b, unit.pos))[0];
+        // get closest position to unit by path
+        const combatRally = getCombatRally(resources);
+        const unitToCombatRallyDistance = distanceByPath(resources, unit.pos, combatRally);
+        const targetUnitToCombatRallyDistance = distanceByPath(resources, targetUnit.pos, combatRally);
+        const combatRallyCloser = distanceByPath(resources, combatRally, unit.pos) < distanceByPath(resources, closestBunkerPositionByPath, unit.pos);
+        if (
+          toCombatRally &&
+          combatRallyCloser &&
+          unitToCombatRallyDistance > 16 && unitToCombatRallyDistance !== Infinity &&
+          unitToCombatRallyDistance <= targetUnitToCombatRallyDistance
+        ) {
+          return combatRally;
+        } else if (closestBunkerPositionByPath) {
+          return closestBunkerPositionByPath;
+        } else {
+          if (!unit['retreatCandidates']) { unit['retreatCandidates'] = new Map(); }
+          if (!targetUnit['retreatCandidates']) { targetUnit['retreatCandidates'] = new Map(); }
+          const retreatCandidates = getRetreatCandidates(world, unit, targetUnit);
+          const [largestPathDifferenceRetreat] = retreatCandidates.filter((point) => {
+            return distanceByPath(resources, unit.pos, point) > 16;
+          }).sort((a, b) => {
+            return distanceByPath(resources, unit.pos, a) - distanceByPath(resources, unit.pos, b);
+          });
+          return largestPathDifferenceRetreat ? largestPathDifferenceRetreat : closestSafePosition;
+        }
       } else {
-        if (!unit['retreatCandidates']) { unit['retreatCandidates'] = new Map(); }
-        if (!targetUnit['retreatCandidates']) { targetUnit['retreatCandidates'] = new Map(); }
-        const retreatCandidates = getRetreatCandidates(world, unit, targetUnit);
-        const [largestPathDifferenceRetreat] = retreatCandidates.filter((point) => {
-          return distanceByPath(resources, unit.pos, point) > 16;
-        }).sort((a, b) => {
-          return distanceByPath(resources, unit.pos, a) - distanceByPath(resources, unit.pos, b);
-        });
-        return largestPathDifferenceRetreat ? largestPathDifferenceRetreat : closestSafePosition;
+        const closestSafePosition = findClosestSafePosition(resources, unit, targetUnit, travelDistancePerStep);
+        if (closestSafePosition) {
+          return closestSafePosition;
+        } else {
+          moveAwayPosition(targetUnit.pos, unit.pos, travelDistancePerStep);
+        }
       }
     } else {
-      return closestSafePosition;
+      return moveAwayPosition(targetUnit.pos, unit.pos, travelDistancePerStep);
     }
   },
   /**
@@ -977,6 +1019,9 @@ const worldService = {
     worldService.setAndLogExecutedSteps(world, frame.timeInSeconds(), name, extra);
   },
 }
+
+module.exports = worldService;
+
 /**
  * @param {World} world
  * @param {number} timeToTargetCost 
@@ -1057,8 +1102,6 @@ function findZergPlacements(resources, unitType) {
   return candidatePositions;
 }
 
-module.exports = worldService;
-
 /**
  * @param {World} world 
  * @param {UnitTypeId} unitType
@@ -1096,11 +1139,12 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
  * @param {ResourceManager} resources
  * @param {Unit} unit 
  * @param {Unit} targetUnit 
- * @returns {Point2D}
+ * @param {number} radius
+ * @returns {Point2D|undefined}
  */
-function findClosestSafePosition(resources, unit, targetUnit) {
+function findClosestSafePosition(resources, unit, targetUnit, radius = 0) {
   const { map } = resources.get();
-  const safePositions = getSafePositions(map, unit, targetUnit);
+  const safePositions = getSafePositions(map, unit, targetUnit, radius);
   // get closest point for flying unit, closest point by path distance for ground unit
   if (unit.isFlying) {
     const [closestPoint] = getClosestPosition(unit.pos, safePositions);
@@ -1135,11 +1179,13 @@ function getWeapon(data, unitType) {
  * @param {Unit} targetUnit
  * @returns {Point2D[]}
  **/
-function getSafePositions(map, unit, targetUnit) {
+function getSafePositions(map, unit, targetUnit, radius = 0) {
   let safePositions = [];
-  let radius = 0;
-  while (safePositions.length === 0) {
-    safePositions = gridsInCircle(unit.pos, radius).filter((point) => {
+  while (safePositions.length === 0 && radius <= 16) {
+    const ringOfCircle = gridsInCircle(unit.pos, radius).filter((point) => {
+      return distance(point, unit.pos) > (radius - 1);
+    });
+    safePositions = ringOfCircle.filter((point) => {
       // check is point is farther than unit from target unit
       const fartherThanUnit = distance(point, targetUnit.pos) > distance(point, unit.pos);
       if (existsInMap(map, point) && fartherThanUnit) {
@@ -1197,7 +1243,7 @@ function isSafePositionFromTarget(map, unit, targetUnit, point) {
   }
   const weaponRange = weapon.range;
   const distanceToTarget = distance(point, targetUnit.pos);
-  return distanceToTarget > weaponRange + unit.radius + targetUnit.radius + travelDistancePerStep(targetUnit) + travelDistancePerStep(unit);
+  return distanceToTarget > weaponRange + unit.radius + targetUnit.radius + getTravelDistancePerStep(targetUnit) + getTravelDistancePerStep(unit);
 }
 /**
  * @param {Unit} unit 
@@ -1224,24 +1270,30 @@ function getRetreatCandidates(world, unit, targetUnit) {
   const { map } = resources.get();
   // all expansion locations
   const expansionLocations = map.getExpansions().map((expansion) => expansion.centroid);
+  // @ts-ignore
   return [...expansionLocations].filter((point) => {
-    const positionString = `${point.x},${point.y}`;
-    const damageDealingEnemies = worldService.getDamageDealingUnits(world, targetUnit['selfUnits']);
-    let [closestToRetreat] = getClosestUnitByPath(resources, point, damageDealingEnemies);
-    if (closestToRetreat) {
-      const closestToRetreatOrTargetUnit = closestToRetreat ? closestToRetreat : targetUnit;
-      targetUnit['retreatCandidates'][positionString] = {
-        'closestToRetreat': closestToRetreatOrTargetUnit,
-        'distanceByPath': distanceByPath(resources, closestToRetreatOrTargetUnit.pos, point),
+      // @ts-ignore
+      const positionString = `${point.x},${point.y}`;
+      const damageDealingEnemies = worldService.getDamageDealingUnits(world, targetUnit['selfUnits']);
+      // @ts-ignore
+      let [closestToRetreat] = getClosestUnitByPath(resources, point, damageDealingEnemies);
+      if (closestToRetreat) {
+        const closestToRetreatOrTargetUnit = closestToRetreat ? closestToRetreat : targetUnit;
+        targetUnit['retreatCandidates'][positionString] = {
+          'closestToRetreat': closestToRetreatOrTargetUnit,
+          // @ts-ignore
+          'distanceByPath': distanceByPath(resources, closestToRetreatOrTargetUnit.pos, point),
+        }
+        unit['retreatCandidates'][positionString] = {
+          // @ts-ignore
+          'distanceByPath': distanceByPath(resources, unit.pos, point),
+        }
+        const distanceByPathToRetreat = unit['retreatCandidates'][positionString]['distanceByPath'];
+        if (distanceByPathToRetreat === Infinity) return false;
+        return distanceByPathToRetreat <= targetUnit['retreatCandidates'][positionString]['distanceByPath'];
+      } else {
+        return false;
       }
-      unit['retreatCandidates'][positionString] = {
-        'distanceByPath': distanceByPath(resources, unit.pos, point),
-      }
-      const distanceByPathToRetreat = unit['retreatCandidates'][positionString]['distanceByPath'];
-      return distanceByPathToRetreat <= targetUnit['retreatCandidates'][positionString]['distanceByPath'];
-    } else {
-      return false;
-    }
   });
 }
 /**

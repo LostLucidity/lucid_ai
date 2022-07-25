@@ -22,7 +22,7 @@ const enemyTrackingService = require("../../systems/enemy-tracking/enemy-trackin
 const { moveAwayPosition } = require("../../services/position-service");
 const { getMovementSpeed } = require("../../services/unit-service");
 const worldService = require("../../services/world-service");
-const { travelDistancePerStep } = require("../../services/frames-service");
+const { getTravelDistancePerStep } = require("../../services/frames-service");
 
 const armyBehavior = {
   /**
@@ -236,7 +236,7 @@ const armyBehavior = {
                   if (!selfUnit.isMelee()) {
                     const foundEnemyWeapon = getWeaponThatCanAttack(closestEnemyRange, selfUnit);
                     if (foundEnemyWeapon) {
-                      const bufferDistance = foundEnemyWeapon.range + selfUnit.radius + closestEnemyRange.radius + travelDistancePerStep(closestEnemyRange) + travelDistancePerStep(selfUnit);
+                      const bufferDistance = foundEnemyWeapon.range + selfUnit.radius + closestEnemyRange.radius + getTravelDistancePerStep(closestEnemyRange) + getTravelDistancePerStep(selfUnit);
                       if ((bufferDistance) < distance(selfUnit.pos, closestEnemyRange.pos)) {
                         collectedActions.push(...microRangedUnit(world, selfUnit, closestEnemyRange));
                         return;

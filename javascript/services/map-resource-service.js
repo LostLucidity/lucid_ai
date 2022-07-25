@@ -3,6 +3,7 @@
 
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { getPathCoordinates } = require("./path-service");
 
 const MapResourceService = {
   /**
@@ -11,6 +12,31 @@ const MapResourceService = {
    */
   getClosestExpansion: (map, position) => {
     return map.getExpansions().sort((a, b) => distance(a.townhallPosition, position) - distance(b.townhallPosition, position));
+  },
+  /**
+   * @param {MapResource} map
+   * @param {Point2D} start
+   * @param {Point2D} end
+   * @returns {number[][]}
+   */
+  getMapPath: (map, start, end) => {
+    let force = false;
+    let mapPath = map.path(start, end);
+    mapPath = mapPath.length > 0 ? mapPath : map.path(end, start);
+    if (mapPath.length === 0) {
+      force = true;
+      mapPath = mapPath.length > 0 ? mapPath : map.path(start, end, { force });
+      mapPath = mapPath.length > 0 ? mapPath : map.path(end, start, { force });
+    }
+    if (!force) {
+      const unPathable = getPathCoordinates(mapPath).some(coordinate => {
+        map.isPathable(coordinate) === false;
+      });
+      if (unPathable) {
+        mapPath = map.path(start, end, { force: true });
+      }
+    }
+    return mapPath;
   },
   /**
    * @param {MapResource} map
