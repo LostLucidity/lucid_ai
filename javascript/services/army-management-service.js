@@ -112,38 +112,6 @@ const armyManagementService = {
       }
     });
     return collectedActions;
-  },
-  /**
-   * @param {World} world 
-   * @param {Unit} worker 
-   * @param {Unit} targetUnit 
-   * @param {Unit[]} enemyUnits 
-   * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
-   */
-  pullWorkersToDefend: async (world, worker, targetUnit, enemyUnits) => {
-    const { agent, data, resources } = world;
-    const { units } = resources.get();
-    const collectedActions = [];
-    const inRangeEnemySupply = calculateHealthAdjustedSupply(world, getInRangeUnits(targetUnit, [...enemyTrackingService.mappedEnemyUnits]));
-    const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
-    const workers = units.getById(WorkerRace[agent.race]).filter(worker => {
-      return (
-        filterLabels(worker, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy', 'builder']) &&
-        !isRepairing(worker) &&
-        !worker.isReturning()
-      );
-    });
-    const fighters = units.getClosest(targetUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
-    if (fighters.find(fighter => fighter.tag === worker.tag)) {
-      const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(worker.pos, mineralField.pos) < distance(targetUnit.pos, mineralField.pos));
-      const [closestCandidateMineral] = units.getClosest(worker.pos, candidateMinerals);
-      if (closestCandidateMineral) {
-        collectedActions.push(...micro(units, worker, targetUnit, enemyUnits));
-      }
-    } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === targetUnit.tag) {
-      collectedActions.push(gatherOrMine(resources, worker));
-    }
-    return collectedActions;
   }
 }
 
