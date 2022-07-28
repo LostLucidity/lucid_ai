@@ -1188,7 +1188,7 @@ function getSafePositions(map, unit, targetUnit, radius = 0) {
     safePositions = ringOfCircle.filter((point) => {
       // check is point is farther than unit from target unit
       const fartherThanUnit = distance(point, targetUnit.pos) > distance(point, unit.pos);
-      if (existsInMap(map, point) && fartherThanUnit) {
+      if (existsInMap(map, point) && map.isPathable(point) && fartherThanUnit) {
         // get grid height of point in map
         const pointWithHeight = {
           ...point,
@@ -1203,14 +1203,7 @@ function getSafePositions(map, unit, targetUnit, radius = 0) {
   }
   return safePositions;
 }
-/**
- * @param {MapResource} map
- * @param {Point2D} point
- * @returns {boolean}
- */
-function isPointInMap(map, point) {
-  return point.x >= 0 && point.x < map._mapSize.x && point.y >= 0 && point.y < map._mapSize.y;
-}
+
 /**
  * @param {MapResource} map
  * @param {Unit} unit 
@@ -1222,17 +1215,17 @@ function isSafePositionFromTarget(map, unit, targetUnit, point) {
   // check if point is out or range of unit
   // if point.z is not greater than 2 of unit.pos.z, then check highest range of ground weapon
   // if point.z is greater than 2 of unit.pos.z, then check highest range of air weapon
+  if (!existsInMap(map, point)) {
+    return false;
+  }
   let weaponTargetType = null;
+  // @ts-ignore
   if (point.z > unit.pos.z + 2) {
     weaponTargetType = WeaponTargetType.AIR;
-    // return false if point is outside of map
-    if (!isPointInMap(map, point)) {
-      return false;
-    }
   } else {
     weaponTargetType = WeaponTargetType.GROUND;
     // return false if point is outside of map and point is not pathable
-    if (!isPointInMap(map, point) || !map.isPathable(point)) {
+    if (!map.isPathable(point)) {
       return false;
     }
   }
@@ -1242,7 +1235,9 @@ function isSafePositionFromTarget(map, unit, targetUnit, point) {
     return true;
   }
   const weaponRange = weapon.range;
+  // @ts-ignore
   const distanceToTarget = distance(point, targetUnit.pos);
+  // @ts-ignore
   return distanceToTarget > weaponRange + unit.radius + targetUnit.radius + getTravelDistancePerStep(targetUnit) + getTravelDistancePerStep(unit);
 }
 /**
