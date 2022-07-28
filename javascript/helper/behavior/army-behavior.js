@@ -275,7 +275,7 @@ const armyBehavior = {
                   const weaponRange = getWeaponThatCanAttack(rangedUnitAlly, closestAttackableEnemyUnit).range + selfUnit.radius;
                   if (
                     distanceBetweenUnits < 16 &&
-                    rangedAllyEdgeDistance > weaponRange + travelDistancePerStep(rangedUnitAlly)
+                    rangedAllyEdgeDistance > weaponRange + getTravelDistancePerStep(rangedUnitAlly)
                   ) {
                     const unitCommand = createUnitCommand(MOVE, [selfUnit]);
                     unitCommand.targetWorldSpacePos = rangedUnitAlly.pos;
@@ -547,7 +547,7 @@ function getClosestEnemyByRange(unit, enemyUnits) {
   return enemyUnits.reduce((closestEnemyByRange, enemyUnit) => {
     const weapon = getWeaponThatCanAttack(enemyUnit, unit);
     if (weapon) {
-      const range = weapon.range + unit.radius + enemyUnit.radius + travelDistancePerStep(enemyUnit);
+      const range = weapon.range + unit.radius + enemyUnit.radius + getTravelDistancePerStep(enemyUnit);
       const distanceToUnit = distance(unit.pos, enemyUnit.pos);
       const difference = distanceToUnit - range;
       if (difference < shortestDifference) {
