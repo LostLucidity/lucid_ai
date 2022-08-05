@@ -45,6 +45,7 @@ const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
 const worldService = require("../services/world-service");
 const { buildGasMine } = require("../systems/execute-plan/plan-actions");
+const harassService = require("../systems/harass/harass-service");
 
 let actions;
 let race;
@@ -654,7 +655,7 @@ class AssemblePlan {
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
             if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
-          case 'harass': if (scoutingService.enemyBuildType === 'standard') { await harass(this.world, this.state); } break;
+          case 'harass': if (scoutingService.enemyBuildType === 'standard') harassService.harassOn = true; break;
           case 'liftToThird': if (getFoodUsed(this.world) >= foodTarget) { await liftToThird(this.resources); } break;
           case 'maintainQueens': if (getFoodUsed(this.world) >= foodTarget) { await maintainQueens(this.world); } break;
           case 'manageSupply': await this.manageSupply(planStep[0]); break;
