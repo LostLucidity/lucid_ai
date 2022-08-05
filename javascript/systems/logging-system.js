@@ -4,12 +4,13 @@
 const { createSystem } = require("@node-sc2/core");
 const { UnitType } = require("@node-sc2/core/constants");
 const { HALT_TERRANBUILD } = require("@node-sc2/core/constants/ability");
-const { Race } = require("@node-sc2/core/constants/enums");
+const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const loggingService = require("../services/logging-service");
 const planService = require("../services/plan-service");
 const worldService = require("../services/world-service");
 const { logActionIfNearPosition } = require("../services/world-service");
+const healthTrackingService = require("./health-tracking/health-tracking-service");
 
 module.exports = createSystem({
   name: 'Logging',
@@ -34,7 +35,16 @@ function logStepStats({ agent, resources }) {
   const formattedTime = loggingService.formatToMinutesAndSeconds(resources.get().frame.timeInSeconds());
   const { foodUsed, minerals, vespene } = agent;
   const { totalSelfDPSHealth, totalEnemyDPSHealth } = worldService;
-  console.log(`foodUsed: ${foodUsed}, time: ${formattedTime}, isPlanPaused: ${planService.isPlanPaused}, step: ${planService.latestStep}, resources: ${minerals}/${vespene}, powerLevels: ${totalSelfDPSHealth}/${totalEnemyDPSHealth}(${totalSelfDPSHealth/totalEnemyDPSHealth})`);
+  let logBuilder = `foodUsed: ${foodUsed}`;
+  logBuilder += `, time: ${formattedTime}`;
+  logBuilder += `, isPlanPaused: ${planService.isPlanPaused}`;
+  logBuilder += `, step: ${planService.latestStep}`;
+  logBuilder += `, resources: ${minerals}/${vespene}`;
+  logBuilder += `, powerLevels: ${totalSelfDPSHealth}/${totalEnemyDPSHealth}(${totalSelfDPSHealth / totalEnemyDPSHealth})`;
+  // const selfHealthDifferenceAverage = healthTrackingService.healthDifference[Alliance.SELF].slice(-14).reduce((acc, curr) => acc + curr, 0) / (14 / 5);
+  // const enemyHealthDifferenceAverage = healthTrackingService.healthDifference[Alliance.ENEMY].slice(-14).reduce((acc, curr) => acc + curr, 0) / (14 / 5);
+  // logBuilder += `, healthDifference: ${selfHealthDifferenceAverage}/${enemyHealthDifferenceAverage}(${selfHealthDifferenceAverage / enemyHealthDifferenceAverage})`;
+  console.log(`${logBuilder}`);
 }
 /**
  * @param {World} world

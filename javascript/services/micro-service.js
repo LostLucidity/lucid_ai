@@ -60,6 +60,7 @@ const microService = {
       const inRangeMeleeEnemyUnits = enemyUnits.filter(enemyUnit => enemyUnit.isMelee() && ((distance(unit.pos, enemyUnit.pos) + 0.05) - (unit.radius + enemyUnit.radius) < 0.25));
       const [weakestInRange] = inRangeMeleeEnemyUnits.sort((a, b) => (a.health + a.shield) - (b.health + b.shield));
       targetUnit = weakestInRange || targetUnit;
+      /** @type {SC2APIProtocol.ActionRawUnitCommand} */
       const unitCommand = {
         abilityId: ATTACK_ATTACK,
         unitTags: [unit.tag],

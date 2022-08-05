@@ -4,7 +4,7 @@
 const Buff = require("@node-sc2/core/constants/buff");
 const Ability = require("@node-sc2/core/constants/ability");
 const { HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
 const { ZEALOT, ZERGLING, ROACH, MARINE } = require("@node-sc2/core/constants/unit-type");
 const { distance, add } = require("@node-sc2/core/utils/geometry/point");
@@ -97,6 +97,29 @@ const unitService = {
       movementSpeed = movementSpeed * 1.5
     }
     return movementSpeed;
+  },
+  /**
+   * Get weapon that can attack target
+   * @param {DataStorage} data
+   * @param {UnitTypeId} unitTypeId
+   * @param {Unit} target
+   * @returns {SC2APIProtocol.Weapon | undefined}
+   */
+  getWeaponThatCanAttack: (data, unitTypeId, target) => {
+    const { weapons } = data.getUnitTypeData(unitTypeId);
+    // find weapon that can attack target
+    if (!weapons) return undefined;
+    const weapon = weapons.find(weapon => {
+      const { type } = weapon;
+      if (type === WeaponTargetType.GROUND && target.isFlying) {
+        return false;
+      }
+      if (type === WeaponTargetType.AIR && !target.isFlying) {
+        return false;
+      }
+      return true;
+    });
+    return weapon;
   },
   /**
    * @param {Unit} worker 

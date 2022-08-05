@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { LARVA, QUEEN, BUNKER, SIEGETANKSIEGED, OVERSEER, ADEPTPHASESHIFT } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK, SMART, LOAD_BUNKER, STOP } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("../location");
@@ -15,13 +15,14 @@ const { isRepairing, canAttack, setPendingOrders } = require("../../systems/unit
 const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint, getClosestUnitByPath } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { microRangedUnit, defendWithUnit, getDPSHealth, retreat, pullWorkersToDefend } = require("../../services/world-service");
+const { microRangedUnit, defendWithUnit, getDPSHealth, retreat, pullWorkersToDefend, getWeaponDPS } = require("../../services/world-service");
 const { micro } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { moveAwayPosition } = require("../../services/position-service");
-const { getMovementSpeed } = require("../../services/unit-service");
+const { getMovementSpeed, getWeaponThatCanAttack } = require("../../services/unit-service");
 const worldService = require("../../services/world-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
+const healthTrackingService = require("../../systems/health-tracking/health-tracking-service");
 
 const armyBehavior = {
   /**
@@ -196,7 +197,7 @@ const armyBehavior = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
-    const { resources } = world;
+    const { data, resources } = world;
     const { units } = resources.get();
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
@@ -209,14 +210,14 @@ const armyBehavior = {
         if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestAttackableEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestAttackableEnemyUnit['enemyDPSHealth'];
           if (selfUnit.tag === randomUnit.tag) {
-            logBattleFieldSituation(selfUnit, closestAttackableEnemyUnit, selfDPSHealth);
+            logBattleFieldSituation(world, selfUnit, closestAttackableEnemyUnit, selfDPSHealth);
           }
           if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth) {
             if (getMovementSpeed(selfUnit) < getMovementSpeed(closestAttackableEnemyUnit) && closestAttackableEnemyUnit.unitType !== ADEPTPHASESHIFT) {
               if (selfUnit.isMelee()) {
                 collectedActions.push(...micro(units, selfUnit, closestAttackableEnemyUnit, enemyUnits));
               } else {
-                const enemyInAttackRange = isEnemyInAttackRange(selfUnit, closestAttackableEnemyUnit);
+                const enemyInAttackRange = isEnemyInAttackRange(data, selfUnit, closestAttackableEnemyUnit);
                 if (enemyInAttackRange) {
                   collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
                 } else {
@@ -231,9 +232,9 @@ const armyBehavior = {
                 unitCommand.targetWorldSpacePos = moveAwayPosition(attackablePosition, selfUnit.pos);
               } else {
                 if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
-                  const closestEnemyRange = getClosestEnemyByRange(selfUnit, enemyUnits)
+                  const closestEnemyRange = getClosestEnemyByRange(data, selfUnit, enemyUnits)
                   if (!selfUnit.isMelee()) {
-                    const foundEnemyWeapon = getWeaponThatCanAttack(closestEnemyRange, selfUnit);
+                    const foundEnemyWeapon = getWeaponThatCanAttack(data, closestEnemyRange.unitType, selfUnit);
                     if (foundEnemyWeapon) {
                       const bufferDistance = foundEnemyWeapon.range + selfUnit.radius + closestEnemyRange.radius + getTravelDistancePerStep(closestEnemyRange) + getTravelDistancePerStep(selfUnit);
                       if ((bufferDistance) < distance(selfUnit.pos, closestEnemyRange.pos)) {
@@ -268,11 +269,11 @@ const armyBehavior = {
               if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit)); }
               else {
                 const [rangedUnitAlly] = units.getClosest(selfUnit.pos, selfUnit['selfUnits']
-                  .filter((/** @type {Unit} */ unit) => unit.data().weapons.some(w => w.range > 1) && getWeaponThatCanAttack(unit, closestAttackableEnemyUnit) !== undefined));
+                  .filter((/** @type {Unit} */ unit) => unit.data().weapons.some(w => w.range > 1) && getWeaponThatCanAttack(data, unit.unitType, closestAttackableEnemyUnit) !== undefined));
                 if (rangedUnitAlly) {
                   const distanceBetweenUnits = distance(selfUnit.pos, rangedUnitAlly.pos);
                   const rangedAllyEdgeDistance = distance(rangedUnitAlly.pos, closestAttackableEnemyUnit.pos) - rangedUnitAlly.radius - closestAttackableEnemyUnit.radius;
-                  const weaponRange = getWeaponThatCanAttack(rangedUnitAlly, closestAttackableEnemyUnit).range + selfUnit.radius;
+                  const weaponRange = getWeaponThatCanAttack(data, rangedUnitAlly.unitType, closestAttackableEnemyUnit).range + selfUnit.radius;
                   if (
                     distanceBetweenUnits < 16 &&
                     rangedAllyEdgeDistance > weaponRange + getTravelDistancePerStep(rangedUnitAlly)
@@ -466,36 +467,18 @@ function setRecruitToBattleLabel(unit, position) {
     }
   });
 }
-
 /**
- * Get weapon that can attack target
- * @param {Unit} unit
- * @param {Unit} target
- * @returns {SC2APIProtocol.Weapon}
- */
-function getWeaponThatCanAttack(unit, target) {
-  const { weapons } = unit.data();
-  // find weapon that can attack target
-  const weapon = weapons.find(weapon => {
-    const { type } = weapon;
-    if (type === WeaponTargetType.GROUND && target.isFlying) {
-      return false;
-    }
-    if (type === WeaponTargetType.AIR && !target.isFlying) {
-      return false;
-    }
-    return true;
-  });
-  return weapon;
-}
-/**
+ * @param {DataStorage} data
  * @param {Unit} unit 
  * @param {Unit} targetUnit 
  * @returns {Boolean}
  */
-function isEnemyInAttackRange(unit, targetUnit) {
-  const foundWeapon = getWeaponThatCanAttack(unit, targetUnit);
-  return foundWeapon ? (foundWeapon.range >= distance(unit.pos, targetUnit.pos) + unit.radius + targetUnit.radius) : false;
+function isEnemyInAttackRange(data, unit, targetUnit) {
+  const { pos, radius, unitType } = unit;
+  if (!pos || !radius || !unitType || !targetUnit.pos || !targetUnit.radius) return false;
+  // check if properties exist
+  const foundWeapon = getWeaponThatCanAttack(data, unitType, targetUnit);
+  return foundWeapon && foundWeapon.range ? (foundWeapon.range >= distance(pos, targetUnit.pos) + radius + targetUnit.radius) : false;
 }
 /**
  * @param {Unit} unit 
@@ -525,27 +508,49 @@ function stop(unit) {
   return collectedActions;
 }
 /**
+ * @param {World} world
  * @param {Unit} selfUnit
  * @param {Unit} targetUnit
  * @param {number} selfDPSHealth
  * @returns {void}
  */
-function logBattleFieldSituation(selfUnit, targetUnit, selfDPSHealth) {
+function logBattleFieldSituation(world, selfUnit, targetUnit, selfDPSHealth) {
+  const { data } = world;
   const selfOverEnemyDPSHealth = `${Math.round(selfDPSHealth)}/${Math.round(targetUnit['selfDPSHealth'])}`;
   const distanceFromEnemy = distance(selfUnit.pos, targetUnit.pos);
   const selfOverEnemyUnitType = `${selfUnit.unitType}/${targetUnit.unitType}`;
+  // // calculate health differences total of allied units within 16 range of selfUnit and targetUnit
+  // const selfUnits = selfUnit['selfUnits'].filter((/** @type {Unit} */ unit) => distance(unit.pos, selfUnit.pos) < 16);
+  // const targetUnits = targetUnit['selfUnits'].filter((/** @type {Unit} */ unit) => distance(unit.pos, targetUnit.pos) < 16);
+  // const selfUnitsHealthDifferences = selfUnits.map((/** @type {Unit} */ unit) => healthTrackingService.healthOfUnits[unit.alliance][unit.tag].getAverageDifference());
+  // const targetUnitsHealthDifferences = targetUnits.map((/** @type {Unit} */ unit) => healthTrackingService.healthOfUnits[unit.alliance][unit.tag].getAverageDifference());
+  // const selfUnitsHealthDifferencesTotal = selfUnitsHealthDifferences.reduce((acc, cur) => acc + cur, 0);
+  // const targetUnitsHealthDifferencesTotal = targetUnitsHealthDifferences.reduce((acc, cur) => acc + cur, 0);
+  // const selfUnitsHealthDifferencesTotalStr = `${selfUnitsHealthDifferencesTotal}/${targetUnitsHealthDifferencesTotal}`;
+  // const selfUnitsDPSAverage = selfUnits.map((/** @type {Unit} */ unit) => healthTrackingService.healthOfUnits[unit.alliance][unit.tag].getAverageDPS());
+  // const targetUnitsDPSAverage = targetUnits.map((/** @type {Unit} */ unit) => healthTrackingService.healthOfUnits[unit.alliance][unit.tag].getAverageDPS());
+  // const selfUnitsDPSTotal = selfUnitsDPSAverage.reduce((acc, cur) => acc + cur, 0);
+  // const targetUnitsDPSTotal = targetUnitsDPSAverage.reduce((acc, cur) => acc + cur, 0);
+  // // compare selfUnitsDPSTotal to targetUnitsHealthDifferencesTotal * -1
+  // const calculatedSelfDPSTotalVsTargetHealthDifferencesTotal = selfUnitsDPSTotal / -targetUnitsHealthDifferencesTotal;
+  // const calculatedTargetDPSTotalVsSelfHealthDifferencesTotal = targetUnitsDPSTotal / -selfUnitsHealthDifferencesTotal;
+  // // if targetUnitsDPSTotal is less than selfUnitsHealthDifferencesTotal log that targetUnitsDPSTotal is underestimated
+  // if (targetUnitsDPSTotal < -selfUnitsHealthDifferencesTotal) {
+  //   console.log('targetUnitsDPSTotal is underestimated');
+  // }
   console.log(selfOverEnemyDPSHealth, distanceFromEnemy, selfOverEnemyUnitType);
 }
 
 /**
+ * @param {DataStorage} data
  * @param {Unit} unit
  * @param {Unit[]} enemyUnits
  * @returns {Unit|null}
  */
-function getClosestEnemyByRange(unit, enemyUnits) {
+function getClosestEnemyByRange(data, unit, enemyUnits) {
   let shortestDifference = Number.MAX_VALUE;
   return enemyUnits.reduce((closestEnemyByRange, enemyUnit) => {
-    const weapon = getWeaponThatCanAttack(enemyUnit, unit);
+    const weapon = getWeaponThatCanAttack(data, enemyUnit.unitType, unit);
     if (weapon) {
       const range = weapon.range + unit.radius + enemyUnit.radius + getTravelDistancePerStep(enemyUnit);
       const distanceToUnit = distance(unit.pos, enemyUnit.pos);
