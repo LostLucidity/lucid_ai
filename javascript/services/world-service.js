@@ -709,39 +709,55 @@ const worldService = {
    */
   microRangedUnit: (world, unit, targetUnit) => {
     const { data } = world;
+    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
-    const weaponCooldownOverStepSize = unit.weaponCooldown > 8;
+    const { radius, tag, unitType, weaponCooldown } = unit;
+    if (radius === undefined || tag === undefined || unitType === undefined || weaponCooldown === undefined) return collectedActions;
+    const weaponCooldownOverStepSize = weaponCooldown > 8;
     const enemyWeapon = getWeapon(data, targetUnit, unit);
     if ((weaponCooldownOverStepSize || unit.unitType === UnitType.CYCLONE) && enemyWeapon) {
       const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit);
       collectedActions.push({
         abilityId: MOVE,
         targetWorldSpacePos: microPosition,
-        unitTags: [unit.tag],
+        unitTags: [tag],
       });
     } else {
       const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
-      const foundGroundRangedWeapon = data.getUnitTypeData(unit.unitType).weapons.find(weapon => weapon.type === WeaponTargetType.GROUND && weapon.range > 1);
-      if (foundGroundRangedWeapon) {
-        const enemyUnitsInRange = getInRangeUnits(unit, [...enemyTrackingService.mappedEnemyUnits], foundGroundRangedWeapon.range);
+      const enemyUnitsInRange = [];
+      const { weapons } = unit.data();
+      if (weapons === undefined) return collectedActions;
+      weapons.forEach(weapon => {
+        const { range } = weapon;
+        if (range === undefined || targetUnit.radius === undefined) return;
+        const weaponRange = range + radius + targetUnit.radius;
+        if (weapon.type === WeaponTargetType.ANY) {
+          enemyUnitsInRange.push(...getInRangeUnits(unit, [...enemyTrackingService.mappedEnemyUnits], weaponRange));
+          return;
+        }
+        if (weapon.type === WeaponTargetType.GROUND) {
+          const groundEnemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => !unit.isFlying);
+          enemyUnitsInRange.push(...getInRangeUnits(unit, groundEnemyUnits, weaponRange));
+          return;
+        }
+        if (weapon.type === WeaponTargetType.AIR) {
+          const airEnemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => unit.isFlying);
+          enemyUnitsInRange.push(...getInRangeUnits(unit, airEnemyUnits, weaponRange));
+          return;
+        }
+      });
+      if (enemyUnitsInRange.length > 0) {
         const weakestEnemyUnitInRange = enemyUnitsInRange.reduce((weakest, enemyUnit) => {
-          if (weakest) {
-            return enemyUnit.health < weakest.health ? enemyUnit : weakest;
-          } else {
-            return enemyUnit;
-          }
-        }, null);
+          if (weakest === undefined) return enemyUnit;
+          return weakest.health < enemyUnit.health ? weakest : enemyUnit;
+        }, undefined);
         if (weakestEnemyUnitInRange) {
           unitCommand.targetUnitTag = weakestEnemyUnitInRange.tag;
-          collectedActions.push(unitCommand);
-        } else {
-          unitCommand.targetWorldSpacePos = targetUnit.pos;
-          collectedActions.push(unitCommand);
         }
       } else {
         unitCommand.targetWorldSpacePos = targetUnit.pos;
-        collectedActions.push(unitCommand);
       }
+      collectedActions.push(unitCommand);
     }
     return collectedActions;
   },
