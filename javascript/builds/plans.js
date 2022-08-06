@@ -51,9 +51,7 @@ const plans = {
         [62, 'build', ENGINEERINGBAY, 0],
         [62, 'build', ENGINEERINGBAY, 1],
         [69, 'build', TECHLAB, 1],
-        [71, 'swapBuildings', new Map([
-          [STARPORTREACTOR, 1],
-          [BARRACKS, 3],
+        [71, 'swapBuildings', new Map([[STARPORTREACTOR, 1], [BARRACKS, 3],
         ])],
         [71, 'build', REACTOR, 2],
         [71, 'build', REFINERY, 2],
