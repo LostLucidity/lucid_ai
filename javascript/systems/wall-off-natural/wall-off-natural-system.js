@@ -19,6 +19,7 @@ module.exports = createSystem({
   name: 'WallOffNatural',
   type: 'agent',
   async onGameStart({ agent, resources }) {
+  // async onStep({ agent, resources }) {
     const { debug, map } = resources.get();
     const natural = map.getNatural();
     const pathToEnemy = map.path(map.getNatural().townhallPosition, map.getEnemyNatural().townhallPosition);
