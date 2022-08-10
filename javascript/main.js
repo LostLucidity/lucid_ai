@@ -220,6 +220,8 @@ async function runGame() {
     workerTrainingSystem,
     runBehaviorsSystem,
     wallOffRampSystem,
+    // debugSystem,
+    unitResourceSystem,
   ];
   bot1.use(legacySystems);
   // bot1.use(updatedSystems);
