@@ -9,6 +9,7 @@ const { getTrainingSupply } = require("../../services/shared-service");
 
 const trackUnitsService = {
   previousUnits: [],
+  /** @type {Unit[]} */
   missingUnits: [],
   inFieldSelfSupply: 0,
   selfUnits: [],

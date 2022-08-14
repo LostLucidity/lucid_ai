@@ -9,7 +9,7 @@ const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes,
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
-const { countTypes } = require("../helper/groups");
+const { countTypes, morphMapping } = require("../helper/groups");
 const { findPosition } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { balanceResources, gatherOrMine } = require("../systems/manage-resources");
@@ -21,7 +21,7 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getUnitsById, getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition } = require("../systems/unit-resource/unit-resource-service");
+const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
@@ -573,6 +573,42 @@ const worldService = {
     return unitsWithCurrentOrders;
   },
   /**
+   * @param {World} world 
+   * @param {UnitTypeId} unitType 
+   * @returns {number}
+   */
+  getUnitCount: (world, unitType) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const { abilityId, attributes } = data.getUnitTypeData(unitType);
+    if (abilityId === undefined || attributes === undefined) return 0;
+    if (attributes.includes(Attribute.STRUCTURE)) {
+      return worldService.getUnitTypeCount(world, unitType);
+    } else {
+      let unitTypes = [];
+      if (morphMapping.has(unitType)) {
+        // @ts-ignore
+        unitTypes = morphMapping.get(unitType);
+      } else {
+        unitTypes = [unitType];
+      }
+      // get orders from units with current orders that match the abilityId
+      const orders = units.withCurrentOrders(abilityId).reduce((/** @type {SC2APIProtocol.UnitOrder[]} */ matchingOrders, unit) => {
+        const { orders } = unit;
+        if (orders === undefined) return matchingOrders;
+        orders.forEach(order => {
+          if (order.abilityId === abilityId) {
+            matchingOrders.push(order);
+          }
+        });
+        return matchingOrders;
+      }, []);
+      const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => u['pendingOrders'] && u['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ o) => o.abilityId === abilityId));
+      const pendingOrders = unitsWithPendingOrders.map(u => u['pendingOrders']).reduce((a, b) => a.concat(b), []);
+      return units.getById(unitTypes).length + orders.length + pendingOrders.length + trackUnitsService.missingUnits.filter(unit => unit.unitType === unitType).length;
+    }
+  },
+  /**
    * 
    * @param {World} world 
    * @param {UnitTypeId} unitType
@@ -975,8 +1011,7 @@ const worldService = {
     // set foodCount to foodUsed plus 1 if it's a structure and race is zerg
     const foodCount = (isStructure && agent.race === Race.ZERG) ? foodUsed + 1 : foodUsed;
     const buildStepExecuted = [foodCount, formatToMinutesAndSeconds(time), name, planService.currentStep, worldService.outpowered, `${minerals}/${vespene}`];
-    const unitCount = getUnitsById(world.resources.get().units, UnitType[name]).length + (isStructure ? 0 : 1);
-    const count = UnitType[name] ? unitCount : 0;
+    const count = UnitType[name] ? worldService.getUnitCount(world, UnitType[name]) : 0;
     if (count) buildStepExecuted.push(count);
     if (notes) buildStepExecuted.push(notes);
     console.log(buildStepExecuted);
@@ -1055,11 +1090,13 @@ const worldService = {
    * @param {string} extra 
   */
   unpauseAndLog: (world, name, extra = '') => {
-    const { resources } = world;
+    const { agent, resources } = world;
     const { frame } = resources.get();
     planService.pausePlan = false;
     planService.continueBuild = true;
-    worldService.setAndLogExecutedSteps(world, frame.timeInSeconds(), name, extra);
+    if (!(WorkerRace[agent.race] === UnitType[name])) {
+      worldService.setAndLogExecutedSteps(world, frame.timeInSeconds(), name, extra);
+    }
   },
 }
 

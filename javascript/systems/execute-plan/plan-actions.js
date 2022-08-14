@@ -18,7 +18,7 @@ const planService = require("../../services/plan-service");
 const { balanceResources } = require("../manage-resources");
 const { checkUnitCount } = require("../track-units/track-units-service");
 const unitTrainingService = require("../unit-training/unit-training-service");
-const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, canBuild, assignAndSendWorkerToBuild, setAndLogExecutedSteps, getFoodUsed } = require("../../services/world-service");
+const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, canBuild, assignAndSendWorkerToBuild, getFoodUsed } = require("../../services/world-service");
 const { addEarmark, isTrainingUnit } = require("../../services/data-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
@@ -178,18 +178,20 @@ const planActions = {
     let { abilityId } = unitTypeData;
     if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
       if (canBuild(world, unitTypeId)) {
-        const trainer = units.getProductionUnits(unitTypeId).find(unit => (unit.noQueue || (unit.hasReactor() && unit.orders.length < 2)) && unit.abilityAvailable(abilityId));
+        const trainer = getTrainer(world, unitTypeId);
         if (trainer) {
           const unitCommand = {
             abilityId,
             unitTags: [trainer.tag],
           }
           setPendingOrders(trainer, unitCommand);
+          unpauseAndLog(world, UnitTypeId[unitTypeId]);
           await actions.sendAction([unitCommand]);
         } else {
           abilityId = WarpUnitAbility[unitTypeId]
           const warpGates = units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
           if (warpGates.length > 0) {
+            unpauseAndLog(world, UnitTypeId[unitTypeId]);
             await warpIn(resources, this, unitTypeId);
           } else {
             if (targetCount !== null) {
@@ -197,9 +199,6 @@ const planActions = {
             }
             return;
           }
-        }
-        if (!(WorkerRace[agent.race] === unitTypeId)) {
-          unpauseAndLog(world, UnitTypeId[unitTypeId]);
         }
         addEarmark(data, data.getUnitTypeData(unitTypeId));
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
@@ -370,4 +369,22 @@ async function morphStructureAction(world, unitType) {
     collectedActions.push(...actions);
   }
   return collectedActions;
+}
+
+/**
+ * @param {World} world
+ * @param {UnitTypeId} unitTypeId
+ * @returns {Unit | undefined}
+ */
+function getTrainer(world, unitTypeId) {
+  const { data, resources } = world;
+  const { units } = resources.get();
+  let unitTypeData = data.getUnitTypeData(unitTypeId);
+  let { abilityId } = unitTypeData;
+  return units.getProductionUnits(unitTypeId).find(unit => {
+    const { orders } = unit;
+    if (abilityId === undefined || orders === undefined) return false;
+    const spaceToTrain = unit.isIdle() || (unit.hasReactor() && orders.length < 2);
+    return spaceToTrain && unit.abilityAvailable(abilityId) && !unit.labels.has('reposition')
+  });
 }
