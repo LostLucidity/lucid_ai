@@ -11,7 +11,7 @@ const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
 const { addEarmark } = require("../services/data-service");
 const planService = require("../services/plan-service");
 const { setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
-const { checkBuildingCount, setAndLogExecutedSteps } = require("../services/world-service");
+const { checkBuildingCount } = require("../services/world-service");
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
 const { countTypes, flyingTypesMapping } = require("./groups");
@@ -49,9 +49,13 @@ const terran = {
           unitTags: [unit.tag]
         }
         const addonPlacement = getAddOnPlacement(unit.pos);
+        console.log('map.isPlaceableAt(addOnType, addonPlacement)', map.isPlaceableAt(addOnType, addonPlacement));
+        const addOnFootprint = getFootprint(addOnType);
+        if (addOnFootprint === undefined) return;
+        console.log(!pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids));
         if (
           map.isPlaceableAt(addOnType, addonPlacement) &&
-          !pointsOverlap(cellsInFootprint(addonPlacement, getFootprint(addOnType)), unitResourceService.seigeTanksSiegedGrids)
+          !pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids)
         ) {
           unitCommand.targetWorldSpacePos = unit.pos;
           await actions.sendAction(unitCommand);

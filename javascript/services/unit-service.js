@@ -2,15 +2,11 @@
 "use strict"
 
 const Buff = require("@node-sc2/core/constants/buff");
-const Ability = require("@node-sc2/core/constants/ability");
 const { HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
-const { liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
-const { ZEALOT, ZERGLING, ROACH, MARINE } = require("@node-sc2/core/constants/unit-type");
-const { distance, add } = require("@node-sc2/core/utils/geometry/point");
-const { setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
+const { ZEALOT, ZERGLING, ROACH } = require("@node-sc2/core/constants/unit-type");
+const { add } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("./actions-service");
-const planService = require("./plan-service");
 
 const unitService = {
   /**
@@ -131,32 +127,6 @@ const unitService = {
     const unitCommand = createUnitCommand(HARVEST_GATHER, [worker], queue);
     unitCommand.targetUnitTag = target.tag;
     return unitCommand;
-  },
-  /**
-   * @param {Unit} unit
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
-   */
-  repositionBuilding: (unit) => {
-    const collectedActions = [];
-    if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
-      if (distance(unit.pos, unit.labels.get('reposition')) > 1) {
-        const unitCommand = createUnitCommand(Ability.LIFT, [unit]);
-        collectedActions.push(unitCommand);
-        setPendingOrders(unit, unitCommand);
-      } else {
-        unit.labels.delete('reposition');
-      }
-    }
-    if (unit.availableAbilities().find(ability => landingAbilities.includes(ability))) {
-      const unitCommand = createUnitCommand(Ability.LAND, [unit]);
-      unitCommand.targetWorldSpacePos = unit.labels.get('reposition');
-      collectedActions.push(unitCommand);
-      planService.pausePlan = false;
-      setPendingOrders(unit, unitCommand);
-    } else {
-      // Ignore units that can't land
-    }
-    return collectedActions;
   },
   /**
    * @param {Unit[]} units 

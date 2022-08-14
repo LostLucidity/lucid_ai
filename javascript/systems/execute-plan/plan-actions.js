@@ -97,8 +97,7 @@ const planActions = {
           const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
           const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
           const canDoTypeUnits = units.getById(canDoTypes);
-          const addOnUnits = units.withLabel('addAddOn');
-          const unitsCanDoWithoutAddOnAndIdle = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId))).length > 0 ? addOnUnits : canDoTypeUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId)));
+          const unitsCanDoWithoutAddOnAndIdle = getUnitsCanDoWithoutAddOnAndIdle(world, unitType);
           const unitsCanDoIdle = unitsCanDoWithoutAddOnAndIdle.length > 0 ? unitsCanDoWithoutAddOnAndIdle : getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits);
           if (unitsCanDoIdle.length > 0) {
             let unitCanDo = unitsCanDoIdle[Math.floor(Math.random() * unitsCanDoIdle.length)];
@@ -269,10 +268,9 @@ const planActions = {
               for (let i = 0; i < closestPair[0].orders.length; i++) {
                 await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
               }
-            } else {
-              const label = 'reposition';
-              closestPair[0].labels.set(label, closestPair[1]);
             }
+            const label = 'reposition';
+            closestPair[0].labels.set(label, closestPair[1]);
           }
         }
       } else {
@@ -353,6 +351,23 @@ const planActions = {
  */
 function getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits) {
   return canDoTypeUnits.every(unit => unit.buildProgress >= 1 || unit.buildProgress < 0.5) ? canDoTypeUnits.filter(unit => unit.addOnTag !== '0' && unit.isIdle()) : [];
+}
+
+/**
+ * @param {World} world 
+ * @param {UnitTypeId} unitType 
+ * @returns {Unit[]}
+ */
+function getUnitsCanDoWithoutAddOnAndIdle(world, unitType) {
+  const { data, resources } = world;
+  const { units } = resources.get();
+  const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
+  const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
+  const canDoTypeUnits = units.getById(canDoTypes);
+  const addOnUnits = units.withLabel('addAddOn');
+  const availableAddOnUnits = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId)));
+  const availableCanDoTypeUnits = canDoTypeUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && !unit.labels.has('reposition')));
+  return availableAddOnUnits.length > 0 ? availableAddOnUnits : availableCanDoTypeUnits;
 }
 
 /**

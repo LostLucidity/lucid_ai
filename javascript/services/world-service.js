@@ -3,9 +3,9 @@
 
 const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff } = require("@node-sc2/core/constants");
-const { MOVE, ATTACK_ATTACK, SMART, STOP } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, SMART, STOP, CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities } = require("@node-sc2/core/constants/groups");
+const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -15,7 +15,6 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 const { balanceResources, gatherOrMine } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
-const { addEarmark, getBuildTimeElapsed } = require("./data-service");
 const { formatToMinutesAndSeconds } = require("./logging-service");
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
@@ -71,7 +70,7 @@ const worldService = {
     const collectedActions = [];
     const builder = getBuilder(world, position);
     if (builder) {
-      addEarmark(data, data.getUnitTypeData(unitType));
+      dataService.addEarmark(data, data.getUnitTypeData(unitType));
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
         builder.labels.set('builder', true);
         const unitCommand = createUnitCommand(abilityId, [builder]);
@@ -208,7 +207,7 @@ const worldService = {
             await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
             planService.pausePlan = false;
             planService.continueBuild = true;
-            addEarmark(data, data.getUnitTypeData(unitType));
+            dataService.addEarmark(data, data.getUnitTypeData(unitType));
             planService.foundPosition = null;
           } else {
             planService.foundPosition = keepPosition(resources, unitType, planService.foundPosition) ? planService.foundPosition : null;
@@ -653,11 +652,11 @@ const worldService = {
     const zerglings = enemyTrackingService.mappedEnemyUnits.filter(unit => unit.unitType === UnitType.ZERGLING);
     const spawningPool = units.getById(SPAWNINGPOOL, { alliance: Alliance.ENEMY }).sort((a, b) => b.buildProgress - a.buildProgress)[0];
     const spawningPoolExists = spawningPool || zerglings.length > 0;
-    const spawningPoolStartTime = spawningPool ? frame.timeInSeconds() - getBuildTimeElapsed(data, spawningPool) : null;
+    const spawningPoolStartTime = spawningPool ? frame.timeInSeconds() - dataService.getBuildTimeElapsed(data, spawningPool) : null;
     const enemyNaturalHatchery = map.getEnemyNatural().getBase();
-    const enemyNaturalHatcheryStartTime = enemyNaturalHatchery ? frame.timeInSeconds() - getBuildTimeElapsed(data, enemyNaturalHatchery) : null;
+    const enemyNaturalHatcheryStartTime = enemyNaturalHatchery ? frame.timeInSeconds() - dataService.getBuildTimeElapsed(data, enemyNaturalHatchery) : null;
     const naturalCommandCenter = map.getNatural().getBase();
-    const naturalCommandCenterStartTime = naturalCommandCenter ? frame.timeInSeconds() - getBuildTimeElapsed(data, naturalCommandCenter) : null;
+    const naturalCommandCenterStartTime = naturalCommandCenter ? frame.timeInSeconds() - dataService.getBuildTimeElapsed(data, naturalCommandCenter) : null;
     const bothStructuresExist = spawningPoolExists && enemyNaturalHatchery;
     const spawningPoolBeforeEnemyNatural = bothStructuresExist && spawningPoolStartTime < enemyNaturalHatcheryStartTime;
     const naturalCommandCenterBeforeEnemyNatural = naturalCommandCenter && enemyNaturalHatchery && naturalCommandCenterStartTime < enemyNaturalHatcheryStartTime;
@@ -891,6 +890,49 @@ const worldService = {
       }
     } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === targetUnit.tag) {
       collectedActions.push(gatherOrMine(resources, worker));
+    }
+    return collectedActions;
+  },
+  /**
+   * @param {World} world
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  repositionBuilding: (world) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const repositionUnits = units.withLabel('reposition');
+    const collectedActions = [];
+    if (repositionUnits.length > 0) {
+      repositionUnits.forEach(unit => {
+        const { orders, pos } = unit;
+        if (orders === undefined || pos === undefined) return;
+        if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
+          if (distance(pos, unit.labels.get('reposition')) > 1) {
+            const unitCommand = createUnitCommand(Ability.LIFT, [unit]);
+            collectedActions.push(unitCommand);
+            setPendingOrders(unit, unitCommand);
+          } else {
+            unit.labels.delete('reposition');
+            const { addOnTag } = unit;
+            if (addOnTag === undefined) return collectedActions;
+            const addOn = units.getByTag(addOnTag);
+            if (addOn) addOn.labels.delete('reposition');
+          }
+        }
+        if (unit.availableAbilities().find(ability => landingAbilities.includes(ability))) {
+          const unitCommand = createUnitCommand(Ability.LAND, [unit]);
+          unitCommand.targetWorldSpacePos = unit.labels.get('reposition');
+          collectedActions.push(unitCommand);
+          planService.pausePlan = false;
+          setPendingOrders(unit, unitCommand);
+        }
+        // cancel training orders
+        if (dataService.isTrainingUnit(data, unit)) {
+          orders.forEach(() => {
+            collectedActions.push(createUnitCommand(CANCEL_QUEUE5, [unit]));
+          });
+        }
+      });
     }
     return collectedActions;
   },
@@ -1203,7 +1245,7 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
         collectedActions.push(unitCommand);
         planService.pausePlan = false;
         planService.continueBuild = true;
-        addEarmark(data, data.getUnitTypeData(unitType));
+        dataService.addEarmark(data, data.getUnitTypeData(unitType));
         planService.foundPosition = null;
       } else {
         planService.foundPosition = null;
@@ -1431,7 +1473,7 @@ function getTimeToTargetCost(world, unitType) {
   const { agent, data, resources } = world;
   const { frame } = resources.get();
   const { collectionRateMinerals, collectionRateVespene } = frame.getObservation().score.scoreDetails;
-  addEarmark(data, data.getUnitTypeData(unitType));
+  dataService.addEarmark(data, data.getUnitTypeData(unitType));
   const mineralsLeft = data.getEarmarkTotals('stepAhead').minerals - agent.minerals;
   const vespeneLeft = data.getEarmarkTotals('stepAhead').vespene - agent.vespene;
   const timeToTargetMinerals = mineralsLeft / (collectionRateMinerals / 60);

@@ -4,10 +4,12 @@
 const { createSystem } = require("@node-sc2/core");
 const { Ability } = require("@node-sc2/core/constants");
 const { liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
+const { BARRACKS, REACTOR } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { getAddOnBuildingPosition } = require("../helper/placement/placement-utilities");
 const planService = require("../services/plan-service");
 const sharedService = require("../services/shared-service");
-const { repositionBuilding } = require("../services/unit-service");
+const { repositionBuilding } = require("../services/world-service");
 const { setPendingOrders } = require("./unit-resource/unit-resource-service");
 
 module.exports = createSystem({
@@ -43,17 +45,50 @@ module.exports = createSystem({
         setPendingOrders(building, unitCommand);
       }
     }
-    const reposition = units.withLabel('reposition');
-    if (reposition.length > 0) {
-      for (let step = 0; step < reposition.length; step++) {
-        const unit = reposition[step];
-        collectedActions.push(...repositionBuilding(unit));
-      }
-    } else {
-      // Ignore when no units have reposition label
-    }
+    collectedActions.push(...setReposition(world));
+    collectedActions.push(...repositionBuilding(world));
     if (collectedActions.length > 0) {
       await actions.sendAction(collectedActions);
     }
   }
 });
+
+/**
+ * @param {World} world 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function setReposition(world) {
+  const { data, resources } = world;
+  const { units } = resources.get();
+  const collectedActions = [];
+  // check if there are any orphan reactors
+  const liftableNoAddOnBarracks = units.getById(BARRACKS).filter(unit => {
+    return !unit.hasTechLab() && !unit.hasReactor() && unit.availableAbilities().find(ability => liftingAbilities.includes(ability));
+  });
+  const orphanReactors = units.getById(REACTOR).filter(reactor =>!reactor.labels.has('reposition'));
+  if (orphanReactors.length > 0) {
+    liftableNoAddOnBarracks.forEach(unit => {
+      const { orders, pos, unitType } = unit;
+      if (orders === undefined || pos === undefined || unitType === undefined) return;
+      if (unitType === BARRACKS) {
+        // find closest orphan reactor
+        const closestReactor = orphanReactors.reduce((/** @type {Unit | undefined} */ closest, reactor) => {
+          if (reactor.pos === undefined) return closest;
+          const distanceToReactor = distance(pos, reactor.pos);
+          if (closest === undefined || closest.pos === undefined) return reactor;
+          const distanceToClosest = distance(pos, closest.pos);
+          if (closest === undefined || distanceToReactor < distanceToClosest) {
+            return reactor;
+          }
+          return closest;
+        }, undefined);
+        if (closestReactor !== undefined) {
+          // add reposition label to unit
+          unit.labels.set('reposition', getAddOnBuildingPosition(closestReactor.pos));
+          closestReactor.labels.set('reposition', unit.tag);
+        }
+      }
+    });
+  }
+  return collectedActions;
+}
