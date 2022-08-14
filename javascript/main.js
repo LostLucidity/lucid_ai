@@ -204,13 +204,14 @@ async function runGame() {
     trackUnitsSystem,
     swapBuildingSystem,
     liftToThirdSystem,
-    debugSystem,
+    // debugSystem,
     loggingSystem,
     mulingSystem,
     setRallySystem,
     unitResourceSystem,
   ];
   const bogSystems = [
+    // saltConverterSystem,
     boGeneratorSystem,
     loggingSystem,
     workerBalanceSystem,
