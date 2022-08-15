@@ -78,13 +78,13 @@ function debugVisibilityMap(world) {
       if (map.isVisible({ x, y })) {
         cells.push({
           pos: { x, y },
-          text: `visible`,
+          text: `${x},${y}`,
           color: Color.GREEN,
         });
       } else {
         cells.push({
           pos: { x, y },
-          text: `not visible`,
+          text: `${x},${y}`,
           color: Color.RED,
         });
       }
