@@ -29,7 +29,7 @@ module.exports = createSystem({
     if (completedBases.length >= 3) {
       collectedActions.push(...salvageBunker(units));
     } else {
-      await defenseSetup(world)
+      // await defenseSetup(world)
     }
     await actions.sendAction(collectedActions);
   }
