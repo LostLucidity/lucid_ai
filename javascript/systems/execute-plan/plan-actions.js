@@ -105,6 +105,8 @@ const planActions = {
           } else {
             const busyCanDoUnits = canDoTypeUnits.filter(unit => unit.addOnTag === '0').filter(unit => isTrainingUnit(data, unit));
             const randomBusyTrainingUnit = getRandom(busyCanDoUnits);
+            if (randomBusyTrainingUnit === undefined || randomBusyTrainingUnit.orders === undefined) return;
+            console.log(worldService.outpowered, randomBusyTrainingUnit.orders[0].progress);
             if (!worldService.outpowered && randomBusyTrainingUnit && randomBusyTrainingUnit.orders[0].progress <= 0.5) {
               await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
             } else {
@@ -305,6 +307,28 @@ const planActions = {
             closestPair[1].labels.set(label, closestPair[0].pos);
           }
         }
+        // //
+        // const nonOrphanAddOn = addOns.filter(addOn => addOn.unitType !== TECHLAB || addOn.unitType !== REACTOR);
+        // // find idle building with tech lab.
+        // const idleBuildingsWithAddOn = nonOrphanAddOn.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]).filter(building => building.noQueue);;
+        // // find closest barracks to closest tech lab.
+        // let closestPair = [];
+        // // get nonaddOn buildingsType of addOnType.
+        // const nonAddOnBuildingType = getKeyByMapValue(addOnTypesMapping, upgradeTypeForUpgrade);
+        // units.getById(countTypes.get(nonAddOnBuildingType)).forEach(building => {
+        //   if (building.buildProgress >= 1 && building.noQueue) {
+        //     idleBuildingsWithAddOn.forEach(addOn => {
+        //       if (closestPair.length > 0) {
+        //         closestPair = distance(building.pos, addOn.pos) < distance(closestPair[0].pos, closestPair[1].pos) ? [building, addOn] : closestPair;
+        //       } else { closestPair = [building, addOn]; }
+        //     });
+        //   }
+        // });
+        // if (closestPair.length > 0) {
+        //   const label = 'swapBuilding';
+        //   closestPair[0].labels.set(label, closestPair[1].pos);
+        //   closestPair[1].labels.set(label, closestPair[0].pos);
+        // }
       }
     }
   },
@@ -344,6 +368,31 @@ const planActions = {
     }
   },
 }
+// /**
+//  * @param {DataStorage} data
+//  * @param {number} upgradeId
+//  * @returns {number[]}
+//  */
+// function getUnitTypesForUpgrade(data, upgradeId) {
+//   const { abilityId } = data.getUpgradeData(upgradeId)
+//   const upgradeUnitTypes = [
+//     ...data.findUnitTypesWithAbility(abilityId),
+//     ...data.findUnitTypesWithAbility(data.getAbilityData(abilityId).remapsToAbilityId),
+//   ];
+//   return upgradeUnitTypes;
+// }
+// /**
+//  * @param {Map} map
+//  * @param {any} searchValue
+//  */
+// function getKeyByMapValue(map, searchValue) {
+//   for (const [key, value] of map.entries()) {
+//     if (value === searchValue) {
+//       return key;
+//     }
+//   }
+// }
+module.exports = planActions;
 
 /**
  * @param {Unit[]} canDoTypeUnits

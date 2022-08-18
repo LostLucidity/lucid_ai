@@ -10,7 +10,11 @@ const planService = {
    * @param {boolean} value
    */
   set pausePlan(value) {
-    planService.isPlanPaused = value;
+    if (planService.isPlanPaused !== value) {
+      // check currentStep
+      planService.isPlanPaused = value;
+      console.log(`Current step: ${planService.currentStep}`);
+    }
     planService.pausedThisRound = value;
   },
   /** @type {boolean} */
