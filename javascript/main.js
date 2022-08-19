@@ -49,9 +49,9 @@ const attackSystem = require('./systems/army-management/attack-system');
 const injectorSystem = require('./systems/injector-system');
 const { saveBuildOrder } = require('./services/world-service');
 
-agentService.difficulty = Difficulty.VERYHARD;
 // const aiBuild = AIBuild.Rush;
 // const bot2 = createAgent(settings);
+agentService.difficulty = Difficulty.CHEATVISION;
 // protossBuild.forEach(system => {
 //   bot1.use(system);
 // });
@@ -156,9 +156,12 @@ async function runGame() {
   const aiBuild = AIBuild.Rush;
   const settings = {
     type: PlayerType.PARTICIPANT,
-    race: Race.TERRAN,
+    race: Race.PROTOSS,
   }
-  const opponentRace = Race.TERRAN;
+  const opponentRace = Race.ZERG;
+  // const map = maps[Math.floor(Math.random() * maps.length)];
+  const map = 'BerlingradAIE';
+  console.log('map', map);
   /** @type {EventReader<AgentObject>} */
   const blueprint = {
     settings,
@@ -224,9 +227,13 @@ async function runGame() {
     // debugSystem,
     unitResourceSystem,
   ];
-  bot1.use(legacySystems);
+  // bot1.use(legacySystems);
   // bot1.use(updatedSystems);
   // bot1.use(bogSystems);
+  bot1.use([
+    workerBalanceSystem,
+    wallOffNaturalSystem,
+  ]);
   const playerOne = createPlayer({ race: settings.race }, bot1);
   const playerTwo = createPlayer({ race: opponentRace, difficulty: agentService.difficulty, aiBuild: aiBuild });
   const players = [playerOne, playerTwo];
