@@ -29,7 +29,7 @@ const wallOffNaturalService = {
   /**
    * @param {ResourceManager} resources
    * @param {Point2D[]} wall
-   * @param {{x: number; y: number; size: number; path: { x: number; y: number; }[]; pathLength: number }[]} twoWallInfo
+   * @param {Point2D[][] } twoWallInfo
    */
   setStructurePlacements: (resources, wall, twoWallInfo) => {
     const { debug, map } = resources.get();
@@ -40,7 +40,7 @@ const wallOffNaturalService = {
     for (let i = 0; i < twoWallInfo.length; i++) {
       // find pylon placement that covers threeByThreePositions starting from middle of wall to townhall position.
       // const middleOfWall = avgPoints(wall);
-      const middleOfWall = avgPoints(twoWallInfo[i].path);
+      const middleOfWall = avgPoints(twoWallInfo[i]);
       const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, map.getNatural().townhallPosition))
         .filter(point => {
           const pylonFootprint = cellsInFootprint(point, getFootprint(PYLON));
