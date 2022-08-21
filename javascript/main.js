@@ -255,21 +255,21 @@ async function processResults(gameResult) {
   logoutStepsExecuted();
   const { agent, resources } = world;
   const { actions, frame } = resources.get();
-  const parsedCompositions = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `current.json`)).toString())
-  parsedCompositions.forEach(composition => {
-    if (typeof composition.attack !== 'undefined') {
-      composition.matches++
-      if (gameResults.find(result => result.playerId === agent.playerId).result === 1) {
-        composition.attack ? composition.differential++ : composition.differential--;
-      } else {
-        composition.attack ? composition.differential-- : composition.differential++;
-      }
-      delete composition.attack;
-    }
-  });
-  const [selfUnitType] = Object.keys(parsedCompositions[0].selfComposition);
-  const [enemyUnitType] = Object.keys(parsedCompositions[0].enemyComposition);
-  fs.writeFileSync(path.join(__dirname, 'data', getFileName(data, selfUnitType, enemyUnitType)), JSON.stringify(parsedCompositions));
+  // const parsedCompositions = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `current.json`)).toString())
+  // parsedCompositions.forEach(composition => {
+  //   if (typeof composition.attack !== 'undefined') {
+  //     composition.matches++
+  //     if (gameResults.find(result => result.playerId === agent.playerId).result === 1) {
+  //       composition.attack ? composition.differential++ : composition.differential--;
+  //     } else {
+  //       composition.attack ? composition.differential-- : composition.differential++;
+  //     }
+  //     delete composition.attack;
+  //   }
+  // });
+  // const [selfUnitType] = Object.keys(parsedCompositions[0].selfComposition);
+  // const [enemyUnitType] = Object.keys(parsedCompositions[0].enemyComposition);
+  // fs.writeFileSync(path.join(__dirname, 'data', getFileName(data, selfUnitType, enemyUnitType)), JSON.stringify(parsedCompositions));
   saveUnitTypeData(unitResourceService.unitTypeData);
   saveExecutedStepsLog(agent, frame.getGameInfo().mapName);
   const selfResult = gameResults.find(result => result.playerId === agent.playerId);
