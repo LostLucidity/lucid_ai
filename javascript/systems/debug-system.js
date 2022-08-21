@@ -22,12 +22,28 @@ let setDebug = false;
 module.exports = createSystem({
   name: 'Debug',
   type: 'agent',
-  async onGameStart(world) { },
+  async onGameStart(world) {
+    // debugPositions(world);
+  },
   async onStep(world) {
-    paintMapFromArrayOfPositions(world, 'bunkerCandidates', pathingService.pathCandidates);
+    // paintMapFromArrayOfPositions(world, 'bunkerCandidates', pathingService.pathCandidates);
+    // debugPositions(world);
+    // debugVisibilityMap(world);
+    // debugPathable(world);
+    // debugTest(world);
   },
 });
-
+/**
+ * @param {World} world 
+ */
+function debugTest(world) {
+  world.resources.get().debug.setDrawCells(`townhall`, [{ pos: { x: 16.5, y: 107.5 } }], { size: 1 });
+}
+/**
+ * 
+ * @param {World} world
+ * @returns {void} 
+ */
 function debugPositions(world) {
   if (!setDebug) {
     const { debug, map } = world.resources.get();
@@ -91,6 +107,28 @@ function debugVisibilityMap(world) {
     });
     return cells;
   }, []));
+}
+
+/**
+ * @param {World} world
+ * @returns {void}
+ * @description Draws the pathable map
+ */
+function debugPathable(world) {
+  const { debug, map } = world.resources.get();
+  if (debug === undefined) return;
+  debug.setDrawCells('pathable', map._grids.placement.reduce((cells, row, y) => {
+    row.forEach((_node, x) => {
+      if (!map.isPathable({ x, y })) {
+        cells.push({
+          pos: { x, y },
+          text: `${x},${y}`,
+          color: Color.RED,
+        });
+      }
+    });
+    return cells;
+  }, []), { size: 1, color: Color.RED, cube: true, persistText: true });
 }
 
 function debugEnemyUnitPosition(world) {
