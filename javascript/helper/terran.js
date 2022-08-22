@@ -27,9 +27,10 @@ const terran = {
    * @param {World} world 
    * @param {Unit} unit 
    * @param {UnitTypeId} addOnType 
+   * @param {Boolean} stepAhead
    * @returns {Promise<void>}
    */
-  addAddOn: async (world, unit, addOnType) => {
+  addAddOn: async (world, unit, addOnType, stepAhead) => {
     const { data, resources } = world;
     const { actions, frame, map } = resources.get();
     // get key by value from Map
@@ -52,17 +53,20 @@ const terran = {
         console.log('map.isPlaceableAt(addOnType, addonPlacement)', map.isPlaceableAt(addOnType, addonPlacement));
         const addOnFootprint = getFootprint(addOnType);
         if (addOnFootprint === undefined) return;
+        const canPlace = map.isPlaceableAt(addOnType, addonPlacement) && !pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids);
         console.log(!pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids));
-        if (
-          map.isPlaceableAt(addOnType, addonPlacement) &&
-          !pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids)
-        ) {
-          unitCommand.targetWorldSpacePos = unit.pos;
-          await actions.sendAction(unitCommand);
-          planService.pausePlan = false;
-          setPendingOrders(unit, unitCommand);
-          addEarmark(data, data.getUnitTypeData(addOnType));
-          return;
+        console.log('stepAhead', stepAhead);
+        if (canPlace) {
+          if (!stepAhead) {
+            unitCommand.targetWorldSpacePos = unit.pos;
+            await actions.sendAction(unitCommand);
+            planService.pausePlan = false;
+            setPendingOrders(unit, unitCommand);
+            addEarmark(data, data.getUnitTypeData(addOnType));
+            return;
+          } else {
+            return;
+          }
         }
       }
       if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {

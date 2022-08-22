@@ -257,7 +257,7 @@ class AssemblePlan {
             });
             if (unitsCanDo.length > 0) {
               let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-              await addAddOn(this.world, unitCanDo, unitType)
+              await addAddOn(this.world, unitCanDo, unitType, stepAhead)
             } else {
               if (!stepAhead) {
                 const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
