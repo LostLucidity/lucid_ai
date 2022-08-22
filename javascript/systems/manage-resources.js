@@ -11,9 +11,16 @@ const { gather } = require("./unit-resource/unit-resource-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
-  balanceResources: async ({ agent, data, resources }, targetRatio = 16 / 6) => {
-    targetRatio = targetRatio === Infinity ? (32 / 6) : targetRatio;
+  /**
+   * @param {World} world
+   */
+  balanceResources: async (world, targetRatio = 16 / 6) => {
+    const { agent, data, resources } = world;
+    const { minerals, vespene } = agent;
+    if (minerals === undefined || vespene === undefined) return;
     const { actions, units } = resources.get();
+    const increaseRatio = targetRatio === Infinity || (vespene > 512 && minerals < 512);
+    targetRatio = increaseRatio ? (32 / 6) : targetRatio;
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const needyGasMines = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
     const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
