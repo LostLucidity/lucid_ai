@@ -80,7 +80,7 @@ const resourcesService = {
   /**
    *
    * @param {ResourceManager} resources
-   * @param {Point2D} position
+   * @param {Point2D|SC2APIProtocol.Point} position
    * @param {Unit[]} units
    * @param {number} n
    * @returns {Unit[]}

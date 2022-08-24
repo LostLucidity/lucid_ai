@@ -252,3 +252,29 @@ function getGatheringWorkers(units, type) {
       );
     });
 }
+/**
+ * 
+ * @param {ResourceManager} resources 
+ * @param {Unit} unit 
+ * @param {Unit[]} units 
+ */
+function getClosestUnitFromUnit(resources, unit, units) {
+  const { map } = resources.get();
+  const pathablePositions = getPathablePositionsForStructure(map, unit);
+  const closestUnitToPathables = pathablePositions.reduce((/** @type {Unit|undefined} */ closestUnitToPathable, pathablePosition) => {
+    const [closestUnit] = getClosestUnitByPath(resources, pathablePosition, units);
+    if (closestUnitToPathable === undefined) {
+      return closestUnit;
+    } else {
+      if (closestUnitToPathable.pos === undefined || closestUnit.pos === undefined) return closestUnitToPathable;
+      const closestUnitToPathableDistance = distanceByPath(resources, closestUnitToPathable.pos, closestUnit.pos);
+      const closestUnitDistance = distanceByPath(resources, closestUnit.pos, pathablePosition);
+      if (closestUnitToPathableDistance < closestUnitDistance) {
+        return closestUnitToPathable;
+      } else {
+        return closestUnit;
+      }
+    }
+  }, undefined);
+  return closestUnitToPathables;
+}
