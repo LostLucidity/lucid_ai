@@ -17,7 +17,7 @@ const saltConverter = {
   convertPlan: (build, race) => {
     const convertedPlan = [];
     const unitCount = new Map();
-    build.orders.forEach((/** @type {any[]} */ order) => {
+    build.orders.forEach((/** @type {Point2D[]|Point3D} */ order) => {
       const actions = [];
       order[1].split(',').forEach((/** @type {string} */ item) => {
         const splitItem = item.trim().split(' ');
@@ -55,7 +55,7 @@ const saltConverter = {
           planStep.upgrade = Upgrade[upgradeAction];
         }
         planStep.food = order[0];
-        planStep.candidatePositions = order[2] ? [order[2]] : [];
+        planStep.candidatePositions = order[2] ? order[2] : [];
         convertedPlan.push(planStep);
       });
       planService.trainingTypes = Array.from(unitCount.keys());
