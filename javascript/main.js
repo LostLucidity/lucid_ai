@@ -150,17 +150,14 @@ function engineConnect() {
 async function runGame() {
   console.log('__dirname', __dirname);
   // console.log(path.join(__dirname, 'data', `current.json`));
-  const map = maps[Math.floor(Math.random() * maps.length)];
-  // const map = 'Submarine506';
-  console.log('map', map);
-  const aiBuild = AIBuild.Rush;
+  const aiBuild = AIBuild.RandomBuild;
   const settings = {
     type: PlayerType.PARTICIPANT,
     race: Race.PROTOSS,
   }
-  const opponentRace = Race.ZERG;
+  const opponentRace = Race.PROTOSS;
   // const map = maps[Math.floor(Math.random() * maps.length)];
-  const map = 'BerlingradAIE';
+  const map = 'BlackburnAIE';
   console.log('map', map);
   /** @type {EventReader<AgentObject>} */
   const blueprint = {
