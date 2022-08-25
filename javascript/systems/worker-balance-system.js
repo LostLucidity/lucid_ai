@@ -8,9 +8,9 @@ const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
-const { getClosestExpansion } = require('../services/map-resource-service');
+const { getClosestExpansion, getPathablePositionsForStructure } = require('../services/map-resource-service');
 const planService = require('../services/plan-service');
-const { getClosestUnitByPath } = require('../services/resources-service');
+const { getClosestUnitByPath, distanceByPath } = require('../services/resources-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
 const { gather, getMineralFieldAssignments } = require('./unit-resource/unit-resource-service');
 const unitResourceService = require('./unit-resource/unit-resource-service');
@@ -102,9 +102,13 @@ module.exports = createSystem({
   },
   async onUnitFinished({ resources }, newBuilding) {
     const collectedActions = [];
-    const { actions, units } = resources.get();
+    const { actions, map, units } = resources.get();
+    const { pos } = newBuilding;
+    if (pos === undefined) return;
     if (newBuilding.isTownhall()) {
-      const [mineralFieldTarget] = units.getClosest(newBuilding.pos, units.getMineralFields());
+      // don't assign mineral fields to the new townhall if not at same height
+      const mineralFields = units.getMineralFields().filter(field => field.pos && map.getHeight(field.pos) === map.getHeight(pos));
+      const [mineralFieldTarget] = units.getClosest(pos, mineralFields);
       const rallyAbility = rallyWorkersAbilities.find(ability => newBuilding.abilityAvailable(ability));
       collectedActions.push({
         abilityId: rallyAbility,

@@ -13,7 +13,7 @@ const resourcesService = {
   /**
   * @param {ResourceManager} resources
   * @param {Point2D} position
-  * @param {Point2D} targetPosition
+  * @param {Point2D|SC2APIProtocol.Point} targetPosition
   * @returns number
   */
   distanceByPath: (resources, position, targetPosition) => {
