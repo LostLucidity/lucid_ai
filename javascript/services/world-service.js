@@ -844,6 +844,7 @@ const worldService = {
         if (rallyBase) {
           collectedActions.push(...rallyWorkerToTarget(world, position));
         } else {
+          console.log(`Is builder returning: ${builder.isReturning()}`);
           unitCommand.targetWorldSpacePos = position;
           builder.labels.set('builder', true);
           builder.labels.delete('mineralField');
