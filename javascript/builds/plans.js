@@ -135,14 +135,14 @@ const plans = {
         { conditionStart: { food: 0 }, conditionEnd: { unitType: CYCLONE, count: 1 }, location: 'ByMainRamp' },
       ],
       scouts: [
-        { start: { food: 17 }, end: { time: 122 }, unitType: 'SCV', targetLocationFunction: 'EnemyMain' },
-        { start: { food: 41 }, end: { food: 71 }, unitType: 'REAPER', targetLocationFunction: 'EnemyMain' },
+        { start: { food: 17 }, end: { time: 99 }, unitType: 'SCV', targetLocationFunction: 'EnemyMain' },
+        // { start: { food: 41 }, end: { food: 71 }, unitType: 'REAPER', targetLocationFunction: 'EnemyMain' },
       ],
       unitMax: {
         ['RAVEN']: 2,
       },
       wallOff: true,
-    }
+    },
   },
   2: {
     lingRoachHydra: {
