@@ -210,7 +210,7 @@ const armyBehavior = {
         if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestAttackableEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestAttackableEnemyUnit['enemyDPSHealth'];
           if (selfUnit.tag === randomUnit.tag) {
-            logBattleFieldSituation(world, selfUnit, closestAttackableEnemyUnit, selfDPSHealth);
+            logBattleFieldSituation(selfUnit, closestAttackableEnemyUnit, selfDPSHealth);
           }
           if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth) {
             if (getMovementSpeed(selfUnit) < getMovementSpeed(closestAttackableEnemyUnit) && closestAttackableEnemyUnit.unitType !== ADEPTPHASESHIFT) {
@@ -508,15 +508,14 @@ function stop(unit) {
   return collectedActions;
 }
 /**
- * @param {World} world
  * @param {Unit} selfUnit
  * @param {Unit} targetUnit
  * @param {number} selfDPSHealth
  * @returns {void}
  */
-function logBattleFieldSituation(world, selfUnit, targetUnit, selfDPSHealth) {
-  const { data } = world;
+function logBattleFieldSituation(selfUnit, targetUnit, selfDPSHealth) {
   const selfOverEnemyDPSHealth = `${Math.round(selfDPSHealth)}/${Math.round(targetUnit['selfDPSHealth'])}`;
+  if (selfUnit.pos === undefined || targetUnit.pos === undefined) return;
   const distanceFromEnemy = distance(selfUnit.pos, targetUnit.pos);
   const selfOverEnemyUnitType = `${selfUnit.unitType}/${targetUnit.unitType}`;
   // // calculate health differences total of allied units within 16 range of selfUnit and targetUnit
