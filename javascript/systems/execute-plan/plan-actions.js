@@ -101,7 +101,7 @@ const planActions = {
           const unitsCanDoIdle = unitsCanDoWithoutAddOnAndIdle.length > 0 ? unitsCanDoWithoutAddOnAndIdle : getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits);
           if (unitsCanDoIdle.length > 0) {
             let unitCanDo = unitsCanDoIdle[Math.floor(Math.random() * unitsCanDoIdle.length)];
-            await addAddOn(world, unitCanDo, unitType)
+            await addAddOn(world, unitCanDo, unitType, stepAhead);
           } else {
             const busyCanDoUnits = canDoTypeUnits.filter(unit => unit.addOnTag === '0').filter(unit => isTrainingUnit(data, unit));
             const randomBusyTrainingUnit = getRandom(busyCanDoUnits);
