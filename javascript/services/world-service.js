@@ -1078,7 +1078,7 @@ const worldService = {
   setEnemyDPSHealthPower: (world, units, enemyUnits) => {
     const { resources } = world;
     units.forEach(unit => {
-      unit['enemyUnits'] = enemyUnits.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16)
+      unit['enemyUnits'] = setUnitsProperty(unit, enemyUnits);
       const [closestEnemyUnit] = resources.get().units.getClosest(unit.pos, enemyUnits).filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
       unit['enemyDPSHealth'] = worldService.calculateNearDPSHealth(world, unit['enemyUnits'], (closestEnemyUnit && closestEnemyUnit['selfUnits']) ? closestEnemyUnit['selfUnits'].map((/** @type {{ unitType: any; }} */ selfUnit) => selfUnit.unitType) : []);
     });
@@ -1094,7 +1094,7 @@ const worldService = {
     // get array of unique unitTypes from enemyUnits
     const { resources } = world;
     units.forEach(unit => {
-      unit['selfUnits'] = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
+      unit['selfUnits'] = setUnitsProperty(unit, units);
       const [closestEnemyUnit] = resources.get().units.getClosest(unit.pos, enemyUnits).filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
       unit['selfDPSHealth'] = worldService.calculateNearDPSHealth(world, unit['selfUnits'], closestEnemyUnit ? closestEnemyUnit['selfUnits'].map((/** @type {{ unitType: any; }} */ selfUnit) => selfUnit.unitType) : []);
     });
@@ -1491,4 +1491,23 @@ function getTimeToTargetCost(world, unitType) {
 function canWeaponAttackType(units, weapon, targetUnitType) {
   const { isFlying } = getUnitTypeData(units, targetUnitType);
   return weapon.type === WeaponTargetType.ANY || (weapon.type === WeaponTargetType.GROUND && !isFlying) || (weapon.type === WeaponTargetType.AIR && isFlying || targetUnitType === UnitType.COLOSSUS);
+}
+
+/**
+ * @param {Unit} unit
+ * @param {Unit[]} units
+ * @returns {Unit[]}
+ */
+function setUnitsProperty(unit, units) {
+  return units.filter(toFilterUnit => {
+    if (unit.pos === undefined || toFilterUnit.pos === undefined || unit.radius === undefined || toFilterUnit.radius === undefined) return false;
+    const { weapons } = toFilterUnit.data();
+    if (weapons === undefined) return false;
+    const weaponRange = weapons.reduce((acc, weapon) => {
+      if (weapon.range === undefined) return acc;
+      return weapon.range > acc ? weapon.range : acc;
+    }, 0);
+    
+    return distance(unit.pos, toFilterUnit.pos) <= weaponRange + unit.radius + toFilterUnit.radius + getTravelDistancePerStep(toFilterUnit) + getTravelDistancePerStep(unit);
+  });
 }
