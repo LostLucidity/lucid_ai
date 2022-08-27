@@ -50,10 +50,10 @@ const terran = {
           unitTags: [unit.tag]
         }
         const addonPlacement = getAddOnPlacement(unit.pos);
-        console.log('map.isPlaceableAt(addOnType, addonPlacement)', map.isPlaceableAt(addOnType, addonPlacement));
         const addOnFootprint = getFootprint(addOnType);
         if (addOnFootprint === undefined) return;
         const canPlace = map.isPlaceableAt(addOnType, addonPlacement) && !pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids);
+        console.log('map.isPlaceableAt(addOnType, addonPlacement)', map.isPlaceableAt(addOnType, addonPlacement));
         console.log(!pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids));
         console.log('stepAhead', stepAhead);
         if (canPlace) {
