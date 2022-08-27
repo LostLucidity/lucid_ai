@@ -56,6 +56,15 @@ const armyManagementService = {
   calculateSupplyPower(data, unit, Units) {
     return calculateNearSupply(data, getInRangeUnits(unit, Units));
   },
+  /**
+   * 
+   * @param {World} world 
+   * @param {Unit[]} selfUnits 
+   * @param {Unit[]} enemyUnits 
+   * @param {Point2D} position 
+   * @param {Boolean} clearRocks 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { data, resources } = world;
     const { units } = resources.get();
@@ -105,7 +114,11 @@ const armyManagementService = {
             }
             const destructableTag = getInRangeDestructables(units, selfUnit);
             if (destructableTag && clearRocks) { unitCommand.targetUnitTag = destructableTag; }
-            else { unitCommand.targetWorldSpacePos = targetPosition; }
+            else {
+              if (unitHasTargetPosition(selfUnit, targetPosition)) {
+                unitCommand.targetWorldSpacePos = targetPosition;
+              }
+            }
             collectedActions.push(unitCommand);
           }
         }
@@ -116,3 +129,19 @@ const armyManagementService = {
 }
 
 module.exports = armyManagementService;
+
+/**
+ * @param {Unit} unit
+ * @param {Point2D} targetPosition
+ * @returns {Boolean}
+ */
+function unitHasTargetPosition(unit, targetPosition) {
+  const { orders, pos } = unit;
+  if (orders === undefined || pos === undefined) { return false; }
+  const orderFound = orders.some(order => {
+    const { targetWorldSpacePos } = order;
+    if (targetWorldSpacePos === undefined) return false;
+    return distance(targetWorldSpacePos, targetPosition) < 16;
+  });
+  return !orderFound && distance(pos, targetPosition) > 16;
+}
