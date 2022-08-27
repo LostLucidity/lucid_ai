@@ -814,6 +814,7 @@ const worldService = {
       const { movementSpeed } = builder.data();
       const pathablePositions = getPathablePositions(map, position);
       const [closestPositionByPath] = getClosestPositionByPath(resources, builder.pos, pathablePositions);
+      position = closestPositionByPath;
       let builderDistanceToPosition = distanceByPath(resources, builder.pos, closestPositionByPath);
       let timeToPosition = builderDistanceToPosition / movementSpeed;
       let rallyBase = false;
