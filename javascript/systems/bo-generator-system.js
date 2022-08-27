@@ -174,3 +174,40 @@ function getAllAvailableAbilities(data, units) {
   });
   return allAvailableAbilities;
 }
+
+/**
+ * 
+ * @param {DataStorage} data 
+ * @param {UnitResource} units 
+ * @returns 
+ */
+function getUnitTrainingAbilities(data, units) {
+  const unitTrainingAbilities = new Map();
+  units.getAlive(Alliance.SELF).forEach(unit => {
+    const { orders } = unit;
+    if (orders === undefined) return;
+    if (!unit.isStructure() || unit.isIdle() || unit.hasReactor() && orders.length === 1) {
+      const availableAbilities = unit.availableAbilities();
+      availableAbilities.forEach(ability => {
+        if (!unitTrainingAbilities.has(ability)) {
+          const unitTypeTrainingAbilities = dataService.unitTypeTrainingAbilities;
+          unitTypeTrainingAbilities.entries();
+          if (Array.from(unitTypeTrainingAbilities.keys()).some(unitTypeAbility => unitTypeAbility === ability)) {
+            const unitType = unitTypeTrainingAbilities.get(ability);
+            if (unitType === undefined) return;
+            // 
+            const unitTypeData = data.getUnitTypeData(unitType);
+            const { attributes, unitAlias } = unitTypeData;
+            if (attributes === undefined) return;
+            if (unitAlias === 0 && !attributes.includes(Attribute.STRUCTURE)) {
+              unitTrainingAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeTrainingAbilities.get(ability) });
+            }
+          } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
+            unitTrainingAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
+          }
+        }
+      })
+    }
+  });
+  return unitTrainingAbilities;
+}
