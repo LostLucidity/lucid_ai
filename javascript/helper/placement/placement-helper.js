@@ -24,6 +24,11 @@ const placementHelper = {
     });
     return mineralLineCandidates;
   },
+  /**
+   * @param {ResourceManager} resources
+   * @param {UnitTypeId} unitType
+   * @param {Point3D[]} candidatePositions
+   */
   findPosition: async (resources, unitType, candidatePositions) => {
     const { actions, map, units } = resources.get();
     if (flyingTypesMapping.has(unitType)) { unitType = flyingTypesMapping.get(unitType); }
