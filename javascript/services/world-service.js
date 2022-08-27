@@ -849,6 +849,7 @@ const worldService = {
           builder.labels.set('builder', true);
           builder.labels.delete('mineralField');
           collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
+          collectedActions.push(...rallyWorkerToTarget(world, position, true));
         }
       } else {
         collectedActions.push(...rallyWorkerToTarget(world, position, true));
