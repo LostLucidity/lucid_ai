@@ -66,15 +66,11 @@ const unitResourceService = {
    */
   canAttack(resources, unit, targetUnit) {
     const { units } = resources.get();
-    if (targetUnit.isFlying) {
-      if (unit.canShootUp()) {
-        const inRangeOfVisionAndVisible = units.getAlive(Alliance.ENEMY).some(unit => unit.tag === targetUnit.tag) && unitResourceService.inSightRange(units.getAlive(Alliance.SELF), targetUnit);
-        return inRangeOfVisionAndVisible;
-      } else {
-        return false;
-      }
-    }
-    return true;
+    const canShootAtTarget = targetUnit.isFlying && unit.canShootUp() || !targetUnit.isFlying && !unit.canShootUp();
+    if (canShootAtTarget) {
+      const inRangeOfVisionAndVisible = units.getAlive(Alliance.ENEMY).some(unit => unit.tag === targetUnit.tag) && unitResourceService.inSightRange(units.getAlive(Alliance.SELF), targetUnit);
+      return inRangeOfVisionAndVisible;
+    } else { return false; }
   },
   deleteLabel(units, label) {
     units.withLabel(label).forEach(pusher => pusher.labels.delete(label));
