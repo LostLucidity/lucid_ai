@@ -18,6 +18,7 @@ const scoutingService = require("./scouting/scouting-service");
 const { v4: uuidv4 } = require('uuid');
 const dataService = require("../services/data-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
+const { supplyTypes } = require("../helper/groups");
 
 let upgradeAbilities = [];
 module.exports = createSystem({
@@ -78,7 +79,7 @@ module.exports = createSystem({
           const unitTypeCount = getUnitTypeCount(world, unitType) + (unitType === DRONE ? units.getStructures().length - 1 : 0);
           const conditions = [
             isGasExtractorWithoutFreeGasGeyser(map, unitType),
-            diminishChanceToBuildStructure(data, unitType, unitTypeCount),
+            diminishChangeToBuild(data, unitType, unitTypeCount),
             WorkerRace[agent.race] === unitType && !shortOnWorkers(resources)
           ];
           if (conditions.some(condition => condition)) {
@@ -134,15 +135,20 @@ function isGasExtractorWithoutFreeGasGeyser(map, unitType) {
  * 
  * @param {DataStorage} data 
  * @param {UnitTypeId} unitType 
- * @param {number} unitTypeCount 
- * @returns 
+ * * @param {number} unitTypeCount 
+ * @returns {Boolean}
  */
-function diminishChanceToBuildStructure(data, unitType, unitTypeCount) {
-  const isStructure = data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE);
-  const divisorToDiminish = [...gasMineTypes, ...townhallTypes].includes(unitType) ? unitTypeCount : unitTypeCount * 16;
-  return isStructure && (1 / (divisorToDiminish + 1)) < Math.random();
+function diminishChangeToBuild(data, unitType, unitTypeCount) {
+  const { attributes } = data.getUnitTypeData(unitType);
+  if (attributes === undefined) return false;
+  if (attributes.includes(Attribute.STRUCTURE)) {
+    const divisorToDiminish = [...gasMineTypes, ...townhallTypes].includes(unitType) ? unitTypeCount : unitTypeCount * 16;
+    return (1 / (divisorToDiminish + 1)) < Math.random();
+  } else {
+    const divisorToDiminish = [...supplyTypes].includes(unitType) ? unitTypeCount : 0;
+    return (1 / (divisorToDiminish + 1)) < Math.random();
+  }
 }
-
 /**
  * 
  * @param {DataStorage} data 
