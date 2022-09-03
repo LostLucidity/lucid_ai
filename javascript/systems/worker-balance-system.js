@@ -8,9 +8,9 @@ const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
-const { getClosestExpansion, getPathablePositionsForStructure } = require('../services/map-resource-service');
+const { getClosestExpansion } = require('../services/map-resource-service');
 const planService = require('../services/plan-service');
-const { getClosestUnitByPath, distanceByPath } = require('../services/resources-service');
+const { getClosestUnitByPath } = require('../services/resources-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
 const { gather, getMineralFieldAssignments } = require('./unit-resource/unit-resource-service');
 const unitResourceService = require('./unit-resource/unit-resource-service');
@@ -255,30 +255,4 @@ function getGatheringWorkers(units, type) {
         (worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ order) => gatheringAbilities.includes(order.abilityId)))
       );
     });
-}
-/**
- * 
- * @param {ResourceManager} resources 
- * @param {Unit} unit 
- * @param {Unit[]} units 
- */
-function getClosestUnitFromUnit(resources, unit, units) {
-  const { map } = resources.get();
-  const pathablePositions = getPathablePositionsForStructure(map, unit);
-  const closestUnitToPathables = pathablePositions.reduce((/** @type {Unit|undefined} */ closestUnitToPathable, pathablePosition) => {
-    const [closestUnit] = getClosestUnitByPath(resources, pathablePosition, units);
-    if (closestUnitToPathable === undefined) {
-      return closestUnit;
-    } else {
-      if (closestUnitToPathable.pos === undefined || closestUnit.pos === undefined) return closestUnitToPathable;
-      const closestUnitToPathableDistance = distanceByPath(resources, closestUnitToPathable.pos, closestUnit.pos);
-      const closestUnitDistance = distanceByPath(resources, closestUnit.pos, pathablePosition);
-      if (closestUnitToPathableDistance < closestUnitDistance) {
-        return closestUnitToPathable;
-      } else {
-        return closestUnit;
-      }
-    }
-  }, undefined);
-  return closestUnitToPathables;
 }

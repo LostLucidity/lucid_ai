@@ -6,7 +6,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getBuilders } = require("../systems/unit-resource/unit-resource-service");
 const dataService = require("./data-service");
 const { getTimeInSeconds } = require("./frames-service");
-const { getPathablePositions, getMapPath } = require("./map-resource-service");
+const { getPathablePositions, getMapPath, getPathablePositionsForStructure } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
 
 const resourcesService = {
@@ -98,6 +98,32 @@ const resourcesService = {
       .sort((a, b) => a.distance - b.distance)
       .map(u => u.unit)
       .slice(0, n);
+  },
+  /**
+   *
+   * @param {ResourceManager} resources
+   * @param {Unit} unit
+   * @param {Unit[]} units
+   */
+  getClosestUnitFromUnit(resources, unit, units) {
+    const { map } = resources.get();
+    const pathablePositions = getPathablePositionsForStructure(map, unit);
+    const closestUnitToPathables = pathablePositions.reduce((/** @type {Unit|undefined} */ closestUnitToPathable, pathablePosition) => {
+      const [closestUnit] = resourcesService.getClosestUnitByPath(resources, pathablePosition, units);
+      if (closestUnitToPathable === undefined) {
+        return closestUnit;
+      } else {
+        if (closestUnitToPathable.pos === undefined || closestUnit.pos === undefined) return closestUnitToPathable;
+        const closestUnitToPathableDistance = resourcesService.distanceByPath(resources, closestUnitToPathable.pos, closestUnit.pos);
+        const closestUnitDistance = resourcesService.distanceByPath(resources, closestUnit.pos, pathablePosition);
+        if (closestUnitToPathableDistance < closestUnitDistance) {
+          return closestUnitToPathable;
+        } else {
+          return closestUnit;
+        }
+      }
+    }, undefined);
+    return closestUnitToPathables;
   },
   /**
    * @param {World} world 
