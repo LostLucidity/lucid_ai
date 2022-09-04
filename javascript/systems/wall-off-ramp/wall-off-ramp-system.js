@@ -17,8 +17,9 @@ module.exports = createSystem({
   name: 'WallOffRamp',
   type: 'agent',
   async onGameStart({ resources }) {
+  // async onStep({ resources }) {
     const { debug, map } = resources.get();
-    debug.setDrawCells('ramps', map._ramps.map(r => ({ pos: r })), { size: 1, cube: true });
+    debug.setDrawCells('rmps', map._ramps.map(r => ({ pos: r })), { size: 1, cube: true });
     const naturalTownhallPosition = map.getNatural().townhallPosition;
     wallOffRampService.adjacentToRampGrids = map.getMain().areas.placementGrid.filter(grid => {
       // check if grid is adjacent to ramp
