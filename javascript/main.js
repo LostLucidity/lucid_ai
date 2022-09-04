@@ -48,6 +48,7 @@ const setRallySystem = require('./systems/set-rally-system');
 const attackSystem = require('./systems/army-management/attack-system');
 const injectorSystem = require('./systems/injector-system');
 const { saveBuildOrder } = require('./services/world-service');
+const harassSystem = require('./systems/harass/harass-system');
 
 // const aiBuild = AIBuild.Rush;
 // const bot2 = createAgent(settings);
