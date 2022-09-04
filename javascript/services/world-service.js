@@ -948,7 +948,7 @@ const worldService = {
   retreat: (world, unit, targetUnit, toCombatRally = true) => {
     const { resources } = world;
     const { units } = resources.get();
-    const closestSafePosition = findClosestSafePosition(resources, unit, targetUnit);
+    const closestSafePosition = findClosestSafePosition(resources, unit);
     const travelDistancePerStep = getTravelDistancePerStep(unit);
     if (closestSafePosition) {
       if (distance(unit.pos, closestSafePosition) < travelDistancePerStep) {
@@ -979,15 +979,11 @@ const worldService = {
           }).sort((a, b) => {
             return distanceByPath(resources, unit.pos, a) - distanceByPath(resources, unit.pos, b);
           });
-          return largestPathDifferenceRetreat ? largestPathDifferenceRetreat : closestSafePosition;
+          const closestSafePositionWithBuffer = findClosestSafePosition(resources, unit, travelDistancePerStep) || moveAwayPosition(targetUnit.pos, unit.pos, travelDistancePerStep);;
+          return largestPathDifferenceRetreat ? largestPathDifferenceRetreat : closestSafePositionWithBuffer;
         }
       } else {
-        const closestSafePosition = findClosestSafePosition(resources, unit, targetUnit, travelDistancePerStep);
-        if (closestSafePosition) {
-          return closestSafePosition;
-        } else {
-          moveAwayPosition(targetUnit.pos, unit.pos, travelDistancePerStep);
-        }
+        return closestSafePosition;
       }
     } else {
       return moveAwayPosition(targetUnit.pos, unit.pos, travelDistancePerStep);
@@ -1263,13 +1259,11 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
 /**
  * @param {ResourceManager} resources
  * @param {Unit} unit 
- * @param {Unit} targetUnit 
  * @param {number} radius
  * @returns {Point2D|undefined}
  */
-function findClosestSafePosition(resources, unit, targetUnit, radius = 0) {
-  const { map } = resources.get();
-  const safePositions = getSafePositions(map, unit, targetUnit, radius);
+function findClosestSafePosition(resources, unit, radius = 0) {
+  const safePositions = getSafePositions(resources, unit, radius);
   // get closest point for flying unit, closest point by path distance for ground unit
   if (unit.isFlying) {
     const [closestPoint] = getClosestPosition(unit.pos, safePositions);
@@ -1302,27 +1296,34 @@ function getWeapon(data, unit, targetUnit) {
   }
 }
 /**
- * @param {MapResource} map
+ * @param {ResourceManager} resources
  * @param {Unit} unit
- * @param {Unit} targetUnit
  * @returns {Point2D[]}
  **/
-function getSafePositions(map, unit, targetUnit, radius = 0) {
+function getSafePositions(resources, unit, radius = 1) {
+  const { map, units } = resources.get();
   let safePositions = [];
+  const { pos } = unit;
+  if (pos === undefined) return safePositions;
+  const enemyUnits = units.getAlive({ alliance: Alliance.ENEMY }).filter(enemyUnit => enemyUnit.pos && distance(pos, enemyUnit.pos) <= 16);
   while (safePositions.length === 0 && radius <= 16) {
-    const ringOfCircle = gridsInCircle(unit.pos, radius).filter((point) => {
-      return distance(point, unit.pos) > (radius - 1);
+    const ringOfCircle = gridsInCircle(pos, radius).filter((point) => {
+      return distance(point, pos) > (radius - 1);
     });
     safePositions = ringOfCircle.filter((point) => {
       // check is point is farther than unit from target unit
-      const fartherThanUnit = distance(point, targetUnit.pos) > distance(point, unit.pos);
-      if (existsInMap(map, point) && map.isPathable(point) && fartherThanUnit) {
-        // get grid height of point in map
-        const pointWithHeight = {
-          ...point,
-          z: map.getHeight(point),
+      if (existsInMap(map, point) && map.isPathable(point)) {
+        const fartherThanEnemyUnits = enemyUnits.every(enemyUnit => enemyUnit.pos && (distance(point, enemyUnit.pos) > distance(point, pos)))
+        if (fartherThanEnemyUnits) {
+          // get grid height of point in map
+          const pointWithHeight = {
+            ...point,
+            z: map.getHeight(point),
+          }
+          return isSafePositionFromTargets(map, unit, enemyUnits, pointWithHeight);
+        } else {
+          return false;
         }
-        return isSafePositionFromTarget(map, unit, targetUnit, pointWithHeight);
       } else {
         return false;
       }
@@ -1335,38 +1336,32 @@ function getSafePositions(map, unit, targetUnit, radius = 0) {
 /**
  * @param {MapResource} map
  * @param {Unit} unit 
- * @param {Unit} targetUnit 
+ * @param {Unit[]} targetUnits
  * @param {Point3D} point 
  * @returns {boolean}
  */
-function isSafePositionFromTarget(map, unit, targetUnit, point) {
-  // check if point is out or range of unit
-  // if point.z is not greater than 2 of unit.pos.z, then check highest range of ground weapon
-  // if point.z is greater than 2 of unit.pos.z, then check highest range of air weapon
-  if (!existsInMap(map, point)) {
-    return false;
-  }
+function isSafePositionFromTargets(map, unit, targetUnits, point) {
+  if (!existsInMap(map, point)) return false;
   let weaponTargetType = null;
-  // @ts-ignore
-  if (point.z > unit.pos.z + 2) {
+  const { pos, radius } = unit;
+  if (pos === undefined || radius === undefined) return false;
+  if (point.z === undefined || pos === undefined || pos.z === undefined) return false;
+  if (point.z > pos.z + 2) {
     weaponTargetType = WeaponTargetType.AIR;
   } else {
     weaponTargetType = WeaponTargetType.GROUND;
     // return false if point is outside of map and point is not pathable
-    if (!map.isPathable(point)) {
-      return false;
-    }
+    if (!map.isPathable(point)) return false;
   }
-  const weapon = getHighestRangeWeapon(targetUnit, weaponTargetType);
-  // return true if no weapon found
-  if (!weapon) {
-    return true;
-  }
-  const weaponRange = weapon.range;
-  // @ts-ignore
-  const distanceToTarget = distance(point, targetUnit.pos);
-  // @ts-ignore
-  return distanceToTarget > weaponRange + unit.radius + targetUnit.radius + getTravelDistancePerStep(targetUnit) + getTravelDistancePerStep(unit);
+  return targetUnits.every((targetUnit) => {
+    const { pos } = targetUnit;
+    if (pos === undefined || targetUnit.radius === undefined) return true;
+    const weapon = getHighestRangeWeapon(targetUnit, weaponTargetType);
+    if (weapon === undefined || weapon.range === undefined) return false;
+    const weaponRange = weapon.range;
+    const distanceToTarget = distance(point, pos);
+    return distanceToTarget > weaponRange + radius + targetUnit.radius + getTravelDistancePerStep(targetUnit) + getTravelDistancePerStep(unit);
+  });
 }
 /**
  * @param {Unit} unit 
