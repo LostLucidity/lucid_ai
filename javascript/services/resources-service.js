@@ -86,12 +86,16 @@ const resourcesService = {
    * @returns {Unit[]}
    */
   getClosestUnitByPath: (resources, position, units, n = 1) => {
+    const { map } = resources.get();
     return units.map(unit => {
+      const { pos } = unit;
+      if (pos === undefined) return;
       const mappedUnits = { unit }
       if (unit.isFlying) {
-        mappedUnits.distance = distance(unit.pos, position);
+        mappedUnits.distance = distance(pos, position);
       } else {
-        mappedUnits.distance = resourcesService.distanceByPath(resources, unit.pos, position);
+        const [closestPositionByPath] = resourcesService.getClosestPositionByPath(resources, pos, getPathablePositions(map, position), 1);
+        mappedUnits.distance = resourcesService.distanceByPath(resources, pos, closestPositionByPath);
       }
       return mappedUnits;
     })
