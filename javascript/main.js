@@ -191,6 +191,7 @@ async function runGame() {
     harassSystem,
     // debugSystem,
   ];
+  const randomSeed = 1;
   const updatedSystems = [
     saltConverterSystem,
     wallOffRampSystem,
@@ -240,7 +241,6 @@ async function runGame() {
   const player = players.find(p => !!p.agent);
   player.agent.settings.race = player.race;
   const realTime = false;
-  const randomSeed = 2;
   await engine.createGame(map, players, realTime, randomSeed);
   return engine.joinGame(player.agent);
 }
