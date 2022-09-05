@@ -142,8 +142,8 @@ function diminishChangeToBuild(data, unitType, unitTypeCount) {
   const { attributes } = data.getUnitTypeData(unitType);
   if (attributes === undefined) return false;
   if (attributes.includes(Attribute.STRUCTURE)) {
-    const divisorToDiminish = [...gasMineTypes, ...townhallTypes].includes(unitType) ? unitTypeCount : unitTypeCount * 16;
-    return (1 / (divisorToDiminish + 1)) < Math.random();
+    const divisorToDiminish = [...gasMineTypes, ...townhallTypes].includes(unitType) ? unitTypeCount : unitTypeCount * 8;
+    return (1 / ((divisorToDiminish + 1) * 4)) < Math.random();
   } else {
     const divisorToDiminish = [...supplyTypes].includes(unitType) ? unitTypeCount : 0;
     return (1 / (divisorToDiminish + 1)) < Math.random();
