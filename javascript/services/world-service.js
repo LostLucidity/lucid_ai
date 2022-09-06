@@ -107,16 +107,20 @@ const worldService = {
     const { actions, units } = resources.get();
     const workerTypeId = WorkerRace[agent.race];
     if (worldService.canBuild(world, workerTypeId)) {
+      const { abilityId } = data.getUnitTypeData(workerTypeId);
+      if (abilityId === undefined) { return; }
+      let trainers = [];
       if (agent.race === Race.ZERG) {
-        if (units.getById(UnitType.LARVA).length > 0) {
-          try { await actions.train(workerTypeId); } catch (error) { console.log(error) }
-        }
+        trainers = units.getById(UnitType.LARVA).filter(larva => !larva['pendingOrders'] || larva['pendingOrders'].length === 0);
       } else {
-        const idleTownhalls = units.getById(townhallTypes, { alliance: Alliance.SELF, buildProgress: 1, noQueue: true })
-          .filter(townhall => townhall.abilityAvailable(data.getUnitTypeData(workerTypeId).abilityId));
-        if (idleTownhalls.length > 0) {
-          try { await actions.train(workerTypeId); } catch (error) { console.log(error) }
-        }
+        trainers = units.getById(townhallTypes, { alliance: Alliance.SELF, buildProgress: 1, noQueue: true })
+          .filter(townhall => townhall.abilityAvailable(abilityId) && !townhall['pendingOrders'] || townhall['pendingOrders'].length === 0);
+      }
+      if (trainers.length > 0) {
+        const trainer = getRandom(trainers);
+        const unitCommand = createUnitCommand(abilityId, [trainer]);
+        setPendingOrders(trainer, unitCommand);
+        try { await actions.sendAction(unitCommand); } catch (error) { console.log(error) }
       }
     }
   },

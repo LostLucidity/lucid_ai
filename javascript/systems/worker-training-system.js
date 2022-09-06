@@ -18,7 +18,14 @@ module.exports = createSystem({
   },
   async onStep(world) {
     await trainWorkers(world);
-  }
+  },
+  async onUnitCreated(world, unit) {
+    const { agent } = world;
+    const { race } = agent;
+    if (WorkerRace[race] === unit.unitType) {
+      await trainWorkers(world);
+    }
+  },
 });
 /**
  * @param {World} world 
