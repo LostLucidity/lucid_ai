@@ -173,6 +173,7 @@ async function runGame() {
   }
   console.log('blueprint', blueprint);
   const bot1 = createAgent(blueprint);
+  const randomSeed = 1;
   const legacySystems = [
     workerTrainingSystem,
     trackUnitsSystem,
@@ -192,7 +193,6 @@ async function runGame() {
     harassSystem,
     // debugSystem,
   ];
-  const randomSeed = 1;
   const updatedSystems = [
     saltConverterSystem,
     wallOffRampSystem,
