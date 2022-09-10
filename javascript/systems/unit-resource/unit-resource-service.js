@@ -66,7 +66,7 @@ const unitResourceService = {
    */
   canAttack(resources, unit, targetUnit) {
     const { units } = resources.get();
-    const canShootAtTarget = targetUnit.isFlying && unit.canShootUp() || !targetUnit.isFlying && !unit.canShootUp();
+    const canShootAtTarget = targetUnit.isFlying && unit.canShootUp() || !targetUnit.isFlying && unit.canShootGround();
     if (canShootAtTarget) {
       const inRangeOfVisionAndVisible = units.getAlive(Alliance.ENEMY).some(unit => unit.tag === targetUnit.tag) && unitResourceService.inSightRange(units.getAlive(Alliance.SELF), targetUnit);
       return inRangeOfVisionAndVisible;

@@ -6,9 +6,9 @@ const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
-const { getMapPath } = require("../../services/map-resource-service");
+const { getPathablePositions } = require("../../services/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
-const { getClosestUnitByPath, distanceByPath } = require("../../services/resources-service");
+const { getClosestUnitByPath, distanceByPath, getClosestPositionByPath } = require("../../services/resources-service");
 const { retreat, getDamageDealingUnits } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
@@ -62,11 +62,13 @@ module.exports = {
     const { resources } = world;
     const { map, units } = resources.get();
     const label = 'clearFromEnemy';
-    const [unit] = units.withLabel(label);
     const collectedActions = [];
     const combatRallyPosition = map.getCombatRally();
+    const [unit] = units.withLabel(label);
     if (unit) {
-      let [closestEnemyUnit] = units.getClosest(unit.pos, getDamageDealingUnits(world, enemyTrackingService.mappedEnemyUnits), 1);
+      const { pos } = unit;
+      if (pos === undefined) return [];
+      let [closestEnemyUnit] = units.getClosest(unit.pos, getDamageDealingUnits(world, unit, enemyTrackingService.mappedEnemyUnits), 1);
       if (
         !closestEnemyUnit ||
         distance(unit.pos, closestEnemyUnit.pos) > 16 ||
@@ -86,16 +88,19 @@ module.exports = {
         } else {
           const unitCommand = createUnitCommand(MOVE, [unit]);
           const distanceEnemyToRally = distanceByPath(resources, closestEnemyUnit.pos, combatRallyPosition);
+          const distanceToRally = distanceByPath(resources, pos, combatRallyPosition);
           const enemyOutOfRangeButCloserToRally = (
             distanceEnemyToRally > 16 &&
-            distanceByPath(resources, unit.pos, combatRallyPosition) >= distanceEnemyToRally
+            distanceToRally >= distanceEnemyToRally
           );
           if (enemyOutOfRangeButCloserToRally) {
             unitCommand.targetWorldSpacePos = retreat(world, unit, closestEnemyUnit, false);
-            console.log('retreat!', unitCommand.targetWorldSpacePos, getMapPath(map, unit.pos, unitCommand.targetWorldSpacePos).length);
+            const [closestPathablePosition] = getClosestPositionByPath(resources, pos, getPathablePositions(map, unitCommand.targetWorldSpacePos));
+            console.log('retreat!', unitCommand.targetWorldSpacePos, distanceByPath(resources, pos, closestPathablePosition));
           } else {
             unitCommand.targetWorldSpacePos = combatRallyPosition;
-            console.log('rally!', unitCommand.targetWorldSpacePos, getMapPath(map, unit.pos, unitCommand.targetWorldSpacePos).length);
+            const [closestPathablePosition] = getClosestPositionByPath(resources, pos, getPathablePositions(map, unitCommand.targetWorldSpacePos));
+            console.log('rally!', unitCommand.targetWorldSpacePos, distanceByPath(resources, pos, closestPathablePosition));
           }
           collectedActions.push(unitCommand);
         }
@@ -131,6 +136,8 @@ module.exports = {
     const [unit] = units.withLabel('scoutEnemyMain');
     const collectedActions = [];
     if (unit) {
+      const { pos } = unit;
+      if (pos === undefined) return [];
       const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, { alliance: Alliance.ENEMY }).filter(cannon => distance(cannon.pos, unit.pos) < 16);
       const threateningUnits = unit['enemyUnits'] && unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => {
         const threateningRangedUnit = isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8
@@ -182,10 +189,13 @@ module.exports = {
         const unitCommand = createUnitCommand(MOVE, [unit]);
         if (closestThreateningUnit) {
           unitCommand.targetWorldSpacePos = retreat(world, unit, closestThreateningUnit, false);
-          console.log('retreat!', unitCommand.targetWorldSpacePos, getMapPath(map, unit.pos, unitCommand.targetWorldSpacePos).length);
+          const { targetWorldSpacePos } = unitCommand;
+          if (targetWorldSpacePos === undefined) return [];
+          console.log('retreat!', pos, targetWorldSpacePos, distanceByPath(resources, pos, targetWorldSpacePos));
         } else {
           unitCommand.targetWorldSpacePos = getCombatRally(resources);
-          console.log('rally!', unitCommand.targetWorldSpacePos, getMapPath(map, unit.pos, unitCommand.targetWorldSpacePos).length);
+          const { targetWorldSpacePos } = unitCommand;
+          console.log('rally!', pos, targetWorldSpacePos, distanceByPath(resources, pos, targetWorldSpacePos));
         }
         collectedActions.push(unitCommand);
       }
