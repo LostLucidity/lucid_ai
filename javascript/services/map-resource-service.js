@@ -58,12 +58,18 @@ const MapResourceService = {
    * @return {Point2D[]}
    */
   getPathablePositionsForStructure: (map, structure) => {
+    const { pos } = structure;
+    if (pos === undefined) return [];
     let positions = []
     let radius = 1
-    do {
-      positions = gridsInCircle(structure.pos, radius).filter(position => map.isPathable(position));
-      radius++
-    } while (positions.length === 0);
+    if (map.isPathable(pos)) {
+      positions.push(pos);
+    } else {
+      do {
+        positions = gridsInCircle(pos, radius).filter(position => map.isPathable(position));
+        radius++
+      } while (positions.length === 0);
+    }
     return positions;
   }
 }
