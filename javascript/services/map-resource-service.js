@@ -22,13 +22,15 @@ const MapResourceService = {
   getMapPath: (map, start, end) => {
     let force = false;
     let mapPath = map.path(start, end);
+    mapPath = mapPath.length === 0 ? map.path(end, start) : mapPath;
     if (mapPath.length > 0) {
       // convert to array of points and check if any of the points are not pathable
       const pathCoordinates = getPathCoordinates(mapPath);
       const foundNonPathable = pathCoordinates.filter(coordinate => !map.isPathable(coordinate)).length > 1;
       if (foundNonPathable) {
         force = true;
-        mapPath = map.path(start, end, {force});
+        mapPath = map.path(start, end, { force });
+        mapPath = mapPath.length === 0 ? map.path(end, start, { force }) : mapPath;
       }
     }
     return mapPath;
