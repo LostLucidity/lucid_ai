@@ -3,8 +3,10 @@
 
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { PROBE } = require("@node-sc2/core/constants/unit-type");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getEnemyCombatSupply } = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("../track-units/track-units-service");
+const { getOrderTargetPosition } = require("../unit-resource/unit-resource-service");
 
 const scoutService = {
   earlyScout: true,
@@ -20,14 +22,25 @@ const scoutService = {
   setOutsupplied: () => {
     scoutService.outsupplied = scoutService.enemyCombatSupply > trackUnitsService.selfCombatSupply;
   },
+  /**
+   * 
+   * @param {UnitResource} units 
+   * @param {Point2D} location 
+   * @param {UnitTypeId} unitType 
+   * @param {string} label 
+   */
   setScout: (units, location, unitType, label) => {
     let [unit] = units.getClosest(
       location,
       units.getById(unitType).filter(unit => {
+        const { noQueue, orders, pos, unitType } = unit;
+        if (noQueue === undefined || orders === undefined || pos === undefined || unitType === undefined) return false;
+        const orderTargetPosition = getOrderTargetPosition(units, unit);
         return (
-          unit.noQueue ||
-          unit.orders.findIndex(order => order.abilityId === MOVE) > -1 ||
-          unit.isConstructing() && unit.unitType === PROBE
+          noQueue ||
+          orders && orders.some(order => order.abilityId === MOVE) ||
+          unit.isConstructing() && unitType === PROBE ||
+          unit.isGathering() && orderTargetPosition && distance(pos, orderTargetPosition) > 1.62
         )
       })
     );

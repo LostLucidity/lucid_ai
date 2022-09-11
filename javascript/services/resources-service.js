@@ -3,7 +3,7 @@
 
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getBuilders } = require("../systems/unit-resource/unit-resource-service");
+const { getBuilders, getOrderTargetPosition } = require("../systems/unit-resource/unit-resource-service");
 const dataService = require("./data-service");
 const { getTimeInSeconds } = require("./frames-service");
 const { getPathablePositions, getMapPath, getPathablePositionsForStructure } = require("./map-resource-service");
@@ -212,11 +212,3 @@ const resourcesService = {
 
 module.exports = resourcesService;
 
-/**
- * @param {UnitResource} units
- * @param {Unit} worker 
- * @returns {Point2D|undefined}
- */
-function getOrderTargetPosition(units, worker) {
-  return worker.orders[0].targetWorldSpacePos || units.getByTag(worker.orders[0].targetUnitTag).pos;
-}

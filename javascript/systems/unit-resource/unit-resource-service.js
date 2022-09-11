@@ -274,6 +274,24 @@ const unitResourceService = {
     });
   },
   /**
+   * @param {UnitResource} units
+   * @param {Unit} worker
+   * @returns {Point2D|undefined}
+   */
+  getOrderTargetPosition: (units, worker) => {
+    if (worker.orders && worker.orders.length > 0) {
+      const order = worker.orders[0];
+      if (order.targetWorldSpacePos) {
+        return order.targetWorldSpacePos;
+      } else if (order.targetUnitTag) {
+        const targetUnit = units.getByTag(order.targetUnitTag);
+        if (targetUnit) {
+          return targetUnit.pos;
+        }
+      }
+    }
+  },
+  /**
    * 
    * @param {UnitResource} units 
    * @param {UnitTypeId} unitType 
