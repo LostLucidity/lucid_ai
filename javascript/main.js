@@ -243,7 +243,10 @@ async function runGame() {
   const player = players.find(p => !!p.agent);
   player.agent.settings.race = player.race;
   const realTime = false;
-  await engine.createGame(map, players, realTime, randomSeed);
+  await engine.createGame(
+    map, players, realTime,
+    randomSeed ? randomSeed : null
+  );
   return engine.joinGame(player.agent);
 }
 
