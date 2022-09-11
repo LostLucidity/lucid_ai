@@ -1,6 +1,7 @@
 //@ts-check
 "use strict"
 
+const { CloakState } = require("@node-sc2/core/constants/enums");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getBuilders, getOrderTargetPosition } = require("../systems/unit-resource/unit-resource-service");
@@ -10,6 +11,27 @@ const { getPathablePositions, getMapPath, getPathablePositionsForStructure } = r
 const { getPathCoordinates } = require("./path-service");
 
 const resourcesService = {
+  /**
+ * Checks whether unit can attack targetUnit.
+ * @param {ResourceManager} resources
+ * @param {Unit} unit
+ * @param {Unit} targetUnit
+ * @param {boolean} requireVisible
+ * @return {boolean}
+ */
+  canAttack(resources, unit, targetUnit, requireVisible = true) {
+    const { map } = resources.get();
+    const { cloak, isFlying, pos } = targetUnit;
+    if (cloak === undefined || isFlying === undefined || pos === undefined) { return false; }
+    const canShootAtTarget = isFlying && unit.canShootUp() || !isFlying && unit.canShootGround();
+    const targetDetected = cloak !== CloakState.CLOAKED;
+    const conditions = [
+      canShootAtTarget,
+      targetDetected,
+      !requireVisible || map.isVisible(pos),
+    ];
+    return conditions.every(condition => condition);
+  },
   /**
   * @param {ResourceManager} resources
   * @param {Point2D} position

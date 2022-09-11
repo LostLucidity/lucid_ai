@@ -9,6 +9,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getRandomPoint } = require("../../helper/location");
 const { createUnitCommand } = require("../../services/actions-service");
 const foodUsedService = require("../../services/food-used-service");
+const { canAttack } = require("../../services/resources-service");
 
 module.exports = createSystem({
   name: 'AttackSystem',
@@ -26,7 +27,7 @@ module.exports = createSystem({
       // get all units capable of moving except for structures and workers
       const collectedActions = [];
       if (enemyTargets.length > 0) {
-        collectedActions.push(...attackTargets(units, unitsToAttackWith, enemyTargets));
+        collectedActions.push(...attackTargets(resources, unitsToAttackWith, enemyTargets));
         if (collectedActions.length > 0) {
           return actions.sendAction(collectedActions);
         }
@@ -64,21 +65,25 @@ function getUnitsWithinBaseRange(units) {
   return units.getAlive(Alliance.ENEMY).filter(unit => selfStructures.some(structure => distance(unit.pos, structure.pos) <= 16));
 }
 /**
- * @param {UnitResource} units
+ * @param {ResourceManager} resources
  * @param {Unit[]} unitsToAttackWith 
  * @param {Unit[]} enemyTargets
  */
-function attackTargets(units, unitsToAttackWith, enemyTargets) {
+function attackTargets(resources, unitsToAttackWith, enemyTargets) {
+  const { units } = resources.get();
   const collectedActions = [];
   unitsToAttackWith.forEach(unit => {
+    const { pos } = unit;
+    if (pos === undefined) { return; }
     const abilityId = unit.abilityAvailable(ATTACK_ATTACK) ? ATTACK_ATTACK : MOVE;
-    // skip if unitType is an OVERLORD
     if (unit.unitType !== OVERLORD) {
-      const unitCommand = createUnitCommand(abilityId, [unit]);
-      // get closest enemy unit
-      const [closestEnemyUnit] = units.getClosest(unit.pos, enemyTargets);
-      unitCommand.targetWorldSpacePos = closestEnemyUnit.pos;
-      collectedActions.push(unitCommand);
+      const attackableTargets = enemyTargets.filter(target => canAttack(resources, unit, target, false));
+      const [closestEnemyUnit] = units.getClosest(pos, attackableTargets);
+      if (closestEnemyUnit) {
+        const unitCommand = createUnitCommand(abilityId, [unit]);
+        unitCommand.targetWorldSpacePos = closestEnemyUnit.pos;
+        collectedActions.push(unitCommand);
+      }
     }
   });
   return collectedActions;

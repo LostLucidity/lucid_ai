@@ -57,21 +57,6 @@ const unitResourceService = {
       return totalHealthShield / maxHealthShield;
     }
   },
-  /**
-   * Checks whether unit can attack targetUnit.
-   * @param {ResourceManager} resources
-   * @param {Unit} unit
-   * @param {Unit} targetUnit
-   * @return {boolean}
-   */
-  canAttack(resources, unit, targetUnit) {
-    const { units } = resources.get();
-    const canShootAtTarget = targetUnit.isFlying && unit.canShootUp() || !targetUnit.isFlying && unit.canShootGround();
-    if (canShootAtTarget) {
-      const inRangeOfVisionAndVisible = units.getAlive(Alliance.ENEMY).some(unit => unit.tag === targetUnit.tag) && unitResourceService.inSightRange(units.getAlive(Alliance.SELF), targetUnit);
-      return inRangeOfVisionAndVisible;
-    } else { return false; }
-  },
   deleteLabel(units, label) {
     units.withLabel(label).forEach(pusher => pusher.labels.delete(label));
   },

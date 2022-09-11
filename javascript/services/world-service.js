@@ -20,7 +20,7 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders, canAttack } = require("../systems/unit-resource/unit-resource-service");
+const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
@@ -44,7 +44,7 @@ const path = require('path');
 const foodUsedService = require('./food-used-service');
 const { keepPosition } = require('./placement-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
-const { getClosestUnitByPath, getBuilder, distanceByPath, getClosestPositionByPath } = require('./resources-service');
+const { getClosestUnitByPath, getBuilder, distanceByPath, getClosestPositionByPath, canAttack } = require('./resources-service');
 const { getMiddleOfStructure, moveAwayPosition } = require('./position-service');
 const { micro } = require('./micro-service');
 

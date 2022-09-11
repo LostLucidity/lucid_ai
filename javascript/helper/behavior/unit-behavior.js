@@ -12,12 +12,13 @@ const { getInRangeUnits, calculateHealthAdjustedSupply } = require("../battle-an
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
-const { isRepairing, canAttack, setPendingOrders } = require("../../systems/unit-resource/unit-resource-service");
+const { isRepairing, setPendingOrders } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { moveAwayPosition } = require("../../services/position-service");
 const { getCombatRally } = require("../location");
 const { retreat, pullWorkersToDefend } = require("../../services/world-service");
+const { canAttack } = require("../../services/resources-service");
 
 module.exports = {
   /**

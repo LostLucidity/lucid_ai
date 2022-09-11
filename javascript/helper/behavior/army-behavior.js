@@ -2,7 +2,7 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { LARVA, QUEEN, BUNKER, SIEGETANKSIEGED, OVERSEER, ADEPTPHASESHIFT } = require("@node-sc2/core/constants/unit-type");
+const { LARVA, QUEEN, BUNKER, SIEGETANKSIEGED, ADEPTPHASESHIFT } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK, SMART, LOAD_BUNKER, STOP } = require("@node-sc2/core/constants/ability");
 const { getRandomPoint, getCombatRally } = require("../location");
 const { tankBehavior } = require("./unit-behavior");
@@ -11,11 +11,11 @@ const { filterLabels } = require("../unit-selection");
 const { scanCloakedEnemy } = require("../terran");
 const { workerTypes, changelingTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { isRepairing, canAttack, setPendingOrders } = require("../../systems/unit-resource/unit-resource-service");
+const { isRepairing, setPendingOrders } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
-const { getCombatPoint, getClosestUnitByPath } = require("../../services/resources-service");
+const { getCombatPoint, getClosestUnitByPath, canAttack } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { microRangedUnit, defendWithUnit, getDPSHealth, retreat, pullWorkersToDefend, getWeaponDPS } = require("../../services/world-service");
+const { microRangedUnit, defendWithUnit, getDPSHealth, retreat } = require("../../services/world-service");
 const { micro } = require("../../services/micro-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { moveAwayPosition } = require("../../services/position-service");
