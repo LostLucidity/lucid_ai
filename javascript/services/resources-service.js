@@ -114,10 +114,10 @@ const resourcesService = {
       if (pos === undefined) return;
       const mappedUnits = { unit }
       if (unit.isFlying) {
-        mappedUnits.distance = distance(pos, position);
+        mappedUnits.distance = distance(position, pos);
       } else {
-        const [closestPositionByPath] = resourcesService.getClosestPositionByPath(resources, pos, getPathablePositions(map, position), 1);
-        mappedUnits.distance = resourcesService.distanceByPath(resources, pos, closestPositionByPath);
+        const [closestPositionByPath] = resourcesService.getClosestPositionByPath(resources, position, getPathablePositions(map, pos), 1);
+        mappedUnits.distance = resourcesService.distanceByPath(resources, position, closestPositionByPath);
       }
       return mappedUnits;
     })
