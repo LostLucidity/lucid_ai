@@ -316,19 +316,17 @@ const unitResourceService = {
   stopOverlappingBuilders: (units, builder, position) => {
     const collectedActions = [];
     const overlappingBuilders = unitResourceService.getBuilders(units).filter(otherBuilder => {
-      return (
-        otherBuilder.tag !== builder.tag &&
-        otherBuilder.orders.find(order => order.targetWorldSpacePos && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y)
-      );
+      const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, otherBuilder);
+      return otherBuilder.tag !== builder.tag && orderTargetPosition && distance(orderTargetPosition, position) < 1.6;
     });
     if (overlappingBuilders.length > 0) {
-      collectedActions.push({
-        abilityId: STOP,
-        unitTags: overlappingBuilders.map(builder => builder.tag),
-      });
+      const unitCommand = createUnitCommand(STOP, overlappingBuilders.map(builder => builder));
+      collectedActions.push(unitCommand);
     }
     return collectedActions;
   }
 }
 
 module.exports = unitResourceService;
+
+
