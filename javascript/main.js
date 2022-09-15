@@ -252,7 +252,6 @@ async function runGame() {
   return engine.joinGame(player.agent);
 }
 
-async function processResults([{ agent, data, resources }, gameResults]) {
 /**
  * @param {GameResult} gameResult 
  */
