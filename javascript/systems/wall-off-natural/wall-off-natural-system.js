@@ -63,39 +63,6 @@ function setUpWallOffNatural(world) {
       const candidateWallEnds = getCandidateWallEnds(map, grid);
       const candidateWalls = getCandidateWalls(map, candidateWallEnds, slicedGridsToEnemy);
       wallCandidates.push(...candidateWalls);
-      // const wallEnds = [];
-      // const existingGrids = gridsInCircle(grid, 8).filter(grid => existsInMap(map, grid));
-      // const sortedGrids = getClosestPosition(grid, existingGrids, existingGrids.length);
-      // sortedGrids.forEach(sortedGrid => {
-      //   if ([
-      //     !map.isPathable(sortedGrid),
-      //     wallCandidates.every(candidate => distance(candidate, sortedGrid) > 1),
-      //     wallEnds.every(nonPathableGrid => distance(nonPathableGrid, sortedGrid) >= 9 && distance(nonPathableGrid, sortedGrid) < 12),
-      //     getNeighbors(sortedGrid, false, false).filter(neighbor => map.isPlaceable(neighbor)).length > 0,
-      //   ].every(condition => condition)) {
-      //     wallEnds.push(sortedGrid);
-      //   }
-      // });
-      // if (wallEnds.length === 2) {
-      //   const edgePair = [wallEnds[0], wallEnds[1]];
-      //   wallCandidates.push(...wallEnds);
-      //   const wallSize = distance(wallEnds[0], wallEnds[1]);
-      //   const shorterWall = shortestWall > wallSize
-      //   shortestWall = shorterWall ? wallSize : shortestWall;
-      //   shortestEdgePair = shorterWall ? wallEnds : shortestEdgePair;
-      //   return {
-      //     'x': grid.x,
-      //     'y': grid.y,
-      //     'size': distance(wallEnds[0], wallEnds[1]),
-      //     edgePair,
-      //   };
-      // } else {
-      //   return {
-      //     'x': grid.x,
-      //     'y': grid.y,
-      //     'size': Infinity,
-      //   };
-      // }
     });
     const [shortestWallCandidate, shortestWallCandidateTwo] = wallCandidates.sort((a, b) => a.pathLength - b.pathLength);
     if (shortestWallCandidate) {
@@ -103,31 +70,6 @@ function setUpWallOffNatural(world) {
       debug.setDrawCells('wllCnd', shortestWallCandidate.path.map(r => ({ pos: r })), { size: 1, cube: false });
       setStructurePlacements(resources, shortestWallCandidate.path, [shortestWallCandidate.path, shortestWallCandidateTwo.path]);
     }
-    // get two of the shortest wall sizes in the sliceGridsToEnemyMapped array
-    // const shortestWallSizes = slicedGridsToEnemyMapped.filter(grid => grid.size < Infinity).sort((a, b) => a.size - b.size).slice(0, 4);
-    // // get the path length of each of the shortest wall sizes
-    // const shortestWallSizesMapped = shortestWallSizes.map(grid => {
-    //   const [placeablePairOne] = getClosestPosition(grid.edgePair[1], getNeighbors(grid.edgePair[0], false).filter(grid => map.isPlaceable(grid)));
-    //   const [placeablePairTwo] = getClosestPosition(grid.edgePair[0], getNeighbors(grid.edgePair[1], false).filter(grid => map.isPlaceable(grid)));
-    //   if (placeablePairOne && placeablePairTwo) {
-    //     const pathOfShortestWall = map.path(placeablePairOne, placeablePairTwo, { diagonal: true, force: true }).map(path => ({ 'x': path[0], 'y': path[1] }));
-    //     return {
-    //       'x': grid.x,
-    //       'y': grid.y,
-    //       'size': grid.size,
-    //       'path': pathOfShortestWall,
-    //       'pathLength': pathOfShortestWall.length,
-    //     };
-    //   }
-    // })
-    // if (shortestEdgePair.length > 0) {
-    //   const [placeablePairOne] = getClosestPosition(shortestEdgePair[1], getNeighbors(shortestEdgePair[0], false).filter(grid => map.isPlaceable(grid)));
-    //   const [placeablePairTwo] = getClosestPosition(shortestEdgePair[0], getNeighbors(shortestEdgePair[1], false).filter(grid => map.isPlaceable(grid)));
-    //   const pathOfShortestWall = map.path(placeablePairOne, placeablePairTwo, { diagonal: true, force: true }).map(path => ({ 'x': path[0], 'y': path[1] }));
-    //   wallOffNaturalService.wall = pathOfShortestWall;
-    //   debug.setDrawCells('shrwll', pathOfShortestWall.map(r => ({ pos: r })), { size: 1, cube: false });
-    //   setStructurePlacements(resources, pathOfShortestWall, shortestWallSizesMapped);
-    // }
   }
 }
 
