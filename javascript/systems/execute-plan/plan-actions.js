@@ -399,7 +399,11 @@ module.exports = planActions;
  * @returns {Unit[]}
  */
 function getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits) {
-  return canDoTypeUnits.every(unit => unit.buildProgress >= 1 || unit.buildProgress < 0.5) ? canDoTypeUnits.filter(unit => unit.addOnTag !== '0' && unit.isIdle()) : [];
+  if (canDoTypeUnits.every(unit => unit.buildProgress && (unit.buildProgress >= 1 || unit.buildProgress < 0.5))) {
+    return canDoTypeUnits.filter(unit => (unit.hasReactor() || unit.hasTechLab()) && unit.isIdle());
+  } else {
+    return [];
+  }
 }
 
 /**
