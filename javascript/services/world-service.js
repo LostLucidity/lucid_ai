@@ -853,7 +853,9 @@ const worldService = {
       }
       const unitCommand = builder ? createUnitCommand(MOVE, [builder]) : {};
       const timeToTargetCost = getTimeToTargetCost(world, unitType);
-      if (shouldPremoveNow(world, timeToTargetCost, timeToPosition) && buildTimeLeft <= timeToPosition) {
+      const timeToTargetTech = getTimeToTargetTech(world, unitType);
+      const timeToTargetCostOrTech = timeToTargetTech > timeToTargetCost ? timeToTargetTech : timeToTargetCost;
+      if (shouldPremoveNow(world, timeToTargetCostOrTech, timeToPosition) && buildTimeLeft <= timeToPosition) {
         if (rallyBase) {
           collectedActions.push(...rallyWorkerToTarget(world, position));
         } else {
@@ -1547,4 +1549,29 @@ function inCombatRange(data, unit, targetUnit) {
   const { range } = weapon;
   if (range === undefined) return false;
   return distance(pos, targetPos) <= range + radius + targetRadius + getTravelDistancePerStep(targetUnit) + getTravelDistancePerStep(unit);
+}
+
+/**
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @returns {number}
+ */
+function getTimeToTargetTech(world, unitType) {
+  const { data, resources } = world;
+  const { units } = resources.get();
+  const unitTypeData = data.getUnitTypeData(unitType);
+  const { techRequirement } = unitTypeData;
+  if (techRequirement === undefined || techRequirement === 0) return 0;
+  const { buildTime } = data.getUnitTypeData(techRequirement);
+  if (buildTime === undefined) return 0;
+  const [techUnit] = units.getById(techRequirement).sort((a, b) => {
+    const { buildProgress: buildProgressA } = a;
+    const { buildProgress: buildProgressB } = b;
+    if (buildProgressA === undefined || buildProgressB === undefined) return 0;
+    return buildProgressB - buildProgressA;
+  });
+  if (techUnit === undefined) return Infinity;
+  const { buildProgress } = techUnit;
+  if (buildProgress === undefined) return 0;
+  return getTimeInSeconds((1 - buildProgress) * buildTime);
 }
