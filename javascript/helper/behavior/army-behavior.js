@@ -57,50 +57,6 @@ const armyBehavior = {
   /**
    * 
    * @param {World} world 
-   * @param {Unit[]} threats 
-   */
-  defend0: async (world, threats) => {
-    const { resources } = world;
-    const { units } = resources.get();
-    const collectedActions = [];
-    // attack with army if stronger. Include attacking workers.
-    const enemyUnits = units.getAlive(Alliance.ENEMY);
-    const rallyPoint = getCombatRally(resources);
-    if (rallyPoint) {
-      let [closestEnemyUnit] = getClosestUnitByPath(resources, rallyPoint, threats);
-      let combatUnits = [...units.getCombatUnits(), ...units.getById([OVERSEER])];
-      collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
-      const [combatPoint] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
-      const workers = units.getWorkers().filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !isRepairing(unit));
-      if (combatPoint) {
-        const allyUnits = [...combatUnits, ...units.getWorkers().filter(worker => !worker.isHarvesting())]
-        const enemyDPSHealth = enemyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, allyUnits.map(allyUnit => allyUnit.unitType)), 0)
-        const selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, enemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
-        if (selfDPSHealth >= enemyDPSHealth) {
-          console.log('Defend', selfDPSHealth, enemyDPSHealth);
-          if (closestEnemyUnit.isFlying) {
-            const findAntiAir = combatUnits.find(unit => unit.canShootUp());
-            if (!findAntiAir) {
-              combatUnits.push(...units.getById(QUEEN));
-            }
-            const combatPoint = getCombatPoint(resources, combatUnits, closestEnemyUnit);
-            if (combatPoint) {
-              const army = { combatPoint, combatUnits, enemyTarget: closestEnemyUnit }
-              collectedActions.push(...armyBehavior.attackWithArmy(world, army, enemyUnits));
-            }
-          } else {
-            for (const worker of workers) { collectedActions.push(...await pullWorkersToDefend(world, worker, closestEnemyUnit, enemyUnits)); }
-            combatUnits = [...combatUnits, ...units.getById(QUEEN)]
-            collectedActions.push(...armyBehavior.engageOrRetreat(world, combatUnits, enemyUnits, rallyPoint));
-          }
-        }
-      }
-    }
-    // engage or retreat if not.
-  },
-  /**
-   * 
-   * @param {World} world 
    * @param {UnitTypeId[]} mainCombatTypes 
    * @param {UnitTypeId[]} supportUnitTypes 
    * @param {Unit[]} threats 
