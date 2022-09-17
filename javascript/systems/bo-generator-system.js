@@ -42,7 +42,7 @@ module.exports = createSystem({
   },
   async onStep(world) {
     const { agent, data, resources } = world;
-    const { map, units } = resources.get();
+    const { units } = resources.get();
     const { mineralMaxThreshold, mineralMinThreshold } = planService;
     sharedService.removePendingOrders(units);
     // starting at 12 food, while at current food, 1/3 chance of action else build drone and increment food by 1
@@ -72,44 +72,7 @@ module.exports = createSystem({
     }
     if (agent.minerals > mineralMaxThreshold && planService.continueBuild) {
       const allAvailableAbilities = getAllAvailableAbilities(data, units);
-      const randomAction = getRandom(Array.from(allAvailableAbilities.values()));
-      if (randomAction) {
-        const { orderType, unitType } = randomAction;
-        if (orderType === 'UnitType') {
-          const unitTypeCount = getUnitTypeCount(world, unitType) + (unitType === DRONE ? units.getStructures().length - 1 : 0);
-          const conditions = [
-            isGasExtractorWithoutFreeGasGeyser(map, unitType),
-            diminishChangeToBuild(data, unitType, unitTypeCount),
-            WorkerRace[agent.race] === unitType && !shortOnWorkers(resources)
-          ];
-          if (conditions.some(condition => condition)) {
-            return;
-          }
-          const isMatchingPlan = planService.plan.some(step => {
-            return (
-              step.unitType === unitType &&
-              step.targetCount === unitTypeCount
-            );
-          });
-          if (!isMatchingPlan) {
-            planService.plan.push({
-              orderType, unitType, food: agent.foodUsed, targetCount: getUnitTypeCount(world, unitType)
-            });
-            if (data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
-              await build(world, unitType);
-            } else {
-              await train(world, unitType);
-            }
-          }
-        } else if (orderType === 'Upgrade') {
-          planService.plan.push({
-            orderType, upgrade: randomAction.upgrade, food: agent.foodUsed
-          });
-          await upgrade(world, randomAction.upgrade);
-        }
-      }
-    } else {
-      // skip step
+      await runAction(world, allAvailableAbilities);
     }
     data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
   },
@@ -153,7 +116,7 @@ function diminishChangeToBuild(data, unitType, unitTypeCount) {
  * 
  * @param {DataStorage} data 
  * @param {UnitResource} units 
- * @returns {Map<UnitTypeId, number>}
+ * @returns {any}
  */
 function getAllAvailableAbilities(data, units) {
   const allAvailableAbilities = new Map();
@@ -217,3 +180,58 @@ function getUnitTrainingAbilities(data, units) {
   });
   return unitTrainingAbilities;
 }
+
+/**
+ * @param {World} world
+ * @param {any} allAvailableAbilities
+ * @returns 
+ */
+async function runAction(world, allAvailableAbilities) {
+  const { agent, data, resources } = world;
+  const { foodUsed } = agent;
+  if (foodUsed === undefined) return;
+  const { map, units } = resources.get();
+  let noAction = true;
+  while (noAction) {
+    const action = getRandom(Array.from(allAvailableAbilities.values()));
+    const { orderType, unitType } = action;
+    if (orderType === 'UnitType') {
+      const unitTypeCount = getUnitTypeCount(world, unitType) + (unitType === DRONE ? units.getStructures().length - 1 : 0);
+      const conditions = [
+        isGasExtractorWithoutFreeGasGeyser(map, unitType),
+        diminishChangeToBuild(data, unitType, unitTypeCount),
+        WorkerRace[agent.race] === unitType && !shortOnWorkers(resources)
+      ];
+      if (conditions.some(condition => condition)) {
+        continue;
+      }
+      const isMatchingPlan = planService.plan.some(step => {
+        return (
+          step.unitType === unitType &&
+          step.targetCount === unitTypeCount
+        );
+      });
+      if (!isMatchingPlan) {
+        planService.plan.push({
+          orderType, unitType, food: foodUsed, targetCount: getUnitTypeCount(world, unitType)
+        });
+        const { attributes } = data.getUnitTypeData(unitType);
+        if (attributes === undefined) return;
+        if (attributes.includes(Attribute.STRUCTURE)) {
+          await build(world, unitType);
+          noAction = false;
+        } else {
+          await train(world, unitType);
+          noAction = false;
+        }
+      }
+    } else if (orderType === 'Upgrade') {
+      planService.plan.push({
+        orderType, upgrade: action.upgrade, food: foodUsed
+      });
+      await upgrade(world, action.upgrade);
+      noAction = false;
+    }
+  }
+}
+
