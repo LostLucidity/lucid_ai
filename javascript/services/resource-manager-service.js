@@ -25,8 +25,9 @@ const resourceManagerService = {
     const workerSourceByPath = getWorkerSourceByPath(world, position);
     let rallyAbility = null;
     if (workerSourceByPath) {
+      const { orders, pos } = workerSourceByPath;
+      if (pos === undefined) return collectedActions;
       if (workerSourceByPath.unitType === EGG) {
-        const { orders } = workerSourceByPath;
         rallyAbility = orders.some(order => order.abilityId === data.getUnitTypeData(DRONE).abilityId) ? RALLY_BUILDING : null;
       } else {
         rallyAbility = rallyWorkersAbilities.find(ability => workerSourceByPath.abilityAvailable(ability));
@@ -34,9 +35,7 @@ const resourceManagerService = {
       if (rallyAbility) {
         const unitCommand = createUnitCommand(rallyAbility, [workerSourceByPath]);
         if (mineralTarget) {
-          const [closestBase] = getClosestUnitByPath(resources, workerSourceByPath.pos, units.getBases());
-          if (closestBase) {
-            const [closestExpansion] = getClosestExpansion(map, closestBase.pos);
+          const [closestExpansion] = getClosestExpansion(map, pos);
             const { mineralFields } = closestExpansion.cluster;
             const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
               .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2)
@@ -45,7 +44,6 @@ const resourceManagerService = {
               const mineralField = mineralFieldCounts[0];
               unitCommand.targetUnitTag = mineralField.mineralFieldTag;
             }
-          }
         } else {
           unitCommand.targetWorldSpacePos = position;
         }
