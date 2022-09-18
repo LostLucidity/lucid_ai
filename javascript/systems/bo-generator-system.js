@@ -191,8 +191,6 @@ async function runAction(world, allAvailableAbilities) {
   const { foodUsed } = agent;
   if (foodUsed === undefined) return;
   const { map, units } = resources.get();
-  let noAction = true;
-  while (noAction) {
     const action = getRandom(Array.from(allAvailableAbilities.values()));
     const { orderType, unitType } = action;
     if (orderType === 'UnitType') {
@@ -202,9 +200,7 @@ async function runAction(world, allAvailableAbilities) {
         diminishChangeToBuild(data, unitType, unitTypeCount),
         WorkerRace[agent.race] === unitType && !shortOnWorkers(resources)
       ];
-      if (conditions.some(condition => condition)) {
-        continue;
-      }
+      if (conditions.some(condition => condition)) return;
       const isMatchingPlan = planService.plan.some(step => {
         return (
           step.unitType === unitType &&
@@ -219,10 +215,8 @@ async function runAction(world, allAvailableAbilities) {
         if (attributes === undefined) return;
         if (attributes.includes(Attribute.STRUCTURE)) {
           await build(world, unitType);
-          noAction = false;
         } else {
           await train(world, unitType);
-          noAction = false;
         }
       }
     } else if (orderType === 'Upgrade') {
@@ -230,8 +224,6 @@ async function runAction(world, allAvailableAbilities) {
         orderType, upgrade: action.upgrade, food: foodUsed
       });
       await upgrade(world, action.upgrade);
-      noAction = false;
     }
-  }
 }
 
