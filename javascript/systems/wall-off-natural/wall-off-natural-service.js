@@ -37,6 +37,7 @@ const wallOffNaturalService = {
     // shuffle twoWallInfo
     twoWallInfo = shuffle(twoWallInfo);
     const threeByThreeGrid = getFootprint(GATEWAY);
+    if (threeByThreeGrid === undefined) return;
     for (let i = 0; i < twoWallInfo.length; i++) {
       // find pylon placement that covers threeByThreePositions starting from middle of wall to townhall position.
       // const middleOfWall = avgPoints(wall);
@@ -147,6 +148,15 @@ const wallOffNaturalService = {
               threeByThreePositions.push(selectedCandidate);
               workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
               break;
+            } else {
+              const placeableInPylonPowerArea = pylonPowerArea.filter(grid => map.isPlaceableAt(GATEWAY, grid) && !pointsOverlap(cellsInFootprint(grid, threeByThreeGrid), wallOffGrids));
+              const [closestPlaceable] = getClosestPosition(cornerGrid, placeableInPylonPowerArea);
+              if (closestPlaceable) {
+                wallOffGrids.push(...cellsInFootprint(closestPlaceable, threeByThreeGrid));
+                threeByThreePositions.push(closestPlaceable);
+                workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
+                break;
+              }
             }
           }
         }
