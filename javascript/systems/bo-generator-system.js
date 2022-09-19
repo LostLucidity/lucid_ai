@@ -33,6 +33,11 @@ module.exports = createSystem({
     planService.uuid = uuidv4();
     planService.mineralMaxThreshold = race === Race.ZERG ? 300 : 400;
     planService.mineralMinThreshold = 100;
+    // if race is protoss, add 50/50 chance whether first pylon is NaturalWallPylon
+    if (race === Race.PROTOSS) {
+      planService.naturalWallPylon = Math.random() > (1 / 2);
+      console.log('planService.naturalWallPylon', planService.naturalWallPylon);
+    }
     setUnitTypeTrainingAbilityMapping(data);
     Array.from(Object.values(Upgrade)).forEach(upgrade => {
       upgradeAbilities[data.getUpgradeData(upgrade).abilityId.toString()] = upgrade;

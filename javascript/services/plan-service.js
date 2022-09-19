@@ -29,6 +29,7 @@ const planService = {
   isPlanPaused: null,
   latestStep: 0,
   legacyPlan: null,
+  naturalWallPylon: false,
   /** @type {boolean} */
   pausedThisRound: false,
   pendingFood: 0,

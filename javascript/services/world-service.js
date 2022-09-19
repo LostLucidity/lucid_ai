@@ -10,7 +10,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { countTypes, morphMapping } = require("../helper/groups");
-const { findPosition } = require("../helper/placement/placement-helper");
+const { findPosition, getCandidatePositions } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { balanceResources, gatherOrMine } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
@@ -198,7 +198,7 @@ const worldService = {
   findAndPlaceBuilding: async (world, unitType, candidatePositions, stepAhead = false) => {
     const { agent, data, resources } = world
     const collectedActions = []
-    const { actions, frame, units } = resources.get();
+    const { actions, units } = resources.get();
     if (candidatePositions.length === 0) { candidatePositions = await worldService.findPlacements(world, unitType); }
     planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(resources, unitType, candidatePositions);
     if (planService.foundPosition) {
@@ -262,6 +262,11 @@ const worldService = {
     let placements = [];
     if (race === Race.PROTOSS) {
       if (unitType === UnitType.PYLON) {
+        if (worldService.getUnitTypeCount(world, unitType) === 0) {
+          if (planService.naturalWallPylon) {
+            return getCandidatePositions(resources, 'NaturalWallPylon', unitType);
+          }
+        }
         const occupiedExpansions = getOccupiedExpansions(resources);
         const occupiedExpansionsPlacementGrid = [...occupiedExpansions.map(expansion => expansion.areas.placementGrid)];
         const placementGrids = [];
