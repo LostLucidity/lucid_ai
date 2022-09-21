@@ -6,7 +6,6 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const rallyUnits = require("./rally-units");
-const shortOnWorkers = require("./short-on-workers");
 const { WarpUnitAbility, UnitType, Upgrade, UnitTypeId, Ability } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
 const { TownhallRace, GasMineRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
@@ -45,6 +44,7 @@ const { addEarmark, getSupply } = require("../services/data-service");
 const worldService = require("../services/world-service");
 const { buildGasMine } = require("../systems/execute-plan/plan-actions");
 const harassService = require("../systems/harass/harass-service");
+const { shortOnWorkers } = require("../services/resource-manager-service");
 
 let actions;
 let race;

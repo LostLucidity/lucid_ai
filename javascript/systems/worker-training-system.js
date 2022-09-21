@@ -3,8 +3,8 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { WorkerRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
-const shortOnWorkers = require("../helper/short-on-workers");
 const planService = require("../services/plan-service");
+const { shortOnWorkers } = require("../services/resource-manager-service");
 const { buildWorkers } = require("../services/world-service");
 const worldService = require("../services/world-service");
 const { haveAvailableProductionUnitsFor } = require("./unit-training/unit-training-service");
