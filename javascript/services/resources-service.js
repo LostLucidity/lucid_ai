@@ -131,26 +131,25 @@ const resourcesService = {
    * @param {ResourceManager} resources
    * @param {Unit} unit
    * @param {Unit[]} units
+   * @returns {Unit | undefined}
    */
   getClosestUnitFromUnit(resources, unit, units) {
     const { map } = resources.get();
+    const { pos } = unit;
+    if (pos === undefined) return undefined;
     const pathablePositions = getPathablePositionsForStructure(map, unit);
-    const closestUnitToPathables = pathablePositions.reduce((/** @type {Unit|undefined} */ closestUnitToPathable, pathablePosition) => {
-      const [closestUnit] = resourcesService.getClosestUnitByPath(resources, pathablePosition, units);
-      if (closestUnitToPathable === undefined) {
-        return closestUnit;
-      } else {
-        if (closestUnitToPathable.pos === undefined || closestUnit.pos === undefined) return closestUnitToPathable;
-        const closestUnitToPathableDistance = resourcesService.distanceByPath(resources, closestUnitToPathable.pos, closestUnit.pos);
-        const closestUnitDistance = resourcesService.distanceByPath(resources, closestUnit.pos, pathablePosition);
-        if (closestUnitToPathableDistance < closestUnitDistance) {
-          return closestUnitToPathable;
-        } else {
-          return closestUnit;
-        }
-      }
-    }, undefined);
-    return closestUnitToPathables;
+    const pathablePositionsForUnits = units.map(unit => getPathablePositionsForStructure(map, unit));
+    const distances = pathablePositions.map(pathablePosition => {
+      const distancesToUnits = pathablePositionsForUnits.map(pathablePositionsForUnit => {
+        const distancesToUnit = pathablePositionsForUnit.map(pathablePositionForUnit => {
+          return resourcesService.distanceByPath(resources, pathablePosition, pathablePositionForUnit);
+        });
+        return Math.min(...distancesToUnit);
+      });
+      return Math.min(...distancesToUnits);
+    });
+    const closestPathablePosition = pathablePositions[distances.indexOf(Math.min(...distances))];
+    return resourcesService.getClosestUnitByPath(resources, closestPathablePosition, units, 1)[0];
   },
   /**
    * @param {World} world 

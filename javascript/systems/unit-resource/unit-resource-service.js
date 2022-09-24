@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { EFFECT_REPAIR, STOP, SMART } = require("@node-sc2/core/constants/ability");
+const { EFFECT_REPAIR, STOP } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
@@ -12,6 +12,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { countTypes } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
 const { isPendingContructing } = require("../../services/shared-service");
+const { isMoving } = require("../../services/unit-service");
 
 const unitResourceService = {
   /** @type {{}} */
@@ -74,44 +75,6 @@ const unitResourceService = {
   },
   isRepairing(unit) {
     return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
-  },
-  /**
-     * @param {UnitResource} units
-     * @param {Unit} unit 
-     * @param {Unit} mineralField 
-     * @param {boolean} queue 
-     * @returns {SC2APIProtocol.ActionRawUnitCommand}
-     */
-  gather: (units, unit, mineralField, queue = true) => {
-    if (unit.labels.has('command') && queue === false) {
-      console.warn('WARNING! unit with command erroniously told to force gather! Forcing queue');
-      queue = true;
-    }
-    const ownBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1);
-    let target;
-    if (mineralField && mineralField.tag) {
-      target = mineralField;
-    } else {
-      let targetBase;
-      const needyBase = ownBases.sort((a, b) => {
-        // sort by the closest base to the idle worker
-        return distance(unit.pos, a.pos) - distance(unit.pos, b.pos);
-      })
-        // try to find a base that's needy, closest first
-        .find(base => base.assignedHarvesters < base.idealHarvesters);
-      if (!needyBase) {
-        [targetBase] = ownBases;
-      } else {
-        targetBase = needyBase;
-      }
-      const currentMineralFields = units.getMineralFields();
-      const targetBaseFields = units.getClosest(targetBase.pos, currentMineralFields, 3);
-      [target] = units.getClosest(unit.pos, targetBaseFields);
-    }
-    const sendToGather = createUnitCommand(SMART, [unit]);
-    sendToGather.targetUnitTag = target.tag;
-    sendToGather.queueCommand = queue;
-    return sendToGather;
   },
   /**
    * @param {Unit[]} buildings 
@@ -243,7 +206,7 @@ const unitResourceService = {
   /**
  * @param {UnitResource} units
  * @param {Unit[]} mineralFields
- * @returns {{ count: number, mineralContents: number, mineralFieldTag: string }[]}
+ * @returns {{ count: number; mineralContents: number | undefined; mineralFieldTag: string | undefined; targetedCount: number; }[]}
  */
   getMineralFieldAssignments: (units, mineralFields) => {
     const harvestingMineralWorkers = units.getWorkers().filter(worker => worker.isHarvesting('minerals'));
@@ -253,7 +216,26 @@ const unitResourceService = {
         return assignedMineralField && assignedMineralField.tag === mineralField.tag;
       });
       mineralField.labels.set('workerCount', targetMineralFieldWorkers.length);
-      return { count: targetMineralFieldWorkers.length, mineralContents: mineralField.mineralContents, mineralFieldTag: mineralField.tag };
+      const targetedMineralFieldWorkers = harvestingMineralWorkers.filter(worker => {
+        const { orders } = worker;
+        const pendingOrders = worker['pendingOrders'];
+        if (orders === undefined) return false;
+        return orders.some(order => {
+          if (order.targetUnitTag === mineralField.tag) {
+            return true;
+          } else if (pendingOrders && pendingOrders.some(pendingOrder => pendingOrder.targetUnitTag === mineralField.tag)) {
+            return true;
+          } else {
+            return false;
+          }
+        });
+      });
+      return {
+        count: targetMineralFieldWorkers.length,
+        mineralContents: mineralField.mineralContents,
+        mineralFieldTag: mineralField.tag,
+        targetedCount: targetedMineralFieldWorkers.length,
+      };
     });
   },
   /**
@@ -273,6 +255,28 @@ const unitResourceService = {
         }
       }
     }
+  },
+  /**
+   * @param {UnitResource} units
+   * @param {Unit} unit
+   * @returns {Unit[]}
+   */
+  getTargetedByWorkers: (units, unit) => {
+    const workers = units.getWorkers().filter(worker => {
+      const { orders } = worker;
+      const pendingOrders = worker['pendingOrders'];
+      if (orders === undefined) return false;
+      return orders.some(order => {
+        if (order.targetUnitTag === unit.tag) {
+          return true;
+        } else if (pendingOrders && pendingOrders.some(pendingOrder => pendingOrder.targetUnitTag === unit.tag)) {
+          return true;
+        } else {
+          return false;
+        }
+      });
+    });
+    return workers;
   },
   /**
    * 
@@ -326,5 +330,3 @@ const unitResourceService = {
 }
 
 module.exports = unitResourceService;
-
-

@@ -2,7 +2,7 @@
 "use strict"
 
 const Buff = require("@node-sc2/core/constants/buff");
-const { HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
+const { HARVEST_GATHER, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { ZEALOT, ZERGLING, ROACH } = require("@node-sc2/core/constants/unit-type");
 const { add } = require("@node-sc2/core/utils/geometry/point");
@@ -93,6 +93,13 @@ const unitService = {
       movementSpeed = movementSpeed * 1.5
     }
     return movementSpeed;
+  },
+  /**
+   * @param {Unit} unit
+   * @returns {SC2APIProtocol.UnitOrder[]}
+   */
+  getPendingOrders: (unit) => {
+    return unit['pendingOrders'] || [];
   },
   /**
    * Get weapon that can attack target

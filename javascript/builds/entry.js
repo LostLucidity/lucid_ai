@@ -11,6 +11,7 @@ const plans = require("./plans");
 const sharedService = require("../services/shared-service");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
+const { getPendingOrders } = require("../services/unit-service");
 
 let assemblePlan = null;
 let longestTime = 0;
@@ -79,9 +80,13 @@ const entry = createSystem({
    * @returns {Promise<SC2APIProtocol.ResponseAction|void>}
    */
   async onUnitIdle({ resources }, idleUnit) {
-    if (idleUnit.isWorker() && idleUnit.noQueue) {
+    const pendingOrders = getPendingOrders(idleUnit);
+    if (idleUnit.isWorker() && idleUnit.noQueue && pendingOrders.length === 0) {
       const { actions, units } = resources.get();
-      if (units.getBases(Alliance.SELF).length > 0) { return actions.sendAction(gatherOrMine(resources, idleUnit)); }
+      const unitCommand = gatherOrMine(resources, idleUnit);
+      if (units.getBases(Alliance.SELF).length > 0 && unitCommand) {
+        return actions.sendAction(unitCommand);
+      }
     }
     // delete combatPoint label if idle
     if (idleUnit.labels.has('combatPoint')) {

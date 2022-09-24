@@ -6,8 +6,8 @@ const { gatheringAbilities, mineralFieldTypes, gasMineTypes } = require("@node-s
 const { COMMANDCENTER, MULE } = require("@node-sc2/core/constants/unit-type");
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const { upgradeTypes } = require("../helper/groups");
+const { gather } = require("../services/resource-manager-service");
 const { mine } = require("../services/unit-service");
-const { gather } = require("./unit-resource/unit-resource-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
@@ -83,7 +83,7 @@ const manageResources = {
    * @param {ResourceManager} resources
    * @param {Unit} unit
    * @param {Unit|null} mineralField
-   * @returns {SC2APIProtocol.ActionRawUnitCommand}
+   * @returns {SC2APIProtocol.ActionRawUnitCommand | null}
    */
   gatherOrMine(resources, unit, mineralField=null) {
     const { units } = resources.get();
@@ -91,7 +91,9 @@ const manageResources = {
       const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
       const needyGasMine = units.getGasMines(readySelfFilter).find(u => u.assignedHarvesters < u.idealHarvesters);
       const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
-      return needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? mine(unit, needyGasMine, false) : gather(units, unit, mineralField, false);
+      return needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? mine(unit, needyGasMine, false) : gather(resources, unit, mineralField, false);
+    } else {
+      return null
     }
   },
   /**

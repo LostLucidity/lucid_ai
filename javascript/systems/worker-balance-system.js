@@ -8,12 +8,14 @@ const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
+const { createUnitCommand } = require('../services/actions-service');
 const { getClosestExpansion } = require('../services/map-resource-service');
 const planService = require('../services/plan-service');
+const { gather } = require('../services/resource-manager-service');
 const { getClosestUnitByPath } = require('../services/resources-service');
+const { getPendingOrders } = require('../services/unit-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
-const { gather, getMineralFieldAssignments } = require('./unit-resource/unit-resource-service');
-const unitResourceService = require('./unit-resource/unit-resource-service');
+const { getMineralFieldAssignments, setPendingOrders } = require('./unit-resource/unit-resource-service');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',
@@ -31,6 +33,7 @@ module.exports = createSystem({
   async onStep(world) {
     const { resources } = world;
     const { units, actions } = resources.get();
+    const collectedActions = [];
     if (!planService.isPlanPaused) { balanceResources(world) }
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
@@ -56,9 +59,15 @@ module.exports = createSystem({
         const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringWorkers);
         debugSilly('chosen worker', donatingWorker.tag);
         const mineralFields = units.getMineralFields().filter(field => {
+          const numWorkers = units.getWorkers().filter(worker => {
+            const { orders } = worker;
+            if (orders === undefined) { return false }
+            return orders.some(order => order.targetUnitTag === field.tag);
+          }).length;
           return (
             (distance(field.pos, needyTownhall.pos) < 8) &&
-            (!field.labels.has('workerCount') || field.labels.get('workerCount') < 2)
+            (!field.labels.has('workerCount') || field.labels.get('workerCount') < 2) &&
+            numWorkers < 2
           );
         });
         const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, mineralFields);
@@ -69,18 +78,20 @@ module.exports = createSystem({
           } else {
             mineralFieldTarget.labels.set('workerCount', mineralFieldTarget.labels.get('workerCount') + 1);
           }
-          await actions.gather(donatingWorker, mineralFieldTarget, false);
+          const unitCommand = gather(resources, donatingWorker, mineralFieldTarget, false);
+          collectedActions.push(unitCommand);
+          setPendingOrders(donatingWorker, unitCommand);
         } else {
           const mineralFields = units.getMineralFields();
           const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, mineralFields);
           if (mineralFieldTarget) {
             donatingWorker.labels.delete('mineralField');
-            await actions.gather(donatingWorker, mineralFieldTarget, false);
+            const unitCommand = gather(resources, donatingWorker, mineralFieldTarget, false);
+            collectedActions.push(unitCommand);
           }
         }
       }
     }
-    const collectedActions = [];
     collectedActions.push(...assignWorkers(resources));
     collectedActions.push(...gatherOrMineIdleGroup(world));
     await actions.sendAction(collectedActions);
@@ -92,11 +103,15 @@ module.exports = createSystem({
    * @returns {Promise<SC2APIProtocol.ResponseAction|void>}
    */
   async onUnitIdle({ resources }, idleUnit) {
-    if (idleUnit.isWorker() && idleUnit.noQueue) {
+    const pendingOrders = getPendingOrders(idleUnit);
+    if (idleUnit.isWorker() && idleUnit.noQueue && pendingOrders.length === 0) {
       const { actions, units } = resources.get();
       if (units.getBases(Alliance.SELF).length > 0) {
         console.log('gatherOrMine');
-        return actions.sendAction(gatherOrMine(resources, idleUnit));
+        const unitCommand = gatherOrMine(resources, idleUnit);
+        if (unitCommand) {
+          return actions.sendAction(unitCommand);
+        }
       }
     }
   },
@@ -107,34 +122,35 @@ module.exports = createSystem({
     if (pos === undefined) return;
     if (newBuilding.isTownhall()) {
       // don't assign mineral fields to the new townhall if not at same height
-      const mineralFields = units.getMineralFields().filter(field => field.pos && map.getHeight(field.pos) === map.getHeight(pos));
+      const mineralFields = units.getMineralFields().filter(field => field.pos && map.getHeight(field.pos) === map.getHeight(pos) && distance(field.pos, pos) < 16);
       const [mineralFieldTarget] = units.getClosest(pos, mineralFields);
       const rallyAbility = rallyWorkersAbilities.find(ability => newBuilding.abilityAvailable(ability));
-      collectedActions.push({
-        abilityId: rallyAbility,
-        targetUnitTag: mineralFieldTarget.tag,
-        unitTags: [newBuilding.tag]
-      });
+      if (rallyAbility) {
+        const unitCommand = createUnitCommand(rallyAbility, [newBuilding]);
+        unitCommand.targetUnitTag = mineralFieldTarget.tag;
+        collectedActions.push(unitCommand);
+      }
       const bases = units.getBases();
-      const expansionsWithExtraWorkers = bases.filter(base => base.assignedHarvesters > base.idealHarvesters);
+      const basesWithExtraWorkers = bases.filter(base => base.assignedHarvesters > base.idealHarvesters);
       const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
-      debugSilly(`expansions with extra workers: ${expansionsWithExtraWorkers.map(ex => ex.tag).join(', ')}`);
-      const extraWorkers = expansionsWithExtraWorkers.reduce((workers, base) => {
-        return workers.concat(
-          units.getClosest(
-            base.pos,
-            gatheringWorkers,
-            base.assignedHarvesters - base.idealHarvesters
-          )
-        );
-      }, []);
+      debugSilly(`bases with extra workers: ${basesWithExtraWorkers.map(ex => ex.tag).join(', ')}`);
+      // get workers from expansions with extra workers
+      const extraWorkers = basesWithExtraWorkers.map(base => {
+        // get closest workers to base from gathering workers equal to the difference between assigned and ideal harvesters
+        const { assignedHarvesters, idealHarvesters, pos } = base;
+        if (assignedHarvesters === undefined || idealHarvesters === undefined || pos === undefined) return [];
+        const closestWorkers = units.getClosest(pos, gatheringWorkers, assignedHarvesters - idealHarvesters);
+        return closestWorkers;
+      }).flat();
       debugSilly(`total extra workers: ${extraWorkers.map(w => w.tag).join(', ')}`);
       extraWorkers.forEach(worker => {
-        collectedActions.push({
-          abilityId: Ability.SMART,
-          targetUnitTag: mineralFieldTarget.tag,
-          unitTags: [worker.tag],
-        });
+        const leastBusyMineralField = getLeastBusyMineralField(units, mineralFields);
+        if (leastBusyMineralField) {
+          const unitCommand = gather(resources, worker, leastBusyMineralField, false);
+          collectedActions.push(unitCommand);
+          worker.labels.set('mineralField', leastBusyMineralField);
+          leastBusyMineralField.labels.set('workerCount', leastBusyMineralField.labels.get('workerCount') + 1);
+        }
       })
     }
     await actions.sendAction(collectedActions);
@@ -150,9 +166,13 @@ function gatherOrMineIdleGroup(world) {
   const collectedActions = [];
   // idle workers should include workers that have a move command onto a structure
   const idleWorkers = units.getWorkers().filter(worker => {
+    const { orders } = worker;
+    if (orders === undefined) { return false }
+    const pendingOrders = getPendingOrders(worker);
     return (
-      worker.orders.length === 0 ||
-      worker.orders.some(order => {
+      pendingOrders.length === 0 &&
+      orders.length === 0 ||
+      orders.some(order => {
         return (
           order.abilityId === Ability.MOVE &&
           order.targetUnitTag !== undefined &&
@@ -192,9 +212,8 @@ function assignWorkers(resources) {
           if (gatheringOrder) {
             if (gatheringOrder.targetUnitTag !== currentMineralField.tag) {
               if (currentMineralField.labels.get('workerCount') < 3) {
-                const unitCommand = gather(units, worker, currentMineralField, false);
+                const unitCommand = gather(resources, worker, currentMineralField, false);
                 collectedActions.push(unitCommand);
-                unitResourceService.setPendingOrders(worker, unitCommand);
               } else {
                 worker.labels.delete('mineralField');
                 currentMineralField.labels.set('workerCount', currentMineralField.labels.get('workerCount') - 1);
@@ -207,20 +226,12 @@ function assignWorkers(resources) {
           worker.labels.delete('mineralField');
         }
       } else {
-        const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
-          .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2)
-          .sort((a, b) => b.mineralContents - a.mineralContents)
-          .sort((a, b) => a.count - b.count);
-        // if the worker is not assigned to a mineral field, order the worker to gather the first mineral field
-        if (mineralFieldCounts.length > 0) {
-          const mineralFieldCount = mineralFieldCounts[0];
-          const { mineralFieldTag } = mineralFieldCount;
-          const mineralField = units.getByTag(mineralFieldTag);
-          const unitCommand = gather(units, worker, mineralField, false);
+        const leastBusyMineralField = getLeastBusyMineralField(units, mineralFields);
+        if (leastBusyMineralField) {
+          const unitCommand = gather(resources, worker, leastBusyMineralField, false);
           collectedActions.push(unitCommand);
-          unitResourceService.setPendingOrders(worker, unitCommand);
-          worker.labels.set('mineralField', mineralField);
-          mineralField.labels.set('workerCount', mineralField.labels.get('workerCount') + 1);
+          worker.labels.set('mineralField', leastBusyMineralField);
+          leastBusyMineralField.labels.set('workerCount', leastBusyMineralField.labels.get('workerCount') + 1);
         }
       }
     }
@@ -258,4 +269,27 @@ function getGatheringWorkers(units, type) {
         (worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ order) => gatheringAbilities.includes(order.abilityId)))
       );
     });
+}
+
+/**
+ * @param {UnitResource} units
+ * @param {Unit[]} mineralFields
+ * @returns {Unit | undefined}} 
+ */
+function getLeastBusyMineralField(units, mineralFields) {
+  const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
+    .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2 && mineralFieldAssignments.targetedCount < 2)
+    .sort((a, b) => {
+      const { mineralContents: aContents } = a;
+      const { mineralContents: bContents } = b;
+      if (aContents === undefined || bContents === undefined) return 0;
+      return bContents - aContents
+    }).sort((a, b) => a.count - b.count);
+  if (mineralFieldCounts.length > 0) {
+    const [mineralFieldCount] = mineralFieldCounts;
+    const { mineralFieldTag } = mineralFieldCount;
+    if (mineralFieldTag) {
+      return units.getByTag(mineralFieldTag);
+    }
+  }
 }

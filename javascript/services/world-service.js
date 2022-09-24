@@ -867,11 +867,19 @@ const worldService = {
           console.log(`Is builder returning: ${builder.isReturning()}`);
           unitCommand.targetWorldSpacePos = position;
           builder.labels.set('builder', true);
-          builder.labels.delete('mineralField');
+          if (builder.labels.has('mineralField')) {
+            const mineralField = builder.labels.get('mineralField');
+            if (mineralField) {
+              mineralField.labels.set('workerCount', mineralField.labels.get('workerCount') - 1);
+              builder.labels.delete('mineralField');
+            }
+          }
           collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
-          const { foodRequired } = data.getUnitTypeData(unitType);
-          if (foodRequired === undefined) return collectedActions;
-          planService.pendingFood -= foodRequired;
+          if (agent.race === Race.ZERG) {
+            const { foodRequired } = data.getUnitTypeData(unitType);
+            if (foodRequired === undefined) return collectedActions;
+            planService.pendingFood -= foodRequired;
+          }
           collectedActions.push(...rallyWorkerToTarget(world, position, true));
         }
       } else {
