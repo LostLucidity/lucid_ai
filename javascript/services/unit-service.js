@@ -118,6 +118,15 @@ const unitService = {
     return weapon;
   },
   /**
+   * @param {Unit} unit
+   * @returns {Boolean}
+   */
+  isMoving: (unit) => {
+    const { orders } = unit;
+    if (orders === undefined) return false;
+    return orders.some(order => order.abilityId === MOVE);
+  },
+  /**
    * @param {Unit} worker 
    * @param {Unit} target 
    * @param {boolean} queue 

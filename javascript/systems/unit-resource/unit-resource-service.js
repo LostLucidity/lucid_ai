@@ -181,22 +181,20 @@ const unitResourceService = {
    */
   getWithLabelAvailable: (units, unit) => {
     // if unit has constructing order, if building at order position has a buildProgress of 1, then unitIsConstructing is false
-    let unitIsConstructiing = unit.isConstructing();
-    if (unitIsConstructiing) {
+    let unitIsConstructing = unit.isConstructing();
+    if (unitIsConstructing) {
       if (!unit.orders[0].targetWorldSpacePos && !units.getByTag(unit.orders[0].targetUnitTag)) {
         console.log('unit.orders', unit.orders);
       }
       const constructionPosition = unit.orders[0].targetWorldSpacePos ? unit.orders[0].targetWorldSpacePos : units.getByTag(unit.orders[0].targetUnitTag).pos;
       const buildingAtOrderPosition = units.getAlive().filter(unit => unit.isStructure()).find(structure => unit.orders[0].targetWorldSpacePos && distance(structure.pos, constructionPosition) < 1);
       if (buildingAtOrderPosition && buildingAtOrderPosition.buildProgress >= 1) {
-        unitIsConstructiing = false;
+        unitIsConstructing = false;
       }
     }
-    return (
-      !unitIsConstructiing ||
-      (unitIsConstructiing && unit.unitType === PROBE)) &&
-      !unit.isAttacking() &&
-      !isPendingContructing(unit);
+    const isNotConstructing = !unitIsConstructing || (unitIsConstructing && unit.unitType === PROBE);
+    const probeAndMoving = unit.unitType === PROBE && isMoving(unit);
+    return (isNotConstructing && !unit.isAttacking() && !isPendingContructing(unit)) || probeAndMoving;
   },
   /**
    * 

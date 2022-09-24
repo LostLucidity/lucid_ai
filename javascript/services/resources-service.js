@@ -4,11 +4,12 @@
 const { CloakState } = require("@node-sc2/core/constants/enums");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getBuilders, getOrderTargetPosition } = require("../systems/unit-resource/unit-resource-service");
 const dataService = require("./data-service");
 const { getTimeInSeconds } = require("./frames-service");
 const { getPathablePositions, getMapPath, getPathablePositionsForStructure } = require("./map-resource-service");
+const { getBuilders, getOrderTargetPosition } = require("../systems/unit-resource/unit-resource-service");
 const { getPathCoordinates } = require("./path-service");
+const { getMovementSpeed, isMoving } = require("./unit-service");
 
 const resourcesService = {
   /**
@@ -161,18 +162,48 @@ const resourcesService = {
     const { map, units } = resources.get();
     [position] = resourcesService.getClosestPositionByPath(resources, position, getPathablePositions(map, position));
     const builderCandidates = getBuilders(units);
-    const workers = units.getWorkers();
-    builderCandidates.push(...workers.filter(worker => {
+    builderCandidates.push(...units.getWorkers().filter(worker => {
       return (
         worker.noQueue ||
         worker.isGathering() && getOrderTargetPosition(units, worker) && distance(worker.pos, getOrderTargetPosition(units, worker)) > 1.62 ||
         worker.orders.findIndex(order => order.targetWorldSpacePos && (distance(order.targetWorldSpacePos, position) < 1)) > -1
       );
     }));
+    const movingProbes = builderCandidates.filter(builder => isMoving(builder));
+    builderCandidates.splice(builderCandidates.findIndex(builder => movingProbes.includes(builder)), 1);
+    const movingProbesTimeToPosition = movingProbes.map(movingProbe => {
+      const { orders, pos } = movingProbe;
+      if (orders === undefined || pos === undefined) return;
+      const movingPosition = orders[0].targetWorldSpacePos;
+      const movementSpeed = getMovementSpeed(movingProbe);
+      if (movingPosition === undefined || movementSpeed === undefined) return;
+      const movingProbeTimeToMovePosition = resourcesService.distanceByPath(resources, pos, movingPosition) / movementSpeed;
+      const targetTimeToPremovePosition = resourcesService.distanceByPath(resources, movingPosition, position) / movementSpeed;
+      return { unit: movingProbe, timeToPosition: movingProbeTimeToMovePosition + targetTimeToPremovePosition };
+    });
+    const candidateWorkersTimeToPosition = []
+    const [movingProbe] = movingProbesTimeToPosition.sort((a, b) => {
+      if (a === undefined || b === undefined) return 0;
+      return a.timeToPosition - b.timeToPosition;
+    });
+    if (movingProbe !== undefined) {
+      candidateWorkersTimeToPosition.push(movingProbe);
+    }
     const [closestBuilder] = resourcesService.getClosestUnitByPath(resources, position, builderCandidates);
+    if (closestBuilder !== undefined) {
+      const { pos } = closestBuilder;
+      if (pos === undefined) return null;
+      const movementSpeed = getMovementSpeed(closestBuilder);
+      if (movementSpeed === undefined) return null;
+      const closestBuilderWithDistance =  {
+        unit: closestBuilder,
+        timeToPosition: resourcesService.distanceByPath(resources, pos, position) / movementSpeed
+      };
+      candidateWorkersTimeToPosition.push(closestBuilderWithDistance);
+    }
     const constructingWorkers = units.getConstructingWorkers();
     // calculate build time left plus distance to position by path
-    const mappedWorkers = constructingWorkers.map(worker => {
+    const [closestConstructingWorker] = constructingWorkers.map(worker => {
       // get unit type of building in construction
       const constructingOrder = worker.orders.find(order => constructionAbilities.includes(order.abilityId));
       const unitType = dataService.unitTypeTrainingAbilities.get(constructingOrder.abilityId);
@@ -188,27 +219,19 @@ const resourcesService = {
         timeToPosition = buildTimeLeft + (distanceByPath / movementSpeed);
       }
       return {
-        worker,
+        unit: worker,
         timeToPosition
       };
-    });
-    const [closestConstructingWorker] = mappedWorkers.sort((a, b) => a.timeToPosition - b.timeToPosition);
-    // get timeToPosition of closestBuilder
-    let closestBuilderTimeToPosition = Infinity;
-    if (closestBuilder) {
-      if (closestConstructingWorker) {
-        const distanceByPath = resourcesService.distanceByPath(resources, closestBuilder.pos, position);
-        const { movementSpeed } = closestBuilder.data();
-        closestBuilderTimeToPosition = distanceByPath / movementSpeed;
-        return closestBuilderTimeToPosition < closestConstructingWorker.timeToPosition ? closestBuilder : closestConstructingWorker.worker;
-      } else {
-        return closestBuilder;
-      }
-    } else if (closestConstructingWorker) {
-      return closestConstructingWorker.worker;
-    } else {
-      return null;
+    }).sort((a, b) => a.timeToPosition - b.timeToPosition);
+    if (closestConstructingWorker !== undefined) {
+      candidateWorkersTimeToPosition.push(closestConstructingWorker);
     }
+    const [closestWorker] = candidateWorkersTimeToPosition.sort((a, b) => {
+      if (a === undefined || b === undefined) return 0;
+      return a.timeToPosition - b.timeToPosition;
+    });
+    if (closestWorker === undefined) return null;
+    return closestWorker.unit;
   },
   /**
    * @param {ResourceManager} resources 
@@ -233,4 +256,3 @@ const resourcesService = {
 }
 
 module.exports = resourcesService;
-
