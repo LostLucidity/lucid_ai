@@ -1,4 +1,4 @@
-maps = [
+const maps = [
   "2000AtmospheresAIE",
   "BerlingradAIE",
   "BlackburnAIE",
@@ -15,18 +15,22 @@ maps = [
   "HardwireAIE",
   "IceandChrome506",
   "IceandChromeLE",
+  "InsideAndOutAIE",
   "JagannathaAIE",
   "JagannathaLE",
   "LightshadeAIE",
   "LightshadeLE",
+  "MoondanceAIE",
   "OxideAIE",
   "OxideLE",
   "PillarsofGold506",
   "PillarsofGoldLE",
   "RomanticideAIE",
   "RomanticideLE",
+  "StargazersAIE",
   "Submarine506",
   "SubmarineLE",
+  "WaterfallAIE",
 ]
 
 module.exports = maps;
