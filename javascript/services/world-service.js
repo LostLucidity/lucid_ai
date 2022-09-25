@@ -72,7 +72,7 @@ const worldService = {
     if (builder) {
       dataService.addEarmark(data, data.getUnitTypeData(unitType));
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
-        builder.labels.set('builder', true);
+        setBuilderLabel(builder);
         const unitCommand = createUnitCommand(abilityId, [builder]);
         if (GasMineRace[agent.race] === unitType) {
           const [geyser] = map.freeGasGeysers();
@@ -866,14 +866,7 @@ const worldService = {
         } else {
           console.log(`Is builder returning: ${builder.isReturning()}`);
           unitCommand.targetWorldSpacePos = position;
-          builder.labels.set('builder', true);
-          if (builder.labels.has('mineralField')) {
-            const mineralField = builder.labels.get('mineralField');
-            if (mineralField) {
-              mineralField.labels.set('workerCount', mineralField.labels.get('workerCount') - 1);
-              builder.labels.delete('mineralField');
-            }
-          }
+          setBuilderLabel(builder);
           collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
           if (agent.race === Race.ZERG) {
             const { foodRequired } = data.getUnitTypeData(unitType);
@@ -1590,4 +1583,18 @@ function getTimeToTargetTech(world, unitType) {
   const { buildProgress } = techUnit;
   if (buildProgress === undefined) return 0;
   return getTimeInSeconds((1 - buildProgress) * buildTime);
+}
+
+/**
+ * @param {Unit} builder
+ */
+function setBuilderLabel(builder) {
+  builder.labels.set('builder', true);
+  if (builder.labels.has('mineralField')) {
+    const mineralField = builder.labels.get('mineralField');
+    if (mineralField) {
+      mineralField.labels.set('workerCount', mineralField.labels.get('workerCount') - 1);
+      builder.labels.delete('mineralField');
+    }
+  }
 }

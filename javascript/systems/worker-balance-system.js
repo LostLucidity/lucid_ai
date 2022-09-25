@@ -144,12 +144,12 @@ module.exports = createSystem({
       }).flat();
       debugSilly(`total extra workers: ${extraWorkers.map(w => w.tag).join(', ')}`);
       extraWorkers.forEach(worker => {
-        const leastBusyMineralField = getLeastBusyMineralField(units, mineralFields);
-        if (leastBusyMineralField) {
-          const unitCommand = gather(resources, worker, leastBusyMineralField, false);
+        const neediestMineralField = getNeediestMineralField(units, mineralFields);
+        if (neediestMineralField) {
+          const unitCommand = gather(resources, worker, neediestMineralField, false);
           collectedActions.push(unitCommand);
-          worker.labels.set('mineralField', leastBusyMineralField);
-          leastBusyMineralField.labels.set('workerCount', leastBusyMineralField.labels.get('workerCount') + 1);
+          worker.labels.set('mineralField', neediestMineralField);
+          neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
         }
       })
     }
@@ -205,9 +205,19 @@ function assignWorkers(resources) {
       const { mineralFields } = closestExpansion.cluster;
       /** @type {Unit} */
       const assignedMineralField = worker.labels.get('mineralField');
-      if (assignedMineralField) {
-        const currentMineralField = units.getByTag(assignedMineralField.tag);
+      if (assignedMineralField && assignedMineralField.tag !== undefined) {
+        let currentMineralField = units.getByTag(assignedMineralField.tag);
         if (currentMineralField) {
+          const neediestMineralField = getNeediestMineralField(units, mineralFields);
+          if (neediestMineralField && currentMineralField.tag !== neediestMineralField.tag) {
+            const leastNeediestMineralField = getLeastNeediestMineralField(units, mineralFields);
+            if (leastNeediestMineralField && currentMineralField.tag === leastNeediestMineralField.tag) {
+              worker.labels.set('mineralField', neediestMineralField);
+              neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
+              currentMineralField.labels.set('workerCount', currentMineralField.labels.get('workerCount') - 1);
+              currentMineralField = neediestMineralField;
+            }
+          }
           const gatheringOrder = findGatheringOrder(units, worker);
           if (gatheringOrder) {
             if (gatheringOrder.targetUnitTag !== currentMineralField.tag) {
@@ -218,20 +228,20 @@ function assignWorkers(resources) {
                 worker.labels.delete('mineralField');
                 currentMineralField.labels.set('workerCount', currentMineralField.labels.get('workerCount') - 1);
               }
-            } else {
-              return;
             }
+          } else {
+            return;
           }
         } else {
           worker.labels.delete('mineralField');
         }
       } else {
-        const leastBusyMineralField = getLeastBusyMineralField(units, mineralFields);
-        if (leastBusyMineralField) {
-          const unitCommand = gather(resources, worker, leastBusyMineralField, false);
+        const neediestMineralField = getNeediestMineralField(units, mineralFields);
+        if (neediestMineralField) {
+          const unitCommand = gather(resources, worker, neediestMineralField, false);
           collectedActions.push(unitCommand);
-          worker.labels.set('mineralField', leastBusyMineralField);
-          leastBusyMineralField.labels.set('workerCount', leastBusyMineralField.labels.get('workerCount') + 1);
+          worker.labels.set('mineralField', neediestMineralField);
+          neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
         }
       }
     }
@@ -271,12 +281,31 @@ function getGatheringWorkers(units, type) {
     });
 }
 
+function getLeastNeediestMineralField(units, mineralFields) {
+  const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
+    .filter(mineralFieldAssignments => mineralFieldAssignments.count <= 2 && mineralFieldAssignments.targetedCount <= 2)
+    .sort((a, b) => {
+      const { mineralContents: aContents } = a;
+      const { mineralContents: bContents } = b;
+      if (aContents === undefined || bContents === undefined) return 0;
+      return aContents - bContents;
+    }).sort((a, b) => b.count - a.count);
+  if (mineralFieldCounts.length > 0) {
+    const [mineralFieldCount] = mineralFieldCounts;
+    const { mineralFieldTag } = mineralFieldCount;
+    if (mineralFieldTag) {
+      return units.getByTag(mineralFieldTag);
+    }
+  }
+}
+  
+
 /**
  * @param {UnitResource} units
  * @param {Unit[]} mineralFields
  * @returns {Unit | undefined}} 
  */
-function getLeastBusyMineralField(units, mineralFields) {
+function getNeediestMineralField(units, mineralFields) {
   const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
     .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2 && mineralFieldAssignments.targetedCount < 2)
     .sort((a, b) => {
