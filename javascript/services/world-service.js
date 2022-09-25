@@ -1586,7 +1586,7 @@ function getTimeToTargetTech(world, unitType) {
     if (buildProgressA === undefined || buildProgressB === undefined) return 0;
     return buildProgressB - buildProgressA;
   });
-  if (techUnit === undefined) return Infinity;
+  if (techUnit === undefined) return 0;
   const { buildProgress } = techUnit;
   if (buildProgress === undefined) return 0;
   return getTimeInSeconds((1 - buildProgress) * buildTime);
