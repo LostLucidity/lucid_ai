@@ -6,19 +6,27 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { getCombatRally } = require("./location");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
+const { getClosestUnitByPath } = require("../services/resources-service");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+const { pointsOverlap } = require("./utilities");
+const { enemyUnits } = require("../systems/enemy-tracking/enemy-tracking-service");
+const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
 module.exports = {
+  /**
+   * @param {ResourceManager} resources 
+   */
   getAvailableExpansions: (resources) => {
-    const {
-      map,
-      units
-    } = resources.get();
+    const { map, units } = resources.get();
     // get Expansion and filter by bases near townhall position.
     const allBases = units.getById(townhallTypes);
     const availableExpansions = map.getExpansions().filter(expansion => {
-      const [ closestBase ] = units.getClosest(expansion.townhallPosition, allBases);
-      if (closestBase) {
-        return distance(expansion.townhallPosition, closestBase.pos) > 1;
+      const [ closestUnitByPath ] = getClosestUnitByPath(resources, expansion.townhallPosition, allBases);
+      if (closestUnitByPath) {
+        const { pos } = closestUnitByPath;
+        if (pos === undefined) return false;
+        return distance(expansion.townhallPosition, pos) > 1;
       }
     });
     return availableExpansions;
@@ -47,20 +55,34 @@ module.exports = {
     });
     return occupiedExpansions;
   },
-  getNextSafeExpansion: async ({agent, resources}, expansions) => {
-    const { actions, units } = resources.get();
-    const enemyStructures = units.getStructures(Alliance.ENEMY);
-    if (enemyStructures.length > 0) {
-      expansions.sort((a, b) => {
-        const rallyPoint = getCombatRally(resources);
-        const [ closestEnemyToA ] = units.getClosest(a.townhallPosition, enemyStructures);
-        const calculatedDistanceA = distance(a.townhallPosition, closestEnemyToA.pos) - distance(a.townhallPosition, rallyPoint);
-        const [ closestEnemyToB ] = units.getClosest(b.townhallPosition, enemyStructures);
-        const calculatedDistanceB = distance(b.townhallPosition, closestEnemyToB.pos) - distance(b.townhallPosition, rallyPoint);
-        return calculatedDistanceB - calculatedDistanceA;
-      });
-    }
-    const foundExpansion = expansions.find(async expansion => !!(await actions.canPlace(TownhallRace[agent.race][0], [expansion.townhallPosition])));
-    return foundExpansion.townhallPosition;
+  /**
+   * @param {World} world
+   * @param {Expansion[]} expansions
+   */
+  getNextSafeExpansion: async (world, expansions) => {
+    const { agent, resources } = world;
+    const { map, units } = resources.get();
+    const enemyUnits = units.getAlive(Alliance.ENEMY);
+    const townhallType = TownhallRace[agent.race][0];
+    const [placeableExpansion] = expansions.filter(expansion => {
+      const { townhallPosition } = expansion;
+      const footprint = getFootprint(townhallType);
+      if (footprint === undefined) return false;
+      const enemyUnitCoverage = enemyUnits
+        .filter(enemyUnit => enemyUnit.pos && distance(enemyUnit.pos, townhallPosition) < 16)
+        .map(enemyUnit => {
+          const { pos, radius, unitType } = enemyUnit;
+          if (pos === undefined || radius === undefined) return [];
+          if (!enemyUnit.isStructure()) {
+            return [pos, ...gridsInCircle(pos, radius)];
+          } else {
+            const footprint = getFootprint(unitType);
+            if (footprint === undefined) return [];
+            return cellsInFootprint(pos, footprint);
+          }
+        }).flat();
+      return map.isPlaceableAt(townhallType, townhallPosition) && !pointsOverlap(enemyUnitCoverage, cellsInFootprint(townhallPosition, footprint));
+    });
+    return placeableExpansion.townhallPosition;
   }
 }
