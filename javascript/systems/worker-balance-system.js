@@ -209,9 +209,16 @@ function assignWorkers(resources) {
         let currentMineralField = units.getByTag(assignedMineralField.tag);
         if (currentMineralField) {
           const neediestMineralField = getNeediestMineralField(units, mineralFields);
-          if (neediestMineralField && currentMineralField.tag !== neediestMineralField.tag) {
+          if (neediestMineralField === undefined) return;
+          if (currentMineralField.tag !== neediestMineralField.tag) {
             const leastNeediestMineralField = getLeastNeediestMineralField(units, mineralFields);
-            if (leastNeediestMineralField && currentMineralField.tag === leastNeediestMineralField.tag) {
+            if (leastNeediestMineralField === undefined) return;
+            const assignedToLeastNeediest = currentMineralField.tag === leastNeediestMineralField.tag;
+            const { mineralContents: neediestMineralContents } = neediestMineralField;
+            const { mineralContents: leastNeediestMineralContents } = leastNeediestMineralField;
+            if (neediestMineralContents === undefined || leastNeediestMineralContents === undefined) return;
+            const neediestDoublingLeastNeediest = neediestMineralContents > leastNeediestMineralContents * 2;
+            if (leastNeediestMineralField && assignedToLeastNeediest && neediestDoublingLeastNeediest) {
               worker.labels.set('mineralField', neediestMineralField);
               neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
               currentMineralField.labels.set('workerCount', currentMineralField.labels.get('workerCount') - 1);
@@ -281,6 +288,11 @@ function getGatheringWorkers(units, type) {
     });
 }
 
+/**
+ * @param {UnitResource} units
+ * @param {Unit[]} mineralFields
+ * @returns {Unit | undefined}
+ */
 function getLeastNeediestMineralField(units, mineralFields) {
   const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
     .filter(mineralFieldAssignments => mineralFieldAssignments.count <= 2 && mineralFieldAssignments.targetedCount <= 2)
