@@ -4,6 +4,7 @@
 const { SUPPLYDEPOT } = require("@node-sc2/core/constants/unit-type");
 
 const wallOffRampService = {
+  /** @type {Point2D[]} */
   adjacentToRampGrids: [],
   findWallOffPlacement: (unitType) => {
     if (unitType === SUPPLYDEPOT) {
