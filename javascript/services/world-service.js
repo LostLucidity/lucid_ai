@@ -863,6 +863,7 @@ const worldService = {
       if (shouldPremoveNow(world, timeToTargetCostOrTech, timeToPosition) && buildTimeLeft <= timeToPosition) {
         if (rallyBase) {
           collectedActions.push(...rallyWorkerToTarget(world, position));
+          collectedActions.push(...stopUnitFromMovingToPosition(builder, position));
         } else {
           console.log(`Is builder returning: ${builder.isReturning()}`);
           unitCommand.targetWorldSpacePos = position;
@@ -1597,4 +1598,25 @@ function setBuilderLabel(builder) {
       builder.labels.delete('mineralField');
     }
   }
+}
+
+/**
+ * 
+ * @param {Unit} unit 
+ * @param {Point2D} position 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function stopUnitFromMovingToPosition(unit, position) {
+  const collectedActions = [];
+  const { orders } = unit;
+  if (orders === undefined) return collectedActions;
+  if (orders.length > 0) {
+    const { targetWorldSpacePos } = orders[0];
+    if (targetWorldSpacePos === undefined) return collectedActions;
+    const distanceToTarget = distance(targetWorldSpacePos, position);
+    if (distanceToTarget < 1) {
+      collectedActions.push(createUnitCommand(STOP, [unit]));
+    }
+  }
+  return collectedActions;
 }
