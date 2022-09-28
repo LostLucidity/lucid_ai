@@ -218,7 +218,7 @@ function assignWorkers(resources) {
             const { mineralContents: leastNeediestMineralContents } = leastNeediestMineralField;
             if (neediestMineralContents === undefined || leastNeediestMineralContents === undefined) return;
             const neediestDoublingLeastNeediest = neediestMineralContents > leastNeediestMineralContents * 2;
-            if (leastNeediestMineralField && assignedToLeastNeediest && neediestDoublingLeastNeediest) {
+            if (assignedToLeastNeediest && neediestDoublingLeastNeediest) {
               worker.labels.set('mineralField', neediestMineralField);
               neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
               currentMineralField.labels.set('workerCount', currentMineralField.labels.get('workerCount') - 1);
@@ -325,7 +325,9 @@ function getNeediestMineralField(units, mineralFields) {
       const { mineralContents: bContents } = b;
       if (aContents === undefined || bContents === undefined) return 0;
       return bContents - aContents
-    }).sort((a, b) => a.count - b.count);
+    }).sort((a, b) => {
+      return Math.max(a.count, a.targetedCount) - Math.max(b.count, b.targetedCount);
+    });
   if (mineralFieldCounts.length > 0) {
     const [mineralFieldCount] = mineralFieldCounts;
     const { mineralFieldTag } = mineralFieldCount;
