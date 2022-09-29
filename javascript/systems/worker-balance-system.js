@@ -21,7 +21,7 @@ module.exports = createSystem({
   name: 'WorkerBalanceSystem',
   type: 'agent',
   defaultOptions: {
-    stepIncrement: 48,
+    stepIncrement: 32,
     state: {},
   },
   async onGameStart(world) {
