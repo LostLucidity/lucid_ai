@@ -29,7 +29,7 @@ module.exports = createSystem({
     wallOffRampService.adjacentToRampGrids = areas.placementGrid.filter(grid => {
       const adjacentGrids = getNeighbors(grid);
       const isAdjacent = adjacentGrids.some(adjacentGrid => map.isRamp(adjacentGrid));
-      const isOnPath = pathFromMainToNatural.some(pathGrid => distance(pathGrid, grid) <= 1);
+      const isOnPath = pathFromMainToNatural.some(pathGrid => distance(pathGrid, grid) <= 4);
       return isAdjacent && isOnPath;
     });
     debug.setDrawCells('adToRamp', wallOffRampService.adjacentToRampGrids.map(r => ({ pos: r })), { size: 1, cube: true });
