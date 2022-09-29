@@ -68,6 +68,7 @@ const worldService = {
     const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
     const collectedActions = [];
+    position = getMiddleOfStructure(position, unitType);
     const builder = getBuilder(world, position);
     if (builder) {
       dataService.addEarmark(data, data.getUnitTypeData(unitType));
@@ -76,17 +77,8 @@ const worldService = {
         const unitCommand = createUnitCommand(abilityId, [builder]);
         if (GasMineRace[agent.race] === unitType) {
           const [geyser] = map.freeGasGeysers();
-          const moveCommand = createUnitCommand(MOVE, [builder]);
-          moveCommand.targetWorldSpacePos = geyser.pos;
-          collectedActions.push(moveCommand);
           unitCommand.targetUnitTag = geyser.tag;
-          unitCommand.queueCommand = true;
           collectedActions.push(unitCommand);
-          const smartUnitCommand = createUnitCommand(SMART, [builder]);
-          const [closestMineralField] = units.getClosest(builder.pos, units.getByType(mineralFieldTypes))
-          smartUnitCommand.targetWorldSpacePos = closestMineralField.pos;
-          smartUnitCommand.queueCommand = true;
-          collectedActions.push(smartUnitCommand);
         } else {
           unitCommand.targetWorldSpacePos = position;
           collectedActions.push(unitCommand);
@@ -831,7 +823,6 @@ const worldService = {
       const { movementSpeed } = builder.data();
       const pathablePositions = getPathablePositions(map, position);
       const [closestPositionByPath] = getClosestPositionByPath(resources, builder.pos, pathablePositions);
-      position = closestPositionByPath;
       let builderDistanceToPosition = distanceByPath(resources, builder.pos, closestPositionByPath);
       let timeToPosition = builderDistanceToPosition / movementSpeed;
       let rallyBase = false;
