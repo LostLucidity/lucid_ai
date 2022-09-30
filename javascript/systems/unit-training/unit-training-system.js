@@ -6,9 +6,8 @@ const { UnitTypeId } = require("@node-sc2/core/constants");
 const { Attribute } = require("@node-sc2/core/constants/enums");
 const { ZERGLING } = require("@node-sc2/core/constants/unit-type");
 const planService = require("../../services/plan-service");
-const { shortOnWorkers } = require("../../services/resource-manager-service");
 const sharedService = require("../../services/shared-service");
-const { getUnitTypeCount, getFoodUsed } = require("../../services/world-service");
+const { getUnitTypeCount, getFoodUsed, shortOnWorkers } = require("../../services/world-service");
 const worldService = require("../../services/world-service");
 const { train } = require("../execute-plan/plan-actions");
 const { getResourceDemand } = require("../manage-resources");
@@ -27,7 +26,7 @@ module.exports = createSystem({
     const trainUnitConditions = [
       outpowered,
       unitTrainingService.workersTrainingTendedTo && !planService.isPlanPaused,
-      !shortOnWorkers(resources) && !planService.isPlanPaused,
+      !shortOnWorkers(world) && !planService.isPlanPaused,
     ];
     if (trainUnitConditions.some(condition => condition)) {
       let trainingConditionsLog = outpowered ? 'Scouted higher power' : 'Free build mode.';

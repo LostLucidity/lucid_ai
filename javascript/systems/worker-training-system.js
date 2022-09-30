@@ -4,8 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { WorkerRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const planService = require("../services/plan-service");
-const { shortOnWorkers } = require("../services/resource-manager-service");
-const { buildWorkers } = require("../services/world-service");
+const { buildWorkers, shortOnWorkers } = require("../services/world-service");
 const worldService = require("../services/world-service");
 const { haveAvailableProductionUnitsFor } = require("./unit-training/unit-training-service");
 const unitTrainingService = require("./unit-training/unit-training-service");
@@ -45,7 +44,7 @@ async function trainWorkers(world) {
       haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
       !planService.isPlanPaused,
       agent.minerals < 512 || minimumWorkerCount <= 36,
-      shortOnWorkers(resources),
+      shortOnWorkers(world),
       !outpowered || (outpowered && !unitProductionAvailable)
     ];
     conditionsMet = conditions.every(condition => condition);

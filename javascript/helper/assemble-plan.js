@@ -37,14 +37,13 @@ const { getNextPlanStep } = require("../services/plan-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
-const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog, premoveBuilderToPosition, isSupplyNeeded, canBuild, findPlacements, getFoodUsed, getZergEarlyBuild } = require("../services/world-service");
+const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog, premoveBuilderToPosition, isSupplyNeeded, canBuild, findPlacements, getFoodUsed, shortOnWorkers } = require("../services/world-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
 const worldService = require("../services/world-service");
 const { buildGasMine } = require("../systems/execute-plan/plan-actions");
 const harassService = require("../systems/harass/harass-service");
-const { shortOnWorkers } = require("../services/resource-manager-service");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
@@ -101,7 +100,7 @@ class AssemblePlan {
     const trainUnitConditions = [
       outpowered,
       unitTrainingService.workersTrainingTendedTo && !planService.isPlanPaused,
-      !shortOnWorkers(this.resources) && !planService.isPlanPaused,
+      !shortOnWorkers(world) && !planService.isPlanPaused,
     ];
     if (trainUnitConditions.some(condition => condition)) {
       outpowered ? console.log('Scouted higher power') : console.log('Free build mode.');
@@ -145,7 +144,7 @@ class AssemblePlan {
       if (!worldService.outpowered || selfCombatSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
     }
     if (this.agent.minerals > 512) { this.manageSupply(resources); }
-    if (getFoodUsed(world) >= 132 && !shortOnWorkers(this.resources)) { this.collectedActions.push(...await expand(world)); }
+    if (getFoodUsed(world) >= 132 && !shortOnWorkers(world)) { this.collectedActions.push(...await expand(world)); }
     this.checkEnemyBuild();
     let completedBases = this.units.getBases().filter(base => base.buildProgress >= 1);
     if (completedBases.length >= 3) {

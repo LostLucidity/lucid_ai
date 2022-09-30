@@ -3,9 +3,9 @@
 
 const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff } = require("@node-sc2/core/constants");
-const { MOVE, ATTACK_ATTACK, SMART, STOP, CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities } = require("@node-sc2/core/constants/groups");
+const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -26,7 +26,7 @@ const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/cons
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { rallyWorkerToTarget } = require("./resource-manager-service");
+const { rallyWorkerToTarget, getClosestUnitPositionByPath } = require("./resource-manager-service");
 const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -521,6 +521,18 @@ const worldService = {
     return trainingUnitTypes.reduce((totalDPSHealth, unitType) => {
       return totalDPSHealth + worldService.getDPSHealthOfTrainingUnit(world, unitType, Alliance.SELF, enemyCombatUnits.map(enemyUnit => enemyUnit.unitType));
     }, 0);
+  },
+  /**
+   * @param {World} world
+   * @param {UnitTypeId} unitType
+   * @returns {Unit[]}
+   */
+  getUnitsTrainingTargetUnitType: (world, unitType) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    let { abilityId } = data.getUnitTypeData(unitType);
+    if (abilityId === undefined) return [];
+    return worldService.getUnitsWithCurrentOrders(units, [abilityId]);
   },
   /**
    * @param {World} world
@@ -1146,6 +1158,47 @@ const worldService = {
     worldService.totalSelfDPSHealth += worldService.getTrainingUnitTypes(world).reduce((totalDPSHealth, unitType) => {
       return totalDPSHealth + worldService.calculateDPSHealthOfTrainingUnits(world, [unitType], Alliance.SELF, enemyCombatUnits);
     }, 0);
+  },
+  /**
+   * @param {World} world
+   * @returns {Boolean}
+   */
+  shortOnWorkers: (world) => {
+    const { agent, resources } = world;
+    const { units } = resources.get();
+    let idealHarvesters = 0
+    let assignedHarvesters = 0
+    const mineralCollectors = [...units.getBases(), ...units.getById(gasMineTypes)]
+    mineralCollectors.forEach(mineralCollector => {
+      const { buildProgress, assignedHarvesters: assigned, idealHarvesters: ideal, unitType } = mineralCollector;
+      if (buildProgress === undefined || assigned === undefined || ideal === undefined || unitType === undefined) return;
+      if (buildProgress === 1) {
+        assignedHarvesters += assigned;
+        idealHarvesters += ideal;
+      } else {
+        if (townhallTypes.includes(unitType)) {
+          const mineralFields = units.getMineralFields().filter(mineralField => {
+            const { pos } = mineralField;
+            const { pos: townhallPos } = mineralCollector;
+            if (pos === undefined || townhallPos === undefined) return false;
+            if (distance(pos, townhallPos) < 16) {
+              const closestPositionByPath = getClosestUnitPositionByPath(resources, townhallPos, pos);
+              if (closestPositionByPath === undefined) return false;
+              const closestByPathDistance = distanceByPath(resources, pos, closestPositionByPath);
+              return closestByPathDistance <= 16;
+            } else {
+              return false;
+            }
+          });
+          idealHarvesters += mineralFields.length * 2 * buildProgress;
+        } else {
+          idealHarvesters += 3 * buildProgress;
+        }
+      }
+    });
+    // count workers that are training
+    const unitsTrainingTargetUnitType = worldService.getUnitsTrainingTargetUnitType(world, WorkerRace[agent.race]);
+    return idealHarvesters > (assignedHarvesters + unitsTrainingTargetUnitType.length);
   },
   /**
    * Unpause and log on attempted steps.

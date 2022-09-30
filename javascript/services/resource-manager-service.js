@@ -3,13 +3,13 @@
 
 const { RALLY_BUILDING, SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
-const { rallyWorkersAbilities, gasMineTypes, townhallTypes } = require("@node-sc2/core/constants/groups");
+const { rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { EGG, DRONE } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getMineralFieldAssignments, getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const { getClosestExpansion, getPathablePositions } = require("./map-resource-service");
-const { getClosestUnitByPath, distanceByPath, getClosestPositionByPath, getClosestUnitFromUnit } = require("./resources-service");
+const { getClosestUnitByPath,  getClosestPositionByPath, getClosestUnitFromUnit } = require("./resources-service");
 
 const resourceManagerService = {
   /** @type {Point2D} */
@@ -117,48 +117,11 @@ const resourceManagerService = {
     }
     return collectedActions;
   },
-  /**
-   * @param {ResourceManager} resources
-   * @returns {Boolean}
-   */
-  shortOnWorkers: (resources) => {
-    const { units } = resources.get();
-    let idealHarvesters = 0
-    let assignedHarvesters = 0
-    const mineralCollectors = [...units.getBases(), ...units.getById(gasMineTypes)]
-    mineralCollectors.forEach(mineralCollector => {
-      const { buildProgress, assignedHarvesters: assigned, idealHarvesters: ideal, unitType } = mineralCollector;
-      if (buildProgress === undefined || assigned === undefined || ideal === undefined || unitType === undefined) return;
-      if (buildProgress === 1) {
-        assignedHarvesters += assigned;
-        idealHarvesters += ideal;
-      } else {
-        if (townhallTypes.includes(unitType)) {
-          const mineralFields = units.getMineralFields().filter(mineralField => {
-            const { pos } = mineralField;
-            const { pos: townhallPos } = mineralCollector;
-            if (pos === undefined || townhallPos === undefined) return false;
-            if (distance(pos, townhallPos) < 16) {
-              const closestPositionByPath = resourceManagerService.getClosestUnitPositionByPath(resources, townhallPos, pos);
-              if (closestPositionByPath === undefined) return false;
-              const closestByPathDistance = distanceByPath(resources, pos, closestPositionByPath);
-              return closestByPathDistance <= 16;
-            } else {
-              return false;
-            }
-          });
-          idealHarvesters += mineralFields.length * 2 * buildProgress;
-        } else {
-          idealHarvesters += 3 * buildProgress;
-        }
-      }
-    });
-    return idealHarvesters > assignedHarvesters;
-  }
+
 }
 
 module.exports = resourceManagerService;
-
+ 
 /**
  * @param {Point2D} pos 
  * @param {Unit[]} units 
