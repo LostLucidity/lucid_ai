@@ -430,7 +430,9 @@ const worldService = {
         healthAndShield = healthMax + shieldMax;
       }
     }
-    dPSHealth = worldService.getWeaponDPS(world, unitType, alliance, enemyUnitTypes) * healthAndShield * (buffIds.includes(Buff.STIMPACK) ? 1.5 : 1);
+    if (buildProgress > 0.90) {
+      dPSHealth = worldService.getWeaponDPS(world, unitType, alliance, enemyUnitTypes) * healthAndShield * (buffIds.includes(Buff.STIMPACK) ? 1.5 : 1);
+    }
     return dPSHealth;
   },
   /**
