@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff } = require("@node-sc2/core/constants");
-const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
@@ -20,13 +20,13 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders, getBuilders, getOrderTargetPosition, getMineralFieldAssignments, getNeediestMineralField } = require("../systems/unit-resource/unit-resource-service");
+const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("./resource-manager-service");
+const { getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions, gather } = require("./resource-manager-service");
 const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -36,7 +36,7 @@ const { pointsOverlap, intersectionOfPoints } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -67,12 +67,14 @@ const worldService = {
    */
   assignAndSendWorkerToBuild: (world, unitType, position) => {
     const { agent, data, resources } = world;
-    const { units } = resources.get();
+    const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
     const collectedActions = [];
     position = getMiddleOfStructure(position, unitType);
     const builder = worldService.getBuilder(world, position);
     if (builder) {
+      const { pos } = builder;
+      if (pos === undefined) return collectedActions;
       dataService.addEarmark(data, data.getUnitTypeData(unitType));
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
         setBuilderLabel(builder);
@@ -82,6 +84,22 @@ const worldService = {
           if (closestGasGeyser === undefined) return collectedActions;
           unitCommand.targetUnitTag = closestGasGeyser.tag;
           collectedActions.push(unitCommand);
+          if (builder.unitType === PROBE) {
+            const [closestBase] = getClosestUnitByPath(resources, pos, units.getBases());
+            if (closestBase) {
+              const { pos } = closestBase;
+              if (pos === undefined) return collectedActions;
+              const [closestExpansion] = getClosestExpansion(map, pos);
+              const { mineralFields } = closestExpansion.cluster;
+              const neediestMineralField = getNeediestMineralField(units, mineralFields);
+              if (neediestMineralField) {
+                const unitCommand = gather(resources, builder, neediestMineralField, true);
+                collectedActions.push(unitCommand);
+                builder.labels.set('mineralField', neediestMineralField);
+                neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
+              }
+            }
+          }
         } else {
           unitCommand.targetWorldSpacePos = position;
           collectedActions.push(unitCommand);
