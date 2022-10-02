@@ -2,7 +2,7 @@
 "use strict"
 
 const { CloakState } = require("@node-sc2/core/constants/enums");
-const { getDistanceByPath } = require("./resource-manager-service");
+const { getDistanceByPath, getClosestUnitByPath } = require("./resource-manager-service");
 
 const resourcesService = {
   /**
@@ -58,18 +58,9 @@ const resourcesService = {
    * @returns {Unit}
    */
   setCombatPoint: (resources, units, target) => {
-    const [combatPoint] = resourcesService.getClosestUnitByPath(resources, target.pos, units);
+    const [combatPoint] = getClosestUnitByPath(resources, target.pos, units);
     combatPoint.labels.set('combatPoint', true);
     return combatPoint;
-    // let closestUnit;
-    // try {
-    //   [closestUnit] = getClosestUnitByPath(resources, target.pos, units);
-    //   closestUnit.labels.set('combatPoint', true);
-    // } catch (e) {
-    //   let closestUnit;
-    //   [closestUnit] = resources.get().units.getClosest(target.pos, units)
-    // }
-    // return closestUnit;
   },
 }
 
