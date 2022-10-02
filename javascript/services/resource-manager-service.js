@@ -1,14 +1,13 @@
 //@ts-check
 "use strict"
 
-const { RALLY_BUILDING, SMART } = require("@node-sc2/core/constants/ability");
+const { SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
-const { rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
-const { EGG, DRONE } = require("@node-sc2/core/constants/unit-type");
+const { EGG } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getMineralFieldAssignments, getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
+const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
-const { getClosestExpansion, getPathablePositions, getPathablePositionsForStructure, getMapPath } = require("./map-resource-service");
+const { getPathablePositions, getPathablePositionsForStructure, getMapPath } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
 
 const resourceManagerService = {
@@ -194,45 +193,6 @@ const resourceManagerService = {
       return Infinity;
     }
   },
-  /**
-   * @param {World} world 
-   * @param {Point2D} position 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
-   */
-  rallyWorkerToTarget: (world, position, mineralTarget = false) => {
-    const { data, resources } = world;
-    const { map, units } = resources.get();
-    const collectedActions = [];
-    const workerSourceByPath = getWorkerSourceByPath(world, position);
-    let rallyAbility = null;
-    if (workerSourceByPath) {
-      const { orders, pos } = workerSourceByPath;
-      if (pos === undefined) return collectedActions;
-      if (workerSourceByPath.unitType === EGG) {
-        rallyAbility = orders.some(order => order.abilityId === data.getUnitTypeData(DRONE).abilityId) ? RALLY_BUILDING : null;
-      } else {
-        rallyAbility = rallyWorkersAbilities.find(ability => workerSourceByPath.abilityAvailable(ability));
-      }
-      if (rallyAbility) {
-        const unitCommand = createUnitCommand(rallyAbility, [workerSourceByPath]);
-        if (mineralTarget) {
-          const [closestExpansion] = getClosestExpansion(map, pos);
-            const { mineralFields } = closestExpansion.cluster;
-            const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
-              .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2)
-              .sort((a, b) => a.count - b.count);
-            if (mineralFieldCounts.length > 0) {
-              const mineralField = mineralFieldCounts[0];
-              unitCommand.targetUnitTag = mineralField.mineralFieldTag;
-            }
-        } else {
-          unitCommand.targetWorldSpacePos = position;
-        }
-        collectedActions.push(unitCommand);
-      }
-    }
-    return collectedActions;
-  },
 }
 
 module.exports = resourceManagerService;
@@ -249,20 +209,4 @@ function getUnitsWithinDistance(pos, units, maxDistance) {
     if (unitPos === undefined) { return false; }
     return distance(unitPos, pos) <= maxDistance;
   });
-}
-/**
- * @param {World} world
- * @param {Point2D} position
- */
-function getWorkerSourceByPath(world, position) {
-  const { agent, resources } = world;
-  const { units } = resources.get();
-  // worker source is base or larva.
-  let closestUnitByPath = null;
-  if (agent.race === Race.ZERG) {
-    [closestUnitByPath] = resourceManagerService.getClosestUnitByPath(resources, position, units.getById(EGG));
-  } else {
-    [closestUnitByPath] = resourceManagerService.getClosestUnitByPath(resources, position, units.getBases());
-  }
-  return closestUnitByPath;
 }

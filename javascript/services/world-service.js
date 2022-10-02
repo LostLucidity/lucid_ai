@@ -5,7 +5,7 @@ const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, vespeneGeyserTypes } = require("@node-sc2/core/constants/groups");
+const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -20,13 +20,13 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders, getBuilders, getOrderTargetPosition } = require("../systems/unit-resource/unit-resource-service");
+const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders, getBuilders, getOrderTargetPosition, getMineralFieldAssignments, getNeediestMineralField } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { rallyWorkerToTarget, getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("./resource-manager-service");
+const { getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("./resource-manager-service");
 const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -36,7 +36,7 @@ const { pointsOverlap, intersectionOfPoints } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -918,6 +918,7 @@ const worldService = {
   premoveBuilderToPosition: (world, position, unitType, stepAhead = false) => {
     const { agent, data, resources } = world;
     const { debug, map, units } = resources.get();
+    const { rallyWorkerToTarget } = worldService;
     const collectedActions = [];
     position = getMiddleOfStructure(position, unitType);
     const builder = worldService.getBuilder(world, position);
@@ -1015,6 +1016,41 @@ const worldService = {
       }
     } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === targetUnit.tag) {
       collectedActions.push(gatherOrMine(resources, worker));
+    }
+    return collectedActions;
+  },
+  /**
+ * @param {World} world 
+ * @param {Point2D} position
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+  rallyWorkerToTarget: (world, position, mineralTarget = false) => {
+    const { data, resources } = world;
+    const { map, units } = resources.get();
+    const collectedActions = [];
+    const workerSourceByPath = worldService.getWorkerSourceByPath(world, position);
+    let rallyAbility = null;
+    if (workerSourceByPath) {
+      const { orders, pos } = workerSourceByPath;
+      if (pos === undefined) return collectedActions;
+      if (workerSourceByPath.unitType === EGG) {
+        rallyAbility = orders.some(order => order.abilityId === data.getUnitTypeData(DRONE).abilityId) ? RALLY_BUILDING : null;
+      } else {
+        rallyAbility = rallyWorkersAbilities.find(ability => workerSourceByPath.abilityAvailable(ability));
+      }
+      if (rallyAbility) {
+        const unitCommand = createUnitCommand(rallyAbility, [workerSourceByPath]);
+        if (mineralTarget) {
+          const [closestExpansion] = getClosestExpansion(map, pos);
+          const { mineralFields } = closestExpansion.cluster;
+          const neediestMineralField = getNeediestMineralField(units, mineralFields);
+          if (neediestMineralField === undefined) return collectedActions;
+          unitCommand.targetUnitTag = neediestMineralField.tag;
+        } else {
+          unitCommand.targetWorldSpacePos = position;
+        }
+        collectedActions.push(unitCommand);
+      }
     }
     return collectedActions;
   },
@@ -1310,6 +1346,22 @@ const worldService = {
       worldService.setAndLogExecutedSteps(world, frame.timeInSeconds(), name, extra);
     }
   },
+  /**
+   * @param {World} world
+   * @param {Point2D} position
+   */
+  getWorkerSourceByPath: (world, position) => {
+    const { agent, resources } = world;
+    const { units } = resources.get();
+    // worker source is base or larva.
+    let closestUnitByPath = null;
+    if (agent.race === Race.ZERG) {
+      [closestUnitByPath] = getClosestUnitByPath(resources, position, units.getById(EGG));
+    } else {
+      [closestUnitByPath] = getClosestUnitByPath(resources, position, units.getBases());
+    }
+    return closestUnitByPath;
+  }
 }
 
 module.exports = worldService;

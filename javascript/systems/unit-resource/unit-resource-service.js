@@ -204,10 +204,10 @@ const unitResourceService = {
     , { mineralContents: 0 });
   },
   /**
- * @param {UnitResource} units
- * @param {Unit[]} mineralFields
- * @returns {{ count: number; mineralContents: number | undefined; mineralFieldTag: string | undefined; targetedCount: number; }[]}
- */
+   * @param {UnitResource} units
+   * @param {Unit[]} mineralFields
+   * @returns {{ count: number; mineralContents: number | undefined; mineralFieldTag: string | undefined; targetedCount: number; }[]}
+   */
   getMineralFieldAssignments: (units, mineralFields) => {
     const harvestingMineralWorkers = units.getWorkers().filter(worker => worker.isHarvesting('minerals'));
     return mineralFields.map(mineralField => {
@@ -237,6 +237,30 @@ const unitResourceService = {
         targetedCount: targetedMineralFieldWorkers.length,
       };
     });
+  },
+  /**
+   * @param {UnitResource} units
+   * @param {Unit[]} mineralFields
+   * @returns {Unit | undefined}}
+   */
+  getNeediestMineralField: (units, mineralFields) => {
+    const mineralFieldCounts = unitResourceService.getMineralFieldAssignments(units, mineralFields)
+      .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2 && mineralFieldAssignments.targetedCount < 2)
+      .sort((a, b) => {
+        const { mineralContents: aContents } = a;
+        const { mineralContents: bContents } = b;
+        if (aContents === undefined || bContents === undefined) return 0;
+        return bContents - aContents
+      }).sort((a, b) => {
+        return Math.max(a.count, a.targetedCount) - Math.max(b.count, b.targetedCount);
+      });
+    if (mineralFieldCounts.length > 0) {
+      const [mineralFieldCount] = mineralFieldCounts;
+      const { mineralFieldTag } = mineralFieldCount;
+      if (mineralFieldTag) {
+        return units.getByTag(mineralFieldTag);
+      }
+    }
   },
   /**
    * @param {UnitResource} units

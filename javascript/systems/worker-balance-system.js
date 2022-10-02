@@ -14,7 +14,7 @@ const planService = require('../services/plan-service');
 const { gather, getClosestUnitByPath } = require('../services/resource-manager-service');
 const { getPendingOrders } = require('../services/unit-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
-const { getMineralFieldAssignments, setPendingOrders } = require('./unit-resource/unit-resource-service');
+const { getMineralFieldAssignments, setPendingOrders, getNeediestMineralField } = require('./unit-resource/unit-resource-service');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',
@@ -301,32 +301,6 @@ function getLeastNeediestMineralField(units, mineralFields) {
       if (aContents === undefined || bContents === undefined) return 0;
       return aContents - bContents;
     }).sort((a, b) => b.count - a.count);
-  if (mineralFieldCounts.length > 0) {
-    const [mineralFieldCount] = mineralFieldCounts;
-    const { mineralFieldTag } = mineralFieldCount;
-    if (mineralFieldTag) {
-      return units.getByTag(mineralFieldTag);
-    }
-  }
-}
-  
-
-/**
- * @param {UnitResource} units
- * @param {Unit[]} mineralFields
- * @returns {Unit | undefined}} 
- */
-function getNeediestMineralField(units, mineralFields) {
-  const mineralFieldCounts = getMineralFieldAssignments(units, mineralFields)
-    .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2 && mineralFieldAssignments.targetedCount < 2)
-    .sort((a, b) => {
-      const { mineralContents: aContents } = a;
-      const { mineralContents: bContents } = b;
-      if (aContents === undefined || bContents === undefined) return 0;
-      return bContents - aContents
-    }).sort((a, b) => {
-      return Math.max(a.count, a.targetedCount) - Math.max(b.count, b.targetedCount);
-    });
   if (mineralFieldCounts.length > 0) {
     const [mineralFieldCount] = mineralFieldCounts;
     const { mineralFieldTag } = mineralFieldCount;
