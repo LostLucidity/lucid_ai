@@ -139,16 +139,18 @@ const planActions = {
  */
   buildGasMine: async (world, unitType, targetCount, stepAhead) => {
     const { agent, data, resources } = world;
-    const { actions, frame, map } = resources.get();
+    const { actions, map } = resources.get();
     const collectedActions = [];
     try {
       if (map.freeGasGeysers().length > 0) {
-        const [geyser] = map.freeGasGeysers();
+        const [ geyser ] = map.freeGasGeysers();
+        const { pos } = geyser;
+        if (pos === undefined) return collectedActions;
         if (agent.canAfford(unitType) && !stepAhead) {
-          await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, geyser.pos));
+          await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, pos));
           planService.pausePlan = false;
         } else {
-          collectedActions.push(...premoveBuilderToPosition(world, geyser.pos, unitType, stepAhead));
+          collectedActions.push(...premoveBuilderToPosition(world, pos, unitType, stepAhead));
           if (!stepAhead) {
             const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
             await balanceResources(world, mineralCost / vespeneCost);

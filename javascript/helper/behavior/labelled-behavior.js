@@ -8,7 +8,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getPathablePositions } = require("../../services/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
-const { getClosestUnitByPath, distanceByPath, getClosestPositionByPath } = require("../../services/resources-service");
+const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath } = require("../../services/resource-manager-service");
 const { retreat, getDamageDealingUnits } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
@@ -87,8 +87,8 @@ module.exports = {
           });
         } else {
           const unitCommand = createUnitCommand(MOVE, [unit]);
-          const distanceEnemyToRally = distanceByPath(resources, closestEnemyUnit.pos, combatRallyPosition);
-          const distanceToRally = distanceByPath(resources, pos, combatRallyPosition);
+          const distanceEnemyToRally = getDistanceByPath(resources, closestEnemyUnit.pos, combatRallyPosition);
+          const distanceToRally = getDistanceByPath(resources, pos, combatRallyPosition);
           const enemyOutOfRangeButCloserToRally = (
             distanceEnemyToRally > 16 &&
             distanceToRally >= distanceEnemyToRally
@@ -96,11 +96,11 @@ module.exports = {
           if (enemyOutOfRangeButCloserToRally) {
             unitCommand.targetWorldSpacePos = retreat(world, unit, closestEnemyUnit, false);
             const [closestPathablePosition] = getClosestPositionByPath(resources, pos, getPathablePositions(map, unitCommand.targetWorldSpacePos));
-            console.log('retreat!', unitCommand.targetWorldSpacePos, distanceByPath(resources, pos, closestPathablePosition));
+            console.log('retreat!', unitCommand.targetWorldSpacePos, getDistanceByPath(resources, pos, closestPathablePosition));
           } else {
             unitCommand.targetWorldSpacePos = combatRallyPosition;
             const [closestPathablePosition] = getClosestPositionByPath(resources, pos, getPathablePositions(map, unitCommand.targetWorldSpacePos));
-            console.log('rally!', unitCommand.targetWorldSpacePos, distanceByPath(resources, pos, closestPathablePosition));
+            console.log('rally!', unitCommand.targetWorldSpacePos, getDistanceByPath(resources, pos, closestPathablePosition));
           }
           collectedActions.push(unitCommand);
         }
@@ -152,7 +152,7 @@ module.exports = {
           if (closestEnemyUnit) {
             const emptyExpansions = getEmptyExpansions(resources);
             const [farthestEmptyExpansionCloserToUnit] = emptyExpansions
-              .filter(expansion => distanceByPath(resources, unit.pos, expansion.centroid) < distanceByPath(resources, closestEnemyUnit.pos, expansion.centroid));
+              .filter(expansion => getDistanceByPath(resources, unit.pos, expansion.centroid) < getDistanceByPath(resources, closestEnemyUnit.pos, expansion.centroid));
             if (farthestEmptyExpansionCloserToUnit) {
               const unitCommand = createUnitCommand(MOVE, [unit]);
               unitCommand.targetWorldSpacePos = farthestEmptyExpansionCloserToUnit.centroid;
@@ -191,11 +191,11 @@ module.exports = {
           unitCommand.targetWorldSpacePos = retreat(world, unit, closestThreateningUnit, false);
           const { targetWorldSpacePos } = unitCommand;
           if (targetWorldSpacePos === undefined) return [];
-          console.log('retreat!', pos, targetWorldSpacePos, distanceByPath(resources, pos, targetWorldSpacePos));
+          console.log('retreat!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
         } else {
           unitCommand.targetWorldSpacePos = getCombatRally(resources);
           const { targetWorldSpacePos } = unitCommand;
-          console.log('rally!', pos, targetWorldSpacePos, distanceByPath(resources, pos, targetWorldSpacePos));
+          console.log('rally!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
         }
         collectedActions.push(unitCommand);
       }

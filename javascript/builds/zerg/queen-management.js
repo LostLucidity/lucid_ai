@@ -7,14 +7,14 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance, add } = require("@node-sc2/core/utils/geometry/point");
 const { intersectionOfPoints } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { findPosition, getPlaceableAtPositions } = require("../../helper/placement/placement-helper");
+const { findPosition } = require("../../helper/placement/placement-helper");
 const { creepGenerators } = require("@node-sc2/core/constants/groups");
 const { getClosestPosition } = require("../../helper/get-closest");
 const { canBuild, getDPSHealth } = require("../../services/world-service");
 const { createUnitCommand } = require("../../services/actions-service");
-const { getClosestUnitByPath, getClosestPositionByPath, distanceByPath } = require("../../services/resources-service");
 const { getPathCoordinates } = require("../../services/path-service");
 const { getPathablePositionsForStructure } = require("../../services/map-resource-service");
+const { getClosestUnitByPath, getClosestPositionByPath } = require("../../services/resource-manager-service");
 
 module.exports = {
   labelQueens: (units) => {

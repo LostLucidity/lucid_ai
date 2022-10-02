@@ -6,7 +6,7 @@ const { EFFECT_INJECTLARVA } = require("@node-sc2/core/constants/ability");
 const { QUEENSPAWNLARVATIMER } = require("@node-sc2/core/constants/buff");
 const { Race } = require("@node-sc2/core/constants/enums");
 const { createUnitCommand } = require("../services/actions-service");
-const { getClosestUnitByPath } = require("../services/resources-service");
+const { getClosestUnitByPath } = require("../services/resource-manager-service");
 
 module.exports = createSystem({
   name: "InjectorSystem",

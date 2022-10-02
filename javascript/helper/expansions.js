@@ -4,14 +4,12 @@
 const { townhallTypes } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
-const { getCombatRally } = require("./location");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
-const { getClosestUnitByPath } = require("../services/resources-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { pointsOverlap } = require("./utilities");
-const { enemyUnits } = require("../systems/enemy-tracking/enemy-tracking-service");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { getClosestUnitByPath } = require("../services/resource-manager-service");
 
 module.exports = {
   /**

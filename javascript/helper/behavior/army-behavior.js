@@ -13,7 +13,7 @@ const { workerTypes, changelingTypes } = require("@node-sc2/core/constants/group
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { isRepairing, setPendingOrders } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
-const { getCombatPoint, getClosestUnitByPath, canAttack } = require("../../services/resources-service");
+const { getCombatPoint, canAttack } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { microRangedUnit, defendWithUnit, getDPSHealth, retreat } = require("../../services/world-service");
 const { micro } = require("../../services/micro-service");
@@ -23,6 +23,7 @@ const { getMovementSpeed, getWeaponThatCanAttack } = require("../../services/uni
 const worldService = require("../../services/world-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
 const healthTrackingService = require("../../systems/health-tracking/health-tracking-service");
+const { getClosestUnitByPath } = require("../../services/resource-manager-service");
 
 const armyBehavior = {
   /**

@@ -11,7 +11,7 @@ const { getClosestPosition } = require("../../helper/get-closest");
 const { existsInMap } = require("../../helper/location");
 const { intersectionOfPoints, pointsOverlap } = require("../../helper/utilities");
 const { getPathCoordinates } = require("../../services/path-service");
-const { distanceByPath } = require("../../services/resources-service");
+const { getDistanceByPath } = require("../../services/resource-manager-service");
 const { setStructurePlacements } = require("./wall-off-natural-service");
 const wallOffNaturalService = require("./wall-off-natural-service");
 
@@ -45,7 +45,7 @@ function setUpWallOffNatural(world) {
       const enemyTownhallPosition = map.getEnemyNatural().townhallPosition;
       return (
         distance(grid, getClosestPosition(grid, map._ramps)[0]) < 2 &&
-        distanceByPath(resources, grid, enemyTownhallPosition) < distanceByPath(resources, natural.townhallPosition, enemyTownhallPosition)
+        getDistanceByPath(resources, grid, enemyTownhallPosition) < getDistanceByPath(resources, natural.townhallPosition, enemyTownhallPosition)
       );
     });
     const cornerGrids = wallOffNaturalService.adjacentToRampGrids.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), wallOffNaturalService.adjacentToRampGrids).length === 1);
