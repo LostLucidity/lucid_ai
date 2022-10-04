@@ -792,6 +792,11 @@ const worldService = {
     const spawningPoolStartTime = spawningPool ? frame.timeInSeconds() - dataService.getBuildTimeElapsed(data, spawningPool) : null;
     const enemyNaturalHatchery = map.getEnemyNatural().getBase();
     const enemyNaturalHatcheryStartTime = enemyNaturalHatchery ? frame.timeInSeconds() - dataService.getBuildTimeElapsed(data, enemyNaturalHatchery) : null;
+    if (zerglings.length > 0 && !enemyNaturalHatchery) {
+      scoutingService.earlyScout = false;
+      scoutingService.enemyBuildType = 'cheese';
+      scoutService.scoutReport = 'Early scout cancelled. Zerglings detected before natural hatchery scouted.';
+    }
     const naturalCommandCenter = map.getNatural().getBase();
     const naturalCommandCenterStartTime = naturalCommandCenter ? frame.timeInSeconds() - dataService.getBuildTimeElapsed(data, naturalCommandCenter) : null;
     const bothStructuresExist = spawningPoolExists && enemyNaturalHatchery;

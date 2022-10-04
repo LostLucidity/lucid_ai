@@ -11,10 +11,10 @@ const { getOrderTargetPosition } = require("../unit-resource/unit-resource-servi
 const scoutService = {
   earlyScout: true,
   earlyScoutTime: 122,
-  enemyBuildType: null,
+  enemyBuildType: '',
   enemyCombatSupply: 0,
   outsupplied: false,
-  scoutReport: null,
+  scoutReport: '',
   lastSeen: {},
   setEnemyCombatSupply: (data) => {
     scoutService.enemyCombatSupply = getEnemyCombatSupply(data);
