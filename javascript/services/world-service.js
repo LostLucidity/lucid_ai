@@ -36,7 +36,7 @@ const { pointsOverlap, intersectionOfPoints } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, BARRACKS, SUPPLYDEPOT } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -49,6 +49,7 @@ const { getMiddleOfStructure, moveAwayPosition } = require('./position-service')
 const { micro } = require('./micro-service');
 const MapResourceService = require('./map-resource-service');
 const { getPathCoordinates } = require('./path-service');
+const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -361,7 +362,24 @@ const worldService = {
       getOccupiedExpansions(world.resources).forEach(expansion => {
         placementGrids.push(...expansion.areas.placementGrid);
       });
+      const { barracksWallOffPosition, supplyWallOffPositions } = wallOffRampService;
+      const wallOffPositions = [];
+      if (barracksWallOffPosition) {
+        const barracksFootprint = getFootprint(BARRACKS);
+        if (barracksFootprint === undefined) return [];
+        const barracksCellInFootprints = cellsInFootprint(barracksWallOffPosition, barracksFootprint);
+        wallOffPositions.push(...barracksCellInFootprints);
+      }
+      if (supplyWallOffPositions.length > 0) {
+        const supplyFootprint = getFootprint(SUPPLYDEPOT);
+        if (supplyFootprint === undefined) return [];
+        const supplyCellInFootprints = supplyWallOffPositions.map(position => cellsInFootprint(position, supplyFootprint));
+        wallOffPositions.push(...supplyCellInFootprints.flat());
+      }
+      const unitTypeFootprint = getFootprint(unitType);
+      if (unitTypeFootprint === undefined) return [];
       placements = placementGrids
+        .filter(grid => !pointsOverlap(cellsInFootprint(grid, unitTypeFootprint), [...wallOffPositions]))
         .map(pos => ({ pos, rand: Math.random() }))
         .sort((a, b) => a.rand - b.rand)
         .map(a => a.pos)

@@ -13,6 +13,7 @@ const wallOffRampService = {
       return [wallOffRampService.barracksWallOffPosition];
     }
   },
+  // ** @type {Point2D} */
   barracksWallOffPosition: null,
   supplyWallOffPositions: [],
 }
