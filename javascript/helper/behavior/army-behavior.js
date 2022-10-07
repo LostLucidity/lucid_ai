@@ -112,7 +112,7 @@ const armyBehavior = {
           const workersToDefend = [];
           for (const worker of workers) {
             const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
-            if (closestEnemyUnit.isWorker() && closestEnemyUnit['selfUnits'].length === 1 && distanceToClosestEnemy > 16) {
+            if (closestEnemyUnit.isWorker() && closestEnemyUnit['selfUnits'].length === 1 && distanceToClosestEnemy > 8) {
               continue;
             }
             if (defendWithUnit(world, worker, closestEnemyUnit)) {
