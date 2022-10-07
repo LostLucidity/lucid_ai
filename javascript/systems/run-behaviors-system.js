@@ -4,7 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { generalScouting } = require("../builds/scouting");
 const { scoutEnemyMainBehavior, clearFromEnemyBehavior } = require("../helper/behavior/labelled-behavior");
-const { supplyDepotBehavior } = require("../helper/behavior/unit-behavior");
+const { supplyDepotBehavior, overlordBehavior } = require("../helper/behavior/unit-behavior");
 const scoutService = require("./scouting/scouting-service");
 
 module.exports = createSystem({
@@ -21,6 +21,7 @@ module.exports = createSystem({
     const { actions } = resources.get();
     const collectedActions = [];
     collectedActions.push(...clearFromEnemyBehavior(world));
+    collectedActions.push(...overlordBehavior(world));
     await scoutEnemyMainBehavior(world);
     collectedActions.push(...supplyDepotBehavior(resources));
     await actions.sendAction(collectedActions);

@@ -6,12 +6,12 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const { getDPSOfInRangeAntiAirUnits } = require("../helper/battle-analysis");
+const { getInRangeUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
 const { moveAwayPosition } = require("../services/position-service");
 const { getMovementSpeed } = require("../services/unit-service");
-const { retreat } = require("../services/world-service");
+const { retreat, getDPSOfInRangeAntiAirUnits } = require("../services/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 
 const helper = {
@@ -56,7 +56,7 @@ const helper = {
         if (distance(unit.pos, closestThreatUnit.pos) > closestThreatUnit.data().sightRange + unit.radius + closestThreatUnit.radius) {
           collectedActions.push(moveToTarget(unit, closestThreatUnit));
         } else {
-          collectedActions.push(moveAwayFromTarget(world, unit, closestThreatUnit, unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => enemyUnit.canShootUp())));
+          collectedActions.push(moveAwayFromTarget(world, unit, closestThreatUnit, getInRangeUnits(unit, enemyUnits, 16).filter((/** @type {Unit} */ enemyUnit) => enemyUnit.canShootUp())));
         }
       } else if (closestInRangeUnit) {
         if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) { return }
@@ -126,7 +126,7 @@ function moveAwayFromTarget(world, unit, targetUnit, targetUnits) {
     const [closestHighPoint] = getClosestPosition(unit.pos, highPointCandidates);
     // calculate dps of enemy versus distance and speed of overlord.
     if (closestHighPoint) {
-      const dPSOfInRangeUnits = getDPSOfInRangeAntiAirUnits(data, targetUnit);
+      const dPSOfInRangeUnits = getDPSOfInRangeAntiAirUnits(world, unit);
       const timeToBeKilled = (unit.health + unit.shield) / dPSOfInRangeUnits;
       const distanceToHighPoint = distance(unit.pos, closestHighPoint);
       const speed = getMovementSpeed(unit);

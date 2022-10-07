@@ -579,6 +579,32 @@ const worldService = {
     return dPSHealth;
   },
   /**
+   *
+   * @param {World} world
+   * @param {Unit} unit
+   * @returns
+   */
+  getDPSOfInRangeAntiAirUnits: (world, unit) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const enemyUnits = units.getAlive(Alliance.ENEMY);
+    const { pos, radius, unitType } = unit;
+    if (pos === undefined || radius === undefined || unitType === undefined) { return 0 }
+    return enemyUnits.reduce((accumulator, enemyUnit) => {
+      let dPS = 0;
+      const { alliance, pos: enemyPos, radius: enemyRadius, unitType: enemyUnitType } = enemyUnit;
+      if (alliance === undefined || enemyPos === undefined || enemyRadius === undefined || enemyUnitType === undefined) { return accumulator }
+      const weaponThatCanAttack = getWeaponThatCanAttack(data, enemyUnitType, unit);
+      if (weaponThatCanAttack === undefined) { return accumulator }
+      const { range } = weaponThatCanAttack;
+      if (range === undefined) { return accumulator }
+      if (distance(pos, enemyPos) <= range + radius + enemyRadius) {
+        dPS = worldService.getWeaponDPS(world, enemyUnitType, alliance, [unitType]);
+      }
+      return accumulator + dPS;
+    }, 0);
+  },
+  /**
    * @param {World} world
    */
   getFoodUsed: (world) => {
