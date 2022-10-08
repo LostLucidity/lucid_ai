@@ -1,6 +1,7 @@
 //@ts-check
 "use strict"
 
+const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
@@ -12,8 +13,12 @@ const positionService = {
    * @returns {Point2D}
    */
   getMiddleOfStructure(position, unitType ) {
+    if (gasMineTypes.includes(unitType)) return position;
     let { x, y } = position;
-    if (getFootprint(unitType).h % 2 === 1) {
+    if (x === undefined || y === undefined) return position;
+    const footprint = getFootprint(unitType);
+    if (footprint === undefined) return position;
+    if (footprint.h % 2 === 1) {
       x += 0.5;
       y += 0.5;
     }
