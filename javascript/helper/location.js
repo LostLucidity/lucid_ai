@@ -46,7 +46,13 @@ const location = {
       y: Math.floor(Math.random() * Math.floor(map._mapSize.y)),
     };
   },
-  getRandomPoints: (map, numberOfPoints, area=null) => {
+  /**
+   * @param {MapResource} map 
+   * @param {number} numberOfPoints 
+   * @param {Point2D[]} area 
+   * @returns {Point2D[]}
+   */
+  getRandomPoints: (map, numberOfPoints, area) => {
     const points = [];
     for (let point = 0; point < numberOfPoints; point++) {
       points.push(area ? getRandom(area) : location.getRandomPoint(map));

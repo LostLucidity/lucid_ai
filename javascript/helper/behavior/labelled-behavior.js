@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
@@ -169,19 +169,43 @@ module.exports = {
             unit.labels.delete('Threatened');
             queueCommand = false;
           }
-          const enemyMain = map.getEnemyMain();
-          const randomPointsOfInterest = [...getRandomPoints(map, 3, enemyMain.areas.areaFill)];
-          if (scoutService.opponentRace === Race.ZERG) { randomPointsOfInterest.push(map.getEnemyNatural().townhallPosition); }
-          if (randomPointsOfInterest.length > unit.orders.length) {
-            randomPointsOfInterest.forEach(point => {
-              const unitCommand = {
-                abilityId: MOVE,
-                unitTags: [unit.tag],
-                queueCommand: queueCommand,
-                targetWorldSpacePos: point,
-              };
-              collectedActions.push(unitCommand);
-            });
+          const { areas } = map.getEnemyMain();
+          if (areas === undefined) return [];
+          const pathableAreasFill = areas.areaFill.filter(pos => map.isPathable(pos));
+          const randomPointsOfInterest = [...getRandomPoints(map, 3, pathableAreasFill)];
+          if (scoutService.opponentRace === Race.ZERG) {
+            const { townhallPosition } = map.getEnemyNatural();
+            if (map.isPathable(townhallPosition)) {
+              randomPointsOfInterest.push(townhallPosition);
+            }
+          }
+          const { orders } = unit;
+          if (orders === undefined) return [];
+          const nonPlaceableOrderFound = orders.some(order => {
+            if (order.abilityId === MOVE) {
+              const { targetWorldSpacePos } = order;
+              if (targetWorldSpacePos === undefined) return false;
+              if (!map.isPathable(targetWorldSpacePos)) return true;
+            }
+            return false;
+          });
+          if (nonPlaceableOrderFound) {
+            const unitCommand = createUnitCommand(MOVE, [unit]);
+            unitCommand.targetWorldSpacePos = randomPointsOfInterest[0];
+            unitCommand.queueCommand = false;
+            collectedActions.push(unitCommand);
+          } else {
+            if (randomPointsOfInterest.length > orders.length) {
+              randomPointsOfInterest.forEach(point => {
+                const unitCommand = {
+                  abilityId: MOVE,
+                  unitTags: [unit.tag],
+                  queueCommand: queueCommand,
+                  targetWorldSpacePos: point,
+                };
+                collectedActions.push(unitCommand);
+              });
+            }
           }
         }
       } else {
