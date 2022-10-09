@@ -194,39 +194,45 @@ async function runAction(world, allAvailableAbilities) {
   const { foodUsed } = agent;
   if (foodUsed === undefined) return;
   const { map, units } = resources.get();
-  const action = getRandom(Array.from(allAvailableAbilities.values()));
-  const { orderType, unitType } = action;
-  if (orderType === 'UnitType') {
-    const unitTypeCount = getUnitTypeCount(world, unitType) + (unitType === DRONE ? units.getStructures().length - 1 : 0);
-    const conditions = [
-      isGasExtractorWithoutFreeGasGeyser(map, unitType),
-      diminishChangeToBuild(data, unitType, unitTypeCount),
-      WorkerRace[agent.race] === unitType && !shortOnWorkers(world)
-    ];
-    if (conditions.some(condition => condition)) return;
-    const isMatchingPlan = planService.plan.some(step => {
-      return (
-        step.unitType === unitType &&
-        step.targetCount === unitTypeCount
-      );
-    });
-    if (!isMatchingPlan) {
-      planService.plan.push({
-        orderType, unitType, food: foodUsed, targetCount: getUnitTypeCount(world, unitType)
+  const actions = Array.from(allAvailableAbilities.values());
+  let actionTaken = false;
+  while (!actionTaken && actions.length > 0) {
+    const [action] = actions.splice(Math.floor(Math.random() * actions.length), 1);
+    const { orderType, unitType } = action;
+    if (orderType === 'UnitType') {
+      const unitTypeCount = getUnitTypeCount(world, unitType) + (unitType === DRONE ? units.getStructures().length - 1 : 0);
+      const conditions = [
+        isGasExtractorWithoutFreeGasGeyser(map, unitType),
+        diminishChangeToBuild(data, unitType, unitTypeCount),
+        WorkerRace[agent.race] === unitType && !shortOnWorkers(world)
+      ];
+      if (conditions.some(condition => condition)) continue;
+      const isMatchingPlan = planService.plan.some(step => {
+        return (
+          step.unitType === unitType &&
+          step.targetCount === unitTypeCount
+        );
       });
-      const { attributes } = data.getUnitTypeData(unitType);
-      if (attributes === undefined) return;
-      if (attributes.includes(Attribute.STRUCTURE)) {
-        await build(world, unitType);
-      } else {
-        await train(world, unitType);
+      actionTaken = true;
+      if (!isMatchingPlan) {
+        planService.plan.push({
+          orderType, unitType, food: foodUsed, targetCount: getUnitTypeCount(world, unitType)
+        });
+        const { attributes } = data.getUnitTypeData(unitType);
+        if (attributes === undefined) return;
+        if (attributes.includes(Attribute.STRUCTURE)) {
+          await build(world, unitType);
+        } else {
+          await train(world, unitType);
+        }
       }
+    } else if (orderType === 'Upgrade') {
+      planService.plan.push({
+        orderType, upgrade: action.upgrade, food: foodUsed
+      });
+      await upgrade(world, action.upgrade);
+      actionTaken = true;
     }
-  } else if (orderType === 'Upgrade') {
-    planService.plan.push({
-      orderType, upgrade: action.upgrade, food: foodUsed
-    });
-    await upgrade(world, action.upgrade);
   }
 }
 
