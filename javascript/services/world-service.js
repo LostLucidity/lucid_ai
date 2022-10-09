@@ -270,6 +270,11 @@ const worldService = {
     const { actions, map, units } = resources.get();
     const [main, natural] = map.getExpansions();
     const mainMineralLine = main.areas.mineralLine;
+    if (gasMineTypes.includes(unitType)) {
+      const geyserPositions = map.freeGasGeysers().map(geyser => geyser.pos).filter(pos => pos !== undefined);
+      // @ts-ignore
+      return geyserPositions;
+    }
     /**
      * @type {Point2D[]}
      */

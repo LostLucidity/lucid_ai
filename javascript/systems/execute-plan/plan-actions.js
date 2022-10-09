@@ -74,9 +74,6 @@ const planActions = {
         addEarmark(data, data.getUnitTypeData(WorkerRace[race]));
       }
       switch (true) {
-        case GasMineRace[race] === unitType:
-          collectedActions.push(...await planActions.buildGasMine(world, unitType, targetCount, stepAhead));
-          break;
         case TownhallRace[race].includes(unitType):
           if (TownhallRace[race].indexOf(unitType) === 0) {
             if (units.getBases().length == 2 && agent.race === Race.TERRAN) {
