@@ -30,9 +30,6 @@ const MapResourceService = {
       mapPath = mapPath.length === 0 ? map.path(endGrid, startGrid) : mapPath;
       if (mapPath.length > 0) {
         const pathCoordinates = getPathCoordinates(mapPath);
-        if (mapPath.length > 1 && distance(startGrid, pathCoordinates[1]) < distance(startGrid, pathCoordinates[0])) {
-          pathCoordinates.shift();
-        }
         const foundNonPathable = pathCoordinates.filter(coordinate => !map.isPathable(coordinate)).length > 1;
         if (foundNonPathable) {
           force = true;
