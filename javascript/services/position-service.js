@@ -3,10 +3,18 @@
 
 const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const positionService = {
-
+  /**
+   * @param {Point2D} posA
+   * @param {Point2D} posB
+   * @returns {number}
+   */
+  getDistance(posA, posB) {
+    return distance(posA, posB);
+  },
   /**
    * @param {Point2D} position 
    * @param {UnitTypeId} unitType

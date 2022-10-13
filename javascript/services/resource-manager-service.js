@@ -9,6 +9,7 @@ const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-reso
 const { createUnitCommand } = require("./actions-service");
 const { getPathablePositions, getPathablePositionsForStructure, getMapPath } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
+const { getDistance } = require("./position-service");
 
 const resourceManagerService = {
   /** @type {Point2D} */
@@ -175,19 +176,19 @@ const resourceManagerService = {
     const { map } = resources.get();
     try {
       let path = getMapPath(map, position, targetPosition);
-      const calculatedZeroPath = path.length === 0;
-      const isZeroPathDistance = calculatedZeroPath && distance(position, targetPosition) <= 2 ? true : false;
-      const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
-      const { totalDistance } = getPathCoordinates(map.path(position, targetPosition)).reduce((acc, curr) => {
-        return {
-          totalDistance: acc.totalDistance + distance(curr, acc.previousPosition),
-          previousPosition: curr
-        }
-      }, {
-        totalDistance: 0,
-        previousPosition: position
+      const pathCoordinates = getPathCoordinates(path);
+      const straightLines = getStraightLines(map, pathCoordinates);
+      const straightLineDistances = straightLines.map(straightLine => {
+        const start = straightLine[0];
+        const end = straightLine[straightLine.length - 1];
+        if (start === undefined || end === undefined) return 0;
+        return distance(start, end);
       });
-      const pathLength = isZeroPathDistance ? 0 : isNotPathable ? Infinity : totalDistance;
+      const straightLineDistance = straightLineDistances.reduce((acc, curr) => acc + curr, 0);
+      const calculatedZeroPath = path.length === 0;
+      const isZeroPathDistance = calculatedZeroPath && getDistance(position, targetPosition) <= 2 ? true : false;
+      const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
+      const pathLength = isZeroPathDistance ? 0 : isNotPathable ? Infinity : straightLineDistance;
       return pathLength;
     } catch (error) {
       return Infinity;
@@ -209,4 +210,54 @@ function getUnitsWithinDistance(pos, units, maxDistance) {
     if (unitPos === undefined) { return false; }
     return distance(unitPos, pos) <= maxDistance;
   });
+}
+
+/**
+ * @param {MapResource} map
+ * @param {Point2D[]} pathCoordinates 
+ * returns an array of array of points
+ * @returns {Point2D[][]}
+ */
+function getStraightLines(map, pathCoordinates) {
+  if (pathCoordinates.length > 2) {
+    /** @type {Point2D[][]} */
+    const straightLines = [];
+    const firstCoordinate = pathCoordinates[0];
+    const lastCoordinate = pathCoordinates[pathCoordinates.length - 1];
+    const straightLine = getLine(firstCoordinate, lastCoordinate);
+    const straightLinePathable = straightLine.every(point => map.isPathable(point));
+    if (straightLinePathable) {
+      straightLines.push(straightLine);
+    } else {
+      const newStraightLine = getStraightLines(map, pathCoordinates.slice(0, pathCoordinates.length - 1));
+      straightLines.push(...newStraightLine);
+      const lastNewStraightLine = newStraightLine[newStraightLine.length - 1];
+      const lastNewStraightLineLastCoordinate = lastNewStraightLine[lastNewStraightLine.length - 1];
+      const restOfStraightLines = getStraightLines(map, pathCoordinates.slice(pathCoordinates.findIndex(point => point.x === lastNewStraightLineLastCoordinate.x && point.y === lastNewStraightLineLastCoordinate.y)));
+      straightLines.push(...restOfStraightLines);
+    }
+    return straightLines;
+  } else {
+    return [pathCoordinates];
+  }
+}
+
+/**
+ * 
+ * @param {Point2D} start 
+ * @param {Point2D} end 
+ * @returns  {Point2D[]}
+ */
+function getLine(start, end) {
+  const points = [];
+  if (end.x === undefined || end.y === undefined || start.x === undefined || start.y === undefined) return points;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const steps = Math.max(Math.abs(dx), Math.abs(dy));
+  for (let i = 0; i <= steps; i++) {
+    const x = start.x + (dx / steps) * i;
+    const y = start.y + (dy / steps) * i;
+    points.push({ x, y });
+  }
+  return points;
 }
