@@ -315,6 +315,8 @@ const unitResourceService = {
       const weaponCooldownMax = weaponCooldown;
       unitResourceService.unitTypeData[unitType] = { healthMax, isFlying, radius, shieldMax, weaponCooldownMax };
       return { healthMax, isFlying, radius, shieldMax, weaponCooldownMax };
+    } else {
+      return unitResourceService.unitTypeData[unitType];
     }
   },
   isWorker(unit) {
