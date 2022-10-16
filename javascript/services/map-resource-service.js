@@ -7,6 +7,23 @@ const { getPathCoordinates } = require("./path-service");
 
 const MapResourceService = {
   /**
+   * @param {MapResource} map
+   * @param {Point2D} position 
+   * @returns {Point2D}
+   */
+  getClosestPathablePosition(map, position) {
+    const { x, y } = position;
+    if (x === undefined || y === undefined) return position;
+    const gridCorners = [
+      { x: Math.floor(x), y: Math.floor(y) },
+      { x: Math.ceil(x), y: Math.floor(y) },
+      { x: Math.floor(x), y: Math.ceil(y) },
+      { x: Math.ceil(x), y: Math.ceil(y) },
+    ];
+    const placeableCorners = gridCorners.filter(corner => map.isPathable(corner));
+    return placeableCorners.sort((a, b) => distance(a, position) - distance(b, position))[0] || position;
+  },
+  /**
    * @param {MapResource} map 
    * @param {Point2D} position
    */
@@ -20,8 +37,9 @@ const MapResourceService = {
    * @returns {number[][]}
    */
   getMapPath: (map, start, end) => {
-    const startGrid = getClosestPlaceablePoint(map, start);
-    const endGrid = getClosestPlaceablePoint(map, end);
+    const { getClosestPathablePosition } = MapResourceService;
+    const startGrid = getClosestPathablePosition(map, start);
+    const endGrid = getClosestPathablePosition(map, end);
     let force = false;
     if (areEqual(startGrid, endGrid)) {
       return [];
@@ -30,7 +48,7 @@ const MapResourceService = {
       mapPath = mapPath.length === 0 ? map.path(endGrid, startGrid) : mapPath;
       if (mapPath.length > 0) {
         const pathCoordinates = getPathCoordinates(mapPath);
-        const foundNonPathable = pathCoordinates.filter(coordinate => !map.isPathable(coordinate)).length > 1;
+        const foundNonPathable = pathCoordinates.some(coordinate => !map.isPathable(coordinate));
         if (foundNonPathable) {
           force = true;
           mapPath = map.path(startGrid, endGrid, { force });
@@ -52,7 +70,8 @@ const MapResourceService = {
       pathablePositions.push(position);
     }
     while (pathablePositions.length === 0) {
-      pathablePositions = gridsInCircle(position, radius).filter(grid => map.isPathable(grid));
+      getGridsInCircleWithinMap
+      pathablePositions = getGridsInCircleWithinMap(map, position, radius).filter(grid => map.isPathable(grid));
       radius += 1;
     }
     return pathablePositions;
@@ -82,21 +101,18 @@ const MapResourceService = {
 module.exports = MapResourceService;
 
 /**
- * @param {MapResource} map
+ * 
+ * @param {MapResource} map 
  * @param {Point2D} position 
- * @returns {Point2D}
+ * @param {number} radius 
+ * @returns {Point2D[]}
  */
-function getClosestPlaceablePoint(map, position) {
-  const { x, y } = position;
-  if (x === undefined || y === undefined) return position;
-  // get four corners of grid and filter out non-placeable
-  const gridCorners = [
-    { x: Math.floor(x), y: Math.floor(y) },
-    { x: Math.ceil(x), y: Math.floor(y) },
-    { x: Math.floor(x), y: Math.ceil(y) },
-    { x: Math.ceil(x), y: Math.ceil(y) },
-  ];
-  const placeableCorners = gridCorners.filter(corner => map.isPathable(corner));
-  // return closest placeable corner
-  return placeableCorners.sort((a, b) => distance(a, position) - distance(b, position))[0] || position;
+function getGridsInCircleWithinMap(map, position, radius) {
+  const grids = gridsInCircle(position, radius);
+  return grids.filter(grid => {
+    const { x: gridX, y: gridY } = grid;
+    const { x: mapX, y: mapY } = map.getSize();
+    if (gridX === undefined || gridY === undefined || mapX === undefined || mapY === undefined) return false;
+    return gridX >= 0 && gridX < mapX && gridY >= 0 && gridY < mapY;
+  });
 }

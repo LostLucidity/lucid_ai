@@ -4,10 +4,10 @@
 const { SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { EGG } = require("@node-sc2/core/constants/unit-type");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { distance, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
-const { getPathablePositions, getPathablePositionsForStructure, getMapPath } = require("./map-resource-service");
+const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePosition } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
 const { getDistance } = require("./position-service");
 
@@ -170,26 +170,32 @@ const resourceManagerService = {
   * @param {ResourceManager} resources
   * @param {Point2D} position
   * @param {Point2D|SC2APIProtocol.Point} targetPosition
-  * @returns number
+  * @returns {number}
   */
   getDistanceByPath: (resources, position, targetPosition) => {
     const { map } = resources.get();
     try {
-      let path = getMapPath(map, position, targetPosition);
-      const pathCoordinates = getPathCoordinates(path);
-      const straightLines = getStraightLines(map, pathCoordinates);
-      const straightLineDistances = straightLines.map(straightLine => {
-        const start = straightLine[0];
-        const end = straightLine[straightLine.length - 1];
-        if (start === undefined || end === undefined) return 0;
-        return distance(start, end);
-      });
-      const straightLineDistance = straightLineDistances.reduce((acc, curr) => acc + curr, 0);
-      const calculatedZeroPath = path.length === 0;
-      const isZeroPathDistance = calculatedZeroPath && getDistance(position, targetPosition) <= 2 ? true : false;
-      const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
-      const pathLength = isZeroPathDistance ? 0 : isNotPathable ? Infinity : straightLineDistance;
-      return pathLength;
+      const line = getLine(position, targetPosition);
+      let distance = 0;
+      if (line.every(point => map.isPathable(getClosestPathablePosition(map, point)))) {
+        return getDistance(position, targetPosition);
+      } else {
+        let path = getMapPath(map, position, targetPosition);
+        const pathCoordinates = getPathCoordinates(path);
+          const straightLines = getStraightLines(map, pathCoordinates);
+          const straightLineDistances = straightLines.map(straightLine => {
+            const start = straightLine[0];
+            const end = straightLine[straightLine.length - 1];
+            if (start === undefined || end === undefined) return 0;
+            return getDistance(start, end);
+          });
+          distance = straightLineDistances.reduce((acc, curr) => acc + curr, 0);
+        const calculatedZeroPath = path.length === 0;
+        const isZeroPathDistance = calculatedZeroPath && getDistance(position, targetPosition) <= 2 ? true : false;
+        const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
+        const pathLength = isZeroPathDistance ? 0 : isNotPathable ? Infinity : distance;
+        return pathLength;
+      }
     } catch (error) {
       return Infinity;
     }
@@ -218,23 +224,27 @@ function getUnitsWithinDistance(pos, units, maxDistance) {
  * returns an array of array of points
  * @returns {Point2D[][]}
  */
-function getStraightLines(map, pathCoordinates) {
+function getStraightLines(map, pathCoordinates, calls=0) {
+  const firstCoordinate = pathCoordinates[0];
+  const lastCoordinate = pathCoordinates[pathCoordinates.length - 1];
   if (pathCoordinates.length > 2) {
     /** @type {Point2D[][]} */
     const straightLines = [];
-    const firstCoordinate = pathCoordinates[0];
-    const lastCoordinate = pathCoordinates[pathCoordinates.length - 1];
-    const straightLine = getLine(firstCoordinate, lastCoordinate);
-    const straightLinePathable = straightLine.every(point => map.isPathable(point));
-    if (straightLinePathable) {
+    const straightLine = getLine(firstCoordinate, lastCoordinate, pathCoordinates.length);
+    const straightLineIsPathableIndex = straightLine.findIndex(point => !map.isPathable(getClosestPathablePosition(map, point)));
+    if (straightLineIsPathableIndex === -1) {
       straightLines.push(straightLine);
     } else {
-      const newStraightLine = getStraightLines(map, pathCoordinates.slice(0, pathCoordinates.length - 1));
+      straightLines.push(straightLine.slice(0, straightLineIsPathableIndex));
+      const newStraightLineStart = straightLine[straightLineIsPathableIndex];
+      const closestPointToNewStraightLineStart = pathCoordinates.reduce((acc, curr) => {
+        const accDistance = getDistance(acc, newStraightLineStart);
+        const currDistance = getDistance(curr, newStraightLineStart);
+        return accDistance < currDistance ? acc : curr;
+      });
+      const closestPointToNewStraightLineStartIndex = pathCoordinates.findIndex(point => areEqual(point, closestPointToNewStraightLineStart));
+      const newStraightLine = getStraightLines(map, pathCoordinates.slice(closestPointToNewStraightLineStartIndex === 0 ? 1 : closestPointToNewStraightLineStartIndex), calls + 1);
       straightLines.push(...newStraightLine);
-      const lastNewStraightLine = newStraightLine[newStraightLine.length - 1];
-      const lastNewStraightLineLastCoordinate = lastNewStraightLine[lastNewStraightLine.length - 1];
-      const restOfStraightLines = getStraightLines(map, pathCoordinates.slice(pathCoordinates.findIndex(point => point.x === lastNewStraightLineLastCoordinate.x && point.y === lastNewStraightLineLastCoordinate.y)));
-      straightLines.push(...restOfStraightLines);
     }
     return straightLines;
   } else {
@@ -246,17 +256,21 @@ function getStraightLines(map, pathCoordinates) {
  * 
  * @param {Point2D} start 
  * @param {Point2D} end 
+ * @param {Number} steps
  * @returns  {Point2D[]}
  */
-function getLine(start, end) {
+function getLine(start, end, steps=0) {
   const points = [];
-  if (end.x === undefined || end.y === undefined || start.x === undefined || start.y === undefined) return points;
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const steps = Math.max(Math.abs(dx), Math.abs(dy));
-  for (let i = 0; i <= steps; i++) {
-    const x = start.x + (dx / steps) * i;
-    const y = start.y + (dy / steps) * i;
+  if (areEqual(start, end)) return [start];
+  const { x: startX, y: startY } = start;
+  const { x: endX, y: endY } = end;
+  if (startX === undefined || startY === undefined || endX === undefined || endY === undefined) return [start];
+  const dx = endX - startX;
+  const dy = endY - startY;
+  steps = steps === 0 ? Math.max(Math.abs(dx), Math.abs(dy)) : steps;
+  for (let i = 0; i < steps; i++) {
+    const x = startX + (dx / steps) * i;
+    const y = startY + (dy / steps) * i;
     points.push({ x, y });
   }
   return points;
