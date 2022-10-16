@@ -1197,9 +1197,12 @@ const worldService = {
           .sort((a, b) => getDistanceByPath(resources, a, unit.pos) - getDistanceByPath(resources, b, unit.pos))[0];
         // get closest position to unit by path
         const combatRally = getCombatRally(resources);
+        let combatRallyCloser = true;
+        if (closestBunkerPositionByPath) {
+          combatRallyCloser = getDistanceByPath(resources, combatRally, unit.pos) < getDistanceByPath(resources, closestBunkerPositionByPath, unit.pos);
+        }
         const unitToCombatRallyDistance = getDistanceByPath(resources, pos, combatRally);
         const targetUnitToCombatRallyDistance = getDistanceByPath(resources, targetUnit.pos, combatRally);
-        const combatRallyCloser = getDistanceByPath(resources, combatRally, unit.pos) < getDistanceByPath(resources, closestBunkerPositionByPath, unit.pos);
         if (
           toCombatRally &&
           combatRallyCloser &&
