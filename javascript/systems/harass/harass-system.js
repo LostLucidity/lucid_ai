@@ -6,6 +6,7 @@ const { ATTACK_ATTACK, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { STALKER } = require("@node-sc2/core/constants/unit-type");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
+const { getCombatRally } = require("../../helper/location");
 const { createUnitCommand } = require("../../services/actions-service");
 const { microRangedUnit } = require("../../services/world-service");
 const harassService = require("./harass-service");
@@ -16,6 +17,7 @@ module.exports = createSystem({
   async onStep(world) {
     const { resources } = world;
     const { actions, map, units } = resources.get();
+    const collectedActions = [];
     const label = 'harasser';
     const { harassFinished, harassOn } = harassService;
     if (harassOn === true && !harassFinished) {
@@ -37,7 +39,7 @@ module.exports = createSystem({
         if (closestEnemyUnit && distance(closestEnemyUnit.pos, averagePoints) <= 8) {
           const harasserActions = [];
           harassers.forEach(harasser => harasserActions.push(...microRangedUnit(world, harasser, closestEnemyUnit)));
-          await actions.sendAction(harasserActions);
+          collectedActions.push(...harasserActions);
           console.log('harassers attacking');
         } else {
           const outOfGroupHarassers = [];
@@ -49,7 +51,7 @@ module.exports = createSystem({
           groupedHarassersCommand.targetWorldSpacePos = map.getEnemyNatural().townhallPosition;
           const outOfGroupHarasserCommand = createUnitCommand(MOVE, outOfGroupHarassers);
           outOfGroupHarasserCommand.targetWorldSpacePos = averagePoints;
-          await actions.sendAction([groupedHarassersCommand, outOfGroupHarasserCommand]);
+          collectedActions.push(groupedHarassersCommand, outOfGroupHarasserCommand);
           console.log(`${groupedHarassers.length} harassers attacking`);
           console.log(`${outOfGroupHarassers.length} harassers moving`);
         }
@@ -60,9 +62,14 @@ module.exports = createSystem({
           harassers.forEach(harasser => harasser.labels.delete(label));
           console.log('harass finished');
         }
-        await actions.move(harassers, map.getCombatRally());
+        const unitCommand = createUnitCommand(MOVE, harassers);
+        unitCommand.targetWorldSpacePos = getCombatRally(resources);
+        collectedActions.push(unitCommand);
         console.log('harassers moving');
       }
+    }
+    if (collectedActions.length) {
+      return actions.sendAction(collectedActions);
     }
   }
 });
