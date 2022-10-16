@@ -33,7 +33,7 @@ module.exports = createSystem({
     planService.mineralMaxThreshold = race === Race.ZERG ? 300 : 400;
     planService.mineralMinThreshold = 100;
     if (race === Race.PROTOSS) {
-      planService.naturalWallPylon = Math.random() > (1 / 2);
+      planService.naturalWallPylon = true;
       console.log('planService.naturalWallPylon', planService.naturalWallPylon);
     }
     setUnitTypeTrainingAbilityMapping(data);
