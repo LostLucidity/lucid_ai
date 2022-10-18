@@ -906,12 +906,22 @@ const worldService = {
    * @returns {boolean}
    */
   defendWithUnit: (world, worker, targetUnit) => {
-    const { agent, data, resources } = world;
+    const { agent, resources } = world;
     const { units } = resources.get();
-    const inRangeEnemySupply = calculateHealthAdjustedSupply(world, getInRangeUnits(targetUnit, [...enemyTrackingService.mappedEnemyUnits]));
-    const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
+    const { pos } = targetUnit;
+    if (pos === undefined) return false;
+    const selfDPSHealth = targetUnit['selfDPSHealth'] || 0;
     const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy', 'builder']) && !isRepairing(unit));
-    const fighters = units.getClosest(targetUnit.pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), amountToFightWith);
+    const potentialFightersByDistance = getClosestUnitByPath(resources, pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), workers.length);
+    const fighters = [];
+    let dpsHealth = 0;
+    for (let i = 0; i < potentialFightersByDistance.length; i++) {
+      const fighter = potentialFightersByDistance[i];
+      const fighterDPSHealth = worldService.getDPSHealth(world, fighter, targetUnit['selfUnits'].map((/** @type {Unit} */ unit) => unit.unitType));
+      if (dpsHealth + fighterDPSHealth > selfDPSHealth) break;
+      fighters.push(fighter);
+      dpsHealth += fighterDPSHealth;
+    }
     return fighters.some(fighter => fighter.tag === worker.tag);
   },
   /**
