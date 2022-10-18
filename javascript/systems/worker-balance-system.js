@@ -198,7 +198,9 @@ function assignWorkers(resources) {
   const collectedActions = [];
   const gatheringMineralWorkers = getGatheringWorkers(units, 'minerals');
   gatheringMineralWorkers.forEach(worker => {
-    const [closestBase] = getClosestUnitByPath(resources, worker.pos, units.getBases());
+    const { pos } = worker;
+    if (pos === undefined) return;
+    const [closestBase] = units.getClosest(pos, units.getBases(), 1);
     if (closestBase) {
       const [closestExpansion] = getClosestExpansion(map, closestBase.pos);
       const { mineralFields } = closestExpansion.cluster;
