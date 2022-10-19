@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff } = require("@node-sc2/core/constants");
-const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, SMART } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
@@ -50,6 +50,7 @@ const { micro } = require('./micro-service');
 const MapResourceService = require('./map-resource-service');
 const { getPathCoordinates } = require('./path-service');
 const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
+const { CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/buff');
 
 const worldService = {
   /** @type {boolean} */
@@ -1041,7 +1042,8 @@ const worldService = {
           if (workerCurrentlyTraining) {
             const { buildTime } = data.getUnitTypeData(WorkerRace[agent.race]);
             const { progress } = closestBaseByPath.orders[0];
-            buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * progress));
+            if (buildTime === undefined || progress === undefined) return collectedActions;
+            buildTimeLeft = getBuildTimeLeft(closestBaseByPath, buildTime, progress);
             let baseTimeToPosition = (baseDistanceToPosition / movementSpeed) + buildTimeLeft;
             rallyBase = timeToPosition > baseTimeToPosition;
             timeToPosition = rallyBase ? baseTimeToPosition : timeToPosition;
@@ -1808,7 +1810,20 @@ function canWeaponAttackType(units, weapon, targetUnitType) {
   const { isFlying } = getUnitTypeData(units, targetUnitType);
   return weapon.type === WeaponTargetType.ANY || (weapon.type === WeaponTargetType.GROUND && !isFlying) || (weapon.type === WeaponTargetType.AIR && isFlying || targetUnitType === UnitType.COLOSSUS);
 }
-
+/**
+ * @param {Unit} unit
+ * @param {number} buildTime
+ * @param {number} progress
+ * @returns {number}
+ **/
+function getBuildTimeLeft(unit, buildTime, progress) {
+  const { buffIds } = unit;
+  if (buffIds === undefined) return buildTime;
+  if (buffIds.includes(CHRONOBOOSTENERGYCOST)) {
+    buildTime = buildTime * 2 / 3;
+  }
+  return buildTime * (1 - progress);
+}
 /**
  * @param {Unit} unit
  * @param {Unit[]} units
@@ -1827,7 +1842,6 @@ function setUnitsProperty(unit, units) {
     return distance(unit.pos, toFilterUnit.pos) <= weaponRange + unit.radius + toFilterUnit.radius + getTravelDistancePerStep(toFilterUnit) + getTravelDistancePerStep(unit);
   });
 }
-
 /**
  * @param {DataStorage} data
  * @param {Unit} unit 
@@ -1846,7 +1860,6 @@ function inCombatRange(data, unit, targetUnit) {
   if (range === undefined) return false;
   return distance(pos, targetPos) <= range + radius + targetRadius + getTravelDistancePerStep(targetUnit) + getTravelDistancePerStep(unit);
 }
-
 /**
  * @param {World} world
  * @param {UnitTypeId} unitType
@@ -1871,7 +1884,6 @@ function getTimeToTargetTech(world, unitType) {
   if (buildProgress === undefined) return 0;
   return getTimeInSeconds((1 - buildProgress) * buildTime);
 }
-
 /**
  * @param {Unit} builder
  */
@@ -1885,7 +1897,6 @@ function setBuilderLabel(builder) {
     }
   }
 }
-
 /**
  * 
  * @param {Unit} unit 
