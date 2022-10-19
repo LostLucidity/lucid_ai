@@ -272,9 +272,27 @@ const worldService = {
     const [main, natural] = map.getExpansions();
     const mainMineralLine = main.areas.mineralLine;
     if (gasMineTypes.includes(unitType)) {
-      const geyserPositions = map.freeGasGeysers().map(geyser => geyser.pos).filter(pos => pos !== undefined);
-      // @ts-ignore
-      return geyserPositions;
+      const geyserPositions = map.freeGasGeysers().map(geyser => {
+        const { pos } = geyser;
+        if (pos === undefined) return { pos, buildProgress: 0 };
+        const [closestBase] = units.getClosest(pos, units.getBases());
+        return { pos, buildProgress: closestBase.buildProgress };
+      });
+      const sortedGeyserPositions = geyserPositions.sort((a, b) => {
+        if (a === undefined || b === undefined) { return 0; }
+        const [baseA] = units.getClosest(a, units.getBases());
+        const [baseB] = units.getClosest(b, units.getBases());
+        const { buildProgress: buildProgressA } = baseA;
+        const { buildProgress: buildProgressB } = baseB;
+        if (buildProgressA === undefined || buildProgressB === undefined) { return 0; }
+        return buildProgressA - buildProgressB;
+      });
+      const [topGeyserPosition] = sortedGeyserPositions;
+      const { buildProgress } = topGeyserPosition;
+      if (buildProgress === undefined) { return []; }
+      const sortedGeyserPositionsWithSameBuildProgress = sortedGeyserPositions.filter(geyserPosition => geyserPosition.buildProgress === buildProgress);
+        // @ts-ignore
+      return sortedGeyserPositionsWithSameBuildProgress.map(geyserPosition => geyserPosition.pos);
     }
     /**
      * @type {Point2D[]}
