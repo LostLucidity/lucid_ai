@@ -73,6 +73,17 @@ const unitResourceService = {
       return unit.data().sightRange >= targetUnitDistanceToItsEdge;
     });
   },
+  /**
+   * @param {UnitResource} units
+   * @param {Unit} worker
+   * returns {boolean}
+   **/
+  isMining(units, worker) {
+    const { pos } = worker;
+    const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, worker);
+    if (orderTargetPosition === undefined || pos === undefined) return false;
+    return distance(pos, orderTargetPosition) < 1.62;
+  },
   isRepairing(unit) {
     return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
   },
@@ -169,7 +180,10 @@ const unitResourceService = {
     let builders = [
       ...units.withLabel('builder').filter(builder => getWithLabelAvailable(units, builder)),
       ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(units, proxy)),
-    ].filter(worker => !worker.isReturning());
+    ].filter(worker => {
+      const gatheringAndMining = worker.isGathering() && unitResourceService.isMining(units, worker);
+      return !worker.isReturning() && !gatheringAndMining;
+    });
     return builders;
   },
   /**

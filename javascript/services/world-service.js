@@ -422,10 +422,14 @@ const worldService = {
     const { units } = resources.get();
     let builderCandidates = getBuilders(units);
     builderCandidates.push(...units.getWorkers().filter(worker => {
+      const { pos } = worker;
+      const orderTargetPosition = getOrderTargetPosition(units, worker);
+      if (orderTargetPosition === undefined || pos === undefined) return false;
       const doesNotExist = !builderCandidates.some(builder => builder.tag === worker.tag);
+      const gatheringAndNotMining = worker.isGathering() && !unitResourceService.isMining(units, worker);
       const available = (
         worker.noQueue ||
-        worker.isGathering() && getOrderTargetPosition(units, worker) && distance(worker.pos, getOrderTargetPosition(units, worker)) > 1.62 ||
+        gatheringAndNotMining ||
         worker.orders.findIndex(order => order.targetWorldSpacePos && (distance(order.targetWorldSpacePos, position) < 1)) > -1
       );
       return doesNotExist && available;
@@ -1647,7 +1651,6 @@ function getSafePositions(resources, unit, radius = 1) {
   }
   return safePositions;
 }
-
 /**
  * @param {MapResource} map
  * @param {Unit} unit 
