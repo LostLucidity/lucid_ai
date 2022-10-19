@@ -279,8 +279,12 @@ const worldService = {
         return { pos, buildProgress: closestBase.buildProgress };
       });
       const sortedGeyserPositions = geyserPositions.sort((a, b) => {
-        if (a === undefined || b === undefined) { return 0; }
+        const { buildProgress: aBuildProgress, pos: aPos } = a;
+        const { buildProgress: bBuildProgress, pos: bPos } = b;
+        if (aBuildProgress === undefined || bBuildProgress === undefined || aPos === undefined || bPos === undefined) return 0;
+        // @ts-ignore
         const [baseA] = units.getClosest(a, units.getBases());
+        // @ts-ignore
         const [baseB] = units.getClosest(b, units.getBases());
         const { buildProgress: buildProgressA } = baseA;
         const { buildProgress: buildProgressB } = baseB;
@@ -288,11 +292,15 @@ const worldService = {
         return buildProgressA - buildProgressB;
       });
       const [topGeyserPosition] = sortedGeyserPositions;
-      const { buildProgress } = topGeyserPosition;
-      if (buildProgress === undefined) { return []; }
-      const sortedGeyserPositionsWithSameBuildProgress = sortedGeyserPositions.filter(geyserPosition => geyserPosition.buildProgress === buildProgress);
+      if (topGeyserPosition) {
+        const { buildProgress } = topGeyserPosition;
+        if (buildProgress === undefined) { return []; }
+        const sortedGeyserPositionsWithSameBuildProgress = sortedGeyserPositions.filter(geyserPosition => geyserPosition.buildProgress === buildProgress);
         // @ts-ignore
-      return sortedGeyserPositionsWithSameBuildProgress.map(geyserPosition => geyserPosition.pos);
+        return sortedGeyserPositionsWithSameBuildProgress.map(geyserPosition => geyserPosition.pos);
+      } else {
+        return [];
+      }
     }
     /**
      * @type {Point2D[]}
