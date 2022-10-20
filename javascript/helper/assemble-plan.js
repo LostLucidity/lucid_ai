@@ -48,6 +48,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { pointsOverlap } = require("./utilities");
+const resourceManagerService = require("../services/resource-manager-service");
 
 let actions;
 let race;
@@ -230,7 +231,8 @@ class AssemblePlan {
                 candidatePositions = await getInTheMain(this.resources, unitType);
                 await this.buildBuilding(resources, unitType, candidatePositions, stepAhead);
               } else {
-                const availableExpansions = getAvailableExpansions(resources);
+                resourceManagerService.availableExpansions = resourceManagerService.availableExpansions.length === 0 ? getAvailableExpansions(resources) : resourceManagerService.availableExpansions;
+                const { availableExpansions } = resourceManagerService;
                 candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(this.world, availableExpansions)] : [];
                 await this.buildBuilding(resources, unitType, candidatePositions, stepAhead);
               }

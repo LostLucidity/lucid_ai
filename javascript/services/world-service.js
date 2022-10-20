@@ -22,7 +22,7 @@ const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
 const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving } = require("./unit-service");
-const { GasMineRace, WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
+const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
@@ -51,6 +51,7 @@ const MapResourceService = require('./map-resource-service');
 const { getPathCoordinates } = require('./path-service');
 const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
 const { CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/buff');
+const resourceManagerService = require('./resource-manager-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -69,6 +70,7 @@ const worldService = {
    */
   assignAndSendWorkerToBuild: (world, unitType, position) => {
     const { agent, data, resources } = world;
+    const { race } = agent;
     const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
     const collectedActions = [];
@@ -107,6 +109,9 @@ const worldService = {
           collectedActions.push(unitCommand);
         }
         console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
+        if (TownhallRace[race].indexOf(unitType) === 0) {
+          resourceManagerService.availableExpansions = [];
+        }
         unitService.setPendingOrders(builder, unitCommand);
         collectedActions.push(...unitService.stopOverlappingBuilders(units, builder, position));
       }

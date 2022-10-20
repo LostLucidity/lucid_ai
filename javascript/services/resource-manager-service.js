@@ -2,8 +2,7 @@
 "use strict"
 
 const { SMART } = require("@node-sc2/core/constants/ability");
-const { Race, Alliance } = require("@node-sc2/core/constants/enums");
-const { EGG } = require("@node-sc2/core/constants/unit-type");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
@@ -12,6 +11,8 @@ const { getPathCoordinates } = require("./path-service");
 const { getDistance } = require("./position-service");
 
 const resourceManagerService = {
+  /** @type {Expansion[]} */
+  availableExpansions: [],
   /** @type {Point2D} */
   combatRally: null,
   /**
