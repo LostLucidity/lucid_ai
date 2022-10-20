@@ -40,22 +40,15 @@ const resourceManagerService = {
         if (assignedHarvesters === undefined || idealHarvesters === undefined) { return false; }
         return assignedHarvesters < idealHarvesters
       });
-      if (needyBases.length > 0) {
-        targetBase = resourceManagerService.getClosestUnitFromUnit(resources, unit, needyBases);
-        if (targetBase === undefined || targetBase.pos === undefined) { return null; }
-        [target] = getUnitsWithinDistance(targetBase.pos, units.getMineralFields(), 8).sort((a, b) => {
-          const targetedByWorkersACount = getTargetedByWorkers(units, a).length;
-          const targetedByWorkersBCount = getTargetedByWorkers(units, b).length;
-          return targetedByWorkersACount - targetedByWorkersBCount;
-        });
-      } else {
-        targetBase = resourceManagerService.getClosestUnitFromUnit(resources, unit, ownBases);
-        [target] = getUnitsWithinDistance(unitPos, units.getMineralFields(), 8).sort((a, b) => {
-          const targetedByWorkersACount = getTargetedByWorkers(units, a).length;
-          const targetedByWorkersBCount = getTargetedByWorkers(units, b).length;
-          return targetedByWorkersACount - targetedByWorkersBCount;
-        });
-      }
+      const localMaxDistanceOfMineralFields = 9;
+      const candidateBases = needyBases.length > 0 ? needyBases : ownBases;
+      targetBase = resourceManagerService.getClosestUnitFromUnit(resources, unit, candidateBases);
+      if (targetBase === undefined || targetBase.pos === undefined) { return null; }
+      [target] = getUnitsWithinDistance(targetBase.pos, units.getMineralFields(), localMaxDistanceOfMineralFields).sort((a, b) => {
+        const targetedByWorkersACount = getTargetedByWorkers(units, a).length;
+        const targetedByWorkersBCount = getTargetedByWorkers(units, b).length;
+        return targetedByWorkersACount - targetedByWorkersBCount;
+      });
     }
     if (target) {
       const sendToGather = createUnitCommand(SMART, [unit]);
