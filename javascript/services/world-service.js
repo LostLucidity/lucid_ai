@@ -949,8 +949,8 @@ const worldService = {
     for (let i = 0; i < potentialFightersByDistance.length; i++) {
       const fighter = potentialFightersByDistance[i];
       const fighterDPSHealth = worldService.getDPSHealth(world, fighter, targetUnit['selfUnits'].map((/** @type {Unit} */ unit) => unit.unitType));
-      if (dpsHealth + fighterDPSHealth > selfDPSHealth) break;
       fighters.push(fighter);
+      if (dpsHealth + fighterDPSHealth >= selfDPSHealth) break;
       dpsHealth += fighterDPSHealth;
     }
     return fighters.some(fighter => fighter.tag === worker.tag);
