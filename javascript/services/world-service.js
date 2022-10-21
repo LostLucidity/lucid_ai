@@ -1075,7 +1075,7 @@ const worldService = {
             const { progress } = closestBaseByPath.orders[0];
             if (buildTime === undefined || progress === undefined) return collectedActions;
             buildTimeLeft = getBuildTimeLeft(closestBaseByPath, buildTime, progress);
-            let baseTimeToPosition = (baseDistanceToPosition / movementSpeed) + buildTimeLeft;
+            let baseTimeToPosition = (baseDistanceToPosition / movementSpeed) + getTimeInSeconds(buildTimeLeft) + movementSpeed;
             rallyBase = timeToPosition > baseTimeToPosition;
             timeToPosition = rallyBase ? baseTimeToPosition : timeToPosition;
           }
@@ -1085,7 +1085,7 @@ const worldService = {
       const timeToTargetCost = getTimeToTargetCost(world, unitType);
       const timeToTargetTech = getTimeToTargetTech(world, unitType);
       const timeToTargetCostOrTech = timeToTargetTech > timeToTargetCost ? timeToTargetTech : timeToTargetCost;
-      if (shouldPremoveNow(world, timeToTargetCostOrTech, timeToPosition) && buildTimeLeft <= timeToPosition) {
+      if (shouldPremoveNow(world, timeToTargetCostOrTech, timeToPosition)) {
         if (rallyBase) {
           collectedActions.push(...rallyWorkerToTarget(world, position));
           collectedActions.push(...stopUnitFromMovingToPosition(builder, position));
