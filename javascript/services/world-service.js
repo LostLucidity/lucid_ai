@@ -1051,8 +1051,8 @@ const worldService = {
       // get speed, distance and average collection rate
       const { movementSpeed } = builder.data();
       const pathablePositions = getPathablePositions(map, position);
-      const { pos } = builder;
-      if (pos === undefined || movementSpeed === undefined) return collectedActions;
+      const { orders, pos } = builder;
+      if (movementSpeed === undefined || orders === undefined || pos === undefined) return collectedActions;
       const [closestPositionByPath] = getClosestPositionByPath(resources, pos, pathablePositions);
       let builderDistanceToPosition = getDistanceByPath(resources, pos, closestPositionByPath);
       if (debug !== undefined) {
@@ -1090,7 +1090,7 @@ const worldService = {
           collectedActions.push(...rallyWorkerToTarget(world, position));
           collectedActions.push(...stopUnitFromMovingToPosition(builder, position));
         } else {
-          console.log(`Is builder returning: ${builder.isReturning()}`);
+          if (orders.length > 0) console.log('builder order', orders[0]);
           unitCommand.targetWorldSpacePos = position;
           setBuilderLabel(builder);
           collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
