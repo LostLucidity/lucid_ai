@@ -124,7 +124,7 @@ module.exports = createSystem({
       const mineralFields = units.getMineralFields().filter(field => field.pos && map.getHeight(field.pos) === map.getHeight(pos) && distance(field.pos, pos) < 16);
       const [mineralFieldTarget] = units.getClosest(pos, mineralFields);
       const rallyAbility = rallyWorkersAbilities.find(ability => newBuilding.abilityAvailable(ability));
-      if (rallyAbility) {
+      if (mineralFieldTarget && rallyAbility) {
         const unitCommand = createUnitCommand(rallyAbility, [newBuilding]);
         unitCommand.targetUnitTag = mineralFieldTarget.tag;
         collectedActions.push(unitCommand);

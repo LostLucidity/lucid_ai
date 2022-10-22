@@ -227,13 +227,8 @@ const worldService = {
       const unitTypes = data.findUnitTypesWithAbility(abilityId);
       if (!unitTypes.includes(UnitType.NYDUSNETWORK)) {
         if (agent.canAfford(unitType) && !stepAhead) {
-          if (await actions.canPlace(unitType, [planService.foundPosition])) {
-            await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, planService.foundPosition));
-            planService.pausePlan = false;
-            planService.continueBuild = true;
-            dataService.addEarmark(data, data.getUnitTypeData(unitType));
-            planService.foundPosition = null;
-          } else {
+          const canPlaceOrFalse = await actions.canPlace(unitType, [planService.foundPosition]);
+          if (canPlaceOrFalse === false) {
             planService.foundPosition = keepPosition(resources, unitType, planService.foundPosition) ? planService.foundPosition : null;
             if (planService.foundPosition) {
               collectedActions.push(...worldService.premoveBuilderToPosition(world, planService.foundPosition, unitType, stepAhead));
@@ -242,6 +237,12 @@ const worldService = {
               planService.pausePlan = true;
               planService.continueBuild = false;
             }
+          } else {
+            await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, canPlaceOrFalse));
+            planService.pausePlan = false;
+            planService.continueBuild = true;
+            dataService.addEarmark(data, data.getUnitTypeData(unitType));
+            planService.foundPosition = null;
           }
         } else {
           collectedActions.push(...worldService.premoveBuilderToPosition(world, planService.foundPosition, unitType, stepAhead));
