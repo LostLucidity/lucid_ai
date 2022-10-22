@@ -5,7 +5,7 @@ const { EFFECT_REPAIR, STOP } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { PROBE, COLOSSUS } = require("@node-sc2/core/constants/unit-type");
+const { PROBE, COLOSSUS, MULE } = require("@node-sc2/core/constants/unit-type");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -79,10 +79,11 @@ const unitResourceService = {
    * returns {boolean}
    **/
   isMining(units, worker) {
-    const { pos } = worker;
+    const { pos, unitType } = worker;
     const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, worker);
-    if (orderTargetPosition === undefined || pos === undefined) return false;
-    return distance(pos, orderTargetPosition) < 1.62;
+    if (orderTargetPosition === undefined || pos === undefined || unitType === undefined) { return false; }
+    const minimumDistanceToMinerals = unitType === MULE ? 1.92 : 1.62;
+    return distance(pos, orderTargetPosition) < minimumDistanceToMinerals;
   },
   isRepairing(unit) {
     return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);

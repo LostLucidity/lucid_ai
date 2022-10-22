@@ -2,8 +2,6 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { SIEGETANK, SIEGETANKSIEGED, MARINE, LIBERATOR, SUPPLYDEPOT, LIBERATORAG, ORBITALCOMMAND, MARAUDER, SUPPLYDEPOTLOWERED, OVERLORD, OVERSEER, OBSERVER, BARRACKS } = require("@node-sc2/core/constants/unit-type");
-const { MORPH_SIEGEMODE, MORPH_UNSIEGE, EFFECT_STIM_MARINE, MORPH_LIBERATORAGMODE, MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE, MORPH_LIBERATORAAMODE, EFFECT_CALLDOWNMULE, EFFECT_SCAN, MOVE } = require("@node-sc2/core/constants/ability");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getOccupiedExpansions, getBase } = require("../expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
@@ -12,13 +10,15 @@ const { getInRangeUnits, calculateHealthAdjustedSupply } = require("../battle-an
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
-const { isRepairing, setPendingOrders } = require("../../systems/unit-resource/unit-resource-service");
+const { isRepairing, setPendingOrders, isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
-const { moveAwayPosition } = require("../../services/position-service");
+const { moveAwayPosition, getDistance } = require("../../services/position-service");
 const { getCombatRally } = require("../location");
 const { retreat, pullWorkersToDefend } = require("../../services/world-service");
 const { canAttack } = require("../../services/resources-service");
+const { getTimeInSeconds } = require("../../services/frames-service");
+const { UnitType } = require("@node-sc2/core/constants");
 
 module.exports = {
   /**
@@ -28,7 +28,7 @@ module.exports = {
   barracksBehavior: (resources) => {
     const collectedActions = [];
     const { units } = resources.get();
-    units.getByType(BARRACKS).forEach(unit => {
+    units.getByType(UnitType.BARRACKS).forEach(unit => {
       const foundRallyAbility = unit.availableAbilities().find(ability => ability === Ability.RALLY_BUILDING);
       if (foundRallyAbility) {
         const unitCommand = createUnitCommand(foundRallyAbility, [unit]);
@@ -44,11 +44,12 @@ module.exports = {
     return collectedActions;
   },
   orbitalCommandCenterBehavior: (resources, action) => {
+    const { EFFECT_CALLDOWNMULE, EFFECT_SCAN } = Ability;
     const {
       units,
     } = resources.get();
     const collectedActions = [];
-    const orbitalCommand = units.getById(ORBITALCOMMAND).find(n => n.energy > 50);
+    const orbitalCommand = units.getById(UnitType.ORBITALCOMMAND).find(n => n.energy > 50);
     if (orbitalCommand) {
       const expansions = getOccupiedExpansions(resources).filter(expansion => getBase(resources, expansion).buildProgress >= 1);
       if (expansions.length >= 0) {
@@ -81,18 +82,19 @@ module.exports = {
     return collectedActions;
   },
   liberatorBehavior: (resources) => {
+    const { MORPH_LIBERATORAAMODE, MORPH_LIBERATORAGMODE } = Ability;
     const {
       units,
     } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType) && !(unit.isStructure()));
-    units.getByType(LIBERATOR).filter(liberator => {
+    units.getByType(UnitType.LIBERATOR).filter(liberator => {
       let [closestEnemyUnit] = units.getClosest(liberator.pos, enemyUnits, 1);
       if (closestEnemyUnit && !closestEnemyUnit.isFlying) {
         collectedActions.push(...triggerAbilityByDistance(liberator, closestEnemyUnit.pos, '<', 10, MORPH_LIBERATORAGMODE, 'target'));
       }
     });
-    units.getByType(LIBERATORAG).filter(liberator => {
+    units.getByType(UnitType.LIBERATORAG).filter(liberator => {
       let [closestEnemyUnit] = units.getClosest(liberator.pos, enemyUnits, 1);
       if (closestEnemyUnit && !closestEnemyUnit.isFlying) {
         collectedActions.push(...triggerAbilityByDistance(liberator, closestEnemyUnit.pos, '>', 10, MORPH_LIBERATORAAMODE));
@@ -110,9 +112,10 @@ module.exports = {
     const {
       units,
     } = resources.get();
+    const { EFFECT_STIM_MARINE } = Ability;
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
-    units.getByType(MARINE).filter(marine => {
+    units.getByType(UnitType.MARINE).filter(marine => {
       let [closestEnemyUnit] = units.getClosest(marine.pos, enemyUnits, 1);
       if (closestEnemyUnit) {
         if (marine.health / marine.healthMax === 1 && marine.abilityAvailable(EFFECT_STIM_MARINE)) {
@@ -126,9 +129,10 @@ module.exports = {
     const {
       units,
     } = resources.get();
+    const { EFFECT_STIM_MARINE } = Ability;
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
-    units.getByType(MARAUDER).filter(marauder => {
+    units.getByType(UnitType.MARAUDER).filter(marauder => {
       let [closestEnemyUnit] = units.getClosest(marauder.pos, enemyUnits, 1);
       if (closestEnemyUnit) {
         if (marauder.health / marauder.healthMax === 1 && marauder.abilityAvailable(EFFECT_STIM_MARINE)) {
@@ -138,15 +142,50 @@ module.exports = {
     });
     return collectedActions;
   },
+  /**
+   * @param {ResourceManager} resources
+   */
+  muleBehavior: (resources) => {
+    const { SMART } = Ability;
+    const { units } = resources.get();
+    const collectedActions = [];
+    const mules = units.getByType(UnitType.MULE);
+    // get mules that are gathering but not on a mineral field
+    const mulesGatheringButNotMining = mules.filter(mule => mule.isGathering() && !isMining(units, mule));
+    // check time left on mule
+    mulesGatheringButNotMining.forEach(mule => {
+      // if time left is less than 5 seconds, send it away
+      const { buffDurationRemain, orders, pos } = mule;
+      if (buffDurationRemain === undefined || orders === undefined || pos === undefined) return;
+      // find order that is mining from far mineral field
+      const miningOrder = orders.find(order => order.targetUnitTag !== undefined);
+      if (miningOrder === undefined) return;
+      const { targetUnitTag } = miningOrder;
+      if (targetUnitTag === undefined) return;
+      const targetUnit = units.getByTag(targetUnitTag);
+      if (targetUnit === undefined) return;
+      const { pos: targetPos } = targetUnit;
+      if (targetPos === undefined) return;
+      if (getTimeInSeconds(buffDurationRemain) < 5.59 && getDistance(pos, targetPos) < 16) {
+        const mineralFields = units.getMineralFields();
+        const randomMineralField = getRandom(mineralFields.filter(mineralField => mineralField.pos && getDistance(pos, mineralField.pos) > 16));
+        const unitCommand = createUnitCommand(SMART, [mule]);
+        unitCommand.targetUnitTag = randomMineralField.tag;
+        collectedActions.push(unitCommand);
+      }
+    });
+    return collectedActions; 
+  },
   observerBehavior: (world) => {
     const collectedActions = [];
     const { units } = world.resources.get()
-    collectedActions.push(...shadowEnemy(world, units.getById(OBSERVER)));
+    collectedActions.push(...shadowEnemy(world, units.getById(UnitType.OBSERVER)));
     return collectedActions;
   },
   overlordBehavior: (world) => {
     const collectedActions = [];
     const { units } = world.resources.get()
+    const { OVERLORD, OVERSEER } = UnitType;
     collectedActions.push(...shadowEnemy(world, units.getById([OVERLORD, OVERSEER])));
     return collectedActions;
   },
@@ -156,9 +195,11 @@ module.exports = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   supplyDepotBehavior: (resources) => {
+    const { MORPH_SUPPLYDEPOT_LOWER, MORPH_SUPPLYDEPOT_RAISE } = Ability;
     const { units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY);
+    const { SUPPLYDEPOT, SUPPLYDEPOTLOWERED } = UnitType;
     units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).filter(depot => {
       let [closestEnemyUnit] = units.getClosest(depot.pos, enemyUnits.filter(unit => !unit.isFlying), 1);
       if (closestEnemyUnit && distance(closestEnemyUnit.pos, depot.pos) < 16) {
@@ -169,9 +210,10 @@ module.exports = {
     });
     return collectedActions;
   },
-
   tankBehavior: (units, target) => {
     const collectedActions = [];
+    const { MORPH_SIEGEMODE, MORPH_UNSIEGE } = Ability;
+    const { SIEGETANK, SIEGETANKSIEGED } = UnitType;
     // get siege tanks
     if (target) {
       units.getByType(SIEGETANK).filter(tank => {
@@ -202,6 +244,7 @@ module.exports = {
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
   workerBehavior: async (world) => {
+    const { MOVE } = Ability;
     const { agent, resources } = world
     const { frame, units } = resources.get();
     const collectedActions = [];
