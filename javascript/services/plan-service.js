@@ -24,6 +24,7 @@ const planService = {
   currentStep: 0,
   /** @type {number} */
   foodMark: 12,
+  /** @type {Point2D | null} */
   foundPosition: null,
   /** @type {boolean} */
   isPlanPaused: null,

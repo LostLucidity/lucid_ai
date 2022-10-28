@@ -163,7 +163,13 @@ const unitResourceService = {
       }
       const constructionPosition = unit.orders[0].targetWorldSpacePos ? unit.orders[0].targetWorldSpacePos : units.getByTag(unit.orders[0].targetUnitTag).pos;
       const buildingAtOrderPosition = units.getAlive().filter(unit => unit.isStructure()).find(structure => unit.orders[0].targetWorldSpacePos && distance(structure.pos, constructionPosition) < 1);
-      if (buildingAtOrderPosition && buildingAtOrderPosition.buildProgress >= 1) {
+      if (buildingAtOrderPosition) {
+        const { buildProgress } = buildingAtOrderPosition;
+        if (buildProgress === undefined) return false;
+        if (buildProgress >= 1) {
+          unitIsConstructing = false;
+        }
+      } else {
         unitIsConstructing = false;
       }
     }
@@ -183,7 +189,7 @@ const unitResourceService = {
       ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(units, proxy)),
     ].filter(worker => {
       const gatheringAndMining = worker.isGathering() && unitResourceService.isMining(units, worker);
-      return !worker.isReturning() && !gatheringAndMining;
+      return !worker.isReturning() || !gatheringAndMining;
     });
     return builders;
   },

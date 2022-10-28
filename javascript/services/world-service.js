@@ -65,16 +65,17 @@ const worldService = {
   /**
    * @param {World} world 
    * @param {UnitTypeId} unitType 
-   * @param {Point2D} position 
+   * @param {Point2D} position
+   * @param {Boolean} getMiddle
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  assignAndSendWorkerToBuild: (world, unitType, position) => {
+  assignAndSendWorkerToBuild: (world, unitType, position, getMiddle=true) => {
     const { agent, data, resources } = world;
     const { race } = agent;
     const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
     const collectedActions = [];
-    position = getMiddleOfStructure(position, unitType);
+    position = getMiddle ? getMiddleOfStructure(position, unitType) : position;
     const builder = worldService.getBuilder(world, position);
     if (builder) {
       const { pos } = builder;

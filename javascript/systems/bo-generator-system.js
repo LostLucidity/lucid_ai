@@ -11,13 +11,14 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const foodUsedService = require("../services/food-used-service");
 const planService = require("../services/plan-service");
 const sharedService = require("../services/shared-service");
-const { getUnitTypeCount, getFoodUsed, shortOnWorkers } = require("../services/world-service");
+const { getUnitTypeCount, getFoodUsed, shortOnWorkers, getBuilder, assignAndSendWorkerToBuild } = require("../services/world-service");
 const { build, train, upgrade, runPlan } = require("./execute-plan/plan-actions");
 const scoutingService = require("./scouting/scouting-service");
 const { v4: uuidv4 } = require('uuid');
 const dataService = require("../services/data-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
 const { supplyTypes } = require("../helper/groups");
+const { getDistanceByPath } = require("../services/resource-manager-service");
 
 let upgradeAbilities = [];
 module.exports = createSystem({
@@ -45,9 +46,10 @@ module.exports = createSystem({
   },
   async onStep(world) {
     const { agent, data, resources } = world;
-    const { units } = resources.get();
+    const { actions, units } = resources.get();
     const { mineralMaxThreshold, mineralMinThreshold } = planService;
     sharedService.removePendingOrders(units);
+    const collectedActions = [];
     // starting at 12 food, while at current food, 1/3 chance of action else build drone and increment food by 1
     await runPlan(world);
     const trueFoodUsed = getFoodUsed(world)
@@ -77,7 +79,9 @@ module.exports = createSystem({
       const allAvailableAbilities = getAllAvailableAbilities(data, units);
       await runAction(world, allAvailableAbilities);
     }
+    collectedActions.push(...optimizeBuildCommands(world));
     data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
+    return actions.sendAction(collectedActions);
   },
   async onEnemyFirstSeen(_world, seenEnemyUnit) {
     scoutingService.opponentRace = seenEnemyUnit.data().race;
@@ -150,17 +154,19 @@ function getAllAvailableAbilities(data, units) {
 /**
  * @param {World} world
  * @param {any} allAvailableAbilities
- * @returns 
+ * @returns {Promise<void>}
  */
 async function runAction(world, allAvailableAbilities) {
   const { agent, data, resources } = world;
+  const { actions } = resources.get();
   const { foodUsed } = agent;
   if (foodUsed === undefined) return;
   const { map, units } = resources.get();
-  const actions = Array.from(allAvailableAbilities.values());
+  const collectedActions = [];
+  const allAvailableAbilitiesArray = Array.from(allAvailableAbilities.values());
   let actionTaken = false;
-  while (!actionTaken && actions.length > 0) {
-    const [action] = actions.splice(Math.floor(Math.random() * actions.length), 1);
+  while (!actionTaken && allAvailableAbilitiesArray.length > 0) {
+    const [action] = allAvailableAbilitiesArray.splice(Math.floor(Math.random() * allAvailableAbilitiesArray.length), 1);
     const { orderType, unitType } = action;
     if (orderType === 'UnitType') {
       const unitTypeCount = getUnitTypeCount(world, unitType) + (unitType === DRONE ? units.getStructures().length - 1 : 0);
@@ -197,5 +203,57 @@ async function runAction(world, allAvailableAbilities) {
       actionTaken = true;
     }
   }
+  if (collectedActions.length > 0) {
+    await actions.sendAction(collectedActions);
+  }
 }
-
+/**
+ * @param {World} world 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function optimizeBuildCommands(world) {
+  const { agent, data, resources } = world;
+  const { units } = resources.get();
+  const collectedActions = [];
+  units.getWorkers().forEach(worker => {
+    const { orders, pos } = worker;
+    if (orders === undefined || pos === undefined) return;
+    let unitType;
+    const foundOrder = orders.find(order => {
+      const { abilityId } = order;
+      if (abilityId === undefined) return false;
+      const unitTypeTrainingAbilities = dataService.unitTypeTrainingAbilities;
+      unitType = unitTypeTrainingAbilities.get(abilityId);
+      if (unitType === undefined) return false;
+      const { attributes } = data.getUnitTypeData(unitType);
+      if (attributes === undefined) return false;
+      if (attributes.includes(Attribute.STRUCTURE)) {
+        const { targetWorldSpacePos } = order;
+        if (targetWorldSpacePos === undefined) return false;
+        const { x, y } = targetWorldSpacePos;
+        if (x === undefined || y === undefined) return false;
+        const structure = units.getStructures().find(structure => {
+          const { pos } = structure;
+          if (pos === undefined) return false;
+          const { x: structureX, y: structureY } = pos;
+          if (structureX === undefined || structureY === undefined) return false;
+          return structureX === x && structureY === y;
+        });
+        return structure === undefined;
+      }
+      return false;
+    });
+    if (foundOrder === undefined) return;
+    const { targetWorldSpacePos } = foundOrder;
+    if (targetWorldSpacePos === undefined) return;
+    const closestWorker = getBuilder(world, targetWorldSpacePos);
+    if (closestWorker === null) return;
+    const { pos: closestWorkerPos } = closestWorker;
+    if (closestWorkerPos === undefined || unitType === undefined) return;
+    if (closestWorker.tag === worker.tag || (getDistanceByPath(resources, pos, targetWorldSpacePos) <= getDistanceByPath(resources, closestWorkerPos, targetWorldSpacePos))) return;
+    if (agent.canAfford(unitType)) {
+      collectedActions.push(...assignAndSendWorkerToBuild(world, unitType, targetWorldSpacePos, false));
+    }
+  });
+  return collectedActions;
+}
