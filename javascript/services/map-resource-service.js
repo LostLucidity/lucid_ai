@@ -56,8 +56,8 @@ const MapResourceService = {
         const foundNonPathable = pathCoordinates.some(coordinate => !map.isPathable(coordinate));
         if (foundNonPathable) {
           force = true;
-          mapPath = map.path(startGrid, endGrid, { force });
-          mapPath = mapPath.length === 0 ? map.path(endGrid, startGrid, { force }) : mapPath;
+          mapPath = map.path(start, end, { force });
+          mapPath = mapPath.length === 0 ? map.path(end, start, { force }) : mapPath;
         }
       }
       return mapPath;
