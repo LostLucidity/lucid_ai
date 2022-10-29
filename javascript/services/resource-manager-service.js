@@ -193,7 +193,12 @@ const resourceManagerService = {
     try {
       const line = getLine(position, targetPosition);
       let distance = 0;
-      const everyLineIsPathable = line.every(point => {
+      const everyLineIsPathable = line.every((point, index) => {
+        if (index > 0) {
+          const previousPoint = line[index - 1];
+          const heightDifference = map.getHeight(point) - map.getHeight(previousPoint);
+          if (heightDifference > 1) return false;
+        }
         const [closestPathablePosition] = getClosestPathablePositions(map, point);
         return closestPathablePosition !== undefined && map.isPathable(closestPathablePosition);
       });
