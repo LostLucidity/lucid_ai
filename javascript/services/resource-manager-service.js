@@ -6,7 +6,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
-const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePosition } = require("./map-resource-service");
+const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
 const { getDistance } = require("./position-service");
 
@@ -69,7 +69,9 @@ const resourceManagerService = {
   getClosestPathablePositionsBetweenPositions: (resources, position, targetPosition) => {
     const { map } = resources.get();
     const pathablePositions = getPathablePositions(map, position);
+    const isAnyPositionCorner = checkIfPositionIsCorner(pathablePositions, position);
     const pathableTargetPositions = getPathablePositions(map, targetPosition);
+    const isAnyTargetPositionCorner = checkIfPositionIsCorner(pathableTargetPositions, targetPosition);
     const distancesAndPositions = pathablePositions.map(pathablePosition => {
       const distancesToTargetPositions = pathableTargetPositions.map(pathableTargetPosition => {
         return {
@@ -78,10 +80,27 @@ const resourceManagerService = {
           distance: resourceManagerService.getDistanceByPath(resources, pathablePosition, pathableTargetPosition)
         };
       });
-      return distancesToTargetPositions.reduce((acc, curr) => {
-        return acc.distance < curr.distance ? acc : curr;
-      });
+      if (isAnyPositionCorner || isAnyTargetPositionCorner) {
+        const averageDistance = distancesToTargetPositions.reduce((acc, { distance }) => acc + distance, 0) / distancesToTargetPositions.length;
+        return {
+          pathablePosition,
+          pathableTargetPosition: targetPosition,
+          distance: averageDistance
+        };
+      } else {
+        return distancesToTargetPositions.reduce((acc, curr) => acc.distance < curr.distance ? acc : curr);
+      }
     }).sort((a, b) => a.distance - b.distance);
+    if (isAnyPositionCorner || isAnyTargetPositionCorner) {
+      const averageDistance = distancesAndPositions.reduce((acc, curr) => {
+        return acc + curr.distance;
+      }, 0) / distancesAndPositions.length;
+      return {
+        pathablePosition: position,
+        pathableTargetPosition: targetPosition,
+        distance: averageDistance
+      };
+    }
     return distancesAndPositions[0];
   },
   /**
@@ -112,9 +131,9 @@ const resourceManagerService = {
       if (pos === undefined) return;
       const mappedUnits = { unit }
       if (unit.isFlying) {
-        mappedUnits.distance = distance(position, pos);
+        mappedUnits.distance = distance(pos, position);
       } else {
-        const closestPathablePositionBetweenPositions = resourceManagerService.getClosestPathablePositionsBetweenPositions(resources, position, pos);
+        const closestPathablePositionBetweenPositions = resourceManagerService.getClosestPathablePositionsBetweenPositions(resources, pos, position);
         mappedUnits.distance = closestPathablePositionBetweenPositions.distance;
       }
       return mappedUnits;
@@ -171,19 +190,20 @@ const resourceManagerService = {
     try {
       const line = getLine(position, targetPosition);
       let distance = 0;
-      if (line.every(point => map.isPathable(getClosestPathablePosition(map, point)))) {
+      const everyLineIsPathable = line.every(point => {
+        const [closestPathablePosition] = getClosestPathablePositions(map, point);
+        return closestPathablePosition !== undefined && map.isPathable(closestPathablePosition);
+      });
+      if (everyLineIsPathable) {
         return getDistance(position, targetPosition);
       } else {
         let path = getMapPath(map, position, targetPosition);
         const pathCoordinates = getPathCoordinates(path);
-          const straightLines = getStraightLines(map, pathCoordinates);
-          const straightLineDistances = straightLines.map(straightLine => {
-            const start = straightLine[0];
-            const end = straightLine[straightLine.length - 1];
-            if (start === undefined || end === undefined) return 0;
-            return getDistance(start, end);
-          });
-          distance = straightLineDistances.reduce((acc, curr) => acc + curr, 0);
+        distance = pathCoordinates.reduce((acc, curr, index) => {
+          if (index === 0) return acc;
+          const prev = pathCoordinates[index - 1];
+          return acc + getDistance(prev, curr);
+        }, 0);
         const calculatedZeroPath = path.length === 0;
         const isZeroPathDistance = calculatedZeroPath && getDistance(position, targetPosition) <= 2 ? true : false;
         const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
@@ -213,41 +233,6 @@ function getUnitsWithinDistance(pos, units, maxDistance) {
 }
 
 /**
- * @param {MapResource} map
- * @param {Point2D[]} pathCoordinates 
- * returns an array of array of points
- * @returns {Point2D[][]}
- */
-function getStraightLines(map, pathCoordinates, calls=0) {
-  const firstCoordinate = pathCoordinates[0];
-  const lastCoordinate = pathCoordinates[pathCoordinates.length - 1];
-  if (pathCoordinates.length > 2) {
-    /** @type {Point2D[][]} */
-    const straightLines = [];
-    const straightLine = getLine(firstCoordinate, lastCoordinate, pathCoordinates.length);
-    const straightLineIsPathableIndex = straightLine.findIndex(point => !map.isPathable(getClosestPathablePosition(map, point)));
-    if (straightLineIsPathableIndex === -1) {
-      straightLines.push(straightLine);
-    } else {
-      straightLines.push(straightLine.slice(0, straightLineIsPathableIndex));
-      const newStraightLineStart = straightLine[straightLineIsPathableIndex];
-      const closestPointToNewStraightLineStart = pathCoordinates.reduce((acc, curr) => {
-        const accDistance = getDistance(acc, newStraightLineStart);
-        const currDistance = getDistance(curr, newStraightLineStart);
-        return accDistance < currDistance ? acc : curr;
-      });
-      const closestPointToNewStraightLineStartIndex = pathCoordinates.findIndex(point => areEqual(point, closestPointToNewStraightLineStart));
-      const newStraightLine = getStraightLines(map, pathCoordinates.slice(closestPointToNewStraightLineStartIndex === 0 ? 1 : closestPointToNewStraightLineStartIndex), calls + 1);
-      straightLines.push(...newStraightLine);
-    }
-    return straightLines;
-  } else {
-    return [pathCoordinates];
-  }
-}
-
-/**
- * 
  * @param {Point2D} start 
  * @param {Point2D} end 
  * @param {Number} steps
@@ -269,3 +254,18 @@ function getLine(start, end, steps=0) {
   }
   return points;
 }
+/**
+ * @param {Point2D[]} positions 
+ * @param {Point2D} position 
+ * @returns {Boolean}
+ */
+function checkIfPositionIsCorner(positions, position) {
+  return positions.some(pos => {
+    const { x, y } = position;
+    const { x: pathableX, y: pathableY } = pos;
+    if (x === undefined || y === undefined || pathableX === undefined || pathableY === undefined) { return false; }
+    const halfway = Math.abs(x - pathableX) === 0.5 || Math.abs(y - pathableY) === 0.5;
+    return halfway && getDistance(position, pos) <= 1;
+  });
+}
+
