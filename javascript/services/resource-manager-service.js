@@ -1,11 +1,14 @@
 //@ts-check
 "use strict"
 
+const { UnitType } = require("@node-sc2/core/constants");
 const { SMART } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { combatTypes } = require("@node-sc2/core/constants/groups");
 const { distance, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
+const dataService = require("./data-service");
 const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
 const { getDistance } = require("./position-service");
@@ -213,6 +216,29 @@ const resourceManagerService = {
     } catch (error) {
       return Infinity;
     }
+  },
+  /**
+   * @param {ResourceManager} resources
+   * @returns {UnitTypeId[]}
+   */
+  getTrainingUnitTypes: (resources) => {
+    const { units } = resources.get();
+    const trainingUnitTypes = new Set();
+    const combatTypesPlusQueens = [...combatTypes, UnitType.QUEEN];
+    const unitsWithOrders = units.getAlive(Alliance.SELF).filter(unit => unit.orders !== undefined && unit.orders.length > 0);
+    unitsWithOrders.forEach(unit => {
+      const { orders } = unit;
+      if (orders === undefined) return false;
+      const abilityIds = orders.map(order => order.abilityId);
+      abilityIds.forEach(abilityId => {
+        if (abilityId === undefined) return false;
+        const unitType = dataService.unitTypeTrainingAbilities.get(abilityId);
+        if (unitType !== undefined && combatTypesPlusQueens.includes(unitType)) {
+          trainingUnitTypes.add(unitType);
+        }
+      });
+    });
+    return [...trainingUnitTypes];
   },
 }
 

@@ -5,7 +5,7 @@ const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes, combatTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
+const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -468,7 +468,7 @@ const worldService = {
       );
       return doesNotExist && available;
     }));
-    const movingProbes = builderCandidates.filter(builder => isMoving(builder));
+    const movingProbes = builderCandidates.filter(builder => isMoving(builder) && builder.unitType === PROBE);
     builderCandidates = builderCandidates.filter(builder => !movingProbes.some(probe => probe.tag === builder.tag));
     const movingProbesTimeToPosition = movingProbes.map(movingProbe => {
       const { orders, pos } = movingProbe;
@@ -712,7 +712,8 @@ const worldService = {
    * @returns {number}
    */
   getTrainingPower: (world) => {
-    const trainingUnitTypes = worldService.getTrainingUnitTypes(world);
+    const { resources } = world;
+    const trainingUnitTypes = resourceManagerService.getTrainingUnitTypes(resources);
     const { enemyCombatUnits } = enemyTrackingService;
     return trainingUnitTypes.reduce((totalDPSHealth, unitType) => {
       return totalDPSHealth + worldService.getDPSHealthOfTrainingUnit(world, unitType, Alliance.SELF, enemyCombatUnits.map(enemyUnit => enemyUnit.unitType));
@@ -729,21 +730,6 @@ const worldService = {
     let { abilityId } = data.getUnitTypeData(unitType);
     if (abilityId === undefined) return [];
     return worldService.getUnitsWithCurrentOrders(units, [abilityId]);
-  },
-  /**
-   * @param {World} world
-   * @returns {UnitTypeId[]}
-   */
-  getTrainingUnitTypes: (world) => {
-    const { data, resources } = world;
-    const { units } = resources.get();
-    const trainingUnitTypes = [];
-    const combatTypesPlusQueens = [...combatTypes, UnitType.QUEEN];
-    combatTypesPlusQueens.forEach(type => {
-      let abilityId = data.getUnitTypeData(type).abilityId;
-      trainingUnitTypes.push(...units.withCurrentOrders(abilityId).map(() => type));
-    });
-    return trainingUnitTypes;
   },
   /**
    * @param {World} world
@@ -1403,7 +1389,10 @@ const worldService = {
     const selfCombatUnits = [...units.getCombatUnits(), ...units.getById(UnitType.QUEEN)];
     const { enemyCombatUnits } = enemyTrackingService;
     worldService.totalEnemyDPSHealth = enemyCombatUnits.reduce((totalDPSHealth, unit) => {
-      return totalDPSHealth + worldService.calculateNearDPSHealth(world, [unit], [...selfCombatUnits.map(selfCombatUnit => selfCombatUnit.unitType), ...worldService.getTrainingUnitTypes(world)]);
+      /** @type {UnitTypeId[]} */
+      // @ts-ignore
+      const unitTypes = [...selfCombatUnits.map(selfCombatUnit => selfCombatUnit.unitType), ...resourceManagerService.getTrainingUnitTypes(resources)].filter((unitType => unitType !== undefined));
+      return totalDPSHealth + worldService.calculateNearDPSHealth(world, [unit], unitTypes);
     }, 0);
   },
   /**
@@ -1417,7 +1406,7 @@ const worldService = {
     worldService.totalSelfDPSHealth = selfCombatUnits.reduce((totalDPSHealth, unit) => {
       return totalDPSHealth + worldService.calculateNearDPSHealth(world, [unit], enemyCombatUnits.map(enemyCombatUnit => enemyCombatUnit.unitType));
     }, 0);
-    worldService.totalSelfDPSHealth += worldService.getTrainingUnitTypes(world).reduce((totalDPSHealth, unitType) => {
+    worldService.totalSelfDPSHealth += resourceManagerService.getTrainingUnitTypes(resources).reduce((totalDPSHealth, unitType) => {
       return totalDPSHealth + worldService.calculateDPSHealthOfTrainingUnits(world, [unitType], Alliance.SELF, enemyCombatUnits);
     }, 0);
   },
