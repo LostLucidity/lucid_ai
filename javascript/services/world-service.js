@@ -96,12 +96,15 @@ const worldService = {
               if (pos === undefined) return collectedActions;
               const [closestExpansion] = getClosestExpansion(map, pos);
               const { mineralFields } = closestExpansion.cluster;
-              const neediestMineralField = getNeediestMineralField(units, mineralFields);
-              if (neediestMineralField) {
-                const unitCommand = gather(resources, builder, neediestMineralField, true);
+              let mineralField = getNeediestMineralField(units, mineralFields);
+              const unitCommand = gather(resources, builder, mineralField, true);
+              if (unitCommand && unitCommand.targetUnitTag) {
                 collectedActions.push(unitCommand);
-                builder.labels.set('mineralField', neediestMineralField);
-                neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
+                mineralField = mineralField ? mineralField : units.getByTag(unitCommand.targetUnitTag);
+                if (mineralField) {
+                  builder.labels.set('mineralField', mineralField);
+                  mineralField.labels.set('workerCount', mineralField.labels.get('workerCount') + 1);
+                }
               }
             }
           }

@@ -21,7 +21,7 @@ const resourceManagerService = {
   /**
    * @param {ResourceManager} resources
    * @param {Unit} unit 
-   * @param {Unit | null} mineralField
+   * @param {Unit | undefined} mineralField
    * @param {boolean} queue 
    * @returns {SC2APIProtocol.ActionRawUnitCommand | null}
    */
