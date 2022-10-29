@@ -1431,7 +1431,7 @@ const worldService = {
         idealHarvesters += ideal;
       } else {
         if (townhallTypes.includes(unitType)) {
-          const mineralFields = units.getMineralFields().filter(mineralField => {
+          const mineralFields = mineralCollector.labels.get('mineralFields') || units.getMineralFields().filter(mineralField => {
             const { pos } = mineralField;
             const { pos: townhallPos } = mineralCollector;
             if (pos === undefined || townhallPos === undefined) return false;
@@ -1444,6 +1444,9 @@ const worldService = {
               return false;
             }
           });
+          if (!mineralCollector.labels.has('mineralFields')) {
+            mineralCollector.labels.set('mineralFields', mineralFields);
+          }
           idealHarvesters += mineralFields.length * 2 * buildProgress;
         } else {
           idealHarvesters += 3 * buildProgress;
