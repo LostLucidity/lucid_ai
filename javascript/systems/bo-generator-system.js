@@ -7,7 +7,6 @@ const { Attribute, Alliance, Race } = require("@node-sc2/core/constants/enums");
 const { townhallTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { DRONE } = require("@node-sc2/core/constants/unit-type");
-const getRandom = require("@node-sc2/core/utils/get-random");
 const foodUsedService = require("../services/food-used-service");
 const planService = require("../services/plan-service");
 const sharedService = require("../services/shared-service");
@@ -19,6 +18,9 @@ const dataService = require("../services/data-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
 const { supplyTypes } = require("../helper/groups");
 const { getDistanceByPath } = require("../services/resource-manager-service");
+const { setScout } = require("./scouting/scouting-service");
+const getRandom = require("@node-sc2/core/utils/get-random");
+const { getTimeInSeconds } = require("../services/frames-service");
 
 let upgradeAbilities = [];
 module.exports = createSystem({
@@ -53,6 +55,7 @@ module.exports = createSystem({
     // starting at 12 food, while at current food, 1/3 chance of action else build drone and increment food by 1
     await runPlan(world);
     const trueFoodUsed = getFoodUsed(world)
+    scouting(world);
     // decide worker training when minerals greater then mineralMinThreshold and less then mineralMaxThreshold
     const decideWorkerTraining = agent.minerals > mineralMinThreshold && agent.minerals < mineralMaxThreshold;
     if (trueFoodUsed === planService.foodMark) {
@@ -256,4 +259,30 @@ function optimizeBuildCommands(world) {
     }
   });
   return collectedActions;
+}
+/**
+ * @param {World} world
+ * return {void}
+ */
+function scouting(world) {
+  const { agent, resources } = world;
+  const { race, foodUsed } = agent;
+  const { frame } = resources.get();
+  if (foodUsed === undefined) return;
+  const { map, units } = resources.get();
+  if (race === Race.TERRAN) {
+    const scout = getRandom([{ start: { food: 17 }, end: { time: 120 }, unitType: 'SCV', targetLocationFunction: 'EnemyMain' }]);
+    const { start, end, unitType, targetLocationFunction } = scout;
+    if (foodUsed >= start.food && getTimeInSeconds(frame.getGameLoop()) <= end.time) {
+      if (units.withLabel(`scout${targetLocationFunction}`).length === 0) {
+        setScout(units, map[`get${targetLocationFunction}`](), UnitType[unitType], `scout${targetLocationFunction}`);
+      }
+    } else {
+      // clear scout label and set clear from enemy label
+      units.withLabel('scoutEnemyMain').forEach(unit => {
+        unit.removeLabel('scoutEnemyMain');
+        unit.addLabel('clearFromEnemy', true);
+      });
+    }
+  }
 }

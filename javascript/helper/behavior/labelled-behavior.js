@@ -196,6 +196,7 @@ module.exports = {
             collectedActions.push(unitCommand);
           } else {
             if (randomPointsOfInterest.length > orders.length) {
+              if (unit.isGathering()) queueCommand = false;
               randomPointsOfInterest.forEach(point => {
                 const unitCommand = {
                   abilityId: MOVE,
@@ -204,6 +205,7 @@ module.exports = {
                   targetWorldSpacePos: point,
                 };
                 collectedActions.push(unitCommand);
+                queueCommand = true;
               });
             }
           }

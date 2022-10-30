@@ -3,10 +3,9 @@
 
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { PROBE } = require("@node-sc2/core/constants/unit-type");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getEnemyCombatSupply } = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("../track-units/track-units-service");
-const { getOrderTargetPosition } = require("../unit-resource/unit-resource-service");
+const unitResourceService = require("../unit-resource/unit-resource-service");
 
 const scoutService = {
   earlyScout: true,
@@ -35,12 +34,12 @@ const scoutService = {
       units.getById(unitType).filter(unit => {
         const { noQueue, orders, pos, unitType } = unit;
         if (noQueue === undefined || orders === undefined || pos === undefined || unitType === undefined) return false;
-        const orderTargetPosition = getOrderTargetPosition(units, unit);
+        const gatheringAndNotMining = unit.isGathering() && !unitResourceService.isMining(units, unit);
         return (
           noQueue ||
           orders && orders.some(order => order.abilityId === MOVE) ||
           unit.isConstructing() && unitType === PROBE ||
-          unit.isGathering() && orderTargetPosition && distance(pos, orderTargetPosition) > 1.62
+          gatheringAndNotMining
         )
       })
     );
