@@ -189,7 +189,7 @@ const unitResourceService = {
       ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(units, proxy)),
     ].filter(worker => {
       const gatheringAndMining = worker.isGathering() && unitResourceService.isMining(units, worker);
-      return !worker.isReturning() || !gatheringAndMining;
+      return !worker.isReturning() && !gatheringAndMining;
     });
     return builders;
   },
