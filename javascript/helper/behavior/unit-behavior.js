@@ -15,7 +15,7 @@ const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { moveAwayPosition, getDistance } = require("../../services/position-service");
 const { getCombatRally } = require("../location");
-const { retreat, pullWorkersToDefend } = require("../../services/world-service");
+const { retreat, pullWorkersToDefend, calculateNearDPSHealth } = require("../../services/world-service");
 const { canAttack } = require("../../services/resources-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
@@ -272,7 +272,13 @@ module.exports = {
               if (worker['pendingOrders'] === undefined || worker['pendingOrders'].length === 0) {
                 const [closestArmedEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
                 const [closestAttackableEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(enemyUnit => canAttack(resources, worker, enemyUnit)));
-                unitCommand.targetWorldSpacePos = retreat(world, worker, closestArmedEnemyUnit || closestAttackableEnemyUnit);
+                const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, getCombatRally(resources));
+                // @ts-ignore
+                const selfCombatRallyDPSHealth = calculateNearDPSHealth(world, selfCombatRallyUnits, closestEnemyUnit['inRangeUnits'].map((/** @type {{ Unit }} */ unit) => unit.unitType));
+                // @ts-ignore
+                const inRangeCombatUnitsOfEnemyDPSHealth = calculateNearDPSHealth(world, closestEnemyUnit['inRangeUnits'], selfCombatRallyUnits.map(unit => unit.unitType));
+                const shouldRallyToCombatRally = selfCombatRallyDPSHealth > inRangeCombatUnitsOfEnemyDPSHealth; 
+                unitCommand.targetWorldSpacePos = retreat(world, worker, closestArmedEnemyUnit || closestAttackableEnemyUnit, shouldRallyToCombatRally);
                 unitCommand.unitTags = workers.filter(unit => distance(unit.pos, worker.pos) <= 1).map(unit => {
                   setPendingOrders(unit, unitCommand);
                   return unit.tag;
@@ -323,3 +329,15 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
   }
   return collectedActions;
 }
+/**
+ * @param {World} world
+ * @param {Point2D} position
+ * @param {number} range
+ * @returns {Unit[]}
+ */
+function getUnitsInRangeOfPosition(world, position, range = 16) {
+  const { units } = world.resources.get();
+  const inRangeUnits = units.getCombatUnits(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) <= range);
+  return inRangeUnits;
+}
+

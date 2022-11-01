@@ -1081,7 +1081,6 @@ const worldService = {
           collectedActions.push(...rallyWorkerToTarget(world, position));
           collectedActions.push(...stopUnitFromMovingToPosition(builder, position));
         } else {
-          if (orders.length > 0) console.log('builder order', orders[0]);
           unitCommand.targetWorldSpacePos = position;
           setBuilderLabel(builder);
           collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));

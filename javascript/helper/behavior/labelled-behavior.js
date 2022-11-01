@@ -71,7 +71,6 @@ module.exports = {
       let [closestEnemyUnit] = units.getClosest(unit.pos, getDamageDealingUnits(world, unit, enemyTrackingService.mappedEnemyUnits), 1);
       if (
         !closestEnemyUnit ||
-        distance(unit.pos, closestEnemyUnit.pos) > 16 ||
         distance(unit.pos, combatRallyPosition) < 2
       ) {
         unit.labels.clear();
