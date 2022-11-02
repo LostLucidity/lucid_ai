@@ -335,6 +335,7 @@ const planActions = {
  * @param {World} world 
  */
   runPlan: async (world) => {
+    const { agent, data } = world;
     planService.continueBuild = true;
     planService.pausedThisRound = false;
     const { plan } = planService;
@@ -343,11 +344,14 @@ const planActions = {
         planService.currentStep = step;
         const planStep = plan[step];
         const { food, orderType, unitType } = planStep;
+        if (unitType === undefined || unitType === null ) break;
+        const { attributes } = data.getUnitTypeData(unitType);
+        if (attributes === undefined) break;
+        const { candidatePositions, targetCount } = planStep;
         if (getFoodUsed(world) + 1 >= food) {
           const stepAhead = getFoodUsed(world) + 1 === food;
           if (orderType === 'UnitType') {
-            const { candidatePositions, targetCount } = planStep;
-            if (world.data.getUnitTypeData(unitType).attributes.includes(Attribute.STRUCTURE)) {
+            if (attributes.includes(Attribute.STRUCTURE)) {
               await planActions.build(world, unitType, targetCount, candidatePositions, stepAhead);
             } else {
               if (stepAhead) break;
@@ -357,7 +361,19 @@ const planActions = {
             if (stepAhead) break;
             await planActions.upgrade(world, planStep.upgrade);
           }
-        } else { break; }
+        } else {
+          let { minerals } = agent;
+          if (minerals === undefined) break;
+          // if minerals are greater than threshold, build a structure from plan.
+          minerals = minerals - data.getEarmarkTotals('').minerals;
+          if (minerals > planService.mineralThreshold) {
+            // if unitType is structure, build it.
+            if (attributes.includes(Attribute.STRUCTURE)) {
+              await planActions.build(world, unitType, targetCount, planStep.candidatePositions, false);
+            }
+            break;
+          }
+        }
       } else {
         break;
       }

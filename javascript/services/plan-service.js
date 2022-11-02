@@ -30,6 +30,7 @@ const planService = {
   isPlanPaused: null,
   latestStep: 0,
   legacyPlan: null,
+  mineralThreshold: 512,
   naturalWallPylon: false,
   /** @type {boolean} */
   pausedThisRound: false,
