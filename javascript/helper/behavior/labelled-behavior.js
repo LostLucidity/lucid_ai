@@ -8,13 +8,13 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getPathablePositions } = require("../../services/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
-const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath } = require("../../services/resource-manager-service");
+const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally } = require("../../services/resource-manager-service");
 const { retreat, getDamageDealingUnits } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
 const { calculateTotalHealthRatio } = require("../../systems/unit-resource/unit-resource-service");
-const { getCombatRally, getRandomPoints, getAcrossTheMap } = require("../location");
+const { getRandomPoints, getAcrossTheMap } = require("../location");
 const { engageOrRetreat } = require("./army-behavior");
 
 module.exports = {

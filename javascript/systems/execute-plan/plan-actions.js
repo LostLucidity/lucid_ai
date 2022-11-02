@@ -364,10 +364,8 @@ const planActions = {
         } else {
           let { minerals } = agent;
           if (minerals === undefined) break;
-          // if minerals are greater than threshold, build a structure from plan.
           minerals = minerals - data.getEarmarkTotals('').minerals;
           if (minerals > planService.mineralThreshold) {
-            // if unitType is structure, build it.
             if (attributes.includes(Attribute.STRUCTURE)) {
               await planActions.build(world, unitType, targetCount, planStep.candidatePositions, false);
             }

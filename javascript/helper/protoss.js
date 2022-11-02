@@ -6,10 +6,10 @@ const { PYLON, NEXUS, ASSIMILATOR } = require("@node-sc2/core/constants/unit-typ
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
+const { getCombatRally } = require("../services/resource-manager-service");
 const { assignAndSendWorkerToBuild } = require("../services/world-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { getOccupiedExpansions } = require("./expansions");
-const { getCombatRally } = require("./location");
 const { findPosition } = require("./placement/placement-helper");
 
 module.exports = {

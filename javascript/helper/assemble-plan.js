@@ -49,6 +49,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { pointsOverlap } = require("./utilities");
 const resourceManagerService = require("../services/resource-manager-service");
+const { getTargetLocation } = require("../services/map-resource-service");
 
 let actions;
 let race;
@@ -475,15 +476,16 @@ class AssemblePlan {
     }
   }
   /**
+   * @param {MapResource} map
    * @param {number[]} foodRanges 
    * @param {UnitTypeId} unitType 
-   * @param {string} targetLocationFunction 
+   * @param {string} targetLocation
    * @param {{scoutType: string, label: string, unitType: UnitTypeId, unitCount: number}} conditions 
    * @returns 
    */
-  scout(foodRanges, unitType, targetLocationFunction, conditions) {
+  scout(map, foodRanges, unitType, targetLocation, conditions) {
     if (foodRanges.indexOf(this.foodUsed) > -1) {
-      const targetLocation = (this.map[targetLocationFunction] && this.map[targetLocationFunction]()) ? this.map[targetLocationFunction]().centroid : locationHelper[targetLocationFunction](this.map);
+      const location = getTargetLocation(map, `get${targetLocation}`);
       const label = conditions && conditions.label ? conditions.label : 'scout';
       let labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       const hasOrderToTargetLocation = labelledScouts.filter(scout => scout.orders.find(order => order.targetWorldSpacePos && distance(order.targetWorldSpacePos, targetLocation) < 16)).length > 0;
@@ -492,20 +494,20 @@ class AssemblePlan {
           if (conditions.scoutType && !scoutingService[conditions.scoutType]) { return; }
           if (conditions.unitType) {
             if (this.units.getByType(conditions.unitType).length === conditions.unitCount) { this.setScout(unitType, label, targetLocation); }
-          } else { this.setScout(unitType, label, targetLocation); }
-        } else { this.setScout(unitType, label, targetLocation); }
+          } else { this.setScout(unitType, label, location); }
+        } else { this.setScout(unitType, label, location); }
         labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
         const [scout] = labelledScouts;
         if (scout) {
-          if (distance(scout.pos, targetLocation) > 16 && calculateTotalHealthRatio(this.units, scout) > 1 / 2 && !scout.labels.has('Threatened')) {
+          if (distance(scout.pos, location) > 16 && calculateTotalHealthRatio(this.units, scout) > 1 / 2 && !scout.labels.has('Threatened')) {
             const unitCommand = {
               abilityId: MOVE,
-              targetWorldSpacePos: targetLocation,
+              targetWorldSpacePos: location,
               unitTags: [scout.tag],
             }
             this.collectedActions.push(unitCommand);
             console.log('Scout sent');
-            setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), `scouting ${targetLocationFunction}`);
+            setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), `scouting ${targetLocation}`);
           }
         }
       }
@@ -646,6 +648,7 @@ class AssemblePlan {
    * @param {ResourceManager} resources
    */
   async runPlan(resources) {
+    const { map } = resources.get();
     planService.continueBuild = true;
     planService.pendingFood = 0;
     for (let step = 0; step < planService.legacyPlan.length; step++) {
@@ -681,12 +684,12 @@ class AssemblePlan {
           case 'push': this.push(foodTarget); break;
           case 'scout': {
             unitType = planStep[2];
-            const targetLocationFunction = planStep[3];
+            const targetLocation = planStep[3];
             conditions = planStep[4];
             if (!conditions) { conditions = {}; }
-            const label = `scout${targetLocationFunction}`
+            const label = `scout${targetLocation}`
             conditions.label = label;
-            this.scout(foodTarget, unitType, `get${targetLocationFunction}`, conditions);
+            this.scout(map, foodTarget, unitType, targetLocation, conditions);
             break;
           }
           case 'train':

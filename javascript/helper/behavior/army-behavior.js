@@ -4,7 +4,7 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { LARVA, QUEEN, BUNKER, SIEGETANKSIEGED, ADEPTPHASESHIFT } = require("@node-sc2/core/constants/unit-type");
 const { MOVE, ATTACK_ATTACK, ATTACK, SMART, LOAD_BUNKER, STOP } = require("@node-sc2/core/constants/ability");
-const { getRandomPoint, getCombatRally } = require("../location");
+const { getRandomPoint } = require("../location");
 const { tankBehavior } = require("./unit-behavior");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { filterLabels } = require("../unit-selection");
@@ -23,7 +23,7 @@ const { getMovementSpeed, getWeaponThatCanAttack } = require("../../services/uni
 const worldService = require("../../services/world-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
 const healthTrackingService = require("../../systems/health-tracking/health-tracking-service");
-const { getClosestUnitByPath } = require("../../services/resource-manager-service");
+const { getClosestUnitByPath, getCombatRally } = require("../../services/resource-manager-service");
 
 const armyBehavior = {
   /**

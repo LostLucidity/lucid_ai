@@ -3,11 +3,11 @@
 
 const { BUNKER, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { engageOrRetreat } = require("./behavior/army-behavior");
-const { getCombatRally } = require("./location");
 const { tankBehavior } = require("./behavior/unit-behavior");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { createUnitCommand } = require("../services/actions-service");
 const { STOP } = require("@node-sc2/core/constants/ability");
+const { getCombatRally } = require("../services/resource-manager-service");
 
 /**
  * 

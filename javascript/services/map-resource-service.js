@@ -3,6 +3,7 @@
 
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, areEqual } = require("@node-sc2/core/utils/geometry/point");
+const location = require("../helper/location");
 const { getPathCoordinates } = require("./path-service");
 
 const MapResourceService = {
@@ -99,6 +100,14 @@ const MapResourceService = {
       } while (positions.length === 0);
     }
     return positions;
+  },
+  /**
+   * @param {MapResource} map 
+   * @param {string} targetLocationFunction
+   * @returns 
+   */
+  getTargetLocation: (map, targetLocationFunction) => {
+    return (map[targetLocationFunction] && map[targetLocationFunction]()) ? map[targetLocationFunction]().centroid : location[targetLocationFunction](map);
   }
 }
 

@@ -8,7 +8,6 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const threats = require("../helper/base-threats");
 const { getInRangeUnits, assessBattleField, decideEngagement } = require("../helper/battle-analysis");
 const { attackWithArmy, getInRangeDestructables } = require("../helper/behavior/army-behavior");
-const { getCombatRally } = require("../helper/location");
 const { scanCloakedEnemy } = require("../helper/terran");
 const fs = require('fs');
 const path = require("path");
@@ -18,7 +17,7 @@ const { getFileName } = require("../helper/get-races");
 const { larvaOrEgg } = require("../helper/groups");
 const { readFromMatchup, writeToCurrent } = require("../filesystem");
 const { getCombatPoint} = require("../services/resources-service");
-const { retreat, getClosestUnitByPath } = require("../services/resource-manager-service");
+const { retreat, getClosestUnitByPath, getCombatRally } = require("../services/resource-manager-service");
 const { moveAwayPosition } = require("../services/position-service");
 
 module.exports = createSystem({

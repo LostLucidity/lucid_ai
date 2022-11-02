@@ -4,7 +4,6 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints, add } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const resourceManagerService = require("../services/resource-manager-service");
 
 const location = {
   /**
@@ -21,17 +20,6 @@ const location = {
       position.y >= 0 &&
       position.y < mapSize.y
     );
-  },
-  /**
-   * @param {ResourceManager} resources 
-   * @returns {Point2D}
-   */
-  getCombatRally: (resources) => {
-    const { map, units } = resources.get();
-    return resourceManagerService.combatRally ?
-      resourceManagerService.combatRally :
-      map.getNatural() ?
-        map.getCombatRally() : location.getRallyPointByBases(map, units);
   },
   getRallyPointByBases: (map, units) => {
     const averageBasePosition = avgPoints(units.getBases().map(base => base.pos))

@@ -6,6 +6,7 @@ const { SMART } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes } = require("@node-sc2/core/constants/groups");
 const { distance, areEqual } = require("@node-sc2/core/utils/geometry/point");
+const location = require("../helper/location");
 const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
@@ -62,6 +63,19 @@ const resourceManagerService = {
       return sendToGather;
     }
     return null;
+  },
+  /**
+   * @param {ResourceManager} resources 
+   * @returns {Point2D}
+   */
+  getCombatRally: (resources) => {
+    const { map, units } = resources.get();
+    const { combatRally } = resourceManagerService;
+    if (combatRally) {
+      return combatRally;
+    } else {
+      return map.getNatural() ? map.getCombatRally() : location.getRallyPointByBases(map, units);
+    }
   },
   /**
    * @param {ResourceManager} resources

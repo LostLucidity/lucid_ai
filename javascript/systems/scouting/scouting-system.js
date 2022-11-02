@@ -109,18 +109,18 @@ function checkEnemyBuild(world) {
 async function setAndSendScout(world) {
   const { actions, frame, map, units } = world.resources.get();
   const collectedActions = [];
-  planService.scouts && planService.scouts.forEach((/** @type {{ end: any; start: any; targetLocationFunction: any; unitType: any; }} */ scout) => {
-    let { end, start, targetLocationFunction, unitType } = scout;
-    targetLocationFunction = `get${targetLocationFunction}`;
+  planService.scouts && planService.scouts.forEach((/** @type {{ end: any; start: any; targetLocation: any; unitType: any; }} */ scout) => {
+    let { end, start, targetLocation, unitType } = scout;
+    targetLocation = `get${targetLocation}`;
     unitType = UnitType[unitType];
     const startConditionMet = (start.food && start.food <= world.agent.foodUsed) || start.time <= frame.timeInSeconds();
     const endConditionMet = (end.food && end.food > world.agent.foodUsed) || end.time > frame.timeInSeconds();
     let label;
-    if (targetLocationFunction.includes('get')) {
-      label = targetLocationFunction.replace('get', 'scout')
+    if (targetLocation.includes('get')) {
+      label = targetLocation.replace('get', 'scout')
     }
     if (startConditionMet && endConditionMet) {
-      const targetLocation = (map[targetLocationFunction] && map[targetLocationFunction]()) ? map[targetLocationFunction]().centroid : placementHelper[targetLocationFunction](map);
+      const targetLocation = (map[targetLocation] && map[targetLocation]()) ? map[targetLocation]().centroid : placementHelper[targetLocation](map);
       let labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
         scoutService.setScout(units, targetLocation, unitType, label);

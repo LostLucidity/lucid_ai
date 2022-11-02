@@ -14,11 +14,11 @@ const { isRepairing, setPendingOrders, isMining } = require("../../systems/unit-
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { moveAwayPosition, getDistance } = require("../../services/position-service");
-const { getCombatRally } = require("../location");
 const { retreat, pullWorkersToDefend, calculateNearDPSHealth } = require("../../services/world-service");
 const { canAttack } = require("../../services/resources-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
+const { getCombatRally } = require("../../services/resource-manager-service");
 
 module.exports = {
   /**

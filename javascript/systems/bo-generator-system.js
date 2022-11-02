@@ -20,7 +20,7 @@ const { supplyTypes } = require("../helper/groups");
 const { getDistanceByPath } = require("../services/resource-manager-service");
 const { setScout } = require("./scouting/scouting-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { getTimeInSeconds } = require("../services/frames-service");
+const { getTargetLocation } = require("../services/map-resource-service");
 
 let upgradeAbilities = [];
 module.exports = createSystem({
@@ -265,24 +265,52 @@ function optimizeBuildCommands(world) {
  * return {void}
  */
 function scouting(world) {
-  const { agent, resources } = world;
-  const { race, foodUsed } = agent;
-  const { frame } = resources.get();
-  if (foodUsed === undefined) return;
-  const { map, units } = resources.get();
-  if (race === Race.TERRAN) {
-    const scout = getRandom([{ start: { food: 17 }, end: { time: 120 }, unitType: 'SCV', targetLocationFunction: 'EnemyMain' }]);
-    const { start, end, unitType, targetLocationFunction } = scout;
-    if (foodUsed >= start.food && getTimeInSeconds(frame.getGameLoop()) <= end.time) {
-      if (units.withLabel(`scout${targetLocationFunction}`).length === 0) {
-        setScout(units, map[`get${targetLocationFunction}`](), UnitType[unitType], `scout${targetLocationFunction}`);
-      }
-    } else {
-      // clear scout label and set clear from enemy label
-      units.withLabel('scoutEnemyMain').forEach(unit => {
-        unit.removeLabel('scoutEnemyMain');
-        unit.addLabel('clearFromEnemy', true);
-      });
+  const { agent } = world;
+  const { race } = agent;
+  switch (race) {
+    case Race.TERRAN: {
+      const scoutInfo = getRandom([{ start: { food: 17 }, end: { time: 120 }, unitType: 'SCV', targetLocation: 'EnemyMain' }]);
+      implementScout(world, scoutInfo);
+      break;
+    }
+    case Race.PROTOSS: {
+      const scoutInfo = getRandom([
+        {
+          start: { food: 14 },
+          end: { food: 19 },
+          unitType: 'PROBE',
+          targetLocation: 'EnemyMain',
+          scoutType: { unitType: 'PYLON', unitCount: 1, scoutType: 'earlyScout' }
+        }]);
+      implementScout(world, scoutInfo);
+      break;
     }
   }
 }
+/**
+ * @param {World} world 
+ * @param {any} scoutInfo 
+ */
+function implementScout(world, scoutInfo) {
+  const { agent, resources } = world;
+  const { foodUsed } = agent;
+  const { map, units } = resources.get();
+  if (foodUsed === undefined) return;
+  const { frame } = resources.get();
+  const { start, end, unitType, targetLocation, scoutType } = scoutInfo;
+  const startCondition = start.food !== undefined ? foodUsed >= start.food : frame >= start.time;
+  const endCondition = end.food !== undefined ? foodUsed >= end.food : frame >= end.time;
+  const scoutTypeCondition = scoutInfo.scoutType !== undefined ? units.getById(UnitType[scoutType.unitType]).length >= scoutInfo.scoutType.unitCount : true;
+  if (startCondition && !endCondition && scoutTypeCondition) {
+    if (units.withLabel(`scout${targetLocation}`).length === 0) {
+      const location = getTargetLocation(map, `get${targetLocation}`);
+      setScout(units, location, UnitType[unitType], `scout${targetLocation}`);
+    }
+  } else {
+    units.withLabel('scoutEnemyMain').forEach(unit => {
+      unit.removeLabel('scoutEnemyMain');
+      unit.addLabel('clearFromEnemy', true);
+    });
+  }
+}
+
