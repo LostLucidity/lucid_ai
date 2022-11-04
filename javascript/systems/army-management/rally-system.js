@@ -6,9 +6,9 @@ const { LOAD_BUNKER, SMART, MOVE } = require("@node-sc2/core/constants/ability")
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { BUNKER, QUEEN, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { tankBehavior } = require("../../helper/behavior/unit-behavior");
-const { getCombatRally } = require("../../helper/location");
 const armyManagementService = require("../../services/army-management-service");
 const { engageOrRetreat } = require("../../services/army-management-service");
+const { getCombatRally } = require("../../services/resource-manager-service");
 
 module.exports = createSystem({
   name: 'RallySystem',

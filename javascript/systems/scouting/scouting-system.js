@@ -111,25 +111,22 @@ async function setAndSendScout(world) {
   const collectedActions = [];
   planService.scouts && planService.scouts.forEach((/** @type {{ end: any; start: any; targetLocation: any; unitType: any; }} */ scout) => {
     let { end, start, targetLocation, unitType } = scout;
-    targetLocation = `get${targetLocation}`;
     unitType = UnitType[unitType];
     const startConditionMet = (start.food && start.food <= world.agent.foodUsed) || start.time <= frame.timeInSeconds();
     const endConditionMet = (end.food && end.food > world.agent.foodUsed) || end.time > frame.timeInSeconds();
-    let label;
-    if (targetLocation.includes('get')) {
-      label = targetLocation.replace('get', 'scout')
-    }
+    const targetLocationFunction = `get${targetLocation}`;
+    const location = (map[targetLocationFunction] && map[targetLocationFunction]()) ? map[targetLocationFunction]().centroid : placementHelper[targetLocationFunction](map);
+    const label = `scout${location}`;
     if (startConditionMet && endConditionMet) {
-      const targetLocation = (map[targetLocation] && map[targetLocation]()) ? map[targetLocation]().centroid : placementHelper[targetLocation](map);
       let labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
-        scoutService.setScout(units, targetLocation, unitType, label);
+        scoutService.setScout(units, location, unitType, label);
         labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
         const [scout] = labelledScouts;
-        if (scout && distance(scout.pos, targetLocation) > 16) {
+        if (scout && distance(scout.pos, location) > 16) {
           const unitCommand = {
             abilityId: MOVE,
-            targetWorldSpacePos: targetLocation,
+            targetWorldSpacePos: location,
             unitTags: [scout.tag],
           }
           collectedActions.push(unitCommand);

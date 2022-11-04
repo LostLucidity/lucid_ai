@@ -19,7 +19,6 @@ const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
 const { getMiddleOfNaturalWall, findPosition, getCandidatePositions, getInTheMain } = require("./placement/placement-helper");
-const locationHelper = require("./location");
 const { restorePower, warpIn } = require("./protoss");
 const { liftToThird, addAddOn, swapBuildings } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
@@ -61,7 +60,8 @@ class AssemblePlan {
    */
   constructor(plan) {
     this.collectedActions = [];
-    this.foundPosition = null;
+    /** @type {false | Point2D} */
+    this.foundPosition = false;
     planService.legacyPlan = plan.orders;
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
     this.defenseTypes = plan.unitTypes.defenseTypes;
@@ -278,7 +278,7 @@ class AssemblePlan {
             if (PHOTONCANNON === unitType) { 
               candidatePositions = this.map.getNatural().areas.placementGrid;
             }
-            if (candidatePositions.length === 0 && (this.foundPosition === null || this.foundPosition === undefined)) { candidatePositions = await findPlacements(this.world, unitType); }
+            if (candidatePositions.length === 0 && (this.foundPosition === false)) { candidatePositions = await findPlacements(this.world, unitType); }
             await this.buildBuilding(resources, unitType, candidatePositions, stepAhead);
         }
       }
@@ -299,9 +299,9 @@ class AssemblePlan {
           await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, this.foundPosition));
           planService.pausePlan = false;
           planService.continueBuild = true;
-          this.foundPosition = null;
+          this.foundPosition = false;
         } else {
-          this.foundPosition = keepPosition(this.resources, unitType, this.foundPosition) ? this.foundPosition : null;
+          this.foundPosition = keepPosition(this.resources, unitType, this.foundPosition) ? this.foundPosition : false;
           if (this.foundPosition) {
             this.collectedActions.push(...premoveBuilderToPosition(this.world, this.foundPosition, unitType, stepAhead));
           }
@@ -408,7 +408,7 @@ class AssemblePlan {
   async manageSupply(resources, foodRanges = null) {
     if (!foodRanges || foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.world, 0.2)) {
-        this.foundPosition = null;
+        this.foundPosition = false;
         switch (race) {
           case Race.TERRAN:
             await this.build(resources, this.foodUsed, SUPPLYDEPOT, this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length);
@@ -720,7 +720,7 @@ module.exports = AssemblePlan;
 
 /**
  * @param {ResourceManager} resources 
- * @param {Point2D} foundPosition 
+ * @param {false | Point2D} foundPosition 
  * @param {UnitTypeId} unitType 
  * @param {Point2D[]} candidatePositions 
  * @returns {Promise<Point2D | false>}
