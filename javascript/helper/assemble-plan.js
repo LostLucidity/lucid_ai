@@ -488,7 +488,7 @@ class AssemblePlan {
       const location = getTargetLocation(map, `get${targetLocation}`);
       const label = conditions && conditions.label ? conditions.label : 'scout';
       let labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
-      const hasOrderToTargetLocation = labelledScouts.filter(scout => scout.orders.find(order => order.targetWorldSpacePos && distance(order.targetWorldSpacePos, targetLocation) < 16)).length > 0;
+      const hasOrderToTargetLocation = labelledScouts.filter(scout => scout.orders.find(order => order.targetWorldSpacePos && distance(order.targetWorldSpacePos, location) < 16)).length > 0;
       if (!hasOrderToTargetLocation) {
         if (conditions) {
           if (conditions.scoutType && !scoutingService[conditions.scoutType]) { return; }
