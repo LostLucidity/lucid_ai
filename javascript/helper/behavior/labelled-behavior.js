@@ -138,6 +138,7 @@ module.exports = {
       const { pos } = unit;
       if (pos === undefined) return [];
       const [inRangeEnemyCannon] = units.getById(PHOTONCANNON, { alliance: Alliance.ENEMY }).filter(cannon => distance(cannon.pos, unit.pos) < 16);
+      /** @type {[]} */
       const threateningUnits = unit['enemyUnits'] && unit['enemyUnits'].filter((/** @type {Unit} */ enemyUnit) => {
         const threateningRangedUnit = isFacing(unit, enemyUnit) && data.getUnitTypeData(enemyUnit.unitType).weapons.some(w => w.range > 1) && !enemyUnit.isStructure() && distance(unit.pos, enemyUnit.pos) < 8
         const threateningMeleeUnit = enemyUnit.isMelee() && distance(unit.pos, enemyUnit.pos) < 4 && isFacing(unit, enemyUnit, 180 / 16);
@@ -210,19 +211,21 @@ module.exports = {
           }
         }
       } else {
-        let [closestThreateningUnit] = units.getClosest(unit.pos, threateningUnits, 1);
-        const unitCommand = createUnitCommand(MOVE, [unit]);
-        if (closestThreateningUnit) {
-          unitCommand.targetWorldSpacePos = retreat(world, unit, closestThreateningUnit, false);
-          const { targetWorldSpacePos } = unitCommand;
-          if (targetWorldSpacePos === undefined) return [];
-          console.log('retreat!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
-        } else {
-          unitCommand.targetWorldSpacePos = getCombatRally(resources);
-          const { targetWorldSpacePos } = unitCommand;
-          console.log('rally!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
+        if (threateningUnits && threateningUnits.length > 1) {
+          let [closestThreateningUnit] = units.getClosest(unit.pos, threateningUnits, 1);
+          const unitCommand = createUnitCommand(MOVE, [unit]);
+          if (closestThreateningUnit) {
+            unitCommand.targetWorldSpacePos = retreat(world, unit, closestThreateningUnit, false);
+            const { targetWorldSpacePos } = unitCommand;
+            if (targetWorldSpacePos === undefined) return [];
+            console.log('retreat!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
+          } else {
+            unitCommand.targetWorldSpacePos = getCombatRally(resources);
+            const { targetWorldSpacePos } = unitCommand;
+            console.log('rally!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
+          }
+          collectedActions.push(unitCommand);
         }
-        collectedActions.push(unitCommand);
       }
     }
     collectedActions.length > 0 && await actions.sendAction(collectedActions);
