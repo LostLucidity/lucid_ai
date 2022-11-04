@@ -6,8 +6,8 @@ const { ATTACK_ATTACK, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { STALKER } = require("@node-sc2/core/constants/unit-type");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
-const { getCombatRally } = require("../../helper/location");
 const { createUnitCommand } = require("../../services/actions-service");
+const { getCombatRally } = require("../../services/resource-manager-service");
 const { microRangedUnit } = require("../../services/world-service");
 const harassService = require("./harass-service");
 

@@ -21,7 +21,7 @@ const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
 const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField } = require("../systems/unit-resource/unit-resource-service");
-const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving } = require("./unit-service");
+const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
@@ -462,17 +462,24 @@ const worldService = {
       const { pos } = worker;
       const orderTargetPosition = getOrderTargetPosition(units, worker);
       if (orderTargetPosition === undefined || pos === undefined) return false;
-      const doesNotExist = !builderCandidates.some(builder => builder.tag === worker.tag);
+      const isNotDuplicate = !builderCandidates.some(builder => builder.tag === worker.tag);
       const gatheringAndNotMining = worker.isGathering() && !unitResourceService.isMining(units, worker);
       const available = (
         worker.noQueue ||
         gatheringAndNotMining ||
         worker.orders.findIndex(order => order.targetWorldSpacePos && (distance(order.targetWorldSpacePos, position) < 1)) > -1
       );
-      return doesNotExist && available;
+      return isNotDuplicate && available;
     }));
     const movingProbes = builderCandidates.filter(builder => isMoving(builder) && builder.unitType === PROBE);
-    builderCandidates = builderCandidates.filter(builder => !movingProbes.some(probe => probe.tag === builder.tag));
+    builderCandidates = builderCandidates.filter(builder => {
+      const qualifiedPendingOrders = getPendingOrders(builder).filter(order => {
+        const { abilityId } = order;
+        if (abilityId === undefined) return false;
+        return ![...constructionAbilities, MOVE].includes(abilityId);
+      });
+      return !movingProbes.some(probe => probe.tag === builder.tag) && qualifiedPendingOrders.length === 0;
+    });
     const movingProbesTimeToPosition = movingProbes.map(movingProbe => {
       const { orders, pos } = movingProbe;
       if (orders === undefined || pos === undefined) return;
@@ -1084,6 +1091,7 @@ const worldService = {
           unitCommand.targetWorldSpacePos = position;
           setBuilderLabel(builder);
           collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
+          setPendingOrders(builder, unitCommand);
           if (agent.race === Race.ZERG) {
             const { foodRequired } = data.getUnitTypeData(unitType);
             if (foodRequired === undefined) return collectedActions;
