@@ -3,7 +3,7 @@
 
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
+const { OVERLORD, COLOSSUS } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getInRangeUnits } = require("../helper/battle-analysis");
@@ -56,7 +56,7 @@ const helper = {
         if (distance(unit.pos, closestThreatUnit.pos) > closestThreatUnit.data().sightRange + unit.radius + closestThreatUnit.radius) {
           collectedActions.push(moveToTarget(unit, closestThreatUnit));
         } else {
-          collectedActions.push(moveAwayFromTarget(world, unit, closestThreatUnit, getInRangeUnits(unit, enemyUnits, 16).filter((/** @type {Unit} */ enemyUnit) => enemyUnit.canShootUp())));
+          collectedActions.push(moveAwayFromTarget(world, unit, closestThreatUnit, getInRangeUnits(unit, enemyUnits, 16)));
         }
       } else if (closestInRangeUnit) {
         if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) { return }
@@ -92,37 +92,39 @@ function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand}
  */
 function moveAwayFromTarget(world, unit, targetUnit, targetUnits) {
-  const { data, resources } = world;
+  const { resources } = world;
   const { map, units } = resources.get();
   const isFlying = unit.isFlying;
   let position;
   if (isFlying) {
     const sightRange = unit.data().sightRange;
-    const highPointCandidates = gridsInCircle(unit.pos, sightRange)
-      .filter(grid => {
-        if (existsInMap(map, grid)) {
-          // get list of inrange enemy units
-          const unitsInSightRangeTo = targetUnits.filter(targetUnit => {
-            return distance(targetUnit.pos, unit.pos) < targetUnit.data().sightRange + unit.radius + targetUnit.radius;
+    const highPointCandidates = gridsInCircle(unit.pos, sightRange).filter(grid => {
+      if (existsInMap(map, grid)) {
+        const unitsInSightRangeTo = targetUnits.filter(targetUnit => {
+          return distance(targetUnit.pos, grid) < targetUnit.data().sightRange + unit.radius + targetUnit.radius;
+        });
+        try {
+          const gridHeight = map.getHeight(grid);
+          const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => existsInMap(map, candidate) && distance(candidate, grid) <= unit.radius);
+          const targetUnitHeight = Math.round(targetUnit.pos.z);
+          const isVisibleToAnyTargetUnit = unitsInSightRangeTo.some(unitInSight => {
+            const { pos } = unitInSight; if (pos === undefined) return true;
+            const { z } = pos; if (z === undefined) return true;
+            return unitInSight.isFlying || unitInSight.unitType === COLOSSUS || Math.round(z) + 2 > gridHeight;
           });
-          try {
-            const gridHeight = map.getHeight(grid);
-            const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => existsInMap(map, candidate) && distance(candidate, grid) <= unit.radius);
-            const targetUnitHeight = Math.round(targetUnit.pos.z);
-            const unitsInSightRangeToHeights = unitsInSightRangeTo.map(unit => Math.round(unit.pos.z));
-            return (
-              [
-                gridHeight - targetUnitHeight >= 2,
-                unitsInSightRangeToHeights.every(height => gridHeight - height >= 2),
-                circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight),
-              ].every(condition => condition)
-            );
-          } catch (error) {
-            console.log('error', error);
-            return false;
-          }
+          return (
+            [
+              gridHeight - targetUnitHeight >= 2,
+              !isVisibleToAnyTargetUnit,
+              circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight),
+            ].every(condition => condition)
+          );
+        } catch (error) {
+          console.log('error', error);
+          return false;
         }
-      });
+      }
+    });
     const [closestHighPoint] = getClosestPosition(unit.pos, highPointCandidates);
     // calculate dps of enemy versus distance and speed of overlord.
     if (closestHighPoint) {
