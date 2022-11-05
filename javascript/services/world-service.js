@@ -482,7 +482,7 @@ const worldService = {
       const qualifiedPendingOrders = getPendingOrders(builder).filter(order => {
         const { abilityId } = order;
         if (abilityId === undefined) return false;
-        return ![...constructionAbilities, MOVE].includes(abilityId);
+        return [...constructionAbilities, MOVE].includes(abilityId);
       });
       return !movingProbes.some(probe => probe.tag === builder.tag) && qualifiedPendingOrders.length === 0;
     });
