@@ -737,6 +737,17 @@ const worldService = {
   },
   /**
    * @param {World} world
+   * @param {Point2D} position
+   * @param {number} range
+   * @returns {Unit[]}
+   */
+  getUnitsInRangeOfPosition: (world, position, range = 16) =>{
+    const { units } = world.resources.get();
+    const inRangeUnits = units.getCombatUnits(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) <= range);
+    return inRangeUnits;
+  },
+    /**
+   * @param {World} world
    * @param {UnitTypeId} unitType
    * @returns {Unit[]}
    */

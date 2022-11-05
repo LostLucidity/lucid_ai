@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { MOVE, ATTACK_ATTACK, STOP } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
@@ -9,7 +9,7 @@ const { createUnitCommand } = require("../../services/actions-service");
 const { getPathablePositions } = require("../../services/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally } = require("../../services/resource-manager-service");
-const { retreat, getDamageDealingUnits } = require("../../services/world-service");
+const { retreat, getDamageDealingUnits, getUnitsInRangeOfPosition, calculateNearDPSHealth } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
@@ -97,9 +97,15 @@ module.exports = {
             const [closestPathablePosition] = getClosestPositionByPath(resources, pos, getPathablePositions(map, unitCommand.targetWorldSpacePos));
             console.log('retreat!', unitCommand.targetWorldSpacePos, getDistanceByPath(resources, pos, closestPathablePosition));
           } else {
-            unitCommand.targetWorldSpacePos = combatRallyPosition;
+            const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, getCombatRally(resources));
+            // @ts-ignore
+            const selfCombatRallyDPSHealth = calculateNearDPSHealth(world, selfCombatRallyUnits, closestEnemyUnit['inRangeUnits'].map((/** @type {{ Unit }} */ unit) => unit.unitType));
+            // @ts-ignore
+            const inRangeCombatUnitsOfEnemyDPSHealth = calculateNearDPSHealth(world, closestEnemyUnit['inRangeUnits'], selfCombatRallyUnits.map(unit => unit.unitType));
+            const shouldRallyToCombatRally = selfCombatRallyDPSHealth > inRangeCombatUnitsOfEnemyDPSHealth; 
+            unitCommand.targetWorldSpacePos = retreat(world, unit, closestEnemyUnit, shouldRallyToCombatRally);
             const [closestPathablePosition] = getClosestPositionByPath(resources, pos, getPathablePositions(map, unitCommand.targetWorldSpacePos));
-            console.log('rally!', unitCommand.targetWorldSpacePos, getDistanceByPath(resources, pos, closestPathablePosition));
+            console.log('rally!', shouldRallyToCombatRally, unitCommand.targetWorldSpacePos, getDistanceByPath(resources, pos, closestPathablePosition));
           }
           collectedActions.push(unitCommand);
         }

@@ -14,7 +14,7 @@ const { isRepairing, setPendingOrders, isMining } = require("../../systems/unit-
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { moveAwayPosition, getDistance } = require("../../services/position-service");
-const { retreat, pullWorkersToDefend, calculateNearDPSHealth } = require("../../services/world-service");
+const { retreat, pullWorkersToDefend, calculateNearDPSHealth, getUnitsInRangeOfPosition } = require("../../services/world-service");
 const { canAttack } = require("../../services/resources-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
@@ -328,16 +328,5 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
     collectedActions.push(unitCommand);
   }
   return collectedActions;
-}
-/**
- * @param {World} world
- * @param {Point2D} position
- * @param {number} range
- * @returns {Unit[]}
- */
-function getUnitsInRangeOfPosition(world, position, range = 16) {
-  const { units } = world.resources.get();
-  const inRangeUnits = units.getCombatUnits(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) <= range);
-  return inRangeUnits;
 }
 
