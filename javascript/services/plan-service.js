@@ -29,7 +29,7 @@ const planService = {
   /** @type {boolean} */
   isPlanPaused: null,
   latestStep: 0,
-  legacyPlan: null,
+  legacyPlan: [],
   mineralThreshold: 512,
   naturalWallPylon: false,
   /** @type {boolean} */

@@ -32,7 +32,7 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getOccupiedExpansions } = require("../helper/expansions");
 const { existsInMap } = require("../helper/location");
-const { pointsOverlap, intersectionOfPoints } = require("../helper/utilities");
+const { pointsOverlap, intersectionOfPoints, shuffle } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
@@ -124,11 +124,13 @@ const worldService = {
   },
   /**
    * @param {World} world 
+   * @param {number} limit
    * @returns {Promise<void>}
    */
-  buildWorkers: async (world) => {
+  buildWorkers: async (world, limit=1) => {
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
+    const collectedActions = [];
     const workerTypeId = WorkerRace[agent.race];
     if (worldService.canBuild(world, workerTypeId)) {
       const { abilityId } = data.getUnitTypeData(workerTypeId);
@@ -141,10 +143,14 @@ const worldService = {
           .filter(townhall => townhall.abilityAvailable(abilityId) && !townhall['pendingOrders'] || townhall['pendingOrders'].length === 0);
       }
       if (trainers.length > 0) {
-        const trainer = getRandom(trainers);
-        const unitCommand = createUnitCommand(abilityId, [trainer]);
-        setPendingOrders(trainer, unitCommand);
-        try { await actions.sendAction(unitCommand); } catch (error) { console.log(error) }
+        trainers = shuffle(trainers);
+        trainers = trainers.slice(0, limit);
+        trainers.forEach(trainer => {
+          const unitCommand = createUnitCommand(abilityId, [trainer]);
+          collectedActions.push(unitCommand);
+          setPendingOrders(trainer, unitCommand);
+        });
+        try { await actions.sendAction(collectedActions); } catch (error) { console.log(error) }
       }
     }
   },

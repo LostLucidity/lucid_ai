@@ -4,7 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { WorkerRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const planService = require("../services/plan-service");
-const { buildWorkers, shortOnWorkers } = require("../services/world-service");
+const { buildWorkers, shortOnWorkers, getFoodUsed } = require("../services/world-service");
 const worldService = require("../services/world-service");
 const { haveAvailableProductionUnitsFor } = require("./unit-training/unit-training-service");
 const unitTrainingService = require("./unit-training/unit-training-service");
@@ -31,7 +31,7 @@ module.exports = createSystem({
  * @returns {Promise<void>}
  */
 async function trainWorkers(world) {
-  const { agent, resources } = world;
+  const { agent, data, resources } = world;
   const { race } = agent;
   const { units } = resources.get();
   const workerCount = units.getById(WorkerRace[race]).length;
@@ -51,9 +51,13 @@ async function trainWorkers(world) {
   }
   if (conditionsMet) {
     unitTrainingService.workersTrainingTendedTo = false;
-    const { abilityId } = world.data.getUnitTypeData(WorkerRace[race])
+    const { abilityId, foodRequired } = data.getUnitTypeData(WorkerRace[race]);
     const productionUnit = resources.get().units.getProductionUnits(WorkerRace[race]).find(u => u.noQueue && u.abilityAvailable(abilityId));
-    try { if (productionUnit) await buildWorkers(world); } catch (error) { console.log(error); }
+    let { plan, legacyPlan } = planService;
+    const step = plan.find(step => step.food > getFoodUsed(world)) || legacyPlan.find(step => step[0] > getFoodUsed(world));
+    if (foodRequired === undefined || step === undefined) return;
+    const foodDifference = (step.food || step[0]) - getFoodUsed(world);
+    try { if (productionUnit) await buildWorkers(world, foodDifference); } catch (error) { console.log(error); }
   } else {
     unitTrainingService.workersTrainingTendedTo = true;
   }
