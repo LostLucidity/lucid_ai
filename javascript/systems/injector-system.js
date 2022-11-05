@@ -2,15 +2,19 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { EFFECT_INJECTLARVA, MOVE } = require("@node-sc2/core/constants/ability");
+const { EFFECT_INJECTLARVA, MOVE, TRAIN_QUEEN } = require("@node-sc2/core/constants/ability");
 const { QUEENSPAWNLARVATIMER } = require("@node-sc2/core/constants/buff");
 const { Race } = require("@node-sc2/core/constants/enums");
+const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { areEqual } = require("@node-sc2/core/utils/geometry/point");
+const { shuffle } = require("../helper/utilities");
 const { createUnitCommand } = require("../services/actions-service");
 const { getTimeInSeconds } = require("../services/frames-service");
+const planService = require("../services/plan-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestUnitPositionByPath } = require("../services/resource-manager-service");
 const { getMovementSpeed, getPendingOrders } = require("../services/unit-service");
+const { getUnitTypeCount, getUnitCount } = require("../services/world-service");
 const { setPendingOrders } = require("./unit-resource/unit-resource-service");
 
 module.exports = createSystem({
@@ -22,6 +26,11 @@ module.exports = createSystem({
       const { actions } = resources.get();
       const collectedActions = [];
       collectedActions.push(...injectLarva(resources));
+      const { minerals } = agent;
+      if (minerals === undefined) return [];
+      if (minerals <= planService.mineralThreshold) {
+        collectedActions.push(...trainQueensForDrones(world));
+      }
       await actions.sendAction(collectedActions);
     }
   }
@@ -121,4 +130,22 @@ function getTimeToDistance(resources, unit, target) {
   const movementSpeed = getMovementSpeed(unit);
   if (movementSpeed === undefined) return Infinity;
   return distanceByPath / movementSpeed;
+}
+
+/**
+ * @param {World} world 
+ */
+function trainQueensForDrones(world) {
+  const { agent, resources } = world;
+  const { race } = agent;
+  const { units } = resources.get();
+  const collectedActions = [];
+  const bases = units.getBases();
+  const excessBases = getUnitCount(world, TownhallRace[race][0]) - getUnitCount(world, QUEEN);
+  let canTrainQueen = bases.filter(base => base.abilityAvailable(TRAIN_QUEEN));
+  shuffle(canTrainQueen).slice(0, excessBases).forEach(base => {
+    const unitCommand = createUnitCommand(TRAIN_QUEEN, [base]);
+    collectedActions.push(unitCommand);
+  });
+  return collectedActions;
 }
