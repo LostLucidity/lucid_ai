@@ -346,17 +346,17 @@ const armyBehavior = {
     const { mappedEnemyUnits } = enemyTrackingService;
     const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
     const avgCombatUnitsPoint = avgPoints(combatUnits.map(unit => unit.pos));
-    let [closestEnemyUnit] = getClosestUnitByPath(resources, avgCombatUnitsPoint, mappedEnemyUnits, 1);
-    const closestEnemyTarget = closestEnemyBase || closestEnemyUnit;
+    const closestEnemyTarget = closestEnemyBase || getClosestUnitByPath(resources, avgCombatUnitsPoint, mappedEnemyUnits, 1)[0];
     if (closestEnemyTarget) {
+      const { pos } = closestEnemyTarget; if (pos === undefined) { return []; }
       const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
-      collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
-      const [combatPoint] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
+      collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
+      const [combatPoint] = getClosestUnitByPath(resources, pos, combatUnits, 1);
       if (combatPoint) {
         let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
         let selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, mappedEnemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
         console.log('Push', selfDPSHealth, closestEnemyTarget['selfDPSHealth']);
-        collectedActions.push(...armyBehavior.engageOrRetreat(world, allyUnits, mappedEnemyUnits, closestEnemyTarget.pos, false));
+        collectedActions.push(...armyBehavior.engageOrRetreat(world, allyUnits, mappedEnemyUnits, pos, false));
       }
       collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
     } else {
