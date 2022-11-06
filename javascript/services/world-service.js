@@ -484,7 +484,7 @@ const worldService = {
         if (abilityId === undefined) return false;
         return [...constructionAbilities, MOVE].includes(abilityId);
       });
-      return !movingProbes.some(probe => probe.tag === builder.tag) && qualifiedPendingOrders.length === 0;
+      return !movingProbes.some(probe => probe.tag === builder.tag) || qualifiedPendingOrders.length === 0;
     });
     const movingProbesTimeToPosition = movingProbes.map(movingProbe => {
       const { orders, pos } = movingProbe;
@@ -1096,7 +1096,8 @@ const worldService = {
           }
         }
       }
-      const unitCommand = builder ? createUnitCommand(MOVE, [builder]) : {};
+      const pendingConstructionOrder = getPendingOrders(builder).some(order => order.abilityId && constructionAbilities.includes(order.abilityId));
+      const unitCommand = builder ? createUnitCommand(MOVE, [builder], pendingConstructionOrder) : {};
       const timeToTargetCost = getTimeToTargetCost(world, unitType);
       const timeToTargetTech = getTimeToTargetTech(world, unitType);
       const timeToTargetCostOrTech = timeToTargetTech > timeToTargetCost ? timeToTargetTech : timeToTargetCost;

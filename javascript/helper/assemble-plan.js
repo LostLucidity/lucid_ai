@@ -132,7 +132,7 @@ class AssemblePlan {
         // if we have no production units available, we need to skip production
       }
     }
-    await this.runPlan(resources);
+    await this.runPlan(world);
     if (this.foodUsed < ATTACKFOOD) {
       if (!this.state.pushMode) {
         if (this.state.defenseMode) {
@@ -145,7 +145,7 @@ class AssemblePlan {
       const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
       if (!worldService.outpowered || selfCombatSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
     }
-    if (this.agent.minerals > 512) { this.manageSupply(resources); }
+    if (this.agent.minerals > 512) { this.manageSupply(world); }
     if (getFoodUsed(world) >= 132 && !shortOnWorkers(world)) { this.collectedActions.push(...await expand(world)); }
     this.checkEnemyBuild();
     let completedBases = this.units.getBases().filter(base => base.buildProgress >= 1);
@@ -209,13 +209,14 @@ class AssemblePlan {
     }
   }
   /**
-   * @param {ResourceManager} resources
+   * @param {World} world
    * @param {number} food 
    * @param {UnitTypeId} unitType 
    * @param {number} targetCount 
    * @param {Point2D[]} candidatePositions 
    */
-  async build(resources, food, unitType, targetCount, candidatePositions = []) {
+  async build(world, food, unitType, targetCount, candidatePositions = []) {
+    const { resources } = world;
     if (getFoodUsed(this.world) + 1 >= food) {
       const stepAhead = getFoodUsed(this.world) + 1 === food;
       if (checkBuildingCount(this.world, unitType, targetCount)) {
@@ -230,12 +231,12 @@ class AssemblePlan {
             if (TownhallRace[race].indexOf(unitType) === 0) {
               if (this.units.getBases().length === 2 && race === Race.TERRAN) {
                 candidatePositions = await getInTheMain(this.resources, unitType);
-                await this.buildBuilding(resources, unitType, candidatePositions, stepAhead);
+                await this.buildBuilding(world, unitType, candidatePositions, stepAhead);
               } else {
                 resourceManagerService.availableExpansions = resourceManagerService.availableExpansions.length === 0 ? getAvailableExpansions(resources) : resourceManagerService.availableExpansions;
                 const { availableExpansions } = resourceManagerService;
                 candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(this.world, availableExpansions)] : [];
-                await this.buildBuilding(resources, unitType, candidatePositions, stepAhead);
+                await this.buildBuilding(world, unitType, candidatePositions, stepAhead);
               }
             } else {
               if (!stepAhead) {
@@ -279,20 +280,20 @@ class AssemblePlan {
               candidatePositions = this.map.getNatural().areas.placementGrid;
             }
             if (candidatePositions.length === 0 && (this.foundPosition === false)) { candidatePositions = await findPlacements(this.world, unitType); }
-            await this.buildBuilding(resources, unitType, candidatePositions, stepAhead);
+            await this.buildBuilding(world, unitType, candidatePositions, stepAhead);
         }
       }
     }
   }
 
   /**
-   * @param {ResourceManager} resources
+   * @param {World} world
    * @param {UnitTypeId} unitType 
    * @param {Point2D[]} candidatePositions 
    * @param {boolean} stepAhead 
    */
-  async buildBuilding(resources, unitType, candidatePositions, stepAhead) {
-    this.foundPosition = await setFoundPosition(resources, this.foundPosition, unitType, candidatePositions);
+  async buildBuilding(world, unitType, candidatePositions, stepAhead) {
+    this.foundPosition = await setFoundPosition(world, this.foundPosition, unitType, candidatePositions);
     if (this.foundPosition) {
       if (this.agent.canAfford(unitType) && !stepAhead) {
         if (await actions.canPlace(unitType, [this.foundPosition])) {
@@ -401,24 +402,24 @@ class AssemblePlan {
   }
 
   /**
-   * @param {ResourceManager} resources
+   * @param {World} world
    * @param {null|number[]} foodRanges 
    * @returns {Promise<void>}
    */
-  async manageSupply(resources, foodRanges = null) {
+  async manageSupply(world, foodRanges = null) {
     if (!foodRanges || foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.world, 0.2)) {
         this.foundPosition = false;
         switch (race) {
           case Race.TERRAN:
-            await this.build(resources, this.foodUsed, SUPPLYDEPOT, this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length);
+            await this.build(world, this.foodUsed, SUPPLYDEPOT, this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length);
             break;
           case Race.PROTOSS:
-            await this.build(resources, this.foodUsed, PYLON, this.units.getById(PYLON).length);
+            await this.build(world, this.foodUsed, PYLON, this.units.getById(PYLON).length);
             break;
           case Race.ZERG:
             let { abilityId } = this.data.getUnitTypeData(OVERLORD);
-            await this.train(resources, this.foodUsed, OVERLORD, this.units.getById(OVERLORD).length + this.units.withCurrentOrders(abilityId).length);
+            await this.train(world, this.foodUsed, OVERLORD, this.units.getById(OVERLORD).length + this.units.withCurrentOrders(abilityId).length);
             break;
         }
       }
@@ -541,13 +542,13 @@ class AssemblePlan {
     }
   }
   /**
-   * @param {ResourceManager} resources
+   * @param {World} world
    * @param {number} food
    * @param {number} unitType
    * @param {null|number} targetCount
    * @returns {Promise<void>}
    */
-  async train(resources, food, unitType, targetCount) {
+  async train(world, food, unitType, targetCount) {
     if (getFoodUsed(this.world) >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
       if (checkUnitCount(this.world, unitType, targetCount) || targetCount === null) {
@@ -589,7 +590,7 @@ class AssemblePlan {
           addEarmark(this.data, unitTypeData);
         } else {
           if (isSupplyNeeded(this.world) && unitType !== OVERLORD) {
-            await this.manageSupply(resources);
+            await this.manageSupply(world);
           } else if (!this.agent.canAfford(unitType)) {
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
             const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
@@ -645,9 +646,10 @@ class AssemblePlan {
   }
 
   /**
-   * @param {ResourceManager} resources
+   * @param {World} world
    */
-  async runPlan(resources) {
+  async runPlan(world) {
+    const { resources } = world;
     const { map } = resources.get();
     planService.continueBuild = true;
     planService.pendingFood = 0;
@@ -671,7 +673,7 @@ class AssemblePlan {
             const enemyBuild = planStep[5];
             if (enemyBuild && scoutingService.enemyBuildType !== enemyBuild && !scoutingService.earlyScout) { break; }
             const candidatePositions = planStep[4] ? await getCandidatePositions(this.resources, planStep[4], unitType) : [];
-            await this.build(resources, foodTarget, unitType, targetCount, candidatePositions);
+            await this.build(world, foodTarget, unitType, targetCount, candidatePositions);
             break;
           }
           case 'continuouslyBuild':
@@ -680,7 +682,7 @@ class AssemblePlan {
           case 'harass': if (scoutingService.enemyBuildType === 'standard') harassService.harassOn = true; break;
           case 'liftToThird': if (getFoodUsed(this.world) >= foodTarget) { await liftToThird(this.resources); } break;
           case 'maintainQueens': if (getFoodUsed(this.world) >= foodTarget) { await maintainQueens(this.world); } break;
-          case 'manageSupply': await this.manageSupply(resources, planStep[0]); break;
+          case 'manageSupply': await this.manageSupply(world, planStep[0]); break;
           case 'push': this.push(foodTarget); break;
           case 'scout': {
             unitType = planStep[2];
@@ -719,17 +721,19 @@ class AssemblePlan {
 module.exports = AssemblePlan;
 
 /**
- * @param {ResourceManager} resources 
+ * @param {World} world 
  * @param {false | Point2D} foundPosition 
  * @param {UnitTypeId} unitType 
  * @param {Point2D[]} candidatePositions 
  * @returns {Promise<Point2D | false>}
  */
-async function setFoundPosition(resources, foundPosition, unitType, candidatePositions) {
+async function setFoundPosition(world, foundPosition, unitType, candidatePositions) {
+  const { resources } = world;
   if (foundPosition) {
     const { map, units } = resources.get();
     const areEnemyUnitsInWay = checkIfEnemyUnitsInWay(units, unitType, foundPosition);
-    if (map.isPlaceableAt(unitType, foundPosition) && !areEnemyUnitsInWay) {
+    const enemyBlockingExpansion = areEnemyUnitsInWay && TownhallRace[race][0] === unitType;
+    if (map.isPlaceableAt(unitType, foundPosition) && !enemyBlockingExpansion) {
       return foundPosition;
     }
   } 

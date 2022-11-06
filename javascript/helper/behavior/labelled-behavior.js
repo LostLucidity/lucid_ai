@@ -99,6 +99,7 @@ module.exports = {
           } else {
             const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, getCombatRally(resources));
             // @ts-ignore
+            closestEnemyUnit['inRangeUnits'] = closestEnemyUnit['inRangeUnits'] || getUnitsInRangeOfPosition(world, closestEnemyUnit.pos);
             const selfCombatRallyDPSHealth = calculateNearDPSHealth(world, selfCombatRallyUnits, closestEnemyUnit['inRangeUnits'].map((/** @type {{ Unit }} */ unit) => unit.unitType));
             // @ts-ignore
             const inRangeCombatUnitsOfEnemyDPSHealth = calculateNearDPSHealth(world, closestEnemyUnit['inRangeUnits'], selfCombatRallyUnits.map(unit => unit.unitType));

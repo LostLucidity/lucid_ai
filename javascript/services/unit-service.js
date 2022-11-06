@@ -130,8 +130,8 @@ const unitService = {
    */
   isMoving: (unit) => {
     const { orders } = unit;
-    if (orders === undefined) return false;
-    return orders.some(order => order.abilityId === MOVE);
+    if (orders === undefined || orders.length === 0) return false;
+    return orders[0].abilityId === MOVE;
   },
   /**
    * @param {Unit} worker 

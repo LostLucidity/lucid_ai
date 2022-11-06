@@ -35,7 +35,7 @@ module.exports = createSystem({
     const collectedActions = [];
     if (!planService.isPlanPaused) { balanceResources(world) }
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
-    const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
+    const gatheringWorkers = getGatheringWorkers(units, undefined, true);
     const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
     const needyTownhall = townhalls.filter(townhall => {
       if (townhall['enemyUnits']) {
@@ -131,7 +131,7 @@ module.exports = createSystem({
       }
       const bases = units.getBases();
       const basesWithExtraWorkers = bases.filter(base => base.assignedHarvesters > base.idealHarvesters);
-      const gatheringWorkers = units.getWorkers().filter(u => u.orders.some(o => [...gatheringAbilities].includes(o.abilityId)));
+      const gatheringWorkers = getGatheringWorkers(units, undefined, true);
       debugSilly(`bases with extra workers: ${basesWithExtraWorkers.map(ex => ex.tag).join(', ')}`);
       // get workers from expansions with extra workers
       const extraWorkers = basesWithExtraWorkers.map(base => {
@@ -196,7 +196,7 @@ function gatherOrMineIdleGroup(world) {
 function assignWorkers(resources) {
   const { map, units } = resources.get();
   const collectedActions = [];
-  const gatheringMineralWorkers = getGatheringWorkers(units, 'minerals');
+  const gatheringMineralWorkers = getGatheringWorkers(units, 'minerals', true);
   gatheringMineralWorkers.forEach(worker => {
     const { pos } = worker;
     if (pos === undefined) return;
@@ -276,17 +276,26 @@ function findGatheringOrder(units, worker) {
 /**
  * 
  * @param {UnitResource} units 
- * @param {'minerals' | 'vespene'} type 
+ * @param {"minerals" | "vespene" | undefined} type 
  * @returns 
  */
-function getGatheringWorkers(units, type) {
-  return units.getWorkers()
+function getGatheringWorkers(units, type, firstOrderOnly = false) {
+  const gatheringWorkers = units.getWorkers()
     .filter(worker => {
       return (
         worker.isGathering(type) ||
         (worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ order) => gatheringAbilities.includes(order.abilityId)))
       );
     });
+  if (firstOrderOnly) {
+    return gatheringWorkers.filter(worker => {
+      const { orders } = worker; if (orders === undefined) return false;
+      const firstOrder = orders[0];
+      const { abilityId } = firstOrder; if (abilityId === undefined) return false;
+      return gatheringAbilities.includes(abilityId);
+    });
+  }
+  return gatheringWorkers;
 }
 
 /**
