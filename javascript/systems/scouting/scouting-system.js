@@ -116,7 +116,7 @@ async function setAndSendScout(world) {
     const endConditionMet = (end.food && end.food > world.agent.foodUsed) || end.time > frame.timeInSeconds();
     const targetLocationFunction = `get${targetLocation}`;
     const location = (map[targetLocationFunction] && map[targetLocationFunction]()) ? map[targetLocationFunction]().centroid : placementHelper[targetLocationFunction](map);
-    const label = `scout${location}`;
+    const label = `scout${targetLocation}`;
     if (startConditionMet && endConditionMet) {
       let labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
