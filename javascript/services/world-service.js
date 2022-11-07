@@ -21,7 +21,7 @@ const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
 const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField } = require("../systems/unit-resource/unit-resource-service");
-const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders } = require("./unit-service");
+const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
@@ -1735,20 +1735,6 @@ function isSafePositionFromTargets(map, unit, targetUnits, point) {
     const distanceToTarget = distance(point, pos);
     return distanceToTarget > weaponRange + radius + targetUnit.radius + getTravelDistancePerStep(targetUnit) + getTravelDistancePerStep(unit);
   });
-}
-/**
- * @param {Unit} unit 
- * @param {WeaponTargetType} weaponTargetType 
- * @returns {SC2APIProtocol.Weapon|undefined}
- */
-function getHighestRangeWeapon(unit, weaponTargetType) {
-  const { weapons } = unit.data();
-  const [highestRange] = weapons.filter((weapon) => {
-    return weapon.type === weaponTargetType || weapon.type === WeaponTargetType.ANY;
-  }).sort((a, b) => {
-    return b.range - a.range;
-  });
-  return highestRange;
 }
 /**
  * @param {World} world

@@ -64,6 +64,20 @@ const unitService = {
   },
   /**
    * @param {Unit} unit 
+   * @param {WeaponTargetType} weaponTargetType 
+   * @returns {SC2APIProtocol.Weapon|undefined}
+   */
+  getHighestRangeWeapon: (unit, weaponTargetType) => {
+    const { weapons } = unit.data();
+    const [highestRange] = weapons.filter((weapon) => {
+      return weapon.type === weaponTargetType || weapon.type === WeaponTargetType.ANY;
+    }).sort((a, b) => {
+      return b.range - a.range;
+    });
+    return highestRange;
+  },
+  /**
+   * @param {Unit} unit 
    * @returns {Point2D}
    */
   getUnitCornerPosition: (unit) => {
