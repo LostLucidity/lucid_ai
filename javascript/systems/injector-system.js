@@ -14,7 +14,7 @@ const { getTimeInSeconds } = require("../services/frames-service");
 const planService = require("../services/plan-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestUnitPositionByPath } = require("../services/resource-manager-service");
 const { getMovementSpeed, getPendingOrders } = require("../services/unit-service");
-const { getUnitTypeCount, getUnitCount } = require("../services/world-service");
+const { getUnitCount } = require("../services/world-service");
 const { setPendingOrders } = require("./unit-resource/unit-resource-service");
 
 module.exports = createSystem({
@@ -140,9 +140,9 @@ function trainQueensForDrones(world) {
   const { race } = agent;
   const { units } = resources.get();
   const collectedActions = [];
-  const bases = units.getBases();
   const excessBases = getUnitCount(world, TownhallRace[race][0]) - getUnitCount(world, QUEEN);
-  let canTrainQueen = bases.filter(base => base.abilityAvailable(TRAIN_QUEEN));
+  const bases = units.getBases();
+  let canTrainQueen = bases.filter(base => base.abilityAvailable(TRAIN_QUEEN) && base.isIdle());
   shuffle(canTrainQueen).slice(0, excessBases).forEach(base => {
     const unitCommand = createUnitCommand(TRAIN_QUEEN, [base]);
     collectedActions.push(unitCommand);
