@@ -2,10 +2,10 @@
 "use strict"
 
 const { UnitType } = require("@node-sc2/core/constants");
-const { SMART } = require("@node-sc2/core/constants/ability");
+const { SMART, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes } = require("@node-sc2/core/constants/groups");
-const { distance, areEqual } = require("@node-sc2/core/utils/geometry/point");
+const { distance, areEqual, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const location = require("../helper/location");
 const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
@@ -24,12 +24,13 @@ const resourceManagerService = {
    * @param {Unit} unit 
    * @param {Unit | undefined} mineralField
    * @param {boolean} queue 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand | null}
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   gather: (resources, unit, mineralField, queue = true) => {
-    const { units } = resources.get();
+    const { map, units } = resources.get();
     const { pos: unitPos } = unit;
-    if (unitPos === undefined) { return null; }
+    const collectedActions = [];
+    if (unitPos === undefined) { return collectedActions; }
     if (unit.labels.has('command') && queue === false) {
       console.warn('WARNING! unit with command erroniously told to force gather! Forcing queue');
       queue = true;
@@ -48,7 +49,7 @@ const resourceManagerService = {
       const localMaxDistanceOfMineralFields = 9;
       const candidateBases = needyBases.length > 0 ? needyBases : ownBases;
       targetBase = resourceManagerService.getClosestUnitFromUnit(resources, unit, candidateBases);
-      if (targetBase === undefined || targetBase.pos === undefined) { return null; }
+      if (targetBase === undefined || targetBase.pos === undefined) { return collectedActions; }
       [target] = getUnitsWithinDistance(targetBase.pos, units.getMineralFields(), localMaxDistanceOfMineralFields).sort((a, b) => {
         const targetedByWorkersACount = getTargetedByWorkers(units, a).length;
         const targetedByWorkersBCount = getTargetedByWorkers(units, b).length;
@@ -56,13 +57,25 @@ const resourceManagerService = {
       });
     }
     if (target) {
+      const { pos: targetPos } = target; if (targetPos === undefined) { return collectedActions; }
+      const closestPathablePositionsBetweenPositions = resourceManagerService.getClosestPathablePositionsBetweenPositions(resources, unitPos, targetPos);
+      const { pathablePosition, pathableTargetPosition } = closestPathablePositionsBetweenPositions;
+      const path = getMapPath(map, pathablePosition, pathableTargetPosition);
+      const distanceByPath = resourceManagerService.getDistanceByPath(resources, unitPos, targetPos);
+      if (path.length > 0 && distanceByPath > 16) {
+        const pathCoordinates = getPathCoordinates(path);
+        const moveCommand = createUnitCommand(MOVE, [unit]);
+        moveCommand.targetWorldSpacePos = pathCoordinates[pathCoordinates.length - 1];
+        collectedActions.push(moveCommand);
+        queue = true;
+      }
       const sendToGather = createUnitCommand(SMART, [unit]);
       sendToGather.targetUnitTag = target.tag;
       sendToGather.queueCommand = queue;
+      collectedActions.push(sendToGather);
       setPendingOrders(unit, sendToGather);
-      return sendToGather;
     }
-    return null;
+    return collectedActions;
   },
   /**
    * @param {ResourceManager} resources 
@@ -113,8 +126,8 @@ const resourceManagerService = {
         return acc + curr.distance;
       }, 0) / distancesAndPositions.length;
       return {
-        pathablePosition: position,
-        pathableTargetPosition: targetPosition,
+        pathablePosition: avgPoints(pathablePositions),
+        pathableTargetPosition: avgPoints(pathableTargetPositions),
         distance: averageDistance
       };
     }

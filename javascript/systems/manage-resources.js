@@ -90,18 +90,17 @@ const manageResources = {
    * @param {ResourceManager} resources
    * @param {Unit} unit
    * @param {Unit|null} mineralField
-   * @returns {SC2APIProtocol.ActionRawUnitCommand | null}
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  gatherOrMine(resources, unit, mineralField=null) {
+  gatherOrMine(resources, unit, mineralField = null) {
     const { units } = resources.get();
     if (units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1).length > 0) {
-      const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
       const needyGasMines = getNeedyGasMines(units);
       const needyGasMine = getRandom(needyGasMines);
       const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
-      return needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? mine(unit, needyGasMine, false) : gather(resources, unit, mineralField, false);
+      return needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? [mine(unit, needyGasMine, false)] : gather(resources, unit, mineralField, false);
     } else {
-      return null
+      return [];
     }
   },
   /**

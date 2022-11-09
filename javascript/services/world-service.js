@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff } = require("@node-sc2/core/constants");
-const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
@@ -97,7 +97,7 @@ const worldService = {
               const [closestExpansion] = getClosestExpansion(map, pos);
               const { mineralFields } = closestExpansion.cluster;
               let mineralField = getNeediestMineralField(units, mineralFields);
-              const unitCommand = gather(resources, builder, mineralField, true);
+              const unitCommand = gather(resources, builder, mineralField, true).find(action => action.abilityId === SMART)
               if (unitCommand && unitCommand.targetUnitTag) {
                 collectedActions.push(unitCommand);
                 mineralField = mineralField ? mineralField : units.getByTag(unitCommand.targetUnitTag);

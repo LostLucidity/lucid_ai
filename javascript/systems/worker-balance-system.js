@@ -77,16 +77,16 @@ module.exports = createSystem({
           } else {
             mineralFieldTarget.labels.set('workerCount', mineralFieldTarget.labels.get('workerCount') + 1);
           }
-          const unitCommand = gather(resources, donatingWorker, mineralFieldTarget, false);
-          collectedActions.push(unitCommand);
-          setPendingOrders(donatingWorker, unitCommand);
+          const unitCommands = gather(resources, donatingWorker, mineralFieldTarget, false);
+          collectedActions.push(...unitCommands);
+          unitCommands.forEach(unitCommand => setPendingOrders(donatingWorker, unitCommand));
         } else {
           const mineralFields = units.getMineralFields();
           const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, mineralFields);
           if (mineralFieldTarget) {
             donatingWorker.labels.delete('mineralField');
-            const unitCommand = gather(resources, donatingWorker, mineralFieldTarget, false);
-            collectedActions.push(unitCommand);
+            const unitCommands = gather(resources, donatingWorker, mineralFieldTarget, false);
+            collectedActions.push(...unitCommands);
           }
         }
       }
@@ -145,8 +145,8 @@ module.exports = createSystem({
       extraWorkers.forEach(worker => {
         const neediestMineralField = getNeediestMineralField(units, mineralFields);
         if (neediestMineralField) {
-          const unitCommand = gather(resources, worker, neediestMineralField, false);
-          collectedActions.push(unitCommand);
+          const unitCommands = gather(resources, worker, neediestMineralField, false);
+          collectedActions.push(...unitCommands);
           worker.labels.set('mineralField', neediestMineralField);
           neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
         }
@@ -230,8 +230,8 @@ function assignWorkers(resources) {
           if (gatheringOrder) {
             if (gatheringOrder.targetUnitTag !== currentMineralField.tag) {
               if (currentMineralField.labels.get('workerCount') < 3) {
-                const unitCommand = gather(resources, worker, currentMineralField, false);
-                collectedActions.push(unitCommand);
+                const unitCommands = gather(resources, worker, currentMineralField, false);
+                collectedActions.push(...unitCommands);
               } else {
                 worker.labels.delete('mineralField');
                 currentMineralField.labels.set('workerCount', currentMineralField.labels.get('workerCount') - 1);
@@ -246,8 +246,8 @@ function assignWorkers(resources) {
       } else {
         const neediestMineralField = getNeediestMineralField(units, mineralFields);
         if (neediestMineralField) {
-          const unitCommand = gather(resources, worker, neediestMineralField, false);
-          collectedActions.push(unitCommand);
+          const unitCommands = gather(resources, worker, neediestMineralField, false);
+          collectedActions.push(...unitCommands);
           worker.labels.set('mineralField', neediestMineralField);
           neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
         }
