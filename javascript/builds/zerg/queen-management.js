@@ -13,8 +13,8 @@ const { getClosestPosition } = require("../../helper/get-closest");
 const { canBuild, getDPSHealth } = require("../../services/world-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getPathCoordinates } = require("../../services/path-service");
-const { getPathablePositionsForStructure } = require("../../services/map-resource-service");
-const { getClosestUnitByPath, getClosestPositionByPath } = require("../../services/resource-manager-service");
+const { getPathablePositionsForStructure, getMapPath, getPathablePositions } = require("../../services/map-resource-service");
+const { getClosestUnitByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("../../services/resource-manager-service");
 
 module.exports = {
   labelQueens: (units) => {
@@ -144,16 +144,19 @@ module.exports = {
           const [closestCreepGenerator] = units.getClosest(position, units.getById(creepGenerators));
           if (closestCreepGenerator) {
             const distanceToCreepGenerator = distance(position, closestCreepGenerator.pos)
-            return distanceToCreepGenerator > 9 && distanceToCreepGenerator < 12.5
+            return distanceToCreepGenerator > 9 && distanceToCreepGenerator < 12.75
           }
         });
         // get closest creep edges on path to enemy
         const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
-        const [closestTownhallPositionToEnemy] = getClosestUnitByPath(resources, map.getEnemyMain().townhallPosition, occupiedTownhalls).map(unit => unit.pos);
-        const pathToEnemyNatural = map.path(add(closestTownhallPositionToEnemy, 3), add(map.getEnemyMain().townhallPosition, 3))
-          .map(step => ({ x: step[0], y: step[1] }))
-          .filter(point => map.getOccupiedExpansions(Alliance.ENEMY).every(expansion => distance(point, expansion.townhallPosition) > 11.5));
-        const creepEdgeAndPath = intersectionOfPoints(ownCreepEdges, pathToEnemyNatural);
+        const { townhallPosition } = map.getEnemyNatural();
+        const [closestTownhallPositionToEnemy] = getClosestUnitByPath(resources, townhallPosition, occupiedTownhalls).map(unit => unit.pos);
+        if (closestTownhallPositionToEnemy === undefined) return collectedActions;
+        const closestPathablePositionsBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, closestTownhallPositionToEnemy, townhallPosition);
+        const { pathablePosition, pathableTargetPosition } = closestPathablePositionsBetweenPositions;
+        const pathToEnemyNatural = getMapPath(map, pathablePosition, pathableTargetPosition);
+        const pathCoordinates = getPathCoordinates(pathToEnemyNatural);
+        const creepEdgeAndPath = intersectionOfPoints(pathCoordinates, ownCreepEdges);
         if (creepEdgeAndPath.length > 0) {
           const outEdgeCandidate = getClosestPositionByPath(resources, closestTownhallPositionToEnemy, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
           const [closestSpreader] = units.getClosest(outEdgeCandidate, idleCreeperQueens);
