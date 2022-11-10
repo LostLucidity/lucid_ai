@@ -51,7 +51,7 @@ const wallOffNaturalService = {
       // add neighboring points to wallToTownhallPoints excluding those that already exist in wallToTownhallPoints
       debug.setDrawCells('wl2thp', wallToTownhallPoints.map(r => ({ pos: r })), { size: 1, cube: false });
       const wallToTownhallPointsWithNeighbors = wallToTownhallPoints.reduce((acc, point) => {
-        const neighbors = getNeighbors(point, false);
+        const neighbors = getNeighbors(point, false).filter(neighbor => map.isPlaceableAt(PYLON, neighbor));
         const neighborsNotInWall = neighbors.filter(neighbor => !wallToTownhallPoints.some(point => point.x === neighbor.x && point.y === neighbor.y));
         return [...acc, ...neighborsNotInWall];
       }, []);
