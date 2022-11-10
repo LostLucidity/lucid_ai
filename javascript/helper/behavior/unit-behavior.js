@@ -202,7 +202,7 @@ module.exports = {
     const { SUPPLYDEPOT, SUPPLYDEPOTLOWERED } = UnitType;
     units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).filter(depot => {
       let [closestEnemyUnit] = units.getClosest(depot.pos, enemyUnits.filter(unit => !unit.isFlying), 1);
-      if (closestEnemyUnit && distance(closestEnemyUnit.pos, depot.pos) < 16) {
+      if (closestEnemyUnit && distance(closestEnemyUnit.pos, depot.pos) < 8) {
         collectedActions.push(createUnitCommand(MORPH_SUPPLYDEPOT_RAISE, [depot]));
       } else {
         collectedActions.push(createUnitCommand(MORPH_SUPPLYDEPOT_LOWER, [depot]));
