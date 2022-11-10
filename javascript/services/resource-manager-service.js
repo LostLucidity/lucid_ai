@@ -6,6 +6,7 @@ const { SMART, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes } = require("@node-sc2/core/constants/groups");
 const { distance, areEqual, avgPoints } = require("@node-sc2/core/utils/geometry/point");
+const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
 const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
@@ -126,8 +127,8 @@ const resourceManagerService = {
         return acc + curr.distance;
       }, 0) / distancesAndPositions.length;
       return {
-        pathablePosition: avgPoints(pathablePositions),
-        pathableTargetPosition: avgPoints(pathableTargetPositions),
+        pathablePosition: isAnyPositionCorner ? avgPoints(pathablePositions) : position,
+        pathableTargetPosition: isAnyTargetPositionCorner ? avgPoints(pathableTargetPositions) : getClosestPosition(targetPosition, pathableTargetPositions)[0],
         distance: averageDistance
       };
     }

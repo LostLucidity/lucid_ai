@@ -3,7 +3,7 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
-const { Alliance, Race } = require("@node-sc2/core/constants/enums");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const AssemblePlan = require("../helper/assemble-plan");
 const { convertPlan } = require("../systems/salt-converter/salt-converter");
 const { gatherOrMine } = require("../systems/manage-resources");
@@ -28,7 +28,7 @@ const entry = createSystem({
       pushMode: false,
     },
   },
-  async onEnemyFirstSeen({ }, seenEnemyUnit) {
+  async onEnemyFirstSeen(_world, seenEnemyUnit) {
     assemblePlan.onEnemyFirstSeen(seenEnemyUnit);
   },
   async onGameStart(world) {
@@ -83,9 +83,9 @@ const entry = createSystem({
     const pendingOrders = getPendingOrders(idleUnit);
     if (idleUnit.isWorker() && idleUnit.noQueue && pendingOrders.length === 0) {
       const { actions, units } = resources.get();
-      const unitCommand = gatherOrMine(resources, idleUnit);
-      if (units.getBases(Alliance.SELF).length > 0 && unitCommand) {
-        return actions.sendAction(unitCommand);
+      const unitCommands = gatherOrMine(resources, idleUnit);
+      if (units.getBases(Alliance.SELF).length > 0 && unitCommands.length > 0) {
+        return actions.sendAction(unitCommands);
       }
     }
     // delete combatPoint label if idle

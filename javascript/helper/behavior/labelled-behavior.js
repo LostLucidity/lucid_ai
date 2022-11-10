@@ -78,7 +78,7 @@ module.exports = {
       ) {
         unit.labels.clear();
         console.log('clear!');
-        collectedActions.push(gatherOrMine(resources, unit));
+        collectedActions.push(...gatherOrMine(resources, unit));
       } else {
         const [closestSelfUnit] = units.getClosest(combatRallyPosition, units.getAlive(Alliance.SELF).filter(unit => distance(unit.pos, combatRallyPosition) <= 16));
         if (closestSelfUnit && (closestSelfUnit['selfDPSHealth'] > closestEnemyUnit['selfDPSHealth'])) {

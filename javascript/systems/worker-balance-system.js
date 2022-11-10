@@ -107,9 +107,9 @@ module.exports = createSystem({
       const { actions, units } = resources.get();
       if (units.getBases(Alliance.SELF).length > 0) {
         console.log('gatherOrMine');
-        const unitCommand = gatherOrMine(resources, idleUnit);
-        if (unitCommand) {
-          return actions.sendAction(unitCommand);
+        const unitCommands = gatherOrMine(resources, idleUnit);
+        if (unitCommands.length > 0) {
+          return actions.sendAction(unitCommands);
         }
       }
     }
@@ -180,10 +180,9 @@ function gatherOrMineIdleGroup(world) {
       })
     );
   });
-  // const idleWorkers = units.getWorkers().filter(worker => worker.isIdle());
   idleWorkers.forEach(idleWorker => {
     console.log('idle worker.orders', idleWorker.orders);
-    collectedActions.push(gatherOrMine(resources, idleWorker));
+    collectedActions.push(...gatherOrMine(resources, idleWorker));
   });
   return collectedActions;
 }
