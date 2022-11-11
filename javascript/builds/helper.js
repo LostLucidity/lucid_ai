@@ -9,7 +9,8 @@ const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getInRangeUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
-const { moveAwayPosition } = require("../services/position-service");
+const { getTimeInSeconds } = require("../services/frames-service");
+const { moveAwayPosition, getDistance } = require("../services/position-service");
 const { getMovementSpeed } = require("../services/unit-service");
 const { retreat, getDPSOfInRangeAntiAirUnits } = require("../services/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
@@ -31,7 +32,6 @@ const helper = {
     return unitCommand;
   },
   /**
-   * 
    * @param {World} world 
    * @param {Unit[]} shadowingUnits 
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
@@ -51,19 +51,22 @@ const helper = {
         const distanceToRangeB = distance(b.pos, unit.pos) - weaponsAirRangeB;
         return distanceToRangeA - distanceToRangeB;
       });
-      if (closestThreatUnit) {
-        if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestThreatUnit)) { return }
-        if (distance(unit.pos, closestThreatUnit.pos) > closestThreatUnit.data().sightRange + unit.radius + closestThreatUnit.radius) {
-          collectedActions.push(moveToTarget(unit, closestThreatUnit));
-        } else {
-          collectedActions.push(moveAwayFromTarget(world, unit, closestThreatUnit, getInRangeUnits(unit, enemyUnits, 16)));
-        }
-      } else if (closestInRangeUnit) {
-        if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) { return }
-        if (inRangeUnits.every(inRangeUnit => distance(unit.pos, inRangeUnit.pos) > inRangeUnit.data().sightRange)) {
-          collectedActions.push(moveToTarget(unit, closestInRangeUnit));
-        } else {
-          collectedActions.push(moveAwayFromTarget(world, unit, closestInRangeUnit, enemyUnits))
+      const unitToShadow = closestThreatUnit || closestInRangeUnit || null;
+      const shouldShadow = unitToShadow && checkIfShouldShadow(resources, unit, shadowingUnits, unitToShadow);
+      if (shouldShadow) { 
+        if (closestThreatUnit) {
+          if (distance(unit.pos, closestThreatUnit.pos) > closestThreatUnit.data().sightRange + unit.radius + closestThreatUnit.radius) {
+            collectedActions.push(moveToTarget(unit, closestThreatUnit));
+          } else {
+            collectedActions.push(moveAwayFromTarget(world, unit, closestThreatUnit, getInRangeUnits(unit, enemyUnits, 16)));
+          }
+        } else if (closestInRangeUnit) {
+          if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) { return }
+          if (inRangeUnits.every(inRangeUnit => distance(unit.pos, inRangeUnit.pos) > inRangeUnit.data().sightRange)) {
+            collectedActions.push(moveToTarget(unit, closestInRangeUnit));
+          } else {
+            collectedActions.push(moveAwayFromTarget(world, unit, closestInRangeUnit, enemyUnits))
+          }
         }
       }
     });
@@ -162,3 +165,26 @@ function moveToTarget(unit, targetUnit) {
 }
 
 module.exports = helper;
+
+/**
+ * @param {ResourceManager} resources
+ * @param {Unit} unit
+ * @param {Unit[]} shadowingUnits
+ * @param {Unit} closestThreatUnit
+ * @returns {boolean}
+ */
+function checkIfShouldShadow(resources, unit, shadowingUnits, closestThreatUnit) {
+  const { frame, map, units } = resources.get();
+  const { centroid } = map.getEnemyNatural(); if (centroid === undefined) return false;
+  const [closestToEnemyNatural] = units.getClosest(centroid, shadowingUnits);
+  const isClosestToEnemyNatural = closestToEnemyNatural && unit.tag === closestToEnemyNatural.tag;
+  const { pos } = closestThreatUnit; if (pos === undefined) return false;
+  const outOfNaturalRangeWorker = isWorker(closestThreatUnit) && getDistance(pos, centroid) > 16;
+  const isGameTimeLaterThanTargetTime = getTimeInSeconds(frame.getGameLoop()) >= 131;
+  const shouldClosestToEnemyNaturalShadow = isClosestToEnemyNatural && isGameTimeLaterThanTargetTime && [outOfNaturalRangeWorker, !isWorker(closestThreatUnit)].some(condition => condition);
+  const conditions = [
+    shouldClosestToEnemyNaturalShadow,
+    !isClosestToEnemyNatural,
+  ];
+  return conditions.some(condition => condition);
+}
