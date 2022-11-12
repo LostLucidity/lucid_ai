@@ -295,19 +295,28 @@ const worldService = {
         const [closestBase] = units.getClosest(pos, units.getBases());
         return { pos, buildProgress: closestBase.buildProgress };
       });
-      const sortedGeyserPositions = geyserPositions.sort((a, b) => {
-        const { buildProgress: aBuildProgress, pos: aPos } = a;
-        const { buildProgress: bBuildProgress, pos: bPos } = b;
-        if (aBuildProgress === undefined || bBuildProgress === undefined || aPos === undefined || bPos === undefined) return 0;
-        // @ts-ignore
-        const [baseA] = units.getClosest(a, units.getBases());
-        // @ts-ignore
-        const [baseB] = units.getClosest(b, units.getBases());
-        const { buildProgress: buildProgressA } = baseA;
-        const { buildProgress: buildProgressB } = baseB;
-        if (buildProgressA === undefined || buildProgressB === undefined) { return 0; }
-        return buildProgressA - buildProgressB;
-      });
+      const sortedGeyserPositions = geyserPositions
+        .filter(geyser => {
+          const { pos, buildProgress } = geyser; if (pos === undefined || buildProgress === undefined) return false;
+          const [closestBase] = units.getClosest(pos, units.getBases()); if (closestBase === undefined) return false;
+          const { unitType: baseType } = closestBase; if (baseType === undefined) return false;
+          const { buildTime } = data.getUnitTypeData(baseType); if (buildTime === undefined) return false;
+          const timeLeft = getBuildTimeLeft(closestBase, buildTime, buildProgress);
+          const { buildTime: geyserBuildTime } = data.getUnitTypeData(unitType); if (geyserBuildTime === undefined) return false;
+          return getTimeInSeconds(timeLeft) <= getTimeInSeconds(geyserBuildTime);
+        }).sort((a, b) => {
+          const { buildProgress: aBuildProgress, pos: aPos } = a;
+          const { buildProgress: bBuildProgress, pos: bPos } = b;
+          if (aBuildProgress === undefined || bBuildProgress === undefined || aPos === undefined || bPos === undefined) return 0;
+          // @ts-ignore
+          const [baseA] = units.getClosest(a, units.getBases());
+          // @ts-ignore
+          const [baseB] = units.getClosest(b, units.getBases());
+          const { buildProgress: buildProgressA } = baseA;
+          const { buildProgress: buildProgressB } = baseB;
+          if (buildProgressA === undefined || buildProgressB === undefined) { return 0; }
+          return buildProgressA - buildProgressB;
+        });
       const [topGeyserPosition] = sortedGeyserPositions;
       if (topGeyserPosition) {
         const { buildProgress } = topGeyserPosition;
