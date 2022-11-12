@@ -9,7 +9,7 @@ const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallType
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
-const { countTypes, morphMapping } = require("../helper/groups");
+const { countTypes, morphMapping, addOnTypesMapping } = require("../helper/groups");
 const { findPosition, getCandidatePositions } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { balanceResources, gatherOrMine } = require("../systems/manage-resources");
@@ -36,7 +36,7 @@ const { pointsOverlap, intersectionOfPoints, shuffle } = require("../helper/util
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, BARRACKS, SUPPLYDEPOT } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, BARRACKS, SUPPLYDEPOT, REACTOR } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -52,6 +52,7 @@ const { getPathCoordinates } = require('./path-service');
 const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
 const { CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/buff');
 const resourceManagerService = require('./resource-manager-service');
+const { getAddOnPlacement } = require('../helper/placement/placement-utilities');
 
 const worldService = {
   /** @type {boolean} */
@@ -282,7 +283,7 @@ const worldService = {
  * @returns {Promise<Point2D[]>}
  */
   findPlacements: async (world, unitType) => {
-    const { agent, resources } = world;
+    const { agent, data, resources } = world;
     const { race } = agent;
     const { actions, map, units } = resources.get();
     const [main, natural] = map.getExpansions();
@@ -425,10 +426,18 @@ const worldService = {
         wallOffPositions.push(...supplyCellInFootprints.flat());
       }
       const unitTypeFootprint = getFootprint(unitType);
+      let addonFootprint;
+      if (addOnTypesMapping.has(unitType)) {
+        addonFootprint = getFootprint(REACTOR); if (addonFootprint === undefined) return [];
+      }
       if (unitTypeFootprint === undefined) return [];
-      placements = placementGrids
-        .filter(grid => !pointsOverlap(cellsInFootprint(grid, unitTypeFootprint), [...wallOffPositions]))
-        .map(pos => ({ pos, rand: Math.random() }))
+      placements = placementGrids.filter(grid => {
+        const cells = [...cellsInFootprint(grid, unitTypeFootprint)];
+        if (addonFootprint) {
+          cells.push(...cellsInFootprint(getAddOnPlacement(grid), addonFootprint));
+        }
+        return cells.every(cell => map.isPlaceable(cell)) && !pointsOverlap(cells, [...wallOffPositions]);
+      }).map(pos => ({ pos, rand: Math.random() }))
         .sort((a, b) => a.rand - b.rand)
         .map(a => a.pos)
         .slice(0, 20);

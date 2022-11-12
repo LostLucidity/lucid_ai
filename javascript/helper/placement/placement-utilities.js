@@ -21,8 +21,13 @@ const placementUtilities = {
   getAddOnBuildingPlacement: (position) => {
     return { x: position.x - 3, y: position.y }
   },
+  /**
+   * @param {Point2D} position 
+   * @returns {Point2D}
+   */
   getAddOnPlacement: (position) => {
-    return { x: position.x + 3, y: position.y }
+    const { x, y } = position; if (x === undefined) return position;
+    return { x: x + 3, y: y }
   },
 }
 
