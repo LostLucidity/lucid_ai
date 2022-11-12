@@ -3,7 +3,7 @@
 
 const { ATTACK_ATTACK, HARVEST_GATHER, MOVE } = require("@node-sc2/core/constants/ability");
 const { mineralFieldTypes } = require("@node-sc2/core/constants/groups");
-const { ADEPTPHASESHIFT } = require("@node-sc2/core/constants/unit-type");
+const { ADEPTPHASESHIFT, ZEALOT, SCV } = require("@node-sc2/core/constants/unit-type");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("./actions-service");
@@ -17,13 +17,26 @@ const microService = {
    * @returns {boolean}
    */
   isFacing: (unit, targetUnit, degrees=7, log=false) => {
-    const targetFacingDegrees = toDegrees(targetUnit.facing);
-    const positionOfUnitDegrees = toDegrees(Math.atan2(unit.pos.y - targetUnit.pos.y, unit.pos.x - targetUnit.pos.x));
-    const normalizedPositionOfUnitDegrees = positionOfUnitDegrees > 0 ? positionOfUnitDegrees : 360 + positionOfUnitDegrees;
-    if (log) {
-      console.log('Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees)', Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees));
+    const targetFacingDegrees = toDegrees(unit.facing);
+    const { pos } = unit; if (pos === undefined) { return false; }
+    const { pos: targetPos } = targetUnit; if (targetPos === undefined) { return false; }
+    const { x, y } = pos; if (x === undefined || y === undefined) { return false; }
+    const { x: targetX, y: targetY } = targetPos; if (targetX === undefined || targetY === undefined) { return false; }
+    const positionOfUnitDegrees = toDegrees(Math.atan2(targetY - y, targetX - x));
+    // facing difference is difference of 0 or 360 degrees
+    const facingDifference = Math.abs(targetFacingDegrees - positionOfUnitDegrees);
+    const facingDifference2 = Math.abs(targetFacingDegrees - positionOfUnitDegrees + 360);
+    const facingDifference3 = Math.abs(targetFacingDegrees - positionOfUnitDegrees - 360);
+    const facingDifferenceMin = Math.min(facingDifference, facingDifference2, facingDifference3);
+    if (log && unit.unitType === ZEALOT) {
+      console.log('targetFacingDegrees', targetFacingDegrees);
+      console.log('positionOfUnitDegrees', positionOfUnitDegrees);
+      console.log('facingDifference', facingDifference);
+      console.log('facingDifference2', facingDifference2);
+      console.log('facingDifference3', facingDifference3);
+      console.log('facingDifferenceMin', facingDifferenceMin);
     }
-    return Math.abs(targetFacingDegrees - normalizedPositionOfUnitDegrees) < degrees;
+    return facingDifferenceMin < degrees;
   },
   /**
    * @param {UnitResource} units

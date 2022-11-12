@@ -49,6 +49,7 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { pointsOverlap } = require("./utilities");
 const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../services/map-resource-service");
+const scoutService = require("../systems/scouting/scouting-service");
 
 let actions;
 let race;
@@ -477,40 +478,30 @@ class AssemblePlan {
     }
   }
   /**
-   * @param {MapResource} map
+   * @param {World} world
    * @param {number[]} foodRanges 
    * @param {UnitTypeId} unitType 
    * @param {string} targetLocation
    * @param {{scoutType: string, label: string, unitType: UnitTypeId, unitCount: number}} conditions 
-   * @returns 
+   * @returns {void}
    */
-  scout(map, foodRanges, unitType, targetLocation, conditions) {
-    if (foodRanges.indexOf(this.foodUsed) > -1) {
+  scout(world, foodRanges, unitType, targetLocation, conditions) {
+    const { resources } = world;
+    const { map, units } = resources.get();
+    const label = conditions && conditions.label ? conditions.label : 'scout';
+    if (foodRanges.indexOf(getFoodUsed(world)) > -1) {
       const location = getTargetLocation(map, `get${targetLocation}`);
-      const label = conditions && conditions.label ? conditions.label : 'scout';
-      let labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
-      const hasOrderToTargetLocation = labelledScouts.filter(scout => scout.orders.find(order => order.targetWorldSpacePos && distance(order.targetWorldSpacePos, location) < 16)).length > 0;
-      if (!hasOrderToTargetLocation) {
-        if (conditions) {
-          if (conditions.scoutType && !scoutingService[conditions.scoutType]) { return; }
-          if (conditions.unitType) {
-            if (this.units.getByType(conditions.unitType).length === conditions.unitCount) { this.setScout(unitType, label, targetLocation); }
-          } else { this.setScout(unitType, label, location); }
-        } else { this.setScout(unitType, label, location); }
-        labelledScouts = this.units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
-        const [scout] = labelledScouts;
-        if (scout) {
-          if (distance(scout.pos, location) > 16 && calculateTotalHealthRatio(this.units, scout) > 1 / 2 && !scout.labels.has('Threatened')) {
-            const unitCommand = {
-              abilityId: MOVE,
-              targetWorldSpacePos: location,
-              unitTags: [scout.tag],
-            }
-            this.collectedActions.push(unitCommand);
-            console.log('Scout sent');
-            setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), `scouting ${targetLocation}`);
-          }
-        }
+      let labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
+      if (labelledScouts.length === 0) {
+        scoutService.setScout(units, location, unitType, label);      }
+    } else {
+      // delete label
+      const labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
+      if (labelledScouts.length > 0) {
+        labelledScouts.forEach(scout => {
+          scout.removeLabel(label);
+          scout.labels.set('clearFromEnemy', true);
+        });
       }
     }
   }
@@ -691,7 +682,7 @@ class AssemblePlan {
             if (!conditions) { conditions = {}; }
             const label = `scout${targetLocation}`
             conditions.label = label;
-            this.scout(map, foodTarget, unitType, targetLocation, conditions);
+            this.scout(world, foodTarget, unitType, targetLocation, conditions);
             break;
           }
           case 'train':

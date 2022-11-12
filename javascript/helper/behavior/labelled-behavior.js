@@ -292,12 +292,11 @@ function getThreateningUnits(data, unit) {
   const threateningUnits = enemyUnits && enemyUnits.filter((/** @type {Unit} */ enemyUnit) => {
     const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit; if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
     const distanceToEnemy = getDistance(pos, enemyPos);
-    isFacing(unit, enemyUnit, 180 / 16);
     const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
       const { range } = weaponThatCanAttack; if (range === undefined) return false;
       const weaponRangeOfEnemy = range + radius + enemyRadius + getTravelDistancePerStep(enemyUnit) + getTravelDistancePerStep(unit);
-      const enemyFacingUnit = enemyUnit.isMelee() ? isFacing(enemyUnit, unit, 180 / 16) : true;
+      const enemyFacingUnit = enemyUnit.isMelee() ? isFacing(enemyUnit, unit, 180 / 7.5) : true;
       return distanceToEnemy <= weaponRangeOfEnemy && enemyFacingUnit;
     }
   });
