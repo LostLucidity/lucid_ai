@@ -39,26 +39,36 @@ async function trainWorkers(world) {
   const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
   const { outpowered, unitProductionAvailable } = worldService
   let conditionsMet = planService.bogIsActive && minimumWorkerCount <= 11;
+  let foodDifference = getFoodDifference(world);
   if (!planService.bogIsActive) {
     const conditions = [
       haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
       !planService.isPlanPaused,
       agent.minerals < 512 || minimumWorkerCount <= 36,
-      shortOnWorkers(world),
+      shortOnWorkers(world) || foodDifference > 0,
       !outpowered || (outpowered && !unitProductionAvailable)
     ];
     conditionsMet = conditions.every(condition => condition);
   }
   if (conditionsMet) {
     unitTrainingService.workersTrainingTendedTo = false;
-    const { abilityId, foodRequired } = data.getUnitTypeData(WorkerRace[race]);
+    const { abilityId } = data.getUnitTypeData(WorkerRace[race]); if (abilityId === undefined) { return; }
     const productionUnit = resources.get().units.getProductionUnits(WorkerRace[race]).find(u => u.noQueue && u.abilityAvailable(abilityId));
-    let { plan, legacyPlan } = planService;
-    const step = plan.find(step => step.food > getFoodUsed(world)) || legacyPlan.find(step => step[0] > getFoodUsed(world));
-    if (foodRequired === undefined || step === undefined) return;
-    const foodDifference = (step.food || step[0]) - getFoodUsed(world);
     try { if (productionUnit) await buildWorkers(world, foodDifference); } catch (error) { console.log(error); }
   } else {
     unitTrainingService.workersTrainingTendedTo = true;
   }
+}
+
+/**
+ * @param {World} world
+ * @returns {number}
+ */
+function getFoodDifference(world) {
+  const { agent, data } = world;
+  const { race } = agent;
+  const { abilityId } = data.getUnitTypeData(WorkerRace[race]); if (abilityId === undefined) { return 0; }
+  let { plan, legacyPlan } = planService;
+  const step = plan.find(step => step.food > getFoodUsed(world)) || legacyPlan.find(step => step[0] > getFoodUsed(world)); if (step === undefined) { return 0; }
+  return (step.food || step[0]) - getFoodUsed(world);
 }
