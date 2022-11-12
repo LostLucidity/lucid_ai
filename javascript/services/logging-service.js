@@ -2,6 +2,9 @@
 "use strict"
 
 const loggingService = {
+  /** @type {(string | number | boolean | undefined)[][]} */
+  creeptumorQueenSteps: [],
+  /** @type {(string | number | boolean | undefined)[][]} */
   executedSteps: [],
   getStringNameOfConstant(constants, value) {
     return `${Object.keys(constants).find(constant => constants[constant] === value)}`;

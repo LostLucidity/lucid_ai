@@ -36,7 +36,7 @@ const { pointsOverlap, intersectionOfPoints, shuffle } = require("../helper/util
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, BARRACKS, SUPPLYDEPOT, REACTOR } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, BARRACKS, SUPPLYDEPOT, REACTOR, CREEPTUMORQUEEN } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -1374,10 +1374,11 @@ const worldService = {
   setAndLogExecutedSteps: (world, time, name, notes = '') => {
     const { agent, data } = world;
     const { foodUsed, minerals, vespene } = agent;
-    /**
-     * @type {(string | number | boolean | Point2D)[]}
-     */
-    const isStructure = UnitType[name] && data.getUnitTypeData(UnitType[name]).attributes.includes(Attribute.STRUCTURE);
+    let isStructure = false;
+    if (UnitType[name]) {
+      const { attributes } = data.getUnitTypeData(UnitType[name]); if (attributes === undefined) return;
+      isStructure = attributes.includes(Attribute.STRUCTURE);
+    }
     // set foodCount to foodUsed plus 1 if it's a structure and race is zerg
     const foodCount = (isStructure && agent.race === Race.ZERG) ? foodUsed + 1 : foodUsed;
     const buildStepExecuted = [foodCount, formatToMinutesAndSeconds(time), name, planService.currentStep, worldService.outpowered, `${minerals}/${vespene}`];
@@ -1385,16 +1386,21 @@ const worldService = {
     if (count) buildStepExecuted.push(count);
     if (notes) buildStepExecuted.push(notes);
     console.log(buildStepExecuted);
-    const lastElement = loggingService.executedSteps.length - 1;
-    const lastStep = loggingService.executedSteps[lastElement];
-    let matchingLastStep = false;
-    if (lastStep) {
-      matchingLastStep = buildStepExecuted[2] === lastStep[2] && buildStepExecuted[6] === lastStep[6];
-      if (matchingLastStep && !isStructure) {
-        matchingLastStep = matchingLastStep && buildStepExecuted[3] === lastStep[3];
+    if ([CREEPTUMORQUEEN].includes(UnitType[name])) {
+      const { creeptumorQueenSteps } = loggingService;
+      if (findMatchingStep(creeptumorQueenSteps, buildStepExecuted, isStructure)) {
+        loggingService.creeptumorQueenSteps.splice(creeptumorQueenSteps.length - 1, 1, buildStepExecuted)
+      } else {
+        loggingService.creeptumorQueenSteps.push(buildStepExecuted);
+      }
+    } else {
+      const { executedSteps } = loggingService;
+      if (findMatchingStep(executedSteps, buildStepExecuted, isStructure)) {
+        loggingService.executedSteps.splice(executedSteps.length - 1, 1, buildStepExecuted)
+      } else {
+        loggingService.executedSteps.push(buildStepExecuted);
       }
     }
-    matchingLastStep ? loggingService.executedSteps.splice(lastElement, 1, buildStepExecuted) : loggingService.executedSteps.push(buildStepExecuted);
   },
   /**
    * @param {World} world
@@ -1974,3 +1980,22 @@ function stopUnitFromMovingToPosition(unit, position) {
   }
   return collectedActions;
 }
+/**
+ * @param {(string | number | boolean | undefined)[][]} steps
+ * @param {(string | number | boolean | undefined)[]} buildStepExecuted
+ * @param {boolean} isStructure
+ * @returns {boolean}
+ */
+function findMatchingStep(steps, buildStepExecuted, isStructure) {
+  const lastElement = steps.length - 1;
+  const lastStep = steps[lastElement];
+  let foundMatchingStep = false;
+  if (lastStep) {
+    foundMatchingStep = buildStepExecuted[2] === lastStep[2] && buildStepExecuted[6] === lastStep[6];
+    if (foundMatchingStep && !isStructure) {
+      foundMatchingStep = foundMatchingStep && buildStepExecuted[3] === lastStep[3];
+    }
+  }
+  return foundMatchingStep
+}
+
