@@ -105,6 +105,7 @@ function getCandidateWalls(map, candidateWallEnds, pathToCross) {
       if (distance(candidateWallEnd, candidateWallEndTwo) < 9) return false;
       // find path between candidateWallEnd and second candidateWallEnd
       const pathCoordinates = getPathCoordinates(map.path(candidateWallEnd, candidateWallEndTwo, { diagonal: true, force: true }));
+      if (pathCoordinates.some(grid => getNeighbors(grid).some(neighbor => map.isRamp(neighbor)))) return false;
       // find if pathCoordinates only has 1 path that is near the pathToCross
       const pathCoordinatesThatCross = pathCoordinates.filter(pathCoordinate => {
         return pathToCross.some(pathToCrossCoordinate => {
