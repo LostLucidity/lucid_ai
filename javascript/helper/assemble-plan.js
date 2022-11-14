@@ -489,13 +489,13 @@ class AssemblePlan {
     const { resources } = world;
     const { map, units } = resources.get();
     const label = conditions && conditions.label ? conditions.label : 'scout';
-    if (foodRanges.indexOf(getFoodUsed(world)) > -1) {
+    const isScoutTypeActive = conditions && conditions.scoutType ? scoutingService[conditions.scoutType] : true;
+    if (foodRanges.indexOf(getFoodUsed(world)) > -1 && isScoutTypeActive) {
       const location = getTargetLocation(map, `get${targetLocation}`);
       let labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
         scoutService.setScout(units, location, unitType, label);      }
     } else {
-      // delete label
       const labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length > 0) {
         labelledScouts.forEach(scout => {
@@ -503,33 +503,6 @@ class AssemblePlan {
           scout.labels.set('clearFromEnemy', true);
         });
       }
-    }
-  }
-  setScout(unitType, label, location) {
-    let [unit] = this.units.getClosest(
-      location,
-      this.units.getById(unitType).filter(unit => {
-        const condition = [
-          unit.noQueue,
-          unit.orders.findIndex(order => order.abilityId === MOVE) > -1,
-          unit.isConstructing() && unit.unitType === PROBE,
-          !unit.isWorker()
-        ];
-        return condition.some(condition => condition);
-      })
-    );
-    if (!unit) { [unit] = this.units.getClosest(location, this.units.getById(unitType).filter(unit => unit.unitType === unitType && !unit.isConstructing() && unit.isGathering())); }
-    if (unit) {
-      const scoutLog = [];
-      if (unit.orders[0]) {
-        scoutLog.push('Scout order', getStringNameOfConstant(Ability, unit.orders[0].abilityId));
-      }
-      if (!unit.labels.has(label)) {
-        unit.labels.clear();
-        unit.labels.set(label, location);
-        scoutLog.push(`Set ${label}`);
-      }
-      console.log(scoutLog);
     }
   }
   /**
