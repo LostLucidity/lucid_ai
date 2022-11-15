@@ -13,7 +13,7 @@ const { larvaOrEgg } = require("../groups");
 const { isRepairing, setPendingOrders, isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
-const { moveAwayPosition, getDistance } = require("../../services/position-service");
+const { getDistance } = require("../../services/position-service");
 const { retreat, pullWorkersToDefend, calculateNearDPSHealth, getUnitsInRangeOfPosition } = require("../../services/world-service");
 const { canAttack } = require("../../services/resources-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
@@ -21,28 +21,6 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { getCombatRally } = require("../../services/resource-manager-service");
 
 module.exports = {
-  /**
-   * @param {ResourceManager} resources 
-   * @returns {Point2D[]}
-   */
-  barracksBehavior: (resources) => {
-    const collectedActions = [];
-    const { units } = resources.get();
-    units.getByType(UnitType.BARRACKS).forEach(unit => {
-      const foundRallyAbility = unit.availableAbilities().find(ability => ability === Ability.RALLY_BUILDING);
-      if (foundRallyAbility) {
-        const unitCommand = createUnitCommand(foundRallyAbility, [unit]);
-        let rallyPosition = getCombatRally(resources);
-        const [closestEnemyUnit] = units.getClosest(unit.pos, units.getAlive(Alliance.ENEMY)).filter(enemyUnit => distance(enemyUnit.pos, unit.pos) < 16);
-        if (closestEnemyUnit && unit['selfDPSHealth'] < closestEnemyUnit['selfDPSHealth']) {
-          rallyPosition = moveAwayPosition(closestEnemyUnit.pos, unit.pos);
-        }
-        unitCommand.targetWorldSpacePos = rallyPosition;
-        collectedActions.push(unitCommand);
-      }
-    });
-    return collectedActions;
-  },
   orbitalCommandCenterBehavior: (resources, action) => {
     const { EFFECT_CALLDOWNMULE, EFFECT_SCAN } = Ability;
     const {

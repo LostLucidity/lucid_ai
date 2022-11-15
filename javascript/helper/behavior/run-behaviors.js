@@ -1,8 +1,9 @@
 //@ts-check
 "use strict"
 
+const { setCombatBuildingsRallies } = require("../../services/resources-service");
 const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior, acrossTheMapBehavior, recruitToBattleBehavior } = require("./labelled-behavior");
-const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior, barracksBehavior } = require("./unit-behavior");
+const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior } = require("./unit-behavior");
 
 /**
  * @param {World} world 
@@ -13,7 +14,6 @@ async function runBehaviors(world) {
   const { units } = resources.get();
   const collectedActions = []
   collectedActions.push(...acrossTheMapBehavior(world));
-  collectedActions.push(...barracksBehavior(resources));
   collectedActions.push(...clearFromEnemyBehavior(world));
   collectedActions.push(...liberatorBehavior(resources));
   collectedActions.push(...marineBehavior(resources));
@@ -21,6 +21,8 @@ async function runBehaviors(world) {
   collectedActions.push(...overlordBehavior(world));
   await scoutEnemyMainBehavior(world);
   await scoutEnemyNaturalBehavior(resources);
+  collectedActions.push(...setCombatBuildingsRallies(resources));
+  collectedActions.push(...setCombatBuildingsRallies(resources));
   collectedActions.push(...supplyDepotBehavior(resources));
   collectedActions.push(...await workerBehavior(world));
   collectedActions.push(...recruitToBattleBehavior(units));

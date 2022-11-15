@@ -1,8 +1,12 @@
 //@ts-check
 "use strict"
 
-const { CloakState } = require("@node-sc2/core/constants/enums");
-const { getDistanceByPath, getClosestUnitByPath } = require("./resource-manager-service");
+const { Ability } = require("@node-sc2/core/constants");
+const { CloakState, Alliance } = require("@node-sc2/core/constants/enums");
+const { BARRACKS, FACTORY, STARPORT } = require("@node-sc2/core/constants/unit-type");
+const { createUnitCommand } = require("./actions-service");
+const { getDistance, moveAwayPosition } = require("./position-service");
+const { getClosestUnitByPath, getCombatRally } = require("./resource-manager-service");
 
 const resourcesService = {
   /**
@@ -50,6 +54,30 @@ const resourcesService = {
     } else {
       return resourcesService.setCombatPoint(resources, units, targetUnit);
     }
+  },
+  /**
+   * @param {ResourceManager} resources
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  setCombatBuildingsRallies: (resources) => {
+    const { units } = resources.get();
+    const collectedActions = [];
+    units.getById([BARRACKS, FACTORY, STARPORT]).forEach(building => {
+      const { pos } = building; if (pos === undefined) { return []; }
+      const foundRallyAbility = building.availableAbilities().find(ability => ability === Ability.RALLY_BUILDING);
+      if (foundRallyAbility) {
+        const unitCommand = createUnitCommand(foundRallyAbility, [building]);
+        let rallyPosition = getCombatRally(resources);
+        const [closestEnemyUnit] = units.getClosest(pos, units.getAlive(Alliance.ENEMY)).filter(enemyUnit => enemyUnit.pos && getDistance(enemyUnit.pos, pos) < 16);
+        if (closestEnemyUnit && building['selfDPSHealth'] < closestEnemyUnit['selfDPSHealth']) {
+          const { pos: enemyPos } = closestEnemyUnit; if (enemyPos === undefined) { return []; }
+          rallyPosition = moveAwayPosition(enemyPos, pos);
+        }
+        unitCommand.targetWorldSpacePos = rallyPosition;
+        collectedActions.push(unitCommand);
+      }
+    });
+    return collectedActions;
   },
   /**
    * @param {ResourceManager} resources 
