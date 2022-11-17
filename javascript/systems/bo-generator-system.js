@@ -21,6 +21,7 @@ const { getDistanceByPath } = require("../services/resource-manager-service");
 const { setScout } = require("./scouting/scouting-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { getTargetLocation } = require("../services/map-resource-service");
+const { getTimeInSeconds } = require("../services/frames-service");
 
 let upgradeAbilities = [];
 module.exports = createSystem({
@@ -269,18 +270,24 @@ function scouting(world) {
   const { race } = agent;
   switch (race) {
     case Race.TERRAN: {
-      const scoutInfo = getRandom([{ start: { food: 17 }, end: { time: 120 }, unitType: 'SCV', targetLocation: 'EnemyMain' }]);
+      const scoutInfo = getRandom([{
+        start: { food: 17 },
+        end: { time: 120 },
+        unitType: 'SCV',
+        targetLocation: 'EnemyMain',
+        scoutType: 'earlyScout'
+      }]);
       implementScout(world, scoutInfo);
       break;
     }
     case Race.PROTOSS: {
       const scoutInfo = getRandom([
         {
-          start: { food: 14 },
+          start: { food: 14, unit: { type: 'PYLON', count: 1 } },
           end: { food: 19 },
           unitType: 'PROBE',
           targetLocation: 'EnemyMain',
-          scoutType: { unitType: 'PYLON', unitCount: 1, scoutType: 'earlyScout' }
+          scoutType: 'earlyScout'
         }]);
       implementScout(world, scoutInfo);
       break;
@@ -289,19 +296,17 @@ function scouting(world) {
 }
 /**
  * @param {World} world 
- * @param {any} scoutInfo 
+ * @param {import("../interfaces/scouting").ScoutInfo} scoutInfo 
  */
 function implementScout(world, scoutInfo) {
   const { agent, resources } = world;
   const { foodUsed } = agent;
   const { map, units } = resources.get();
   if (foodUsed === undefined) return;
-  const { frame } = resources.get();
-  const { start, end, unitType, targetLocation, scoutType } = scoutInfo;
-  const startCondition = start.food !== undefined ? foodUsed >= start.food : frame >= start.time;
-  const endCondition = end.food !== undefined ? foodUsed >= end.food : frame >= end.time;
-  const scoutTypeCondition = scoutInfo.scoutType !== undefined ? units.getById(UnitType[scoutType.unitType]).length >= scoutInfo.scoutType.unitCount : true;
-  if (startCondition && !endCondition && scoutTypeCondition) {
+  const { unitType, targetLocation } = scoutInfo;
+  const startCondition = getStartCondition(world, scoutInfo);
+  const endCondition = getEndCondition(world, scoutInfo);
+  if (startCondition && !endCondition) {
     if (units.withLabel(`scout${targetLocation}`).length === 0) {
       const location = getTargetLocation(map, `get${targetLocation}`);
       setScout(units, location, UnitType[unitType], `scout${targetLocation}`);
@@ -314,3 +319,46 @@ function implementScout(world, scoutInfo) {
   }
 }
 
+/**
+ * @param {World} world 
+ * @param {import("../interfaces/scouting").ScoutInfo} scoutInfo
+ * @returns {boolean}
+ */
+function getStartCondition(world, scoutInfo) {
+  const { agent, resources } = world;
+  const { start } = scoutInfo;
+  const { foodUsed } = agent; if (foodUsed === undefined) return false;
+  const { frame, units } = resources.get();
+  const conditions = [];
+  if (start.food !== undefined) {
+    conditions.push(foodUsed >= start.food);
+  } else if (start.time !== undefined) {
+    conditions.push(getTimeInSeconds(frame.getGameLoop()) >= start.time);
+  }
+  if (start.unit !== undefined) {
+    conditions.push(units.getById(UnitType[start.unit.type]).length >= start.unit.count);
+  }
+  if (scoutInfo.scoutType !== undefined) {
+    conditions.push(scoutingService[scoutInfo.scoutType]);
+  }
+  return conditions.every(condition => condition);
+}
+
+/**
+ * @param {World} world
+ * @param {import("../interfaces/scouting").ScoutInfo} scoutInfo
+ * @returns {boolean}
+ */
+function getEndCondition(world, scoutInfo) {
+  const { agent, resources } = world;
+  const { end } = scoutInfo;
+  const { foodUsed } = agent; if (foodUsed === undefined) return false;
+  const { frame } = resources.get();
+  const conditions = [];
+  if (end.food !== undefined) {
+    conditions.push(foodUsed >= end.food);
+  } else if (end.time !== undefined) {
+    conditions.push(getTimeInSeconds(frame.getGameLoop()) >= end.time);
+  }
+  return conditions.every(condition => condition);
+}
