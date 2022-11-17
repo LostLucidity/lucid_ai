@@ -16,6 +16,7 @@ const { retreat, getDamageDealingUnits, getUnitsInRangeOfPosition, calculateNear
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
+const stateOfGameService = require("../../systems/state-of-game-system/state-of-game-service");
 const { calculateTotalHealthRatio } = require("../../systems/unit-resource/unit-resource-service");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
 const { engageOrRetreat } = require("./army-behavior");
@@ -288,7 +289,7 @@ function getEmptyExpansions(resources) {
  */
 function getThreateningUnits(data, unit) {
   const { pos, radius} = unit; if (pos === undefined || radius === undefined) return [];
-  const enemyUnits = unit['enemyUnits'];
+  const enemyUnits = unit['enemyUnits'] || stateOfGameService.getEnemyUnits(unit);
   const threateningUnits = enemyUnits && enemyUnits.filter((/** @type {Unit} */ enemyUnit) => {
     const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit; if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
     const distanceToEnemy = getDistance(pos, enemyPos);

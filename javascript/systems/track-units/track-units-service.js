@@ -8,6 +8,7 @@ const { getSupply } = require("../../services/data-service");
 const { getTrainingSupply } = require("../../services/shared-service");
 
 const trackUnitsService = {
+  /** @type {Unit[]} */
   previousUnits: [],
   /** @type {Unit[]} */
   missingUnits: [],

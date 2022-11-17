@@ -53,6 +53,8 @@ const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-servi
 const { CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/buff');
 const resourceManagerService = require('./resource-manager-service');
 const { getAddOnPlacement } = require('../helper/placement/placement-utilities');
+const stateOfGameService = require('../systems/state-of-game-system/state-of-game-service');
+const { getEnemyUnits } = require('../systems/state-of-game-system/state-of-game-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -1773,7 +1775,7 @@ function getRetreatCandidates(world, unit, targetUnit) {
   return [...expansionLocations].filter((point) => {
     if (point === undefined) return false;
     const positionString = `${point.x},${point.y}`;
-    const damageDealingEnemies = worldService.getDamageDealingUnits(world, unit, targetUnit['selfUnits']);
+    const damageDealingEnemies = worldService.getDamageDealingUnits(world, unit, targetUnit['enemyUnits'] || getEnemyUnits(targetUnit));
     let [closestToRetreat] = getClosestUnitByPath(resources, point, damageDealingEnemies);
     if (closestToRetreat) {
       const closestToRetreatOrTargetUnit = closestToRetreat ? closestToRetreat : targetUnit;
