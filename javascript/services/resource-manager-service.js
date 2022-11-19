@@ -38,6 +38,7 @@ const resourceManagerService = {
     }
     const ownBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1);
     let target;
+    const localMaxDistanceOfMineralFields = 10;
     if (mineralField && mineralField.tag) {
       target = mineralField;
     } else {
@@ -47,7 +48,6 @@ const resourceManagerService = {
         if (assignedHarvesters === undefined || idealHarvesters === undefined) { return false; }
         return assignedHarvesters < idealHarvesters
       });
-      const localMaxDistanceOfMineralFields = 9;
       const candidateBases = needyBases.length > 0 ? needyBases : ownBases;
       targetBase = resourceManagerService.getClosestUnitFromUnit(resources, unit, candidateBases);
       if (targetBase === undefined || targetBase.pos === undefined) { return collectedActions; }
@@ -60,11 +60,8 @@ const resourceManagerService = {
     if (target) {
       const { pos: targetPos } = target; if (targetPos === undefined) { return collectedActions; }
       const closestPathablePositionsBetweenPositions = resourceManagerService.getClosestPathablePositionsBetweenPositions(resources, unitPos, targetPos);
-      const { pathablePosition, pathableTargetPosition } = closestPathablePositionsBetweenPositions;
-      const path = getMapPath(map, pathablePosition, pathableTargetPosition);
-      const distanceByPath = resourceManagerService.getDistanceByPath(resources, unitPos, targetPos);
-      if (path.length > 0 && distanceByPath > 16) {
-        const pathCoordinates = getPathCoordinates(path);
+      const { distance, pathCoordinates } = closestPathablePositionsBetweenPositions;
+      if (getDistance(unitPos, targetPos) > localMaxDistanceOfMineralFields && distance > 16 && pathCoordinates.length > 0) {
         const moveCommand = createUnitCommand(MOVE, [unit]);
         moveCommand.targetWorldSpacePos = pathCoordinates[pathCoordinates.length - 1];
         collectedActions.push(moveCommand);
@@ -95,7 +92,7 @@ const resourceManagerService = {
    * @param {ResourceManager} resources
    * @param {Point2D} position
    * @param {Point2D} targetPosition
-   * @returns {{pathablePosition: Point2D, pathableTargetPosition: Point2D, distance: number}}
+   * @returns {{distance: number, pathCoordinates: Point2D[], pathablePosition: Point2D, pathableTargetPosition: Point2D}}
    */
   getClosestPathablePositionsBetweenPositions: (resources, position, targetPosition) => {
     const { map } = resources.get();
@@ -108,12 +105,14 @@ const resourceManagerService = {
         return {
           pathablePosition,
           pathableTargetPosition,
+          pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, pathableTargetPosition)),
           distance: resourceManagerService.getDistanceByPath(resources, pathablePosition, pathableTargetPosition)
         };
       });
       if (isAnyPositionCorner || isAnyTargetPositionCorner) {
         const averageDistance = distancesToTargetPositions.reduce((acc, { distance }) => acc + distance, 0) / distancesToTargetPositions.length;
         return {
+          pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, targetPosition)),
           pathablePosition,
           pathableTargetPosition: targetPosition,
           distance: averageDistance
@@ -126,9 +125,12 @@ const resourceManagerService = {
       const averageDistance = distancesAndPositions.reduce((acc, curr) => {
         return acc + curr.distance;
       }, 0) / distancesAndPositions.length;
+      const pathablePosition = isAnyPositionCorner ? avgPoints(pathablePositions) : position;
+      const pathableTargetPosition = isAnyTargetPositionCorner ? avgPoints(pathableTargetPositions) : getClosestPosition(targetPosition, pathableTargetPositions)[0];
       return {
-        pathablePosition: isAnyPositionCorner ? avgPoints(pathablePositions) : position,
-        pathableTargetPosition: isAnyTargetPositionCorner ? avgPoints(pathableTargetPositions) : getClosestPosition(targetPosition, pathableTargetPositions)[0],
+        pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, pathableTargetPosition)),
+        pathablePosition,
+        pathableTargetPosition,
         distance: averageDistance
       };
     }
@@ -287,7 +289,7 @@ function getUnitsWithinDistance(pos, units, maxDistance) {
   return units.filter(unit => {
     const { pos: unitPos } = unit;
     if (unitPos === undefined) { return false; }
-    return distance(unitPos, pos) <= maxDistance;
+    return getDistance(unitPos, pos) <= maxDistance;
   });
 }
 
