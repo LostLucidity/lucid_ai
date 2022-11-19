@@ -28,20 +28,18 @@ const wallOffNaturalService = {
   wall: [],
   /**
    * @param {ResourceManager} resources
-   * @param {Point2D[]} wall
-   * @param {Point2D[][] } twoWallInfo
+   * @param {{ path: Point2D[]; pathLength: number;}[]} walls
    */
-  setStructurePlacements: (resources, wall, twoWallInfo) => {
+  setStructurePlacements: (resources, walls) => {
     const { debug, map } = resources.get();
     wallOffNaturalService.threeByThreePositions = [];
-    // shuffle twoWallInfo
-    twoWallInfo = shuffle(twoWallInfo);
+    /** @type {{ path: Point2D[]; pathLength: number;}[]} */
+    let shuffledWalls = shuffle(walls);
     const threeByThreeGrid = getFootprint(GATEWAY);
     if (threeByThreeGrid === undefined) return;
-    for (let i = 0; i < twoWallInfo.length; i++) {
-      // find pylon placement that covers threeByThreePositions starting from middle of wall to townhall position.
-      // const middleOfWall = avgPoints(wall);
-      const middleOfWall = avgPoints(twoWallInfo[i]);
+    for (let i = 0; i < shuffledWalls.length; i++) {
+      const currentWall = shuffledWalls[i].path;
+      const middleOfWall = avgPoints(currentWall);
       const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, map.getNatural().townhallPosition))
         .filter(point => {
           const pylonFootprint = cellsInFootprint(point, getFootprint(PYLON));
@@ -51,7 +49,7 @@ const wallOffNaturalService = {
       // add neighboring points to wallToTownhallPoints excluding those that already exist in wallToTownhallPoints
       debug.setDrawCells('wl2thp', wallToTownhallPoints.map(r => ({ pos: r })), { size: 1, cube: false });
       const wallToTownhallPointsWithNeighbors = wallToTownhallPoints.reduce((acc, point) => {
-        const neighbors = getNeighbors(point, false).filter(neighbor => map.isPlaceableAt(PYLON, neighbor));
+        const neighbors = getNeighbors(point, true).filter(neighbor => map.isPlaceableAt(PYLON, neighbor));
         const neighborsNotInWall = neighbors.filter(neighbor => !wallToTownhallPoints.some(point => point.x === neighbor.x && point.y === neighbor.y));
         return [...acc, ...neighborsNotInWall];
       }, []);
@@ -59,7 +57,7 @@ const wallOffNaturalService = {
       const wallToTownhallPointsWithNeighborsMapped = wallToTownhallPointsWithNeighbors.map(point => {
         const pylonPowerArea = getPylonPowerArea(point);
         let wallOffGrids = [];
-        let workingWall = [...wall];
+        let workingWall = [...currentWall];
         const threeByThreePositions = [];
         if (threeByThreePositions.length === 0) {
           const cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
@@ -73,15 +71,14 @@ const wallOffNaturalService = {
               // see if adjacent to temporary wall.
               const [closestWallGrid] = getClosestPosition(cornerNeighbor, temporaryWall);
               const wallGridNeighbors = getNeighbors(closestWallGrid, false);
-              // can be covered by pylon
-              // point must be closer to natural townhall position than cornerNeighbor  
-              return (
-                distance(point, map.getNatural().townhallPosition) < distance(cornerNeighbor, map.getNatural().townhallPosition) &&
-                map.isPlaceableAt(GATEWAY, cornerNeighbor) &&
-                pointsOverlap(threeByThreePlacement, wallGridNeighbors) &&
-                intersectionOfPoints(threeByThreePlacement, workingWall).length > 1 &&
-                allPointsWithinGrid(threeByThreePlacement, pylonPowerArea)
-              );
+              const conditions = [
+                distance(point, map.getNatural().townhallPosition) < distance(cornerNeighbor, map.getNatural().townhallPosition),
+                map.isPlaceableAt(GATEWAY, cornerNeighbor),
+                pointsOverlap(threeByThreePlacement, wallGridNeighbors),
+                intersectionOfPoints(threeByThreePlacement, workingWall).length > 1,
+                allPointsWithinGrid(threeByThreePlacement, pylonPowerArea),
+              ];
+              return conditions.every(condition => condition);
             });
             const selectedCandidate = getRandom(placementCandidates);
             if (selectedCandidate) {

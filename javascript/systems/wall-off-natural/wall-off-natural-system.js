@@ -62,13 +62,15 @@ function setUpWallOffNatural(world) {
     slicedGridsToEnemy.reverse().map(grid => {
       const candidateWallEnds = getCandidateWallEnds(map, grid);
       const candidateWalls = getCandidateWalls(map, candidateWallEnds, slicedGridsToEnemy);
-      wallCandidates.push(...candidateWalls);
+      if (areCandidateWallEndsUnique(wallCandidates, candidateWallEnds)) {
+        wallCandidates.push(...candidateWalls.filter(wall => areCandidateWallEndsUnique(wallCandidates, wall.path)));
+      }
     });
-    const [shortestWallCandidate, shortestWallCandidateTwo] = wallCandidates.sort((a, b) => a.pathLength - b.pathLength);
-    if (shortestWallCandidate) {
-      console.log('shortestWallCandidate', shortestWallCandidate);
-      debug.setDrawCells('wllCnd', shortestWallCandidate.path.map(r => ({ pos: r })), { size: 1, cube: false });
-      setStructurePlacements(resources, shortestWallCandidate.path, [shortestWallCandidate.path, shortestWallCandidateTwo.path]);
+    const shortestWalls = wallCandidates.sort((a, b) => a.pathLength - b.pathLength).slice(0, 4);
+    if (shortestWalls.length > 0) {
+      console.log('shortestWallCandidate', shortestWalls[0]);
+      debug.setDrawCells('wllCnd', shortestWalls[0].path.map(r => ({ pos: r })), { size: 1, cube: false });
+      setStructurePlacements(resources, shortestWalls);
     }
   }
 }
@@ -119,13 +121,28 @@ function getCandidateWalls(map, candidateWallEnds, pathToCross) {
       const [closestCandidateWallEndThatCross] = getClosestPosition(candidateWallEnd, candidateWallEndsThatCross);
       // get the path between the candidateWallEnd and the closest candidateWallEndThatCross
       const pathCoordinates = getPathCoordinates(map.path(candidateWallEnd, closestCandidateWallEndThatCross, { diagonal: true, force: true }));
-      candidateWalls.push({
-        'path': pathCoordinates,
-        'pathLength': pathCoordinates.length,
-      });
+      if (areCandidateWallEndsUnique(candidateWalls, pathCoordinates)) {
+        candidateWalls.push({ path: pathCoordinates, pathLength: pathCoordinates.length });
+      }
     }
   });
   // sort candidateWalls by pathLength
   candidateWalls.sort((a, b) => a.pathLength - b.pathLength);
   return candidateWalls;
+}
+
+/**
+ * 
+ * @param {{path: Point2D[], pathLength: number}[]} candidateWalls 
+ * @param {Point2D[]} wallCandidate 
+ * @returns 
+ */
+function areCandidateWallEndsUnique(candidateWalls, wallCandidate) {
+  return !candidateWalls.some(candidateWall => {
+    const [firstElement, lastElement] = [candidateWall.path[0], candidateWall.path[candidateWall.path.length - 1]];
+    const [firstElementTwo, lastElementTwo] = [wallCandidate[0], wallCandidate[wallCandidate.length - 1]];
+    const firstElementExists = firstElement.x === firstElementTwo.x && firstElement.y === firstElementTwo.y;
+    const lastElementExists = lastElement.x === lastElementTwo.x && lastElement.y === lastElementTwo.y;
+    return firstElementExists && lastElementExists;
+  });
 }
