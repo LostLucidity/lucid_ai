@@ -12,7 +12,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { countTypes } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
 const { isPendingContructing } = require("../../services/shared-service");
-const { isMoving } = require("../../services/unit-service");
+const { isMoving, getPendingOrders } = require("../../services/unit-service");
 
 const unitResourceService = {
   /** @type {{}} */
@@ -239,12 +239,11 @@ const unitResourceService = {
       mineralField.labels.set('workerCount', targetMineralFieldWorkers.length);
       const targetedMineralFieldWorkers = harvestingMineralWorkers.filter(worker => {
         const { orders } = worker;
-        const pendingOrders = worker['pendingOrders'];
         if (orders === undefined) return false;
-        return orders.some(order => {
-          if (order.targetUnitTag === mineralField.tag) {
-            return true;
-          } else if (pendingOrders && pendingOrders.some(pendingOrder => pendingOrder.targetUnitTag === mineralField.tag)) {
+        const pendingOrders = getPendingOrders(worker);
+        const allOrders = [...orders, ...pendingOrders];
+        return allOrders.some(order => {
+          if (order.targetUnitTag === mineralField.tag && worker.labels.has('mineralField')) {
             return true;
           } else {
             return false;
