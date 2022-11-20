@@ -7,11 +7,16 @@ const { SIEGETANKSIEGED, BUNKER, QUEEN } = require("@node-sc2/core/constants/uni
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getInRangeUnits, getInRangeDestructables } = require("../helper/battle-analysis");
 const { tankBehavior } = require("../helper/behavior/unit-behavior");
+const unitResourceService = require("../systems/unit-resource/unit-resource-service");
+const { createUnitCommand } = require("./actions-service");
 const { calculateNearSupply } = require("./data-service");
-const { moveAwayPosition } = require("./position-service");
+const { moveAwayPosition, getDistance } = require("./position-service");
+const { getWeaponThatCanAttack } = require("./unit-service");
 const { retreat } = require("./world-service");
 
 const armyManagementService = {
+  /** @type {Unit[]} */
+  attackingInRange: [],
   defenseMode: false,
   attackWithArmy: (data, units, army) => {
     const collectedActions = [];
@@ -63,6 +68,19 @@ const armyManagementService = {
     const { data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
+    armyManagementService.attackingInRange = selfUnits.filter(unit => {
+      if (unit.isAttacking()) {
+        const { orders, pos, radius, unitType } = unit; if (orders === undefined || pos === undefined || radius === undefined || unitType === undefined) { return false; }
+        const attackingOrder = orders.find(order => order.abilityId === ATTACK_ATTACK); if (attackingOrder === undefined) { return false; }
+        const { targetUnitTag } = attackingOrder; if (targetUnitTag === undefined) { return false; }
+        const targetUnit = units.getByTag(targetUnitTag); if (targetUnit === undefined) { return false; }
+        const { pos: targetPos, radius: targetRadius } = targetUnit; if (targetPos === undefined || targetRadius === undefined) { return false; }
+        const weapon = getWeaponThatCanAttack(data, unitType, targetUnit); if (weapon === undefined) { return false; }
+        const { range } = weapon; if (range === undefined) { return false; }
+        const shootingRange = range + radius + targetRadius;
+        return distance(pos, targetPos) < shootingRange;
+      }
+    });
     selfUnits.forEach(selfUnit => {
       let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType)) {
@@ -106,8 +124,30 @@ const armyManagementService = {
               abilityId: ATTACK_ATTACK,
               unitTags: [selfUnit.tag],
             }
-            const destructableTag = getInRangeDestructables(units, selfUnit);
-            if (destructableTag && clearRocks) { unitCommand.targetUnitTag = destructableTag; }
+            const destructable = getInRangeDestructables(units, selfUnit);
+            if (destructable && clearRocks) {
+              const { pos, radius } = destructable; if (pos === undefined || radius === undefined) { return; }
+              const { pos: selfPos, radius: selfRadius, unitType: selfUnitType } = selfUnit; if (selfPos === undefined || selfRadius === undefined || selfUnitType === undefined) { return; }
+              const weapon = getWeaponThatCanAttack(data, selfUnitType, destructable); if (weapon === undefined) { return; }
+              const { range } = weapon; if (range === undefined) { return; }
+              const attackRadius = radius + selfRadius + range;
+              const destructableBorderPositions = getBorderPositions(pos, attackRadius);
+              const fitablePositions = destructableBorderPositions.filter(borderPosition => {
+                return armyManagementService.attackingInRange.every(attackingInRangeUnit => {
+                  const { pos: attackingInRangePos, radius: attackingInRangeRadius } = attackingInRangeUnit; if (attackingInRangePos === undefined || attackingInRangeRadius === undefined) { return false; }
+                  const distanceFromAttackingInRangeUnit = getDistance(borderPosition, attackingInRangePos);
+                  return distanceFromAttackingInRangeUnit > attackingInRangeRadius + selfRadius;
+                });
+              }).sort((a, b) => getDistance(a, selfPos) - getDistance(b, selfPos));
+              if (fitablePositions.length > 0 && getDistance(pos, selfPos) > attackRadius + 1) {
+                targetPosition = fitablePositions[0];
+                const moveUnitCommand = createUnitCommand(MOVE, [selfUnit]);
+                moveUnitCommand.targetWorldSpacePos = targetPosition;
+                collectedActions.push(moveUnitCommand);
+                unitCommand.queueCommand = true;
+              }
+              unitCommand.targetUnitTag = destructable.tag;
+            }
             else {
               if (unitHasTargetPosition(selfUnit, targetPosition)) {
                 unitCommand.targetWorldSpacePos = targetPosition;
@@ -131,11 +171,29 @@ module.exports = armyManagementService;
  */
 function unitHasTargetPosition(unit, targetPosition) {
   const { orders, pos } = unit;
+  const defaultDistance = 12;
   if (orders === undefined || pos === undefined) { return false; }
   const orderFound = orders.some(order => {
     const { targetWorldSpacePos } = order;
     if (targetWorldSpacePos === undefined) return false;
-    return distance(targetWorldSpacePos, targetPosition) < 16;
+    return getDistance(targetWorldSpacePos, targetPosition) < defaultDistance;
   });
-  return !orderFound && distance(pos, targetPosition) > 16;
+  return !orderFound && getDistance(pos, targetPosition) > defaultDistance;
+}
+
+/**
+ * @param {Point2D} pos
+ * @param {Number} radius
+ * @returns {Point2D[]}
+ */
+function getBorderPositions(pos, radius) {
+  const positions = [];
+  for (let i = 0; i < 360; i += 10) {
+    const { x, y } = pos; if (x === undefined || y === undefined) { return []; }
+    const angle = i * Math.PI / 180;
+    const x1 = x + radius * Math.cos(angle);
+    const y1 = y + radius * Math.sin(angle);
+    positions.push({ x: x1, y: y1 });
+  }
+  return positions;
 }
