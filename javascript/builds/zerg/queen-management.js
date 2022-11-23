@@ -143,7 +143,7 @@ module.exports = {
         const ownCreepEdges = map.getCreep().filter(position => {
           const [closestCreepGenerator] = units.getClosest(position, units.getById(creepGenerators));
           if (closestCreepGenerator) {
-            const distanceToCreepGenerator = distance(position, closestCreepGenerator.pos)
+            const distanceToCreepGenerator = distance(position, closestCreepGenerator.pos);
             return distanceToCreepGenerator > 9 && distanceToCreepGenerator < 12.75
           }
         });

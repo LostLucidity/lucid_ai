@@ -2,11 +2,12 @@
 "use strict"
 
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, areEqual } = require("@node-sc2/core/utils/geometry/point");
+const { distance, areEqual, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
 const location = require("../helper/location");
 const { getPathCoordinates } = require("./path-service");
 
 const MapResourceService = {
+  creepEdges: [],
   /**
    * @param {MapResource} map
    * @param {Point2D} position 
@@ -108,6 +109,28 @@ const MapResourceService = {
    */
   getTargetLocation: (map, targetLocationFunction) => {
     return (map[targetLocationFunction] && map[targetLocationFunction]()) ? map[targetLocationFunction]().centroid : location[targetLocationFunction](map);
+  },
+  /**
+   * 
+   * @param {MapResource} map 
+   * @param {Point2D} position 
+   * @returns {Boolean}
+   */
+  isCreep: (map, position) => {
+    const { x, y } = position;
+    if (x === undefined || y === undefined) return false;
+    const grid = { x: Math.floor(x), y: Math.floor(y) };
+    return map.getCreep().some(creep => areEqual(creep, grid));
+  },
+  /**
+   * 
+   * @param {MapResource} map 
+   * @param {Point2D} pos 
+   * @returns {Boolean}
+   */
+  isCreepEdge: (map, pos) => {
+    const isCreep = MapResourceService.isCreep(map, pos);
+    return isCreep &&  getNeighbors(pos).some(neighbor => !map.getCreep().some(creepPosition => areEqual(creepPosition, neighbor)) && map.isPlaceable(neighbor));
   }
 }
 

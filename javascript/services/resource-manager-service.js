@@ -4,20 +4,22 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { SMART, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { combatTypes } = require("@node-sc2/core/constants/groups");
+const { combatTypes, creepGenerators } = require("@node-sc2/core/constants/groups");
+const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, areEqual, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
 const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
-const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions } = require("./map-resource-service");
+const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions, isCreepEdge } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
 const { getDistance } = require("./position-service");
 
 const resourceManagerService = {
   /** @type {Expansion[]} */
   availableExpansions: [],
+  creepEdges: [],
   /** @type {Point2D} */
   combatRally: null,
   /**
@@ -85,7 +87,7 @@ const resourceManagerService = {
     if (combatRally) {
       return combatRally;
     } else {
-      return map.getNatural() ? map.getCombatRally() : location.getRallyPointByBases(map, units);
+      return map.getNatural().getWall() ? map.getCombatRally() : location.getRallyPointByBases(map, units);
     }
   },
   /**
@@ -213,6 +215,36 @@ const resourceManagerService = {
     return resourceManagerService.getClosestUnitByPath(resources, closestPathablePosition, units, 1)[0];
   },
   /**
+   * @param {ResourceManager} resources
+   * @param {Point2D} position
+   * @returns {Point2D[]}
+   */
+  getCreepEdges: (resources, position) => {
+    const { creepEdges } = resourceManagerService;
+    if (creepEdges.length > 0) return creepEdges;
+    const { map, units } = resources.get();
+    // get Creep Edges within range with increasing range
+    const creepEdgesWithinRangeI = [];
+    for (let range = 0; range < 10; range++) {
+      const creepEdgesWithinRangeI = getCreepEdgesWithinRange(resources, position, range);
+      if (creepEdgesWithinRangeI.length > 0) {
+        return creepEdgesWithinRangeI;
+      }
+    }
+    if (creepEdgesWithinRangeI.length === 0) {
+      return map.getCreep().filter(position => {
+        const [closestCreepGenerator] = units.getClosest(position, units.getById(creepGenerators));
+        if (closestCreepGenerator) {
+          const { pos } = closestCreepGenerator; if (pos === undefined) return false;
+          const distanceToCreepGenerator = getDistance(position, pos);
+          // check if position is adjacent to non-creep position and is pathable
+          const creepEdge = isCreepEdge(map, position);
+          return distanceToCreepGenerator < 12.75 && creepEdge;
+        }
+      });
+    }
+  },
+  /**
   * @param {ResourceManager} resources
   * @param {Point2D} position
   * @param {Point2D|SC2APIProtocol.Point} targetPosition
@@ -327,6 +359,19 @@ function checkIfPositionIsCorner(positions, position) {
     if (x === undefined || y === undefined || pathableX === undefined || pathableY === undefined) { return false; }
     const halfway = Math.abs(x - pathableX) === 0.5 || Math.abs(y - pathableY) === 0.5;
     return halfway && getDistance(position, pos) <= 1;
+  });
+}
+/**
+ * @param {ResourceManager} resources
+ * @param {Point2D} position
+ * @param {Number} range
+ * @returns {Point2D[]}
+ */
+function getCreepEdgesWithinRange(resources, position, range) {
+  const { map } = resources.get();
+  const { getDistanceByPath } = resourceManagerService;
+  return gridsInCircle(position, range).filter(grid => {
+    return isCreepEdge(map, grid) && getDistanceByPath(resources, position, grid) <= 10;
   });
 }
 

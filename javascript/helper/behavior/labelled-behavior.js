@@ -1,18 +1,19 @@
 //@ts-check
 "use strict"
 
-const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, BUILD_CREEPTUMOR_QUEEN } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
-const { PHOTONCANNON, LARVA } = require("@node-sc2/core/constants/unit-type");
+const { PHOTONCANNON, LARVA, CREEPTUMORBURROWED } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
-const { getPathablePositions } = require("../../services/map-resource-service");
+const { getPathablePositions, isCreepEdge } = require("../../services/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
 const { getDistance } = require("../../services/position-service");
-const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally } = require("../../services/resource-manager-service");
+const resourceManagerService = require("../../services/resource-manager-service");
+const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
 const { getWeaponThatCanAttack } = require("../../services/unit-service");
-const { retreat, getDamageDealingUnits, getUnitsInRangeOfPosition, calculateNearDPSHealth } = require("../../services/world-service");
+const { retreat, getDamageDealingUnits, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
@@ -67,7 +68,7 @@ module.exports = {
     const { map, units } = resources.get();
     const label = 'clearFromEnemy';
     const collectedActions = [];
-    const combatRallyPosition = map.getCombatRally();
+    const combatRallyPosition = getCombatRally(resources);
     const [unit] = units.withLabel(label);
     if (unit) {
       const { pos } = unit;
@@ -116,6 +117,59 @@ module.exports = {
         }
       }
     }
+    return collectedActions;
+  },
+  /**
+   * @param {World} world
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  creeperBehavior: (world) => {
+    const { resources } = world;
+    const { map, units } = resources.get();
+    const collectedActions = [];
+    const label = 'creeper';
+    resourceManagerService.creepEdges = [];
+    const idleCreeperQueens = units.withLabel(label).filter(unit => unit.isIdle());
+    idleCreeperQueens.forEach(unit => {
+      let selectedCreepEdge;
+      const { pos } = unit; if (pos === undefined) return collectedActions;
+      if (getUnitTypeCount(world, CREEPTUMORBURROWED) <= 3) {
+        const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
+        const { townhallPosition } = map.getEnemyNatural();
+        const [closestTownhallPositionToEnemy] = getClosestUnitByPath(resources, townhallPosition, occupiedTownhalls).map(unit => unit.pos);
+        if (closestTownhallPositionToEnemy === undefined) return collectedActions;
+        const closestPathablePositionsBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, closestTownhallPositionToEnemy, townhallPosition);
+        const { pathCoordinates } = closestPathablePositionsBetweenPositions;
+        let creepEdgeAndPath = pathCoordinates.filter(path => isCreepEdge(map, path));
+        if (creepEdgeAndPath.length > 0) {
+          const creepEdgeAndPathWithinRange = creepEdgeAndPath.filter(position => getDistance(pos, position) <= 10 && getDistanceByPath(resources, pos, position) <= 10);
+          if (creepEdgeAndPathWithinRange.length > 0) {
+            creepEdgeAndPath = creepEdgeAndPathWithinRange;
+          }
+          const outEdgeCandidate = getClosestPositionByPath(resources, closestTownhallPositionToEnemy, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
+          selectedCreepEdge = outEdgeCandidate;
+        }
+      } else {
+        let creepCandidates = getCreepEdges(resources, pos);
+        const creepEdgeAndPathWithinRange = getCreepEdges(resources, pos).filter(position => getDistance(pos, position) <= 10 && getDistanceByPath(resources, pos, position) <= 10);
+        if (creepEdgeAndPathWithinRange.length > 0) {
+          creepCandidates = creepEdgeAndPathWithinRange;
+        }
+        const [closestCreepEdge] = getClosestPositionByPath(resources, pos, creepCandidates);
+        if (closestCreepEdge) {
+          selectedCreepEdge = closestCreepEdge;
+        }
+      }
+      if (selectedCreepEdge) {
+        const abilityId = unit.abilityAvailable(BUILD_CREEPTUMOR_QUEEN) ? BUILD_CREEPTUMOR_QUEEN : MOVE;
+        const unitCommand = {
+          abilityId,
+          targetWorldSpacePos: selectedCreepEdge,
+          unitTags: [unit.tag]
+        }
+        collectedActions.push(unitCommand);
+      }
+    });
     return collectedActions;
   },
   /**

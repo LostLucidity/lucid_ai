@@ -1,18 +1,17 @@
 //@ts-check
 "use strict"
 
-const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, BARRACKS, GATEWAY, ZERGLING, PHOTONCANNON, PROBE } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, BARRACKS, GATEWAY, ZERGLING, PHOTONCANNON } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
-const { MOVE } = require("@node-sc2/core/constants/ability");
 const rallyUnits = require("./rally-units");
-const { WarpUnitAbility, UnitType, Upgrade, UnitTypeId, Ability } = require("@node-sc2/core/constants");
+const { WarpUnitAbility, UnitType, Upgrade, UnitTypeId } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
 const { TownhallRace, GasMineRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack, push } = require("./behavior/army-behavior");
 const threats = require("./base-threats");
 const { generalScouting, cancelEarlyScout } = require("../builds/scouting");
-const { labelQueens, inject, spreadCreep, maintainQueens, spreadCreepByQueen } = require("../builds/zerg/queen-management");
+const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { moveAway } = require("../builds/helper");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
@@ -30,7 +29,7 @@ const { checkUnitCount } = require("../systems/track-units/track-units-service")
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
-const { getEnemyWorkers, deleteLabel, setPendingOrders, getMineralFieldTarget, calculateTotalHealthRatio } = require("../systems/unit-resource/unit-resource-service");
+const { getEnemyWorkers, deleteLabel, setPendingOrders, getMineralFieldTarget } = require("../systems/unit-resource/unit-resource-service");
 const planService = require("../services/plan-service");
 const { getNextPlanStep } = require("../services/plan-service");
 const scoutingService = require("../systems/scouting/scouting-service");
@@ -50,6 +49,7 @@ const { pointsOverlap } = require("./utilities");
 const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
+const { creeperBehavior } = require("./behavior/labelled-behavior");
 
 let actions;
 let race;
@@ -157,7 +157,7 @@ class AssemblePlan {
     } else {
       this.state.defendNatural = true;
     }
-    await this.raceSpecificManagement();
+    await this.raceSpecificManagement(world);
     this.collectedActions.push(...await runBehaviors(world));
     const label = 'pendingOrders';
     this.units.withLabel(label).forEach(unit => unit.labels.delete(label));
@@ -431,14 +431,14 @@ class AssemblePlan {
     await generalScouting(world, createdUnit);
     await world.resources.get().actions.sendAction(this.collectedActions);
   }
-  async raceSpecificManagement() {
+  async raceSpecificManagement(world) {
     switch (race) {
       case Race.ZERG:
         labelQueens(this.units);
         this.collectedActions.push(...inject(this.world));
         this.collectedActions.push(...overlordCoverage(this.units));
         this.collectedActions.push(...await spreadCreep(this.resources));
-        this.collectedActions.push(...await spreadCreepByQueen(this.resources));
+        this.collectedActions.push(...creeperBehavior(world));
         break;
       case Race.TERRAN:
         this.collectedActions.push(...repairBurningStructures(this.resources));
