@@ -51,7 +51,7 @@ const microService = {
     const retreatCommand = createUnitCommand(MOVE, [unit]);
     if (unit.isWorker()) {
       const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(unit.pos, mineralField.pos) < distance(targetUnit.pos, mineralField.pos));
-      const [closestCandidateMineral] = units.getClosest(unit.pos, candidateMinerals);
+      const [closestCandidateMineral] = units.getClosest(unit.pos, candidateMinerals); if (closestCandidateMineral === undefined) { return collectedActions; }
       retreatCommand.abilityId = HARVEST_GATHER;
       retreatCommand.targetUnitTag = closestCandidateMineral.tag;
     } else {
