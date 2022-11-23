@@ -12,6 +12,7 @@ const { shuffle } = require("../helper/utilities");
 const { createUnitCommand } = require("../services/actions-service");
 const { getTimeInSeconds } = require("../services/frames-service");
 const planService = require("../services/plan-service");
+const { getDistance } = require("../services/position-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestUnitPositionByPath } = require("../services/resource-manager-service");
 const { getMovementSpeed, getPendingOrders } = require("../services/unit-service");
 const { getUnitCount } = require("../services/world-service");
@@ -44,8 +45,8 @@ function injectLarva(resources) {
   const collectedActions = [];
   const baseAndQueenSpawnTimerLeft = getBaseAndQueenSpawnTimerLeft(resources);
   units.getById(QUEEN).forEach(queen => {
-    const { energy, orders, pos } = queen;
-    if (energy === undefined || orders === undefined || pos === undefined) return;
+    const { energy, orders, pos, radius } = queen;
+    if (energy === undefined || orders === undefined || pos === undefined || radius === undefined) return;
     const timeTo25Energy = (25 - energy) > 0 ? (25 - energy) / getEnergyRegenRate() : 0;
     const [closestUnitByPath] = getClosestUnitByPath(resources, pos, baseAndQueenSpawnTimerLeft.filter(base => {
       const { base: { pos: basePos }, timeLeft } = base;
@@ -69,18 +70,20 @@ function injectLarva(resources) {
         }
       } else {
         const [closestBase] = units.getClosest(closestUnitByPathPos, units.getBases());
-        const { pos: closestBasePos } = closestBase;
-        if (closestBasePos === undefined) return;
-        const noMoveOrderToBase = ordersAndPendingOrders.every(order => {
-          const { abilityId, targetWorldSpacePos } = order;
-          if (targetWorldSpacePos === undefined) return true; 
-          return abilityId !== MOVE || !areEqual(targetWorldSpacePos, closestBasePos);
-        });
-        if (noMoveOrderToBase) {
-          const unitCommand = createUnitCommand(MOVE, [queen]);
-          unitCommand.targetWorldSpacePos = closestBase.pos;
-          collectedActions.push(unitCommand);
-          setPendingOrders(queen, unitCommand);
+        const { pos: closestBasePos, radius: closestBaseRadius } = closestBase;
+        if (closestBasePos === undefined || closestBaseRadius === undefined) return;
+        if (getDistance(pos, closestBasePos) > radius + closestBaseRadius) {
+          const noMoveOrderToBase = ordersAndPendingOrders.every(order => {
+            const { abilityId, targetWorldSpacePos } = order;
+            if (targetWorldSpacePos === undefined) return true; 
+            return abilityId !== MOVE || !areEqual(targetWorldSpacePos, closestBasePos);
+          });
+          if (noMoveOrderToBase) {
+            const unitCommand = createUnitCommand(MOVE, [queen]);
+            unitCommand.targetWorldSpacePos = closestBase.pos;
+            collectedActions.push(unitCommand);
+            setPendingOrders(queen, unitCommand);
+          }
         }
       }
     }
