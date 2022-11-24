@@ -1296,19 +1296,22 @@ const worldService = {
         } else if (closestBunkerPositionByPath) {
           return closestBunkerPositionByPath;
         } else {
-          if (!unit['retreatCandidates']) { unit['retreatCandidates'] = new Map(); }
-          if (!targetUnit['retreatCandidates']) { targetUnit['retreatCandidates'] = new Map(); }
           const retreatCandidates = getRetreatCandidates(world, unit, targetUnit);
-          const [largestPathDifferenceRetreat] = retreatCandidates.filter((point) => {
+          const [largestPathDifferenceRetreat] = retreatCandidates.map((retreat) => {
+            if (retreat === undefined) return;
+            const { point } = retreat;
             const [closestPathablePosition] = getClosestPositionByPath(resources, pos, getPathablePositions(map, point));
-            return getDistanceByPath(resources, pos, closestPathablePosition) > 16;
+            return {
+              point,
+              distanceByPath: getDistanceByPath(resources, pos, closestPathablePosition),
+            }
           }).sort((a, b) => {
             const [closestPathablePositionA] = getClosestPositionByPath(resources, pos, getPathablePositions(map, a));
             const [closestPathablePositionB] = getClosestPositionByPath(resources, pos, getPathablePositions(map, b));
             return getDistanceByPath(resources, pos, closestPathablePositionA) - getDistanceByPath(resources, pos, closestPathablePositionB);
           });
           if (largestPathDifferenceRetreat) {
-            return largestPathDifferenceRetreat;
+            return largestPathDifferenceRetreat.point;
           } else {
             return findClosestSafePosition(resources, unit, travelDistancePerStep) || moveAwayPosition(targetUnit.pos, unit.pos, travelDistancePerStep);
           }
@@ -1766,39 +1769,37 @@ function isSafePositionFromTargets(map, unit, targetUnits, point) {
  * @param {World} world
  * @param {Unit} unit
  * @param {Unit} targetUnit
- * @returns {(Point2D | undefined)[]}
+ * @returns {({point: Point2D; getDistanceByPathToRetreat: number; getDistanceByPathToTarget: number; closerOrEqualThanTarget: boolean;} | undefined)[]}
 */
 function getRetreatCandidates(world, unit, targetUnit) {
   const { resources } = world;
   const { map } = resources.get();
   const expansionLocations = map.getExpansions().map((expansion) => expansion.centroid);
-  return [...expansionLocations].filter((point) => {
-    if (point === undefined) return false;
-    const positionString = `${point.x},${point.y}`;
-    const damageDealingEnemies = worldService.getDamageDealingUnits(world, unit, targetUnit['enemyUnits'] || getEnemyUnits(targetUnit));
+  return expansionLocations.map((point) => {
+    if (point === undefined) return undefined;
+    const damageDealingEnemies = worldService.getDamageDealingUnits(world, unit, targetUnit['selfUnits'] || getEnemyUnits(targetUnit));
     let [closestToRetreat] = getClosestUnitByPath(resources, point, damageDealingEnemies);
     if (closestToRetreat) {
       const closestToRetreatOrTargetUnit = closestToRetreat ? closestToRetreat : targetUnit;
-      if (closestToRetreatOrTargetUnit.pos === undefined) return false;
+      if (closestToRetreatOrTargetUnit.pos === undefined) return undefined;
       const pathablePositions = getPathablePositions(map, point);
       const [closestToRetreatOrTargetUnitPosition] = getClosestPositionByPath(resources, closestToRetreatOrTargetUnit.pos, pathablePositions);
-      targetUnit['retreatCandidates'][positionString] = {
-        'closestToRetreat': closestToRetreatOrTargetUnit,
-        'getDistanceByPath': getDistanceByPath(resources, closestToRetreatOrTargetUnit.pos, closestToRetreatOrTargetUnitPosition),
-      }
+      const getDistanceByPathToTarget = getDistanceByPath(resources, closestToRetreatOrTargetUnit.pos, closestToRetreatOrTargetUnitPosition);
       const { pos } = unit;
-      if (pos === undefined) return false;
+      if (pos === undefined) return undefined;
       const [closestToUnitByPath] = getClosestPositionByPath(resources, pos, pathablePositions);
-      unit['retreatCandidates'][positionString] = {
-        'getDistanceByPath': getDistanceByPath(resources, pos, closestToUnitByPath),
+      const getDistanceByPathToRetreat = getDistanceByPath(resources, pos, closestToUnitByPath);
+      if (getDistanceByPathToRetreat === Infinity) return undefined;
+      return {
+        'point': point,
+        getDistanceByPathToRetreat,
+        getDistanceByPathToTarget,
+        'closerOrEqualThanTarget': getDistanceByPathToRetreat <= getDistanceByPathToTarget,
       }
-      const getDistanceByPathToRetreat = unit['retreatCandidates'][positionString]['getDistanceByPath'];
-      if (getDistanceByPathToRetreat === Infinity) return false;
-      return getDistanceByPathToRetreat <= targetUnit['retreatCandidates'][positionString]['getDistanceByPath'];
     } else {
-      return true;
+      return undefined;
     }
-  });
+  }).filter((candidate) => candidate !== undefined && candidate.closerOrEqualThanTarget);
 }
 /**
  * @param {ResourceManager} resources
