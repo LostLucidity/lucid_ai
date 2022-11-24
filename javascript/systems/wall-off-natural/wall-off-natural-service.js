@@ -48,7 +48,7 @@ const wallOffNaturalService = {
         });
       // add neighboring points to wallToTownhallPoints excluding those that already exist in wallToTownhallPoints
       debug.setDrawCells('wl2thp', wallToTownhallPoints.map(r => ({ pos: r })), { size: 1, cube: false });
-      const wallToTownhallPointsWithNeighbors = wallToTownhallPoints.reduce((acc, point) => {
+      const wallToTownhallPointsWithNeighbors = wallToTownhallPoints.reduce((/** @type {Point2D[]} */ acc, point) => {
         const neighbors = getNeighbors(point, true).filter(neighbor => map.isPlaceableAt(PYLON, neighbor));
         const neighborsNotInWall = neighbors.filter(neighbor => !wallToTownhallPoints.some(point => point.x === neighbor.x && point.y === neighbor.y));
         return [...acc, ...neighborsNotInWall];
@@ -91,14 +91,17 @@ const wallOffNaturalService = {
         }
         // set gap
         if (threeByThreePositions.length === 1) {
+          const pylonFootprint = getFootprint(PYLON); if (pylonFootprint === undefined) return;
+          const pylonCells = cellsInFootprint(point, pylonFootprint);
           let cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
-          const [doorGrid] = getClosestPosition(threeByThreePositions[0], cornerGrids);
+          const firstThreeByThreePosition = threeByThreePositions[0];
+          const [doorGrid] = getClosestPosition(firstThreeByThreePosition, cornerGrids.filter(grid => !getNeighbors(grid, false).some(neighbor => pointsOverlap([neighbor], pylonCells))));
           wallOffGrids.push(doorGrid);
           workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
           debug.setDrawCells('drGrd', [doorGrid].map(r => ({ pos: r })), { size: 1, cube: false });
           // set second building
           cornerGrids = workingWall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), workingWall).length === 1);
-          const [cornerGrid] = getClosestPosition(threeByThreePositions[0], cornerGrids);
+          const [cornerGrid] = getClosestPosition(firstThreeByThreePosition, cornerGrids);
           if (cornerGrid) {
             // getFootprintCandidates
             const cornerNeighbors = getNeighbors(cornerGrid, false);
