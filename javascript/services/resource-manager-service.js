@@ -87,7 +87,7 @@ const resourceManagerService = {
     if (combatRally) {
       return combatRally;
     } else {
-      return map.getNatural().getWall() ? map.getCombatRally() : location.getRallyPointByBases(map, units);
+      return getNaturalWall(map).length > 0 ? map.getCombatRally() : location.getRallyPointByBases(map, units);
     }
   },
   /**
@@ -373,5 +373,15 @@ function getCreepEdgesWithinRange(resources, position, range) {
   return gridsInCircle(position, range).filter(grid => {
     return isCreepEdge(map, grid) && getDistanceByPath(resources, position, grid) <= 10;
   });
+}
+
+/**
+ * @param {MapResource} map
+ * @returns {Point2D[]}
+ */
+function getNaturalWall(map) {
+  const natural = map.getNatural(); if (natural === undefined) return [];
+  const naturalWall = natural.getWall(); if (naturalWall === undefined) return [];
+  return naturalWall;
 }
 
