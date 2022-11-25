@@ -79,11 +79,16 @@ const unitResourceService = {
    * returns {boolean}
    **/
   isMining(units, worker) {
-    const { pos, unitType } = worker;
-    const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, worker);
-    if (orderTargetPosition === undefined || pos === undefined || unitType === undefined) { return false; }
-    const minimumDistanceToMinerals = unitType === MULE ? 1.92 : 1.62;
-    return distance(pos, orderTargetPosition) < minimumDistanceToMinerals;
+    const { pos, unitType } = worker; if (pos === undefined || unitType === undefined) { return false; }
+    const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, worker); if (orderTargetPosition === undefined) { return false; }
+    const distanceToResource = distance(pos, orderTargetPosition);
+    let minimumDistanceToResource = 0;
+    if (worker.isGathering('vespene')) {
+      minimumDistanceToResource = 2.2;
+    } else if (worker.isGathering('minerals')) {
+      minimumDistanceToResource = unitType === MULE ? 1.92 : 1.62;
+    }
+    return distanceToResource < minimumDistanceToResource;
   },
   isRepairing(unit) {
     return unit.orders.some(order => order.abilityId === EFFECT_REPAIR);
