@@ -201,7 +201,7 @@ function assignWorkers(resources) {
     if (pos === undefined) return;
     const [closestBase] = units.getClosest(pos, units.getBases(), 1);
     if (closestBase) {
-      const [closestExpansion] = getClosestExpansion(map, closestBase.pos);
+      const [closestExpansion] = getClosestExpansion(map, closestBase.pos); if (closestExpansion === undefined) return;
       const { mineralFields } = closestExpansion.cluster;
       /** @type {Unit} */
       const assignedMineralField = worker.labels.get('mineralField');

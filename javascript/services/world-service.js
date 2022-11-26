@@ -36,7 +36,7 @@ const { pointsOverlap, intersectionOfPoints, shuffle } = require("../helper/util
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, BARRACKS, SUPPLYDEPOT, REACTOR, CREEPTUMORQUEEN } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -49,12 +49,11 @@ const { getMiddleOfStructure, moveAwayPosition } = require('./position-service')
 const { micro } = require('./micro-service');
 const MapResourceService = require('./map-resource-service');
 const { getPathCoordinates } = require('./path-service');
-const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
 const { CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/buff');
 const resourceManagerService = require('./resource-manager-service');
 const { getAddOnPlacement } = require('../helper/placement/placement-utilities');
-const stateOfGameService = require('../systems/state-of-game-system/state-of-game-service');
 const { getEnemyUnits } = require('../systems/state-of-game-system/state-of-game-service');
+const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -288,7 +287,7 @@ const worldService = {
     const { agent, data, resources } = world;
     const { race } = agent;
     const { actions, map, units } = resources.get();
-    const [main, natural] = map.getExpansions();
+    const [main, natural] = map.getExpansions(); if (main === undefined || natural === undefined) { return []; }
     const mainMineralLine = main.areas.mineralLine;
     if (gasMineTypes.includes(unitType)) {
       const geyserPositions = map.freeGasGeysers().map(geyser => {
@@ -412,29 +411,31 @@ const worldService = {
       }
     } else if (race === Race.TERRAN) {
       const placementGrids = [];
-      const wallOffUnitTypes = [UnitType.SUPPLYDEPOT, UnitType.BARRACKS];
-      if (wallOffUnitTypes.includes(unitType)) {
-        const wallOffPositions = findWallOffPlacement(unitType);
-        if (wallOffPositions.length > 0 && await actions.canPlace(unitType, wallOffPositions)) {
-          return wallOffPositions;
-        }
+      const wallOffPositions = findWallOffPlacement(unitType).slice();
+      if (wallOffPositions.length > 0 && await actions.canPlace(unitType, wallOffPositions)) {
+        return wallOffPositions;
       }
       getOccupiedExpansions(world.resources).forEach(expansion => {
         placementGrids.push(...expansion.areas.placementGrid);
       });
-      const { barracksWallOffPosition, supplyWallOffPositions } = wallOffRampService;
-      const wallOffPositions = [];
-      if (barracksWallOffPosition) {
+      const { addOnPositions, twoByTwoPositions, threeByThreePositions } = wallOffRampService;
+      if (addOnPositions.length > 0) {
         const barracksFootprint = getFootprint(BARRACKS);
         if (barracksFootprint === undefined) return [];
-        const barracksCellInFootprints = cellsInFootprint(barracksWallOffPosition, barracksFootprint);
-        wallOffPositions.push(...barracksCellInFootprints);
+        const barracksCellInFootprints = addOnPositions.map(position => cellsInFootprint(createPoint2D(position), barracksFootprint));
+        wallOffPositions.push(...barracksCellInFootprints.flat());
       }
-      if (supplyWallOffPositions.length > 0) {
+      if (twoByTwoPositions.length > 0) {
         const supplyFootprint = getFootprint(SUPPLYDEPOT);
         if (supplyFootprint === undefined) return [];
-        const supplyCellInFootprints = supplyWallOffPositions.map(position => cellsInFootprint(position, supplyFootprint));
+        const supplyCellInFootprints = twoByTwoPositions.map(position => cellsInFootprint(position, supplyFootprint));
         wallOffPositions.push(...supplyCellInFootprints.flat());
+      }
+      if (threeByThreePositions.length > 0) {
+        const engineeringBayFootprint = getFootprint(ENGINEERINGBAY);
+        if (engineeringBayFootprint === undefined) return [];
+        const engineeringBayCellInFootprints = threeByThreePositions.map(position => cellsInFootprint(position, engineeringBayFootprint));
+        wallOffPositions.push(...engineeringBayCellInFootprints.flat());
       }
       const unitTypeFootprint = getFootprint(unitType);
       let addonFootprint;

@@ -30,8 +30,8 @@ module.exports = createSystem({
 function setUpWallOffNatural(world) {
   const { agent, resources } = world;
   const { debug, map } = resources.get();
-  const natural = map.getNatural();
-  const pathToEnemy = map.path(map.getNatural().townhallPosition, map.getEnemyNatural().townhallPosition);
+  const natural = map.getNatural(); if (natural === undefined) return;
+  const pathToEnemy = map.path(natural.townhallPosition, map.getEnemyNatural().townhallPosition);
   const coordinatesToEnemy = getPathCoordinates(pathToEnemy).filter(coordinate => {
     const baseFootprint = getFootprint(TownhallRace[agent.race][0]);
     const baseCells = cellsInFootprint(natural.townhallPosition, baseFootprint);
