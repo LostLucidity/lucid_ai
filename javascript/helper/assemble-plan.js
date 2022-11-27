@@ -496,12 +496,14 @@ class AssemblePlan {
       if (labelledScouts.length === 0) {
         scoutService.setScout(units, location, unitType, label);      }
     } else {
-      const labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
-      if (labelledScouts.length > 0) {
-        labelledScouts.forEach(scout => {
-          scout.removeLabel(label);
-          scout.labels.set('clearFromEnemy', true);
-        });
+      if (!isScoutTypeActive) {
+        const labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
+        if (labelledScouts.length > 0) {
+          labelledScouts.forEach(scout => {
+            scout.removeLabel(label);
+            scout.labels.set('clearFromEnemy', true);
+          });
+        }
       }
     }
   }
