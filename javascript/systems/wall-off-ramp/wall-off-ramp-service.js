@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { twoByTwoUnits, structureTypes } = require("@node-sc2/core/utils/geometry/units");
+const { structureTypes, twoByTwoUnits } = require("@node-sc2/core/utils/geometry/units");
 const { addOnTypesMapping } = require("../../helper/groups");
 
 const wallOffRampService = {

@@ -84,7 +84,7 @@ const unitResourceService = {
     const distanceToResource = distance(pos, orderTargetPosition);
     let minimumDistanceToResource = 0;
     if (worker.isGathering('vespene')) {
-      minimumDistanceToResource = 2.2;
+      minimumDistanceToResource = 2.28;
     } else if (worker.isGathering('minerals')) {
       minimumDistanceToResource = unitType === MULE ? 1.92 : 1.62;
     }
