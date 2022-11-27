@@ -31,30 +31,36 @@ function setUpWallOffNatural(world) {
   const { agent, resources } = world;
   const { debug, map } = resources.get();
   const natural = map.getNatural(); if (natural === undefined) return;
+  const { areas, townhallPosition } = natural; if (areas === undefined) return;
   const pathToEnemy = map.path(natural.townhallPosition, map.getEnemyNatural().townhallPosition);
   const coordinatesToEnemy = getPathCoordinates(pathToEnemy).filter(coordinate => {
     const baseFootprint = getFootprint(TownhallRace[agent.race][0]);
-    const baseCells = cellsInFootprint(natural.townhallPosition, baseFootprint);
+    const baseCells = cellsInFootprint(townhallPosition, baseFootprint);
     return !pointsOverlap([coordinate], baseCells)
   });
   const slicedGridsToEnemy = coordinatesToEnemy.slice(4, 13);
   debug.setDrawCells('pthTEnm', slicedGridsToEnemy.map(r => ({ pos: r })), { size: 1, cube: false });
   const rampIntoNatural = slicedGridsToEnemy.some(grid => map.isRamp(grid));
   if (rampIntoNatural) {
-    wallOffNaturalService.adjacentToRampGrids = natural.areas.placementGrid.filter(grid => {
-      const enemyTownhallPosition = map.getEnemyNatural().townhallPosition;
+    const { townhallPosition: enemyTownhallPosition } = map.getEnemyNatural();
+    wallOffNaturalService.adjacentToRampGrids = areas.placementGrid.filter(grid => {
+      const [closestPosition] = getClosestPosition(grid, map._ramps);
+      const distanceToRamp = distance(grid, closestPosition);
       return (
-        distance(grid, getClosestPosition(grid, map._ramps)[0]) < 2 &&
-        getDistanceByPath(resources, grid, enemyTownhallPosition) < getDistanceByPath(resources, natural.townhallPosition, enemyTownhallPosition)
+        map.isPlaceable(grid) &&
+        distanceToRamp < 2.5 && distanceToRamp > 1.5 &&
+        getDistanceByPath(resources, grid, enemyTownhallPosition) < getDistanceByPath(resources, townhallPosition, enemyTownhallPosition)
       );
     });
     const cornerGrids = wallOffNaturalService.adjacentToRampGrids.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), wallOffNaturalService.adjacentToRampGrids).length === 1);
     if (cornerGrids.length > 0) {
-      wallOffNaturalService.adjacentToRampGrids = map.path(cornerGrids[0], cornerGrids[1], { diagonal: true, force: true }).map(path => ({ 'x': path[0], 'y': path[1] }));
       if (wallOffNaturalService.wall.length === 0) {
-        wallOffNaturalService.wall = wallOffNaturalService.adjacentToRampGrids;
+        // remove first and last element from adjacentToRampGrids
+        wallOffNaturalService.wall = wallOffNaturalService.adjacentToRampGrids.slice(1, wallOffNaturalService.adjacentToRampGrids.length - 1);
       }
-      debug.setDrawCells('adTRmp', wallOffNaturalService.adjacentToRampGrids.map(r => ({ pos: r })), { size: 1, cube: false });
+      debug.setDrawCells('rmpWl', wallOffNaturalService.wall.map(r => ({ pos: r })), { size: 1, cube: false });
+      const walls = [{ path: wallOffNaturalService.wall, pathLength: wallOffNaturalService.wall.length }];
+      setStructurePlacements(resources, walls);
     }
   } else {
     /** @type {{path: Point2D[], pathLength: number}[]} */
