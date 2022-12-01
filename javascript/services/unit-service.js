@@ -85,6 +85,7 @@ const unitService = {
   },
   /**
    * @param {Unit} unit 
+   * @returns {number | undefined}
    */
   getMovementSpeed: (unit) => {
     let { movementSpeed } = unit.data();
