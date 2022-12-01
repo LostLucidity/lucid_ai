@@ -343,34 +343,29 @@ const planActions = {
       if (planService.continueBuild) {
         planService.currentStep = step;
         const planStep = plan[step];
-        const { food, orderType, unitType } = planStep;
-        if (unitType === undefined || unitType === null ) break;
-        const { attributes } = data.getUnitTypeData(unitType);
-        if (attributes === undefined) break;
-        const { candidatePositions, targetCount } = planStep;
-        if (getFoodUsed(world) + 1 >= food) {
-          const stepAhead = getFoodUsed(world) + 1 === food;
-          if (orderType === 'UnitType') {
-            if (attributes.includes(Attribute.STRUCTURE)) {
-              await planActions.build(world, unitType, targetCount, candidatePositions, stepAhead);
-            } else {
-              if (stepAhead) break;
-              await planActions.train(world, unitType, targetCount);
-            }
-          } else if (orderType === 'Upgrade') {
+        const { candidatePositions, food, orderType, unitType, targetCount, upgrade } = planStep;
+        const foodUsedOrGreater = getFoodUsed(world) + 1 >= food;
+        let stepAhead = getFoodUsed(world) + 1 === food;
+        if (orderType === 'UnitType') {
+          if (unitType === undefined || unitType === null) break;
+          const { attributes } = data.getUnitTypeData(unitType); if (attributes === undefined) break;
+          const isStructure = attributes.includes(Attribute.STRUCTURE);
+          let { minerals } = agent; if (minerals === undefined) break;
+          const greaterThanMineralThreshold = minerals > planService.mineralThreshold;
+          if (foodUsedOrGreater && !isStructure) {
             if (stepAhead) break;
-            await planActions.upgrade(world, planStep.upgrade);
-          }
-        } else {
-          let { minerals } = agent;
-          if (minerals === undefined) break;
-          minerals = minerals - data.getEarmarkTotals('').minerals;
-          if (minerals > planService.mineralThreshold) {
-            if (attributes.includes(Attribute.STRUCTURE)) {
-              await planActions.build(world, unitType, targetCount, planStep.candidatePositions, false);
+            await planActions.train(world, unitType, targetCount);
+          } else if (isStructure) {
+            const spendAhead = !foodUsedOrGreater && greaterThanMineralThreshold
+            stepAhead = spendAhead ? false : stepAhead;
+            if (foodUsedOrGreater || spendAhead) {
+              await planActions.build(world, unitType, targetCount, candidatePositions, stepAhead);
+              if (spendAhead) break;
             }
-            break;
           }
+        } else if (foodUsedOrGreater && orderType === 'Upgrade' && !stepAhead) {
+          if (upgrade === undefined || upgrade === null) break;
+          await planActions.upgrade(world, upgrade);
         }
       } else {
         break;
