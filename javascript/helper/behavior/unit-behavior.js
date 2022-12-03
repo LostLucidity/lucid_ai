@@ -3,13 +3,12 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getOccupiedExpansions, getBase } = require("../expansions");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { getInRangeUnits, calculateHealthAdjustedSupply } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
-const { larvaOrEgg } = require("../groups");
+const { larvaOrEgg, morphMapping, countTypes } = require("../groups");
 const { isRepairing, setPendingOrders, isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
@@ -19,46 +18,9 @@ const { canAttack } = require("../../services/resources-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
 const { getCombatRally } = require("../../services/resource-manager-service");
+const { getPendingOrders } = require("../../services/unit-service");
 
 module.exports = {
-  orbitalCommandCenterBehavior: (resources, action) => {
-    const { EFFECT_CALLDOWNMULE, EFFECT_SCAN } = Ability;
-    const {
-      units,
-    } = resources.get();
-    const collectedActions = [];
-    const orbitalCommand = units.getById(UnitType.ORBITALCOMMAND).find(n => n.energy > 50);
-    if (orbitalCommand) {
-      const expansions = getOccupiedExpansions(resources).filter(expansion => getBase(resources, expansion).buildProgress >= 1);
-      if (expansions.length >= 0) {
-        const randomExpansion = getRandom(expansions);
-        if (randomExpansion) {
-          if (action === EFFECT_CALLDOWNMULE) {
-            const [closestMineralField] = units.getClosest(randomExpansion.townhallPosition, units.getMineralFields());
-            if (closestMineralField) {
-              const unitCommand = {
-                abilityId: EFFECT_CALLDOWNMULE,
-                targetUnitTag: closestMineralField.tag,
-                unitTags: [orbitalCommand.tag],
-              }
-              collectedActions.push(unitCommand);
-            }
-          }
-        }
-      }
-      const enemyCloakedUnits = units.getAlive(Alliance.ENEMY).filter(unit => unit.isCloaked());
-      const randomCloak = enemyCloakedUnits[Math.floor(Math.random() * enemyCloakedUnits.length)];
-      if (randomCloak) {
-        const unitCommand = {
-          abilityId: EFFECT_SCAN,
-          targetWorldSpacePos: randomCloak.pos,
-          unitTags: [orbitalCommand.tag],
-        }
-        collectedActions.push(unitCommand);
-      }
-    }
-    return collectedActions;
-  },
   liberatorBehavior: (resources) => {
     const { MORPH_LIBERATORAAMODE, MORPH_LIBERATORAGMODE } = Ability;
     const {
@@ -158,6 +120,64 @@ module.exports = {
     const collectedActions = [];
     const { units } = world.resources.get()
     collectedActions.push(...shadowEnemy(world, units.getById(UnitType.OBSERVER)));
+    return collectedActions;
+  },
+  /**
+   * @param {ResourceManager} resources
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  orbitalCommandCenterBehavior: (resources) => {
+    const { map, units } = resources.get();
+    const { LIFT_ORBITALCOMMAND } = Ability;
+    const { ORBITALCOMMAND } = UnitType;
+    const orbitalCommandCenters = units.getById(ORBITALCOMMAND).filter(orbitalCommandCenter => orbitalCommandCenter.abilityAvailable(LIFT_ORBITALCOMMAND));
+    const expansionsWithMineralFields = getExpansionsWithMineralFields(map);
+    const collectedActions = [];
+    orbitalCommandCenters.forEach(orbitalCommandCenter => {
+      const { pos } = orbitalCommandCenter; if (pos === undefined) { return; }
+      const inRangeOfTownhallPosition = expansionsWithMineralFields.some(expansions => distance(pos, expansions.townhallPosition) < 1);
+      if (inRangeOfTownhallPosition) return;
+      collectedActions.push(createUnitCommand(LIFT_ORBITALCOMMAND, [orbitalCommandCenter]));
+    });
+    return collectedActions;
+  },
+  /**
+   * @param {ResourceManager} resources
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  orbitalCommandCenterFlyingBehavior: (resources) => {
+    const { map, units } = resources.get();
+    // TODO: land orbital command center to nearest expansion with mineral fields
+    const flyingOrbitalCommandCenters = units.getById(UnitType.ORBITALCOMMANDFLYING).filter(orbitalCommandCenter => orbitalCommandCenter.abilityAvailable(Ability.LAND_ORBITALCOMMAND));
+    const expansionsWithMineralFields = getExpansionsWithMineralFields(map);
+    const collectedActions = [];
+    flyingOrbitalCommandCenters.forEach(orbitalCommandCenter => {
+      const { pos, unitType } = orbitalCommandCenter; if (pos === undefined || unitType === undefined) { return; }
+      const foundInRangeExpansion = expansionsWithMineralFields.find(expansion => distance(pos, expansion.townhallPosition) < 1);
+      if (foundInRangeExpansion) {
+        const unitCommand = createUnitCommand(Ability.LAND_ORBITALCOMMAND, [orbitalCommandCenter]);
+        unitCommand.targetWorldSpacePos = foundInRangeExpansion.townhallPosition;
+        collectedActions.push(unitCommand);
+      } else {
+        const nearestExpansion = expansionsWithMineralFields.reduce((/** @type {Expansion | undefined} */ nearestExpansion, expansion) => {
+          const targettedByFlyingOrbitalCommandCenter = flyingOrbitalCommandCenters.some(flyingOrbitalCommandCenter => {
+            if (orbitalCommandCenter.tag === flyingOrbitalCommandCenter.tag) return false;
+            const { orders } = flyingOrbitalCommandCenter; if (orders === undefined) { return false; }
+            orders.push(...getPendingOrders(orbitalCommandCenter));
+            const foundOrder = orders.find(order => order.targetWorldSpacePos && distance(order.targetWorldSpacePos, expansion.townhallPosition) < 1);
+            return foundOrder !== undefined;
+          });
+          if (targettedByFlyingOrbitalCommandCenter || !map.isPlaceableAt(UnitType.COMMANDCENTER, expansion.townhallPosition)) return nearestExpansion;
+          if (nearestExpansion === undefined) return expansion;
+          return getDistance(pos, expansion.townhallPosition) < getDistance(pos, nearestExpansion.townhallPosition) ? expansion : nearestExpansion;
+        }, undefined);
+        if (nearestExpansion) {
+          const unitCommand = createUnitCommand(Ability.LAND_ORBITALCOMMAND, [orbitalCommandCenter]);
+          unitCommand.targetWorldSpacePos = nearestExpansion.townhallPosition;
+          collectedActions.push(unitCommand);
+        }
+      }
+    });
     return collectedActions;
   },
   overlordBehavior: (world) => {
@@ -306,5 +326,12 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
     collectedActions.push(unitCommand);
   }
   return collectedActions;
+}
+/**
+ * @param {MapResource} map 
+ * @returns {Expansion[]}
+ */
+function getExpansionsWithMineralFields(map) {
+  return map.getExpansions().filter(expansion => expansion.townhallPosition && expansion.cluster.mineralFields.length > 0);
 }
 

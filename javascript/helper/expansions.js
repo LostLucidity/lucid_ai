@@ -81,6 +81,8 @@ module.exports = {
         }).flat();
       return map.isPlaceableAt(townhallType, townhallPosition) && !pointsOverlap(enemyUnitCoverage, cellsInFootprint(townhallPosition, footprint));
     });
-    return placeableExpansion.townhallPosition;
+    if (placeableExpansion) {
+      return placeableExpansion.townhallPosition;
+    }
   }
 }
