@@ -85,12 +85,12 @@ module.exports = {
           // get placeable around creep tumor
           const { pos } = tumor;
           if (pos === undefined) return;
-          const [closestPositionByPathToTumor] = getClosestPositionByPath(resources, enemyNaturalTownhallPosition, getPathablePositionsForStructure(map, tumor));
-          if (!closestPositionByPathToTumor) return;
-          const pathCoordinates = getPathCoordinates(map.path(closestPositionByPathToTumor, enemyNaturalTownhallPosition));
+          const pathablePositions = getClosestPathablePositionsBetweenPositions(resources, pos, enemyNaturalTownhallPosition);
+          const { pathablePosition, pathableTargetPosition } = pathablePositions;
+          if (!pathablePosition) return;
+          const pathCoordinates = getPathCoordinates(getMapPath(map, pathablePosition, pathableTargetPosition));
           const [farthestPosition] = pathCoordinates.filter(position => distance(position, pos) <= 10 && map.hasCreep(position)).sort((a, b) => distance(b, pos) - distance(a, pos));
           if (!farthestPosition) return;
-          createUnitCommand(BUILD_CREEPTUMOR_QUEEN, [tumor]);
           const unitCommand = createUnitCommand(BUILD_CREEPTUMOR_TUMOR, [tumor]);
           unitCommand.targetWorldSpacePos = farthestPosition;
           collectedActions.push(unitCommand);
