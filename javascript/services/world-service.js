@@ -45,7 +45,7 @@ const foodUsedService = require('./food-used-service');
 const { keepPosition } = require('./placement-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
 const { canAttack } = require('./resources-service');
-const { getMiddleOfStructure, moveAwayPosition } = require('./position-service');
+const { getMiddleOfStructure, moveAwayPosition, getDistance } = require('./position-service');
 const { micro } = require('./micro-service');
 const MapResourceService = require('./map-resource-service');
 const { getPathCoordinates } = require('./path-service');
@@ -498,16 +498,15 @@ const worldService = {
       );
       return isNotDuplicate && available;
     }));
-    const movingProbes = builderCandidates.filter(builder => isMoving(builder) && builder.unitType === PROBE);
+    const movingOrConstructingProbes = builderCandidates.filter(builder => (builder.isConstructing() || isMoving(builder)) && builder.unitType === PROBE);
     builderCandidates = builderCandidates.filter(builder => {
       const qualifiedPendingOrders = getPendingOrders(builder).filter(order => {
-        const { abilityId } = order;
-        if (abilityId === undefined) return false;
-        return [...constructionAbilities, MOVE].includes(abilityId);
+        const { abilityId } = order; if (abilityId === undefined) return false;
+        return [...constructionAbilities, MOVE].includes(abilityId) && builder.unitType !== PROBE;
       });
-      return !movingProbes.some(probe => probe.tag === builder.tag) || qualifiedPendingOrders.length === 0;
+      return !movingOrConstructingProbes.some(probe => probe.tag === builder.tag) || qualifiedPendingOrders.length === 0;
     });
-    const movingProbesTimeToPosition = movingProbes.map(movingProbe => {
+    const movingOrConstructingProbesTimeToPosition = movingOrConstructingProbes.map(movingProbe => {
       const { orders, pos } = movingProbe;
       if (orders === undefined || pos === undefined) return;
       const movingPosition = orders[0].targetWorldSpacePos;
@@ -520,7 +519,7 @@ const worldService = {
       return { unit: movingProbe, timeToPosition: movingProbeTimeToMovePosition + targetTimeToPremovePosition };
     });
     const candidateWorkersTimeToPosition = []
-    const [movingProbe] = movingProbesTimeToPosition.sort((a, b) => {
+    const [movingProbe] = movingOrConstructingProbesTimeToPosition.sort((a, b) => {
       if (a === undefined || b === undefined) return 0;
       return a.timeToPosition - b.timeToPosition;
     });
@@ -1127,16 +1126,19 @@ const worldService = {
           collectedActions.push(...rallyWorkerToTarget(world, position));
           collectedActions.push(...stopUnitFromMovingToPosition(builder, position));
         } else {
-          unitCommand.targetWorldSpacePos = position;
-          setBuilderLabel(builder);
-          collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
-          setPendingOrders(builder, unitCommand);
-          if (agent.race === Race.ZERG) {
-            const { foodRequired } = data.getUnitTypeData(unitType);
-            if (foodRequired === undefined) return collectedActions;
-            planService.pendingFood -= foodRequired;
+          const isConstructingProbe = builder.isConstructing() && builder.unitType === PROBE
+          if (!isConstructingProbe) {
+            unitCommand.targetWorldSpacePos = position;
+            setBuilderLabel(builder);
+            collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
+            setPendingOrders(builder, unitCommand);
+            if (agent.race === Race.ZERG) {
+              const { foodRequired } = data.getUnitTypeData(unitType);
+              if (foodRequired === undefined) return collectedActions;
+              planService.pendingFood -= foodRequired;
+            }
+            collectedActions.push(...rallyWorkerToTarget(world, position, true));
           }
-          collectedActions.push(...rallyWorkerToTarget(world, position, true));
         }
       } else {
         collectedActions.push(...rallyWorkerToTarget(world, position, true));
