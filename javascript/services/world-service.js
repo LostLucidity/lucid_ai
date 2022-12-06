@@ -1709,11 +1709,11 @@ function getWeapon(data, unit, targetUnit) {
  * @returns {Point2D[]}
  **/
 function getSafePositions(world, unit, radius = 1) {
-  const { resources } = world;
+  const { data, resources } = world;
   const { map } = resources.get();
   let safePositions = [];
   const { pos } = unit;
-  if (pos === undefined) return safePositions;
+  if (pos === undefined || radius === undefined) return safePositions;
   const { mappedEnemyUnits } = enemyTrackingService;
   const enemyUnits = mappedEnemyUnits.filter(enemyUnit => enemyUnit.pos && distance(pos, enemyUnit.pos) <= 16);
   while (safePositions.length === 0 && radius <= 16) {
@@ -1737,7 +1737,7 @@ function getSafePositions(world, unit, radius = 1) {
     }
     radius += 1;
   }
-  return safePositions;
+  return safePositions.sort((b, a) => getUnitWeaponDistanceToPosition(data, a, unit, enemyUnits) - getUnitWeaponDistanceToPosition(data, b, unit, enemyUnits));
 }
 /**
  * @param {MapResource} map
@@ -2005,5 +2005,23 @@ function findMatchingStep(steps, buildStepExecuted, isStructure) {
     }
   }
   return foundMatchingStep
+}
+
+/**
+ * @param {DataStorage} data 
+ * @param {Point2D} position
+ * @param {Unit} unit 
+ * @param {Unit[]} targetUnits 
+ * @returns {number}
+ */
+function getUnitWeaponDistanceToPosition(data, position, unit, targetUnits) {
+  const { radius } = unit; if (radius === undefined) return 0;
+  return targetUnits.reduce((/** @type {number} */ acc, targetUnit) => {
+    const { pos, radius: targetRadius } = targetUnit; if (pos === undefined || targetRadius === undefined) return acc;
+    const weapon = getWeapon(data, unit, targetUnit); if (weapon === undefined) return acc;
+    const { range } = weapon; if (range === undefined) return acc;
+    const distanceToEnemyUnit = getDistance(position, pos) - range - radius - targetRadius;
+    return Math.min(acc, distanceToEnemyUnit);
+  }, Infinity);
 }
 
