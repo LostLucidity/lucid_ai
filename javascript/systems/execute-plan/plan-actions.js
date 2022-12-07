@@ -8,7 +8,7 @@ const { GasMineRace, TownhallRace, WorkerRace } = require("@node-sc2/core/consta
 const { WARPGATE, TECHLAB, BARRACKS, GREATERSPIRE } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
-const { countTypes } = require("../../helper/groups");
+const { countTypes, flyingTypesMapping } = require("../../helper/groups");
 const { getInTheMain } = require("../../helper/placement/placement-helper");
 const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
 const { warpIn } = require("../../helper/protoss");
@@ -27,7 +27,6 @@ const { setPendingOrders } = require("../unit-resource/unit-resource-service");
 
 const planActions = {
   /**
-   * 
    * @param {World} world 
    * @param {AbilityId} abilityId 
    * @returns {Promise<any[]>}
@@ -36,11 +35,16 @@ const planActions = {
     const collectedActions = [];
     const { data, resources } = world;
     const { units } = resources.get();
-    let canDoTypes = data.findUnitTypesWithAbility(abilityId);
+    let canDoTypes = data.findUnitTypesWithAbility(abilityId).reduce((/** @type {UnitTypeId[]} */acc, unitTypeId) => {
+      acc.push(unitTypeId);
+      const key = [...flyingTypesMapping.keys()].find(key => flyingTypesMapping.get(key) === unitTypeId);
+      if (key) acc.push(key);
+      return acc;
+    }, []);
     if (canDoTypes.length === 0) {
       canDoTypes = units.getAlive(Alliance.SELF).map(selfUnits => selfUnits.unitType);
     }
-    const unitsCanDo = units.getByType(canDoTypes).filter(unit => unit.alliance === Alliance.SELF);
+    const unitsCanDo = units.getById(canDoTypes);
     if (unitsCanDo.length > 0) {
       if (unitsCanDo.filter(unit => unit.abilityAvailable(abilityId)).length > 0) {
         let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];

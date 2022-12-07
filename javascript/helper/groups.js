@@ -13,6 +13,7 @@ const addOnTypesMapping = new Map([
 ]);
 
 const flyingTypesMapping = new Map([
+  [COMMANDCENTERFLYING, COMMANDCENTER],
   [BARRACKSFLYING, BARRACKS],
   [FACTORYFLYING, FACTORY],
   [STARPORTFLYING, STARPORT],
