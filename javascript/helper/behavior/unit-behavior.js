@@ -8,7 +8,7 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { getInRangeUnits, calculateHealthAdjustedSupply } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
-const { larvaOrEgg, morphMapping, countTypes } = require("../groups");
+const { larvaOrEgg } = require("../groups");
 const { isRepairing, setPendingOrders, isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
@@ -334,4 +334,3 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
 function getExpansionsWithMineralFields(map) {
   return map.getExpansions().filter(expansion => expansion.townhallPosition && expansion.cluster.mineralFields.length > 0);
 }
-

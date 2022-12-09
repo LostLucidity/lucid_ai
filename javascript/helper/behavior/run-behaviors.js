@@ -22,7 +22,6 @@ async function runBehaviors(world) {
   await scoutEnemyMainBehavior(world);
   await scoutEnemyNaturalBehavior(resources);
   collectedActions.push(...setCombatBuildingsRallies(resources));
-  collectedActions.push(...setCombatBuildingsRallies(resources));
   collectedActions.push(...supplyDepotBehavior(resources));
   collectedActions.push(...await workerBehavior(world));
   collectedActions.push(...recruitToBattleBehavior(units));

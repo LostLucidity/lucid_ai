@@ -54,6 +54,7 @@ const resourceManagerService = require('./resource-manager-service');
 const { getAddOnPlacement } = require('../helper/placement/placement-utilities');
 const { getEnemyUnits } = require('../systems/state-of-game-system/state-of-game-service');
 const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
+const { getUnitWeaponDistanceToPosition } = require('./data-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -278,11 +279,11 @@ const worldService = {
     return collectedActions;
   },
   /**
- *
- * @param {World} world
- * @param {UnitTypeId} unitType
- * @returns {Promise<Point2D[]>}
- */
+   *
+   * @param {World} world
+   * @param {UnitTypeId} unitType
+   * @returns {Promise<Point2D[]>}
+   */
   findPlacements: async (world, unitType) => {
     const { agent, data, resources } = world;
     const { race } = agent;
@@ -457,6 +458,23 @@ const worldService = {
       placements.push(...findZergPlacements(resources, unitType))
     }
     return placements;
+  },
+  /**
+   * @param {World} world
+   * @param {Unit} unit 
+   * @param {number} radius
+   * @returns {Point2D|undefined}
+   */
+  findClosestSafePosition: (world, unit, radius = 1) => {
+    const { resources } = world;
+    const safePositions = getSafePositions(world, unit, radius);
+    if (unit.isFlying) {
+      const [closestPoint] = getClosestPosition(unit.pos, safePositions);
+      return closestPoint;
+    } else {
+      const [closestPoint] = getClosestPositionByPath(resources, unit.pos, safePositions);
+      return closestPoint;
+    }
   },
   /**
    * @param {DataStorage} data
@@ -1009,6 +1027,67 @@ const worldService = {
     }
   },
   /**
+   * @param {World} world
+   * @param {Unit} unit
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  micro: (world, unit) => {
+    const { data, resources } = world;
+    const collectedActions = [];
+    const { pos, radius, unitType, weaponCooldown } = unit; if (pos === undefined || radius === undefined || unitType === undefined || weaponCooldown === undefined) { return collectedActions; }
+    const enemyUnits = enemyTrackingService.mappedEnemyUnits;
+    const closestEnemyThatCanAttackUnitByWeaponRange = enemyUnits.reduce((/** @type {{ distance: number, enemyUnit: Unit | undefined }} */ acc, enemyUnit) => {
+      const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return acc; }
+      const weaponThatCanAttack = getWeaponThatCanAttack(data, enemyUnitType, unit); if (weaponThatCanAttack === undefined) { return acc; }
+      const { range } = weaponThatCanAttack; if (range === undefined) { return acc; }
+      const distanceBetweenUnitAndEnemyUnit = getDistance(pos, enemyUnitPos) - radius - enemyUnitRadius - range;
+      if (distanceBetweenUnitAndEnemyUnit < acc.distance) {
+        return { distance: distanceBetweenUnitAndEnemyUnit, enemyUnit };
+      }
+      return acc;
+    }, { distance: Infinity, enemyUnit: undefined });
+    const { enemyUnit } = closestEnemyThatCanAttackUnitByWeaponRange;
+    if (weaponCooldown > 8 && enemyUnit !== undefined) {
+      const unitCommand = createUnitCommand(MOVE, [unit]);
+      const travelDistancePerStep = 2 * getTravelDistancePerStep(unit);
+      unitCommand.targetWorldSpacePos = worldService.findClosestSafePosition(world, unit, travelDistancePerStep);
+      collectedActions.push(unitCommand);
+    } else {
+      const inRangeAttackableEnemyUnits = enemyUnits.filter(enemyUnit => {
+        const { pos: enemyUnitPos, radius: enemyUnitRadius } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined) { return false; }
+        const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, enemyUnit); if (weaponThatCanAttack === undefined) { return false; }
+        const { range } = weaponThatCanAttack; if (range === undefined) { return false; }
+        return getDistance(pos, enemyUnitPos) <= range + radius + enemyUnitRadius;
+      });
+      if (inRangeAttackableEnemyUnits.length === 0) {
+        const [closestAttackableEnemyUnit] = getClosestUnitByPath(resources, pos, enemyUnits.filter(enemyUnit => canAttack(resources, unit, enemyUnit)));
+        if (closestAttackableEnemyUnit !== undefined) {
+          const { pos: closestAttackableEnemyUnitPos } = closestAttackableEnemyUnit; if (closestAttackableEnemyUnitPos === undefined) { return collectedActions; }
+          const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
+          if (closestAttackableEnemyUnit.isCurrent()) {
+            unitCommand.targetUnitTag = closestAttackableEnemyUnit.tag;
+          } else {
+            unitCommand.targetWorldSpacePos = closestAttackableEnemyUnitPos;
+          }
+          collectedActions.push(unitCommand);
+        }
+      } else {
+        const [weakestInRangeAttackableEnemyUnit] = inRangeAttackableEnemyUnits.sort((a, b) => {
+          const { health: aHealth, shield: aShield } = a; if (aHealth === undefined || aShield === undefined) { return 1; }
+          const { health: bHealth, shield: bShield } = b; if (bHealth === undefined || bShield === undefined) { return -1; }
+          return (aHealth + aShield) - (bHealth + bShield);
+        });
+        if (weakestInRangeAttackableEnemyUnit !== undefined) {
+          const { pos: weakestInRangeAttackableEnemyUnitPos } = weakestInRangeAttackableEnemyUnit; if (weakestInRangeAttackableEnemyUnitPos === undefined) { return collectedActions; }
+          const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
+          unitCommand.targetUnitTag = weakestInRangeAttackableEnemyUnit.tag;
+          collectedActions.push(unitCommand);
+        }
+      }
+    }
+    return collectedActions;
+  }, 
+  /**
    * @param {World} world 
    * @param {Unit} unit 
    * @param {Unit} targetUnit 
@@ -1273,6 +1352,7 @@ const worldService = {
     const { map, units } = resources.get();
     const { pos } = unit;
     if (pos === undefined) return;
+    const { findClosestSafePosition } = worldService;
     const closestSafePosition = findClosestSafePosition(world, unit);
     const travelDistancePerStep = 2 * getTravelDistancePerStep(unit);
     if (closestSafePosition) {
@@ -1661,25 +1741,6 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
   }
   return collectedActions;
 }
-
-/**
- * @param {World} world
- * @param {Unit} unit 
- * @param {number} radius
- * @returns {Point2D|undefined}
- */
-function findClosestSafePosition(world, unit, radius = 1) {
-  const { resources } = world;
-  const safePositions = getSafePositions(world, unit, radius);
-  // get closest point for flying unit, closest point by path distance for ground unit
-  if (unit.isFlying) {
-    const [closestPoint] = getClosestPosition(unit.pos, safePositions);
-    return closestPoint;
-  } else {
-    const [closestPoint] = getClosestPositionByPath(resources, unit.pos, safePositions);
-    return closestPoint;
-  }
-}
 /**
  * @param {DataStorage} data
  * @param {Unit} unit
@@ -2005,23 +2066,5 @@ function findMatchingStep(steps, buildStepExecuted, isStructure) {
     }
   }
   return foundMatchingStep
-}
-
-/**
- * @param {DataStorage} data 
- * @param {Point2D} position
- * @param {Unit} unit 
- * @param {Unit[]} targetUnits 
- * @returns {number}
- */
-function getUnitWeaponDistanceToPosition(data, position, unit, targetUnits) {
-  const { radius } = unit; if (radius === undefined) return 0;
-  return targetUnits.reduce((/** @type {number} */ acc, targetUnit) => {
-    const { pos, radius: targetRadius } = targetUnit; if (pos === undefined || targetRadius === undefined) return acc;
-    const weapon = getWeapon(data, unit, targetUnit); if (weapon === undefined) return acc;
-    const { range } = weapon; if (range === undefined) return acc;
-    const distanceToEnemyUnit = getDistance(position, pos) - range - radius - targetRadius;
-    return Math.min(acc, distanceToEnemyUnit);
-  }, Infinity);
 }
 

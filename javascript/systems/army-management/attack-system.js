@@ -2,14 +2,19 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
+const { UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getRandomPoint } = require("../../helper/location");
 const { createUnitCommand } = require("../../services/actions-service");
 const foodUsedService = require("../../services/food-used-service");
+const { getDistance } = require("../../services/position-service");
+const { getClosestUnitByPath } = require("../../services/resource-manager-service");
 const { canAttack } = require("../../services/resources-service");
+const { getWeaponThatCanAttack } = require("../../services/unit-service");
+const { micro } = require("../../services/world-service");
+const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 
 module.exports = createSystem({
   name: 'AttackSystem',
@@ -20,14 +25,14 @@ module.exports = createSystem({
     const { map } = resources.get();
     const { actions, units } = resources.get();
     const unitsToAttackWith = getUnitsToAttackWith(units);
+    const collectedActions = [];
     if (unitsToAttackWith.length > 0) {
       const attack = agent.foodUsed >= foodUsedService.minimumAmountToAttackWith;
       const enemyUnits = attack ? units.getAlive(Alliance.ENEMY) : getUnitsWithinBaseRange(units);
       const enemyTargets = getEnemyTargets(enemyUnits)
       // get all units capable of moving except for structures and workers
-      const collectedActions = [];
       if (enemyTargets.length > 0) {
-        collectedActions.push(...attackTargets(resources, unitsToAttackWith, enemyTargets));
+        collectedActions.push(...attackTargets(world, unitsToAttackWith, enemyTargets));
         if (collectedActions.length > 0) {
           return actions.sendAction(collectedActions);
         }
@@ -36,9 +41,9 @@ module.exports = createSystem({
           collectedActions.push(...findEnemy(map, unitsToAttackWith));
         }
       }
-      if (collectedActions.length > 0) {
-        return actions.sendAction(collectedActions);
-      }
+    }
+    if (collectedActions.length > 0) {
+      return actions.sendAction(collectedActions);
     }
   }
 });
@@ -65,24 +70,29 @@ function getUnitsWithinBaseRange(units) {
   return units.getAlive(Alliance.ENEMY).filter(unit => selfStructures.some(structure => distance(unit.pos, structure.pos) <= 16));
 }
 /**
- * @param {ResourceManager} resources
+ * @param {World} world
  * @param {Unit[]} unitsToAttackWith 
  * @param {Unit[]} enemyTargets
  */
-function attackTargets(resources, unitsToAttackWith, enemyTargets) {
-  const { units } = resources.get();
+function attackTargets(world, unitsToAttackWith, enemyTargets) {
+  const { resources } = world;
   const collectedActions = [];
+  const enemyUnits = enemyTrackingService.mappedEnemyUnits;
   unitsToAttackWith.forEach(unit => {
-    const { pos } = unit;
-    if (pos === undefined) { return; }
+    const { pos, unitType } = unit; if (pos === undefined || unitType === undefined) { return; }
     const abilityId = unit.abilityAvailable(ATTACK_ATTACK) ? ATTACK_ATTACK : MOVE;
-    if (unit.unitType !== OVERLORD) {
-      const attackableTargets = enemyTargets.filter(target => canAttack(resources, unit, target, false));
-      const [closestEnemyUnit] = units.getClosest(pos, attackableTargets);
-      if (closestEnemyUnit) {
+    const unitTypeName = getUnitTypeName(unitType); if (unitTypeName === undefined) { return; }
+    const attackableTargets = enemyUnits.filter(target => canAttack(resources, unit, target, false));
+    const [closestEnemyUnit] = getClosestUnitByPath(resources, pos, attackableTargets);
+    if (closestEnemyUnit) {
+      const { pos : closestEnemyUnitPos } = closestEnemyUnit; if (closestEnemyUnitPos === undefined) { return; }
+      if (getDistance(pos, closestEnemyUnitPos) > 16) {
+        const [closestEnemyTarget] = getClosestUnitByPath(resources, pos, enemyTargets);
         const unitCommand = createUnitCommand(abilityId, [unit]);
-        unitCommand.targetWorldSpacePos = closestEnemyUnit.pos;
+        unitCommand.targetWorldSpacePos = closestEnemyTarget.pos;
         collectedActions.push(unitCommand);
+      } else {
+        collectedActions.push(...micro(world, unit));
       }
     }
   });
@@ -120,3 +130,26 @@ function getUnitsToAttackWith(units) {
     );
   });
 }
+
+/**
+ * @param {UnitTypeId} unitType
+ * @returns {string | undefined}
+ */
+function getUnitTypeName(unitType) {
+  return Object.keys(UnitType).find(type => UnitType[type] === unitType);
+}
+/**
+ * @param {DataStorage} data
+ * @param {Unit} unit
+ * @param {Unit} targetUnit
+ * @returns {boolean}
+ */
+function isInWeaponRange(data, unit, targetUnit) {
+  const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) { return false; }
+  const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, targetUnit); if (weaponThatCanAttack === undefined) { return false; }
+  const { range } = weaponThatCanAttack; if (range === undefined) { return false; }
+  const { pos: targetPos, radius: targetRadius } = targetUnit; if (targetPos === undefined || targetRadius === undefined) { return false; }
+  return getDistance(pos, targetPos) <= range + radius + targetRadius;
+
+}
+

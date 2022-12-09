@@ -12,9 +12,7 @@ const { getSupply } = require("../../services/data-service");
 const enemyTrackingService = {
   enemyUnits: [],
   enemySupply: null,
-  /**
-   * @type {Unit[]}
-   */
+  /** @type {Unit[]} */
   mappedEnemyUnits: [],
   threats: [],
   /**

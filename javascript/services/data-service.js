@@ -6,6 +6,8 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getTimeInSeconds } = require("./frames-service");
 const planService = require("./plan-service");
+const { getDistance } = require("./position-service");
+const { getWeaponThatCanAttack } = require("./unit-service");
 
 const dataService = {
   /** @type {Map<number, number>} */
@@ -58,6 +60,23 @@ const dataService = {
     const { buildProgress } = unit;
     const { buildTime } = data.getUnitTypeData(unit.unitType);
     return getTimeInSeconds(buildTime) * buildProgress;
+  },
+  /**
+   * @param {DataStorage} data 
+   * @param {Point2D} position
+   * @param {Unit} unit 
+   * @param {Unit[]} targetUnits 
+   * @returns {number}
+   */
+  getUnitWeaponDistanceToPosition(data, position, unit, targetUnits) {
+    const { radius, unitType } = unit; if (radius === undefined || unitType === undefined) return Infinity;
+    return targetUnits.reduce((/** @type {number} */ acc, targetUnit) => {
+      const { pos, radius: targetRadius } = targetUnit; if (pos === undefined || targetRadius === undefined) return acc;
+      const weapon = getWeaponThatCanAttack(data, unitType, targetUnit); if (weapon === undefined) return acc;
+      const { range } = weapon; if (range === undefined) return acc;
+      const distanceToEnemyUnit = getDistance(position, pos) - range - radius - targetRadius;
+      return Math.min(acc, distanceToEnemyUnit);
+    }, Infinity);
   },
   /**
    * @param {DataStorage} data 
