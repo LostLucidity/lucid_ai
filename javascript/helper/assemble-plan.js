@@ -126,7 +126,7 @@ class AssemblePlan {
           }
           const freeBuildThreshold = this.agent.minerals >= (mineralCost * 2) && this.agent.vespene >= (vespeneCost * 2);
           if (outpowered || freeBuildThreshold) {
-            await this.train(resources, this.foodUsed, this.selectedTypeToBuild, null);
+            await this.train(world, this.foodUsed, this.selectedTypeToBuild, null);
           }
         }
       } else {
@@ -615,8 +615,6 @@ class AssemblePlan {
    * @param {World} world
    */
   async runPlan(world) {
-    const { resources } = world;
-    const { map } = resources.get();
     planService.continueBuild = true;
     planService.pendingFood = 0;
     for (let step = 0; step < planService.legacyPlan.length; step++) {
@@ -636,8 +634,11 @@ class AssemblePlan {
           case 'build': {
             unitType = planStep[2];
             this.unitType = unitType;
-            const enemyBuild = planStep[5];
-            if (enemyBuild && scoutingService.enemyBuildType !== enemyBuild && !scoutingService.earlyScout) { break; }
+            if (planStep[5]) {
+              const { enemyBuildType, races } = planStep[5];
+              if (enemyBuildType && scoutingService.enemyBuildType !== enemyBuildType && scoutingService.earlyScout) { break; }
+              if (races && !races.includes(scoutingService.opponentRace)) { break; }
+            }
             const candidatePositions = planStep[4] ? await getCandidatePositions(this.resources, planStep[4], unitType) : [];
             await this.build(world, foodTarget, unitType, targetCount, candidatePositions);
             break;
@@ -662,7 +663,7 @@ class AssemblePlan {
           }
           case 'train':
             unitType = planStep[2];
-            try { await this.train(resources, foodTarget, unitType, targetCount); } catch (error) { console.log(error) } break;
+            try { await this.train(world, foodTarget, unitType, targetCount); } catch (error) { console.log(error) } break;
           case 'swapBuildings':
             conditions = planStep[2];
             if (getFoodUsed(this.world) >= foodTarget) { await swapBuildings(this.world, conditions); }
