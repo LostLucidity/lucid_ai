@@ -4,7 +4,7 @@
 const { MOVE, ATTACK_ATTACK, BUILD_CREEPTUMOR_QUEEN } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { PHOTONCANNON, LARVA, CREEPTUMORBURROWED } = require("@node-sc2/core/constants/unit-type");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { distance, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
 const { getPathablePositions, isCreepEdge } = require("../../services/map-resource-service");
@@ -20,6 +20,7 @@ const scoutService = require("../../systems/scouting/scouting-service");
 const stateOfGameService = require("../../systems/state-of-game-system/state-of-game-service");
 const { calculateTotalHealthRatio } = require("../../systems/unit-resource/unit-resource-service");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
+const { intersectionOfPoints, pointsOverlap } = require("../utilities");
 const { engageOrRetreat } = require("./army-behavior");
 
 module.exports = {
@@ -196,13 +197,13 @@ module.exports = {
    * @returns {Promise<void>}
    */
   scoutEnemyMainBehavior: async (world) => {
-    const { data, resources } = world;
+    const { resources } = world;
     const { actions, map, units } = resources.get();
     const [unit] = units.withLabel('scoutEnemyMain');
     const collectedActions = [];
     if (unit) {
       const { pos } = unit; if (pos === undefined) return;
-      const threateningUnits = getThreateningUnits(data, unit);
+      const threateningUnits = getThreateningUnits(world, unit);
       if (calculateTotalHealthRatio(units, unit) > 0.5) {
         if (threateningUnits.length > 0) {
           unit.labels.set('Threatened', true);
@@ -337,15 +338,18 @@ function getEmptyExpansions(resources) {
   return emptyExpansions;
 }
 /**
- * @param {DataStorage} data
+ * @param {World} world
  * @param {Unit} unit
  * @returns {Unit[]}
  */
-function getThreateningUnits(data, unit) {
+function getThreateningUnits(world, unit) {
+  const { data, resources } = world;
+  const { map } = resources.get();
   const { pos, radius} = unit; if (pos === undefined || radius === undefined) return [];
   const enemyUnits = unit['enemyUnits'] || stateOfGameService.getEnemyUnits(unit);
   const threateningUnits = enemyUnits && enemyUnits.filter((/** @type {Unit} */ enemyUnit) => {
     const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit; if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
+    if (enemyUnit.isWorker() && isInMineralLine(map, enemyPos)) return false;
     const distanceToEnemy = getDistance(pos, enemyPos);
     const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
@@ -381,5 +385,18 @@ function getClosestByWeaponRange(world, unit, threateningUnits) {
     return closest;
   }, undefined);
   return closestThreateningUnit && closestThreateningUnit.unit; 
+}
+
+/**
+ * @param {MapResource} map 
+ * @param {Point2D} pos
+ * @returns {boolean}
+ */
+function isInMineralLine(map, pos) {
+  const point = createPoint2D(pos);
+  const closestExpansion = map.getClosestExpansion(point);
+  const { areas } = closestExpansion; if (areas === undefined) return false;
+  const { mineralLine } = areas; if (mineralLine === undefined) return false;
+  return pointsOverlap([point], mineralLine);
 }
 
