@@ -3,7 +3,7 @@
 
 const { EFFECT_REPAIR, STOP } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { workerTypes } = require("@node-sc2/core/constants/groups");
+const { workerTypes, gatheringAbilities } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { PROBE, COLOSSUS, MULE } = require("@node-sc2/core/constants/unit-type");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
@@ -60,6 +60,30 @@ const unitResourceService = {
   },
   deleteLabel(units, label) {
     units.withLabel(label).forEach(pusher => pusher.labels.delete(label));
+  },
+  /**
+   * 
+   * @param {UnitResource} units 
+   * @param {"minerals" | "vespene" | undefined} type 
+   * @returns 
+   */
+  getGatheringWorkers(units, type, firstOrderOnly = false) {
+    const gatheringWorkers = units.getWorkers()
+      .filter(worker => {
+        return (
+          worker.isGathering(type) ||
+          (worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ order) => gatheringAbilities.includes(order.abilityId)))
+        );
+      });
+    if (firstOrderOnly) {
+      return gatheringWorkers.filter(worker => {
+        const { orders } = worker; if (orders === undefined) return false;
+        const firstOrder = orders[0];
+        const { abilityId } = firstOrder; if (abilityId === undefined) return false;
+        return gatheringAbilities.includes(abilityId);
+      });
+    }
+    return gatheringWorkers;
   },
   /**
    * Returns whether target unit is in sightRange of unit.

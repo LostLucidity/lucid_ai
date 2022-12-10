@@ -14,7 +14,7 @@ const planService = require('../services/plan-service');
 const { gather } = require('../services/resource-manager-service');
 const { getPendingOrders } = require('../services/unit-service');
 const { balanceResources, gatherOrMine } = require('./manage-resources');
-const { getMineralFieldAssignments, setPendingOrders, getNeediestMineralField } = require('./unit-resource/unit-resource-service');
+const { getMineralFieldAssignments, setPendingOrders, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',
@@ -271,32 +271,6 @@ function findGatheringOrder(units, worker) {
     return worker.orders.find(order => gatheringAbilities.includes(order.abilityId));
   }
 }
-
-/**
- * 
- * @param {UnitResource} units 
- * @param {"minerals" | "vespene" | undefined} type 
- * @returns 
- */
-function getGatheringWorkers(units, type, firstOrderOnly = false) {
-  const gatheringWorkers = units.getWorkers()
-    .filter(worker => {
-      return (
-        worker.isGathering(type) ||
-        (worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ order) => gatheringAbilities.includes(order.abilityId)))
-      );
-    });
-  if (firstOrderOnly) {
-    return gatheringWorkers.filter(worker => {
-      const { orders } = worker; if (orders === undefined) return false;
-      const firstOrder = orders[0];
-      const { abilityId } = firstOrder; if (abilityId === undefined) return false;
-      return gatheringAbilities.includes(abilityId);
-    });
-  }
-  return gatheringWorkers;
-}
-
 /**
  * @param {UnitResource} units
  * @param {Unit[]} mineralFields

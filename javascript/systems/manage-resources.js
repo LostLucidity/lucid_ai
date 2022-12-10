@@ -10,7 +10,7 @@ const { upgradeTypes } = require("../helper/groups");
 const { createUnitCommand } = require("../services/actions-service");
 const { gather } = require("../services/resource-manager-service");
 const { mine, getPendingOrders } = require("../services/unit-service");
-const { setPendingOrders } = require("./unit-resource/unit-resource-service");
+const { setPendingOrders, getGatheringWorkers, isMining } = require("./unit-resource/unit-resource-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
@@ -66,17 +66,10 @@ const manageResources = {
       return;
     } else if (needyBases && mineralMinerCountRatio < targetRatio) {
       const increaseRatio = (mineralMinerCount + 1) / (vespeneMinerCount - 1);
-      if ((mineralMinerCountRatio + increaseRatio) / 2 < targetRatio) {
+      if (increaseRatio < targetRatio) {
         const gasMines = units.getAlive(readySelfFilter).filter(u => u.isGasMine());
         const [givingGasMine] = units.getClosest(needyBases.pos, gasMines);
-        const gatheringGasWorkers = units.getWorkers()
-          .filter(unit => unit.orders.some(order => {
-            return (
-              [...gatheringAbilities].includes(order.abilityId) &&
-              order.targetUnitTag &&
-              gasMineTypes.includes(units.getByTag(order.targetUnitTag).unitType)
-            );
-          }));
+        const gatheringGasWorkers = getGatheringWorkers(units, "vespene", true).filter(worker => !isMining(units, worker));
         if (givingGasMine && gatheringGasWorkers.length > 0) {
           debugSilly('chosen closest th', givingGasMine.tag);
           const [donatingWorker] = units.getClosest(givingGasMine.pos, gatheringGasWorkers);

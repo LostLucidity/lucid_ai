@@ -30,7 +30,7 @@ const resourceManagerService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   gather: (resources, unit, mineralField, queue = true) => {
-    const { map, units } = resources.get();
+    const { units } = resources.get();
     const { pos: unitPos } = unit;
     const collectedActions = [];
     if (unitPos === undefined) { return collectedActions; }
