@@ -283,6 +283,7 @@ const planActions = {
         // find idle building with tech lab.
         const idleBuildingsWithTechLab = nonOrphanTechLabs.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]).filter(building => building.noQueue);
         // find closest barracks to closest tech lab.
+        /** @type {Unit[]} */
         let closestPair = [];
         // get completed and idle barracks.
         let completedBarracks = units.getById(countTypes.get(BARRACKS)).filter(barracks => barracks.buildProgress >= 1);
@@ -305,33 +306,12 @@ const planActions = {
               await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
             }
           } else {
-            const label = 'swapBuilding';
+            // if barracks is not training unit, move barracks to tech lab.
+            const label = 'reposition';
             closestPair[0].labels.set(label, closestPair[1].pos);
-            closestPair[1].labels.set(label, closestPair[0].pos);
+            closestPair[1].labels.set(label, 'lift');
           }
         }
-        // //
-        // const nonOrphanAddOn = addOns.filter(addOn => addOn.unitType !== TECHLAB || addOn.unitType !== REACTOR);
-        // // find idle building with tech lab.
-        // const idleBuildingsWithAddOn = nonOrphanAddOn.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]).filter(building => building.noQueue);;
-        // // find closest barracks to closest tech lab.
-        // let closestPair = [];
-        // // get nonaddOn buildingsType of addOnType.
-        // const nonAddOnBuildingType = getKeyByMapValue(addOnTypesMapping, upgradeTypeForUpgrade);
-        // units.getById(countTypes.get(nonAddOnBuildingType)).forEach(building => {
-        //   if (building.buildProgress >= 1 && building.noQueue) {
-        //     idleBuildingsWithAddOn.forEach(addOn => {
-        //       if (closestPair.length > 0) {
-        //         closestPair = distance(building.pos, addOn.pos) < distance(closestPair[0].pos, closestPair[1].pos) ? [building, addOn] : closestPair;
-        //       } else { closestPair = [building, addOn]; }
-        //     });
-        //   }
-        // });
-        // if (closestPair.length > 0) {
-        //   const label = 'swapBuilding';
-        //   closestPair[0].labels.set(label, closestPair[1].pos);
-        //   closestPair[1].labels.set(label, closestPair[0].pos);
-        // }
       }
     }
   },

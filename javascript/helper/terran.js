@@ -32,7 +32,7 @@ const terran = {
    */
   addAddOn: async (world, unit, addOnType, stepAhead) => {
     const { data, resources } = world;
-    const { actions, frame, map } = resources.get();
+    const { actions, map } = resources.get();
     // get key by value from Map
     for (const [key, value] of countTypes.entries()) {
       // find addOnType in value

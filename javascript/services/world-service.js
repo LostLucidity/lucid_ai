@@ -1318,18 +1318,24 @@ const worldService = {
             setPendingOrders(unit, unitCommand);
           } else {
             unit.labels.delete('reposition');
-            const { addOnTag } = unit;
-            if (addOnTag === undefined) return collectedActions;
-            const addOn = units.getByTag(addOnTag);
-            if (addOn) addOn.labels.delete('reposition');
+            const { addOnTag } = unit; if (addOnTag === undefined) return collectedActions;
+            const addOn = units.getByTag(addOnTag); if (!addOn) return collectedActions;
+            addOn.labels.delete('reposition');
           }
         }
         if (unit.availableAbilities().find(ability => landingAbilities.includes(ability))) {
-          const unitCommand = createUnitCommand(Ability.LAND, [unit]);
-          unitCommand.targetWorldSpacePos = unit.labels.get('reposition');
-          collectedActions.push(unitCommand);
-          planService.pausePlan = false;
-          setPendingOrders(unit, unitCommand);
+          if (unit.labels.get('reposition') === 'lift') {
+            unit.labels.delete('reposition');
+            const { addOnTag } = unit; if (addOnTag === undefined) return collectedActions;
+            const addOn = units.getByTag(addOnTag); if (!addOn) return collectedActions;
+            addOn.labels.delete('reposition');
+          } else {
+            const unitCommand = createUnitCommand(Ability.LAND, [unit]);
+            unitCommand.targetWorldSpacePos = unit.labels.get('reposition');
+            collectedActions.push(unitCommand);
+            planService.pausePlan = false;
+            setPendingOrders(unit, unitCommand);
+          }
         }
         // cancel training orders
         if (dataService.isTrainingUnit(data, unit)) {

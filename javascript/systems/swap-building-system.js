@@ -58,7 +58,7 @@ module.exports = createSystem({
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function setReposition(world) {
-  const { data, resources } = world;
+  const { resources } = world;
   const { units } = resources.get();
   const collectedActions = [];
   // check if there are any orphan reactors
