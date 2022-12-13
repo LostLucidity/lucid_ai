@@ -7,7 +7,7 @@ const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, avgPoints, createPoint2D, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
+const { distance, avgPoints, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { countTypes, morphMapping, addOnTypesMapping } = require("../helper/groups");
 const { findPosition, getCandidatePositions } = require("../helper/placement/placement-helper");
@@ -20,7 +20,7 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getUnitTypeData, isRepairing, calculateSplashDamage, getThirdWallPosition, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField } = require("../systems/unit-resource/unit-resource-service");
+const { getUnitTypeData, isRepairing, calculateSplashDamage, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
@@ -32,11 +32,11 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getOccupiedExpansions } = require("../helper/expansions");
 const { existsInMap } = require("../helper/location");
-const { pointsOverlap, intersectionOfPoints, shuffle } = require("../helper/utilities");
+const { pointsOverlap, shuffle } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -368,47 +368,31 @@ const worldService = {
         pylonsNearProduction.forEach(pylon => {
           placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid) && distance(grid, pylon.pos) < 6.5));
         });
-        const wallOffUnitTypes = [...countTypes.get(UnitType.GATEWAY), UnitType.CYBERNETICSCORE];
-        /**
-         * @type {Point2D[]}
-         */
         const wallOffPositions = [];
-        if (wallOffUnitTypes.includes(unitType) && units.getById(wallOffUnitTypes).length < 3) {
-          const currentlyEnrouteConstructionGrids = worldService.getCurrentlyEnrouteConstructionGrids(world);
-          const placeablePositions = wallOffNaturalService.threeByThreePositions.filter(position => {
-            const footprint = cellsInFootprint(createPoint2D(position), getFootprint(unitType));
-            return map.isPlaceableAt(unitType, position) && pointsOverlap([...footprint], [...placements]) && !pointsOverlap([...footprint], [...currentlyEnrouteConstructionGrids])
-          });
-          if (placeablePositions.length > 0) {
-            wallOffPositions.push(...placeablePositions);
-          } else {
-            if (wallOffNaturalService.wall.length > 0) {
-              const cornerGrids = wallOffNaturalService.wall.filter(grid => intersectionOfPoints(getNeighbors(grid, true, false), wallOffNaturalService.wall).length === 1);
-              const wallRadius = distance(cornerGrids[0], cornerGrids[1]) / 2;
-              wallOffPositions.push(...gridsInCircle(avgPoints(wallOffNaturalService.wall), wallRadius, { normalize: true }).filter(grid => {
-                const footprint = cellsInFootprint(createPoint2D(grid), getFootprint(unitType));
-                let existsAndPlaceable = existsInMap(map, grid) && map.isPlaceable(grid) && pointsOverlap([...footprint], [...placements]) && !pointsOverlap([...footprint], [...currentlyEnrouteConstructionGrids]);
-                if (units.getById(wallOffUnitTypes).length === 2) {
-                  const foundThirdWallPosition = getThirdWallPosition(units.getById(wallOffUnitTypes), grid, unitType);
-                  return existsAndPlaceable && foundThirdWallPosition;
-                } else {
-                  return existsAndPlaceable;
-                }
-              }));
+        const { threeByThreePositions } = wallOffNaturalService;
+        if (threeByThreePositions.length > 0) {
+          const threeByThreeFootprint = getFootprint(FORGE);
+          if (threeByThreeFootprint === undefined) return [];
+          const threeByThreeCellsInFootprints = threeByThreePositions.map(position => cellsInFootprint(position, threeByThreeFootprint));
+          wallOffPositions.push(...threeByThreeCellsInFootprints.flat());
+          const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
+          if (unitTypeFootprint.h === threeByThreeFootprint.h && unitTypeFootprint.w === threeByThreeFootprint.w) {
+            const canPlace = await actions.canPlace(unitType, threeByThreePositions);
+            if (canPlace) {
+              return [canPlace];
             }
           }
         }
-        if (wallOffPositions.length > 0 && intersectionOfPoints(wallOffPositions, placements).some(position => map.isPlaceableAt(unitType, position))) {
-          placements = intersectionOfPoints(wallOffPositions, placements);
-        }
-        placements = placements.filter((point) => {
-          return (
-            (distance(natural.townhallPosition, point) > 5) &&
-            (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
-            (wallOffPositions.length > 0 || (natural.areas.hull.every(hp => distance(hp, point) > 2))) &&
-            map.isPlaceableAt(unitType, point)
-          );
-        });
+        const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
+        placements = placements.filter(grid => {
+          const cells = [...cellsInFootprint(grid, unitTypeFootprint)];
+          return cells.every(cell => map.isPlaceable(cell)) && !pointsOverlap(cells, [...wallOffPositions]);
+        }).map(pos => ({ pos, rand: Math.random() }))
+          .sort((a, b) => a.rand - b.rand)
+          .map(a => a.pos)
+          .slice(0, 20);
+        return placements;
+
       }
     } else if (race === Race.TERRAN) {
       const placementGrids = [];
