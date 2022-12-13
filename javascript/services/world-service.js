@@ -1001,14 +1001,12 @@ const worldService = {
    * 
    * @param {World} world 
    * @param {Unit} unit 
-   * @param {Point2D} targetPosition 
-   * @param {number} unitType 
   */
-  logActionIfNearPosition: (world, unitType, unit, targetPosition) => {
+  logActionIfNearPosition: (world, unit) => {
     const { resources } = world;
-    if (distance(unit.pos, targetPosition) < 4) {
-      worldService.setAndLogExecutedSteps(world, resources.get().frame.timeInSeconds(), UnitTypeId[unitType], targetPosition);
-    }
+    const { frame } = resources.get();
+    const { pos, unitType } = unit; if (pos === undefined || unitType === undefined) { return; }
+    worldService.setAndLogExecutedSteps(world, frame.timeInSeconds(), UnitTypeId[unitType], pos);
   },
   /**
    * @param {World} world

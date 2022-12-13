@@ -4,7 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { UnitType } = require("@node-sc2/core/constants");
 const { HALT_TERRANBUILD } = require("@node-sc2/core/constants/ability");
-const { Race, Alliance } = require("@node-sc2/core/constants/enums");
+const { Race } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const loggingService = require("../services/logging-service");
 const planService = require("../services/plan-service");
@@ -20,9 +20,14 @@ module.exports = createSystem({
     addBuildStepLog(world);
   },
   async onUnitCreated(world, unit) {
-    const gameLoop = world.resources.get().frame.getGameLoop()
+    const { agent, resources } = world;
+    const { frame } = resources.get();
+    const gameLoop = frame.getGameLoop();
     if (unit.isStructure() && gameLoop > 0) {
-      logActionIfNearPosition(world, unit.unitType, unit, unit.pos);
+      logActionIfNearPosition(world, unit);
+      if (agent.race === Race.ZERG) {
+        planService.pausePlan = false;
+      }
     }
   }
 });

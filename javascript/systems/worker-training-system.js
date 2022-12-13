@@ -19,9 +19,10 @@ module.exports = createSystem({
     await trainWorkers(world);
   },
   async onUnitCreated(world, unit) {
-    const { agent } = world;
+    const { agent, resources } = world;
     const { race } = agent;
-    if (WorkerRace[race] === unit.unitType) {
+    const { frame } = resources.get();
+    if (WorkerRace[race] === unit.unitType && frame.getGameLoop() > 0) {
       await trainWorkers(world);
     }
   },

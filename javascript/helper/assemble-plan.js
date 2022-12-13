@@ -85,7 +85,6 @@ class AssemblePlan {
     this.collectedActions = [];
     this.state = state;
     this.state.defenseStructures = this.defenseStructures;
-    const { resources } = world;
     this.world = world;
     this.agent = world.agent;
     this.data = world.data;
