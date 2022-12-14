@@ -127,7 +127,7 @@ const resourceManagerService = {
       const averageDistance = distancesAndPositions.reduce((acc, curr) => {
         return acc + curr.distance;
       }, 0) / distancesAndPositions.length;
-      const pathablePosition = isAnyPositionCorner ? avgPoints(pathablePositions) : position;
+      const pathablePosition = isAnyPositionCorner ? avgPoints(pathablePositions) : getClosestPosition(position, pathablePositions)[0];
       const pathableTargetPosition = isAnyTargetPositionCorner ? avgPoints(pathableTargetPositions) : getClosestPosition(targetPosition, pathableTargetPositions)[0];
       return {
         pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, pathableTargetPosition)),
