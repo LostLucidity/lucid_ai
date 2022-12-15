@@ -1145,25 +1145,24 @@ const worldService = {
     const builder = worldService.getBuilder(world, position);
     if (builder) {
       // get speed, distance and average collection rate
-      const { movementSpeed } = builder.data();
-      const pathablePositions = getPathablePositions(map, position);
-      const { orders, pos } = builder;
-      if (movementSpeed === undefined || orders === undefined || pos === undefined) return collectedActions;
-      const [closestPositionByPath] = getClosestPositionByPath(resources, pos, pathablePositions);
-      let builderDistanceToPosition = getDistanceByPath(resources, pos, closestPositionByPath);
+      const { movementSpeed } = builder.data(); if (movementSpeed === undefined) return collectedActions;
+      const { orders, pos } = builder; if (orders === undefined || pos === undefined) return collectedActions;
+      const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, position);
+      const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
+      let builderDistanceToPosition = getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
       if (debug !== undefined) {
-        debug.setDrawCells('prmv', getPathCoordinates(MapResourceService.getMapPath(map, pos, closestPositionByPath)).map(point => ({ pos: point })), { size: 1, cube: false });
+        debug.setDrawCells('prmv', getPathCoordinates(MapResourceService.getMapPath(map, pos, pathableTargetPosition)).map(point => ({ pos: point })), { size: 1, cube: false });
       }
       let timeToPosition = builderDistanceToPosition / movementSpeed;
       let rallyBase = false;
       let buildTimeLeft = 0;
       if (stepAhead) {
-        const completedBases = units.getBases().filter(base => base.buildProgress >= 1);
-        const [closestBaseByPath] = getClosestUnitByPath(resources, closestPositionByPath, completedBases);
+        const completedBases = units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1);
+        const [closestBaseByPath] = getClosestUnitByPath(resources, pathableTargetPosition, completedBases);
         if (closestBaseByPath) {
           const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
-          const [pathableStructurePosition] = getClosestPositionByPath(resources, closestPositionByPath, pathablePositions);
-          const baseDistanceToPosition = getDistanceByPath(resources, pathableStructurePosition, closestPositionByPath);
+          const [pathableStructurePosition] = getClosestPositionByPath(resources, pathableTargetPosition, pathablePositions);
+          const baseDistanceToPosition = getDistanceByPath(resources, pathableStructurePosition, pathableTargetPosition);
           const { unitTypeTrainingAbilities } = dataService;
           const workerCurrentlyTraining = closestBaseByPath.orders.findIndex(order => workerTypes.includes(unitTypeTrainingAbilities.get(order.abilityId))) === 0;
           if (workerCurrentlyTraining) {
@@ -1557,14 +1556,13 @@ const worldService = {
       } else {
         if (townhallTypes.includes(unitType)) {
           const mineralFields = mineralCollector.labels.get('mineralFields') || units.getMineralFields().filter(mineralField => {
-            const { pos } = mineralField;
-            const { pos: townhallPos } = mineralCollector;
-            if (pos === undefined || townhallPos === undefined) return false;
+            const { pos } = mineralField; if (pos === undefined) return false;
+            const { pos: townhallPos } = mineralCollector; if (townhallPos === undefined) return false;
             if (distance(pos, townhallPos) < 16) {
-              const closestPositionByPath = getClosestUnitPositionByPath(resources, townhallPos, pos);
-              if (closestPositionByPath === undefined) return false;
-              const closestByPathDistance = getDistanceByPath(resources, pos, closestPositionByPath);
-              return closestByPathDistance <= 16;
+              const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, townhallPos)
+              const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
+              const distanceByPath = getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
+              return distanceByPath <= 16;
             } else {
               return false;
             }
