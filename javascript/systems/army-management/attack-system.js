@@ -28,7 +28,7 @@ module.exports = createSystem({
     const collectedActions = [];
     if (unitsToAttackWith.length > 0) {
       const attack = agent.foodUsed >= foodUsedService.minimumAmountToAttackWith;
-      const enemyUnits = attack ? units.getAlive(Alliance.ENEMY) : getUnitsWithinBaseRange(units);
+      const enemyUnits = attack ? enemyTrackingService.mappedEnemyUnits : getUnitsWithinBaseRange(units);
       const enemyTargets = getEnemyTargets(enemyUnits)
       // get all units capable of moving except for structures and workers
       if (enemyTargets.length > 0) {
@@ -77,19 +77,17 @@ function getUnitsWithinBaseRange(units) {
 function attackTargets(world, unitsToAttackWith, enemyTargets) {
   const { resources } = world;
   const collectedActions = [];
-  const enemyUnits = enemyTrackingService.mappedEnemyUnits;
   unitsToAttackWith.forEach(unit => {
     const { pos, unitType } = unit; if (pos === undefined || unitType === undefined) { return; }
     const abilityId = unit.abilityAvailable(ATTACK_ATTACK) ? ATTACK_ATTACK : MOVE;
     const unitTypeName = getUnitTypeName(unitType); if (unitTypeName === undefined) { return; }
-    const attackableTargets = enemyUnits.filter(target => canAttack(resources, unit, target, false));
+    const attackableTargets = enemyTargets.filter(target => canAttack(resources, unit, target, false));
     const [closestEnemyUnit] = getClosestUnitByPath(resources, pos, attackableTargets);
     if (closestEnemyUnit) {
       const { pos : closestEnemyUnitPos } = closestEnemyUnit; if (closestEnemyUnitPos === undefined) { return; }
       if (getDistance(pos, closestEnemyUnitPos) > 16) {
-        const [closestEnemyTarget] = getClosestUnitByPath(resources, pos, enemyTargets);
         const unitCommand = createUnitCommand(abilityId, [unit]);
-        unitCommand.targetWorldSpacePos = closestEnemyTarget.pos;
+        unitCommand.targetWorldSpacePos = closestEnemyUnitPos;
         collectedActions.push(unitCommand);
       } else {
         collectedActions.push(...micro(world, unit));

@@ -30,7 +30,7 @@ const plans = {
         [20, 'build', FACTORY, 0],
         [21, 'train', MARINE, 0],
         [21, 'train', MARINE, 1],
-        [24, 'build', BUNKER, 0, 'MiddleOfNaturalWall', 'cheese'],
+        [24, 'build', BUNKER, 0, 'MiddleOfNaturalWall', { enemyBuildType: 'cheese' }],
         [31, 'build', ORBITALCOMMAND, 1],
         [31, 'build', TECHLAB, 0],
         [33, 'build', STARPORT, 0],

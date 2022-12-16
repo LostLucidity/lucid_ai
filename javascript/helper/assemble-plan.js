@@ -708,7 +708,6 @@ async function setFoundPosition(world, foundPosition, unitType, candidatePositio
     const { map, units } = resources.get();
     const areEnemyUnitsInWay = checkIfEnemyUnitsInWay(units, unitType, foundPosition);
     const enemyBlockingExpansion = areEnemyUnitsInWay && TownhallRace[race][0] === unitType;
-    // check if stronger than enemy at found position
     const strongerAtFoundPosition = checkIfStrongerAtPosition(world, foundPosition);
     if (map.isPlaceableAt(unitType, foundPosition) && !enemyBlockingExpansion && strongerAtFoundPosition) {
       return foundPosition;

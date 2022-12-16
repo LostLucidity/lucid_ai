@@ -9,7 +9,6 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { pointsOverlap } = require("./utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { getClosestUnitByPath } = require("../services/resource-manager-service");
 
 module.exports = {
   /**
@@ -20,10 +19,9 @@ module.exports = {
     // get Expansion and filter by bases near townhall position.
     const allBases = units.getById(townhallTypes);
     const availableExpansions = map.getExpansions().filter(expansion => {
-      const [ closestUnitByPath ] = getClosestUnitByPath(resources, expansion.townhallPosition, allBases);
-      if (closestUnitByPath) {
-        const { pos } = closestUnitByPath;
-        if (pos === undefined) return false;
+      const [ closestUnit ] = units.getClosest(expansion.townhallPosition, allBases);
+      if (closestUnit) {
+        const { pos } = closestUnit; if (pos === undefined) return false;
         return distance(expansion.townhallPosition, pos) > 1;
       }
     });
