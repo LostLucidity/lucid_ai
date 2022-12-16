@@ -351,8 +351,7 @@ const armyBehavior = {
       const { pos } = closestEnemyTarget; if (pos === undefined) { return []; }
       const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
       collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
-      const [combatPoint] = getClosestUnitByPath(resources, pos, combatUnits, 1);
-      if (combatPoint) {
+      if (combatUnits.length > 0) {
         let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
         let selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, mappedEnemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
         console.log('Push', selfDPSHealth, closestEnemyTarget['selfDPSHealth']);
@@ -396,6 +395,13 @@ const armyBehavior = {
   }
 };
 
+/**
+ * 
+ * @param {UnitResource} units 
+ * @param {UnitTypeId[]} mainCombatTypes 
+ * @param {UnitTypeId[]} supportUnitTypes 
+ * @returns 
+ */
 function groupUnits(units, mainCombatTypes, supportUnitTypes) {
   const combatUnits = [];
   mainCombatTypes.forEach(type => {
