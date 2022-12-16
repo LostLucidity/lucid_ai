@@ -61,14 +61,6 @@ const resourceManagerService = {
     }
     if (target) {
       const { pos: targetPos } = target; if (targetPos === undefined) { return collectedActions; }
-      const closestPathablePositionsBetweenPositions = resourceManagerService.getClosestPathablePositionsBetweenPositions(resources, unitPos, targetPos);
-      const { distance, pathCoordinates } = closestPathablePositionsBetweenPositions;
-      if (getDistance(unitPos, targetPos) > localMaxDistanceOfMineralFields && distance > 16 && pathCoordinates.length > 0) {
-        const moveCommand = createUnitCommand(MOVE, [unit]);
-        moveCommand.targetWorldSpacePos = pathCoordinates[pathCoordinates.length - 1];
-        collectedActions.push(moveCommand);
-        queue = true;
-      }
       const sendToGather = createUnitCommand(SMART, [unit]);
       sendToGather.targetUnitTag = target.tag;
       sendToGather.queueCommand = queue;
