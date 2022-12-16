@@ -35,7 +35,6 @@ const { getNextPlanStep } = require("../services/plan-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
-const { checkBuildingCount, getAbilityIdsForAddons, getUnitTypesWithAbilities, assignAndSendWorkerToBuild, setAndLogExecutedSteps, unpauseAndLog, premoveBuilderToPosition, isSupplyNeeded, canBuild, findPlacements, getFoodUsed, shortOnWorkers } = require("../services/world-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply } = require("../services/data-service");
@@ -98,7 +97,7 @@ class AssemblePlan {
     this.units = this.resources.get().units;
     this.resourceTrigger = this.agent.minerals > 512 && this.agent.vespene > 256;
     this.threats = threats(this.resources, this.state);
-    const { outpowered } = worldService;
+    const { getFoodUsed, outpowered, shortOnWorkers } = worldService;
     const trainUnitConditions = [
       outpowered,
       unitTrainingService.workersTrainingTendedTo && !planService.isPlanPaused,
@@ -173,6 +172,7 @@ class AssemblePlan {
   }
 
   async ability(food, abilityId, conditions) {
+    const { getFoodUsed } = worldService;
     if (getFoodUsed(this.world) >= food) {
       if (conditions === undefined || conditions.targetType || conditions.targetCount === this.units.getById(conditions.countType).length + this.units.withCurrentOrders(abilityId).length) {
         if (conditions && conditions.targetType && conditions.continuous === false) { if (this.foodUsed !== food) { return; } }
@@ -217,6 +217,7 @@ class AssemblePlan {
    */
   async build(world, food, unitType, targetCount, candidatePositions = []) {
     const { resources } = world;
+    const { getFoodUsed, findPlacements, checkBuildingCount, unpauseAndLog } = worldService;
     if (getFoodUsed(this.world) + 1 >= food) {
       const stepAhead = getFoodUsed(this.world) + 1 === food;
       if (checkBuildingCount(this.world, unitType, targetCount)) {
@@ -252,6 +253,7 @@ class AssemblePlan {
             }
             break;
           case addonTypes.includes(unitType):
+            const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = worldService;
             const abilityIds = getAbilityIdsForAddons(this.data, unitType);
             let canDoTypes = getUnitTypesWithAbilities(this.data, abilityIds);
             const addOnUnits = this.units.withLabel('addAddOn').filter(addOnUnit => {
@@ -293,10 +295,12 @@ class AssemblePlan {
    * @param {boolean} stepAhead 
    */
   async buildBuilding(world, unitType, candidatePositions, stepAhead) {
+    const { premoveBuilderToPosition } = worldService;
     this.foundPosition = await setFoundPosition(world, this.foundPosition, unitType, candidatePositions);
     if (this.foundPosition) {
       if (this.agent.canAfford(unitType) && !stepAhead) {
         if (await actions.canPlace(unitType, [this.foundPosition])) {
+          const { assignAndSendWorkerToBuild } = worldService;
           await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, this.foundPosition));
           planService.pausePlan = false;
           planService.continueBuild = true;
@@ -407,6 +411,7 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async manageSupply(world, foodRanges = null) {
+    const { isSupplyNeeded } = worldService;
     if (!foodRanges || foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.world, 0.2)) {
         this.foundPosition = false;
@@ -487,6 +492,7 @@ class AssemblePlan {
   scout(world, foodRanges, unitType, targetLocation, conditions) {
     const { resources } = world;
     const { map, units } = resources.get();
+    const { getFoodUsed } = worldService;
     const label = conditions && conditions.label ? conditions.label : 'scout';
     const isScoutTypeActive = conditions && conditions.scoutType ? scoutingService[conditions.scoutType] : true;
     if (foodRanges.indexOf(getFoodUsed(world)) > -1 && isScoutTypeActive) {
@@ -514,6 +520,7 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async train(world, food, unitType, targetCount) {
+    const { canBuild, getFoodUsed, isSupplyNeeded, setAndLogExecutedSteps } = worldService;
     if (getFoodUsed(this.world) >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
       if (checkUnitCount(this.world, unitType, targetCount) || targetCount === null) {
@@ -577,6 +584,7 @@ class AssemblePlan {
   async upgrade(world, food, upgradeId) {
     const { agent, data, resources } = world;
     const { frame, units } = resources.get();
+    const { getFoodUsed, setAndLogExecutedSteps } = worldService;
     if (getFoodUsed(world) >= food) {
       const upgradeName = getStringNameOfConstant(Upgrade, upgradeId)
       upgradeId = mismatchMappings[upgradeName] ? Upgrade[mismatchMappings[upgradeName]] : Upgrade[upgradeName];
@@ -614,6 +622,7 @@ class AssemblePlan {
    * @param {World} world
    */
   async runPlan(world) {
+    const { getFoodUsed } = worldService;
     planService.continueBuild = true;
     planService.pendingFood = 0;
     for (let step = 0; step < planService.legacyPlan.length; step++) {
@@ -699,11 +708,13 @@ async function setFoundPosition(world, foundPosition, unitType, candidatePositio
     const { map, units } = resources.get();
     const areEnemyUnitsInWay = checkIfEnemyUnitsInWay(units, unitType, foundPosition);
     const enemyBlockingExpansion = areEnemyUnitsInWay && TownhallRace[race][0] === unitType;
-    if (map.isPlaceableAt(unitType, foundPosition) && !enemyBlockingExpansion) {
+    // check if stronger than enemy at found position
+    const strongerAtFoundPosition = checkIfStrongerAtPosition(world, foundPosition);
+    if (map.isPlaceableAt(unitType, foundPosition) && !enemyBlockingExpansion && strongerAtFoundPosition) {
       return foundPosition;
     }
-  } 
-  return await findPosition(resources, unitType, candidatePositions);
+  }
+  return await findPosition(resources, unitType, candidatePositions.filter(pos => checkIfStrongerAtPosition(world, pos)));
 }
 
 /**
@@ -729,4 +740,23 @@ function checkIfEnemyUnitsInWay(units, unitType, position) {
       }
     }).flat();
   return pointsOverlap(enemyUnitCoverage, cellsInFootprint(position, footprint));
+}
+
+/**
+ * @param {World} world
+ * @param {Point2D} position
+ * @returns {boolean}
+ */
+function checkIfStrongerAtPosition(world, position) {
+  const { units } = world.resources.get();
+  const { calculateNearDPSHealth } = worldService;
+  const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => unit.pos && distance(unit.pos, position) < 16);
+  if (enemyUnits.length === 0) return true;
+  const selfUnits = units.getAlive(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) < 16);
+  const enemyUnitTypes = enemyUnits.map(unit => unit.unitType);
+  // @ts-ignore
+  const selfDPSHealth = calculateNearDPSHealth(world, selfUnits, enemyUnitTypes);
+  // @ts-ignore
+  const enemyDPSHealth = calculateNearDPSHealth(world, enemyUnits, selfUnits.map(unit => unit.unitType));
+  return selfDPSHealth >= enemyDPSHealth;
 }
