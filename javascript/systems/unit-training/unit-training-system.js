@@ -31,7 +31,7 @@ module.exports = createSystem({
     if (trainUnitConditions.some(condition => condition)) {
       let trainingConditionsLog = outpowered ? 'Scouted higher power' : 'Free build mode.';
       const { currentStep, plan } = planService;
-      // if trainingTypes is empty, get currently exiting non-structure unitTypes
+      // if trainingTypes is empty, get currently existing non-structure unitTypes
       const plannedTrainingTypes = trainingTypes.length > 0 ? trainingTypes : getExistingTrainingTypes(units);
       const candidateTypesToBuild = plannedTrainingTypes.filter(type => {
         return [

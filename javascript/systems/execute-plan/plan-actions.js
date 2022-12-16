@@ -209,13 +209,10 @@ const planActions = {
         unitTrainingService.selectedTypeToBuild = null;
       } else {
         if (!agent.canAfford(unitTypeId)) {
+          addEarmark(data, data.getUnitTypeData(unitTypeId));
           console.log(`${agent.foodUsed}: Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`, planService.isPlanPaused);
           const { mineralCost, vespeneCost } = data.getUnitTypeData(unitTypeId);
           await balanceResources(world, mineralCost / vespeneCost);
-        }
-        if (targetCount !== null) {
-          planService.pausePlan = true;
-          planService.continueBuild = false;
         }
       }
     }
