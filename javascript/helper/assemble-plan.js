@@ -21,7 +21,7 @@ const { getMiddleOfNaturalWall, findPosition, getCandidatePositions, getInTheMai
 const { restorePower, warpIn } = require("./protoss");
 const { liftToThird, addAddOn, swapBuildings } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
-const { addonTypes } = require("@node-sc2/core/constants/groups");
+const { addonTypes, workerTypes } = require("@node-sc2/core/constants/groups");
 const runBehaviors = require("./behavior/run-behaviors");
 const { haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
@@ -753,6 +753,11 @@ function checkIfStrongerAtPosition(world, position) {
   if (enemyUnits.length === 0) return true;
   const selfUnits = units.getAlive(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) < 16);
   const enemyUnitTypes = enemyUnits.map(unit => unit.unitType);
+  // filter out first worker from enemyUnitTypes
+  const firstWorker = enemyUnitTypes.find(unitType => unitType && workerTypes.includes(unitType));
+  if (firstWorker) {
+    enemyUnitTypes.splice(enemyUnitTypes.indexOf(firstWorker), 1);
+  }
   // @ts-ignore
   const selfDPSHealth = calculateNearDPSHealth(world, selfUnits, enemyUnitTypes);
   // @ts-ignore
