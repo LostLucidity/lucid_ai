@@ -1293,15 +1293,21 @@ const worldService = {
         const { orders, pos } = unit;
         if (orders === undefined || pos === undefined) return;
         if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
-          if (distance(pos, unit.labels.get('reposition')) > 1) {
+          if (unit.labels.get('reposition') === 'lift') {
             const unitCommand = createUnitCommand(Ability.LIFT, [unit]);
             collectedActions.push(unitCommand);
             setPendingOrders(unit, unitCommand);
           } else {
-            unit.labels.delete('reposition');
-            const { addOnTag } = unit; if (addOnTag === undefined) return collectedActions;
-            const addOn = units.getByTag(addOnTag); if (!addOn) return collectedActions;
-            addOn.labels.delete('reposition');
+            if (distance(pos, unit.labels.get('reposition')) > 1) {
+              const unitCommand = createUnitCommand(Ability.LIFT, [unit]);
+              collectedActions.push(unitCommand);
+              setPendingOrders(unit, unitCommand);
+            } else {
+              unit.labels.delete('reposition');
+              const { addOnTag } = unit; if (addOnTag === undefined) return collectedActions;
+              const addOn = units.getByTag(addOnTag); if (!addOn) return collectedActions;
+              addOn.labels.delete('reposition');
+            }
           }
         }
         if (unit.availableAbilities().find(ability => landingAbilities.includes(ability))) {
@@ -1309,7 +1315,9 @@ const worldService = {
             unit.labels.delete('reposition');
             const { addOnTag } = unit; if (addOnTag === undefined) return collectedActions;
             const addOn = units.getByTag(addOnTag); if (!addOn) return collectedActions;
-            addOn.labels.delete('reposition');
+            if (addOn.labels) {
+              addOn.labels.delete('reposition');
+            }
           } else {
             const unitCommand = createUnitCommand(Ability.LAND, [unit]);
             unitCommand.targetWorldSpacePos = unit.labels.get('reposition');
