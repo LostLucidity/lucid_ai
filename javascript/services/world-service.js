@@ -377,7 +377,7 @@ const worldService = {
           wallOffPositions.push(...threeByThreeCellsInFootprints.flat());
           const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
           if (unitTypeFootprint.h === threeByThreeFootprint.h && unitTypeFootprint.w === threeByThreeFootprint.w) {
-            const canPlace = await actions.canPlace(unitType, threeByThreePositions);
+            const canPlace = getRandom(threeByThreePositions.filter(pos => map.isPlaceableAt(unitType, pos)));
             if (canPlace) {
               return [canPlace];
             }
