@@ -13,14 +13,14 @@ const { getDistance } = require("../../services/position-service");
 const resourceManagerService = require("../../services/resource-manager-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
 const { getWeaponThatCanAttack } = require("../../services/unit-service");
-const { retreat, getDamageDealingUnits, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount } = require("../../services/world-service");
+const { retreat, getDamageDealingUnits, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
 const stateOfGameService = require("../../systems/state-of-game-system/state-of-game-service");
 const { calculateTotalHealthRatio } = require("../../systems/unit-resource/unit-resource-service");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
-const { intersectionOfPoints, pointsOverlap } = require("../utilities");
+const { pointsOverlap } = require("../utilities");
 const { engageOrRetreat } = require("./army-behavior");
 
 module.exports = {
@@ -206,25 +206,33 @@ module.exports = {
       const threateningUnits = getThreateningUnits(world, unit);
       if (calculateTotalHealthRatio(units, unit) > 0.5) {
         if (threateningUnits.length > 0) {
-          unit.labels.set('Threatened', true);
-          let closestByWeaponRange = getClosestByWeaponRange(world, unit, threateningUnits);
-          if (closestByWeaponRange) {
-            const { pos: enemyPos } = closestByWeaponRange; if (enemyPos === undefined) return;
-            const emptyExpansions = getEmptyExpansions(resources);
-            const [farthestEmptyExpansionCloserToUnit] = emptyExpansions.filter(expansion => {
-              const { centroid: expansionPos } = expansion; if (expansionPos === undefined) return;
-              return getDistanceByPath(resources, pos, expansionPos) < getDistanceByPath(resources, enemyPos, expansionPos)
-            });
-            if (farthestEmptyExpansionCloserToUnit) {
-              const unitCommand = createUnitCommand(MOVE, [unit]);
-              unitCommand.targetWorldSpacePos = farthestEmptyExpansionCloserToUnit.centroid;
-              collectedActions.push(unitCommand);
-            } else {
-              const unitCommand = createUnitCommand(MOVE, [unit]);
-              unitCommand.targetWorldSpacePos = retreat(world, unit, closestByWeaponRange, false);
-              collectedActions.push(unitCommand);
+          const enemyUnitTypes = threateningUnits.map(unit => unit.unitType && unit.unitType);
+          // @ts-ignore
+          const threateningUnitsDPSHealth = getDPSHealth(world, unit, enemyUnitTypes.filter(unitType => unitType !== undefined));
+          const selfUnits = units.getAlive().filter(unit => unit.pos && unit.alliance === Alliance.SELF && getDistance(pos, unit.pos) < 16);
+          // @ts-ignore
+          const selfUnitDPSHealth = getDPSHealth(world, unit, selfUnits.map(unit => unit.unitType && unit.unitType));
+          if (threateningUnitsDPSHealth > selfUnitDPSHealth) {
+            unit.labels.set('Threatened', true);
+            let closestByWeaponRange = getClosestByWeaponRange(world, unit, threateningUnits);
+            if (closestByWeaponRange) {
+              const { pos: enemyPos } = closestByWeaponRange; if (enemyPos === undefined) return;
+              const emptyExpansions = getEmptyExpansions(resources);
+              const [farthestEmptyExpansionCloserToUnit] = emptyExpansions.filter(expansion => {
+                const { centroid: expansionPos } = expansion; if (expansionPos === undefined) return;
+                return getDistanceByPath(resources, pos, expansionPos) < getDistanceByPath(resources, enemyPos, expansionPos)
+              });
+              if (farthestEmptyExpansionCloserToUnit) {
+                const unitCommand = createUnitCommand(MOVE, [unit]);
+                unitCommand.targetWorldSpacePos = farthestEmptyExpansionCloserToUnit.centroid;
+                collectedActions.push(unitCommand);
+              } else {
+                const unitCommand = createUnitCommand(MOVE, [unit]);
+                unitCommand.targetWorldSpacePos = retreat(world, unit, closestByWeaponRange, false);
+                collectedActions.push(unitCommand);
+              }
             }
-          }
+          }  
         } else {
           let queueCommand = true;
           if (unit.labels.has('Threatened')) {
