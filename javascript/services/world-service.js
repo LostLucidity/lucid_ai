@@ -36,7 +36,7 @@ const { pointsOverlap, shuffle } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE, CREEPTUMOR } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -1469,12 +1469,20 @@ const worldService = {
     if (count) buildStepExecuted.push(count);
     if (notes) buildStepExecuted.push(notes);
     console.log(buildStepExecuted);
-    if ([CREEPTUMORQUEEN].includes(UnitType[name])) {
-      const { creeptumorQueenSteps } = loggingService;
-      if (findMatchingStep(creeptumorQueenSteps, buildStepExecuted, isStructure)) {
-        loggingService.creeptumorQueenSteps.splice(creeptumorQueenSteps.length - 1, 1, buildStepExecuted)
-      } else {
-        loggingService.creeptumorQueenSteps.push(buildStepExecuted);
+    if ([CREEPTUMOR, CREEPTUMORQUEEN].includes(UnitType[name])) {
+      const { creepTumorSteps, creepTumorQueenSteps } = loggingService;
+      if (CREEPTUMORQUEEN === UnitType[name]) {
+        if (findMatchingStep(creepTumorQueenSteps, buildStepExecuted, isStructure)) {
+          loggingService.creepTumorQueenSteps.splice(creepTumorQueenSteps.length - 1, 1, buildStepExecuted)
+        } else {
+          loggingService.creepTumorQueenSteps.push(buildStepExecuted);
+        }
+      } else if (CREEPTUMOR === UnitType[name]) {
+        if (findMatchingStep(creepTumorSteps, buildStepExecuted, isStructure)) {
+          loggingService.creepTumorSteps.splice(creepTumorSteps.length - 1, 1, buildStepExecuted)
+        } else {
+          loggingService.creepTumorSteps.push(buildStepExecuted);
+        }
       }
     } else {
       const { executedSteps } = loggingService;

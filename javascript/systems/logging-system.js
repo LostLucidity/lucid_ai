@@ -5,6 +5,7 @@ const { createSystem } = require("@node-sc2/core");
 const { UnitType } = require("@node-sc2/core/constants");
 const { HALT_TERRANBUILD } = require("@node-sc2/core/constants/ability");
 const { Race } = require("@node-sc2/core/constants/enums");
+const { CREEPTUMOR, CREEPTUMORQUEEN } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const loggingService = require("../services/logging-service");
 const planService = require("../services/plan-service");
@@ -25,7 +26,8 @@ module.exports = createSystem({
     const gameLoop = frame.getGameLoop();
     if (unit.isStructure() && gameLoop > 0) {
       logActionIfNearPosition(world, unit);
-      if (agent.race === Race.ZERG) {
+      const { unitType } = unit; if (unitType === undefined) return;
+      if (agent.race === Race.ZERG && ![CREEPTUMOR, CREEPTUMORQUEEN].includes(unitType)) {
         planService.pausePlan = false;
       }
     }

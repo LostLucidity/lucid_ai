@@ -3,7 +3,9 @@
 
 const loggingService = {
   /** @type {(string | number | boolean | undefined)[][]} */
-  creeptumorQueenSteps: [],
+  creepTumorSteps: [],
+  /** @type {(string | number | boolean | undefined)[][]} */
+  creepTumorQueenSteps: [],
   /** @type {(string | number | boolean | undefined)[][]} */
   executedSteps: [],
   getStringNameOfConstant(constants, value) {
