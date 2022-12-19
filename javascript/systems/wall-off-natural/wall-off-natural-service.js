@@ -10,6 +10,7 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { getClosestPosition } = require("../../helper/get-closest");
 const { pointsOverlap, intersectionOfPoints, allPointsWithinGrid, shuffle } = require("../../helper/utilities");
 const { getPathCoordinates } = require("../../services/path-service");
+const { getDistance, getMiddleOfStructure } = require("../../services/position-service");
 
 const wallOffNaturalService = {
   /**
@@ -149,7 +150,9 @@ const wallOffNaturalService = {
               workingWall = workingWall.filter(grid => !pointsOverlap([grid], wallOffGrids));
               break;
             } else {
-              const placeableInPylonPowerArea = pylonPowerArea.filter(grid => map.isPlaceableAt(GATEWAY, grid) && !pointsOverlap(cellsInFootprint(grid, threeByThreeGrid), wallOffGrids));
+              const placeableInPylonPowerArea = pylonPowerArea.filter(grid => {
+                return getDistance(point, getMiddleOfStructure(grid, GATEWAY)) <= 6.5 && map.isPlaceableAt(GATEWAY, grid) && !pointsOverlap(cellsInFootprint(grid, threeByThreeGrid), wallOffGrids);
+              });
               const [closestPlaceable] = getClosestPosition(cornerGrid, placeableInPylonPowerArea);
               if (closestPlaceable) {
                 wallOffGrids.push(...cellsInFootprint(closestPlaceable, threeByThreeGrid));
