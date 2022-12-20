@@ -4,7 +4,7 @@
 const { EFFECT_INJECTLARVA, BUILD_CREEPTUMOR_QUEEN, BUILD_CREEPTUMOR_TUMOR } = require("@node-sc2/core/constants/ability");
 const { QUEEN, CREEPTUMORBURROWED, CREEPTUMOR, HATCHERY, LAIR } = require("@node-sc2/core/constants/unit-type");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { distance, add } = require("@node-sc2/core/utils/geometry/point");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { intersectionOfPoints } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { findPosition } = require("../../helper/placement/placement-helper");
@@ -13,7 +13,7 @@ const { getClosestPosition } = require("../../helper/get-closest");
 const { canBuild, getDPSHealth } = require("../../services/world-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getPathCoordinates } = require("../../services/path-service");
-const { getPathablePositionsForStructure, getMapPath, getPathablePositions } = require("../../services/map-resource-service");
+const { getMapPath } = require("../../services/map-resource-service");
 const { getClosestUnitByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("../../services/resource-manager-service");
 
 module.exports = {

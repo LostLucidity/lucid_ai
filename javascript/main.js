@@ -51,6 +51,7 @@ const { saveBuildOrder } = require('./services/world-service');
 const harassSystem = require('./systems/harass/harass-system');
 const chronoBoostSystem = require('./systems/chrono-boost-system');
 const stateOfGameSystem = require('./systems/state-of-game-system/state-of-game-system');
+const creepSpreadSystem = require('./systems/creep-spread-system');
 
 // const aiBuild = AIBuild.Rush;
 // const bot2 = createAgent(settings);
@@ -234,6 +235,7 @@ async function runGame() {
     chronoBoostSystem,
     wallOffNaturalSystem,
     stateOfGameSystem,
+    creepSpreadSystem,
   ];
   // bot1.use(legacySystems);
   // bot1.use(updatedSystems);

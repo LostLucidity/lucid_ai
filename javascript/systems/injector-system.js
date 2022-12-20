@@ -44,7 +44,8 @@ function injectLarva(resources) {
   const { units } = resources.get();
   const collectedActions = [];
   const baseAndQueenSpawnTimerLeft = getBaseAndQueenSpawnTimerLeft(resources);
-  units.getById(QUEEN).forEach(queen => {
+  const queens = units.getById(QUEEN).filter(queen => !queen.labels.get('creeper'));
+  queens.forEach(queen => {
     const { energy, orders, pos, radius } = queen;
     if (energy === undefined || orders === undefined || pos === undefined || radius === undefined) return;
     const timeTo25Energy = (25 - energy) > 0 ? (25 - energy) / getEnergyRegenRate() : 0;
