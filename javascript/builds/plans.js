@@ -136,8 +136,8 @@ const plans = {
         { conditionStart: { food: 0 }, conditionEnd: { unitType: CYCLONE, count: 1 }, location: 'ByMainRamp' },
       ],
       scouts: [
-        { start: { food: 17 }, end: { time: 99 }, unitType: 'SCV', targetLocationFunction: 'EnemyMain' },
-        // { start: { food: 41 }, end: { food: 71 }, unitType: 'REAPER', targetLocationFunction: 'EnemyMain' },
+        { start: { food: 17 }, end: { time: 99 }, unitType: 'SCV', targetLocation: 'EnemyMain' },
+        // { start: { food: 41 }, end: { food: 71 }, unitType: 'REAPER', targetLocation: 'EnemyMain' },
       ],
       unitMax: {
         ['RAVEN']: 2,
