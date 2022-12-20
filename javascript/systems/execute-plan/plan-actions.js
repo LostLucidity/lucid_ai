@@ -177,43 +177,31 @@ const planActions = {
    */
   train: async (world, unitTypeId, targetCount = null) => {
     const { agent, data, resources } = world;
-    const { actions, units } = resources.get();
+    const { actions } = resources.get();
     let unitTypeData = data.getUnitTypeData(unitTypeId);
-    let { abilityId } = unitTypeData;
+    let { abilityId } = unitTypeData; if (abilityId === undefined) return;
     if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
-      if (canBuild(world, unitTypeId)) {
-        const trainer = getTrainer(world, unitTypeId);
-        if (trainer) {
-          const unitCommand = {
-            abilityId,
-            unitTags: [trainer.tag],
-          }
-          setPendingOrders(trainer, unitCommand);
+      const randomTrainer = getRandom(getTrainer(world, unitTypeId));
+      if (canBuild(world, unitTypeId) && randomTrainer) {
+        if (randomTrainer.unitType !== WARPGATE) {
+          const unitCommand = createUnitCommand(abilityId, [randomTrainer]);
+          setPendingOrders(randomTrainer, unitCommand);
           unpauseAndLog(world, UnitTypeId[unitTypeId]);
           await actions.sendAction([unitCommand]);
         } else {
-          abilityId = WarpUnitAbility[unitTypeId]
-          const warpGates = units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
-          if (warpGates.length > 0) {
-            unpauseAndLog(world, UnitTypeId[unitTypeId]);
-            await warpIn(resources, this, unitTypeId);
-          } else {
-            if (targetCount !== null) {
-              planService.pausePlan = true;
-            }
-            return;
-          }
+          unpauseAndLog(world, UnitTypeId[unitTypeId]);
+          await warpIn(resources, this, unitTypeId);
         }
         addEarmark(data, data.getUnitTypeData(unitTypeId));
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
         if (!agent.canAfford(unitTypeId)) {
-          addEarmark(data, data.getUnitTypeData(unitTypeId));
           console.log(`${agent.foodUsed}: Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`, planService.isPlanPaused);
           const { mineralCost, vespeneCost } = data.getUnitTypeData(unitTypeId);
           await balanceResources(world, mineralCost / vespeneCost);
         }
+        addEarmark(data, data.getUnitTypeData(unitTypeId));
       }
     }
   },
@@ -431,17 +419,22 @@ async function morphStructureAction(world, unitType) {
 /**
  * @param {World} world
  * @param {UnitTypeId} unitTypeId
- * @returns {Unit | undefined}
+ * @returns {Unit[]}
  */
 function getTrainer(world, unitTypeId) {
   const { data, resources } = world;
   const { units } = resources.get();
   let unitTypeData = data.getUnitTypeData(unitTypeId);
   let { abilityId } = unitTypeData;
-  return units.getProductionUnits(unitTypeId).find(unit => {
+  let productionUnits = units.getProductionUnits(unitTypeId).filter(unit => {
     const { orders } = unit;
     if (abilityId === undefined || orders === undefined) return false;
     const spaceToTrain = unit.isIdle() || (unit.hasReactor() && orders.length < 2);
     return spaceToTrain && unit.abilityAvailable(abilityId) && !unit.labels.has('reposition')
   });
+  if (productionUnits.length === 0) {
+    abilityId = WarpUnitAbility[unitTypeId]
+    productionUnits = units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
+  }
+  return productionUnits;
 }
