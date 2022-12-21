@@ -163,6 +163,8 @@ async function runGame() {
   // const map = maps[Math.floor(Math.random() * maps.length)];
   const map = 'BlackburnAIE';
   console.log('map', map);
+  const startTime = new Date();
+  console.log('startTime', startTime);
   /** @type {EventReader<AgentObject>} */
   const blueprint = {
     settings,
@@ -261,6 +263,8 @@ async function runGame() {
  * @param {GameResult} gameResult 
  */
 async function processResults(gameResult) {
+  const endTime = new Date();
+  console.log('endTime', endTime);
   const [world, gameResults] = gameResult;
   console.log('GAME RESULTS: ', gameResults);
   logoutStepsExecuted();
