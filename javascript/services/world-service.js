@@ -369,12 +369,13 @@ const worldService = {
           placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true }).filter(grid => existsInMap(map, grid) && distance(grid, pylon.pos) < 6.5));
         });
         const wallOffPositions = [];
-        const { threeByThreePositions } = wallOffNaturalService;
+        let { threeByThreePositions } = wallOffNaturalService;
+        const currentlyEnrouteConstructionGrids = worldService.getCurrentlyEnrouteConstructionGrids(world);
+        const threeByThreeFootprint = getFootprint(FORGE); if (threeByThreeFootprint === undefined) return [];
+        threeByThreePositions = threeByThreePositions.filter(position => !pointsOverlap(currentlyEnrouteConstructionGrids, cellsInFootprint(position, threeByThreeFootprint)));
         if (threeByThreePositions.length > 0) {
-          const threeByThreeFootprint = getFootprint(FORGE);
-          if (threeByThreeFootprint === undefined) return [];
           const threeByThreeCellsInFootprints = threeByThreePositions.map(position => cellsInFootprint(position, threeByThreeFootprint));
-          wallOffPositions.push(...threeByThreeCellsInFootprints.flat());
+          wallOffPositions.push(...threeByThreeCellsInFootprints.flat().filter(position => !pointsOverlap(currentlyEnrouteConstructionGrids, cellsInFootprint(position, threeByThreeFootprint))));
           const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
           if (unitTypeFootprint.h === threeByThreeFootprint.h && unitTypeFootprint.w === threeByThreeFootprint.w) {
             const canPlace = getRandom(threeByThreePositions.filter(pos => map.isPlaceableAt(unitType, pos)));
