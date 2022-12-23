@@ -13,6 +13,7 @@ const trackUnitsService = {
   /** @type {Unit[]} */
   missingUnits: [],
   inFieldSelfSupply: 0,
+  /** @type {Unit[]} */
   selfUnits: [],
   selfCombatSupply: 0,
   checkUnitCount: ({ data, resources }, unitType, targetCount) => {

@@ -725,6 +725,28 @@ const worldService = {
     }
   },
   /**
+   * @param {World} world
+   * @param {Point2D} position
+   * @returns {boolean}
+   */
+  isStrongerAtPosition: (world, position) => {
+    const { units } = world.resources.get();
+    const { calculateNearDPSHealth } = worldService;
+    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => unit.pos && distance(unit.pos, position) < 16);
+    if (enemyUnits.length === 0) return true;
+    const selfUnits = units.getAlive(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) < 16);
+    const enemyUnitTypes = enemyUnits.map(unit => unit.unitType);
+    const firstWorker = enemyUnitTypes.find(unitType => unitType && workerTypes.includes(unitType));
+    if (firstWorker) {
+      enemyUnitTypes.splice(enemyUnitTypes.indexOf(firstWorker), 1);
+    }
+    // @ts-ignore
+    const selfDPSHealth = calculateNearDPSHealth(world, selfUnits, enemyUnitTypes);
+    // @ts-ignore
+    const enemyDPSHealth = calculateNearDPSHealth(world, enemyUnits, selfUnits.map(unit => unit.unitType));
+    return selfDPSHealth >= enemyDPSHealth;
+  }, 
+  /**
    * @param {DataStorage} data 
    * @returns {AbilityId[]}
    */
@@ -1838,12 +1860,14 @@ function isSafePositionFromTargets(map, unit, targetUnits, point) {
  * @param {World} world
  * @param {Unit} unit
  * @param {Unit} targetUnit
- * @returns {({point: Point2D; getDistanceByPathToRetreat: number; getDistanceByPathToTarget: number; closerOrEqualThanTarget: boolean;} | undefined)[]}
+ * @returns {(import("../interfaces/retreat-candidate").RetreatCandidate | undefined)[]}
 */
 function getRetreatCandidates(world, unit, targetUnit) {
   const { resources } = world;
-  const { map } = resources.get();
+  const { frame, map, units } = resources.get();
+  const { calculateNearDPSHealth } = worldService;
   const expansionLocations = map.getExpansions().map((expansion) => expansion.centroid);
+  const { centroid } = map.getMain(); if (centroid === undefined) return [];
   return expansionLocations.map((point) => {
     if (point === undefined) return undefined;
     const damageDealingEnemies = worldService.getDamageDealingUnits(world, unit, targetUnit['selfUnits'] || getEnemyUnits(targetUnit));
@@ -1859,16 +1883,33 @@ function getRetreatCandidates(world, unit, targetUnit) {
       const [closestToUnitByPath] = getClosestPositionByPath(resources, pos, pathablePositions);
       const getDistanceByPathToRetreat = getDistanceByPath(resources, pos, closestToUnitByPath);
       if (getDistanceByPathToRetreat === Infinity) return undefined;
+      const [closestUnit] = units.getClosest(point, [...trackUnitsService.selfUnits, ...enemyTrackingService.mappedEnemyUnits]);
+      const { pos: closestUnitPos } = closestUnit; if (closestUnitPos === undefined) return undefined;
+      let safeToRetreat = true;
+      if (getDistance(closestUnitPos, point) < 16) {
+        const alliesAtPoint = getUnitsInRangeOfPosition(trackUnitsService.selfUnits, point, 16);
+        const enemiesNearUnit = getUnitsInRangeOfPosition(enemyTrackingService.mappedEnemyUnits, pos, 16);
+        // @ts-ignore
+        const dpsHealth = calculateNearDPSHealth(world, alliesAtPoint, enemiesNearUnit.map((enemy) => enemy.unitType));
+        // @ts-ignore
+        const dpsHealthOfEnemies = calculateNearDPSHealth(world, enemiesNearUnit, alliesAtPoint.map((ally) => ally.unitType));
+        safeToRetreat = dpsHealth >= dpsHealthOfEnemies;
+      }
       return {
         'point': point,
         getDistanceByPathToRetreat,
         getDistanceByPathToTarget,
         'closerOrEqualThanTarget': getDistanceByPathToRetreat <= getDistanceByPathToTarget,
+        'safeToRetreat': safeToRetreat,
       }
     } else {
       return undefined;
     }
-  }).filter((candidate) => candidate !== undefined && candidate.closerOrEqualThanTarget);
+  }).filter((/** @type {import("../interfaces/retreat-candidate").RetreatCandidate | undefined} */ candidate) => {
+    if (candidate === undefined) return false;
+    const { closerOrEqualThanTarget, safeToRetreat } = candidate;
+    return closerOrEqualThanTarget && safeToRetreat;
+  });
 }
 /**
  * @param {ResourceManager} resources
@@ -2069,5 +2110,18 @@ function findMatchingStep(steps, buildStepExecuted, isStructure) {
     }
   }
   return foundMatchingStep
+}
+
+/**
+ * @param {Unit[]} units
+ * @param {Point2D} position
+ * @param {number} range
+ * @returns {Unit[]}
+ */
+function getUnitsInRangeOfPosition(units, position, range) {
+  return units.filter(unit => {
+    const { pos } = unit; if (pos === undefined) return false;
+    return getDistance(pos, position) <= range;
+  });
 }
 

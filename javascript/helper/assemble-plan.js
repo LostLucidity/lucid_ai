@@ -49,6 +49,7 @@ const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
+const { isStrongerAtPosition } = require("../services/world-service");
 
 let actions;
 let race;
@@ -708,12 +709,12 @@ async function setFoundPosition(world, foundPosition, unitType, candidatePositio
     const { map, units } = resources.get();
     const areEnemyUnitsInWay = checkIfEnemyUnitsInWay(units, unitType, foundPosition);
     const enemyBlockingExpansion = areEnemyUnitsInWay && TownhallRace[race][0] === unitType;
-    const strongerAtFoundPosition = checkIfStrongerAtPosition(world, foundPosition);
+    const strongerAtFoundPosition = isStrongerAtPosition(world, foundPosition);
     if (map.isPlaceableAt(unitType, foundPosition) && !enemyBlockingExpansion && strongerAtFoundPosition) {
       return foundPosition;
     }
   }
-  return await findPosition(resources, unitType, candidatePositions.filter(pos => checkIfStrongerAtPosition(world, pos)));
+  return await findPosition(resources, unitType, candidatePositions.filter(pos => isStrongerAtPosition(world, pos)));
 }
 
 /**
@@ -739,28 +740,4 @@ function checkIfEnemyUnitsInWay(units, unitType, position) {
       }
     }).flat();
   return pointsOverlap(enemyUnitCoverage, cellsInFootprint(position, footprint));
-}
-
-/**
- * @param {World} world
- * @param {Point2D} position
- * @returns {boolean}
- */
-function checkIfStrongerAtPosition(world, position) {
-  const { units } = world.resources.get();
-  const { calculateNearDPSHealth } = worldService;
-  const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => unit.pos && distance(unit.pos, position) < 16);
-  if (enemyUnits.length === 0) return true;
-  const selfUnits = units.getAlive(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) < 16);
-  const enemyUnitTypes = enemyUnits.map(unit => unit.unitType);
-  // filter out first worker from enemyUnitTypes
-  const firstWorker = enemyUnitTypes.find(unitType => unitType && workerTypes.includes(unitType));
-  if (firstWorker) {
-    enemyUnitTypes.splice(enemyUnitTypes.indexOf(firstWorker), 1);
-  }
-  // @ts-ignore
-  const selfDPSHealth = calculateNearDPSHealth(world, selfUnits, enemyUnitTypes);
-  // @ts-ignore
-  const enemyDPSHealth = calculateNearDPSHealth(world, enemyUnits, selfUnits.map(unit => unit.unitType));
-  return selfDPSHealth >= enemyDPSHealth;
 }

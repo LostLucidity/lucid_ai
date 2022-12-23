@@ -74,7 +74,7 @@ module.exports = {
     if (unit) {
       const { pos } = unit;
       if (pos === undefined) return [];
-      let [closestEnemyUnit] = units.getClosest(unit.pos, getDamageDealingUnits(world, unit, enemyTrackingService.mappedEnemyUnits), 1);
+      let [closestEnemyUnit] = units.getClosest(unit.pos, getThreateningUnits(world, unit));
       if (
         !closestEnemyUnit ||
         distance(unit.pos, combatRallyPosition) < 2
@@ -358,13 +358,17 @@ function getThreateningUnits(world, unit) {
   const threateningUnits = enemyUnits && enemyUnits.filter((/** @type {Unit} */ enemyUnit) => {
     const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit; if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
     if (enemyUnit.isWorker() && isInMineralLine(map, enemyPos)) return false;
-    const distanceToEnemy = getDistance(pos, enemyPos);
     const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
+      const distanceToEnemy = getDistance(pos, enemyPos);
       const { range } = weaponThatCanAttack; if (range === undefined) return false;
+      const getSightRange = enemyUnit.data().sightRange || 0;
       const weaponRangeOfEnemy = range + radius + enemyRadius + getTravelDistancePerStep(enemyUnit) + getTravelDistancePerStep(unit);
-      const enemyFacingUnit = enemyUnit.isMelee() ? isFacing(enemyUnit, unit, 180 / 7.5) : true;
-      return distanceToEnemy <= weaponRangeOfEnemy && enemyFacingUnit;
+      const inWeaponRange = distanceToEnemy <= weaponRangeOfEnemy;
+      const degrees = inWeaponRange ? 180 / 4 : 180 / 8;
+      const higherRange = weaponRangeOfEnemy > getSightRange ? weaponRangeOfEnemy : getSightRange;
+      const enemyFacingUnit = enemyUnit.isMelee() ? isFacing(enemyUnit, unit, degrees) : true;
+      return distanceToEnemy <= higherRange && enemyFacingUnit;
     }
   });
   return threateningUnits || [];
