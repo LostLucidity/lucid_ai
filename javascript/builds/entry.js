@@ -48,8 +48,6 @@ const entry = createSystem({
     setUnitTypeTrainingAbilityMapping(data);
   },
   async onStep(world) {
-    const { units } = world.resources.get();
-    sharedService.removePendingOrders(units);
     const t0 = new Date().getTime();
     await assemblePlan.onStep(world, this.state);
     const t1 = new Date().getTime();

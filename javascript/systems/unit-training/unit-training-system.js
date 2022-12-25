@@ -21,7 +21,6 @@ module.exports = createSystem({
     const { agent, data, resources } = world;
     const { units } = resources.get();
     const { planMin, trainingTypes, unitMax } = planService;
-    sharedService.removePendingOrders(units);
     const { outpowered } = worldService;
     const trainUnitConditions = [
       outpowered,

@@ -18,7 +18,6 @@ module.exports = createSystem({
   async onStep(world) {
     const collectedActions = [];
     const { actions, units } = world.resources.get();
-    sharedService.removePendingOrders(units);
     const swapBuildings = units.withLabel('swapBuilding');
     for (let step = 0; step < swapBuildings.length; step++) {
       const building = swapBuildings[step];

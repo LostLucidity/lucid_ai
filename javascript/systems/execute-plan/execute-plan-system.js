@@ -19,7 +19,6 @@ module.exports = createSystem({
   async onStep(world) {
     const { data, resources } = world;
     const { units } = resources.get();
-    sharedService.removePendingOrders(units);
     await runPlan(world);
     data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
   },

@@ -52,6 +52,7 @@ const harassSystem = require('./systems/harass/harass-system');
 const chronoBoostSystem = require('./systems/chrono-boost-system');
 const stateOfGameSystem = require('./systems/state-of-game-system/state-of-game-system');
 const creepSpreadSystem = require('./systems/creep-spread-system');
+const cleanUpSystem = require('./systems/clean-up-system');
 
 // const aiBuild = AIBuild.Rush;
 // const bot2 = createAgent(settings);
@@ -178,34 +179,35 @@ async function runGame() {
   }
   console.log('blueprint', blueprint);
   const bot1 = createAgent(blueprint);
-  const randomSeed = 1;
-  const legacySystems = [
+  const randomSeed = 2;
+  const baseSystems = [
+    cleanUpSystem,
     loggingSystem,
     workerTrainingSystem,
+    workerBalanceSystem,   
+    debugSystem,
+    wallOffRampSystem,
+    unitResourceSystem,
+  ];
+  const legacySystems = [
+    ...baseSystems,
     trackUnitsSystem,
     scoutingSystem,
     wallOffNaturalSystem,
     entry,
-    workerBalanceSystem,
     enemyTrackingSystem,
-    debugSystem,
-    wallOffRampSystem,
     taggingSystem,
-    unitResourceSystem,
     detectUpgradeSystem,
     swapBuildingSystem,
     // healthTrackingSystem,
     harassSystem,
-    // debugSystem,
   ];
   const updatedSystems = [
+    ...baseSystems,
     saltConverterSystem,
-    wallOffRampSystem,
     scoutingSystem,
-    workerTrainingSystem,
     unitTrainingSystem,
     executePlanSystem,
-    workerBalanceSystem,
     runBehaviorsSystem,
     // defenseSystem,
     enemyTrackingSystem,
@@ -214,25 +216,17 @@ async function runGame() {
     trackUnitsSystem,
     swapBuildingSystem,
     liftToThirdSystem,
-    // debugSystem,
-    loggingSystem,
     mulingSystem,
     setRallySystem,
-    unitResourceSystem,
   ];
   const bogSystems = [
+    ...baseSystems,
     // saltConverterSystem,
     boGeneratorSystem,
-    loggingSystem,
-    workerBalanceSystem,
     attackSystem,
     manageSupplySystem,
     injectorSystem,
-    workerTrainingSystem,
     runBehaviorsSystem,
-    wallOffRampSystem,
-    // debugSystem,
-    unitResourceSystem,
     mulingSystem,
     chronoBoostSystem,
     wallOffNaturalSystem,

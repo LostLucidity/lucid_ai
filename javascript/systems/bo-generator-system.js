@@ -51,7 +51,6 @@ module.exports = createSystem({
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
     const { mineralMaxThreshold, mineralMinThreshold } = planService;
-    sharedService.removePendingOrders(units);
     const collectedActions = [];
     // starting at 12 food, while at current food, 1/3 chance of action else build drone and increment food by 1
     await runPlan(world);
