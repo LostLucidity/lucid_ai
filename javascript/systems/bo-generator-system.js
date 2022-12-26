@@ -6,10 +6,9 @@ const { Upgrade, UnitType } = require("@node-sc2/core/constants");
 const { Attribute, Alliance, Race } = require("@node-sc2/core/constants/enums");
 const { townhallTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { DRONE } = require("@node-sc2/core/constants/unit-type");
+const { DRONE, BUNKER } = require("@node-sc2/core/constants/unit-type");
 const foodUsedService = require("../services/food-used-service");
 const planService = require("../services/plan-service");
-const sharedService = require("../services/shared-service");
 const { getUnitTypeCount, getFoodUsed, shortOnWorkers, getBuilder, assignAndSendWorkerToBuild } = require("../services/world-service");
 const { build, train, upgrade, runPlan } = require("./execute-plan/plan-actions");
 const scoutingService = require("./scouting/scouting-service");
@@ -156,7 +155,7 @@ function getAllAvailableAbilities(data, units) {
 
 /**
  * @param {World} world
- * @param {any} allAvailableAbilities
+ * @param {Map<number, {orderType: string, unitType: number, upgrade: number}>} allAvailableAbilities
  * @returns {Promise<void>}
  */
 async function runAction(world, allAvailableAbilities) {
@@ -166,7 +165,7 @@ async function runAction(world, allAvailableAbilities) {
   if (foodUsed === undefined) return;
   const { map, units } = resources.get();
   const collectedActions = [];
-  const allAvailableAbilitiesArray = Array.from(allAvailableAbilities.values());
+  const allAvailableAbilitiesArray = Array.from(allAvailableAbilities.values()).filter(action => action.unitType !== BUNKER);
   let actionTaken = false;
   while (!actionTaken && allAvailableAbilitiesArray.length > 0) {
     const [action] = allAvailableAbilitiesArray.splice(Math.floor(Math.random() * allAvailableAbilitiesArray.length), 1);

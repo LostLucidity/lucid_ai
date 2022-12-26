@@ -4,7 +4,7 @@
 const { WarpUnitAbility, UnitType, UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
 const { Alliance, Attribute, Race } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
-const { GasMineRace, TownhallRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
+const { TownhallRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { WARPGATE, TECHLAB, BARRACKS, GREATERSPIRE } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
