@@ -24,6 +24,7 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
 const { CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
 const { setPendingOrders } = require("../unit-resource/unit-resource-service");
+const { getPendingOrders } = require("../../services/unit-service");
 
 const planActions = {
   /**
@@ -428,8 +429,10 @@ function getTrainer(world, unitTypeId) {
   let { abilityId } = unitTypeData;
   let productionUnits = units.getProductionUnits(unitTypeId).filter(unit => {
     const { orders } = unit;
-    if (abilityId === undefined || orders === undefined) return false;
-    const spaceToTrain = unit.isIdle() || (unit.hasReactor() && orders.length < 2);
+    const pendingOrders = getPendingOrders(unit);
+    if (abilityId === undefined || orders === undefined || pendingOrders === undefined) return false;
+    const allOrders = [...orders, ...pendingOrders];
+    const spaceToTrain = unit.isIdle() || (unit.hasReactor() && allOrders.length < 2);
     return spaceToTrain && unit.abilityAvailable(abilityId) && !unit.labels.has('reposition')
   });
   if (productionUnits.length === 0) {
