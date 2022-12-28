@@ -14,7 +14,7 @@ const { build, train, upgrade, runPlan } = require("./execute-plan/plan-actions"
 const scoutingService = require("./scouting/scouting-service");
 const { v4: uuidv4 } = require('uuid');
 const dataService = require("../services/data-service");
-const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
+const { setUnitTypeTrainingAbilityMapping, getAllAvailableAbilities, setUpgradeAbilities } = require("../services/data-service");
 const { supplyTypes } = require("../helper/groups");
 const { getDistanceByPath } = require("../services/resource-manager-service");
 const { setScout } = require("./scouting/scouting-service");
@@ -22,14 +22,12 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { getTargetLocation } = require("../services/map-resource-service");
 const { getTimeInSeconds } = require("../services/frames-service");
 
-let upgradeAbilities = [];
 module.exports = createSystem({
   name: 'BoGeneratorSystem',
   type: 'agent',
   async onGameStart(world) {
     const { agent, data } = world;
     const { race } = agent;
-    upgradeAbilities = [];
     planService.bogIsActive = true;
     // create a uuid
     planService.uuid = uuidv4();
@@ -40,9 +38,7 @@ module.exports = createSystem({
       console.log('planService.naturalWallPylon', planService.naturalWallPylon);
     }
     setUnitTypeTrainingAbilityMapping(data);
-    Array.from(Object.values(Upgrade)).forEach(upgrade => {
-      upgradeAbilities[data.getUpgradeData(upgrade).abilityId.toString()] = upgrade;
-    });
+    setUpgradeAbilities(data);
     foodUsedService.minimumAmountToAttackWith = Math.round(Math.random() * 200);
     console.log(`Minimum amount of food to attack with: ${foodUsedService.minimumAmountToAttackWith}`);
   },
@@ -120,37 +116,6 @@ function diminishChangeToBuild(data, unitType, unitTypeCount) {
     const divisorToDiminish = [...supplyTypes].includes(unitType) ? unitTypeCount : 0;
     return (1 / (divisorToDiminish + 1)) < Math.random();
   }
-}
-/**
- * 
- * @param {DataStorage} data 
- * @param {UnitResource} units 
- * @returns {any}
- */
-function getAllAvailableAbilities(data, units) {
-  const allAvailableAbilities = new Map();
-  units.getAlive(Alliance.SELF).forEach(unit => {
-    if (!unit.isStructure() || unit.isIdle() || unit.hasReactor() && unit.orders.length === 1) {
-      const availableAbilities = unit.availableAbilities();
-      availableAbilities.forEach(ability => {
-        if (!allAvailableAbilities.has(ability)) {
-          const unitTypeTrainingAbilities = dataService.unitTypeTrainingAbilities;
-          unitTypeTrainingAbilities.entries()
-          if (Array.from(unitTypeTrainingAbilities.keys()).some(unitTypeAbility => unitTypeAbility === ability)) {
-            const unitTypeData = data.getUnitTypeData(unitTypeTrainingAbilities.get(ability));
-            if (unitTypeData.unitAlias === 0) {
-              allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeTrainingAbilities.get(ability) });
-            } else {
-              // ignore
-            }
-          } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
-            allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
-          }
-        }
-      })
-    }
-  });
-  return allAvailableAbilities;
 }
 
 /**

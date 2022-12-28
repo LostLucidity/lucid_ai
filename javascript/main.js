@@ -53,6 +53,7 @@ const chronoBoostSystem = require('./systems/chrono-boost-system');
 const stateOfGameSystem = require('./systems/state-of-game-system/state-of-game-system');
 const creepSpreadSystem = require('./systems/creep-spread-system');
 const cleanUpSystem = require('./systems/clean-up-system');
+const qTableSystem = require('./systems/q-table/q-table-system');
 
 // const aiBuild = AIBuild.Rush;
 // const bot2 = createAgent(settings);
@@ -233,6 +234,24 @@ async function runGame() {
     stateOfGameSystem,
     creepSpreadSystem,
     workerTrainingSystem,
+  ];
+  const QTableSystems = [
+    qTableSystem,
+    loggingSystem,
+    workerBalanceSystem,
+    attackSystem,
+    manageSupplySystem,
+    injectorSystem,
+    workerTrainingSystem,
+    runBehaviorsSystem,
+    wallOffRampSystem,
+    // debugSystem,
+    unitResourceSystem,
+    mulingSystem,
+    chronoBoostSystem,
+    wallOffNaturalSystem,
+    stateOfGameSystem,
+    creepSpreadSystem,
   ];
   // bot1.use(legacySystems);
   // bot1.use(updatedSystems);

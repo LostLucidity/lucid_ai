@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
+const { UnitType, WarpUnitAbility, Upgrade } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getTimeInSeconds } = require("./frames-service");
@@ -10,8 +10,12 @@ const { getDistance } = require("./position-service");
 const { getWeaponThatCanAttack } = require("./unit-service");
 
 const dataService = {
+  /** @type number[] */
+  allActions: [],
   /** @type {Map<number, number>} */
   unitTypeTrainingAbilities: new Map(),
+  /** @type {Map<number, number>} */
+  upgradeAbilities: [],
   /**
    * 
    * @param {World['data']} data 
@@ -34,6 +38,17 @@ const dataService = {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
   }, 
   /**
+   * @returns {number[]}
+   */
+  getAllActions: () => {
+    let { allActions, unitTypeTrainingAbilities, upgradeAbilities } = dataService;
+    if (allActions.length === 0) {
+      allActions = Array.from(unitTypeTrainingAbilities.keys()).concat(Object.keys(upgradeAbilities).map(key => parseInt(key)));
+      dataService.allActions = allActions;
+    }
+    return allActions;
+  },
+  /**
    * @param {DataStorage} data
    * @param {SC2APIProtocol.Weapon} weapon 
    * @param {UnitTypeId[]} enemyUnitTypes
@@ -50,6 +65,38 @@ const dataService = {
       return previousValue + damage;
     }, 0);
     return totalBonusDamage > 0 ? (totalBonusDamage / enemyUnitTypes.length) : 0;
+  },
+  /**
+   * @param {DataStorage} data 
+   * @param {UnitResource} units 
+   * @returns {Map<number, { "orderType": string, "unitType"?: number, "upgrade"?: number }>}
+   */
+  getAllAvailableAbilities(data, units) {
+    /** @type {Map<number, any>} */
+    const allAvailableAbilities = new Map();
+    const { upgradeAbilities } = dataService;
+    units.getAlive(Alliance.SELF).forEach(unit => {
+      if (!unit.isStructure() || unit.isIdle() || unit.hasReactor() && unit.orders.length === 1) {
+        const availableAbilities = unit.availableAbilities();
+        availableAbilities.forEach(ability => {
+          if (!allAvailableAbilities.has(ability)) {
+            const unitTypeTrainingAbilities = dataService.unitTypeTrainingAbilities;
+            unitTypeTrainingAbilities.entries()
+            if (Array.from(unitTypeTrainingAbilities.keys()).some(unitTypeAbility => unitTypeAbility === ability)) {
+              const unitTypeData = data.getUnitTypeData(unitTypeTrainingAbilities.get(ability));
+              if (unitTypeData.unitAlias === 0) {
+                allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeTrainingAbilities.get(ability) });
+              } else {
+                // ignore
+              }
+            } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
+              allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
+            }
+          }
+        })
+      }
+    });
+    return allAvailableAbilities;
   },
   /**
    * @param {DataStorage} data
@@ -138,6 +185,17 @@ const dataService = {
       dataService.unitTypeTrainingAbilities.set(data.getUnitTypeData(unitTypeId).abilityId, unitTypeId);
       WarpUnitAbility[unitTypeId] && (dataService.unitTypeTrainingAbilities.set(WarpUnitAbility[unitTypeId], unitTypeId));
     });
+  },
+  /**
+   * @param {DataStorage} data 
+   */
+  setUpgradeAbilities: (data) => {
+    const { upgradeAbilities } = dataService;
+    Array.from(Object.values(Upgrade)).forEach(upgrade => {
+      const { abilityId } = data.getUpgradeData(upgrade); if (abilityId === undefined) return;
+      upgradeAbilities[abilityId.toString()] = upgrade;
+    });
+    dataService.upgradeAbilities = upgradeAbilities;
   }
 }
 
