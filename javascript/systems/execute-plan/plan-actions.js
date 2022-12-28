@@ -172,7 +172,7 @@ const planActions = {
   /**
    * @param {World} world 
    * @param {UnitTypeId} unitTypeId 
-   * @param {number} targetCount 
+   * @param {number | null} targetCount
    * @returns {Promise<void>}
    */
   train: async (world, unitTypeId, targetCount = null) => {

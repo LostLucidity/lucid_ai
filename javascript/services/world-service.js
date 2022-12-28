@@ -128,16 +128,16 @@ const worldService = {
   /**
    * @param {World} world 
    * @param {number} limit
-   * @returns {Promise<void>}
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  buildWorkers: async (world, limit=1) => {
+  buildWorkers: (world, limit=1) => {
     const { agent, data, resources } = world;
-    const { actions, units } = resources.get();
+    const {  units } = resources.get();
     const collectedActions = [];
     const workerTypeId = WorkerRace[agent.race];
     if (worldService.canBuild(world, workerTypeId)) {
       const { abilityId } = data.getUnitTypeData(workerTypeId);
-      if (abilityId === undefined) { return; }
+      if (abilityId === undefined) return collectedActions;
       let trainers = [];
       if (agent.race === Race.ZERG) {
         trainers = units.getById(UnitType.LARVA).filter(larva => !larva['pendingOrders'] || larva['pendingOrders'].length === 0);
@@ -152,10 +152,13 @@ const worldService = {
           const unitCommand = createUnitCommand(abilityId, [trainer]);
           collectedActions.push(unitCommand);
           setPendingOrders(trainer, unitCommand);
+          const { foodRequired } = data.getUnitTypeData(workerTypeId); if (foodRequired === undefined) return collectedActions;
+          planService.pendingFood += foodRequired;
         });
-        try { await actions.sendAction(collectedActions); } catch (error) { console.log(error) }
+        return collectedActions;
       }
     }
+    return collectedActions;
   },
   /**
    * Calculate DPS health base on ally units and enemy armor upgrades.
@@ -229,7 +232,7 @@ const worldService = {
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
   findAndPlaceBuilding: async (world, unitType, candidatePositions, stepAhead = false) => {
-    const { agent, data, resources } = world
+    const { agent, data, resources } = world;
     const collectedActions = []
     const { actions, units } = resources.get();
     if (candidatePositions.length === 0) { candidatePositions = await worldService.findPlacements(world, unitType); }
@@ -254,7 +257,6 @@ const worldService = {
             await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, canPlaceOrFalse));
             planService.pausePlan = false;
             planService.continueBuild = true;
-            dataService.addEarmark(data, data.getUnitTypeData(unitType));
             planService.foundPosition = null;
           }
         } else {
