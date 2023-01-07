@@ -6,6 +6,21 @@ const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { supplyTypes } = require("../helper/groups");
 
 const planService = {
+  /** @type {false | Point2D | undefined} */
+  get buildingPosition() {
+    const step = planService.currentStep;
+    return planService.buildingPositions.get(step);
+  },
+  /**
+   * @param {false | Point2D} value
+   * @returns {void}
+   */
+  set buildingPosition(value) {
+    if (value) {
+      const step = planService.currentStep;
+      planService.buildingPositions.set(step, value);
+    }
+  },
   /**
    * @param {boolean} value
    */
@@ -19,16 +34,19 @@ const planService = {
   },
   /** @type {boolean} */
   bogIsActive: false,
+  /** @type {Map<number, false | Point2D>} */
+  buildingPositions: new Map(),
   dirtyBasePlan: false,
   continueBuild: true,
   currentStep: 0,
   /** @type {number} */
   foodMark: 12,
-  /** @type {Point2D | null} */
-  foundPosition: null,
+  /** @type {Point2D | false} */
+  foundPosition: false,
   /** @type {boolean} */
   isPlanPaused: null,
   latestStep: 0,
+  /** @type {any[][]} */
   legacyPlan: [],
   mineralThreshold: 512,
   naturalWallPylon: false,

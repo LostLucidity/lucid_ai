@@ -25,7 +25,6 @@ const { addonTypes } = require("@node-sc2/core/constants/groups");
 const runBehaviors = require("./behavior/run-behaviors");
 const { haveAvailableProductionUnitsFor } = require("../systems/unit-training/unit-training-service");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
-const { checkUnitCount } = require("../systems/track-units/track-units-service");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
@@ -49,8 +48,9 @@ const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
-const { isStrongerAtPosition } = require("../services/world-service");
+const { isStrongerAtPosition, getUnitCount, findPlacements } = require("../services/world-service");
 const { trainWorkers } = require("../systems/worker-training-system/worker-training-service");
+const dataService = require("../services/data-service");
 
 let actions;
 let race;
@@ -63,7 +63,6 @@ class AssemblePlan {
   constructor(plan) {
     this.collectedActions = [];
     /** @type {false | Point2D} */
-    this.foundPosition = false;
     planService.legacyPlan = plan.orders;
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
     this.defenseTypes = plan.unitTypes.defenseTypes;
@@ -190,7 +189,7 @@ class AssemblePlan {
     if (getFoodUsed(this.world) + 1 >= food) {
       const stepAhead = getFoodUsed(this.world) + 1 === food;
       if (checkBuildingCount(this.world, unitType, targetCount)) {
-        if (stepAhead || planService.earmarkForDrone) {
+        if (stepAhead) {
           addEarmark(this.data, this.data.getUnitTypeData(WorkerRace[race]));
         }
         switch (true) {
@@ -250,7 +249,9 @@ class AssemblePlan {
             if (PHOTONCANNON === unitType) { 
               candidatePositions = this.map.getNatural().areas.placementGrid;
             }
-            if (candidatePositions.length === 0 && (this.foundPosition === false)) { candidatePositions = await findPlacements(this.world, unitType); }
+            if (candidatePositions.length === 0 && (!planService.buildingPosition)) {
+              candidatePositions = await findPlacements(this.world, unitType);
+            }
             await this.buildBuilding(world, unitType, candidatePositions, stepAhead);
         }
       }
@@ -265,33 +266,24 @@ class AssemblePlan {
    */
   async buildBuilding(world, unitType, candidatePositions, stepAhead) {
     const { premoveBuilderToPosition } = worldService;
-    this.foundPosition = await setFoundPosition(world, this.foundPosition, unitType, candidatePositions);
-    if (this.foundPosition) {
+    let buildingPosition = await getBuildingPosition(world, unitType, candidatePositions);
+    planService.buildingPosition = buildingPosition;
+    if (buildingPosition) {
       if (this.agent.canAfford(unitType) && !stepAhead) {
-        if (await actions.canPlace(unitType, [this.foundPosition])) {
+        if (await actions.canPlace(unitType, [buildingPosition])) {
           const { assignAndSendWorkerToBuild } = worldService;
-          await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, this.foundPosition));
+          await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, buildingPosition));
           planService.pausePlan = false;
           planService.continueBuild = true;
-          this.foundPosition = false;
         } else {
-          this.foundPosition = keepPosition(this.resources, unitType, this.foundPosition) ? this.foundPosition : false;
-          if (this.foundPosition) {
-            this.collectedActions.push(...premoveBuilderToPosition(this.world, this.foundPosition, unitType, stepAhead));
-          }
-          if (!stepAhead) {
-            planService.pausePlan = true;
-            planService.continueBuild = false;
+          buildingPosition = keepPosition(this.resources, unitType, buildingPosition) ? buildingPosition : false;
+          planService.buildingPosition = buildingPosition;
+          if (buildingPosition) {
+            this.collectedActions.push(...premoveBuilderToPosition(this.world, buildingPosition, unitType, stepAhead));
           }
         }
       } else {
-        this.collectedActions.push(...premoveBuilderToPosition(this.world, this.foundPosition, unitType, stepAhead));
-        if (!stepAhead) {
-          const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-          await balanceResources(this.world, mineralCost / vespeneCost);
-          planService.pausePlan = true;
-          planService.continueBuild = false;
-        }
+        this.collectedActions.push(...premoveBuilderToPosition(this.world, buildingPosition, unitType, stepAhead));
       }
     }
   }
@@ -383,7 +375,6 @@ class AssemblePlan {
     const { isSupplyNeeded } = worldService;
     if (!foodRanges || foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.world, 0.2)) {
-        this.foundPosition = false;
         switch (race) {
           case Race.TERRAN:
             await this.build(world, this.foodUsed, SUPPLYDEPOT, this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length);
@@ -464,7 +455,8 @@ class AssemblePlan {
     const { getFoodUsed } = worldService;
     const label = conditions && conditions.label ? conditions.label : 'scout';
     const isScoutTypeActive = conditions && conditions.scoutType ? scoutingService[conditions.scoutType] : true;
-    if (foodRanges.indexOf(getFoodUsed(world)) > -1 && isScoutTypeActive) {
+    const requiredUnitCount = conditions && conditions.unitCount ? getUnitCount(world, conditions.unitType) >= conditions.unitCount : true;
+    if (foodRanges.indexOf(getFoodUsed(world)) > -1 && isScoutTypeActive && requiredUnitCount) {
       const location = getTargetLocation(map, `get${targetLocation}`);
       let labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
       if (labelledScouts.length === 0) {
@@ -489,10 +481,12 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async train(world, food, unitType, targetCount) {
+    const { data } = world;
     const { canBuild, getFoodUsed, isSupplyNeeded, setAndLogExecutedSteps } = worldService;
     if (getFoodUsed(this.world) >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
-      if (checkUnitCount(this.world, unitType, targetCount) || targetCount === null) {
+      const unitTypeData = data.getUnitTypeData(unitType);
+      if (targetCount === null || getUnitCount(world, unitType) <= targetCount) {
         if (canBuild(this.world, unitType)) {
           const trainer = this.units.getProductionUnits(unitType).find(unit => {
             const pendingOrders = unit['pendingOrders'] ? unit['pendingOrders'] : [];
@@ -503,7 +497,6 @@ class AssemblePlan {
             ) &&
               unit.abilityAvailable(abilityId);
           });
-          const unitTypeData = this.data.getUnitTypeData(unitType);
           if (trainer) {
             const unitCommand = {
               abilityId,
@@ -518,9 +511,7 @@ class AssemblePlan {
             if (warpGates.length > 0) {
               warpIn(this.resources, this, unitType);
             } else {
-              if (targetCount !== null) {
-                planService.pausePlan = true;
-              }
+              addEarmark(data, unitTypeData);
               return;
             }
           }
@@ -533,16 +524,11 @@ class AssemblePlan {
           if (isSupplyNeeded(this.world) && unitType !== OVERLORD) {
             await this.manageSupply(world);
           } else if (!this.agent.canAfford(unitType)) {
+            addEarmark(data, unitTypeData);
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
-            const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-            await balanceResources(this.world, mineralCost / vespeneCost);
-          }
-          if (targetCount !== null) {
-            planService.pausePlan = true;
-            planService.continueBuild = false;
           }
         }
-      }
+      } 
     }
   }
   /**
@@ -580,7 +566,6 @@ class AssemblePlan {
           }
         } else {
           console.log(`Cannot afford ${upgradeName}`);
-          await balanceResources(world, mineralCost / vespeneCost);
         }
         addEarmark(data, upgradeData);
       }
@@ -591,17 +576,22 @@ class AssemblePlan {
    * @param {World} world
    */
   async runPlan(world) {
-    const { agent, data, resources } = world;
-    const { race } = agent;
-    const { actions } = resources.get();
+    const { agent, data } = world;
+    const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
+    dataService.earmarks = [];
     planService.continueBuild = true;
     planService.pendingFood = 0;
     const { legacyPlan } = planService;
     for (let step = 0; step < legacyPlan.length; step++) {
       planService.currentStep = step;
       if (planService.continueBuild) {
-        /** @type {any[]} */
         const planStep = legacyPlan[step];
+        const trueActions = ['build', 'train', 'upgrade'];
+        const trueStep = legacyPlan.slice(step).find(step => trueActions.includes(step[1]));
+        if (trueStep) {
+          await trainWorkersOrCombatUnits(world, trueStep, this.defenseTypes);
+        } 
+        let setEarmark = !hasEarmarks(data);
         let targetCount = planStep[3];
         const foodTarget = planStep[0];
         let conditions;
@@ -655,21 +645,28 @@ class AssemblePlan {
             await this.upgrade(this.world, foodTarget, upgradeId);
             break;
         }
-        /** @type {any[]} */
-        const nextStep = legacyPlan[step + 1];
-        foodUsed = worldService.getFoodUsed(world);
-        const foodUsedLessThanNextStepFoodTarget = nextStep && foodUsed < nextStep[0];
-        if (!nextStep || foodUsedLessThanNextStepFoodTarget) {
-          const trainWorkersOrders = trainWorkers(world);
-          if (trainWorkersOrders.length > 0) {
-            await actions.sendAction(trainWorkersOrders);
-          } else {
-            await trainCombatUnits(world, this.defenseTypes);
-          }
+        if (setEarmark && hasEarmarks(data)) {
+          const earmarkTotals = data.getEarmarkTotals('');
+          const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
+          const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
+          const vespeneNeeded = vespeneEarmarked - vespene > 0 ? vespeneEarmarked - vespene : 0;
+          balanceResources(world, mineralsNeeded / vespeneNeeded);
+        }
+        const trueNextStep = legacyPlan.slice(step + 1).find(step => trueActions.includes(step[1]));
+        if (trueNextStep) {
+          await trainWorkersOrCombatUnits(world, trueNextStep, this.defenseTypes);
         }
       } else {
         break;
       }
+    }
+    if (!hasEarmarks(data)) {
+      addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]));
+      const earmarkTotals = data.getEarmarkTotals('');
+      const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
+      const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
+      const vespeneNeeded = vespeneEarmarked - vespene > 0 ? vespeneEarmarked - vespene : 0;
+      balanceResources(world, mineralsNeeded / vespeneNeeded);
     }
     planService.latestStep = planService.currentStep;
     planService.currentStep = null;
@@ -684,20 +681,22 @@ module.exports = AssemblePlan;
 
 /**
  * @param {World} world 
- * @param {false | Point2D} foundPosition 
  * @param {UnitTypeId} unitType 
  * @param {Point2D[]} candidatePositions 
  * @returns {Promise<Point2D | false>}
  */
-async function setFoundPosition(world, foundPosition, unitType, candidatePositions) {
+async function getBuildingPosition(world, unitType, candidatePositions) {
   const { resources } = world;
-  if (foundPosition) {
+  let position = planService.buildingPosition;
+  if (position) {
     const { map, units } = resources.get();
-    const areEnemyUnitsInWay = checkIfEnemyUnitsInWay(units, unitType, foundPosition);
+    const areEnemyUnitsInWay = checkIfEnemyUnitsInWay(units, unitType, position);
     const enemyBlockingExpansion = areEnemyUnitsInWay && TownhallRace[race][0] === unitType;
-    const strongerAtFoundPosition = isStrongerAtPosition(world, foundPosition);
-    if (map.isPlaceableAt(unitType, foundPosition) && !enemyBlockingExpansion && strongerAtFoundPosition) {
-      return foundPosition;
+    const strongerAtFoundPosition = isStrongerAtPosition(world, position);
+    if (map.isPlaceableAt(unitType, position) && !enemyBlockingExpansion && strongerAtFoundPosition) {
+      return position;
+    } else {
+      candidatePositions = await findPlacements(world, unitType);
     }
   }
   return await findPosition(resources, unitType, candidatePositions.filter(pos => isStrongerAtPosition(world, pos)));
@@ -776,5 +775,33 @@ async function trainCombatUnits(world, defenseTypes) {
       }
     }
   }
+}
+
+/**
+ * @param {World} world
+ * @param {any[]} step
+ * @param {UnitTypeId[]} defenseTypes
+ * @returns {Promise<void>}
+ */
+async function trainWorkersOrCombatUnits(world, step, defenseTypes) {
+  const foodUsed = worldService.getFoodUsed(world);
+  const foodUsedLessThanNextStepFoodTarget = step && foodUsed < step[0];
+  if (!step || foodUsedLessThanNextStepFoodTarget) {
+    const trainWorkersOrders = trainWorkers(world);
+    if (trainWorkersOrders.length > 0) {
+      await actions.sendAction(trainWorkersOrders);
+    } else {
+      await trainCombatUnits(world, defenseTypes);
+    }
+  }
+}
+
+/**
+ * @param {DataStorage} data
+ * @returns {boolean}
+ */
+function hasEarmarks(data) {
+  const earmarkTotals = data.getEarmarkTotals('');
+  return earmarkTotals.minerals > 0 || earmarkTotals.vespene > 0;
 }
 

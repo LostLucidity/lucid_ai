@@ -3,6 +3,7 @@
 
 const { MOVE, ATTACK_ATTACK, BUILD_CREEPTUMOR_QUEEN } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
+const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 const { PHOTONCANNON, LARVA, CREEPTUMORBURROWED } = require("@node-sc2/core/constants/unit-type");
 const { distance, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
@@ -12,7 +13,7 @@ const { isFacing } = require("../../services/micro-service");
 const { getDistance } = require("../../services/position-service");
 const resourceManagerService = require("../../services/resource-manager-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
-const { getWeaponThatCanAttack } = require("../../services/unit-service");
+const { getWeaponThatCanAttack, getPendingOrders } = require("../../services/unit-service");
 const { retreat, getDamageDealingUnits, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
@@ -266,7 +267,7 @@ module.exports = {
             collectedActions.push(unitCommand);
           } else {
             if (randomPointsOfInterest.length > orders.length) {
-              if (unit.isGathering()) queueCommand = false;
+              queueCommand = isGathering(unit) ? false : true;
               randomPointsOfInterest.forEach(point => {
                 const unitCommand = {
                   abilityId: MOVE,
@@ -410,5 +411,20 @@ function isInMineralLine(map, pos) {
   const { areas } = closestExpansion; if (areas === undefined) return false;
   const { mineralLine } = areas; if (mineralLine === undefined) return false;
   return pointsOverlap([point], mineralLine);
+}
+
+/**
+ * @param {Unit} unit
+ * @param {"minerals" | "vespene" | undefined} type
+ * @returns {boolean}
+ */
+function isGathering(unit, type=undefined) {
+  // check if pending orders
+  const pendingOrders = getPendingOrders(unit);
+  if (pendingOrders.length > 0) {
+    return pendingOrders.some(order => order.abilityId && gatheringAbilities.includes(order.abilityId));
+  } else {
+    return unit.isGathering(type);
+  } 
 }
 

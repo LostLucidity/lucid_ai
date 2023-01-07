@@ -15,16 +15,18 @@ const workerTrainingService = {
    * @returns {number}
    */
   getFoodDifference: (world) => {
-    const { agent, data } = world;
+    const { agent, data, resources } = world;
     const { race } = agent;
+    const { units } = resources.get();
     const { abilityId } = data.getUnitTypeData(WorkerRace[race]); if (abilityId === undefined) { return 0; }
     let { plan, legacyPlan } = planService;
     const foodUsed = getFoodUsed(world);
     const step = plan.find(step => step.food > foodUsed) || legacyPlan.find(step => step[0] > foodUsed); if (step === undefined) { return 0; }
     const foodDifference = (step.food || step[0]) - getFoodUsed(world);
-    // get affordableFoodDifference
+    const productionUnitsCount = units.getProductionUnits(WorkerRace[race]).filter(u => u.noQueue && u.abilityAvailable(abilityId)).length;
+    const lowerOfFoodDifferenceAndProductionUnitsCount = Math.min(foodDifference, productionUnitsCount);
     let affordableFoodDifference = 0;
-    for (let i = 0; i < foodDifference; i++) {
+    for (let i = 0; i < lowerOfFoodDifferenceAndProductionUnitsCount; i++) {
       if (agent.canAfford(WorkerRace[agent.race])) {
         affordableFoodDifference++;
         addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]))
@@ -51,7 +53,6 @@ const workerTrainingService = {
     let foodDifference = workerTrainingService.getFoodDifference(world);
     if (!planService.bogIsActive) {
       const conditions = [
-        agent.canAfford(WorkerRace[agent.race]),
         haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
         agent.minerals < 512 || minimumWorkerCount <= 36,
         shortOnWorkers(world) || foodDifference > 0,
@@ -64,7 +65,7 @@ const workerTrainingService = {
       const { abilityId } = data.getUnitTypeData(WorkerRace[race]); if (abilityId === undefined) { return []; }
       const productionUnit = resources.get().units.getProductionUnits(WorkerRace[race]).find(u => u.noQueue && u.abilityAvailable(abilityId));
       try {
-        if (productionUnit) collectedActions.push(...buildWorkers(world, foodDifference));
+        if (productionUnit) collectedActions.push(...buildWorkers(world, foodDifference, true));
       } catch (error) { console.log(error); }
     } else {
       unitTrainingService.workersTrainingTendedTo = true;

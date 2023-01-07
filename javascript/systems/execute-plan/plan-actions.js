@@ -140,7 +140,7 @@ const planActions = {
  * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
  */
   buildGasMine: async (world, unitType, targetCount, stepAhead) => {
-    const { agent, data, resources } = world;
+    const { agent, resources } = world;
     const { actions, map } = resources.get();
     const collectedActions = [];
     try {
@@ -153,12 +153,6 @@ const planActions = {
           planService.pausePlan = false;
         } else {
           collectedActions.push(...premoveBuilderToPosition(world, pos, unitType, stepAhead));
-          if (!stepAhead) {
-            const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-            await balanceResources(world, mineralCost / vespeneCost);
-            planService.pausePlan = true;
-            planService.continueBuild = false;
-          }
         }
       }
     } catch (error) {
@@ -198,7 +192,6 @@ const planActions = {
         unitTrainingService.selectedTypeToBuild = null;
       } else {
         if (!agent.canAfford(unitTypeId)) {
-          console.log(`${agent.foodUsed}: Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`, planService.isPlanPaused);
           const { mineralCost, vespeneCost } = data.getUnitTypeData(unitTypeId);
           await balanceResources(world, mineralCost / vespeneCost);
         }

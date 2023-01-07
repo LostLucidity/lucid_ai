@@ -6,7 +6,6 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { setUnitTypeTrainingAbilityMapping } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
-const sharedService = require("../../services/shared-service");
 const { runPlan } = require("./plan-actions");
 
 module.exports = createSystem({
@@ -17,8 +16,7 @@ module.exports = createSystem({
     setUnitTypeTrainingAbilityMapping(data);
   },
   async onStep(world) {
-    const { data, resources } = world;
-    const { units } = resources.get();
+    const { data } = world;
     await runPlan(world);
     data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
   },

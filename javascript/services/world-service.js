@@ -7,7 +7,7 @@ const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, avgPoints, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
+const { distance, avgPoints, createPoint2D, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { countTypes, morphMapping, addOnTypesMapping } = require("../helper/groups");
 const { findPosition, getCandidatePositions } = require("../helper/placement/placement-helper");
@@ -128,14 +128,15 @@ const worldService = {
   /**
    * @param {World} world 
    * @param {number} limit
+   * @param {boolean} canBuild
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  buildWorkers: (world, limit=1) => {
+  buildWorkers: (world, limit=1, canBuild=false) => {
     const { agent, data, resources } = world;
     const {  units } = resources.get();
     const collectedActions = [];
     const workerTypeId = WorkerRace[agent.race];
-    if (worldService.canBuild(world, workerTypeId)) {
+    if (worldService.canBuild(world, workerTypeId) || canBuild) {
       const { abilityId } = data.getUnitTypeData(workerTypeId);
       if (abilityId === undefined) return collectedActions;
       let trainers = [];
@@ -236,18 +237,26 @@ const worldService = {
     const collectedActions = []
     const { actions, units } = resources.get();
     if (candidatePositions.length === 0) { candidatePositions = await worldService.findPlacements(world, unitType); }
-    planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(resources, unitType, candidatePositions);
-    if (planService.foundPosition) {
+    // planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(resources, unitType, candidatePositions);
+    let position = planService.buildingPosition;
+    if (!position) {
+      position = await findPosition(resources, unitType, candidatePositions);
+      if (position) {
+        planService.buildingPosition = position;
+      }
+    }
+    if (position) {
       // get unitTypes that can build the building
       const { abilityId } = data.getUnitTypeData(unitType);
       const unitTypes = data.findUnitTypesWithAbility(abilityId);
       if (!unitTypes.includes(UnitType.NYDUSNETWORK)) {
         if (agent.canAfford(unitType) && !stepAhead) {
-          const canPlaceOrFalse = await actions.canPlace(unitType, [planService.foundPosition]);
+          const canPlaceOrFalse = await actions.canPlace(unitType, [position]);
           if (canPlaceOrFalse === false) {
-            planService.foundPosition = keepPosition(resources, unitType, planService.foundPosition) ? planService.foundPosition : null;
-            if (planService.foundPosition) {
-              collectedActions.push(...worldService.premoveBuilderToPosition(world, planService.foundPosition, unitType, stepAhead));
+            position = keepPosition(resources, unitType, position) ? position : false;
+            planService.buildingPosition = position;
+            if (position) {
+              collectedActions.push(...worldService.premoveBuilderToPosition(world, position, unitType, stepAhead));
             }
             if (!stepAhead) {
               planService.pausePlan = true;
@@ -257,10 +266,9 @@ const worldService = {
             await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, canPlaceOrFalse));
             planService.pausePlan = false;
             planService.continueBuild = true;
-            planService.foundPosition = null;
           }
         } else {
-          collectedActions.push(...worldService.premoveBuilderToPosition(world, planService.foundPosition, unitType, stepAhead));
+          collectedActions.push(...worldService.premoveBuilderToPosition(world, position, unitType, stepAhead));
           if (!stepAhead) {
             const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
             await balanceResources(world, mineralCost / vespeneCost);
@@ -373,8 +381,11 @@ const worldService = {
         const wallOffPositions = [];
         let { threeByThreePositions } = wallOffNaturalService;
         const currentlyEnrouteConstructionGrids = worldService.getCurrentlyEnrouteConstructionGrids(world);
+        // from the Map object planService.buildingPositions, get buildingPositions values
+        /** @type {Point2D[]} */ // @ts-ignore
+        const buildingPositions = Array.from(planService.buildingPositions.values()).filter(position => position !== false);
         const threeByThreeFootprint = getFootprint(FORGE); if (threeByThreeFootprint === undefined) return [];
-        threeByThreePositions = threeByThreePositions.filter(position => !pointsOverlap(currentlyEnrouteConstructionGrids, cellsInFootprint(position, threeByThreeFootprint)));
+        threeByThreePositions = threeByThreePositions.filter(position => !pointsOverlap([...currentlyEnrouteConstructionGrids, ...buildingPositions], cellsInFootprint(position, threeByThreeFootprint)));
         if (threeByThreePositions.length > 0) {
           const threeByThreeCellsInFootprints = threeByThreePositions.map(position => cellsInFootprint(position, threeByThreeFootprint));
           wallOffPositions.push(...threeByThreeCellsInFootprints.flat().filter(position => !pointsOverlap(currentlyEnrouteConstructionGrids, cellsInFootprint(position, threeByThreeFootprint))));
@@ -515,12 +526,12 @@ const worldService = {
       const { orders, pos } = movingProbe;
       if (orders === undefined || pos === undefined) return;
       const movingPosition = orders[0].targetWorldSpacePos;
-      const movementSpeed = getMovementSpeed(movingProbe);
-      if (movingPosition === undefined || movementSpeed === undefined) return;
+      const movementSpeed = getMovementSpeed(movingProbe); if (movingPosition === undefined || movementSpeed === undefined) return;
+      const movementSpeedPerSecond = movementSpeed * 1.4;
       const pathableMovingPosition = getClosestUnitPositionByPath(resources, movingPosition, pos);
-      const movingProbeTimeToMovePosition = getDistanceByPath(resources, pos, pathableMovingPosition) / movementSpeed;
-      const pathablePremovingPosition = getClosestUnitPositionByPath(resources, pathableMovingPosition, position);
-      const targetTimeToPremovePosition = getDistanceByPath(resources, pathableMovingPosition, pathablePremovingPosition) / movementSpeed;
+      const movingProbeTimeToMovePosition = getDistanceByPath(resources, pos, pathableMovingPosition) / movementSpeedPerSecond;
+      const pathablePremovingPosition = getClosestUnitPositionByPath(resources, position, pathableMovingPosition);
+      const targetTimeToPremovePosition = getDistanceByPath(resources, pathableMovingPosition, pathablePremovingPosition) / movementSpeedPerSecond;
       return { unit: movingProbe, timeToPosition: movingProbeTimeToMovePosition + targetTimeToPremovePosition };
     });
     const candidateWorkersTimeToPosition = []
@@ -535,12 +546,12 @@ const worldService = {
     if (closestBuilder !== undefined) {
       const { pos } = closestBuilder;
       if (pos === undefined) return null;
-      const movementSpeed = getMovementSpeed(closestBuilder);
-      if (movementSpeed === undefined) return null;
+      const movementSpeed = getMovementSpeed(closestBuilder); if (movementSpeed === undefined) return null;
+      const movementSpeedPerSecond = movementSpeed * 1.4;
       const closestPathablePositionsBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, position);
       const closestBuilderWithDistance = {
         unit: closestBuilder,
-        timeToPosition: closestPathablePositionsBetweenPositions.distance / movementSpeed
+        timeToPosition: closestPathablePositionsBetweenPositions.distance / movementSpeedPerSecond
       };
       candidateWorkersTimeToPosition.push(closestBuilderWithDistance);
     }
@@ -558,8 +569,9 @@ const worldService = {
         const { buildProgress } = closestUnitType;
         const buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * buildProgress));
         const distanceToPositionByPath = getDistanceByPath(resources, worker.pos, position);
-        const { movementSpeed } = worker.data();
-        timeToPosition = buildTimeLeft + (distanceToPositionByPath / movementSpeed);
+        const { movementSpeed } = worker.data(); if (movementSpeed === undefined) return;
+        const movementSpeedPerSecond = movementSpeed * 1.4;
+        timeToPosition = buildTimeLeft + (distanceToPositionByPath / movementSpeedPerSecond);
       }
       return {
         unit: worker,
@@ -1171,6 +1183,7 @@ const worldService = {
     if (builder) {
       // get speed, distance and average collection rate
       const { movementSpeed } = builder.data(); if (movementSpeed === undefined) return collectedActions;
+      const movementSpeedPerSecond = movementSpeed * 1.4;
       const { orders, pos } = builder; if (orders === undefined || pos === undefined) return collectedActions;
       const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, position);
       const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
@@ -1178,7 +1191,7 @@ const worldService = {
       if (debug !== undefined) {
         debug.setDrawCells('prmv', getPathCoordinates(MapResourceService.getMapPath(map, pos, pathableTargetPosition)).map(point => ({ pos: point })), { size: 1, cube: false });
       }
-      let timeToPosition = builderDistanceToPosition / movementSpeed;
+      let timeToPosition = builderDistanceToPosition / movementSpeedPerSecond;
       let rallyBase = false;
       let buildTimeLeft = 0;
       if (stepAhead) {
@@ -1195,7 +1208,7 @@ const worldService = {
             const { progress } = closestBaseByPath.orders[0];
             if (buildTime === undefined || progress === undefined) return collectedActions;
             buildTimeLeft = getBuildTimeLeft(closestBaseByPath, buildTime, progress);
-            let baseTimeToPosition = (baseDistanceToPosition / movementSpeed) + getTimeInSeconds(buildTimeLeft) + movementSpeed;
+            let baseTimeToPosition = (baseDistanceToPosition / movementSpeedPerSecond) + getTimeInSeconds(buildTimeLeft) + movementSpeedPerSecond;
             rallyBase = timeToPosition > baseTimeToPosition;
             timeToPosition = rallyBase ? baseTimeToPosition : timeToPosition;
           }
@@ -1211,8 +1224,9 @@ const worldService = {
           collectedActions.push(...rallyWorkerToTarget(world, position));
           collectedActions.push(...stopUnitFromMovingToPosition(builder, position));
         } else {
-          const isConstructingProbe = builder.isConstructing() && builder.unitType === PROBE
-          if (!isConstructingProbe) {
+          const isConstructingProbe = builder.isConstructing() && builder.unitType === PROBE;
+          const movingButNotToPosition = isMoving(builder) && getOrderTargetPosition(units, builder) !== position;
+          if (!isConstructingProbe && !movingButNotToPosition) {
             unitCommand.targetWorldSpacePos = position;
             setBuilderLabel(builder);
             collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
@@ -1222,17 +1236,11 @@ const worldService = {
               if (foodRequired === undefined) return collectedActions;
               planService.pendingFood -= foodRequired;
             }
-            collectedActions.push(...rallyWorkerToTarget(world, position, true));
           }
+          collectedActions.push(...rallyWorkerToTarget(world, position, true));
         }
       } else {
         collectedActions.push(...rallyWorkerToTarget(world, position, true));
-        if (
-          builder.orders.length === 1 &&
-          builder.orders.some(order => order.targetWorldSpacePos && order.targetWorldSpacePos.x === position.x && order.targetWorldSpacePos.y === position.y)
-        ) {
-          collectedActions.push(createUnitCommand(STOP, [builder]));
-        }
       }
     }
     return collectedActions;
@@ -1968,10 +1976,18 @@ function getByTag(tag) {
  **/
 function getTimeToTargetCost(world, unitType) {
   const { agent, data, resources } = world;
+  const { minerals } = agent; if (minerals === undefined) return Infinity;
   const { frame } = resources.get();
-  const { collectionRateMinerals, collectionRateVespene } = frame.getObservation().score.scoreDetails;
+  const { score } = frame.getObservation(); if (score === undefined) return Infinity;
+  const { scoreDetails } = score; if (scoreDetails === undefined) return Infinity;
+  const collectionRunup = frame.getGameLoop() <= 156 && minerals > 0;
+  let { collectionRateMinerals, collectionRateVespene } = scoreDetails; if (collectionRateMinerals === undefined || collectionRateVespene === undefined) return Infinity;
+  if (collectionRunup) {
+    collectionRateMinerals = 699;
+    collectionRateVespene = 0;
+  }
   dataService.addEarmark(data, data.getUnitTypeData(unitType));
-  const mineralsLeft = data.getEarmarkTotals('stepAhead').minerals - agent.minerals;
+  const mineralsLeft = data.getEarmarkTotals('stepAhead').minerals - minerals;
   const vespeneLeft = data.getEarmarkTotals('stepAhead').vespene - agent.vespene;
   const timeToTargetMinerals = mineralsLeft / (collectionRateMinerals / 60);
   const { vespeneCost } = data.getUnitTypeData(unitType);

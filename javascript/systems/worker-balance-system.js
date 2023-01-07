@@ -10,10 +10,9 @@ const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/co
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { createUnitCommand } = require('../services/actions-service');
 const { getClosestExpansion } = require('../services/map-resource-service');
-const planService = require('../services/plan-service');
 const { gather } = require('../services/resource-manager-service');
 const { getPendingOrders } = require('../services/unit-service');
-const { balanceResources, gatherOrMine } = require('./manage-resources');
+const { gatherOrMine } = require('./manage-resources');
 const { getMineralFieldAssignments, setPendingOrders, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
 
 module.exports = createSystem({
@@ -33,7 +32,6 @@ module.exports = createSystem({
     const { resources } = world;
     const { units, actions } = resources.get();
     const collectedActions = [];
-    if (!planService.isPlanPaused) { balanceResources(world) }
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const gatheringWorkers = getGatheringWorkers(units, undefined, true);
     const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
@@ -47,7 +45,10 @@ module.exports = createSystem({
       return true;
     }).find(base => base.assignedHarvesters < base.idealHarvesters);
     if (needyTownhall) {
-      const possibleDonerThs = townhalls.filter(townhall => townhall.assignedHarvesters > needyTownhall.assignedHarvesters + 1);
+      const possibleDonerThs = townhalls.filter(townhall => {
+        const { assignedHarvesters, idealHarvesters } = townhall; if (assignedHarvesters === undefined || idealHarvesters === undefined) { return false }
+        return assignedHarvesters > idealHarvesters;
+      });
       // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
       const [givingTownhall] = units.getClosest(needyTownhall.pos, possibleDonerThs);
 
