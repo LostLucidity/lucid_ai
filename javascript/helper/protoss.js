@@ -76,16 +76,5 @@ module.exports = {
       }
     }
     return collectedActions;
-  },
-  warpIn: async (resources, assemblePlan, unitType) => {
-    const { actions } = resources.get();
-    let nearPosition;
-    if (assemblePlan && assemblePlan.state && assemblePlan.state.defenseMode && scoutService.outsupplied) {
-      nearPosition = module.exports.findWarpInLocations(resources);
-    } else {
-      nearPosition = getCombatRally(resources);
-      console.log('nearPosition', nearPosition);
-    }
-    try { await actions.warpIn(unitType, { nearPosition: nearPosition }) } catch (error) { console.log(error); }
   }
 }

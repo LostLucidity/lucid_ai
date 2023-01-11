@@ -1,0 +1,1 @@
+export interface PlanStep { orderType: string, unitType?: number | null | undefined; food: number, targetCount?: number, upgrade?: number, candidatePositions?: Point2D[] }

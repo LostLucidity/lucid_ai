@@ -18,7 +18,7 @@ const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
 const { getMiddleOfNaturalWall, findPosition, getCandidatePositions, getInTheMain } = require("./placement/placement-helper");
-const { restorePower, warpIn } = require("./protoss");
+const { restorePower } = require("./protoss");
 const { liftToThird, addAddOn, swapBuildings } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
@@ -30,15 +30,14 @@ const { getStringNameOfConstant } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers, deleteLabel, setPendingOrders, getMineralFieldTarget } = require("../systems/unit-resource/unit-resource-service");
 const planService = require("../services/plan-service");
-const { getNextPlanStep } = require("../services/plan-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 const planActions = require("../systems/execute-plan/plan-actions");
-const { addEarmark, getSupply } = require("../services/data-service");
+const { addEarmark, getSupply, hasEarmarks } = require("../services/data-service");
 const worldService = require("../services/world-service");
-const { buildGasMine, train } = require("../systems/execute-plan/plan-actions");
+const { buildGasMine } = require("../systems/execute-plan/plan-actions");
 const harassService = require("../systems/harass/harass-service");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -49,8 +48,8 @@ const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
 const { isStrongerAtPosition, getUnitCount, findPlacements } = require("../services/world-service");
-const { trainWorkers } = require("../systems/worker-training-system/worker-training-service");
 const dataService = require("../services/data-service");
+const { getNextPlanStep } = require("../services/plan-service");
 
 let actions;
 let race;
@@ -190,7 +189,7 @@ class AssemblePlan {
       const stepAhead = getFoodUsed(this.world) + 1 === food;
       if (checkBuildingCount(this.world, unitType, targetCount)) {
         if (stepAhead) {
-          addEarmark(this.data, this.data.getUnitTypeData(WorkerRace[race]));
+          addEarmark(world, this.data.getUnitTypeData(WorkerRace[race]));
         }
         switch (true) {
           case GasMineRace[race] === unitType:
@@ -212,11 +211,11 @@ class AssemblePlan {
                 const actions = await planActions.ability(this.world, this.data.getUnitTypeData(unitType).abilityId);
                 if (actions.length > 0) {
                   unpauseAndLog(this.world, UnitTypeId[unitType]);
-                  addEarmark(this.data, this.data.getUnitTypeData(unitType));
+                  addEarmark(world, this.data.getUnitTypeData(unitType));
                   this.collectedActions.push(...actions);
                 }
               } else {
-                addEarmark(this.data, this.data.getUnitTypeData(unitType));
+                addEarmark(world, this.data.getUnitTypeData(unitType));
               }
             }
             break;
@@ -276,7 +275,7 @@ class AssemblePlan {
           planService.pausePlan = false;
           planService.continueBuild = true;
         } else {
-          buildingPosition = keepPosition(this.resources, unitType, buildingPosition) ? buildingPosition : false;
+          buildingPosition = keepPosition(world, unitType, buildingPosition) ? buildingPosition : false;
           planService.buildingPosition = buildingPosition;
           if (buildingPosition) {
             this.collectedActions.push(...premoveBuilderToPosition(this.world, buildingPosition, unitType, stepAhead));
@@ -511,7 +510,7 @@ class AssemblePlan {
             if (warpGates.length > 0) {
               warpIn(this.resources, this, unitType);
             } else {
-              addEarmark(data, unitTypeData);
+              addEarmark(world, unitTypeData);
               return;
             }
           }
@@ -519,12 +518,12 @@ class AssemblePlan {
           setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
           unitTrainingService.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
-          addEarmark(this.data, unitTypeData);
+          addEarmark(world, unitTypeData);
         } else {
           if (isSupplyNeeded(this.world) && unitType !== OVERLORD) {
             await this.manageSupply(world);
           } else if (!this.agent.canAfford(unitType)) {
-            addEarmark(data, unitTypeData);
+            addEarmark(world, unitTypeData);
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
           }
         }
@@ -567,7 +566,7 @@ class AssemblePlan {
         } else {
           console.log(`Cannot afford ${upgradeName}`);
         }
-        addEarmark(data, upgradeData);
+        addEarmark(world, upgradeData);
       }
     }
   }
@@ -661,7 +660,7 @@ class AssemblePlan {
       }
     }
     if (!hasEarmarks(data)) {
-      addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]));
+      addEarmark(world, data.getUnitTypeData(WorkerRace[agent.race]));
       const earmarkTotals = data.getEarmarkTotals('');
       const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
       const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
@@ -794,14 +793,5 @@ async function trainWorkersOrCombatUnits(world, step, defenseTypes) {
       await trainCombatUnits(world, defenseTypes);
     }
   }
-}
-
-/**
- * @param {DataStorage} data
- * @returns {boolean}
- */
-function hasEarmarks(data) {
-  const earmarkTotals = data.getEarmarkTotals('');
-  return earmarkTotals.minerals > 0 || earmarkTotals.vespene > 0;
 }
 

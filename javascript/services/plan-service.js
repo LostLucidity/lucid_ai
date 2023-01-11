@@ -53,7 +53,7 @@ const planService = {
   /** @type {boolean} */
   pausedThisRound: false,
   pendingFood: 0,
-  /** @type {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number, candidatePositions?: Point2D[] }[]} */
+  /** @type {(import("../interfaces/plan-step").PlanStep[])} */
   plan: [],
   planMax: {
     gasMine: null,

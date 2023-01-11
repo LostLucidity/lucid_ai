@@ -2,17 +2,17 @@
 "use strict"
 
 const fs = require('fs');
-const { UnitTypeId, Ability, UnitType, Buff } = require("@node-sc2/core/constants");
+const { UnitTypeId, Ability, UnitType, Buff, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, avgPoints, createPoint2D, areEqual } = require("@node-sc2/core/utils/geometry/point");
+const { distance, avgPoints, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { countTypes, morphMapping, addOnTypesMapping } = require("../helper/groups");
 const { findPosition, getCandidatePositions } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
-const { balanceResources, gatherOrMine } = require("../systems/manage-resources");
+const { gatherOrMine, getResourceDemand } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
 const { formatToMinutesAndSeconds } = require("./logging-service");
@@ -20,13 +20,13 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getUnitTypeData, isRepairing, calculateSplashDamage, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField } = require("../systems/unit-resource/unit-resource-service");
+const { getUnitTypeData, isRepairing, calculateSplashDamage, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField, getExistingTrainingTypes } = require("../systems/unit-resource/unit-resource-service");
 const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions, gather, getCombatRally } = require("./resource-manager-service");
+const { getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions, gather, getCombatRally, warpIn } = require("./resource-manager-service");
 const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -36,7 +36,7 @@ const { pointsOverlap, shuffle } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE, CREEPTUMOR } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE, CREEPTUMOR, WARPGATE } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -54,7 +54,10 @@ const resourceManagerService = require('./resource-manager-service');
 const { getAddOnPlacement } = require('../helper/placement/placement-utilities');
 const { getEnemyUnits } = require('../systems/state-of-game-system/state-of-game-service');
 const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
-const { getUnitWeaponDistanceToPosition } = require('./data-service');
+const { getUnitWeaponDistanceToPosition, addEarmark } = require('./data-service');
+const unitTrainingService = require('../systems/unit-training/unit-training-service');
+const { haveAvailableProductionUnitsFor } = require('../systems/unit-training/unit-training-service');
+const { checkUnitCount } = require('../systems/track-units/track-units-service');
 
 const worldService = {
   /** @type {boolean} */
@@ -83,7 +86,7 @@ const worldService = {
     if (builder) {
       const { pos } = builder;
       if (pos === undefined) return collectedActions;
-      dataService.addEarmark(data, data.getUnitTypeData(unitType));
+      dataService.addEarmark(world, data.getUnitTypeData(unitType));
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
         setBuilderLabel(builder);
         const unitCommand = createUnitCommand(abilityId, [builder]);
@@ -236,9 +239,13 @@ const worldService = {
     const { agent, data, resources } = world;
     const collectedActions = []
     const { actions, units } = resources.get();
-    if (candidatePositions.length === 0) { candidatePositions = await worldService.findPlacements(world, unitType); }
-    // planService.foundPosition = planService.foundPosition ? planService.foundPosition : await findPosition(resources, unitType, candidatePositions);
+    if (candidatePositions.length === 0 && (!planService.buildingPosition)) {
+      candidatePositions = await worldService.findPlacements(world, unitType);
+    }
     let position = planService.buildingPosition;
+    if (position) {
+      position = keepPosition(world, unitType, position) ? position : false;
+    }
     if (!position) {
       position = await findPosition(resources, unitType, candidatePositions);
       if (position) {
@@ -253,14 +260,13 @@ const worldService = {
         if (agent.canAfford(unitType) && !stepAhead) {
           const canPlaceOrFalse = await actions.canPlace(unitType, [position]);
           if (canPlaceOrFalse === false) {
-            position = keepPosition(resources, unitType, position) ? position : false;
+            position = keepPosition(world, unitType, position) ? position : false;
             planService.buildingPosition = position;
             if (position) {
               collectedActions.push(...worldService.premoveBuilderToPosition(world, position, unitType, stepAhead));
             }
             if (!stepAhead) {
-              planService.pausePlan = true;
-              planService.continueBuild = false;
+              addEarmark(world, data.getUnitTypeData(unitType));
             }
           } else {
             await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, canPlaceOrFalse));
@@ -269,12 +275,6 @@ const worldService = {
           }
         } else {
           collectedActions.push(...worldService.premoveBuilderToPosition(world, position, unitType, stepAhead));
-          if (!stepAhead) {
-            const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-            await balanceResources(world, mineralCost / vespeneCost);
-            planService.pausePlan = true;
-            planService.continueBuild = false;
-          }
         }
       } else {
         collectedActions.push(...await buildWithNydusNetwork(world, unitType, abilityId));
@@ -675,6 +675,34 @@ const worldService = {
     return dPSHealth;
   },
   /**
+   * @param {World} world
+   * @returns {number}
+   */
+  getFoodDifference: (world) => {
+    const { agent, data, resources } = world;
+    const { race } = agent;
+    const { units } = resources.get();
+    const { abilityId } = data.getUnitTypeData(WorkerRace[race]); if (abilityId === undefined) { return 0; }
+    let { plan, legacyPlan } = planService;
+    const { getFoodUsed } = worldService;
+    const foodUsed = getFoodUsed(world);
+    const step = plan.find(step => step.food > foodUsed);
+    const legacyPlanStep = legacyPlan.find(step => step[0] > foodUsed);
+    const foodDifference = ((step && step.food) || (legacyPlanStep && legacyPlanStep[0])) - getFoodUsed(world);
+    const productionUnitsCount = units.getProductionUnits(WorkerRace[race]).filter(u => u.noQueue && u.abilityAvailable(abilityId)).length;
+    const lowerOfFoodDifferenceAndProductionUnitsCount = Math.min(foodDifference, productionUnitsCount);
+    let affordableFoodDifference = 0;
+    for (let i = 0; i < lowerOfFoodDifferenceAndProductionUnitsCount; i++) {
+      if (agent.canAfford(WorkerRace[agent.race])) {
+        affordableFoodDifference++;
+        addEarmark(world, data.getUnitTypeData(WorkerRace[agent.race]))
+      } else {
+        break;
+      }
+    }
+    return affordableFoodDifference;
+  },
+  /**
    *
    * @param {World} world
    * @param {Unit} unit
@@ -781,6 +809,29 @@ const worldService = {
       techlabAbilities.push(data.getUnitTypeData(type).abilityId)
     });
     return techlabAbilities;
+  },
+  /**
+ * @param {World} world
+ * @param {UnitTypeId} unitTypeId
+ * @returns {Unit[]}
+ */
+  getTrainer: (world, unitTypeId) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    let { abilityId } = data.getUnitTypeData(unitTypeId);
+    let productionUnits = units.getProductionUnits(unitTypeId).filter(unit => {
+      const { orders } = unit;
+      const pendingOrders = getPendingOrders(unit);
+      if (abilityId === undefined || orders === undefined || pendingOrders === undefined) return false;
+      const allOrders = [...orders, ...pendingOrders];
+      const spaceToTrain = unit.isIdle() || (unit.hasReactor() && allOrders.length < 2);
+      return spaceToTrain && unit.abilityAvailable(abilityId) && !unit.labels.has('reposition')
+    });
+    if (productionUnits.length === 0) {
+      abilityId = WarpUnitAbility[unitTypeId];
+      productionUnits = units.getById(WARPGATE).filter(warpgate => abilityId && warpgate.abilityAvailable(abilityId));
+    }
+    return productionUnits;
   },
   /**
    * @param {World} world
@@ -1191,7 +1242,7 @@ const worldService = {
       if (debug !== undefined) {
         debug.setDrawCells('prmv', getPathCoordinates(MapResourceService.getMapPath(map, pos, pathableTargetPosition)).map(point => ({ pos: point })), { size: 1, cube: false });
       }
-      let timeToPosition = builderDistanceToPosition / movementSpeedPerSecond;
+      let timeToPosition = builderDistanceToPosition / movementSpeedPerSecond + getContructionTimeLeft(units, builder);
       let rallyBase = false;
       let buildTimeLeft = 0;
       if (stepAhead) {
@@ -1224,9 +1275,8 @@ const worldService = {
           collectedActions.push(...rallyWorkerToTarget(world, position));
           collectedActions.push(...stopUnitFromMovingToPosition(builder, position));
         } else {
-          const isConstructingProbe = builder.isConstructing() && builder.unitType === PROBE;
           const movingButNotToPosition = isMoving(builder) && getOrderTargetPosition(units, builder) !== position;
-          if (!isConstructingProbe && !movingButNotToPosition) {
+          if (!builder.isConstructing() && !movingButNotToPosition) {
             unitCommand.targetWorldSpacePos = position;
             setBuilderLabel(builder);
             collectedActions.push(unitCommand, ...unitResourceService.stopOverlappingBuilders(units, builder, position));
@@ -1435,6 +1485,20 @@ const worldService = {
     }
   },
   /**
+   * @param {World} world 
+   * @param {UnitTypeId[]} candidateTypesToBuild 
+   * @returns {UnitTypeId}
+   */
+  selectTypeToBuild(world, candidateTypesToBuild) {
+    const { agent, data } = world;
+    const { vespene } = agent; if (vespene === undefined) return candidateTypesToBuild[0];
+    const filteredTypes = candidateTypesToBuild.filter(type => {
+      const { vespeneCost } = data.getUnitTypeData(type); if (vespeneCost === undefined) return true;
+      return vespene > 170 || vespeneCost === 0;
+    });
+    return filteredTypes[Math.floor(Math.random() * filteredTypes.length)];
+  },
+  /**
    * @param {World} world
    * @param {SC2APIProtocol.PlayerResult} selfResult
    */
@@ -1587,6 +1651,37 @@ const worldService = {
     }, 0);
   },
   /**
+   * @param {World} world 
+   * @param {UnitTypeId} unitTypeId 
+   * @param {number | null} targetCount
+   * @returns {Promise<void>}
+   */
+  train: async (world, unitTypeId, targetCount = null) => {
+    const { agent, data, resources } = world;
+    const { actions } = resources.get();
+    const { canBuild, getTrainer, unpauseAndLog} = worldService;
+    let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return;
+    if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
+      const randomTrainer = getRandom(getTrainer(world, unitTypeId));
+      if (canBuild(world, unitTypeId) && randomTrainer) {
+        if (randomTrainer.unitType !== WARPGATE) {
+          const unitCommand = createUnitCommand(abilityId, [randomTrainer]);
+          setPendingOrders(randomTrainer, unitCommand);
+          unpauseAndLog(world, UnitTypeId[unitTypeId]);
+          await actions.sendAction([unitCommand]);
+        } else {
+          unpauseAndLog(world, UnitTypeId[unitTypeId]);
+          await warpIn(resources, this, unitTypeId);
+        }
+        addEarmark(world, data.getUnitTypeData(unitTypeId));
+        console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
+        unitTrainingService.selectedTypeToBuild = null;
+      } else {
+        addEarmark(world, data.getUnitTypeData(unitTypeId));
+      }
+    }
+  },
+  /**
    * @param {World} world
    * @returns {Boolean}
    */
@@ -1628,6 +1723,106 @@ const worldService = {
     // count workers that are training
     const unitsTrainingTargetUnitType = worldService.getUnitsTrainingTargetUnitType(world, WorkerRace[agent.race]);
     return idealHarvesters > (assignedHarvesters + unitsTrainingTargetUnitType.length);
+  },
+  /**
+   * @param {World} world 
+   */
+  trainCombatUnits: async (world) => {
+    const { agent, data, resources } = world;
+    const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
+    const { units } = resources.get();
+    const { planMin, trainingTypes, unitMax } = planService;
+    const { outpowered, getFoodUsed, getUnitTypeCount, selectTypeToBuild, train } = worldService;
+    const { currentStep, plan } = planService;
+    const plannedTrainingTypes = trainingTypes.length > 0 ? trainingTypes : getExistingTrainingTypes(units);
+    const candidateTypesToBuild = plannedTrainingTypes.filter(type => {
+      const { attributes, foodRequired } = data.getUnitTypeData(type); if (attributes === undefined || foodRequired === undefined) return false;
+      return [
+        !attributes.includes(Attribute.STRUCTURE),
+        haveAvailableProductionUnitsFor(world, type),
+        agent.hasTechFor(type),
+        foodRequired <= plan[currentStep].food - getFoodUsed(world),
+        outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed(world),
+        !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]]),
+      ].every(condition => condition);
+    });
+    if (candidateTypesToBuild.length > 0) {
+      let { selectedTypeToBuild } = unitTrainingService;
+      selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : selectTypeToBuild(world, candidateTypesToBuild);
+      if (selectedTypeToBuild !== undefined && selectedTypeToBuild !== null) {
+        let { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, [plan[currentStep]]);
+        let { mineralCost, vespeneCost } = data.getUnitTypeData(selectedTypeToBuild);
+        if (selectedTypeToBuild === ZERGLING) {
+          totalMineralCost += mineralCost;
+          totalVespeneCost += vespeneCost;
+        }
+        const enoughMinerals = minerals >= (totalMineralCost + mineralCost);
+        const enoughVespene = (vespeneCost === 0) || (vespene >= (totalVespeneCost + vespeneCost));
+        const freeBuildThreshold = enoughMinerals && enoughVespene;
+        if (outpowered || freeBuildThreshold) {
+          await train(world, selectedTypeToBuild);
+        }
+      }
+      unitTrainingService.selectedTypeToBuild = selectedTypeToBuild;
+    }
+  },
+  /**
+   * @param {World} world 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  trainWorkers: (world) => {
+    const { agent, data, resources } = world;
+    const { minerals } = agent; if (minerals === undefined) return [];
+    const { race } = agent;
+    const { units } = resources.get();
+    const { getFoodDifference } = worldService;
+    const collectedActions = [];
+    const workerCount = units.getById(WorkerRace[race]).length;
+    const assignedWorkerCount = [...units.getBases(), ...units.getById(GasMineRace[race])].reduce((assignedWorkerCount, base) => base.assignedHarvesters + assignedWorkerCount, 0);
+    const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
+    const { outpowered, unitProductionAvailable, buildWorkers, shortOnWorkers } = worldService
+    let conditionsMet = planService.bogIsActive && minimumWorkerCount <= 11;
+    let foodDifference = getFoodDifference(world);
+    if (!planService.bogIsActive) {
+      const conditions = [
+        haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
+        minerals < 512 || minimumWorkerCount <= 36,
+        shortOnWorkers(world) || foodDifference > 0,
+        !outpowered || (outpowered && !unitProductionAvailable)
+      ];
+      conditionsMet = conditions.every(condition => condition);
+    }
+    if (conditionsMet) {
+      unitTrainingService.workersTrainingTendedTo = false;
+      const { abilityId } = data.getUnitTypeData(WorkerRace[race]); if (abilityId === undefined) { return []; }
+      const productionUnit = resources.get().units.getProductionUnits(WorkerRace[race]).find(u => u.noQueue && u.abilityAvailable(abilityId));
+      try {
+        if (productionUnit) collectedActions.push(...buildWorkers(world, foodDifference, true));
+      } catch (error) { console.log(error); }
+    } else {
+      unitTrainingService.workersTrainingTendedTo = true;
+    }
+    return collectedActions;
+  },
+  /**
+   * @param {World} world
+   * @param {import("../interfaces/plan-step").PlanStep} step
+   * @returns {Promise<void>}
+   */
+  trainWorkersOrCombatUnits: async (world, step) => {
+    const { resources } = world;
+    const { actions } = resources.get();
+    const { getFoodUsed, trainCombatUnits, trainWorkers } = worldService;
+    const foodUsed = getFoodUsed(world);
+    const foodUsedLessThanNextStepFoodTarget = step && foodUsed < step.food;
+    if (!step || foodUsedLessThanNextStepFoodTarget) {
+      const trainWorkersOrders = trainWorkers(world);
+      if (trainWorkersOrders.length > 0) {
+        await actions.sendAction(trainWorkersOrders);
+      } else {
+        await trainCombatUnits(world);
+      }
+    }
   },
   /**
    * Unpause and log on attempted steps.
@@ -1765,7 +1960,7 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
         collectedActions.push(unitCommand);
         planService.pausePlan = false;
         planService.continueBuild = true;
-        dataService.addEarmark(data, data.getUnitTypeData(unitType));
+        dataService.addEarmark(world, data.getUnitTypeData(unitType));
         planService.foundPosition = null;
       } else {
         planService.foundPosition = null;
@@ -1986,7 +2181,7 @@ function getTimeToTargetCost(world, unitType) {
     collectionRateMinerals = 699;
     collectionRateVespene = 0;
   }
-  dataService.addEarmark(data, data.getUnitTypeData(unitType));
+  dataService.addEarmark(world, data.getUnitTypeData(unitType));
   const mineralsLeft = data.getEarmarkTotals('stepAhead').minerals - minerals;
   const vespeneLeft = data.getEarmarkTotals('stepAhead').vespene - agent.vespene;
   const timeToTargetMinerals = mineralsLeft / (collectionRateMinerals / 60);
@@ -2141,5 +2336,21 @@ function getUnitsInRangeOfPosition(units, position, range) {
     const { pos } = unit; if (pos === undefined) return false;
     return getDistance(pos, position) <= range;
   });
+}
+/**
+ * @param {UnitResource} units
+ * @param {Unit} unit 
+ * @returns {number}
+ */
+function getContructionTimeLeft(units, unit) {
+  if (!unit.isConstructing()) return 0;
+  const { orders } = unit; if (orders === undefined) return 0;
+  const { targetUnitTag } = orders[0]; if (targetUnitTag === undefined) return 0;
+  const targetUnit = units.getByTag(targetUnitTag); if (targetUnit === undefined) return 0;
+  const { pos } = targetUnit; if (pos === undefined) return 0;
+  const [underConstruction] = units.getClosest(pos, units.getStructures().filter(structure => structure.buildProgress && structure.buildProgress < 1)); if (underConstruction === undefined) return 0;
+  const { buildProgress } = underConstruction; if (buildProgress === undefined) return 0;
+  const { buildTime } = unit.data(); if (buildTime === undefined) return 0;
+  return getBuildTimeLeft(underConstruction, buildTime, buildProgress);
 }
 

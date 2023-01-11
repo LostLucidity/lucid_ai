@@ -62,7 +62,7 @@ const terran = {
             await actions.sendAction(unitCommand);
             planService.pausePlan = false;
             setPendingOrders(unit, unitCommand);
-            addEarmark(data, data.getUnitTypeData(addOnType));
+            addEarmark(world, data.getUnitTypeData(addOnType));
             return;
           } else {
             return;
@@ -94,7 +94,7 @@ const terran = {
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
           setPendingOrders(unit, unitCommand);
-          addEarmark(data, data.getUnitTypeData(addOnType));
+          addEarmark(world, data.getUnitTypeData(addOnType));
         }
       }
     }

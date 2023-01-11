@@ -9,6 +9,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, areEqual, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
+const scoutService = require("../systems/scouting/scouting-service");
 const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
@@ -299,6 +300,24 @@ const resourceManagerService = {
     });
     return [...trainingUnitTypes];
   },
+  /**
+   * 
+   * @param {ResourceManager} resources
+   * @param {*} assemblePlan 
+   * @param {UnitTypeId} unitType
+   */
+  warpIn: async (resources, assemblePlan, unitType) => {
+    const { actions } = resources.get();
+    const { getCombatRally } = resourceManagerService;
+    let nearPosition;
+    if (assemblePlan && assemblePlan.state && assemblePlan.state.defenseMode && scoutService.outsupplied) {
+      nearPosition = module.exports.findWarpInLocations(resources);
+    } else {
+      nearPosition = getCombatRally(resources);
+      console.log('nearPosition', nearPosition);
+    }
+    try { await actions.warpIn(unitType, { nearPosition: nearPosition }) } catch (error) { console.log(error); }
+  }
 }
 
 module.exports = resourceManagerService;

@@ -12,6 +12,7 @@ const { getWeaponThatCanAttack } = require("./unit-service");
 const dataService = {
   /** @type number[] */
   allActions: [],
+  /** @type {Earmark[]} */
   earmarks: [],
   /** @type {Map<number, number>} */
   unitTypeTrainingAbilities: new Map(),
@@ -19,10 +20,11 @@ const dataService = {
   upgradeAbilities: [],
   /**
    * 
-   * @param {World['data']} data 
+   * @param {World} world 
    * @param {SC2APIProtocol.UnitTypeData|SC2APIProtocol.UpgradeData} orderData 
    */
-  addEarmark: (data, orderData) => {
+  addEarmark: (world, orderData) => {
+    const { data } = world;
     const { name, mineralCost, vespeneCost } = orderData; if (name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
     const earmark = {
       name: `${name}_${planService.currentStep}`,
@@ -150,6 +152,14 @@ const dataService = {
       return roundedDamage > 0 ? roundedDamage : 1;
     }
   },
+  /**
+   * @param {DataStorage} data
+   * @returns {boolean}
+   */
+    hasEarmarks: (data) => {
+      const earmarkTotals = data.getEarmarkTotals('');
+      return earmarkTotals.minerals > 0 || earmarkTotals.vespene > 0;
+    },
   /**
    * @param {DataStorage} data
    * @param {Unit} unit 

@@ -3,7 +3,7 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { trainWorkers } = require("./worker-training-service");
+const { trainWorkers } = require("../../services/world-service");
 
 module.exports = createSystem({
   name: 'WorkerTrainingSystem',

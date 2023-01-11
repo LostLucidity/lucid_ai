@@ -29,7 +29,7 @@ module.exports = {
           const unitTypeData = data.getUnitTypeData(townhallTypeId);
           await actions.sendAction(assignAndSendWorkerToBuild(world, townhallTypeId, expansionLocation));
           setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallTypeId));
-          addEarmark(data, unitTypeData);
+          addEarmark(world, unitTypeData);
         }
         planService.pausePlan = false;
       } else {

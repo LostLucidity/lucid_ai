@@ -8,7 +8,6 @@ const AssemblePlan = require("../helper/assemble-plan");
 const { convertPlan } = require("../systems/salt-converter/salt-converter");
 const { gatherOrMine } = require("../systems/manage-resources");
 const plans = require("./plans");
-const sharedService = require("../services/shared-service");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
 const { getPendingOrders } = require("../services/unit-service");

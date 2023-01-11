@@ -206,7 +206,6 @@ async function runGame() {
     ...baseSystems,
     saltConverterSystem,
     scoutingSystem,
-    unitTrainingSystem,
     executePlanSystem,
     runBehaviorsSystem,
     // defenseSystem,
@@ -218,7 +217,6 @@ async function runGame() {
     liftToThirdSystem,
     mulingSystem,
     setRallySystem,
-    workerTrainingSystem,
   ];
   const bogSystems = [
     ...baseSystems,

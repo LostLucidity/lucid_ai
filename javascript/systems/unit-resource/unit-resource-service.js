@@ -62,6 +62,19 @@ const unitResourceService = {
     units.withLabel(label).forEach(pusher => pusher.labels.delete(label));
   },
   /**
+   * @param {UnitResource} units
+   * @returns {UnitTypeId[]}
+   */
+  getExistingTrainingTypes(units) {
+    return units.getAlive().reduce((/** @type {UnitTypeId[]} */ types, unit) => {
+      const { unitType } = unit; if (unitType === undefined) { return types; }
+      if (types.includes(unitType)) {
+        return types;
+      }
+      return [...types, unitType];
+    }, []);
+  },
+  /**
    * 
    * @param {UnitResource} units 
    * @param {"minerals" | "vespene" | undefined} type 
@@ -218,7 +231,8 @@ const unitResourceService = {
       ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(units, proxy)),
     ].filter(worker => {
       const gatheringAndMining = worker.isGathering() && unitResourceService.isMining(units, worker);
-      return !worker.isReturning() && !gatheringAndMining;
+      const isConstructing = worker.isConstructing() && worker.unitType !== PROBE;
+      return !worker.isReturning() && !gatheringAndMining && !isConstructing;
     });
     return builders;
   },

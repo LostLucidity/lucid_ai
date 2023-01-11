@@ -1,19 +1,31 @@
 //@ts-check
 "use strict"
 
+const { Race } = require("@node-sc2/core/constants/enums");
+const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { TECHLAB, REACTOR, PYLON } = require("@node-sc2/core/constants/unit-type");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getAddOnBuildingPlacement } = require("../helper/placement/placement-utilities");
 
 const placementService = {
-  keepPosition: (resources, unitType, position) => {
+  /**
+   * 
+   * @param {World} world 
+   * @param {UnitTypeId} unitType 
+   * @param {Point2D} position 
+   * @returns {boolean}
+   */
+  keepPosition: (world, unitType, position) => {
+    const { agent, resources } = world;
+    const { race } = agent; if (race === undefined) { return false; }
     const { map, units } = resources.get()
-    const [pylon] = units.getById(PYLON);
-    return [
-      pylon && pylon.buildProgress < 1,
-      map.isPlaceableAt(unitType, position),
-    ].every(condition => condition)
+    const conditions = [map.isPlaceableAt(unitType, position) || gasMineTypes.includes(unitType)];
+    if (race === Race.PROTOSS) {
+      const pylonExists = units.getById(PYLON).length > 0;
+      conditions.push(pylonExists);
+    }
+    return conditions.every(condition => condition)
   },
   getBuildingFootprintOfOrphanAddons: (units) => {
     const orphanAddons = units.getById([TECHLAB, REACTOR]);

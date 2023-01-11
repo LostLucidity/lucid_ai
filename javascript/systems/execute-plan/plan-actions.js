@@ -1,30 +1,26 @@
 //@ts-check
 "use strict"
 
-const { WarpUnitAbility, UnitType, UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
+const { UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
 const { Alliance, Attribute, Race } = require("@node-sc2/core/constants/enums");
 const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
 const { TownhallRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { WARPGATE, TECHLAB, BARRACKS, GREATERSPIRE } = require("@node-sc2/core/constants/unit-type");
+const { TECHLAB, BARRACKS, GREATERSPIRE } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
 const { countTypes, flyingTypesMapping } = require("../../helper/groups");
 const { getInTheMain } = require("../../helper/placement/placement-helper");
 const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
-const { warpIn } = require("../../helper/protoss");
 const { addAddOn } = require("../../helper/terran");
 const worldService = require("../../services/world-service");
 const planService = require("../../services/plan-service");
 const { balanceResources } = require("../manage-resources");
-const { checkUnitCount } = require("../track-units/track-units-service");
-const unitTrainingService = require("../unit-training/unit-training-service");
-const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, canBuild, assignAndSendWorkerToBuild, getFoodUsed } = require("../../services/world-service");
-const { addEarmark, isTrainingUnit } = require("../../services/data-service");
+const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, assignAndSendWorkerToBuild, getFoodUsed, trainWorkersOrCombatUnits, train, setAndLogExecutedSteps } = require("../../services/world-service");
+const { addEarmark, isTrainingUnit, hasEarmarks } = require("../../services/data-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
 const { CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
-const { setPendingOrders } = require("../unit-resource/unit-resource-service");
-const { getPendingOrders } = require("../../services/unit-service");
+const dataService = require("../../services/data-service");
 
 const planActions = {
   /**
@@ -76,7 +72,7 @@ const planActions = {
     if (checkBuildingCount(world, unitType, targetCount) || targetCount === null) {
       const { race } = agent;
       if (stepAhead) {
-        addEarmark(data, data.getUnitTypeData(WorkerRace[race]));
+        addEarmark(world, data.getUnitTypeData(WorkerRace[race]));
       }
       switch (true) {
         case TownhallRace[race].includes(unitType):
@@ -96,27 +92,23 @@ const planActions = {
           }
           break;
         case addonTypes.includes(unitType): {
-          const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
-          const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
-          const canDoTypeUnits = units.getById(canDoTypes);
-          const unitsCanDoWithoutAddOnAndIdle = getUnitsCanDoWithoutAddOnAndIdle(world, unitType);
-          const unitsCanDoIdle = unitsCanDoWithoutAddOnAndIdle.length > 0 ? unitsCanDoWithoutAddOnAndIdle : getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits);
-          if (unitsCanDoIdle.length > 0) {
-            let unitCanDo = unitsCanDoIdle[Math.floor(Math.random() * unitsCanDoIdle.length)];
-            await addAddOn(world, unitCanDo, unitType, stepAhead);
-          } else {
-            const busyCanDoUnits = canDoTypeUnits.filter(unit => unit.addOnTag === '0').filter(unit => isTrainingUnit(data, unit));
-            const randomBusyTrainingUnit = getRandom(busyCanDoUnits);
-            if (randomBusyTrainingUnit === undefined || randomBusyTrainingUnit.orders === undefined) return;
-            console.log(worldService.outpowered, randomBusyTrainingUnit.orders[0].progress);
-            if (!worldService.outpowered && randomBusyTrainingUnit && randomBusyTrainingUnit.orders[0].progress <= 0.5) {
-              await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
+          if (!stepAhead) {
+            const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
+            const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
+            const canDoTypeUnits = units.getById(canDoTypes);
+            const unitsCanDoWithoutAddOnAndIdle = getUnitsCanDoWithoutAddOnAndIdle(world, unitType);
+            const unitsCanDoIdle = unitsCanDoWithoutAddOnAndIdle.length > 0 ? unitsCanDoWithoutAddOnAndIdle : getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits);
+            addEarmark(world, data.getUnitTypeData(unitType));
+            if (unitsCanDoIdle.length > 0) {
+              let unitCanDo = unitsCanDoIdle[Math.floor(Math.random() * unitsCanDoIdle.length)];
+              await addAddOn(world, unitCanDo, unitType, stepAhead);
             } else {
-              const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-              await balanceResources(world, mineralCost / vespeneCost);
-              if (targetCount !== null) {
-                planService.pausePlan = true;
-                planService.continueBuild = false;
+              const busyCanDoUnits = canDoTypeUnits.filter(unit => unit.addOnTag === '0').filter(unit => isTrainingUnit(data, unit));
+              const randomBusyTrainingUnit = getRandom(busyCanDoUnits); if (randomBusyTrainingUnit === undefined || randomBusyTrainingUnit.orders === undefined) return;
+              const { orders } = randomBusyTrainingUnit;
+              const { progress } = orders[0]; if (progress === undefined) return;
+              if (!worldService.outpowered && progress <= 0.5) {
+                await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
               }
             }
           }
@@ -166,65 +158,26 @@ const planActions = {
   },
   /**
    * @param {World} world 
-   * @param {UnitTypeId} unitTypeId 
-   * @param {number | null} targetCount
-   * @returns {Promise<void>}
-   */
-  train: async (world, unitTypeId, targetCount = null) => {
-    const { agent, data, resources } = world;
-    const { actions } = resources.get();
-    let unitTypeData = data.getUnitTypeData(unitTypeId);
-    let { abilityId } = unitTypeData; if (abilityId === undefined) return;
-    if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
-      const randomTrainer = getRandom(getTrainer(world, unitTypeId));
-      if (canBuild(world, unitTypeId) && randomTrainer) {
-        if (randomTrainer.unitType !== WARPGATE) {
-          const unitCommand = createUnitCommand(abilityId, [randomTrainer]);
-          setPendingOrders(randomTrainer, unitCommand);
-          unpauseAndLog(world, UnitTypeId[unitTypeId]);
-          await actions.sendAction([unitCommand]);
-        } else {
-          unpauseAndLog(world, UnitTypeId[unitTypeId]);
-          await warpIn(resources, this, unitTypeId);
-        }
-        addEarmark(data, data.getUnitTypeData(unitTypeId));
-        console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
-        unitTrainingService.selectedTypeToBuild = null;
-      } else {
-        if (!agent.canAfford(unitTypeId)) {
-          const { mineralCost, vespeneCost } = data.getUnitTypeData(unitTypeId);
-          await balanceResources(world, mineralCost / vespeneCost);
-        }
-        addEarmark(data, data.getUnitTypeData(unitTypeId));
-      }
-    }
-  },
-  /**
-   * @param {World} world 
    * @param {number} upgradeId 
    */
   upgrade: async (world, upgradeId) => {
     const { agent, data, resources } = world;
-    const { actions, units } = resources.get();
+    const { upgradeIds } = agent; if (upgradeIds === undefined) return;
+    const { actions, frame, units } = resources.get();
+    const upgradeResearched = upgradeIds.includes(upgradeId);
     const upgraders = units.getUpgradeFacilities(upgradeId).filter(upgrader => upgrader.alliance === Alliance.SELF);
-    if (upgraders.length > 0) {
-      const upgradeData = data.getUpgradeData(upgradeId)
-      const { abilityId } = upgradeData;
-      const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
-      if (!agent.upgradeIds.includes(upgradeId) && foundUpgradeInProgress === undefined) {
-        const upgrader = upgraders.find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
-        if (upgrader) {
-          const unitCommand = { abilityId, unitTags: [upgrader.tag] };
-          await actions.sendAction([unitCommand]);
-          unpauseAndLog(world, UpgradeId[upgradeId]);
-          addEarmark(data, upgradeData);
-        } else {
-          const { mineralCost, vespeneCost } = data.getUpgradeData(upgradeId);
-          await balanceResources(world, mineralCost / vespeneCost);
-          planService.pausePlan = true;
-          planService.continueBuild = false;
-        }
-      }
+    const upgradeInProgress = upgraders.find(upgrader => upgrader.orders && upgrader.orders.find(order => order.abilityId === data.getUpgradeData(upgradeId).abilityId));
+    if (upgradeResearched || upgradeInProgress) return;
+    addEarmark(world, data.getUpgradeData(upgradeId));
+    const upgrader = getRandom(upgraders.filter(upgrader => {
+      const { abilityId } = data.getUpgradeData(upgradeId); if (abilityId === undefined) return;
+      return upgrader.noQueue && upgrader.abilityAvailable(abilityId);
+    }));
+    if (upgrader) {
+      const { abilityId } = data.getUpgradeData(upgradeId); if (abilityId === undefined) return;
+      const unitCommand = createUnitCommand(abilityId, [upgrader]);
+      await actions.sendAction([unitCommand]);
+      setAndLogExecutedSteps(world, frame.timeInSeconds(), UpgradeId[upgradeId]);
     } else {
       // find techlabs
       const techLabs = units.getAlive(Alliance.SELF).filter(unit => techLabTypes.includes(unit.unitType));
@@ -299,13 +252,18 @@ const planActions = {
  */
   runPlan: async (world) => {
     const { agent, data } = world;
+    const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
     planService.continueBuild = true;
+    dataService.earmarks = [];
     planService.pausedThisRound = false;
+    planService.pendingFood = 0;
     const { plan } = planService;
     for (let step = 0; step < plan.length; step++) {
       if (planService.continueBuild) {
         planService.currentStep = step;
         const planStep = plan[step];
+        await trainWorkersOrCombatUnits(world, planStep);
+        let setEarmark = !hasEarmarks(data);
         const { candidatePositions, food, orderType, unitType, targetCount, upgrade } = planStep;
         const foodUsedOrGreater = getFoodUsed(world) + 1 >= food;
         let stepAhead = getFoodUsed(world) + 1 === food;
@@ -317,7 +275,7 @@ const planActions = {
           const greaterThanMineralThreshold = minerals > planService.mineralThreshold;
           if (foodUsedOrGreater && !isStructure) {
             if (stepAhead) break;
-            await planActions.train(world, unitType, targetCount);
+            await train(world, unitType, targetCount);
           } else if (isStructure) {
             const spendAhead = !foodUsedOrGreater && greaterThanMineralThreshold
             stepAhead = spendAhead ? false : stepAhead;
@@ -330,9 +288,28 @@ const planActions = {
           if (upgrade === undefined || upgrade === null) break;
           await planActions.upgrade(world, upgrade);
         }
+        if (setEarmark && hasEarmarks(data)) {
+          const earmarkTotals = data.getEarmarkTotals('');
+          const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
+          const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
+          const vespeneNeeded = vespeneEarmarked - vespene > 0 ? vespeneEarmarked - vespene : 0;
+          balanceResources(world, mineralsNeeded / vespeneNeeded);
+        }
+        const nextStep = plan[step + 1];
+        if (nextStep) {
+          await trainWorkersOrCombatUnits(world, nextStep);
+        }
       } else {
         break;
       }
+    }
+    if (!hasEarmarks(data)) {
+      addEarmark(world, data.getUnitTypeData(WorkerRace[agent.race]));
+      const earmarkTotals = data.getEarmarkTotals('');
+      const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
+      const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
+      const vespeneNeeded = vespeneEarmarked - vespene > 0 ? vespeneEarmarked - vespene : 0;
+      balanceResources(world, mineralsNeeded / vespeneNeeded);
     }
     if (!planService.pausedThisRound) {
       planService.pausePlan = false;
@@ -370,11 +347,7 @@ module.exports = planActions;
  * @returns {Unit[]}
  */
 function getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits) {
-  if (canDoTypeUnits.every(unit => unit.buildProgress && (unit.buildProgress >= 1 || unit.buildProgress < 0.5))) {
-    return canDoTypeUnits.filter(unit => (unit.hasReactor() || unit.hasTechLab()) && unit.isIdle());
-  } else {
-    return [];
-  }
+  return canDoTypeUnits.filter(unit => (unit.hasReactor() || unit.hasTechLab()) && unit.isIdle());
 }
 
 /**
@@ -404,33 +377,8 @@ async function morphStructureAction(world, unitType) {
   const actions = await planActions.ability(world, data.getUnitTypeData(unitType).abilityId);
   if (actions.length > 0) {
     unpauseAndLog(world, UnitTypeId[unitType]);
-    addEarmark(data, data.getUnitTypeData(unitType));
+    addEarmark(world, data.getUnitTypeData(unitType));
     collectedActions.push(...actions);
   }
   return collectedActions;
-}
-
-/**
- * @param {World} world
- * @param {UnitTypeId} unitTypeId
- * @returns {Unit[]}
- */
-function getTrainer(world, unitTypeId) {
-  const { data, resources } = world;
-  const { units } = resources.get();
-  let unitTypeData = data.getUnitTypeData(unitTypeId);
-  let { abilityId } = unitTypeData;
-  let productionUnits = units.getProductionUnits(unitTypeId).filter(unit => {
-    const { orders } = unit;
-    const pendingOrders = getPendingOrders(unit);
-    if (abilityId === undefined || orders === undefined || pendingOrders === undefined) return false;
-    const allOrders = [...orders, ...pendingOrders];
-    const spaceToTrain = unit.isIdle() || (unit.hasReactor() && allOrders.length < 2);
-    return spaceToTrain && unit.abilityAvailable(abilityId) && !unit.labels.has('reposition')
-  });
-  if (productionUnits.length === 0) {
-    abilityId = WarpUnitAbility[unitTypeId]
-    productionUnits = units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));
-  }
-  return productionUnits;
 }

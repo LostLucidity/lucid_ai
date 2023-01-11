@@ -22,8 +22,9 @@ const manageResources = {
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
     const { actions, units } = resources.get();
     targetRatio = isNaN(targetRatio) ? 16 / 6 : targetRatio;
-    const increaseRatio = targetRatio === Infinity || (vespene > 512 && minerals < 512);
-    targetRatio = increaseRatio ? (64 / 6) : targetRatio;
+    const maxRatio = 32 / 6;
+    const increaseRatio = targetRatio > maxRatio || (vespene > 512 && minerals < 512);
+    targetRatio = increaseRatio ? maxRatio : targetRatio;
     const needyGasMines = getNeedyGasMines(units);
     const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
     const mineralMinerCountRatio = mineralMinerCount / vespeneMinerCount;
