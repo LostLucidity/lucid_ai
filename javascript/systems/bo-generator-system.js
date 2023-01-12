@@ -2,15 +2,15 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { Upgrade, UnitType } = require("@node-sc2/core/constants");
-const { Attribute, Alliance, Race } = require("@node-sc2/core/constants/enums");
+const { UnitType } = require("@node-sc2/core/constants");
+const { Attribute, Race } = require("@node-sc2/core/constants/enums");
 const { townhallTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { DRONE, BUNKER } = require("@node-sc2/core/constants/unit-type");
 const foodUsedService = require("../services/food-used-service");
 const planService = require("../services/plan-service");
-const { getUnitTypeCount, getFoodUsed, shortOnWorkers, getBuilder, assignAndSendWorkerToBuild } = require("../services/world-service");
-const { build, train, upgrade, runPlan } = require("./execute-plan/plan-actions");
+const { getUnitTypeCount, getFoodUsed, shortOnWorkers, getBuilder, assignAndSendWorkerToBuild, train } = require("../services/world-service");
+const { build, upgrade, runPlan } = require("./execute-plan/plan-actions");
 const scoutingService = require("./scouting/scouting-service");
 const { v4: uuidv4 } = require('uuid');
 const dataService = require("../services/data-service");

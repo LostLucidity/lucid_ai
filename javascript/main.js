@@ -231,7 +231,6 @@ async function runGame() {
     wallOffNaturalSystem,
     stateOfGameSystem,
     creepSpreadSystem,
-    workerTrainingSystem,
   ];
   const QTableSystems = [
     qTableSystem,

@@ -5,8 +5,8 @@ const { createSystem } = require("@node-sc2/core");
 const { Race } = require("@node-sc2/core/constants/enums");
 const { SUPPLYDEPOT, PYLON, OVERLORD } = require("@node-sc2/core/constants/unit-type");
 const planService = require("../services/plan-service");
-const { isSupplyNeeded, findPlacements } = require("../services/world-service");
-const { build, train } = require("./execute-plan/plan-actions");
+const { isSupplyNeeded, findPlacements, train } = require("../services/world-service");
+const { build } = require("./execute-plan/plan-actions");
 
 module.exports = createSystem({
   name: 'ManageSupplySystem',
