@@ -2,7 +2,7 @@
 "use strict"
 
 const { UnitType } = require("@node-sc2/core/constants");
-const { SMART, MOVE } = require("@node-sc2/core/constants/ability");
+const { SMART } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes, creepGenerators } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");

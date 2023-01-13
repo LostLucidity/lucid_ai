@@ -80,7 +80,7 @@ const unitResourceService = {
    * @param {"minerals" | "vespene" | undefined} type 
    * @returns 
    */
-  getGatheringWorkers(units, type, firstOrderOnly = false) {
+  getGatheringWorkers(units, type = undefined, firstOrderOnly = true) {
     const gatheringWorkers = units.getWorkers()
       .filter(worker => {
         return (
@@ -91,9 +91,9 @@ const unitResourceService = {
     if (firstOrderOnly) {
       return gatheringWorkers.filter(worker => {
         const { orders } = worker; if (orders === undefined) return false;
-        const firstOrder = orders[0];
-        const { abilityId } = firstOrder; if (abilityId === undefined) return false;
-        return gatheringAbilities.includes(abilityId);
+        const pendingOrders = getPendingOrders(worker);
+        const gatheringOrders = [...orders, ...pendingOrders].filter(order => order.abilityId && gatheringAbilities.includes(order.abilityId));
+        return gatheringOrders.length > 0;
       });
     }
     return gatheringWorkers;

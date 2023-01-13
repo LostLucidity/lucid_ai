@@ -38,7 +38,7 @@ const planService = {
   buildingPositions: new Map(),
   dirtyBasePlan: false,
   continueBuild: true,
-  currentStep: 0,
+  currentStep: Infinity,
   /** @type {number} */
   foodMark: 12,
   /** @type {Point2D | false} */

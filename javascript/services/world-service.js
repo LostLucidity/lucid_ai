@@ -239,18 +239,18 @@ const worldService = {
     const { agent, data, resources } = world;
     const collectedActions = []
     const { actions, units } = resources.get();
-    if (candidatePositions.length === 0 && (!planService.buildingPosition)) {
-      candidatePositions = await worldService.findPlacements(world, unitType);
-    }
     let position = planService.buildingPosition;
-    if (position) {
-      position = keepPosition(world, unitType, position) ? position : false;
-    }
-    if (!position) {
-      position = await findPosition(resources, unitType, candidatePositions);
-      if (position) {
-        planService.buildingPosition = position;
+    const validPosition = position && keepPosition(world, unitType, position);
+    if (!validPosition) {
+      if (candidatePositions.length === 0) {
+        candidatePositions = await worldService.findPlacements(world, unitType);
       }
+      position = await findPosition(resources, unitType, candidatePositions);
+      if (!position) {
+        candidatePositions = await worldService.findPlacements(world, unitType);
+        position = await findPosition(resources, unitType, candidatePositions, true);
+      }
+      planService.buildingPosition = position;
     }
     if (position) {
       // get unitTypes that can build the building
@@ -765,6 +765,21 @@ const worldService = {
     } else {
       return targetUnit.pos;
     }
+  },
+  /**
+   * @param {World} world
+   * @param {UnitTypeId} unitType
+   * @returns {import('../interfaces/plan-step').PlanStep | undefined}
+   */
+  getStep: (world, unitType) => {
+    const { resources } = world;
+    const { units } = resources.get();
+    return planService.plan.find(step => {
+      return (
+        step.unitType === unitType &&
+        step.targetCount === worldService.getUnitTypeCount(world, unitType) + (unitType === DRONE ? units.getStructures().length - 1 : 0)
+      );
+    });
   },
   /**
    * @param {World} world

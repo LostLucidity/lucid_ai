@@ -74,7 +74,7 @@ const dataService = {
   /**
    * @param {DataStorage} data 
    * @param {UnitResource} units 
-   * @returns {Map<number, { "orderType": string, "unitType"?: number, "upgrade"?: number }>}
+   * @returns {Map<number, import("../interfaces/actions-map").ActionsMap>}
    */
   getAllAvailableAbilities(data, units) {
     /** @type {Map<number, any>} */

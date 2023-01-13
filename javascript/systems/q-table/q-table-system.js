@@ -4,12 +4,16 @@
 const { createSystem } = require("@node-sc2/core");
 const dataService = require("../../services/data-service");
 const { setUnitTypeTrainingAbilityMapping, setUpgradeAbilities, getAllActions } = require("../../services/data-service");
+const { runPlan } = require("../execute-plan/plan-actions");
 const { executeAction } = require("./q-table-service");
 const qTableService = require("./q-table-service");
 
 module.exports = createSystem({
   name: 'QTableSystem',
   type: 'agent',
+  defaultOptions: {
+    stepIncrement: 192,
+  },
   async onGameStart(world) {
     const { data } = world;
     setUnitTypeTrainingAbilityMapping(data);
@@ -21,6 +25,7 @@ module.exports = createSystem({
     const { foodUsed } = agent; if (!foodUsed) { return; }
     const { units } = resources.get();
     // get state, contains steps and food used
+    await runPlan(world);
     const { steps } = qTableService;
     const state = { step: steps.length, foodUsed };
     // get available actions
@@ -35,5 +40,6 @@ module.exports = createSystem({
     console.log('action', action);
     availableActions.get(action);
     await executeAction(world, action, availableActions);
+    data.get('earmarks').forEach(/** @param {Earmark} earmark */ earmark => data.settleEarmark(earmark.name));
   }
 });

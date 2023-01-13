@@ -1,0 +1,1 @@
+export interface ActionsMap { "orderType": string, "unitType"?: number, "upgrade"?: number }

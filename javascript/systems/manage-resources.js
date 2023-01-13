@@ -74,7 +74,7 @@ const manageResources = {
       if ((mineralMinerCountRatio + increaseRatio) / 2 <= targetRatio) {
         const gasMines = units.getAlive(readySelfFilter).filter(u => u.isGasMine());
         const [givingGasMine] = units.getClosest(basePos, gasMines);
-        const gatheringGasWorkers = getGatheringWorkers(units, "vespene", true).filter(worker => !isMining(units, worker));
+        const gatheringGasWorkers = getGatheringWorkers(units, "vespene").filter(worker => !isMining(units, worker));
         if (givingGasMine && gatheringGasWorkers.length > 0) {
           debugSilly('chosen closest th', givingGasMine.tag);
           const [donatingWorker] = units.getClosest(givingGasMine.pos, gatheringGasWorkers);

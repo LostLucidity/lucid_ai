@@ -3,7 +3,9 @@
 
 const { Attribute } = require("@node-sc2/core/constants/enums");
 const { getAllActions } = require("../../services/data-service");
-const { build, train } = require("../execute-plan/plan-actions");
+const planService = require("../../services/plan-service");
+const { train, getStep, getUnitTypeCount } = require("../../services/world-service");
+const { build, upgrade } = require("../execute-plan/plan-actions");
 
 /** @typedef { { step: number, foodUsed: number } } State */
 
@@ -43,22 +45,34 @@ const qTableService = {
   /**
    * @param {World} world
    * @param {number} action
-   * @param {Map<number, { "orderType": "UnitType" | "Upgrade", "unitType"?: number, "upgradeType"?: number }>} availableActions
+   * @param {Map<number, import("../../interfaces/actions-map").ActionsMap>} availableActions
    */
   async executeAction(world, action, availableActions) {
-    const { data } = world;
+    const { agent, data } = world;
+    const { foodUsed } = agent; if (!foodUsed) { return; }
     const { steps } = qTableService;
     steps.push(action);
     const actionData = availableActions.get(action); if (!actionData) { return; }
-    if (actionData.orderType === 'UnitType') {
-      const { unitType } = actionData; if (!unitType) { return; }
-      const { attributes } = data.getUnitTypeData(unitType);
-      if (attributes === undefined) return;
-      if (attributes.includes(Attribute.STRUCTURE)) {
-        await build(world, unitType);
-      } else {
-        await train(world, unitType);
+    const { orderType, unitType, upgrade: upgradeType } = actionData; if (!(orderType !== undefined && (unitType !== undefined || upgradeType !== undefined))) { return; }
+    if (orderType === 'UnitType' && unitType !== undefined) {
+      const matchingStep = getStep(world, unitType);
+      if (!matchingStep) {
+        planService.plan.push({
+          orderType, unitType, food: foodUsed, targetCount: getUnitTypeCount(world, unitType)
+        });
+        const { attributes } = data.getUnitTypeData(unitType);
+        if (attributes === undefined) return;
+        if (attributes.includes(Attribute.STRUCTURE)) {
+          await build(world, unitType);
+        } else {
+          await train(world, unitType);
+        }
       }
+    } else if (orderType === 'Upgrade' && upgradeType !== undefined) {
+      planService.plan.push({
+        orderType, upgrade: upgradeType, food: foodUsed
+      });
+      await upgrade(world, upgradeType);
     }
   },
   /**

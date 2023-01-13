@@ -33,7 +33,7 @@ module.exports = createSystem({
     const { units, actions } = resources.get();
     const collectedActions = [];
     const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
-    const gatheringWorkers = getGatheringWorkers(units, undefined, true);
+    const gatheringWorkers = getGatheringWorkers(units);
     const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
     const needyTownhall = townhalls.filter(townhall => {
       if (townhall['enemyUnits']) {
@@ -132,7 +132,7 @@ module.exports = createSystem({
       }
       const bases = units.getBases();
       const basesWithExtraWorkers = bases.filter(base => base.assignedHarvesters > base.idealHarvesters);
-      const gatheringWorkers = getGatheringWorkers(units, undefined, true);
+      const gatheringWorkers = getGatheringWorkers(units);
       debugSilly(`bases with extra workers: ${basesWithExtraWorkers.map(ex => ex.tag).join(', ')}`);
       // get workers from expansions with extra workers
       const extraWorkers = basesWithExtraWorkers.map(base => {
@@ -196,7 +196,7 @@ function gatherOrMineIdleGroup(world) {
 function assignWorkers(resources) {
   const { map, units } = resources.get();
   const collectedActions = [];
-  const gatheringMineralWorkers = getGatheringWorkers(units, 'minerals', true);
+  const gatheringMineralWorkers = getGatheringWorkers(units, 'minerals');
   gatheringMineralWorkers.forEach(worker => {
     const { pos } = worker;
     if (pos === undefined) return;
