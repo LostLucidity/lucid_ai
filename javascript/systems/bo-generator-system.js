@@ -49,7 +49,7 @@ module.exports = createSystem({
     const collectedActions = [];
     // starting at 12 food, while at current food, 1/3 chance of action else build drone and increment food by 1
     await runPlan(world);
-    const trueFoodUsed = getFoodUsed(world)
+    const trueFoodUsed = getFoodUsed()
     scouting(world);
     // decide worker training when minerals greater then mineralMinThreshold and less then mineralMaxThreshold
     const decideWorkerTraining = agent.minerals > mineralMinThreshold && agent.minerals < mineralMaxThreshold;

@@ -265,8 +265,8 @@ const planActions = {
         await trainWorkersOrCombatUnits(world, planStep);
         let setEarmark = !hasEarmarks(data);
         const { candidatePositions, food, orderType, unitType, targetCount, upgrade } = planStep;
-        const foodUsedOrGreater = getFoodUsed(world) + 1 >= food;
-        let stepAhead = getFoodUsed(world) + 1 === food;
+        const foodUsedOrGreater = getFoodUsed() + 1 >= food;
+        let stepAhead = getFoodUsed() + 1 === food;
         if (orderType === 'UnitType') {
           if (unitType === undefined || unitType === null) break;
           const { attributes } = data.getUnitTypeData(unitType); if (attributes === undefined) break;

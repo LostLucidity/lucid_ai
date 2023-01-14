@@ -34,7 +34,7 @@ async function getRally(world) {
     let conditionStartSatisfied = false;
     let conditionEndSatisfied = false;
     if (Object.prototype.hasOwnProperty.call(rally.conditionStart, 'food')) {
-      conditionStartSatisfied = getFoodUsed(world) >= rally.conditionStart.food;
+      conditionStartSatisfied = getFoodUsed() >= rally.conditionStart.food;
     }
     if (Object.prototype.hasOwnProperty.call(rally.conditionEnd, 'unitType')) {
       conditionEndSatisfied = units.getById(rally.conditionEnd.unitType).length >= rally.conditionEnd.count;

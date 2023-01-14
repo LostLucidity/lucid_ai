@@ -60,6 +60,8 @@ const { haveAvailableProductionUnitsFor } = require('../systems/unit-training/un
 const { checkUnitCount } = require('../systems/track-units/track-units-service');
 
 const worldService = {
+  /** @type {number} */
+  foodUsed: 0,
   /** @type {boolean} */
   outpowered: false,
   /** @type {number} */
@@ -80,9 +82,10 @@ const worldService = {
     const { race } = agent;
     const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
+    const { getBuilder, setFoodUsed } = worldService;
     const collectedActions = [];
     position = getMiddle ? getMiddleOfStructure(position, unitType) : position;
-    const builder = worldService.getBuilder(world, position);
+    const builder = getBuilder(world, position);
     if (builder) {
       const { pos } = builder;
       if (pos === undefined) return collectedActions;
@@ -118,6 +121,7 @@ const worldService = {
           unitCommand.targetWorldSpacePos = position;
           collectedActions.push(unitCommand);
         }
+        setFoodUsed(world);
         console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
         if (TownhallRace[race].indexOf(unitType) === 0) {
           resourceManagerService.availableExpansions = [];
@@ -131,15 +135,16 @@ const worldService = {
   /**
    * @param {World} world 
    * @param {number} limit
-   * @param {boolean} canBuild
+   * @param {boolean} checkCanBuild
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  buildWorkers: (world, limit=1, canBuild=false) => {
+  buildWorkers: (world, limit=1, checkCanBuild=false) => {
     const { agent, data, resources } = world;
-    const {  units } = resources.get();
+    const { units } = resources.get();
+    const { canBuild, setFoodUsed } = worldService;
     const collectedActions = [];
     const workerTypeId = WorkerRace[agent.race];
-    if (worldService.canBuild(world, workerTypeId) || canBuild) {
+    if (canBuild(world, workerTypeId) || checkCanBuild) {
       const { abilityId } = data.getUnitTypeData(workerTypeId);
       if (abilityId === undefined) return collectedActions;
       let trainers = [];
@@ -158,6 +163,7 @@ const worldService = {
           setPendingOrders(trainer, unitCommand);
           const { foodRequired } = data.getUnitTypeData(workerTypeId); if (foodRequired === undefined) return collectedActions;
           planService.pendingFood += foodRequired;
+          setFoodUsed(world);
         });
         return collectedActions;
       }
@@ -685,10 +691,10 @@ const worldService = {
     const { abilityId } = data.getUnitTypeData(WorkerRace[race]); if (abilityId === undefined) { return 0; }
     let { plan, legacyPlan } = planService;
     const { getFoodUsed } = worldService;
-    const foodUsed = getFoodUsed(world);
+    const foodUsed = getFoodUsed();
     const step = plan.find(step => step.food > foodUsed);
     const legacyPlanStep = legacyPlan.find(step => step[0] > foodUsed);
-    const foodDifference = ((step && step.food) || (legacyPlanStep && legacyPlanStep[0])) - getFoodUsed(world);
+    const foodDifference = ((step && step.food) || (legacyPlanStep && legacyPlanStep[0])) - getFoodUsed();
     const productionUnitsCount = units.getProductionUnits(WorkerRace[race]).filter(u => u.noQueue && u.abilityAvailable(abilityId)).length;
     const lowerOfFoodDifferenceAndProductionUnitsCount = Math.min(foodDifference, productionUnitsCount);
     let affordableFoodDifference = 0;
@@ -729,14 +735,10 @@ const worldService = {
     }, 0);
   },
   /**
-   * @param {World} world
+   * @returns {number}
    */
-  getFoodUsed: (world) => {
-    const {  agent, resources } = world;
-    const { units } = resources.get();
-    const { foodUsed, race } = agent;
-    const pendingFoodUsed = race === Race.ZERG ? units.getWorkers().filter(worker => worker.isConstructing()).length : 0;
-    return foodUsed + planService.pendingFood - pendingFoodUsed;
+  getFoodUsed: () => {
+    return worldService.foodUsed;
   },
   /**
    * @param {World} world 
@@ -1242,7 +1244,7 @@ const worldService = {
   premoveBuilderToPosition: (world, position, unitType, stepAhead = false) => {
     const { agent, data, resources } = world;
     const { debug, map, units } = resources.get();
-    const { rallyWorkerToTarget } = worldService;
+    const { rallyWorkerToTarget, setFoodUsed } = worldService;
     const collectedActions = [];
     position = getMiddleOfStructure(position, unitType);
     const builder = worldService.getBuilder(world, position);
@@ -1300,6 +1302,7 @@ const worldService = {
               const { foodRequired } = data.getUnitTypeData(unitType);
               if (foodRequired === undefined) return collectedActions;
               planService.pendingFood -= foodRequired;
+              setFoodUsed(world);
             }
           }
           collectedActions.push(...rallyWorkerToTarget(world, position, true));
@@ -1620,6 +1623,17 @@ const worldService = {
     });
   },
   /**
+   * @param {World} world
+   */
+  setFoodUsed: (world) => {
+    const { agent, resources } = world;
+    const { units } = resources.get();
+    const { foodUsed, race } = agent; if (foodUsed === undefined) { return 0; }
+    const pendingFoodUsed = race === Race.ZERG ? units.getWorkers().filter(worker => worker.isConstructing()).length : 0;
+    const calculatedFoodUsed = foodUsed + planService.pendingFood - pendingFoodUsed;
+    worldService.foodUsed = calculatedFoodUsed;
+  },
+  /**
    * Sets list of selfUnits and calculates DPSHealth for selfUnits within a 16 distance range.
    * @param {World} world 
    * @param {Unit[]} units
@@ -1672,7 +1686,7 @@ const worldService = {
    * @returns {Promise<void>}
    */
   train: async (world, unitTypeId, targetCount = null) => {
-    const { agent, data, resources } = world;
+    const { data, resources } = world;
     const { actions } = resources.get();
     const { canBuild, getTrainer, unpauseAndLog} = worldService;
     let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return;
@@ -1756,8 +1770,8 @@ const worldService = {
         !attributes.includes(Attribute.STRUCTURE),
         haveAvailableProductionUnitsFor(world, type),
         agent.hasTechFor(type),
-        foodRequired <= plan[currentStep].food - getFoodUsed(world),
-        outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed(world),
+        foodRequired <= plan[currentStep].food - getFoodUsed(),
+        outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed(),
         !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]]),
       ].every(condition => condition);
     });
@@ -1828,7 +1842,7 @@ const worldService = {
     const { resources } = world;
     const { actions } = resources.get();
     const { getFoodUsed, trainCombatUnits, trainWorkers } = worldService;
-    const foodUsed = getFoodUsed(world);
+    const foodUsed = getFoodUsed();
     const foodUsedLessThanNextStepFoodTarget = step && foodUsed < step.food;
     if (!step || foodUsedLessThanNextStepFoodTarget) {
       const trainWorkersOrders = trainWorkers(world);
