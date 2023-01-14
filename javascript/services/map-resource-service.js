@@ -2,8 +2,9 @@
 "use strict"
 
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, areEqual, getNeighbors } = require("@node-sc2/core/utils/geometry/point");
+const { distance, areEqual, getNeighbors, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const location = require("../helper/location");
+const { pointsOverlap } = require("../helper/utilities");
 const { getPathCoordinates } = require("./path-service");
 
 const MapResourceService = {
@@ -131,6 +132,18 @@ const MapResourceService = {
   isCreepEdge: (map, pos) => {
     const isCreep = MapResourceService.isCreep(map, pos);
     return isCreep &&  getNeighbors(pos).some(neighbor => !map.getCreep().some(creepPosition => areEqual(creepPosition, neighbor)) && map.isPlaceable(neighbor));
+  },
+  /**
+   * @param {MapResource} map 
+   * @param {Point2D} pos
+   * @returns {boolean}
+   */
+  isInMineralLine: (map, pos) => {
+    const point = createPoint2D(pos);
+    const closestExpansion = map.getClosestExpansion(point);
+    const { areas } = closestExpansion; if (areas === undefined) return false;
+    const { mineralLine } = areas; if (mineralLine === undefined) return false;
+    return pointsOverlap([point], mineralLine);
   }
 }
 

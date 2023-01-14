@@ -141,7 +141,16 @@ const unitService = {
   },
   /**
    * @param {Unit} unit
-   * @returns {Boolean}
+   * @returns {boolean}
+   */
+  isByItselfAndNotAttacking: (unit) => {
+    const isByItself = unit['selfUnits'].length === 1;
+    const isAttacking = unit.labels.get('hasAttacked');
+    return isByItself && !isAttacking;
+  },
+  /**
+   * @param {Unit} unit
+   * @returns {boolean}
    */
   isMoving: (unit) => {
     const { orders } = unit;

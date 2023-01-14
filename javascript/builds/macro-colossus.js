@@ -116,7 +116,7 @@ const macroColossus = createSystem({
     }
   },
   async onUnitCreated({ resources }, newUnit) {
-    const { actions, map } = resources.get();
+    const { actions } = resources.get();
 
     if (newUnit.isWorker()) {
         return actions.gather(newUnit);

@@ -8,12 +8,12 @@ const { PHOTONCANNON, LARVA, CREEPTUMORBURROWED } = require("@node-sc2/core/cons
 const { distance, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
-const { getPathablePositions, isCreepEdge } = require("../../services/map-resource-service");
+const { getPathablePositions, isCreepEdge, isInMineralLine } = require("../../services/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
 const { getDistance } = require("../../services/position-service");
 const resourceManagerService = require("../../services/resource-manager-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
-const { getWeaponThatCanAttack, getPendingOrders } = require("../../services/unit-service");
+const { getWeaponThatCanAttack, getPendingOrders, isByItselfAndNotAttacking } = require("../../services/unit-service");
 const { retreat, getDamageDealingUnits, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
@@ -358,7 +358,7 @@ function getThreateningUnits(world, unit) {
   const enemyUnits = unit['enemyUnits'] || stateOfGameService.getEnemyUnits(unit);
   const threateningUnits = enemyUnits && enemyUnits.filter((/** @type {Unit} */ enemyUnit) => {
     const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit; if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
-    if (enemyUnit.isWorker() && isInMineralLine(map, enemyPos)) return false;
+    if (enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(unit))) return false;
     const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
       const distanceToEnemy = getDistance(pos, enemyPos);
@@ -399,20 +399,6 @@ function getClosestByWeaponRange(world, unit, threateningUnits) {
   }, undefined);
   return closestThreateningUnit && closestThreateningUnit.unit; 
 }
-
-/**
- * @param {MapResource} map 
- * @param {Point2D} pos
- * @returns {boolean}
- */
-function isInMineralLine(map, pos) {
-  const point = createPoint2D(pos);
-  const closestExpansion = map.getClosestExpansion(point);
-  const { areas } = closestExpansion; if (areas === undefined) return false;
-  const { mineralLine } = areas; if (mineralLine === undefined) return false;
-  return pointsOverlap([point], mineralLine);
-}
-
 /**
  * @param {Unit} unit
  * @param {"minerals" | "vespene" | undefined} type

@@ -300,6 +300,43 @@ const resourceManagerService = {
     });
     return [...trainingUnitTypes];
   },
+  getWarpInLocations: (resources) => {
+    const { units } = resources.get();
+    const pylonsNearProduction = units.getById(PYLON)
+      .filter(pylon => pylon.buildProgress >= 1)
+      .filter(pylon => {
+        const [closestBase] = getOccupiedExpansions(resources).map(expansion => expansion.getBase())
+        if (closestBase) {
+          return distance(pylon.pos, closestBase.pos) < 6.89
+        }
+      })
+      .filter(pylon => {
+        const [closestUnitOutOfRange] = units.getClosest(pylon.pos, units.getCombatUnits(Alliance.ENEMY));
+        if (closestUnitOutOfRange) {
+          return distance(pylon.pos, closestUnitOutOfRange.pos) > 16
+        }
+      });
+    let closestPylon;
+    if (pylonsNearProduction.length > 0) {
+      [closestPylon] = units.getClosest(getCombatRally(resources), pylonsNearProduction);
+      return closestPylon.pos;
+    } else {
+      const pylons = units.getById(PYLON)
+        .filter(pylon => pylon.buildProgress >= 1)
+        .filter(pylon => {
+          const [closestUnitOutOfRange] = units.getClosest(pylon.pos, units.getCombatUnits(Alliance.ENEMY));
+          if (closestUnitOutOfRange) {
+            return distance(pylon.pos, closestUnitOutOfRange.pos) > 16
+          }
+        });
+      if (pylons) {
+        [closestPylon] = units.getClosest(getCombatRally(resources), pylons);
+        if (closestPylon) {
+          return closestPylon.pos;
+        }
+      }
+    }
+  },
   /**
    * 
    * @param {ResourceManager} resources
@@ -308,10 +345,10 @@ const resourceManagerService = {
    */
   warpIn: async (resources, assemblePlan, unitType) => {
     const { actions } = resources.get();
-    const { getCombatRally } = resourceManagerService;
+    const { getCombatRally, getWarpInLocations } = resourceManagerService;
     let nearPosition;
     if (assemblePlan && assemblePlan.state && assemblePlan.state.defenseMode && scoutService.outsupplied) {
-      nearPosition = module.exports.findWarpInLocations(resources);
+      nearPosition = getWarpInLocations(resources);
     } else {
       nearPosition = getCombatRally(resources);
       console.log('nearPosition', nearPosition);

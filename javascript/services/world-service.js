@@ -21,13 +21,13 @@ const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
 const { getUnitTypeData, isRepairing, calculateSplashDamage, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField, getExistingTrainingTypes } = require("../systems/unit-resource/unit-resource-service");
-const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon } = require("./unit-service");
+const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon, isByItselfAndNotAttacking } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const { getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions, gather, getCombatRally, warpIn } = require("./resource-manager-service");
-const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions } = require("./map-resource-service");
+const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions, isInMineralLine } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getOccupiedExpansions } = require("../helper/expansions");
@@ -198,17 +198,15 @@ const worldService = {
     const { resources } = world;
     const { map } = resources.get();
     return units.reduce((accumulator, unit) => {
+      const { pos } = unit; if (pos === undefined) return accumulator;
       if (unit.isWorker()) {
         if (unit.alliance === Alliance.SELF) {
           if (unit.isHarvesting() && !unit.labels.has('retreating') && !unit.labels.has('defending')) {
             return accumulator;
           }
         } else if (unit.alliance === Alliance.ENEMY) {
-          const [closestExpansion] = getClosestExpansion(map, unit.pos);
-          if (closestExpansion) {
-            if (pointsOverlap(closestExpansion.areas.mineralLine, [unit.pos])) {
-              return accumulator;
-            }
+          if (isByItselfAndNotAttacking(unit) || isInMineralLine(map, pos)) {
+            return accumulator;
           }
         }
       }

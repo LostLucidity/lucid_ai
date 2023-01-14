@@ -8,48 +8,10 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { getCombatRally } = require("../services/resource-manager-service");
 const { assignAndSendWorkerToBuild } = require("../services/world-service");
-const scoutService = require("../systems/scouting/scouting-service");
 const { getOccupiedExpansions } = require("./expansions");
 const { findPosition } = require("./placement/placement-helper");
 
 module.exports = {
-  findWarpInLocations: (resources) => {
-    const { units } = resources.get();
-    const pylonsNearProduction = units.getById(PYLON)
-      .filter(pylon => pylon.buildProgress >= 1)
-      .filter(pylon => {
-        const [closestBase] = getOccupiedExpansions(resources).map(expansion => expansion.getBase())
-        if (closestBase) {
-          return distance(pylon.pos, closestBase.pos) < 6.89
-        }
-      })
-      .filter(pylon => {
-        const [closestUnitOutOfRange] = units.getClosest(pylon.pos, units.getCombatUnits(Alliance.ENEMY));
-        if (closestUnitOutOfRange) {
-          return distance(pylon.pos, closestUnitOutOfRange.pos) > 16
-        }
-      });
-    let closestPylon;
-    if (pylonsNearProduction.length > 0) {
-      [closestPylon] = units.getClosest(getCombatRally(resources), pylonsNearProduction);
-      return closestPylon.pos;
-    } else {
-      const pylons = units.getById(PYLON)
-        .filter(pylon => pylon.buildProgress >= 1)
-        .filter(pylon => {
-          const [closestUnitOutOfRange] = units.getClosest(pylon.pos, units.getCombatUnits(Alliance.ENEMY));
-          if (closestUnitOutOfRange) {
-            return distance(pylon.pos, closestUnitOutOfRange.pos) > 16
-          }
-        });
-      if (pylons) {
-        [closestPylon] = units.getClosest(getCombatRally(resources), pylons);
-        if (closestPylon) {
-          return closestPylon.pos;
-        }
-      }
-    }
-  },
   /**
    * @param {World} world 
    * @returns 

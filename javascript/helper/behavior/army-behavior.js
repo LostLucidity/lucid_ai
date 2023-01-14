@@ -100,7 +100,6 @@ const armyBehavior = {
               selfDPSHealth += getDPSHealth(world, worker, enemyUnits.map(enemyUnit => enemyUnit.unitType));
               if (selfDPSHealth > closestEnemyUnit['selfDPSHealth']) {
                 workersToDefend.forEach(worker => worker.labels.set('defending'));
-                // console.log(`Pulling ${workersToDefend.length} to defend with.`);
                 break;
               }
             }
