@@ -20,8 +20,8 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getUnitTypeData, isRepairing, calculateSplashDamage, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField, getExistingTrainingTypes } = require("../systems/unit-resource/unit-resource-service");
-const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon, isByItselfAndNotAttacking } = require("./unit-service");
+const { getUnitTypeData, isRepairing, calculateSplashDamage, setPendingOrders, getBuilders, getOrderTargetPosition, getNeediestMineralField, getExistingTrainingTypes, isByItselfAndNotAttacking } = require("../systems/unit-resource/unit-resource-service");
+const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
@@ -196,7 +196,7 @@ const worldService = {
    */
   calculateNearDPSHealth: (world, units, enemyUnitTypes) => {
     const { resources } = world;
-    const { map } = resources.get();
+    const { map, units: unitResource } = resources.get();
     return units.reduce((accumulator, unit) => {
       const { pos } = unit; if (pos === undefined) return accumulator;
       if (unit.isWorker()) {
@@ -205,7 +205,7 @@ const worldService = {
             return accumulator;
           }
         } else if (unit.alliance === Alliance.ENEMY) {
-          if (isByItselfAndNotAttacking(unit) || isInMineralLine(map, pos)) {
+          if (isByItselfAndNotAttacking(unitResource, unit) || isInMineralLine(map, pos)) {
             return accumulator;
           }
         }

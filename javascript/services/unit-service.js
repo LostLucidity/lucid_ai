@@ -25,6 +25,8 @@ const unitService = {
    * @type number
    */
   selfArmorUpgradeLevel: 0,
+  /** @type Map<string, Unit[]> */
+  selfUnits: new Map(),
   /**
    * @type number
    */
@@ -138,15 +140,6 @@ const unitService = {
       return true;
     });
     return weapon;
-  },
-  /**
-   * @param {Unit} unit
-   * @returns {boolean}
-   */
-  isByItselfAndNotAttacking: (unit) => {
-    const isByItself = unit['selfUnits'].length === 1;
-    const isAttacking = unit.labels.get('hasAttacked');
-    return isByItself && !isAttacking;
   },
   /**
    * @param {Unit} unit

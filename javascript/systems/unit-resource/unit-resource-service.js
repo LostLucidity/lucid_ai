@@ -11,8 +11,11 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { countTypes } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
+const { getDistance } = require("../../services/position-service");
 const { isPendingContructing } = require("../../services/shared-service");
-const { isMoving, getPendingOrders } = require("../../services/unit-service");
+const unitService = require("../../services/unit-service");
+const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
+const trackUnitsService = require("../track-units/track-units-service");
 
 const unitResourceService = {
   /** @type {{}} */
@@ -91,7 +94,7 @@ const unitResourceService = {
     if (firstOrderOnly) {
       return gatheringWorkers.filter(worker => {
         const { orders } = worker; if (orders === undefined) return false;
-        const pendingOrders = getPendingOrders(worker);
+        const pendingOrders = unitService.getPendingOrders(worker);
         const gatheringOrders = [...orders, ...pendingOrders].filter(order => order.abilityId && gatheringAbilities.includes(order.abilityId));
         return gatheringOrders.length > 0;
       });
@@ -104,11 +107,45 @@ const unitResourceService = {
    * @param {Unit} targetUnit
    * @return {boolean}
    */
+
+  /**
+   * @param {UnitResource} units
+   * @param {Unit} unit
+   * @returns {Unit[]}
+   */
+  getSelfUnits: (units, unit) => {
+    const { pos, tag } = unit; if (pos === undefined || tag === undefined) return [];
+    let hasSelfUnits = unitService.selfUnits.has(tag);
+    if (!hasSelfUnits) {
+      let unitsByAlliance = [];
+      if (unit.alliance === Alliance.SELF) {
+        unitsByAlliance = trackUnitsService.selfUnits.length > 0 ? trackUnitsService.selfUnits : units.getAlive(Alliance.SELF);
+      } else if (unit.alliance === Alliance.ENEMY) {
+        unitsByAlliance = enemyTrackingService.mappedEnemyUnits.length > 0 ? enemyTrackingService.mappedEnemyUnits : units.getAlive(Alliance.ENEMY);
+      }
+      const selfUnits = unitsByAlliance.filter(allyUnit => {
+        const { pos: allyPos } = allyUnit; if (allyPos === undefined) return false;
+        return getDistance(pos, allyPos) < 16;
+      });
+      unitService.selfUnits.set(tag, selfUnits);
+    }
+    return unitService.selfUnits.get(tag) || [];
+  },
   inSightRange(units, targetUnit) {
     return units.some(unit => {
       const targetUnitDistanceToItsEdge = distance(unit.pos, targetUnit.pos) - targetUnit.radius;
       return unit.data().sightRange >= targetUnitDistanceToItsEdge;
     });
+  },
+  /**
+   * @param {UnitResource} units
+   * @param {Unit} unit
+   * @returns {boolean}
+   */
+  isByItselfAndNotAttacking: (units, unit) => {
+    const isByItself = unitResourceService.getSelfUnits(units, unit).length === 1;
+    const isAttacking = unit.labels.get('hasAttacked');
+    return isByItself && !isAttacking;
   },
   /**
    * @param {UnitResource} units
@@ -216,7 +253,7 @@ const unitResourceService = {
       }
     }
     const isNotConstructing = !unitIsConstructing || (unitIsConstructing && unit.unitType === PROBE);
-    const probeAndMoving = unit.unitType === PROBE && isMoving(unit);
+    const probeAndMoving = unit.unitType === PROBE && unitService.isMoving(unit);
     return (isNotConstructing && !unit.isAttacking() && !isPendingContructing(unit)) || probeAndMoving;
   },
   /**
@@ -283,7 +320,7 @@ const unitResourceService = {
       const targetedMineralFieldWorkers = harvestingMineralWorkers.filter(worker => {
         const { orders } = worker;
         if (orders === undefined) return false;
-        const pendingOrders = getPendingOrders(worker);
+        const pendingOrders = unitService.getPendingOrders(worker);
         const allOrders = [...orders, ...pendingOrders];
         return allOrders.some(order => {
           if (order.targetUnitTag === mineralField.tag && worker.labels.has('mineralField')) {

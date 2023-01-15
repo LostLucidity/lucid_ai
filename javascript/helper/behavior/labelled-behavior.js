@@ -5,7 +5,7 @@ const { MOVE, ATTACK_ATTACK, BUILD_CREEPTUMOR_QUEEN } = require("@node-sc2/core/
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 const { PHOTONCANNON, LARVA, CREEPTUMORBURROWED } = require("@node-sc2/core/constants/unit-type");
-const { distance, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
+const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
 const { getPathablePositions, isCreepEdge, isInMineralLine } = require("../../services/map-resource-service");
@@ -13,15 +13,14 @@ const { isFacing } = require("../../services/micro-service");
 const { getDistance } = require("../../services/position-service");
 const resourceManagerService = require("../../services/resource-manager-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
-const { getWeaponThatCanAttack, getPendingOrders, isByItselfAndNotAttacking } = require("../../services/unit-service");
-const { retreat, getDamageDealingUnits, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth } = require("../../services/world-service");
+const { getWeaponThatCanAttack, getPendingOrders } = require("../../services/unit-service");
+const { retreat, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
 const stateOfGameService = require("../../systems/state-of-game-system/state-of-game-service");
-const { calculateTotalHealthRatio } = require("../../systems/unit-resource/unit-resource-service");
+const { calculateTotalHealthRatio, isByItselfAndNotAttacking } = require("../../systems/unit-resource/unit-resource-service");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
-const { pointsOverlap } = require("../utilities");
 const { engageOrRetreat } = require("./army-behavior");
 
 module.exports = {
@@ -353,12 +352,12 @@ function getEmptyExpansions(resources) {
  */
 function getThreateningUnits(world, unit) {
   const { data, resources } = world;
-  const { map } = resources.get();
+  const { map, units } = resources.get();
   const { pos, radius} = unit; if (pos === undefined || radius === undefined) return [];
   const enemyUnits = unit['enemyUnits'] || stateOfGameService.getEnemyUnits(unit);
   const threateningUnits = enemyUnits && enemyUnits.filter((/** @type {Unit} */ enemyUnit) => {
     const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit; if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
-    if (enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(unit))) return false;
+    if (enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(units, enemyUnit))) return false;
     const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
       const distanceToEnemy = getDistance(pos, enemyPos);
