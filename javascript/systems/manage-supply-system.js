@@ -12,7 +12,8 @@ module.exports = createSystem({
   name: 'ManageSupplySystem',
   type: 'agent',
   async onStep(world) {
-    const { agent } = world;
+    const { agent, data } = world;
+    clearEarmarks(data);
     const conditions = [
       isSupplyNeeded(world, 0.2) &&
       (agent.foodUsed > planService.planMax.supplyDepot || agent.minerals > 512)
@@ -34,3 +35,11 @@ module.exports = createSystem({
     }
   }
 });
+
+/**
+ * @param {DataStorage} data
+ * @returns {void}
+ */
+function clearEarmarks(data) {
+  data.get('earmarks').forEach((/** @type {Earmark} */ earmark) => data.settleEarmark(earmark.name));
+}
