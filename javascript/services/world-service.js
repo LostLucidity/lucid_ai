@@ -82,7 +82,7 @@ const worldService = {
     const { race } = agent;
     const { map, units } = resources.get();
     const { abilityId } = data.getUnitTypeData(unitType);
-    const { getBuilder, setFoodUsed } = worldService;
+    const { getBuilder } = worldService;
     const collectedActions = [];
     position = getMiddle ? getMiddleOfStructure(position, unitType) : position;
     const builder = getBuilder(world, position);
@@ -121,7 +121,6 @@ const worldService = {
           unitCommand.targetWorldSpacePos = position;
           collectedActions.push(unitCommand);
         }
-        setFoodUsed(world);
         console.log(`Command given: ${Object.keys(Ability).find(ability => Ability[ability] === abilityId)}`);
         if (TownhallRace[race].indexOf(unitType) === 0) {
           resourceManagerService.availableExpansions = [];
@@ -141,7 +140,7 @@ const worldService = {
   buildWorkers: (world, limit=1, checkCanBuild=false) => {
     const { agent, data, resources } = world;
     const { units } = resources.get();
-    const { canBuild, setFoodUsed } = worldService;
+    const { canBuild } = worldService;
     const collectedActions = [];
     const workerTypeId = WorkerRace[agent.race];
     if (canBuild(world, workerTypeId) || checkCanBuild) {
@@ -163,7 +162,6 @@ const worldService = {
           setPendingOrders(trainer, unitCommand);
           const { foodRequired } = data.getUnitTypeData(workerTypeId); if (foodRequired === undefined) return collectedActions;
           planService.pendingFood += foodRequired;
-          setFoodUsed(world);
         });
         return collectedActions;
       }
@@ -1242,7 +1240,7 @@ const worldService = {
   premoveBuilderToPosition: (world, position, unitType, stepAhead = false) => {
     const { agent, data, resources } = world;
     const { debug, map, units } = resources.get();
-    const { rallyWorkerToTarget, setFoodUsed } = worldService;
+    const { rallyWorkerToTarget } = worldService;
     const collectedActions = [];
     position = getMiddleOfStructure(position, unitType);
     const builder = worldService.getBuilder(world, position);
@@ -1300,7 +1298,6 @@ const worldService = {
               const { foodRequired } = data.getUnitTypeData(unitType);
               if (foodRequired === undefined) return collectedActions;
               planService.pendingFood -= foodRequired;
-              setFoodUsed(world);
             }
           }
           collectedActions.push(...rallyWorkerToTarget(world, position, true));

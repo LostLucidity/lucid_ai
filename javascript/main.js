@@ -19,7 +19,6 @@ const entry = require('./builds/entry');
 const { getFileName } = require('./helper/get-races');
 const saltConverterSystem = require('./systems/salt-converter/salt-converter-system');
 const executePlanSystem = require('./systems/execute-plan/execute-plan-system');
-const unitTrainingSystem = require('./systems/unit-training/unit-training-system');
 const workerTrainingSystem = require('./systems/worker-training-system/worker-training-system');
 const wallOffRampSystem = require('./systems/wall-off-ramp/wall-off-ramp-system');
 const runBehaviorsSystem = require('./systems/run-behaviors-system');

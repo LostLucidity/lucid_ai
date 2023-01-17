@@ -482,7 +482,7 @@ class AssemblePlan {
    */
   async train(world, food, unitType, targetCount) {
     const { data } = world;
-    const { canBuild, getFoodUsed, isSupplyNeeded, setAndLogExecutedSteps, setFoodUsed } = worldService;
+    const { canBuild, getFoodUsed, isSupplyNeeded, setAndLogExecutedSteps } = worldService;
     if (getFoodUsed() >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
       const unitTypeData = data.getUnitTypeData(unitType);
@@ -505,7 +505,6 @@ class AssemblePlan {
             await actions.sendAction([unitCommand]);
             setPendingOrders(trainer, unitCommand);
             planService.pendingFood += unitTypeData.foodRequired;
-            setFoodUsed(world);
           } else {
             abilityId = WarpUnitAbility[unitType];
             const warpGates = this.units.getById(WARPGATE).filter(warpgate => warpgate.abilityAvailable(abilityId));

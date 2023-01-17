@@ -15,7 +15,7 @@ const { addAddOn } = require("../../helper/terran");
 const worldService = require("../../services/world-service");
 const planService = require("../../services/plan-service");
 const { balanceResources } = require("../manage-resources");
-const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, assignAndSendWorkerToBuild, getFoodUsed, trainWorkersOrCombatUnits, train, setAndLogExecutedSteps } = require("../../services/world-service");
+const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, assignAndSendWorkerToBuild, getFoodUsed, trainWorkersOrCombatUnits, train, setAndLogExecutedSteps, setFoodUsed } = require("../../services/world-service");
 const { addEarmark, isTrainingUnit, hasEarmarks } = require("../../services/data-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
@@ -288,6 +288,7 @@ const planActions = {
           if (upgrade === undefined || upgrade === null) break;
           await planActions.upgrade(world, upgrade);
         }
+        setFoodUsed(world);
         if (setEarmark && hasEarmarks(data)) {
           const earmarkTotals = data.getEarmarkTotals('');
           const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
