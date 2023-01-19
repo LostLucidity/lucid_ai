@@ -5,12 +5,7 @@ const path = require('path');
 
 // main.js
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
-const {
-  AIBuild,
-  Difficulty,
-  PlayerType,
-  Race,
-} = require('@node-sc2/core/constants/enums');
+const { AIBuild, Difficulty, PlayerType, Race } = require('@node-sc2/core/constants/enums');
 
 const maps = require('./maps');
 
@@ -52,6 +47,8 @@ const stateOfGameSystem = require('./systems/state-of-game-system/state-of-game-
 const creepSpreadSystem = require('./systems/creep-spread-system');
 const cleanUpSystem = require('./systems/clean-up-system');
 const qTableSystem = require('./systems/q-table/q-table-system');
+const qTableService = require('./systems/q-table/q-table-service');
+const { saveQTable } = require('./systems/q-table/q-table-service');
 
 // const aiBuild = AIBuild.Rush;
 // const bot2 = createAgent(settings);
@@ -272,6 +269,7 @@ async function processResults(gameResult) {
   logoutStepsExecuted();
   const { agent, resources } = world;
   const { actions, frame } = resources.get();
+  const { _client } = actions; if (_client === undefined) { throw new Error(); }
   // const parsedCompositions = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', `current.json`)).toString())
   // parsedCompositions.forEach(composition => {
   //   if (typeof composition.attack !== 'undefined') {
@@ -289,9 +287,26 @@ async function processResults(gameResult) {
   // fs.writeFileSync(path.join(__dirname, 'data', getFileName(data, selfUnitType, enemyUnitType)), JSON.stringify(parsedCompositions));
   saveUnitTypeData(unitResourceService.unitTypeData);
   saveExecutedStepsLog(agent, frame.getGameInfo().mapName);
-  const selfResult = gameResults.find(result => result.playerId === agent.playerId);
-  saveBuildOrder(world, selfResult);
-  const replay = await actions._client.saveReplay();
+  const selfResult = gameResults.find(result => result.playerId === agent.playerId); if (selfResult === undefined) return;
+  updateQtable(gameResult);
+  saveQTable();
+  const replay = await _client.saveReplay();
   saveReplay(replay);
+  saveBuildOrder(world, selfResult);
   actions._client.close();
 }
+/**
+* @param {GameResult} gameResult
+*/
+function updateQtable(gameResult) {
+  const [world, gameResults] = gameResult;
+  const { agent } = world;
+  const selfResult = gameResults.find(result => result.playerId === agent.playerId); if (selfResult === undefined) return;
+  const { result } = selfResult; if (result === undefined) return;
+  if ([1, 2].includes(result)) {
+    const winResult = result === 1;
+    qTableService.updateQTable(winResult);
+    qTableService.saveQTable();
+  }
+}
+

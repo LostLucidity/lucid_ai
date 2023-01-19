@@ -1,11 +1,13 @@
 //@ts-check
 "use strict"
 
+const fs = require('fs');
 const { Attribute } = require("@node-sc2/core/constants/enums");
 const { getAllActions } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
 const { train, getStep, getUnitTypeCount } = require("../../services/world-service");
 const { build, upgrade } = require("../execute-plan/plan-actions");
+const path = require('path');
 
 /** @typedef { { step: number, foodUsed: number } } State */
 
@@ -75,6 +77,13 @@ const qTableService = {
       await upgrade(world, upgradeType);
     }
   },
+  getQTable() {
+    const qtable = fs.readFileSync(path.join(__dirname, 'data', 'q-table.json'), 'utf8');
+    if (!qtable) {
+      return [];
+    }
+    return JSON.parse(qtable);
+  },
   /**
    * @param {State} currentState
    * @returns {number}
@@ -90,6 +99,24 @@ const qTableService = {
       return states.length - 1;
     }
     return stateIndex;
-  }
+  },
+  saveQTable() {
+    const { Q } = qTableService;
+    fs.writeFileSync(path.join(__dirname, 'data', 'q-table.json'), JSON.stringify(Q), 'utf8');
+  },
+  /**
+   * @param {boolean} result
+   * @returns {void}
+   */
+  updateQTable(result) {
+    const { alpha, gamma, Q, steps, states } = qTableService;
+    const reward = result ? 1 : -1;
+    for (let i = 0; i < steps.length; i++) {
+      const stateIndex = qTableService.getStateIndex(states[i]);
+      const actionIndex = steps[i];
+      const maxQ = Math.max(...Q[stateIndex]);
+      Q[stateIndex][actionIndex] += alpha * (reward + gamma * maxQ - Q[stateIndex][actionIndex]);
+    }
+  },
 }
 module.exports = qTableService;

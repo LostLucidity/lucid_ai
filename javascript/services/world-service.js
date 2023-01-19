@@ -1523,7 +1523,7 @@ const worldService = {
     const plans = JSON.parse(fs.readFileSync(
       // path.join(__dirname, '../', 'data', `plans.json`)).toString()
       path.join(__dirname, 'data', `plans.json`)).toString()
-    );
+    ) || {};
     if (!plans[selfRace]) {
       plans[selfRace] = {};
     }

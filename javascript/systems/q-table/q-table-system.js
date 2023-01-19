@@ -18,6 +18,7 @@ module.exports = createSystem({
     const { data } = world;
     setUnitTypeTrainingAbilityMapping(data);
     setUpgradeAbilities(data);
+    qTableService.Q = await qTableService.getQTable();
   },
   async onStep(world) {
     // get food used
