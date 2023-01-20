@@ -695,7 +695,7 @@ const worldService = {
     const lowerOfFoodDifferenceAndProductionUnitsCount = Math.min(foodDifference, productionUnitsCount);
     let affordableFoodDifference = 0;
     for (let i = 0; i < lowerOfFoodDifferenceAndProductionUnitsCount; i++) {
-      if (agent.canAfford(WorkerRace[agent.race])) {
+      if (agent.canAfford(WorkerRace[agent.race]) && haveSupplyForUnit(world, WorkerRace[agent.race])) {
         affordableFoodDifference++;
         addEarmark(world, data.getUnitTypeData(WorkerRace[agent.race]))
       } else {
@@ -2376,5 +2376,19 @@ function getContructionTimeLeft(units, unit) {
   const { buildProgress } = underConstruction; if (buildProgress === undefined) return 0;
   const { buildTime } = unit.data(); if (buildTime === undefined) return 0;
   return getBuildTimeLeft(underConstruction, buildTime, buildProgress);
+}
+
+/**
+ * @param {World} world 
+ * @param {UnitTypeId} unitType
+ */
+function haveSupplyForUnit(world, unitType) {
+  const { agent, data } = world;
+  const { foodCap } = agent; if (foodCap === undefined) return false;
+  const foodUsed = worldService.getFoodUsed();
+  const earmarkedFood = dataService.getEarmarkedFood();
+  const { foodRequired } = data.getUnitTypeData(unitType); if (foodRequired === undefined) return false;
+  const supplyLeft = foodCap - foodUsed - earmarkedFood - foodRequired;
+  return supplyLeft >= 0;
 }
 

@@ -15,6 +15,8 @@ const dataService = {
   /** @type {Earmark[]} */
   earmarks: [],
   /** @type {Map<number, number>} */
+  foodEarmarks: new Map(),
+  /** @type {Map<number, number>} */
   unitTypeTrainingAbilities: new Map(),
   /** @type {Map<number, number>} */
   upgradeAbilities: [],
@@ -26,6 +28,8 @@ const dataService = {
   addEarmark: (world, orderData) => {
     const { data } = world;
     const { name, mineralCost, vespeneCost } = orderData; if (name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
+    /** @type {number} */
+    const foodRequired = orderData['foodRequired'];
     const earmark = {
       name: `${name}_${planService.currentStep}`,
       minerals: mineralCost,
@@ -33,6 +37,9 @@ const dataService = {
     }
     data.addEarmark(earmark);
     dataService.earmarks.push(earmark);
+    if (foodRequired !== undefined) {
+      dataService.foodEarmarks.set(planService.currentStep, foodRequired);
+    }
   },
   /**
    * 
@@ -41,7 +48,16 @@ const dataService = {
    */
   calculateNearSupply: (data, units) => {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
-  }, 
+  },
+  /**
+   * @param {DataStorage} data
+   * @returns {void}
+   */
+  clearEarmarks(data) {
+    data.get('earmarks').forEach((/** @type {Earmark} */ earmark) => data.settleEarmark(earmark.name));
+    dataService.foodEarmarks.clear();
+    dataService.earmarks = [];
+  },
   /**
    * @returns {number[]}
    */
@@ -112,6 +128,13 @@ const dataService = {
     const { buildProgress } = unit;
     const { buildTime } = data.getUnitTypeData(unit.unitType);
     return getTimeInSeconds(buildTime) * buildProgress;
+  },
+  /**
+   * @description Get total food earmarked for all steps
+   * @returns {number}
+   */
+  getEarmarkedFood: () => {
+    return Array.from(dataService.foodEarmarks.values()).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   },
   /**
    * @param {DataStorage} data 

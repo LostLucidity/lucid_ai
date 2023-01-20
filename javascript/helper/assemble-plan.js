@@ -35,7 +35,7 @@ const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
 const planActions = require("../systems/execute-plan/plan-actions");
-const { addEarmark, getSupply, hasEarmarks } = require("../services/data-service");
+const { addEarmark, getSupply, hasEarmarks, clearEarmarks } = require("../services/data-service");
 const worldService = require("../services/world-service");
 const { buildGasMine } = require("../systems/execute-plan/plan-actions");
 const harassService = require("../systems/harass/harass-service");
@@ -47,8 +47,7 @@ const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
-const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train } = require("../services/world-service");
-const dataService = require("../services/data-service");
+const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train, setFoodUsed } = require("../services/world-service");
 const { getNextPlanStep } = require("../services/plan-service");
 const { warpIn } = require("../services/resource-manager-service");
 
@@ -82,6 +81,7 @@ class AssemblePlan {
    * @param {any} state
    */
   async onStep(world, state) {
+    const { data } = world;
     this.collectedActions = [];
     this.state = state;
     this.state.defenseStructures = this.defenseStructures;
@@ -127,7 +127,7 @@ class AssemblePlan {
     this.collectedActions.push(...await runBehaviors(world));
     const label = 'pendingOrders';
     this.units.withLabel(label).forEach(unit => unit.labels.delete(label));
-    this.data.get('earmarks').forEach(earmark => this.data.settleEarmark(earmark.name));
+    clearEarmarks(data);
     await actions.sendAction(this.collectedActions);
   }
 
@@ -578,7 +578,6 @@ class AssemblePlan {
   async runPlan(world) {
     const { agent, data } = world;
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
-    dataService.earmarks = [];
     planService.continueBuild = true;
     planService.pendingFood = 0;
     const { legacyPlan } = planService;
@@ -645,6 +644,7 @@ class AssemblePlan {
             await this.upgrade(this.world, foodTarget, upgradeId);
             break;
         }
+        setFoodUsed(world);
         if (setEarmark && hasEarmarks(data)) {
           const earmarkTotals = data.getEarmarkTotals('');
           const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;

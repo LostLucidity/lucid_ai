@@ -4,6 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { Race } = require("@node-sc2/core/constants/enums");
 const { SUPPLYDEPOT, PYLON, OVERLORD } = require("@node-sc2/core/constants/unit-type");
+const { clearEarmarks } = require("../services/data-service");
 const planService = require("../services/plan-service");
 const { isSupplyNeeded, findPlacements, train } = require("../services/world-service");
 const { build } = require("./execute-plan/plan-actions");
@@ -35,11 +36,3 @@ module.exports = createSystem({
     }
   }
 });
-
-/**
- * @param {DataStorage} data
- * @returns {void}
- */
-function clearEarmarks(data) {
-  data.get('earmarks').forEach((/** @type {Earmark} */ earmark) => data.settleEarmark(earmark.name));
-}
