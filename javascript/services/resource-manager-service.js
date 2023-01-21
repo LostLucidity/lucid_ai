@@ -338,6 +338,17 @@ const resourceManagerService = {
     }
   },
   /**
+   * @param {ResourceManager} resources
+   * @param {number} timeStart
+   * @param {number} timeEnd
+   * @returns {boolean}
+  */
+  isWithinTime: (resources, timeStart, timeEnd) => {
+    const { frame } = resources.get();
+    const timeInSeconds = frame.timeInSeconds();
+    return timeInSeconds > timeStart && timeInSeconds < timeEnd;
+  },
+  /**
    * 
    * @param {ResourceManager} resources
    * @param {*} assemblePlan 
