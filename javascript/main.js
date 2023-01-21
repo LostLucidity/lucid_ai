@@ -290,7 +290,7 @@ async function processResults(gameResult) {
   const selfResult = gameResults.find(result => result.playerId === agent.playerId); if (selfResult === undefined) return;
   updateQtable(gameResult);
   saveQTable();
-  const replay = await _client.saveReplay();
+  const replay = await _client.saveReplay({});
   saveReplay(replay);
   saveBuildOrder(world, selfResult);
   actions._client.close();

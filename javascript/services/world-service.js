@@ -26,7 +26,7 @@ const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions, gather, getCombatRally, warpIn } = require("./resource-manager-service");
+const { getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions, gather, getCombatRally, warpIn, isWithinTime } = require("./resource-manager-service");
 const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions, isInMineralLine } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -785,20 +785,25 @@ const worldService = {
    * @returns {boolean}
    */
   isStrongerAtPosition: (world, position) => {
-    const { units } = world.resources.get();
+    const { resources } = world;
+    const { units } = resources.get();
     const { calculateNearDPSHealth } = worldService;
-    const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => unit.pos && distance(unit.pos, position) < 16);
+    let enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => unit.pos && distance(unit.pos, position) < 16);
+    enemyUnits = enemyUnits.length === 1 && enemyUnits[0].unitType && workerTypes.includes(enemyUnits[0].unitType) ? [] : enemyUnits;
     if (enemyUnits.length === 0) return true;
     const selfUnits = units.getAlive(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) < 16);
-    const enemyUnitTypes = enemyUnits.map(unit => unit.unitType);
-    const firstWorker = enemyUnitTypes.find(unitType => unitType && workerTypes.includes(unitType));
-    if (firstWorker) {
-      enemyUnitTypes.splice(enemyUnitTypes.indexOf(firstWorker), 1);
-    }
-    // @ts-ignore
+    const enemyUnitTypes = enemyUnits.reduce((/** @type {UnitTypeId[]} */ accumulator, unit) => {
+      const { unitType } = unit;
+      if (unitType === undefined) { return accumulator }
+      return [...accumulator, unitType];
+    }, []);
     const selfDPSHealth = calculateNearDPSHealth(world, selfUnits, enemyUnitTypes);
-    // @ts-ignore
-    const enemyDPSHealth = calculateNearDPSHealth(world, enemyUnits, selfUnits.map(unit => unit.unitType));
+    const selfUnitTypes = selfUnits.reduce((/** @type {UnitTypeId[]} */ accumulator, unit) => {
+      const { unitType } = unit;
+      if (unitType === undefined) { return accumulator }
+      return [...accumulator, unitType];
+    }, []);
+    const enemyDPSHealth = calculateNearDPSHealth(world, enemyUnits, selfUnitTypes);
     return selfDPSHealth >= enemyDPSHealth;
   }, 
   /**
