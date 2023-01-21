@@ -9,8 +9,12 @@ const agentService = require('./agent-service');
 const loggingService = require('./logging-service');
 
 const fileSavingService = {
+  /**
+   * @param {SC2APIProtocol.ResponseSaveReplay} replay
+   */
   saveReplay: (replay) => {
-    fs.writeFileSync(path.join(__dirname, '../replays', `${Date.now()}.SC2Replay`), replay.data);
+    const { data } = replay; if (!data) { return; }
+    fs.writeFileSync(path.join(__dirname, '../replays', `${Date.now()}.SC2Replay`), data);
   },
   /**
    * 
