@@ -19,7 +19,7 @@ const { expand } = require("./general-actions");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
 const { getMiddleOfNaturalWall, findPosition, getCandidatePositions, getInTheMain } = require("./placement/placement-helper");
 const { restorePower } = require("./protoss");
-const { liftToThird, addAddOn, swapBuildings } = require("./terran");
+const { liftToThird, addAddOn } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const runBehaviors = require("./behavior/run-behaviors");
@@ -47,7 +47,7 @@ const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
-const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train, setFoodUsed } = require("../services/world-service");
+const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train, setFoodUsed, swapBuildings } = require("../services/world-service");
 const { getNextPlanStep } = require("../services/plan-service");
 const { warpIn } = require("../services/resource-manager-service");
 

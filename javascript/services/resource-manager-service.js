@@ -1,12 +1,13 @@
 //@ts-check
 "use strict"
 
-const { UnitType } = require("@node-sc2/core/constants");
+const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { SMART } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes, creepGenerators } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, areEqual, avgPoints } = require("@node-sc2/core/utils/geometry/point");
+const { distance, areEqual, avgPoints, nClosestPoint } = require("@node-sc2/core/utils/geometry/point");
+const getRandom = require("@node-sc2/core/utils/get-random");
 const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -349,10 +350,10 @@ const resourceManagerService = {
     return timeInSeconds > timeStart && timeInSeconds < timeEnd;
   },
   /**
-   * 
    * @param {ResourceManager} resources
    * @param {*} assemblePlan 
    * @param {UnitTypeId} unitType
+   * @returns {Promise<void>}
    */
   warpIn: async (resources, assemblePlan, unitType) => {
     const { actions } = resources.get();
@@ -365,6 +366,20 @@ const resourceManagerService = {
       console.log('nearPosition', nearPosition);
     }
     try { await actions.warpIn(unitType, { nearPosition: nearPosition }) } catch (error) { console.log(error); }
+  },
+  /**
+   * @param {World} world
+   * @param {UnitTypeId} unitType
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  warpInSync: (world, unitType) => {
+    const { resources } = world;
+    const collectedActions = []
+    const { getCombatRally } = resourceManagerService;
+    const nearPosition = getCombatRally(resources);
+    console.log('nearPosition', nearPosition);
+    collectedActions.push(...warpInCommands(world, unitType, { nearPosition }));
+    return collectedActions;
   }
 }
 
@@ -442,5 +457,45 @@ function getNaturalWall(map) {
   const natural = map.getNatural(); if (natural === undefined) return [];
   const naturalWall = natural.getWall(); if (naturalWall === undefined) return [];
   return naturalWall;
+}
+
+/**
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @param {Object?} opts
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function warpInCommands(world, unitType, opts = {}) {
+  const { agent, resources } = world;
+  const { powerSources } = agent; if (powerSources === undefined) return [];
+  const { units, map } = resources.get();
+  const abilityId = WarpUnitAbility[unitType];
+  const n = opts.maxQty || 1;
+  /** @type {Point2D} */
+  const nearPosition = opts.nearPosition || map.getCombatRally();
+  const qtyToWarp = world.agent.canAffordN(unitType, n);
+  const selectedMatricies = units.getClosest(nearPosition, powerSources, opts.nearPosition ? 1 : 3);
+  let myPoints = selectedMatricies
+    .map(matrix => matrix.pos && matrix.radius ? gridsInCircle(matrix.pos, matrix.radius) : [])
+    .reduce((acc, arr) => acc.concat(arr), [])
+    .filter(p => map.isPathable(p) && !map.hasCreep(p));
+  if (opts.highground) {
+    myPoints = myPoints
+      .map(p => ({ ...p, z: map.getHeight(p) }))
+      .sort((a, b) => b.z - a.z)
+      .filter((p, i, arr) => p.z === arr[0].z);
+  }
+
+  const myStructures = units.getStructures();
+  const points = nClosestPoint(nearPosition, myPoints, 100)
+    .filter((/** @type {Point2D} */ point) => myStructures.every(structure => structure.pos && distance(structure.pos, point) > 2));
+  const warpGates = units.getById(UnitType.WARPGATE).filter(wg => wg.abilityAvailable(abilityId)).slice(0, qtyToWarp);
+  const destPoints = getRandom(points).slice(0, warpGates.length);
+  const commands = warpGates.map((warpGate, i) => {
+    const unitCommand = createUnitCommand(abilityId, [warpGate]);
+    unitCommand.targetWorldSpacePos = destPoints[i];
+    return unitCommand;
+  });
+  return commands;
 }
 

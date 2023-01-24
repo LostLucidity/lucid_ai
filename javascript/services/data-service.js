@@ -3,6 +3,7 @@
 
 const { UnitType, WarpUnitAbility, Upgrade } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getTimeInSeconds } = require("./frames-service");
 const planService = require("./plan-service");
@@ -27,12 +28,19 @@ const dataService = {
    */
   addEarmark: (world, orderData) => {
     const { data } = world;
+    const { minerals: earmarkedTotalMinerals, vespene: earmarkedTotalVespene } = data.getEarmarkTotals('');
+    if (earmarkedTotalMinerals > 512 && earmarkedTotalVespene > 512) return;
     const { name, mineralCost, vespeneCost } = orderData; if (name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
     /** @type {number} */
     const foodRequired = orderData['foodRequired'];
+    let minerals = 0;
+    if (orderData['unitId'] !== undefined) {
+      const unitType = orderData['unitId'];
+      minerals = mineralCost - (unitType === ORBITALCOMMAND ? -400 : 0);
+    }
     const earmark = {
       name: `${name}_${planService.currentStep}`,
-      minerals: mineralCost,
+      minerals,
       vespene: vespeneCost,
     }
     data.addEarmark(earmark);
@@ -179,10 +187,10 @@ const dataService = {
    * @param {DataStorage} data
    * @returns {boolean}
    */
-    hasEarmarks: (data) => {
-      const earmarkTotals = data.getEarmarkTotals('');
-      return earmarkTotals.minerals > 0 || earmarkTotals.vespene > 0;
-    },
+  hasEarmarks: (data) => {
+    const earmarkTotals = data.getEarmarkTotals('');
+    return earmarkTotals.minerals > 0 || earmarkTotals.vespene > 0;
+  },
   /**
    * @param {DataStorage} data
    * @param {Unit} unit 

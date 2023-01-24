@@ -56,8 +56,8 @@ const planService = {
   /** @type {(import("../interfaces/plan-step").PlanStep[])} */
   plan: [],
   planMax: {
-    gasMine: null,
-    supplyDepot: null,
+    gasMine: 0,
+    supplyDepot: 0,
   },
   planMin: {},
   /**

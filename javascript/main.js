@@ -206,7 +206,6 @@ async function runGame() {
     // defenseSystem,
     enemyTrackingSystem,
     rallySystem,
-    manageSupplySystem,
     trackUnitsSystem,
     swapBuildingSystem,
     liftToThirdSystem,

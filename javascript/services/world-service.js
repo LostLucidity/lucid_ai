@@ -5,12 +5,12 @@ const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
+const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities, addonTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
-const { countTypes, morphMapping, addOnTypesMapping } = require("../helper/groups");
-const { findPosition, getCandidatePositions } = require("../helper/placement/placement-helper");
+const { countTypes, morphMapping, addOnTypesMapping, flyingTypesMapping } = require("../helper/groups");
+const { findPosition, getCandidatePositions, getInTheMain } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine, getResourceDemand } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
@@ -26,17 +26,17 @@ const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions, gather, getCombatRally, warpIn, isWithinTime } = require("./resource-manager-service");
+const { getClosestUnitPositionByPath, getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions, gather, getCombatRally, warpIn, isWithinTime, warpInSync } = require("./resource-manager-service");
 const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions, isInMineralLine } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
-const { getOccupiedExpansions } = require("../helper/expansions");
+const { getOccupiedExpansions, getNextSafeExpansion, getAvailableExpansions } = require("../helper/expansions");
 const { existsInMap } = require("../helper/location");
 const { pointsOverlap, shuffle } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE, CREEPTUMOR, WARPGATE } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE, CREEPTUMOR, WARPGATE, PYLON, OVERLORD, GREATERSPIRE } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -51,13 +51,14 @@ const MapResourceService = require('./map-resource-service');
 const { getPathCoordinates } = require('./path-service');
 const { CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/buff');
 const resourceManagerService = require('./resource-manager-service');
-const { getAddOnPlacement } = require('../helper/placement/placement-utilities');
+const { getAddOnPlacement, getAddOnBuildingPosition } = require('../helper/placement/placement-utilities');
 const { getEnemyUnits } = require('../systems/state-of-game-system/state-of-game-service');
 const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
-const { getUnitWeaponDistanceToPosition, addEarmark } = require('./data-service');
+const { getUnitWeaponDistanceToPosition, addEarmark, isTrainingUnit } = require('./data-service');
 const unitTrainingService = require('../systems/unit-training/unit-training-service');
 const { haveAvailableProductionUnitsFor } = require('../systems/unit-training/unit-training-service');
 const { checkUnitCount } = require('../systems/track-units/track-units-service');
+const { addAddOn } = require('../helper/terran');
 
 const worldService = {
   /** @type {number} */
@@ -70,6 +71,43 @@ const worldService = {
   totalSelfDPSHealth: 0,
   /** @type {boolean} */
   unitProductionAvailable: true,
+  /**
+   * @param {World} world 
+   * @param {AbilityId} abilityId 
+   * @returns {Promise<any[]>}
+  */
+  ability: async (world, abilityId) => {
+    const collectedActions = [];
+    const { data, resources } = world;
+    const { units } = resources.get();
+    let canDoTypes = data.findUnitTypesWithAbility(abilityId).reduce((/** @type {UnitTypeId[]} */acc, unitTypeId) => {
+      acc.push(unitTypeId);
+      const key = [...flyingTypesMapping.keys()].find(key => flyingTypesMapping.get(key) === unitTypeId);
+      if (key) acc.push(key);
+      return acc;
+    }, []);
+    if (canDoTypes.length === 0) {
+      canDoTypes = units.getAlive(Alliance.SELF).map(selfUnits => selfUnits.unitType);
+    }
+    const unitsCanDo = units.getById(canDoTypes);
+    if (unitsCanDo.length > 0) {
+      if (unitsCanDo.filter(unit => unit.abilityAvailable(abilityId)).length > 0) {
+        let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+        const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
+        collectedActions.push(unitCommand);
+      } else {
+        // unitsCanDo may not have ability available, due to being busy or tech not available yet
+        // if idle, give it pending order
+        const idleUnits = unitsCanDo.filter(unit => unit.isIdle);
+        if (idleUnits.length > 0) {
+          const unit = idleUnits[Math.floor(Math.random() * idleUnits.length)];
+          const unitCommand = createUnitCommand(abilityId, [unit]);
+          setPendingOrders(unit, unitCommand);
+        }
+      }
+    }
+    return collectedActions;
+  },
   /**
    * @param {World} world 
    * @param {UnitTypeId} unitType 
@@ -130,6 +168,73 @@ const worldService = {
       }
     }
     return collectedActions;
+  },
+  /**
+   * 
+   * @param {World} world 
+   * @param {number} unitType 
+   * @param {null | number} targetCount
+   * @param {Point2D[]} candidatePositions
+   * @param {boolean} stepAhead
+   * @returns {Promise<void>}
+   */
+  build: async (world, unitType, targetCount = null, candidatePositions = [], stepAhead = false) => {
+    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+    const collectedActions = [];
+    const { agent, data, resources } = world;
+    const { actions, units } = resources.get();
+    const { checkBuildingCount, findAndPlaceBuilding, getUnitsCanDoWithAddOnAndIdle, getUnitsCanDoWithoutAddOnAndIdle, morphStructureAction } = worldService;
+    if (checkBuildingCount(world, unitType, targetCount) || targetCount === null) {
+      const { race } = agent;
+      switch (true) {
+        case TownhallRace[race].includes(unitType):
+          if (TownhallRace[race].indexOf(unitType) === 0) {
+            if (units.getBases().length == 2 && agent.race === Race.TERRAN) {
+              candidatePositions = await getInTheMain(resources, unitType);
+              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
+            } else {
+              const availableExpansions = getAvailableExpansions(resources);
+              candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(world, availableExpansions)] : [];
+              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
+            }
+          } else {
+            if (!stepAhead) {
+              collectedActions.push(...await morphStructureAction(world, unitType));
+            }
+          }
+          break;
+        case addonTypes.includes(unitType): {
+          if (agent.canAfford(unitType) && !stepAhead) {
+            const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
+            const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
+            const canDoTypeUnits = units.getById(canDoTypes);
+            const unitsCanDoWithoutAddOnAndIdle = getUnitsCanDoWithoutAddOnAndIdle(world, unitType);
+            const unitsCanDoIdle = unitsCanDoWithoutAddOnAndIdle.length > 0 ? unitsCanDoWithoutAddOnAndIdle : getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits);
+            addEarmark(world, data.getUnitTypeData(unitType));
+            if (unitsCanDoIdle.length > 0) {
+              let unitCanDo = unitsCanDoIdle[Math.floor(Math.random() * unitsCanDoIdle.length)];
+              await addAddOn(world, unitCanDo, unitType, stepAhead);
+            } else {
+              const busyCanDoUnits = canDoTypeUnits.filter(unit => unit.addOnTag === '0').filter(unit => isTrainingUnit(data, unit));
+              const randomBusyTrainingUnit = getRandom(busyCanDoUnits); if (randomBusyTrainingUnit === undefined || randomBusyTrainingUnit.orders === undefined) return;
+              const { orders } = randomBusyTrainingUnit;
+              const { progress } = orders[0]; if (progress === undefined) return;
+              if (!worldService.outpowered && progress <= 0.5) {
+                await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
+              }
+            }
+          }
+          break;
+        }
+        default:
+          if (!stepAhead && unitType === GREATERSPIRE) {
+            collectedActions.push(...await morphStructureAction(world, unitType));
+          } else {
+            collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
+          }
+      }
+    }
+    await actions.sendAction(collectedActions);
   },
   /**
    * @param {World} world 
@@ -691,7 +796,7 @@ const worldService = {
     const step = plan.find(step => step.food > foodUsed);
     const legacyPlanStep = legacyPlan.find(step => step[0] > foodUsed);
     const foodDifference = ((step && step.food) || (legacyPlanStep && legacyPlanStep[0])) - getFoodUsed();
-    const productionUnitsCount = units.getProductionUnits(WorkerRace[race]).filter(u => u.noQueue && u.abilityAvailable(abilityId)).length;
+    const productionUnitsCount = units.getProductionUnits(WorkerRace[race]).filter(unit => unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0).length;
     const lowerOfFoodDifferenceAndProductionUnitsCount = Math.min(foodDifference, productionUnitsCount);
     let affordableFoodDifference = 0;
     for (let i = 0; i < lowerOfFoodDifferenceAndProductionUnitsCount; i++) {
@@ -763,6 +868,29 @@ const worldService = {
     } else {
       return targetUnit.pos;
     }
+  },
+  /**
+   * @param {Unit[]} canDoTypeUnits
+   * @returns {Unit[]}
+   */
+  getUnitsCanDoWithAddOnAndIdle: (canDoTypeUnits) => {
+    return canDoTypeUnits.filter(unit => (unit.hasReactor() || unit.hasTechLab()) && unit.isIdle());
+  },
+  /**
+   * @param {World} world 
+   * @param {UnitTypeId} unitType 
+   * @returns {Unit[]}
+   */
+  getUnitsCanDoWithoutAddOnAndIdle: (world, unitType) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
+    const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
+    const canDoTypeUnits = units.getById(canDoTypes);
+    const addOnUnits = units.withLabel('addAddOn');
+    const availableAddOnUnits = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId)));
+    const availableCanDoTypeUnits = canDoTypeUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && !unit.labels.has('reposition')));
+    return availableAddOnUnits.length > 0 ? availableAddOnUnits : availableCanDoTypeUnits;
   },
   /**
    * @param {World} world
@@ -1080,6 +1208,22 @@ const worldService = {
   },
   /**
    * @param {World} world 
+   * @param {UnitTypeId} unitType
+   * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+   */
+  morphStructureAction: async (world, unitType) => {
+    const { data } = world;
+    const collectedActions = [];
+    const actions = await worldService.ability(world, data.getUnitTypeData(unitType).abilityId);
+    if (actions.length > 0) {
+      worldService.unpauseAndLog(world, UnitTypeId[unitType]);
+      addEarmark(world, data.getUnitTypeData(unitType));
+      collectedActions.push(...actions);
+    }
+    return collectedActions;
+  },
+  /**
+   * @param {World} world 
    * @param {Unit} worker 
    * @param {Unit} targetUnit 
    * @returns {boolean}
@@ -1249,6 +1393,7 @@ const worldService = {
     const collectedActions = [];
     position = getMiddleOfStructure(position, unitType);
     const builder = worldService.getBuilder(world, position);
+    stepAhead
     if (builder) {
       // get speed, distance and average collection rate
       const { movementSpeed } = builder.data(); if (movementSpeed === undefined) return collectedActions;
@@ -1263,24 +1408,22 @@ const worldService = {
       let timeToPosition = builderDistanceToPosition / movementSpeedPerSecond + getContructionTimeLeft(units, builder);
       let rallyBase = false;
       let buildTimeLeft = 0;
-      if (stepAhead) {
-        const completedBases = units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1);
-        const [closestBaseByPath] = getClosestUnitByPath(resources, pathableTargetPosition, completedBases);
-        if (closestBaseByPath) {
-          const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
-          const [pathableStructurePosition] = getClosestPositionByPath(resources, pathableTargetPosition, pathablePositions);
-          const baseDistanceToPosition = getDistanceByPath(resources, pathableStructurePosition, pathableTargetPosition);
-          const { unitTypeTrainingAbilities } = dataService;
-          const workerCurrentlyTraining = closestBaseByPath.orders.findIndex(order => workerTypes.includes(unitTypeTrainingAbilities.get(order.abilityId))) === 0;
-          if (workerCurrentlyTraining) {
-            const { buildTime } = data.getUnitTypeData(WorkerRace[agent.race]);
-            const { progress } = closestBaseByPath.orders[0];
-            if (buildTime === undefined || progress === undefined) return collectedActions;
-            buildTimeLeft = getBuildTimeLeft(closestBaseByPath, buildTime, progress);
-            let baseTimeToPosition = (baseDistanceToPosition / movementSpeedPerSecond) + getTimeInSeconds(buildTimeLeft) + movementSpeedPerSecond;
-            rallyBase = timeToPosition > baseTimeToPosition;
-            timeToPosition = rallyBase ? baseTimeToPosition : timeToPosition;
-          }
+      const completedBases = units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1);
+      const [closestBaseByPath] = getClosestUnitByPath(resources, pathableTargetPosition, completedBases);
+      if (closestBaseByPath) {
+        const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
+        const [pathableStructurePosition] = getClosestPositionByPath(resources, pathableTargetPosition, pathablePositions);
+        const baseDistanceToPosition = getDistanceByPath(resources, pathableStructurePosition, pathableTargetPosition);
+        const { unitTypeTrainingAbilities } = dataService;
+        const workerCurrentlyTraining = closestBaseByPath.orders.findIndex(order => workerTypes.includes(unitTypeTrainingAbilities.get(order.abilityId))) === 0;
+        if (workerCurrentlyTraining) {
+          const { buildTime } = data.getUnitTypeData(WorkerRace[agent.race]);
+          const { progress } = closestBaseByPath.orders[0];
+          if (buildTime === undefined || progress === undefined) return collectedActions;
+          buildTimeLeft = getBuildTimeLeft(closestBaseByPath, buildTime, progress);
+          let baseTimeToPosition = (baseDistanceToPosition / movementSpeedPerSecond) + getTimeInSeconds(buildTimeLeft) + movementSpeedPerSecond;
+          rallyBase = timeToPosition > baseTimeToPosition;
+          timeToPosition = rallyBase ? baseTimeToPosition : timeToPosition;
         }
       }
       const pendingConstructionOrder = getPendingOrders(builder).some(order => order.abilityId && constructionAbilities.includes(order.abilityId));
@@ -1681,13 +1824,50 @@ const worldService = {
   },
   /**
    * @param {World} world 
+   * @param {[]} conditions 
+   */
+  swapBuildings: async (world, conditions = []) => {
+    // get first building, if addon get building offset
+    const { units } = world.resources.get();
+    const label = 'swapBuilding';
+    let buildingsToSwap = [...conditions].map((condition, index) => {
+      const addOnValue = `addOn${index}`;
+      const unitType = condition[0];
+      let [building] = units.withLabel(label).filter(unit => unit.labels.get(label) === index);
+      if (!worldService.checkBuildingCount(world, unitType, condition[1]) && !building) { return }
+      let [addOn] = units.withLabel(label).filter(unit => unit.labels.get(label) === addOnValue);
+      if (!building) {
+        if (addonTypes.includes(unitType)) {
+          [addOn] = addOn ? [addOn] : units.getById(unitType).filter(unit => unit.buildProgress >= 1);
+          const [building] = addOn ? units.getClosest(getAddOnBuildingPosition(addOn.pos), units.getStructures()) : [];
+          if (addOn && building) {
+            addOn.labels.set(label, addOnValue);
+            return building;
+          }
+        } else {
+          const [building] = units.getById(countTypes.get(unitType)).filter(unit => unit.noQueue && (unit.addOnTag === '0' || parseInt(unit.addOnTag) === 0) && unit.buildProgress >= 1);
+          if (building) {
+            return building;
+          }
+        }
+      } else {
+        return building;
+      }
+    });
+    if (buildingsToSwap.every(building => building)) {
+      buildingsToSwap[0].labels.set(label, buildingsToSwap[1].pos);
+      buildingsToSwap[1].labels.set(label, buildingsToSwap[0].pos);
+    }
+  },
+  /**
+   * @param {World} world 
    * @param {UnitTypeId} unitTypeId 
    * @param {number | null} targetCount
    * @returns {Promise<void>}
    */
   train: async (world, unitTypeId, targetCount = null) => {
     const { data, resources } = world;
-    const { actions } = resources.get();
+    const { actions, units } = resources.get();
     const { canBuild, getTrainer, unpauseAndLog} = worldService;
     let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return;
     if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
@@ -1707,8 +1887,46 @@ const worldService = {
         unitTrainingService.selectedTypeToBuild = null;
       } else {
         addEarmark(world, data.getUnitTypeData(unitTypeId));
+        let canDoTypes = data.findUnitTypesWithAbility(abilityId);
+        const canDoUnits = units.getById(canDoTypes);
+        const unit = canDoUnits[Math.floor(Math.random() * canDoUnits.length)];
+        if (!unit) return;
+        const unitCommand = createUnitCommand(abilityId, [unit]);
+        setPendingOrders(unit, unitCommand);
       }
     }
+  },
+  /**
+   * @param {World} world 
+   * @param {UnitTypeId} unitTypeId 
+   * @param {number | null} targetCount
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  trainSync: (world, unitTypeId, targetCount = null) => {
+    const { data } = world;
+    const collectedActions = [];
+    const { canBuild, getTrainer, unpauseAndLog } = worldService;
+    let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return collectedActions;
+    if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
+      const randomTrainer = getRandom(getTrainer(world, unitTypeId));
+      if (canBuild(world, unitTypeId) && randomTrainer) {
+        if (randomTrainer.unitType !== WARPGATE) {
+          const unitCommand = createUnitCommand(abilityId, [randomTrainer]);
+          collectedActions.push(unitCommand);
+          setPendingOrders(randomTrainer, unitCommand);
+          unpauseAndLog(world, UnitTypeId[unitTypeId]);
+        } else {
+          collectedActions.push(...warpInSync(world, unitTypeId));
+          unpauseAndLog(world, UnitTypeId[unitTypeId]);
+        }
+        addEarmark(world, data.getUnitTypeData(unitTypeId));
+        console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
+        unitTrainingService.selectedTypeToBuild = null;
+      } else {
+        addEarmark(world, data.getUnitTypeData(unitTypeId));
+      }
+    }
+    return collectedActions;
   },
   /**
    * @param {World} world
@@ -1755,13 +1973,15 @@ const worldService = {
   },
   /**
    * @param {World} world 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  trainCombatUnits: async (world) => {
+  trainCombatUnits: (world) => {
     const { agent, data, resources } = world;
-    const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
+    const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return [];
     const { units } = resources.get();
+    const collectedActions = [];
     const { planMin, trainingTypes, unitMax } = planService;
-    const { outpowered, getFoodUsed, getUnitTypeCount, selectTypeToBuild, train } = worldService;
+    const { outpowered, getFoodUsed, getUnitTypeCount, selectTypeToBuild, trainSync } = worldService;
     const { currentStep, plan } = planService;
     const plannedTrainingTypes = trainingTypes.length > 0 ? trainingTypes : getExistingTrainingTypes(units);
     const candidateTypesToBuild = plannedTrainingTypes.filter(type => {
@@ -1789,11 +2009,12 @@ const worldService = {
         const enoughVespene = (vespeneCost === 0) || (vespene >= (totalVespeneCost + vespeneCost));
         const freeBuildThreshold = enoughMinerals && enoughVespene;
         if (outpowered || freeBuildThreshold) {
-          await train(world, selectedTypeToBuild);
+          collectedActions.push(...trainSync(world, selectedTypeToBuild));
         }
       }
       unitTrainingService.selectedTypeToBuild = selectedTypeToBuild;
     }
+    return collectedActions;
   },
   /**
    * @param {World} world 
@@ -1834,22 +2055,25 @@ const worldService = {
     return collectedActions;
   },
   /**
+   * @description build supply or train units
    * @param {World} world
    * @param {import("../interfaces/plan-step").PlanStep} step
    * @returns {Promise<void>}
    */
-  trainWorkersOrCombatUnits: async (world, step) => {
-    const { resources } = world;
+  builderSupplyOrTrain: async (world, step) => {
+    const { agent, data, resources } = world;
     const { actions } = resources.get();
     const { getFoodUsed, trainCombatUnits, trainWorkers } = worldService;
     const foodUsed = getFoodUsed();
     const foodUsedLessThanNextStepFoodTarget = step && foodUsed < step.food;
     if (!step || foodUsedLessThanNextStepFoodTarget) {
-      const trainWorkersOrders = trainWorkers(world);
-      if (trainWorkersOrders.length > 0) {
-        await actions.sendAction(trainWorkersOrders);
+      await buildSupply(world);
+      let trainingOrders = trainWorkers(world);
+      trainingOrders = trainingOrders.length > 0 ? trainingOrders : trainCombatUnits(world);
+      if (trainingOrders.length > 0) {
+        await actions.sendAction(trainingOrders);
       } else {
-        await trainCombatUnits(world);
+        dataService.addEarmark(world, data.getUnitTypeData(WorkerRace[agent.race]))
       }
     }
   },
@@ -2395,5 +2619,33 @@ function haveSupplyForUnit(world, unitType) {
   const { foodRequired } = data.getUnitTypeData(unitType); if (foodRequired === undefined) return false;
   const supplyLeft = foodCap - foodUsed - earmarkedFood - foodRequired;
   return supplyLeft >= 0;
+}
+/**
+ * @param {World} world
+ * @returns {Promise<void>} 
+ */
+async function buildSupply(world) {
+  const { agent } = world;
+  const { foodUsed, minerals } = agent; if (foodUsed === undefined || minerals === undefined) return;
+  const { isSupplyNeeded, findPlacements, train } = worldService;
+  const conditions = [
+    isSupplyNeeded(world, 0.2) &&
+    (foodUsed > planService.planMax.supplyDepot || minerals > 512)
+  ];
+  if (conditions.some(condition => condition)) {
+    switch (agent.race) {
+      case Race.TERRAN: {
+        const candidatePositions = await findPlacements(world, SUPPLYDEPOT);
+        await build(world, SUPPLYDEPOT, null, candidatePositions);
+        break;
+      }
+      case Race.PROTOSS: {
+        const candidatePositions = await findPlacements(world, PYLON);
+        await build(world, PYLON, null, candidatePositions);
+        break;
+      }
+      case Race.ZERG: await train(world, OVERLORD); break;
+    }
+  }
 }
 

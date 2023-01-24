@@ -1,136 +1,32 @@
 //@ts-check
 "use strict"
 
-const { UnitTypeId, UpgradeId } = require("@node-sc2/core/constants");
-const { Alliance, Attribute, Race } = require("@node-sc2/core/constants/enums");
-const { addonTypes, techLabTypes } = require("@node-sc2/core/constants/groups");
-const { TownhallRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { TECHLAB, BARRACKS, GREATERSPIRE } = require("@node-sc2/core/constants/unit-type");
+const { UpgradeId } = require("@node-sc2/core/constants");
+const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
+const { techLabTypes } = require("@node-sc2/core/constants/groups");
+const { WorkerRace } = require("@node-sc2/core/constants/race-map");
+const { TECHLAB, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getAvailableExpansions, getNextSafeExpansion } = require("../../helper/expansions");
-const { countTypes, flyingTypesMapping } = require("../../helper/groups");
-const { getInTheMain } = require("../../helper/placement/placement-helper");
+const { countTypes } = require("../../helper/groups");
 const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
-const { addAddOn } = require("../../helper/terran");
-const worldService = require("../../services/world-service");
 const planService = require("../../services/plan-service");
 const { balanceResources } = require("../manage-resources");
-const { checkBuildingCount, findAndPlaceBuilding, unpauseAndLog, premoveBuilderToPosition, assignAndSendWorkerToBuild, getFoodUsed, trainWorkersOrCombatUnits, train, setAndLogExecutedSteps, setFoodUsed } = require("../../services/world-service");
+const { premoveBuilderToPosition, assignAndSendWorkerToBuild, train, setAndLogExecutedSteps, setFoodUsed, builderSupplyOrTrain, build } = require("../../services/world-service");
 const { addEarmark, isTrainingUnit, hasEarmarks } = require("../../services/data-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
 const { CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
 const dataService = require("../../services/data-service");
+const { getPendingOrders } = require("../../services/unit-service");
 
 const planActions = {
   /**
-   * @param {World} world 
-   * @param {AbilityId} abilityId 
-   * @returns {Promise<any[]>}
-   */
-  ability: async (world, abilityId) => {
-    const collectedActions = [];
-    const { data, resources } = world;
-    const { units } = resources.get();
-    let canDoTypes = data.findUnitTypesWithAbility(abilityId).reduce((/** @type {UnitTypeId[]} */acc, unitTypeId) => {
-      acc.push(unitTypeId);
-      const key = [...flyingTypesMapping.keys()].find(key => flyingTypesMapping.get(key) === unitTypeId);
-      if (key) acc.push(key);
-      return acc;
-    }, []);
-    if (canDoTypes.length === 0) {
-      canDoTypes = units.getAlive(Alliance.SELF).map(selfUnits => selfUnits.unitType);
-    }
-    const unitsCanDo = units.getById(canDoTypes);
-    if (unitsCanDo.length > 0) {
-      if (unitsCanDo.filter(unit => unit.abilityAvailable(abilityId)).length > 0) {
-        let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-        const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
-        collectedActions.push(unitCommand);
-      } else {
-        unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-        planService.pausePlan = true;
-        planService.continueBuild = false;
-      }
-    }
-    return collectedActions;
-  },
-  /**
-   * 
-   * @param {World} world 
-   * @param {number} unitType 
-   * @param {null | number} targetCount
-   * @param {Point2D[]} candidatePositions
+   * @param {World} world
+   * @param {number} unitType
+   * @param {number} targetCount
    * @param {boolean} stepAhead
-   * @returns {Promise<void>}
+   * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
-  build: async (world, unitType, targetCount = null, candidatePositions = [], stepAhead = false) => {
-    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-    const collectedActions = [];
-    const { agent, data, resources } = world;
-    const { actions, units } = resources.get();
-    if (checkBuildingCount(world, unitType, targetCount) || targetCount === null) {
-      const { race } = agent;
-      if (stepAhead) {
-        addEarmark(world, data.getUnitTypeData(WorkerRace[race]));
-      }
-      switch (true) {
-        case TownhallRace[race].includes(unitType):
-          if (TownhallRace[race].indexOf(unitType) === 0) {
-            if (units.getBases().length == 2 && agent.race === Race.TERRAN) {
-              candidatePositions = await getInTheMain(resources, unitType);
-              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
-            } else {
-              const availableExpansions = getAvailableExpansions(resources);
-              candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(world, availableExpansions)] : [];
-              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
-            }
-          } else {
-            if (!stepAhead) {
-              collectedActions.push(...await morphStructureAction(world, unitType));
-            }
-          }
-          break;
-        case addonTypes.includes(unitType): {
-          if (!stepAhead) {
-            const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
-            const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
-            const canDoTypeUnits = units.getById(canDoTypes);
-            const unitsCanDoWithoutAddOnAndIdle = getUnitsCanDoWithoutAddOnAndIdle(world, unitType);
-            const unitsCanDoIdle = unitsCanDoWithoutAddOnAndIdle.length > 0 ? unitsCanDoWithoutAddOnAndIdle : getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits);
-            addEarmark(world, data.getUnitTypeData(unitType));
-            if (unitsCanDoIdle.length > 0) {
-              let unitCanDo = unitsCanDoIdle[Math.floor(Math.random() * unitsCanDoIdle.length)];
-              await addAddOn(world, unitCanDo, unitType, stepAhead);
-            } else {
-              const busyCanDoUnits = canDoTypeUnits.filter(unit => unit.addOnTag === '0').filter(unit => isTrainingUnit(data, unit));
-              const randomBusyTrainingUnit = getRandom(busyCanDoUnits); if (randomBusyTrainingUnit === undefined || randomBusyTrainingUnit.orders === undefined) return;
-              const { orders } = randomBusyTrainingUnit;
-              const { progress } = orders[0]; if (progress === undefined) return;
-              if (!worldService.outpowered && progress <= 0.5) {
-                await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
-              }
-            }
-          }
-          break;
-        }
-        default:
-          if (!stepAhead && unitType === GREATERSPIRE) {
-            collectedActions.push(...await morphStructureAction(world, unitType));
-          } else {
-            collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
-          }
-      }
-    }
-    await actions.sendAction(collectedActions);
-  },
-  /**
- * @param {World} world
- * @param {number} unitType
- * @param {number} targetCount
- * @param {boolean} stepAhead
- * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
- */
   buildGasMine: async (world, unitType, targetCount, stepAhead) => {
     const { agent, resources } = world;
     const { actions, map } = resources.get();
@@ -213,7 +109,9 @@ const planActions = {
       } else {
         const nonOrphanTechLabs = techLabs.filter(techLab => techLab.unitType !== TECHLAB);
         // find idle building with tech lab.
-        const idleBuildingsWithTechLab = nonOrphanTechLabs.map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0]).filter(building => building.noQueue);
+        const idleBuildingsWithTechLab = nonOrphanTechLabs
+          .map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0])
+          .filter(building => building.noQueue && getPendingOrders(building).length === 0);
         // find closest barracks to closest tech lab.
         /** @type {Unit[]} */
         let closestPair = [];
@@ -248,8 +146,8 @@ const planActions = {
     }
   },
   /**
- * @param {World} world 
- */
+   * @param {World} world 
+   */
   runPlan: async (world) => {
     const { agent, data } = world;
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
@@ -261,30 +159,21 @@ const planActions = {
     for (let step = 0; step < plan.length; step++) {
       if (planService.continueBuild) {
         planService.currentStep = step;
-        const planStep = plan[step];
-        await trainWorkersOrCombatUnits(world, planStep);
         let setEarmark = !hasEarmarks(data);
-        const { candidatePositions, food, orderType, unitType, targetCount, upgrade } = planStep;
-        const foodUsedOrGreater = getFoodUsed() + 1 >= food;
-        let stepAhead = getFoodUsed() + 1 === food;
+        const planStep = plan[step];
+        await builderSupplyOrTrain(world, planStep);
+        const { candidatePositions, orderType, unitType, targetCount, upgrade } = planStep;
         if (orderType === 'UnitType') {
           if (unitType === undefined || unitType === null) break;
           const { attributes } = data.getUnitTypeData(unitType); if (attributes === undefined) break;
           const isStructure = attributes.includes(Attribute.STRUCTURE);
           let { minerals } = agent; if (minerals === undefined) break;
-          const greaterThanMineralThreshold = minerals > planService.mineralThreshold;
-          if (foodUsedOrGreater && !isStructure) {
-            if (stepAhead) break;
+          if (!isStructure) {
             await train(world, unitType, targetCount);
           } else if (isStructure) {
-            const spendAhead = !foodUsedOrGreater && greaterThanMineralThreshold
-            stepAhead = spendAhead ? false : stepAhead;
-            if (foodUsedOrGreater || spendAhead) {
-              await planActions.build(world, unitType, targetCount, candidatePositions, stepAhead);
-              if (spendAhead) break;
-            }
+            await build(world, unitType, targetCount, candidatePositions);
           }
-        } else if (foodUsedOrGreater && orderType === 'Upgrade' && !stepAhead) {
+        } else if (orderType === 'Upgrade') {
           if (upgrade === undefined || upgrade === null) break;
           await planActions.upgrade(world, upgrade);
         }
@@ -295,10 +184,6 @@ const planActions = {
           const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
           const vespeneNeeded = vespeneEarmarked - vespene > 0 ? vespeneEarmarked - vespene : 0;
           balanceResources(world, mineralsNeeded / vespeneNeeded);
-        }
-        const nextStep = plan[step + 1];
-        if (nextStep) {
-          await trainWorkersOrCombatUnits(world, nextStep);
         }
       } else {
         break;
@@ -342,44 +227,3 @@ const planActions = {
 //   }
 // }
 module.exports = planActions;
-
-/**
- * @param {Unit[]} canDoTypeUnits
- * @returns {Unit[]}
- */
-function getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits) {
-  return canDoTypeUnits.filter(unit => (unit.hasReactor() || unit.hasTechLab()) && unit.isIdle());
-}
-
-/**
- * @param {World} world 
- * @param {UnitTypeId} unitType 
- * @returns {Unit[]}
- */
-function getUnitsCanDoWithoutAddOnAndIdle(world, unitType) {
-  const { data, resources } = world;
-  const { units } = resources.get();
-  const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
-  const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
-  const canDoTypeUnits = units.getById(canDoTypes);
-  const addOnUnits = units.withLabel('addAddOn');
-  const availableAddOnUnits = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId)));
-  const availableCanDoTypeUnits = canDoTypeUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && !unit.labels.has('reposition')));
-  return availableAddOnUnits.length > 0 ? availableAddOnUnits : availableCanDoTypeUnits;
-}
-
-/**
- * @param {World} world 
- * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
- */
-async function morphStructureAction(world, unitType) {
-  const { data } = world;
-  const collectedActions = [];
-  const actions = await planActions.ability(world, data.getUnitTypeData(unitType).abilityId);
-  if (actions.length > 0) {
-    unpauseAndLog(world, UnitTypeId[unitType]);
-    addEarmark(world, data.getUnitTypeData(unitType));
-    collectedActions.push(...actions);
-  }
-  return collectedActions;
-}

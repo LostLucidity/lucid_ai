@@ -4,6 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
+const dataService = require("../../services/data-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
 const { runPlan } = require("./plan-actions");
@@ -18,7 +19,7 @@ module.exports = createSystem({
   async onStep(world) {
     const { data } = world;
     await runPlan(world);
-    data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
+    dataService.clearEarmarks(data);
   },
   async onUnitDestroyed({ agent }, destroyedUnit) {
     if (

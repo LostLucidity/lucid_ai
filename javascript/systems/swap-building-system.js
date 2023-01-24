@@ -8,7 +8,6 @@ const { BARRACKS, REACTOR } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getAddOnBuildingPosition } = require("../helper/placement/placement-utilities");
 const planService = require("../services/plan-service");
-const sharedService = require("../services/shared-service");
 const { repositionBuilding } = require("../services/world-service");
 const { setPendingOrders } = require("./unit-resource/unit-resource-service");
 
