@@ -9,8 +9,8 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { DRONE, BUNKER } = require("@node-sc2/core/constants/unit-type");
 const foodUsedService = require("../services/food-used-service");
 const planService = require("../services/plan-service");
-const { getUnitTypeCount, getFoodUsed, shortOnWorkers, getBuilder, assignAndSendWorkerToBuild, train } = require("../services/world-service");
-const { build, upgrade, runPlan } = require("./execute-plan/plan-actions");
+const { getUnitTypeCount, getFoodUsed, shortOnWorkers, getBuilder, assignAndSendWorkerToBuild, train, build } = require("../services/world-service");
+const { upgrade, runPlan } = require("./execute-plan/plan-actions");
 const scoutingService = require("./scouting/scouting-service");
 const { v4: uuidv4 } = require('uuid');
 const dataService = require("../services/data-service");
@@ -154,6 +154,7 @@ async function runAction(world, allAvailableAbilities) {
         planService.plan.push({
           orderType, unitType, food: foodUsed, targetCount: getUnitTypeCount(world, unitType)
         });
+        planService.currentStep = planService.plan.length - 1;
         const { attributes } = data.getUnitTypeData(unitType);
         if (attributes === undefined) return;
         if (attributes.includes(Attribute.STRUCTURE)) {
