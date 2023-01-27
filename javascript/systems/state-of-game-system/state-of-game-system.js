@@ -3,7 +3,7 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { clearOutdatedMappedUnits, addUnmappedUnit, setBaseThreats } = require("../enemy-tracking/enemy-tracking-service");
+const { clearOutdatedMappedUnits, addUnmappedUnit } = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("../track-units/track-units-service");
 const stateOfGameService = require("./state-of-game-service");
 

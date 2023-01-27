@@ -10,10 +10,23 @@ const { existsInMap } = require("../../helper/location");
 const { getSupply } = require("../../services/data-service");
 
 const enemyTrackingService = {
+  /** @type {Unit[]} */
   enemyUnits: [],
+  enemyUnitsPositions: new Map(),
   enemySupply: null,
   /** @type {Unit[]} */
   mappedEnemyUnits: [],
+  get movedEnemyUnits() {
+    const movedEnemyUnits = [];
+    enemyTrackingService.mappedEnemyUnits.forEach(unit => {
+      const { tag, pos } = unit; if (tag === undefined || pos === undefined) { return; }
+      const lastPosition = enemyTrackingService.enemyUnitsPositions.get(tag);
+      if (lastPosition && distance(lastPosition, pos) > 0.5) {
+        movedEnemyUnits.push(unit);
+      }
+    });
+    return movedEnemyUnits;
+  },
   threats: [],
   /**
    * @returns {Unit[]}
@@ -80,6 +93,11 @@ const enemyTrackingService = {
       enemyTrackingService.threats.push(...inRange);
     });
   },
+  setEnemyUnitPositions() {
+    enemyTrackingService.mappedEnemyUnits.forEach(unit => {
+      enemyTrackingService.enemyUnitsPositions.set(unit.tag, unit.pos);
+    });
+  }
 }
 
 module.exports = enemyTrackingService;

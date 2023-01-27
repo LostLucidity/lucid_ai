@@ -20,19 +20,20 @@ module.exports = createSystem({
   name: 'AttackSystem',
   type: 'agent',
   async onStep(world) {
-    // if foodUsed is greater than minimumAmountToAttackWith, attack
     const { agent, resources } = world;
+    const { foodUsed } = agent; if (foodUsed === undefined) { return; }
     const { map } = resources.get();
     const { actions, units } = resources.get();
     const unitsToAttackWith = getUnitsToAttackWith(units);
     const collectedActions = [];
     if (unitsToAttackWith.length > 0) {
-      const attack = agent.foodUsed >= foodUsedService.minimumAmountToAttackWith;
-      const enemyUnits = attack ? enemyTrackingService.mappedEnemyUnits : getUnitsWithinBaseRange(units);
+      const attack = foodUsed >= foodUsedService.minimumAmountToAttackWith;
+      const movedEnemyUnits = enemyTrackingService.movedEnemyUnits;
+      const enemyUnits = attack ? movedEnemyUnits : getUnitsWithinBaseRange(units);
       const enemyTargets = getEnemyTargets(enemyUnits)
-      // get all units capable of moving except for structures and workers
       if (enemyTargets.length > 0) {
         collectedActions.push(...attackTargets(world, unitsToAttackWith, enemyTargets));
+        enemyTrackingService.setEnemyUnitPositions();
         if (collectedActions.length > 0) {
           return actions.sendAction(collectedActions);
         }
@@ -76,12 +77,20 @@ function getUnitsWithinBaseRange(units) {
  */
 function attackTargets(world, unitsToAttackWith, enemyTargets) {
   const { resources } = world;
+  const { units } = resources.get();
   const collectedActions = [];
   unitsToAttackWith.forEach(unit => {
-    const { pos, unitType } = unit; if (pos === undefined || unitType === undefined) { return; }
+    const { orders, pos, unitType } = unit; if (orders === undefined || pos === undefined || unitType === undefined) { return; }
     const abilityId = unit.abilityAvailable(ATTACK_ATTACK) ? ATTACK_ATTACK : MOVE;
     const unitTypeName = getUnitTypeName(unitType); if (unitTypeName === undefined) { return; }
     const attackableTargets = enemyTargets.filter(target => canAttack(resources, unit, target, false));
+    if (orders.length > 0 && orders[0].abilityId === ATTACK_ATTACK) {
+      const { targetUnitTag } = orders[0]; if (targetUnitTag === undefined) { return; }
+      const target = units.getByTag(targetUnitTag); if (target === undefined) { return; }
+      if (!attackableTargets.some(target => target.tag === targetUnitTag)) {
+        attackableTargets.push(target);
+      }
+    }
     const [closestEnemyUnit] = getClosestUnitByPath(resources, pos, attackableTargets);
     if (closestEnemyUnit) {
       const { pos : closestEnemyUnitPos } = closestEnemyUnit; if (closestEnemyUnitPos === undefined) { return; }
