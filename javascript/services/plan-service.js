@@ -49,7 +49,7 @@ const planService = {
   /** @type {any[][]} */
   legacyPlan: [],
   mineralThreshold: 512,
-  naturalWallPylon: false,
+  naturalWallPylon: true,
   /** @type {boolean} */
   pausedThisRound: false,
   pendingFood: 0,

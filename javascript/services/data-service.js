@@ -125,6 +125,7 @@ const dataService = {
         })
       }
     });
+    allAvailableAbilities.set(0, { orderType: 'NoOp' });
     return allAvailableAbilities;
   },
   /**

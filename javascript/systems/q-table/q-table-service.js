@@ -5,11 +5,11 @@ const fs = require('fs');
 const { Attribute } = require("@node-sc2/core/constants/enums");
 const { getAllActions } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
-const { train, getStep, getUnitTypeCount } = require("../../services/world-service");
-const { build, upgrade } = require("../execute-plan/plan-actions");
+const { train, getStep, getUnitTypeCount, build } = require("../../services/world-service");
+const { upgrade } = require("../execute-plan/plan-actions");
 const path = require('path');
 
-/** @typedef { { step: number, foodUsed: number } } State */
+/** @typedef { { step: number } } State */
 
 const qTableService = {
   alpha: 0.1,
@@ -62,6 +62,7 @@ const qTableService = {
         planService.plan.push({
           orderType, unitType, food: foodUsed, targetCount: getUnitTypeCount(world, unitType)
         });
+        planService.currentStep = planService.plan.length - 1;
         const { attributes } = data.getUnitTypeData(unitType);
         if (attributes === undefined) return;
         if (attributes.includes(Attribute.STRUCTURE)) {
@@ -89,16 +90,14 @@ const qTableService = {
    * @returns {number}
    */
   getStateIndex(currentState) {
-    const { states } = qTableService;
-    const stateIndex = states.findIndex(state => state.step === currentState.step && state.foodUsed === currentState.foodUsed);
-    if (stateIndex === -1) {
-      states.push(currentState);
-      // push a new row to the Q table with all random values
+    const { Q, states } = qTableService;
+    states.push(currentState);
+    const stateIndex = Q[states.length - 1];
+    if (stateIndex === undefined) {
       const randomActionValues = Array(getAllActions().length).fill(0).map(() => Math.random());
-      qTableService.Q.push(randomActionValues);
-      return states.length - 1;
+      Q.push(randomActionValues);
     }
-    return stateIndex;
+    return states.length - 1;
   },
   saveQTable() {
     const { Q } = qTableService;

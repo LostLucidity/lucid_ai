@@ -12,7 +12,7 @@ module.exports = createSystem({
   name: 'QTableSystem',
   type: 'agent',
   defaultOptions: {
-    stepIncrement: 192,
+    stepIncrement: 128,
   },
   async onGameStart(world) {
     const { data } = world;
@@ -27,8 +27,9 @@ module.exports = createSystem({
     const { units } = resources.get();
     // get state, contains steps and food used
     await runPlan(world);
+    dataService.clearEarmarks(data);
     const { steps } = qTableService;
-    const state = { step: steps.length, foodUsed };
+    const state = { step: steps.length };
     // get available actions
     const availableActions = dataService.getAllAvailableAbilities(data, units);
     // get current state index, if it doesn't exist, create it and add it to the Q table and return the index
@@ -41,6 +42,6 @@ module.exports = createSystem({
     console.log('action', action);
     availableActions.get(action);
     await executeAction(world, action, availableActions);
-    data.get('earmarks').forEach(/** @param {Earmark} earmark */ earmark => data.settleEarmark(earmark.name));
+    dataService.clearEarmarks(data);
   }
 });

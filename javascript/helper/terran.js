@@ -1,103 +1,17 @@
 //@ts-check
 "use strict"
 
-const { UnitType, UnitTypeId } = require("@node-sc2/core/constants");
 const Ability = require("@node-sc2/core/constants/ability");
 const { EFFECT_SCAN, CANCEL_QUEUECANCELTOSELECTION } = require("@node-sc2/core/constants/ability");
 const { liftingAbilities, landingAbilities, townhallTypes, rallyWorkersAbilities } = require("@node-sc2/core/constants/groups");
 const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { checkAddOnPlacement } = require("../builds/terran/swap-buildings");
-const { addEarmark } = require("../services/data-service");
-const planService = require("../services/plan-service");
-const { setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
+
 const { getAvailableExpansions } = require("./expansions");
 const { getClosestPosition } = require("./get-closest");
-const { countTypes, flyingTypesMapping } = require("./groups");
-const { getAddOnPlacement } = require("./placement/placement-utilities");
-const { pointsOverlap } = require("./utilities");
-const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
-const unitResourceService = require("../systems/unit-resource/unit-resource-service");
+
 
 const terran = {
-  /**
-   * Adds addon, with placement checks and relocating logic.
-   * @param {World} world 
-   * @param {Unit} unit 
-   * @param {UnitTypeId} addOnType 
-   * @param {Boolean} stepAhead
-   * @returns {Promise<void>}
-   */
-  addAddOn: async (world, unit, addOnType, stepAhead) => {
-    const { data, resources } = world;
-    const { actions, map } = resources.get();
-    // get key by value from Map
-    for (const [key, value] of countTypes.entries()) {
-      // find addOnType in value
-      if (value.includes(addOnType)) {
-        addOnType = key;
-        break;
-      }
-    }
-    const unitTypeToBuild = UnitType[`${UnitTypeId[flyingTypesMapping.get(unit.unitType) || unit.unitType]}${UnitTypeId[addOnType]}`];
-    let { abilityId } = data.getUnitTypeData(unitTypeToBuild);
-    if (unit.noQueue && !unit.labels.has('swapBuilding')) {
-      if (unit.availableAbilities().some(ability => ability === abilityId)) {
-        const unitCommand = {
-          abilityId,
-          unitTags: [unit.tag]
-        }
-        const addonPlacement = getAddOnPlacement(unit.pos);
-        const addOnFootprint = getFootprint(addOnType);
-        if (addOnFootprint === undefined) return;
-        const canPlace = map.isPlaceableAt(addOnType, addonPlacement) && !pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids);
-        console.log('map.isPlaceableAt(addOnType, addonPlacement)', map.isPlaceableAt(addOnType, addonPlacement));
-        console.log(!pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids));
-        console.log('stepAhead', stepAhead);
-        if (canPlace) {
-          if (!stepAhead) {
-            unitCommand.targetWorldSpacePos = unit.pos;
-            await actions.sendAction(unitCommand);
-            planService.pausePlan = false;
-            setPendingOrders(unit, unitCommand);
-            addEarmark(world, data.getUnitTypeData(addOnType));
-            return;
-          } else {
-            return;
-          }
-        }
-      }
-      if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
-        const addOnPosition = unit.labels.get('addAddOn');
-        if (addOnPosition && distance(getAddOnPlacement(unit.pos), addOnPosition) < 1) {
-          unit.labels.delete('addAddOn');
-        } else {
-          const unitCommand = {
-            abilityId: Ability.LIFT,
-            unitTags: [unit.tag],
-          }
-          await actions.sendAction(unitCommand);
-          setPendingOrders(unit, unitCommand);
-        }
-      }
-      if (unit.availableAbilities().find(ability => landingAbilities.includes(ability))) {
-        const foundPosition = await checkAddOnPlacement(world, unit, addOnType);
-        if (foundPosition) {
-          unit.labels.set('addAddOn', foundPosition);
-          const unitCommand = {
-            abilityId: abilityId,
-            unitTags: [unit.tag],
-            targetWorldSpacePos: foundPosition
-          }
-          await actions.sendAction(unitCommand);
-          planService.pausePlan = false;
-          setPendingOrders(unit, unitCommand);
-          addEarmark(world, data.getUnitTypeData(addOnType));
-        }
-      }
-    }
-  },
   liftToThird: async (resources) => {
     const { actions, map, units } = resources.get();
     const label = 'liftToThird';
