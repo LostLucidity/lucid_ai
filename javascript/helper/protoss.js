@@ -1,15 +1,11 @@
 //@ts-check
 "use strict"
 
-const { Alliance } = require("@node-sc2/core/constants/enums");
 const { PYLON, NEXUS, ASSIMILATOR } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { getCombatRally } = require("../services/resource-manager-service");
-const { assignAndSendWorkerToBuild } = require("../services/world-service");
-const { getOccupiedExpansions } = require("./expansions");
-const { findPosition } = require("./placement/placement-helper");
+const { assignAndSendWorkerToBuild, findPosition } = require("../services/world-service");
 
 module.exports = {
   /**
@@ -32,7 +28,7 @@ module.exports = {
     }));
     if (unpoweredStructure) {
       const candidatePositions = gridsInCircle(unpoweredStructure.pos, 6.5 - unpoweredStructure.radius);
-      const foundPosition = await findPosition(resources, unpoweredStructure.unitType, candidatePositions);
+      const foundPosition = await findPosition(world, unpoweredStructure.unitType, candidatePositions);
       if (foundPosition) {
         collectedActions.push(...assignAndSendWorkerToBuild(world, PYLON, foundPosition));
       }

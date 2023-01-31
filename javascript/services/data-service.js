@@ -29,7 +29,7 @@ const dataService = {
   addEarmark: (world, orderData) => {
     const { data } = world;
     const { minerals: earmarkedTotalMinerals, vespene: earmarkedTotalVespene } = data.getEarmarkTotals('');
-    if (earmarkedTotalMinerals > 512 && earmarkedTotalVespene > 512) return;
+    if (earmarkedTotalMinerals > 512 && earmarkedTotalVespene > 512 || earmarkedTotalMinerals > 1024) return;
     const { name, mineralCost, vespeneCost } = orderData; if (name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
     /** @type {number} */
     const foodRequired = orderData['foodRequired'];

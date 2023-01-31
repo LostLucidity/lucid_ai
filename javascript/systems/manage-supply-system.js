@@ -14,7 +14,7 @@ module.exports = createSystem({
     const { agent } = world;
     const conditions = [
       isSupplyNeeded(world, 0.2) &&
-      (agent.foodUsed > planService.planMax.supplyDepot || agent.minerals > 512)
+      (agent.foodUsed > planService.planMax.supply || agent.minerals > 512)
     ];
     if (conditions.some(condition => condition)) {
       switch (agent.race) {

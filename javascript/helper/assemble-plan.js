@@ -17,9 +17,9 @@ const { moveAway } = require("../builds/helper");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
-const { getMiddleOfNaturalWall, findPosition, getCandidatePositions, getInTheMain } = require("./placement/placement-helper");
+const { getMiddleOfNaturalWall, getCandidatePositions, getInTheMain } = require("./placement/placement-helper");
 const { restorePower } = require("./protoss");
-const { liftToThird, addAddOn } = require("./terran");
+const { liftToThird } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const runBehaviors = require("./behavior/run-behaviors");
@@ -34,7 +34,6 @@ const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
-const planActions = require("../systems/execute-plan/plan-actions");
 const { addEarmark, getSupply, hasEarmarks, clearEarmarks } = require("../services/data-service");
 const worldService = require("../services/world-service");
 const { buildGasMine } = require("../systems/execute-plan/plan-actions");
@@ -47,8 +46,8 @@ const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
-const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train, setFoodUsed, swapBuildings } = require("../services/world-service");
-const { getNextPlanStep } = require("../services/plan-service");
+const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train, setFoodUsed, swapBuildings, ability, findPosition, getUnitTypeCount, builderSupplyOrTrain } = require("../services/world-service");
+const { getNextPlanStep, convertLegacyStep, setSupplyMax } = require("../services/plan-service");
 const { warpIn } = require("../services/resource-manager-service");
 
 let actions;
@@ -63,6 +62,7 @@ class AssemblePlan {
     this.collectedActions = [];
     /** @type {false | Point2D} */
     planService.legacyPlan = plan.orders;
+    planService.planMax.supply = setSupplyMax(plan.orders, true);
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
     this.defenseTypes = plan.unitTypes.defenseTypes;
     this.defenseStructures = plan.unitTypes.defenseStructures;
@@ -178,82 +178,72 @@ class AssemblePlan {
   }
   /**
    * @param {World} world
-   * @param {number} food 
    * @param {UnitTypeId} unitType 
    * @param {number} targetCount 
-   * @param {Point2D[]} candidatePositions 
+   * @param {Point2D[]} candidatePositions
+   * @returns {Promise<void>}
    */
-  async build(world, food, unitType, targetCount, candidatePositions = []) {
+  async build(world, unitType, targetCount, candidatePositions = []) {
     const { resources } = world;
-    const { getFoodUsed, findPlacements, checkBuildingCount, unpauseAndLog } = worldService;
-    if (getFoodUsed() + 1 >= food) {
-      const stepAhead = getFoodUsed() + 1 === food;
-      if (checkBuildingCount(this.world, unitType, targetCount)) {
-        if (stepAhead) {
-          addEarmark(world, this.data.getUnitTypeData(WorkerRace[race]));
-        }
-        switch (true) {
-          case GasMineRace[race] === unitType:
-            this.collectedActions.push(...await buildGasMine(this.world, unitType, targetCount, stepAhead));
-            break;
-          case TownhallRace[race].includes(unitType):
-            if (TownhallRace[race].indexOf(unitType) === 0) {
-              if (this.units.getBases().length === 2 && race === Race.TERRAN) {
-                candidatePositions = await getInTheMain(this.resources, unitType);
-                await this.buildBuilding(world, unitType, candidatePositions, stepAhead);
-              } else {
-                resourceManagerService.availableExpansions = resourceManagerService.availableExpansions.length === 0 ? getAvailableExpansions(resources) : resourceManagerService.availableExpansions;
-                const { availableExpansions } = resourceManagerService;
-                candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(this.world, availableExpansions)] : [];
-                await this.buildBuilding(world, unitType, candidatePositions, stepAhead);
-              }
+    const { findPlacements, unpauseAndLog } = worldService;
+    const unitTypeCount = getUnitTypeCount(world, unitType);
+    const unitCount = getUnitCount(world, unitType);
+    if (unitTypeCount <= targetCount && unitCount <= targetCount) {
+      switch (true) {
+        case GasMineRace[race] === unitType:
+          this.collectedActions.push(...await buildGasMine(this.world, unitType));
+          break;
+        case TownhallRace[race].includes(unitType):
+          if (TownhallRace[race].indexOf(unitType) === 0) {
+            if (this.units.getBases().length === 2 && race === Race.TERRAN) {
+              candidatePositions = await getInTheMain(this.resources, unitType);
+              await this.buildBuilding(world, unitType, candidatePositions);
             } else {
-              if (!stepAhead) {
-                const actions = await planActions.ability(this.world, this.data.getUnitTypeData(unitType).abilityId);
-                if (actions.length > 0) {
-                  unpauseAndLog(this.world, UnitTypeId[unitType]);
-                  addEarmark(world, this.data.getUnitTypeData(unitType));
-                  this.collectedActions.push(...actions);
-                }
-              } else {
+              resourceManagerService.availableExpansions = resourceManagerService.availableExpansions.length === 0 ? getAvailableExpansions(resources) : resourceManagerService.availableExpansions;
+              const { availableExpansions } = resourceManagerService;
+              candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(this.world, availableExpansions)] : [];
+              await this.buildBuilding(world, unitType, candidatePositions);
+            }
+          } else {
+              const actions = await ability(this.world, this.data.getUnitTypeData(unitType).abilityId);
+              if (actions.length > 0) {
+                unpauseAndLog(this.world, UnitTypeId[unitType]);
                 addEarmark(world, this.data.getUnitTypeData(unitType));
+                this.collectedActions.push(...actions);
               }
-            }
-            break;
-          case addonTypes.includes(unitType):
-            const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = worldService;
-            const abilityIds = getAbilityIdsForAddons(this.data, unitType);
-            let canDoTypes = getUnitTypesWithAbilities(this.data, abilityIds);
-            const addOnUnits = this.units.withLabel('addAddOn').filter(addOnUnit => {
-              const addOnPosition = addOnUnit.labels.get('addAddOn');
-              if (addOnPosition && distance(addOnUnit.pos, addOnPosition) < 1) { addOnUnit.labels.delete('addAddOn'); }
-              else { return true; }
-            });
-            const availableAddOnUnits = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && (!unit['pendingOrders'] || unit['pendingOrders'].length === 0)));
-            const unitsCanDo = availableAddOnUnits.length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => {
-              return abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && (!unit['pendingOrders'] || unit['pendingOrders'].length === 0));
-            });
-            if (unitsCanDo.length > 0) {
-              let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-              await addAddOn(this.world, unitCanDo, unitType, stepAhead)
-            } else {
-              if (!stepAhead) {
-                const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
-                await balanceResources(this.world, mineralCost / vespeneCost);
-                planService.pausePlan = true;
-                planService.continueBuild = false;
-              }
-            }
-            break;
-          default:
-            if (PHOTONCANNON === unitType) { 
-              candidatePositions = this.map.getNatural().areas.placementGrid;
-            }
-            if (candidatePositions.length === 0 && (!planService.buildingPosition)) {
-              candidatePositions = await findPlacements(this.world, unitType);
-            }
-            await this.buildBuilding(world, unitType, candidatePositions, stepAhead);
-        }
+          }
+          break;
+        case addonTypes.includes(unitType):
+          const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = worldService;
+          const abilityIds = getAbilityIdsForAddons(this.data, unitType);
+          let canDoTypes = getUnitTypesWithAbilities(this.data, abilityIds);
+          const addOnUnits = this.units.withLabel('addAddOn').filter(addOnUnit => {
+            const addOnPosition = addOnUnit.labels.get('addAddOn');
+            if (addOnPosition && distance(addOnUnit.pos, addOnPosition) < 1) { addOnUnit.labels.delete('addAddOn'); }
+            else { return true; }
+          });
+          const availableAddOnUnits = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && (!unit['pendingOrders'] || unit['pendingOrders'].length === 0)));
+          const unitsCanDo = availableAddOnUnits.length > 0 ? addOnUnits : this.units.getByType(canDoTypes).filter(unit => {
+            return abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && (!unit['pendingOrders'] || unit['pendingOrders'].length === 0));
+          });
+          if (unitsCanDo.length > 0) {
+            let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+            await addAddOn(this.world, unitCanDo, unitType);
+          } else {
+            const { mineralCost, vespeneCost } = this.data.getUnitTypeData(unitType);
+            await balanceResources(this.world, mineralCost / vespeneCost);
+            planService.pausePlan = true;
+            planService.continueBuild = false;
+          }
+          break;
+        default:
+          if (PHOTONCANNON === unitType) { 
+            candidatePositions = this.map.getNatural().areas.placementGrid;
+          }
+          if (candidatePositions.length === 0 && (!planService.buildingPosition)) {
+            candidatePositions = await findPlacements(this.world, unitType);
+          }
+          await this.buildBuilding(world, unitType, candidatePositions);
       }
     }
   }
@@ -262,14 +252,13 @@ class AssemblePlan {
    * @param {World} world
    * @param {UnitTypeId} unitType 
    * @param {Point2D[]} candidatePositions 
-   * @param {boolean} stepAhead 
    */
-  async buildBuilding(world, unitType, candidatePositions, stepAhead) {
+  async buildBuilding(world, unitType, candidatePositions) {
     const { premoveBuilderToPosition } = worldService;
     let buildingPosition = await getBuildingPosition(world, unitType, candidatePositions);
     planService.buildingPosition = buildingPosition;
     if (buildingPosition) {
-      if (this.agent.canAfford(unitType) && !stepAhead) {
+      if (this.agent.canAfford(unitType)) {
         if (await actions.canPlace(unitType, [buildingPosition])) {
           const { assignAndSendWorkerToBuild } = worldService;
           await actions.sendAction(assignAndSendWorkerToBuild(this.world, unitType, buildingPosition));
@@ -279,11 +268,11 @@ class AssemblePlan {
           buildingPosition = keepPosition(world, unitType, buildingPosition) ? buildingPosition : false;
           planService.buildingPosition = buildingPosition;
           if (buildingPosition) {
-            this.collectedActions.push(...premoveBuilderToPosition(this.world, buildingPosition, unitType, stepAhead));
+            this.collectedActions.push(...premoveBuilderToPosition(this.world, buildingPosition, unitType));
           }
         }
       } else {
-        this.collectedActions.push(...premoveBuilderToPosition(this.world, buildingPosition, unitType, stepAhead));
+        this.collectedActions.push(...premoveBuilderToPosition(this.world, buildingPosition, unitType));
       }
     }
   }
@@ -377,10 +366,10 @@ class AssemblePlan {
       if (isSupplyNeeded(this.world, 0.2)) {
         switch (race) {
           case Race.TERRAN:
-            await this.build(world, this.foodUsed, SUPPLYDEPOT, this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length);
+            await this.build(world, SUPPLYDEPOT, this.units.getById([SUPPLYDEPOT, SUPPLYDEPOTLOWERED]).length);
             break;
           case Race.PROTOSS:
-            await this.build(world, this.foodUsed, PYLON, this.units.getById(PYLON).length);
+            await this.build(world, PYLON, this.units.getById(PYLON).length);
             break;
           case Race.ZERG:
             let { abilityId } = this.data.getUnitTypeData(OVERLORD);
@@ -390,7 +379,10 @@ class AssemblePlan {
       }
     }
   }
-
+  /**
+   * @param {World} world 
+   * @param {Unit} createdUnit 
+   */
   async onUnitCreated(world, createdUnit) {
     await generalScouting(world, createdUnit);
     await world.resources.get().actions.sendAction(this.collectedActions);
@@ -588,7 +580,8 @@ class AssemblePlan {
         const trueActions = ['build', 'train', 'upgrade'];
         const trueStep = legacyPlan.slice(step).find(step => trueActions.includes(step[1]));
         if (trueStep) {
-          await trainWorkersOrCombatUnits(world, trueStep, this.defenseTypes);
+          const convertedLegacyStep = convertLegacyStep(trueStep);
+          await builderSupplyOrTrain(world, convertedLegacyStep);
         } 
         let setEarmark = !hasEarmarks(data);
         let targetCount = planStep[3];
@@ -611,7 +604,7 @@ class AssemblePlan {
               if (races && !races.includes(scoutingService.opponentRace)) { break; }
             }
             const candidatePositions = planStep[4] ? await getCandidatePositions(this.resources, planStep[4], unitType) : [];
-            await this.build(world, foodTarget, unitType, targetCount, candidatePositions);
+            await this.build(world, unitType, targetCount, candidatePositions);
             break;
           }
           case 'continuouslyBuild':
@@ -651,10 +644,6 @@ class AssemblePlan {
           const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
           const vespeneNeeded = vespeneEarmarked - vespene > 0 ? vespeneEarmarked - vespene : 0;
           balanceResources(world, mineralsNeeded / vespeneNeeded);
-        }
-        const trueNextStep = legacyPlan.slice(step + 1).find(step => trueActions.includes(step[1]));
-        if (trueNextStep) {
-          await trainWorkersOrCombatUnits(world, trueNextStep, this.defenseTypes);
         }
       } else {
         break;
@@ -699,7 +688,7 @@ async function getBuildingPosition(world, unitType, candidatePositions) {
       candidatePositions = await findPlacements(world, unitType);
     }
   }
-  return await findPosition(resources, unitType, candidatePositions.filter(pos => isStrongerAtPosition(world, pos)));
+  return await findPosition(world, unitType, candidatePositions.filter(pos => isStrongerAtPosition(world, pos)));
 }
 
 /**

@@ -1,10 +1,6 @@
 //@ts-check
 "use strict"
 
-const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { Alliance, Race } = require('@node-sc2/core/constants/enums');
-const { PYLON } = require("@node-sc2/core/constants/unit-type");
-
 module.exports = {
   abilityOrder: (data, resources, abilityId, targetCount, unitTypes) => {
     const collectedActions = [];

@@ -10,6 +10,7 @@ const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 const { getClosestPosition } = require('../get-closest');
 const getRandom = require('@node-sc2/core/utils/get-random');
 const wallOffNaturalService = require('../../systems/wall-off-natural/wall-off-natural-service');
+const { Race } = require('@node-sc2/core/constants/enums');
 
 const placementHelper = {
   getMineralLines: (resources) => {
@@ -23,31 +24,6 @@ const placementHelper = {
       }
     });
     return mineralLineCandidates;
-  },
-  /**
-   * @param {ResourceManager} resources
-   * @param {UnitTypeId} unitType
-   * @param {Point3D[]} candidatePositions
-   */
-  findPosition: async (resources, unitType, candidatePositions) => {
-    const { actions, map, units } = resources.get();
-    if (flyingTypesMapping.has(unitType)) { unitType = flyingTypesMapping.get(unitType); }
-    const randomPositions = candidatePositions
-      .map(pos => ({ pos, rand: Math.random() }))
-      .sort((a, b) => a.rand - b.rand)
-      .map(a => a.pos)
-      .slice(0, 20);
-    let foundPosition = await actions.canPlace(unitType, randomPositions);
-    const unitTypeName = Object.keys(UnitType).find(type => UnitType[type] === unitType);
-    if (!foundPosition) {
-      const [pylon] = units.getById(PYLON);
-      if (pylon && pylon.buildProgress < 1) {
-        foundPosition = getRandom(candidatePositions.filter(position => map.isPlaceableAt(unitType, position)));
-      }
-    }
-    if (foundPosition) console.log(`Found position for ${unitTypeName}`, foundPosition);
-    else console.log(`Could not find position for ${unitTypeName}`);
-    return foundPosition;
   },
   /**
    *

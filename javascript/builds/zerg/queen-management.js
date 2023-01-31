@@ -7,10 +7,9 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { intersectionOfPoints } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { findPosition } = require("../../helper/placement/placement-helper");
 const { creepGenerators } = require("@node-sc2/core/constants/groups");
 const { getClosestPosition } = require("../../helper/get-closest");
-const { canBuild, getDPSHealth } = require("../../services/world-service");
+const { canBuild, getDPSHealth, findPosition } = require("../../services/world-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getPathCoordinates } = require("../../services/path-service");
 const { getMapPath } = require("../../services/map-resource-service");
@@ -71,10 +70,10 @@ module.exports = {
     }
   },
   /**
-   * @param {ResourceManager} resources
+   * @param {World} world
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
-  spreadCreep: async (resources) => {
+  spreadCreep: async (world) => {
     const { map, units } = resources.get();
     const collectedActions = [];
     const activeCreepTumors = units.getById(CREEPTUMORBURROWED).filter(unit => unit.availableAbilities().length > 0 && !unit.labels.get('done'));
@@ -114,7 +113,7 @@ module.exports = {
                 closestTownhallPosition ? distance(position, closestTownhallPosition) > 3 : true
               ].every(condition => condition);
             });
-            foundPosition = await findPosition(resources, CREEPTUMOR, candidatePositions);
+            foundPosition = await findPosition(world, CREEPTUMOR, candidatePositions);
             lowerLimit -= 0.5;
           } while (!foundPosition && lowerLimit > 0);
           if (foundPosition) {

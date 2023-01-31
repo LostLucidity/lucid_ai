@@ -23,11 +23,9 @@ const planActions = {
   /**
    * @param {World} world
    * @param {number} unitType
-   * @param {number} targetCount
-   * @param {boolean} stepAhead
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
-  buildGasMine: async (world, unitType, targetCount, stepAhead) => {
+  buildGasMine: async (world, unitType) => {
     const { agent, resources } = world;
     const { actions, map } = resources.get();
     const collectedActions = [];
@@ -36,19 +34,15 @@ const planActions = {
         const [ geyser ] = map.freeGasGeysers();
         const { pos } = geyser;
         if (pos === undefined) return collectedActions;
-        if (agent.canAfford(unitType) && !stepAhead) {
+        if (agent.canAfford(unitType)) {
           await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, pos));
           planService.pausePlan = false;
         } else {
-          collectedActions.push(...premoveBuilderToPosition(world, pos, unitType, stepAhead));
+          collectedActions.push(...premoveBuilderToPosition(world, pos, unitType));
         }
       }
     } catch (error) {
       console.log(error);
-      if (targetCount !== null) {
-        planService.pausePlan = true;
-        planService.continueBuild = false;
-      }
     }
     return collectedActions;
   },

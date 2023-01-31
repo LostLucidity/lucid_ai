@@ -11,6 +11,8 @@ const plans = require("./plans");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
 const { getPendingOrders } = require("../services/unit-service");
+const { PYLON } = require("@node-sc2/core/constants/unit-type");
+const { clearUnsettledBuildingPositions } = require("../services/world-service");
 
 let assemblePlan = null;
 let longestTime = 0;
@@ -69,6 +71,15 @@ const entry = createSystem({
       }
     }
     await assemblePlan.onUnitDamaged(resources, damagedUnit)
+  },
+  async onUnitFinished(world, finishedUnit) {
+    const { resources } = world;
+    const { units } = resources.get();
+    if (finishedUnit.unitType === PYLON) {
+      if (units.getById(PYLON).length > 1) {
+        clearUnsettledBuildingPositions(world);
+      }
+    }
   },
   /**
    * 
