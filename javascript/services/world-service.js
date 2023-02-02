@@ -245,10 +245,9 @@ const worldService = {
    * @param {number} unitType 
    * @param {null | number} targetCount
    * @param {Point2D[]} candidatePositions
-   * @param {boolean} stepAhead
    * @returns {Promise<void>}
    */
-  build: async (world, unitType, targetCount = null, candidatePositions = [], stepAhead = false) => {
+  build: async (world, unitType, targetCount = null, candidatePositions = []) => {
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
     const { agent, data, resources } = world;
@@ -261,20 +260,19 @@ const worldService = {
           if (TownhallRace[race].indexOf(unitType) === 0) {
             if (units.getBases().length == 2 && agent.race === Race.TERRAN) {
               candidatePositions = await getInTheMain(resources, unitType);
-              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
+              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             } else {
               const availableExpansions = getAvailableExpansions(resources);
               candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(world, availableExpansions)] : [];
-              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
+              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             }
           } else {
-            if (!stepAhead) {
-              collectedActions.push(...await morphStructureAction(world, unitType));
-            }
+            addEarmark(data, data.getUnitTypeData(unitType));
+            collectedActions.push(...await morphStructureAction(world, unitType));
           }
           break;
         case addonTypes.includes(unitType): {
-          if (agent.canAfford(unitType) && !stepAhead) {
+          if (agent.canAfford(unitType)) {
             const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
             const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
             const canDoTypeUnits = units.getById(canDoTypes);
@@ -283,7 +281,7 @@ const worldService = {
             addEarmark(data, data.getUnitTypeData(unitType));
             if (unitsCanDoIdle.length > 0) {
               let unitCanDo = unitsCanDoIdle[Math.floor(Math.random() * unitsCanDoIdle.length)];
-              await addAddOn(world, unitCanDo, unitType, stepAhead);
+              await addAddOn(world, unitCanDo, unitType);
             } else {
               const busyCanDoUnits = canDoTypeUnits.filter(unit => unit.addOnTag === '0').filter(unit => isTrainingUnit(data, unit));
               const randomBusyTrainingUnit = getRandom(busyCanDoUnits); if (randomBusyTrainingUnit === undefined || randomBusyTrainingUnit.orders === undefined) return;
@@ -297,10 +295,10 @@ const worldService = {
           break;
         }
         default:
-          if (!stepAhead && unitType === GREATERSPIRE) {
+          if (unitType === GREATERSPIRE) {
             collectedActions.push(...await morphStructureAction(world, unitType));
           } else {
-            collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions, stepAhead));
+            collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
           }
       }
     }
@@ -476,10 +474,9 @@ const worldService = {
    * @param {World} world
    * @param {number} unitType
    * @param {Point2D[]} candidatePositions
-   * @param {boolean} stepAhead
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
-  findAndPlaceBuilding: async (world, unitType, candidatePositions, stepAhead = false) => {
+  findAndPlaceBuilding: async (world, unitType, candidatePositions) => {
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
     const { findPosition } = worldService;
@@ -502,7 +499,7 @@ const worldService = {
       const { abilityId } = data.getUnitTypeData(unitType);
       const unitTypes = data.findUnitTypesWithAbility(abilityId);
       if (!unitTypes.includes(UnitType.NYDUSNETWORK)) {
-        if (agent.canAfford(unitType) && !stepAhead) {
+        if (agent.canAfford(unitType)) {
           const canPlaceOrFalse = await actions.canPlace(unitType, [position]);
           if (canPlaceOrFalse === false) {
             position = keepPosition(world, unitType, position) ? position : false;
@@ -510,9 +507,7 @@ const worldService = {
             if (position) {
               collectedActions.push(...worldService.premoveBuilderToPosition(world, position, unitType));
             }
-            if (!stepAhead) {
-             addEarmark(data, data.getUnitTypeData(unitType));
-            }
+            addEarmark(data, data.getUnitTypeData(unitType));
           } else {
             await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, canPlaceOrFalse));
             planService.pausePlan = false;
