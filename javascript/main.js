@@ -51,26 +51,7 @@ const qTableService = require('./systems/q-table/q-table-service');
 const { saveQTable } = require('./systems/q-table/q-table-service');
 
 // const aiBuild = AIBuild.Rush;
-// const bot2 = createAgent(settings);
 agentService.difficulty = Difficulty.CHEATVISION;
-// protossBuild.forEach(system => {
-//   bot1.use(system);
-// });
-// loadBuilds(Race.PROTOSS, protossBuilds.protoss, bot1);
-// loadBuilds(Race.TERRAN, terranBuilds, bot1);
-// loadBuilds(Race.ZERG, zergBuilds, bot1);
-// function loadBuilds(race, builds, bot) {
-//   settings.race = race;
-//   builds.forEach(build => {
-//     bot.use(build);
-//   });
-// }
-
-// bot1.use(zerg);
-// bot2.use(protoss);
-// bot1.use(eightGateAllIn);
-// bot.use(macroColossus);
-
 const engine = createEngine();
 // const engine1 = createEngine(
 //   { port: 5555 }
@@ -229,7 +210,6 @@ async function runGame() {
     ...baseSystems,
     qTableSystem,
     attackSystem,
-    manageSupplySystem,
     injectorSystem,
     runBehaviorsSystem,
     mulingSystem,

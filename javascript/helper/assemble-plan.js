@@ -34,7 +34,7 @@ const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
-const { addEarmark, getSupply, hasEarmarks, clearEarmarks } = require("../services/data-service");
+const { getSupply, hasEarmarks, clearEarmarks, addEarmark } = require("../services/data-service");
 const worldService = require("../services/world-service");
 const { buildGasMine } = require("../systems/execute-plan/plan-actions");
 const harassService = require("../systems/harass/harass-service");
@@ -46,7 +46,7 @@ const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
-const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train, setFoodUsed, swapBuildings, ability, findPosition, getUnitTypeCount, builderSupplyOrTrain } = require("../services/world-service");
+const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train, setFoodUsed, swapBuildings, ability, findPosition, getUnitTypeCount, buildSupplyOrTrain, addAddOn } = require("../services/world-service");
 const { getNextPlanStep, convertLegacyStep, setSupplyMax } = require("../services/plan-service");
 const { warpIn } = require("../services/resource-manager-service");
 
@@ -184,7 +184,7 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async build(world, unitType, targetCount, candidatePositions = []) {
-    const { resources } = world;
+    const { data, resources } = world;
     const { findPlacements, unpauseAndLog } = worldService;
     const unitTypeCount = getUnitTypeCount(world, unitType);
     const unitCount = getUnitCount(world, unitType);
@@ -205,12 +205,11 @@ class AssemblePlan {
               await this.buildBuilding(world, unitType, candidatePositions);
             }
           } else {
-              const actions = await ability(this.world, this.data.getUnitTypeData(unitType).abilityId);
-              if (actions.length > 0) {
-                unpauseAndLog(this.world, UnitTypeId[unitType]);
-                addEarmark(world, this.data.getUnitTypeData(unitType));
-                this.collectedActions.push(...actions);
-              }
+            const unitTypeData = data.getUnitTypeData(unitType);
+            const { abilityId } = unitTypeData; if (abilityId === undefined) { return; }
+            const actions = await ability(world, abilityId);
+            addEarmark(data, unitTypeData);
+            this.collectedActions.push(...actions);
           }
           break;
         case addonTypes.includes(unitType):
@@ -503,7 +502,7 @@ class AssemblePlan {
             if (warpGates.length > 0) {
               warpIn(this.resources, this, unitType);
             } else {
-              addEarmark(world, unitTypeData);
+              addEarmark(data, unitTypeData);
               return;
             }
           }
@@ -511,12 +510,12 @@ class AssemblePlan {
           setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
           unitTrainingService.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
-          addEarmark(world, unitTypeData);
+          addEarmark(data, unitTypeData);
         } else {
           if (isSupplyNeeded(this.world) && unitType !== OVERLORD) {
             await this.manageSupply(world);
           } else if (!this.agent.canAfford(unitType)) {
-            addEarmark(world, unitTypeData);
+            addEarmark(data, unitTypeData);
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
           }
         }
@@ -559,7 +558,7 @@ class AssemblePlan {
         } else {
           console.log(`Cannot afford ${upgradeName}`);
         }
-        addEarmark(world, upgradeData);
+        addEarmark(data, upgradeData);
       }
     }
   }
@@ -581,7 +580,7 @@ class AssemblePlan {
         const trueStep = legacyPlan.slice(step).find(step => trueActions.includes(step[1]));
         if (trueStep) {
           const convertedLegacyStep = convertLegacyStep(trueStep);
-          await builderSupplyOrTrain(world, convertedLegacyStep);
+          await buildSupplyOrTrain(world, convertedLegacyStep);
         } 
         let setEarmark = !hasEarmarks(data);
         let targetCount = planStep[3];
@@ -650,7 +649,7 @@ class AssemblePlan {
       }
     }
     if (!hasEarmarks(data)) {
-      addEarmark(world, data.getUnitTypeData(WorkerRace[agent.race]));
+      addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]));
       const earmarkTotals = data.getEarmarkTotals('');
       const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
       const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;

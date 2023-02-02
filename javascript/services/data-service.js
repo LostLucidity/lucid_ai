@@ -23,20 +23,18 @@ const dataService = {
   upgradeAbilities: [],
   /**
    * 
-   * @param {World} world 
+   * @param {DataStorage} data 
    * @param {SC2APIProtocol.UnitTypeData|SC2APIProtocol.UpgradeData} orderData 
    */
-  addEarmark: (world, orderData) => {
-    const { data } = world;
-    const { minerals: earmarkedTotalMinerals, vespene: earmarkedTotalVespene } = data.getEarmarkTotals('');
-    if (earmarkedTotalMinerals > 512 && earmarkedTotalVespene > 512 || earmarkedTotalMinerals > 1024) return;
+  addEarmark: (data, orderData) => {
+    if (dataService.earmarkThresholdReached(data)) return;
     const { name, mineralCost, vespeneCost } = orderData; if (name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
     /** @type {number} */
     const foodRequired = orderData['foodRequired'];
     let minerals = 0;
     if (orderData['unitId'] !== undefined) {
       const unitType = orderData['unitId'];
-      minerals = mineralCost - (unitType === ORBITALCOMMAND ? -400 : 0);
+      minerals = mineralCost + (unitType === ORBITALCOMMAND ? -400 : 0);
     }
     const earmark = {
       name: `${name}_${planService.currentStep}`,
@@ -65,6 +63,14 @@ const dataService = {
     data.get('earmarks').forEach((/** @type {Earmark} */ earmark) => data.settleEarmark(earmark.name));
     dataService.foodEarmarks.clear();
     dataService.earmarks = [];
+  },
+  /**
+   * @param {DataStorage} data 
+   * @returns {boolean}
+   */
+  earmarkThresholdReached: (data) => {
+    const { minerals: earmarkedTotalMinerals, vespene: earmarkedTotalVespene } = data.getEarmarkTotals('');
+    return earmarkedTotalMinerals > 512 && earmarkedTotalVespene > 512 || earmarkedTotalMinerals > 1024;
   },
   /**
    * @returns {number[]}

@@ -34,7 +34,7 @@ const { pointsOverlap, shuffle } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE, CREEPTUMOR, WARPGATE, PYLON, OVERLORD, GREATERSPIRE, TECHLAB } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE, CREEPTUMOR, WARPGATE, PYLON, OVERLORD, GREATERSPIRE, TECHLAB, ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -52,7 +52,7 @@ const resourceManagerService = require('./resource-manager-service');
 const { getAddOnPlacement, getAddOnBuildingPosition, getAddOnBuildingPlacement } = require('../helper/placement/placement-utilities');
 const { getEnemyUnits } = require('../systems/state-of-game-system/state-of-game-service');
 const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
-const { getUnitWeaponDistanceToPosition, addEarmark, isTrainingUnit } = require('./data-service');
+const { getUnitWeaponDistanceToPosition, isTrainingUnit, earmarkThresholdReached, addEarmark, getEarmarkedFood } = require('./data-service');
 const unitTrainingService = require('../systems/unit-training/unit-training-service');
 const { haveAvailableProductionUnitsFor } = require('../systems/unit-training/unit-training-service');
 const { checkUnitCount } = require('../systems/track-units/track-units-service');
@@ -142,7 +142,7 @@ const worldService = {
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
           setPendingOrders(unit, unitCommand);
-          addEarmark(world, data.getUnitTypeData(addOnType));
+          addEarmark(data, data.getUnitTypeData(addOnType));
           return;
         }
       }
@@ -171,7 +171,7 @@ const worldService = {
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
           setPendingOrders(unit, unitCommand);
-          addEarmark(world, data.getUnitTypeData(addOnType));
+          addEarmark(data, data.getUnitTypeData(addOnType));
         }
       }
     }
@@ -197,7 +197,7 @@ const worldService = {
     if (builder) {
       const { pos } = builder;
       if (pos === undefined) return collectedActions;
-      dataService.addEarmark(world, data.getUnitTypeData(unitType));
+      addEarmark(data, data.getUnitTypeData(unitType));
       if (!builder.isConstructing() && !isPendingContructing(builder)) {
         setBuilderLabel(builder);
         const unitCommand = createUnitCommand(abilityId, [builder]);
@@ -280,7 +280,7 @@ const worldService = {
             const canDoTypeUnits = units.getById(canDoTypes);
             const unitsCanDoWithoutAddOnAndIdle = getUnitsCanDoWithoutAddOnAndIdle(world, unitType);
             const unitsCanDoIdle = unitsCanDoWithoutAddOnAndIdle.length > 0 ? unitsCanDoWithoutAddOnAndIdle : getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits);
-            addEarmark(world, data.getUnitTypeData(unitType));
+            addEarmark(data, data.getUnitTypeData(unitType));
             if (unitsCanDoIdle.length > 0) {
               let unitCanDo = unitsCanDoIdle[Math.floor(Math.random() * unitsCanDoIdle.length)];
               await addAddOn(world, unitCanDo, unitType, stepAhead);
@@ -511,7 +511,7 @@ const worldService = {
               collectedActions.push(...worldService.premoveBuilderToPosition(world, position, unitType));
             }
             if (!stepAhead) {
-              addEarmark(world, data.getUnitTypeData(unitType));
+             addEarmark(data, data.getUnitTypeData(unitType));
             }
           } else {
             await actions.sendAction(worldService.assignAndSendWorkerToBuild(world, unitType, canPlaceOrFalse));
@@ -972,7 +972,7 @@ const worldService = {
     for (let i = 0; i < lowerOfFoodDifferenceAndProductionUnitsCount; i++) {
       if (agent.canAfford(WorkerRace[agent.race]) && haveSupplyForUnit(world, WorkerRace[agent.race])) {
         affordableFoodDifference++;
-        addEarmark(world, data.getUnitTypeData(WorkerRace[agent.race]))
+        addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]))
       } else {
         break;
       }
@@ -1385,10 +1385,11 @@ const worldService = {
   morphStructureAction: async (world, unitType) => {
     const { data } = world;
     const collectedActions = [];
-    const actions = await worldService.ability(world, data.getUnitTypeData(unitType).abilityId);
+    const { ability, unpauseAndLog} = worldService;
+    const actions = await ability(world, data.getUnitTypeData(unitType).abilityId);
     if (actions.length > 0) {
-      worldService.unpauseAndLog(world, UnitTypeId[unitType]);
-      addEarmark(world, data.getUnitTypeData(unitType));
+      unpauseAndLog(world, UnitTypeId[unitType]);
+      addEarmark(data, data.getUnitTypeData(unitType));
       collectedActions.push(...actions);
     }
     return collectedActions;
@@ -1560,6 +1561,7 @@ const worldService = {
    */
   premoveBuilderToPosition: (world, position, unitType) => {
     const { agent, data, resources } = world;
+    if (earmarkThresholdReached(data)) return [];
     const { debug, map, units } = resources.get();
     const { getClosestPathablePositionsBetweenPositions, getClosestPositionByPath, getClosestUnitByPath, getDistanceByPath } = resourceManagerService;
     const { setPendingOrders, getOrderTargetPosition } = unitResourceService;
@@ -2061,11 +2063,11 @@ const worldService = {
           unpauseAndLog(world, UnitTypeId[unitTypeId]);
           await warpIn(resources, this, unitTypeId);
         }
-        addEarmark(world, data.getUnitTypeData(unitTypeId));
+        addEarmark(data, data.getUnitTypeData(unitTypeId));
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
-        addEarmark(world, data.getUnitTypeData(unitTypeId));
+        addEarmark(data, data.getUnitTypeData(unitTypeId));
         let canDoTypes = data.findUnitTypesWithAbility(abilityId);
         const canDoUnits = units.getById(canDoTypes);
         const unit = canDoUnits[Math.floor(Math.random() * canDoUnits.length)];
@@ -2100,11 +2102,11 @@ const worldService = {
           collectedActions.push(...warpInSync(world, unitTypeId));
           unpauseAndLog(world, UnitTypeId[unitTypeId]);
         }
-        addEarmark(world, data.getUnitTypeData(unitTypeId));
+        addEarmark(data, data.getUnitTypeData(unitTypeId));
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
-        addEarmark(world, data.getUnitTypeData(unitTypeId));
+        addEarmark(data, data.getUnitTypeData(unitTypeId));
       }
     }
     return collectedActions;
@@ -2244,7 +2246,7 @@ const worldService = {
    * @param {import("../interfaces/plan-step").PlanStep} step
    * @returns {Promise<void>}
    */
-  builderSupplyOrTrain: async (world, step) => {
+  buildSupplyOrTrain: async (world, step) => {
     const { agent, data, resources } = world;
     const { actions } = resources.get();
     const { getFoodUsed, trainCombatUnits, trainWorkers } = worldService;
@@ -2257,7 +2259,9 @@ const worldService = {
       if (trainingOrders.length > 0) {
         await actions.sendAction(trainingOrders);
       } else {
-        dataService.addEarmark(world, data.getUnitTypeData(WorkerRace[agent.race]))
+        if (step.food > (foodUsed + getEarmarkedFood())) {
+          addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]))
+        }
       }
     }
   },
@@ -2398,7 +2402,7 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
         collectedActions.push(unitCommand);
         planService.pausePlan = false;
         planService.continueBuild = true;
-        dataService.addEarmark(world, data.getUnitTypeData(unitType));
+        addEarmark(data, data.getUnitTypeData(unitType));
         planService.foundPosition = null;
       } else {
         planService.foundPosition = null;
@@ -2621,7 +2625,7 @@ function getTimeToTargetCost(world, unitType) {
     collectionRateMinerals = 615;
     collectionRateVespene = 0;
   }
-  dataService.addEarmark(world, data.getUnitTypeData(unitType));
+  addEarmark(data, data.getUnitTypeData(unitType));
   let earmarkTotals = data.getEarmarkTotals('');
   const { minerals: earmarkMinerals, vespene: earmarkVespene } = earmarkTotals;
   const mineralsLeft = earmarkMinerals - minerals;

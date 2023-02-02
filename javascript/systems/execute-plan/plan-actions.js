@@ -11,8 +11,8 @@ const { countTypes } = require("../../helper/groups");
 const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
 const planService = require("../../services/plan-service");
 const { balanceResources } = require("../manage-resources");
-const { premoveBuilderToPosition, assignAndSendWorkerToBuild, train, setAndLogExecutedSteps, setFoodUsed, builderSupplyOrTrain, build } = require("../../services/world-service");
-const { addEarmark, isTrainingUnit, hasEarmarks } = require("../../services/data-service");
+const { premoveBuilderToPosition, assignAndSendWorkerToBuild, train, setAndLogExecutedSteps, setFoodUsed, buildSupplyOrTrain, build } = require("../../services/world-service");
+const { isTrainingUnit, hasEarmarks, addEarmark } = require("../../services/data-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { createUnitCommand } = require("../../services/actions-service");
 const { CANCEL_QUEUE5 } = require("@node-sc2/core/constants/ability");
@@ -58,7 +58,7 @@ const planActions = {
     const upgraders = units.getUpgradeFacilities(upgradeId).filter(upgrader => upgrader.alliance === Alliance.SELF);
     const upgradeInProgress = upgraders.find(upgrader => upgrader.orders && upgrader.orders.find(order => order.abilityId === data.getUpgradeData(upgradeId).abilityId));
     if (upgradeResearched || upgradeInProgress) return;
-    addEarmark(world, data.getUpgradeData(upgradeId));
+    addEarmark(data, data.getUpgradeData(upgradeId));
     const upgrader = getRandom(upgraders.filter(upgrader => {
       const { abilityId } = data.getUpgradeData(upgradeId); if (abilityId === undefined) return;
       return upgrader.noQueue && upgrader.abilityAvailable(abilityId);
@@ -155,7 +155,7 @@ const planActions = {
         planService.currentStep = step;
         let setEarmark = !hasEarmarks(data);
         const planStep = plan[step];
-        await builderSupplyOrTrain(world, planStep);
+        await buildSupplyOrTrain(world, planStep);
         const { candidatePositions, orderType, unitType, targetCount, upgrade } = planStep;
         if (orderType === 'UnitType') {
           if (unitType === undefined || unitType === null) break;
@@ -184,7 +184,7 @@ const planActions = {
       }
     }
     if (!hasEarmarks(data)) {
-      addEarmark(world, data.getUnitTypeData(WorkerRace[agent.race]));
+      addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]));
       const earmarkTotals = data.getEarmarkTotals('');
       const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
       const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
