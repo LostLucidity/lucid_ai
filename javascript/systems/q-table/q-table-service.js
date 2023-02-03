@@ -13,7 +13,7 @@ const path = require('path');
 
 const qTableService = {
   alpha: 0.1,
-  epsilon: 0.1,
+  epsilon: 1 / 2 ** 11,
   gamma: 0.9,
   /** @type {number[][]} */
   Q: [],
@@ -90,11 +90,11 @@ const qTableService = {
    * @returns {number}
    */
   getStateIndex(currentState) {
-    const { Q, states } = qTableService;
+    const { epsilon, Q, states } = qTableService;
     states.push(currentState);
     const stateIndex = Q[states.length - 1];
     if (stateIndex === undefined) {
-      const randomActionValues = Array(getAllActions().length).fill(0).map(() => Math.random());
+      const randomActionValues = Array(getAllActions().length).fill(0).map((_value, index) => index === 0 ? 1 - (epsilon * 2) : Math.random());
       Q.push(randomActionValues);
     }
     return states.length - 1;

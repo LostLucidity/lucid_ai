@@ -12,7 +12,7 @@ module.exports = createSystem({
   name: 'QTableSystem',
   type: 'agent',
   defaultOptions: {
-    stepIncrement: 128,
+    stepIncrement: 2**1,
   },
   async onGameStart(world) {
     const { data } = world;
