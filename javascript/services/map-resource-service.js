@@ -1,11 +1,13 @@
 //@ts-check
 "use strict"
 
+const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, areEqual, getNeighbors, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const location = require("../helper/location");
 const { pointsOverlap } = require("../helper/utilities");
 const { getPathCoordinates } = require("./path-service");
+const { getDistance } = require("./position-service");
 
 const MapResourceService = {
   creepEdges: [],
@@ -144,6 +146,15 @@ const MapResourceService = {
     const { areas } = closestExpansion; if (areas === undefined) return false;
     const { mineralLine } = areas; if (mineralLine === undefined) return false;
     return pointsOverlap([point], mineralLine);
+  },
+  /**
+   * @param {MapResource} map 
+   * @param {UnitTypeId} unitType
+   * @param {Point2D} position
+   * @returns {boolean}
+   */
+  isPlaceableAtGasGeyser: (map, unitType, position) => {
+    return gasMineTypes.includes(unitType) && map.freeGasGeysers().some(gasGeyser => gasGeyser.pos && getDistance(gasGeyser.pos, position) <= 1);
   }
 }
 

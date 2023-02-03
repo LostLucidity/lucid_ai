@@ -25,7 +25,7 @@ const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions, isInMineralLine } = require("./map-resource-service");
+const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions, isInMineralLine, isPlaceableAtGasGeyser } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getOccupiedExpansions, getNextSafeExpansion, getAvailableExpansions } = require("../helper/expansions");
@@ -729,7 +729,7 @@ const worldService = {
     }
     const isProtoss = agent.race === Race.PROTOSS;
     if (isProtoss) {
-      candidatePositions = candidatePositions.filter(position => map.isPlaceableAt(unitType, position));
+      candidatePositions = candidatePositions.filter(position => map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position));
     }
     const randomPositions = candidatePositions
       .map(pos => ({ pos, rand: Math.random() }))
