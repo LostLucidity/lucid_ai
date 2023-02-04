@@ -7,7 +7,7 @@ const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities, addonTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, avgPoints, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
+const { distance, avgPoints, createPoint2D, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { countTypes, morphMapping, addOnTypesMapping, flyingTypesMapping } = require("../helper/groups");
 const { getCandidatePositions, getInTheMain } = require("../helper/placement/placement-helper");
@@ -719,8 +719,10 @@ const worldService = {
    * @param {World} world
    * @param {UnitTypeId} unitType
    * @param {Point3D[]} candidatePositions
+   * @returns {Promise<false | Point2D>}
    */
   findPosition: async (world, unitType, candidatePositions) => {
+    if (candidatePositions.length === 0) return false;
     const { resources, agent } = world;
     const { actions, map } = resources.get();
     if (flyingTypesMapping.has(unitType)) {
@@ -1570,7 +1572,7 @@ const worldService = {
       const movementSpeedPerSecond = movementSpeed * 1.4;
       const { orders, pos } = builder; if (orders === undefined || pos === undefined) return collectedActions;
       const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, position);
-      const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
+      const { pathCoordinates, pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
       let builderDistanceToPosition = getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
       if (debug !== undefined) {
         debug.setDrawCells('prmv', getPathCoordinates(MapResourceService.getMapPath(map, pos, pathableTargetPosition)).map(point => ({ pos: point })), { size: 1, cube: false });
@@ -1602,6 +1604,12 @@ const worldService = {
       const timeToTargetTech = getTimeToTargetTech(world, unitType);
       const timeToTargetCostOrTech = timeToTargetTech > timeToTargetCost ? timeToTargetTech : timeToTargetCost;
       if (shouldPremoveNow(world, timeToTargetCostOrTech, timeToPosition)) {
+        if (agent.race === Race.PROTOSS && !gasMineTypes.includes(unitType)) {
+          if (pathCoordinates.length >= 2) {
+            const secondToLastPosition = pathCoordinates[pathCoordinates.length - 2];
+            position = avgPoints([secondToLastPosition, position, position]);
+          }
+        }
         if (rallyBase) {
           collectedActions.push(...rallyWorkerToTarget(world, position));
           collectedActions.push(...stopUnitFromMovingToPosition(builder, position));
