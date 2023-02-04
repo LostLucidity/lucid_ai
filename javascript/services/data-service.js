@@ -2,7 +2,7 @@
 "use strict"
 
 const { UnitType, WarpUnitAbility, Upgrade } = require("@node-sc2/core/constants");
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, Race, Attribute } = require("@node-sc2/core/constants/enums");
 const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getTimeInSeconds } = require("./frames-service");
@@ -29,13 +29,19 @@ const dataService = {
   addEarmark: (data, orderData) => {
     if (dataService.earmarkThresholdReached(data)) return;
     const { name, mineralCost, vespeneCost } = orderData; if (name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
-    /** @type {number} */
-    const foodRequired = orderData['foodRequired'];
     let minerals = 0;
     if (orderData['unitId'] !== undefined) {
-      const unitType = orderData['unitId'];
-      minerals = mineralCost + (unitType === ORBITALCOMMAND ? -400 : 0);
+      /** @type {SC2APIProtocol.UnitTypeData} */
+      const { attributes, foodRequired, race, unitId } = orderData; if (attributes === undefined || foodRequired === undefined || race === undefined || unitId === undefined) return;
+      const foodEarmark = dataService.foodEarmarks.get(planService.currentStep) || 0;
+      dataService.foodEarmarks.set(planService.currentStep, foodEarmark + foodRequired);
+      minerals = (unitId === ORBITALCOMMAND ? -400 : 0)
+      if (race === Race.ZERG && attributes.includes(Attribute.STRUCTURE)) {
+        const foodEarmark = dataService.foodEarmarks.get(planService.currentStep) || 0;
+        dataService.foodEarmarks.set(planService.currentStep, foodEarmark - 1);
+      }
     }
+    minerals += mineralCost;
     const earmark = {
       name: `${name}_${planService.currentStep}`,
       minerals,
@@ -43,9 +49,6 @@ const dataService = {
     }
     data.addEarmark(earmark);
     dataService.earmarks.push(earmark);
-    if (foodRequired !== undefined) {
-      dataService.foodEarmarks.set(planService.currentStep, foodRequired);
-    }
   },
   /**
    * 

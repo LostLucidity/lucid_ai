@@ -7,6 +7,7 @@ const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums")
 const { ZEALOT, ZERGLING, ROACH } = require("@node-sc2/core/constants/unit-type");
 const { add } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("./actions-service");
+const { CHRONOBOOSTENERGYCOST } = require("@node-sc2/core/constants/buff");
 
 const unitService = {
   /**
@@ -65,6 +66,20 @@ const unitService = {
     return attackUpgradeLevel;
   },
   /**
+   * @param {Unit} unit
+   * @param {number} buildTime
+   * @param {number} progress
+   * @returns {number}
+   **/
+  getBuildTimeLeft(unit, buildTime, progress) {
+    const { buffIds } = unit;
+    if (buffIds === undefined) return buildTime;
+    if (buffIds.includes(CHRONOBOOSTENERGYCOST)) {
+      buildTime = buildTime * 2 / 3;
+    }
+    return buildTime * (1 - progress);
+  },
+  /**
    * @param {Unit} unit 
    * @param {WeaponTargetType} weaponTargetType 
    * @returns {SC2APIProtocol.Weapon|undefined}
@@ -87,9 +102,10 @@ const unitService = {
   },
   /**
    * @param {Unit} unit 
+   * @param {boolean} adjustForRealSeconds
    * @returns {number | undefined}
    */
-  getMovementSpeed: (unit) => {
+  getMovementSpeed: (unit, adjustForRealSeconds=false) => {
     let { movementSpeed } = unit.data();
     if (unit.unitType === ROACH) {
       if (unit.alliance === Alliance.SELF && unitService.selfGlialReconstitution) {
@@ -109,7 +125,7 @@ const unitService = {
     if (unit.buffIds.includes(Buff.STIMPACK)) {
       movementSpeed = movementSpeed * 1.5
     }
-    return movementSpeed;
+    return movementSpeed * (adjustForRealSeconds ? 1.4 : 1);
   },
   /**
    * @param {Unit} unit

@@ -74,6 +74,7 @@ module.exports = {
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
   spreadCreep: async (world) => {
+    const { resources } = world;
     const { map, units } = resources.get();
     const collectedActions = [];
     const activeCreepTumors = units.getById(CREEPTUMORBURROWED).filter(unit => unit.availableAbilities().length > 0 && !unit.labels.get('done'));

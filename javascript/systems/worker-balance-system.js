@@ -9,9 +9,10 @@ const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { createUnitCommand } = require('../services/actions-service');
+const { getTimeInSeconds } = require('../services/frames-service');
 const { getClosestExpansion } = require('../services/map-resource-service');
-const { gather } = require('../services/resource-manager-service');
-const { getPendingOrders } = require('../services/unit-service');
+const { gather, getDistanceByPath, getClosestPathablePositionsBetweenPositions } = require('../services/resource-manager-service');
+const { getPendingOrders, getBuildTimeLeft, getMovementSpeed } = require('../services/unit-service');
 const { gatherOrMine } = require('./manage-resources');
 const { getMineralFieldAssignments, setPendingOrders, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
 
@@ -29,12 +30,11 @@ module.exports = createSystem({
     return collectedActions;
   },
   async onStep(world) {
-    const { resources } = world;
+    const { data, resources } = world;
     const { units, actions } = resources.get();
     const collectedActions = [];
-    const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
     const gatheringWorkers = getGatheringWorkers(units);
-    const townhalls = units.getAlive(readySelfFilter).filter(u => u.isTownhall());
+    const townhalls = units.getBases()
     const needyTownhall = townhalls.filter(townhall => {
       if (townhall['enemyUnits']) {
         let [closestEnemyUnit] = units.getClosest(townhall.pos, townhall['enemyUnits'], 1);
@@ -43,7 +43,21 @@ module.exports = createSystem({
         }
       }
       return true;
-    }).find(base => base.assignedHarvesters < base.idealHarvesters);
+    }).find(townhall => {
+      const { assignedHarvesters, buildProgress, idealHarvesters } = townhall; if (assignedHarvesters === undefined || buildProgress === undefined || idealHarvesters === undefined) { return false }
+      let excessHarvesters = false;
+      if (buildProgress < 1) {
+        const mineralFields = units.getMineralFields().filter(field => {
+          const { pos } = field; if (pos === undefined) { return false }
+          const { pos: townhallPos } = townhall; if (townhallPos === undefined) { return false }
+          return distance(pos, townhallPos) < 8;
+        });
+        excessHarvesters = assignedHarvesters < mineralFields.length * 2;
+      } else {
+        excessHarvesters = assignedHarvesters < idealHarvesters;
+      }
+      return excessHarvesters;
+    });
     if (needyTownhall) {
       const possibleDonerThs = townhalls.filter(townhall => {
         const { assignedHarvesters, idealHarvesters } = townhall; if (assignedHarvesters === undefined || idealHarvesters === undefined) { return false }
@@ -57,6 +71,7 @@ module.exports = createSystem({
       if (givingTownhall && gatheringWorkers.length > 0) {
         debugSilly('chosen closest th', givingTownhall.tag);
         const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringWorkers);
+        const { pos } = donatingWorker; if (pos === undefined) { return }
         debugSilly('chosen worker', donatingWorker.tag);
         const mineralFields = units.getMineralFields().filter(field => {
           const numWorkers = units.getWorkers().filter(worker => {
@@ -72,6 +87,14 @@ module.exports = createSystem({
         });
         const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, mineralFields);
         if (mineralFieldTarget) {
+          const { pos: mineralFieldPos } = mineralFieldTarget; if (mineralFieldPos === undefined) { return }
+          const { buildProgress, unitType } = needyTownhall; if (buildProgress === undefined || unitType === undefined) { return }
+          if (buildProgress < 1) {
+            const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return false;
+            const buildTimeLeft = getBuildTimeLeft(needyTownhall, buildTime, buildProgress);
+            const timeToMineralField = getUnitTimeToPosition(resources, donatingWorker, mineralFieldPos); if (timeToMineralField === undefined) return false;
+            if (getTimeInSeconds(buildTimeLeft) > timeToMineralField) return false;
+          }
           donatingWorker.labels.set('mineralField', mineralFieldTarget);
           if (!mineralFieldTarget.labels.has('workerCount')) {
             mineralFieldTarget.labels.set('workerCount', 1);
@@ -293,4 +316,19 @@ function getLeastNeediestMineralField(units, mineralFields) {
       return units.getByTag(mineralFieldTag);
     }
   }
+}
+
+/**
+ * @param {ResourceManager} resources
+ * @param {Unit} donatingWorker
+ * @param {Point2D} targetPosition
+ * @returns {number | undefined}
+ */
+function getUnitTimeToPosition(resources, donatingWorker, targetPosition) {
+  const { pos } = donatingWorker; if (pos === undefined) { return }
+  const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, targetPosition);
+  const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
+  let builderDistanceToPosition = getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
+  const movementSpeedPerSecond = getMovementSpeed(donatingWorker, true); if (movementSpeedPerSecond === undefined) { return }
+  return builderDistanceToPosition / movementSpeedPerSecond
 }

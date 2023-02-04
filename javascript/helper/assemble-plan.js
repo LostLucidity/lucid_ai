@@ -5,7 +5,7 @@ const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const rallyUnits = require("./rally-units");
-const { WarpUnitAbility, UnitType, Upgrade, UnitTypeId } = require("@node-sc2/core/constants");
+const { WarpUnitAbility, UnitType, Upgrade } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
 const { TownhallRace, GasMineRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { defend, attack, push } = require("./behavior/army-behavior");
@@ -392,7 +392,7 @@ class AssemblePlan {
         labelQueens(this.units);
         this.collectedActions.push(...inject(this.world));
         this.collectedActions.push(...overlordCoverage(this.units));
-        this.collectedActions.push(...await spreadCreep(this.resources));
+        this.collectedActions.push(...await spreadCreep(world));
         this.collectedActions.push(...creeperBehavior(world));
         break;
       case Race.TERRAN:
@@ -575,14 +575,14 @@ class AssemblePlan {
     for (let step = 0; step < legacyPlan.length; step++) {
       planService.currentStep = step;
       if (planService.continueBuild) {
-        const planStep = legacyPlan[step];
+        let setEarmark = !hasEarmarks(data);
         const trueActions = ['build', 'train', 'upgrade'];
         const trueStep = legacyPlan.slice(step).find(step => trueActions.includes(step[1]));
         if (trueStep) {
           const convertedLegacyStep = convertLegacyStep(trueStep);
           await buildSupplyOrTrain(world, convertedLegacyStep);
         } 
-        let setEarmark = !hasEarmarks(data);
+        const planStep = legacyPlan[step];
         let targetCount = planStep[3];
         const foodTarget = planStep[0];
         let conditions;

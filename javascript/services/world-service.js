@@ -20,7 +20,7 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon } = require("./unit-service");
+const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon, getBuildTimeLeft } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
@@ -2245,7 +2245,7 @@ const worldService = {
     const { agent, data, resources } = world;
     const { actions } = resources.get();
     const { getFoodUsed, trainCombatUnits, trainWorkers } = worldService;
-    const foodUsed = getFoodUsed();
+    const foodUsed = getFoodUsed() + getEarmarkedFood();
     const foodUsedLessThanNextStepFoodTarget = step && foodUsed < step.food;
     if (!step || foodUsedLessThanNextStepFoodTarget) {
       await buildSupply(world);
@@ -2254,9 +2254,7 @@ const worldService = {
       if (trainingOrders.length > 0) {
         await actions.sendAction(trainingOrders);
       } else {
-        if (step.food > (foodUsed + getEarmarkedFood())) {
-          addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]))
-        }
+        addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]))
       }
     }
   },
@@ -2650,20 +2648,6 @@ function canWeaponAttackType(units, weapon, targetUnitType) {
   const { getUnitTypeData } = unitResourceService;
   const { isFlying } = getUnitTypeData(units, targetUnitType);
   return weapon.type === WeaponTargetType.ANY || (weapon.type === WeaponTargetType.GROUND && !isFlying) || (weapon.type === WeaponTargetType.AIR && isFlying || targetUnitType === UnitType.COLOSSUS);
-}
-/**
- * @param {Unit} unit
- * @param {number} buildTime
- * @param {number} progress
- * @returns {number}
- **/
-function getBuildTimeLeft(unit, buildTime, progress) {
-  const { buffIds } = unit;
-  if (buffIds === undefined) return buildTime;
-  if (buffIds.includes(CHRONOBOOSTENERGYCOST)) {
-    buildTime = buildTime * 2 / 3;
-  }
-  return buildTime * (1 - progress);
 }
 /**
  * @param {Unit} unit
