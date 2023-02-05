@@ -46,7 +46,7 @@ const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
-const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train, setFoodUsed, swapBuildings, ability, findPosition, getUnitTypeCount, buildSupplyOrTrain, addAddOn } = require("../services/world-service");
+const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train, setFoodUsed, swapBuildings, ability, findPosition, getUnitTypeCount, buildSupplyOrTrain, addAddOn, morphStructureAction } = require("../services/world-service");
 const { getNextPlanStep, convertLegacyStep, setSupplyMax } = require("../services/plan-service");
 const { warpIn } = require("../services/resource-manager-service");
 
@@ -82,6 +82,7 @@ class AssemblePlan {
    */
   async onStep(world, state) {
     const { data } = world;
+    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     this.collectedActions = [];
     this.state = state;
     this.state.defenseStructures = this.defenseStructures;
@@ -185,7 +186,7 @@ class AssemblePlan {
    */
   async build(world, unitType, targetCount, candidatePositions = []) {
     const { data, resources } = world;
-    const { findPlacements, unpauseAndLog } = worldService;
+    const { findPlacements } = worldService;
     const unitTypeCount = getUnitTypeCount(world, unitType);
     const unitCount = getUnitCount(world, unitType);
     if (unitTypeCount <= targetCount && unitCount <= targetCount) {
@@ -206,10 +207,8 @@ class AssemblePlan {
             }
           } else {
             const unitTypeData = data.getUnitTypeData(unitType);
-            const { abilityId } = unitTypeData; if (abilityId === undefined) { return; }
-            const actions = await ability(world, abilityId);
             addEarmark(data, unitTypeData);
-            this.collectedActions.push(...actions);
+            this.collectedActions.push(...await morphStructureAction(world, unitType));
           }
           break;
         case addonTypes.includes(unitType):
