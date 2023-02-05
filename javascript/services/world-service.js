@@ -267,8 +267,11 @@ const worldService = {
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             }
           } else {
+            const unitTypeToCheckAfford = unitType === ORBITALCOMMAND ? BARRACKS : unitType;
+            if (agent.canAfford(unitTypeToCheckAfford)) {
+              collectedActions.push(...await morphStructureAction(world, unitType));
+            }
             addEarmark(data, data.getUnitTypeData(unitType));
-            collectedActions.push(...await morphStructureAction(world, unitType));
           }
           break;
         case addonTypes.includes(unitType): {

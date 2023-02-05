@@ -18,7 +18,6 @@ module.exports = createSystem({
     if (minerals === undefined) return [];
     if (minerals <= planService.mineralThreshold) {
       collectedActions.push(...callDownMules(world));
-      collectedActions.push(...morphIntoOrbitalCommand(world));
     }
     await actions.sendAction(collectedActions);
   }
