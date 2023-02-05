@@ -49,28 +49,28 @@ function injectLarva(resources) {
     const { energy, orders, pos, radius } = queen;
     if (energy === undefined || orders === undefined || pos === undefined || radius === undefined) return;
     const timeTo25Energy = (25 - energy) > 0 ? (25 - energy) / getEnergyRegenRate() : 0;
-    const [closestUnitByPath] = getClosestUnitByPath(resources, pos, baseAndQueenSpawnTimerLeft.filter(base => {
+    const [closestBaseByPath] = getClosestUnitByPath(resources, pos, baseAndQueenSpawnTimerLeft.filter(base => {
       const { base: { pos: basePos }, timeLeft } = base;
       if (basePos === undefined) return false;
       const closestUnitPositionByPath = getClosestUnitPositionByPath(resources, basePos, pos);
       const timeToDistance = getTimeToDistance(resources, queen, closestUnitPositionByPath);
       return timeLeft <= timeTo25Energy || timeLeft <= timeToDistance;
     }).map(base => base.base));
-    if (closestUnitByPath) {
-      const { buffIds, pos: closestUnitByPathPos } = closestUnitByPath;
-      if (buffIds === undefined || closestUnitByPathPos === undefined) return;
+    if (closestBaseByPath) {
+      const { buffIds, pos: closestBaseByPathPos } = closestBaseByPath;
+      if (buffIds === undefined || closestBaseByPathPos === undefined) return;
       const ordersAndPendingOrders = getPendingOrders(queen).concat(orders);
       if (queen.canInject()) {
         const noInjectingOrder = ordersAndPendingOrders.every(order => order.abilityId !== EFFECT_INJECTLARVA);
         if (noInjectingOrder && !buffIds.includes(QUEENSPAWNLARVATIMER)) {
           const unitCommand = createUnitCommand(EFFECT_INJECTLARVA, [queen]);
-          unitCommand.targetUnitTag = closestUnitByPath.tag;
+          unitCommand.targetUnitTag = closestBaseByPath.tag;
           collectedActions.push(unitCommand);
           setPendingOrders(queen, unitCommand);
-          closestUnitByPath.labels.delete('queenSpawnTimerLeft');
+          closestBaseByPath.labels.delete('queenSpawnTimerLeft');
         }
       } else {
-        const [closestBase] = units.getClosest(closestUnitByPathPos, units.getBases());
+        const [closestBase] = units.getClosest(pos, units.getBases());
         const { pos: closestBasePos, radius: closestBaseRadius } = closestBase;
         if (closestBasePos === undefined || closestBaseRadius === undefined) return;
         if (getDistance(pos, closestBasePos) > radius + closestBaseRadius) {
