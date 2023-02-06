@@ -7,6 +7,7 @@ const { createSystem } = require('@node-sc2/core');
 const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
+const { ASSIMILATOR } = require('@node-sc2/core/constants/unit-type');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { createUnitCommand } = require('../services/actions-service');
 const { getTimeInSeconds } = require('../services/frames-service');
@@ -118,6 +119,17 @@ module.exports = createSystem({
     collectedActions.push(...assignWorkers(resources));
     collectedActions.push(...gatherOrMineIdleGroup(world));
     await actions.sendAction(collectedActions);
+  },
+  async onUnitCreated(world, createdUnit) {
+    const { resources } = world;
+    const { actions, units } = resources.get();
+    if (createdUnit.unitType === ASSIMILATOR) {
+      const { pos } = createdUnit; if (pos === undefined) { return }
+      const [closestWorker] = units.getClosest(pos, units.getWorkers()); if (closestWorker === undefined) { return }
+      const [mineralFieldTarget] = units.getClosest(pos, units.getMineralFields()); if (mineralFieldTarget === undefined) { return }
+      const unitCommands = gatherOrMine(resources, closestWorker, mineralFieldTarget);
+      await actions.sendAction(unitCommands);
+    }
   },
   /**
    * 

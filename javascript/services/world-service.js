@@ -202,29 +202,10 @@ const worldService = {
         setBuilderLabel(builder);
         const unitCommand = createUnitCommand(abilityId, [builder]);
         if (GasMineRace[agent.race] === unitType) {
-          const [closestGasGeyser] = units.getClosest(position, units.getGasGeysers());
-          if (closestGasGeyser === undefined) return collectedActions;
+          const [closestGasGeyser] = units.getClosest(position, units.getGasGeysers()); if (closestGasGeyser === undefined) return collectedActions;
+          const { pos } = closestGasGeyser; if (pos === undefined) return collectedActions;
           unitCommand.targetUnitTag = closestGasGeyser.tag;
           collectedActions.push(unitCommand);
-          if (builder.unitType === PROBE) {
-            const [closestBase] = getClosestUnitByPath(resources, pos, units.getBases());
-            if (closestBase) {
-              const { pos } = closestBase;
-              if (pos === undefined) return collectedActions;
-              const [closestExpansion] = getClosestExpansion(map, pos);
-              const { mineralFields } = closestExpansion.cluster;
-              let mineralField = getNeediestMineralField(units, mineralFields);
-              const unitCommand = gather(resources, builder, mineralField, true).find(action => action.abilityId === SMART)
-              if (unitCommand && unitCommand.targetUnitTag) {
-                collectedActions.push(unitCommand);
-                mineralField = mineralField ? mineralField : units.getByTag(unitCommand.targetUnitTag);
-                if (mineralField) {
-                  builder.labels.set('mineralField', mineralField);
-                  mineralField.labels.set('workerCount', mineralField.labels.get('workerCount') + 1);
-                }
-              }
-            }
-          }
         } else {
           unitCommand.targetWorldSpacePos = position;
           collectedActions.push(unitCommand);
