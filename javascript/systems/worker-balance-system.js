@@ -4,15 +4,17 @@
 const debugDebug = require('debug')('sc2:debug:WorkerBalance');
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 const { createSystem } = require('@node-sc2/core');
+const { SMART, MOVE } = require('@node-sc2/core/constants/ability');
 const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
 const { ASSIMILATOR } = require('@node-sc2/core/constants/unit-type');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
+const { pointsOverlap } = require('../helper/utilities');
 const { createUnitCommand } = require('../services/actions-service');
 const { getTimeInSeconds } = require('../services/frames-service');
 const { getClosestExpansion } = require('../services/map-resource-service');
-const { gather, getDistanceByPath, getClosestPathablePositionsBetweenPositions } = require('../services/resource-manager-service');
+const { gather, getClosestPathablePositionsBetweenPositions } = require('../services/resource-manager-service');
 const { getPendingOrders, getBuildTimeLeft, getMovementSpeed } = require('../services/unit-service');
 const { gatherOrMine } = require('./manage-resources');
 const { getMineralFieldAssignments, setPendingOrders, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
@@ -21,7 +23,7 @@ module.exports = createSystem({
   name: 'WorkerBalanceSystem',
   type: 'agent',
   defaultOptions: {
-    stepIncrement: 32,
+    stepIncrement: 16,
     state: {},
   },
   async onGameStart(world) {
@@ -35,7 +37,7 @@ module.exports = createSystem({
     const { units, actions } = resources.get();
     const collectedActions = [];
     const gatheringWorkers = getGatheringWorkers(units);
-    const townhalls = units.getBases()
+    const townhalls = units.getBases();
     const needyTownhall = townhalls.filter(townhall => {
       if (townhall['enemyUnits']) {
         let [closestEnemyUnit] = units.getClosest(townhall.pos, townhall['enemyUnits'], 1);
@@ -116,6 +118,7 @@ module.exports = createSystem({
         }
       }
     }
+    collectedActions.push(...redirectReturningWorkers(world));
     collectedActions.push(...assignWorkers(resources));
     collectedActions.push(...gatherOrMineIdleGroup(world));
     await actions.sendAction(collectedActions);
@@ -129,25 +132,6 @@ module.exports = createSystem({
       const [mineralFieldTarget] = units.getClosest(pos, units.getMineralFields()); if (mineralFieldTarget === undefined) { return }
       const unitCommands = gatherOrMine(resources, closestWorker, mineralFieldTarget);
       await actions.sendAction(unitCommands);
-    }
-  },
-  /**
-   * 
-   * @param {World} param0 
-   * @param {Unit} idleUnit 
-   * @returns {Promise<SC2APIProtocol.ResponseAction|void>}
-   */
-  async onUnitIdle({ resources }, idleUnit) {
-    const pendingOrders = getPendingOrders(idleUnit);
-    if (idleUnit.isWorker() && idleUnit.noQueue && pendingOrders.length === 0) {
-      const { actions, units } = resources.get();
-      if (units.getBases(Alliance.SELF).length > 0) {
-        console.log('gatherOrMine');
-        const unitCommands = gatherOrMine(resources, idleUnit);
-        if (unitCommands.length > 0) {
-          return actions.sendAction(unitCommands);
-        }
-      }
     }
   },
   async onUnitFinished({ resources }, newBuilding) {
@@ -187,9 +171,37 @@ module.exports = createSystem({
           neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
         }
       })
+      // grab returning workers in townhall expansion and return it to townhall
+      const [closestExpansion] = getClosestExpansion(map, pos);
+      const { areas } = closestExpansion; if (areas === undefined) return;
+      const { areaFill } = areas;
+      units.getWorkers().forEach(worker => {
+        const { orders, pos: workerPos } = worker; if (orders === undefined || workerPos === undefined) return false;
+        const { abilityId, targetUnitTag } = orders[0]; if (abilityId === undefined) return false;
+        const inExpansionRange = pointsOverlap(areaFill, [workerPos]);
+        if (!inExpansionRange) return;
+        const isMovingToTownhall = abilityId === MOVE && targetUnitTag === newBuilding.tag;
+        if (!worker.isReturning() && !isMovingToTownhall) return;
+        const unitCommand = createUnitCommand(SMART, [worker]);
+        unitCommand.targetUnitTag = newBuilding.tag;
+        collectedActions.push(unitCommand);
+      });
     }
     await actions.sendAction(collectedActions);
-  }
+  },
+  async onUnitIdle({ resources }, idleUnit) {
+    const pendingOrders = getPendingOrders(idleUnit);
+    if (idleUnit.isWorker() && idleUnit.noQueue && pendingOrders.length === 0) {
+      const { actions, units } = resources.get();
+      if (units.getBases(Alliance.SELF).length > 0) {
+        console.log('gatherOrMine');
+        const unitCommands = gatherOrMine(resources, idleUnit);
+        if (unitCommands.length > 0) {
+          return actions.sendAction(unitCommands);
+        }
+      }
+    }
+  },
 });
 /**
  * @param {World} world 
@@ -339,8 +351,45 @@ function getLeastNeediestMineralField(units, mineralFields) {
 function getUnitTimeToPosition(resources, donatingWorker, targetPosition) {
   const { pos } = donatingWorker; if (pos === undefined) { return }
   const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, targetPosition);
-  const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
-  let builderDistanceToPosition = getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
+  const { distance } = closestPathablePositionBetweenPositions;
   const movementSpeedPerSecond = getMovementSpeed(donatingWorker, true); if (movementSpeedPerSecond === undefined) { return }
-  return builderDistanceToPosition / movementSpeedPerSecond
+  return distance / movementSpeedPerSecond
 }
+/**
+ * @param {World} world
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function redirectReturningWorkers(world) {
+  const { data, resources } = world;
+  const { map, units } = resources.get();
+  const collectedActions = [];
+  const townHalls = units.getBases().filter(base => base.buildProgress && base.buildProgress < 1);
+  townHalls.forEach(townHall => {
+    const { pos, unitType } = townHall; if (pos === undefined || unitType === undefined) return;
+    const [closestExpansion] = getClosestExpansion(map, pos);
+    const { areas } = closestExpansion; if (areas === undefined) return;
+    const { areaFill } = areas;
+    const returningWorkersInTownHallRange = units.getWorkers().filter(worker => {
+      const { pos: workerPos } = worker; if (workerPos === undefined) return false;
+      const inExpansionRange = pointsOverlap(areaFill, [workerPos]);
+      if (!worker.isReturning() || !inExpansionRange) return false;
+      return true;
+    });
+    returningWorkersInTownHallRange.forEach(worker => {
+      const { orders } = worker; if (orders === undefined) return;
+      const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return;
+      const { buildProgress } = townHall; if (buildProgress === undefined) return;
+      const buildTimeLeft = getBuildTimeLeft(townHall, buildTime, buildProgress);
+      const timeToPosition = getUnitTimeToPosition(resources, worker, pos); if (timeToPosition === undefined) return;
+      if (getTimeInSeconds(buildTimeLeft) < timeToPosition) {
+        if (orders[0].targetUnitTag !== townHall.tag) {
+          const unitCommand = createUnitCommand(SMART, [worker]);
+          unitCommand.targetUnitTag = townHall.tag;
+          collectedActions.push(unitCommand);
+        }
+      }
+    });
+  });
+  return collectedActions;
+}
+
