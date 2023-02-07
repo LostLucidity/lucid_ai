@@ -2159,14 +2159,16 @@ const worldService = {
     const candidateTypesToBuild = plannedTrainingTypes.filter(type => {
       const { attributes, foodRequired } = data.getUnitTypeData(type); if (attributes === undefined || foodRequired === undefined) return false;
       const food = plan[currentStep] ? plan[currentStep].food : legacyPlan[currentStep][0];
-      return [
-        !attributes.includes(Attribute.STRUCTURE),
-        haveAvailableProductionUnitsFor(world, type),
-        agent.hasTechFor(type),
-        foodRequired <= food - getFoodUsed(),
-        outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed(),
-        !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]]),
-      ].every(condition => condition);
+      if (
+        !attributes.includes(Attribute.STRUCTURE) &&
+        foodRequired <= food - getFoodUsed() &&
+        outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed() &&
+        !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]]) &&
+        agent.hasTechFor(type) &&
+        haveAvailableProductionUnitsFor(world, type)
+      ) {
+        return true;
+      }
     });
     if (candidateTypesToBuild.length > 0) {
       let { selectedTypeToBuild } = unitTrainingService;
