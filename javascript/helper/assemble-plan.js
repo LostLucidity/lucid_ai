@@ -34,7 +34,7 @@ const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
-const { getSupply, hasEarmarks, clearEarmarks, addEarmark } = require("../services/data-service");
+const { getSupply, hasEarmarks, clearEarmarks } = require("../services/data-service");
 const worldService = require("../services/world-service");
 const { buildGasMine } = require("../systems/execute-plan/plan-actions");
 const harassService = require("../systems/harass/harass-service");
@@ -46,8 +46,8 @@ const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
-const { isStrongerAtPosition, getUnitCount, findPlacements, trainWorkers, train, setFoodUsed, swapBuildings, ability, findPosition, getUnitTypeCount, buildSupplyOrTrain, addAddOn, morphStructureAction } = require("../services/world-service");
-const { getNextPlanStep, convertLegacyStep, setSupplyMax } = require("../services/plan-service");
+const { isStrongerAtPosition, getUnitCount, findPlacements, train, setFoodUsed, swapBuildings, findPosition, getUnitTypeCount, buildSupplyOrTrain, addAddOn, morphStructureAction, addEarmark } = require("../services/world-service");
+const { convertLegacyStep, setSupplyMax, convertLegacyPlan } = require("../services/plan-service");
 const { warpIn } = require("../services/resource-manager-service");
 
 let actions;
@@ -62,6 +62,7 @@ class AssemblePlan {
     this.collectedActions = [];
     /** @type {false | Point2D} */
     planService.legacyPlan = plan.orders;
+    planService.convertedLegacyPlan = convertLegacyPlan(plan.orders);
     planService.planMax.supply = setSupplyMax(plan.orders, true);
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
     this.defenseTypes = plan.unitTypes.defenseTypes;
@@ -625,7 +626,9 @@ class AssemblePlan {
           }
           case 'train':
             unitType = planStep[2];
-            try { await this.train(world, foodTarget, unitType, targetCount); } catch (error) { console.log(error) } break;
+            // try { await this.train(world, foodTarget, unitType, targetCount); } catch (error) { console.log(error) } break;
+            await train(world, unitType, targetCount);
+            break;
           case 'swapBuildings':
             conditions = planStep[2];
             if (foodUsed >= foodTarget) { await swapBuildings(this.world, conditions); }
@@ -714,72 +717,4 @@ function checkIfEnemyUnitsInWay(units, unitType, position) {
   return pointsOverlap(enemyUnitCoverage, cellsInFootprint(position, footprint));
 }
 
-/**
- * @param {World} world
- * @param {UnitTypeId[]} defenseTypes
- * @returns {Promise<void>}
- */
-async function trainCombatUnits(world, defenseTypes) {
-  const { agent, data } = world;
-  const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
-  const { foodUsed } = agent; if (foodUsed === undefined) return;
-  const { shortOnWorkers, outpowered } = worldService;
-  const { selectedTypeToBuild } = unitTrainingService;
-  const trainUnitConditions = [
-    outpowered,
-    unitTrainingService.workersTrainingTendedTo && !planService.isPlanPaused,
-    !shortOnWorkers(world) && !planService.isPlanPaused,
-  ];
-  if (trainUnitConditions.some(condition => condition)) {
-    const nextStep = getNextPlanStep(foodUsed);
-    defenseTypes = defenseTypes.filter(type => haveAvailableProductionUnitsFor(world, type));
-    if (defenseTypes.length > 0) {
-      const haveProductionAndTechForTypes = defenseTypes.filter(type => {
-        const { foodRequired } = data.getUnitTypeData(type); if (foodRequired === undefined) return false;
-        return [
-          haveAvailableProductionUnitsFor(world, type),
-          agent.hasTechFor(type),
-          outpowered || (nextStep ? foodRequired <= nextStep[0] - foodUsed : true),
-        ].every(condition => condition);
-      });
-      if (haveProductionAndTechForTypes.length > 0) {
-        if (selectedTypeToBuild && haveProductionAndTechForTypes.includes(selectedTypeToBuild)) {
-          unitTrainingService.selectedTypeToBuild = selectedTypeToBuild;
-        } else {
-          unitTrainingService.selectedTypeToBuild = haveProductionAndTechForTypes[Math.floor(Math.random() * haveProductionAndTechForTypes.length)];
-        }
-        if (selectedTypeToBuild) {
-          let { mineralCost, vespeneCost } = data.getUnitTypeData(selectedTypeToBuild); if (mineralCost === undefined || vespeneCost === undefined) return;
-          if (selectedTypeToBuild === ZERGLING) {
-            mineralCost += mineralCost;
-            vespeneCost += vespeneCost;
-          }
-          const freeBuildThreshold = minerals >= (mineralCost * 2) && vespene >= (vespeneCost * 2);
-          if ((outpowered || freeBuildThreshold)) {
-            await train(world, selectedTypeToBuild);
-          }
-        }
-      }
-    }
-  }
-}
-
-/**
- * @param {World} world
- * @param {any[]} step
- * @param {UnitTypeId[]} defenseTypes
- * @returns {Promise<void>}
- */
-async function trainWorkersOrCombatUnits(world, step, defenseTypes) {
-  const foodUsed = worldService.getFoodUsed();
-  const foodUsedLessThanNextStepFoodTarget = step && foodUsed < step[0];
-  if (!step || foodUsedLessThanNextStepFoodTarget) {
-    const trainWorkersOrders = trainWorkers(world);
-    if (trainWorkersOrders.length > 0) {
-      await actions.sendAction(trainWorkersOrders);
-    } else {
-      await trainCombatUnits(world, defenseTypes);
-    }
-  }
-}
 

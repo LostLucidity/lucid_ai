@@ -37,6 +37,8 @@ const planService = {
   /** @type {Map<number, false | Point2D>} */
   buildingPositions: new Map(),
   dirtyBasePlan: false,
+  /** @type {import("../interfaces/plan-step").PlanStep[]} */
+  convertedLegacyPlan: [],
   continueBuild: true,
   currentStep: Infinity,
   /** @type {number} */
@@ -60,6 +62,18 @@ const planService = {
     supply: 0,
   },
   planMin: {},
+  /**
+   * @param {any[]} legacyPlan
+   * @returns {import("../interfaces/plan-step").PlanStep[]}
+   */
+  convertLegacyPlan(legacyPlan) {
+    const trueActions = ['build', 'train', 'upgrade'];
+    return legacyPlan.filter(step => {
+      return trueActions.includes(step[1]);
+    }).map(step => {
+      return planService.convertLegacyStep(step);
+    });
+  },
   /**
    * @description converts a legacy step to a new step, legacy step is an array of [food, orderType, unitType, targetCount]
    * @param {any[]} trueStep
@@ -91,9 +105,7 @@ const planService = {
    * @returns {number}
    */
   setSupplyMax: (plan, islegacyPlan = false) => {
-    if (islegacyPlan) {
-      plan = convertLegacyPlan(plan);
-    }
+    plan = islegacyPlan ? planService.convertLegacyPlan(plan) : plan;
     const filteredPlan = plan.filter(step => {
       const { unitType } = step; if (unitType === null || unitType === undefined) { return false; }
       return supplyTypes.includes(unitType);
@@ -113,17 +125,4 @@ const planService = {
 }
 
 module.exports = planService;
-
-/**
- * @param {any[]} legacyPlan
- * @returns {import("../interfaces/plan-step").PlanStep[]}
- */
-function convertLegacyPlan(legacyPlan) {
-  const trueActions = ['build', 'train', 'upgrade'];
-  return legacyPlan.filter(step => {
-    return trueActions.includes(step[1]);
-  }).map(step => {
-    return planService.convertLegacyStep(step);
-  });
-}
 

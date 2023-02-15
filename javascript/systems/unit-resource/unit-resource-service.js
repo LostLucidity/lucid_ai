@@ -5,7 +5,7 @@ const { EFFECT_REPAIR, STOP } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes, gatheringAbilities } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { PROBE, COLOSSUS, MULE } = require("@node-sc2/core/constants/unit-type");
+const { PROBE, COLOSSUS, MULE, DRONE } = require("@node-sc2/core/constants/unit-type");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -22,6 +22,8 @@ const unitResourceService = {
   unitTypeData: {},
   /** @type {Point2D[]} */
   seigeTanksSiegedGrids: [],
+  /** @type {Unit[] | null} */
+  workers: null,
   /**
    * @param {UnitResource} units
    * @param {UnitTypeId} unitType 
@@ -268,8 +270,8 @@ const unitResourceService = {
       ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(units, proxy)),
     ].filter(worker => {
       const gatheringAndMining = worker.isGathering() && unitResourceService.isMining(units, worker);
-      const isConstructing = worker.isConstructing() && worker.unitType !== PROBE;
-      return !worker.isReturning() && !gatheringAndMining && !isConstructing;
+      const isConstructingDrone = worker.isConstructing() && worker.unitType === DRONE;
+      return !worker.isReturning() && !gatheringAndMining && !isConstructingDrone;
     });
     return builders;
   },

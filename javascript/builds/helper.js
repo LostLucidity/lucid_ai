@@ -6,7 +6,6 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { OVERLORD, COLOSSUS } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const { getInRangeUnits } = require("../helper/battle-analysis");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
 const { getTimeInSeconds } = require("../services/frames-service");

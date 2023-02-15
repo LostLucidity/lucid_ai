@@ -8,6 +8,7 @@ const { ZEALOT, ZERGLING, ROACH } = require("@node-sc2/core/constants/unit-type"
 const { add } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("./actions-service");
 const { CHRONOBOOSTENERGYCOST } = require("@node-sc2/core/constants/buff");
+const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 
 const unitService = {
   /**
@@ -159,12 +160,30 @@ const unitService = {
   },
   /**
    * @param {Unit} unit
+   * @param {boolean} pending
+   * @returns {boolean}
+   **/
+  isConstructing: (unit, pending = false) => {
+    /** @type {SC2APIProtocol.UnitOrder[]} */
+    let pendingOrders = [];
+    if (pending) {
+      pendingOrders = unitService.getPendingOrders(unit);
+    }
+    return unit.isConstructing() || pendingOrders.some(order => order.abilityId && constructionAbilities.includes(order.abilityId));
+  },
+  /**
+   * @param {Unit} unit
+   * @param {boolean} pending
    * @returns {boolean}
    */
-  isMoving: (unit) => {
-    const { orders } = unit;
-    if (orders === undefined || orders.length === 0) return false;
-    return orders[0].abilityId === MOVE;
+  isMoving: (unit, pending=false) => {
+    const { orders } = unit; if (orders === undefined || orders.length === 0) return false;
+    if (pending) {
+      /** @type {SC2APIProtocol.UnitOrder[]} */
+      const pendingOrders = unitService.getPendingOrders(unit);
+      orders.concat(pendingOrders);
+    }
+    return orders.some(order => order.abilityId === MOVE);
   },
   /**
    * @param {Unit} worker 

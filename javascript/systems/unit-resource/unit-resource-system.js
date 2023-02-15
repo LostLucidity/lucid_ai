@@ -8,6 +8,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { readUnitTypeData } = require("../../filesystem");
+const { supplyDepotBehavior } = require("../../helper/behavior/unit-behavior");
 const { getDistance } = require("../../services/position-service");
 const { getWeaponThatCanAttack } = require("../../services/unit-service");
 const unitResourceService = require("./unit-resource-service");
@@ -52,5 +53,12 @@ module.exports = createSystem({
     enemy.forEach(enemy => {
       enemy.labels.set('hasAttacked', true);
     });
+  },
+  async onUnitFinished(world, unit) {
+    const { resources } = world;
+    const { unitType } = unit; if (unitType === undefined) return;
+    if (unitType === SUPPLYDEPOT) {
+      supplyDepotBehavior(resources);
+    }
   }
 });

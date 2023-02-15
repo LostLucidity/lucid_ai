@@ -2,11 +2,9 @@
 "use strict"
 
 const { UnitType, WarpUnitAbility, Upgrade } = require("@node-sc2/core/constants");
-const { Alliance, Race, Attribute } = require("@node-sc2/core/constants/enums");
-const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getTimeInSeconds } = require("./frames-service");
-const planService = require("./plan-service");
 const { getDistance } = require("./position-service");
 const { getWeaponThatCanAttack } = require("./unit-service");
 
@@ -15,41 +13,12 @@ const dataService = {
   allActions: [],
   /** @type {Earmark[]} */
   earmarks: [],
-  /** @type {Map<number, number>} */
+  /** @type {Map<string, number>} */
   foodEarmarks: new Map(),
   /** @type {Map<number, number>} */
   unitTypeTrainingAbilities: new Map(),
   /** @type {Map<number, number>} */
   upgradeAbilities: [],
-  /**
-   * 
-   * @param {DataStorage} data 
-   * @param {SC2APIProtocol.UnitTypeData|SC2APIProtocol.UpgradeData} orderData 
-   */
-  addEarmark: (data, orderData) => {
-    if (dataService.earmarkThresholdReached(data)) return;
-    const { name, mineralCost, vespeneCost } = orderData; if (name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
-    let minerals = 0;
-    if (orderData['unitId'] !== undefined) {
-      /** @type {SC2APIProtocol.UnitTypeData} */
-      const { attributes, foodRequired, race, unitId } = orderData; if (attributes === undefined || foodRequired === undefined || race === undefined || unitId === undefined) return;
-      const foodEarmark = dataService.foodEarmarks.get(planService.currentStep) || 0;
-      dataService.foodEarmarks.set(planService.currentStep, foodEarmark + foodRequired);
-      minerals = (unitId === ORBITALCOMMAND ? -400 : 0)
-      if (race === Race.ZERG && attributes.includes(Attribute.STRUCTURE)) {
-        const foodEarmark = dataService.foodEarmarks.get(planService.currentStep) || 0;
-        dataService.foodEarmarks.set(planService.currentStep, foodEarmark - 1);
-      }
-    }
-    minerals += mineralCost;
-    const earmark = {
-      name: `${name}_${planService.currentStep}`,
-      minerals,
-      vespene: vespeneCost,
-    }
-    data.addEarmark(earmark);
-    dataService.earmarks.push(earmark);
-  },
   /**
    * 
    * @param {DataStorage} data 
