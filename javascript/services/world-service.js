@@ -1516,6 +1516,7 @@ const worldService = {
    */
   micro: (world, unit) => {
     const { data, resources } = world;
+    const { units } = resources.get();
     const { getClosestUnitByPath } = resourceManagerService;
     const collectedActions = [];
     const { pos, radius, unitType, weaponCooldown } = unit; if (pos === undefined || radius === undefined || unitType === undefined || weaponCooldown === undefined) { return collectedActions; }
@@ -1544,7 +1545,8 @@ const worldService = {
         return getDistance(pos, enemyUnitPos) <= range + radius + enemyUnitRadius;
       });
       if (inRangeAttackableEnemyUnits.length === 0) {
-        const [closestAttackableEnemyUnit] = getClosestUnitByPath(resources, pos, enemyUnits.filter(enemyUnit => canAttack(resources, unit, enemyUnit)));
+        const attackableEnemyUnits = enemyUnits.filter(enemyUnit => canAttack(resources, unit, enemyUnit));
+        const [closestAttackableEnemyUnit] = unit.isFlying ? units.getClosest(pos, attackableEnemyUnits) : getClosestUnitByPath(resources, pos, attackableEnemyUnits);
         if (closestAttackableEnemyUnit !== undefined) {
           const { pos: closestAttackableEnemyUnitPos } = closestAttackableEnemyUnit; if (closestAttackableEnemyUnitPos === undefined) { return collectedActions; }
           const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);

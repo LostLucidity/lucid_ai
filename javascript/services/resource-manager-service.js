@@ -8,6 +8,7 @@ const { combatTypes, creepGenerators } = require("@node-sc2/core/constants/group
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, areEqual, avgPoints, nClosestPoint } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
+const expansions = require("../helper/expansions");
 const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -155,19 +156,41 @@ const resourceManagerService = {
    * @returns {Unit[]}
    */
   getClosestUnitByPath: (resources, position, units, n = 1) => {
-    return units.map(unit => {
-      const { pos } = unit;
-      if (pos === undefined) return;
-      const mappedUnits = { unit }
-      if (unit.isFlying) {
-        mappedUnits.distance = distance(pos, position);
+    const { map } = resources.get();
+    const { getClosestPathablePositionsBetweenPositions, getDistanceByPath } = resourceManagerService;
+    const splitUnits = units.reduce((/** @type {{within16: Unit[], outside16: Unit[]}} */ acc, unit) => {
+      const { pos } = unit; if (pos === undefined) return acc;
+      const distanceToUnit = getDistance(pos, position);
+      if (distanceToUnit <= 16 && getDistanceByPath(resources, pos, position) <= 16) {
+        acc.within16.push(unit);
       } else {
-        const closestPathablePositionBetweenPositions = resourceManagerService.getClosestPathablePositionsBetweenPositions(resources, pos, position);
-        mappedUnits.distance = closestPathablePositionBetweenPositions.distance;
+        acc.outside16.push(unit);
       }
-      return mappedUnits;
+      return acc;
+    }, { within16: [], outside16: [] });
+    const { within16, outside16 } = splitUnits;
+    let closestUnits = [];
+    closestUnits = [...within16].sort((a, b) => {
+      const { pos: aPos } = a;
+      const { pos: bPos } = b;
+      if (aPos === undefined || bPos === undefined) return 0;
+      return getDistanceByPath(resources, aPos, position) - getDistanceByPath(resources, bPos, position);
+    });
+    if (n === 1 && closestUnits.length > 0) return closestUnits;
+    return [...closestUnits, ...outside16].map(unit => {
+      const { pos } = unit; if (pos === undefined) return;
+      const expansionWithin16 = map.getExpansions().find(expansion => {
+        const { centroid: expansionPos } = expansion; if (expansionPos === undefined) return;
+        if (getDistance(expansionPos, pos) <= 16 && getClosestPathablePositionsBetweenPositions(resources, expansionPos, pos).distance <= 16) return true;
+      });
+      const { centroid: expansionPos } = expansionWithin16 || {};
+      const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, expansionPos ? expansionPos : pos, position);
+      return { unit, distance: closestPathablePositionBetweenPositions.distance };
+    }).sort((a, b) => {
+      if (a === undefined || b === undefined) return 0;
+      return a.distance - b.distance;
     })
-      .sort((a, b) => a.distance - b.distance)
+      // @ts-ignore
       .map(u => u.unit)
       .slice(0, n);
   },
