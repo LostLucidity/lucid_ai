@@ -2,7 +2,7 @@
 "use strict"
 
 const fs = require('fs');
-const { UnitTypeId, Ability, UnitType, Buff, WarpUnitAbility } = require("@node-sc2/core/constants");
+const { UnitTypeId, Ability, UnitType, Buff, WarpUnitAbility, UpgradeId } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities, addonTypes } = require("@node-sc2/core/constants/groups");

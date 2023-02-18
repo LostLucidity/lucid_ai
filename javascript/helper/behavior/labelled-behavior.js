@@ -1,9 +1,9 @@
 //@ts-check
 "use strict"
 
-const { MOVE, ATTACK_ATTACK, BUILD_CREEPTUMOR_QUEEN } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, BUILD_CREEPTUMOR_QUEEN, SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
-const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
+const { mineralFieldTypes, vespeneGeyserTypes } = require("@node-sc2/core/constants/groups");
 const { PHOTONCANNON, LARVA, CREEPTUMORBURROWED } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
@@ -266,7 +266,7 @@ module.exports = {
             collectedActions.push(unitCommand);
           } else {
             if (randomPointsOfInterest.length > orders.length) {
-              queueCommand = isGathering(unit) ? false : true;
+              queueCommand = isGathering(units, unit) ? false : true;
               randomPointsOfInterest.forEach(point => {
                 const unitCommand = {
                   abilityId: MOVE,
@@ -399,15 +399,26 @@ function getClosestByWeaponRange(world, unit, threateningUnits) {
   return closestThreateningUnit && closestThreateningUnit.unit; 
 }
 /**
+ * @param {UnitResource} units
  * @param {Unit} unit
  * @param {"minerals" | "vespene" | undefined} type
  * @returns {boolean}
  */
-function isGathering(unit, type=undefined) {
-  // check if pending orders
+function isGathering(units, unit, type=undefined) {
   const pendingOrders = getPendingOrders(unit);
   if (pendingOrders.length > 0) {
-    return pendingOrders.some(order => order.abilityId && gatheringAbilities.includes(order.abilityId));
+    return pendingOrders.some(order => {
+      const { abilityId } = order; if (abilityId === undefined) return false;
+      const smartOrder = abilityId === SMART;
+      if (smartOrder) {
+        const { targetUnitTag } = order; if (targetUnitTag === undefined) return false;
+        const targetUnit = units.getByTag(targetUnitTag);
+        if (targetUnit) {
+          const { unitType } = targetUnit; if (unitType === undefined) return false;
+          return mineralFieldTypes.includes(unitType) || vespeneGeyserTypes.includes(unitType);
+        }
+      }
+    });
   } else {
     return unit.isGathering(type);
   } 
