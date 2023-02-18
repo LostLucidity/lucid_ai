@@ -4,7 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const dataService = require("../../services/data-service");
 const { setUnitTypeTrainingAbilityMapping, setUpgradeAbilities, getAllActions } = require("../../services/data-service");
-const { runPlan } = require("../execute-plan/plan-actions");
+const { runPlan } = require("../../services/world-service");
 const { executeAction } = require("./q-table-service");
 const qTableService = require("./q-table-service");
 

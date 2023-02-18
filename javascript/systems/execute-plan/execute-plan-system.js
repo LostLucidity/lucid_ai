@@ -7,7 +7,7 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const dataService = require("../../services/data-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
-const { runPlan } = require("./plan-actions");
+const { runPlan } = require("../../services/world-service");
 
 module.exports = createSystem({
   name: 'ExecutePlanSystem',

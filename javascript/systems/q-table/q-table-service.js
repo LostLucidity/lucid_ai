@@ -5,8 +5,7 @@ const fs = require('fs');
 const { Attribute } = require("@node-sc2/core/constants/enums");
 const { getAllActions } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
-const { train, getStep, getUnitTypeCount, build } = require("../../services/world-service");
-const { upgrade } = require("../execute-plan/plan-actions");
+const { train, getStep, getUnitTypeCount, build, upgrade } = require("../../services/world-service");
 const path = require('path');
 
 /** @typedef { { step: number } } State */

@@ -78,7 +78,7 @@ const unitService = {
     if (buffIds.includes(CHRONOBOOSTENERGYCOST)) {
       buildTime = buildTime * 2 / 3;
     }
-    return buildTime * (1 - progress);
+    return Math.round(buildTime * (1 - progress));
   },
   /**
    * @param {Unit} unit 

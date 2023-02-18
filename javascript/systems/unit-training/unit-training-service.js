@@ -3,7 +3,8 @@
 
 const { WarpUnitAbility } = require("@node-sc2/core/constants");
 const { WARPGATE, TECHLAB } = require("@node-sc2/core/constants/unit-type");
-const { getPendingOrders } = require("../../services/unit-service");
+const dataService = require("../../services/data-service");
+const { getPendingOrders, getBuildTimeLeft } = require("../../services/unit-service");
 
 const unitTrainingService = {
   /** @type {number|null} */
@@ -19,7 +20,14 @@ const unitTrainingService = {
     const { data, resources } = world;
     const { units } = resources.get();
     const { orders } = unit; if (orders === undefined) return false;
-    const currentAndPendingOrders = orders.concat(getPendingOrders(unit));
+    const allOrders = orders.filter(order => {
+      const { abilityId, progress } = order; if (abilityId === undefined || progress === undefined) return false;
+      const unitType = dataService.unitTypeTrainingAbilities.get(abilityId); if (unitType === undefined) return false;
+      const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return false;
+      const buildTimeLeft = getBuildTimeLeft(unit, buildTime, progress);
+      return buildTimeLeft > 8;
+    });
+    const currentAndPendingOrders = allOrders.concat(getPendingOrders(unit));
     const maxOrders = unit.hasReactor() ? 2 : 1;
     const conditions = [currentAndPendingOrders.length < maxOrders];
     const { techRequirement } = data.getUnitTypeData(unitType);
