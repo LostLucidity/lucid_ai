@@ -90,13 +90,15 @@ const qTableService = {
    */
   getStateIndex(currentState) {
     const { epsilon, Q, states } = qTableService;
-    states.push(currentState);
-    const stateIndex = Q[states.length - 1];
-    if (stateIndex === undefined) {
-      const randomActionValues = Array(getAllActions().length).fill(0).map((_value, index) => index === 0 ? 1 - (epsilon * 2) : Math.random());
-      Q.push(randomActionValues);
+    if (!states.some(state => state.step === currentState.step)) {
+      states.push(currentState);
     }
-    return states.length - 1;
+    if (Q[currentState.step] === undefined) {
+      const randomActionValues = Array(getAllActions().length).fill(0).map((_value, index) => index === 0 ? 1 - (epsilon * 2) : Math.random());
+      Q[currentState.step] = [...randomActionValues];
+    }
+    const stateIndex = states.findIndex(state => state.step === currentState.step);
+    return stateIndex;
   },
   saveQTable() {
     const { Q } = qTableService;
@@ -114,7 +116,8 @@ const qTableService = {
     const reward = result ? 1 : -1;
     for (let i = 0; i < steps.length; i++) {
       const stateIndex = qTableService.getStateIndex(states[i]);
-      const actionIndex = steps[i];
+      const action = steps[i];
+      const actionIndex = getAllActions().indexOf(action);
       const maxQ = Math.max(...Q[stateIndex]);
       Q[stateIndex][actionIndex] += alpha * (reward + gamma * maxQ - Q[stateIndex][actionIndex]);
     }

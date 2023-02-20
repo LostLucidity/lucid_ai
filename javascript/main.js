@@ -48,7 +48,6 @@ const creepSpreadSystem = require('./systems/creep-spread-system');
 const cleanUpSystem = require('./systems/clean-up-system');
 const qTableSystem = require('./systems/q-table/q-table-system');
 const qTableService = require('./systems/q-table/q-table-service');
-const { saveQTable } = require('./systems/q-table/q-table-service');
 
 // const aiBuild = AIBuild.Rush;
 agentService.difficulty = Difficulty.CHEATVISION;
@@ -268,7 +267,6 @@ async function processResults(gameResult) {
   saveExecutedStepsLog(agent, frame.getGameInfo().mapName);
   const selfResult = gameResults.find(result => result.playerId === agent.playerId); if (selfResult === undefined) return;
   updateQtable(gameResult);
-  saveQTable();
   const replay = await _client.saveReplay({});
   saveReplay(replay);
   saveBuildOrder(world, selfResult);

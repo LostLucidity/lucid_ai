@@ -229,7 +229,6 @@ function gatherOrMineIdleGroup(world) {
     );
   });
   idleWorkers.forEach(idleWorker => {
-    console.log('idle worker.orders', idleWorker.orders);
     collectedActions.push(...gatherOrMine(resources, idleWorker));
   });
   return collectedActions;
