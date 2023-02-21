@@ -12,6 +12,8 @@ const scoutService = {
   earlyScoutTime: 122,
   enemyBuildType: '',
   enemyCombatSupply: 0,
+  /** @type {SC2APIProtocol.Race | undefined} */
+  opponentRace: undefined,
   outsupplied: false,
   scoutReport: '',
   lastSeen: {},
@@ -52,8 +54,7 @@ const scoutService = {
         console.log(`Set ${label}`);
       }
     }
-  },
-  opponentRace: null,
+  }
 }
 
 module.exports = scoutService;

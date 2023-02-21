@@ -13,6 +13,9 @@ const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service"
 const { getPendingOrders } = require("../services/unit-service");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { clearUnsettledBuildingPositions } = require("../services/world-service");
+const scoutingService = require("../systems/scouting/scouting-service");
+const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
+const { moveAway } = require("./helper");
 
 let assemblePlan = null;
 let longestTime = 0;
@@ -33,19 +36,19 @@ const entry = createSystem({
     assemblePlan.onEnemyFirstSeen(seenEnemyUnit);
   },
   async onGameStart(world) {
-    const { data, resources } = world;
+    const { agent, data, resources } = world;
+    const { race } = agent;
     const { map, frame } = resources.get();
     console.log('frame.getGameInfo().playerInfo', frame.getGameInfo().playerInfo);
     console.log('Natural Wall:', !!map.getNatural().getWall());
     console.log('Backup Wall', wallOffNaturalService.wall.length > 0);
-    // get race.
-    const race = world.agent.race;
     // get build
     // const plan = plans[race]['economicStalkerColossi'];
     const plan = this.getBuild(race);
     // load build
     assemblePlan = new AssemblePlan(plan);
-    assemblePlan.onGameStart(world);
+    scoutingService.opponentRace = race;
+    await assemblePlan.runPlan(world);
     setUnitTypeTrainingAbilityMapping(data);
   },
   async onStep(world) {
@@ -58,11 +61,13 @@ const entry = createSystem({
     await assemblePlan.onUnitCreated(world, createdUnit);
   },
   async onUnitDamaged({ resources }, damagedUnit) {
-    const { actions } = resources.get();
-    const totalHealthShield = damagedUnit.health + damagedUnit.shield;
-    const maxHealthShield = damagedUnit.healthMax + damagedUnit.shieldMax;
+    const { health, healthMax, shield, shieldMax } = damagedUnit; if (health === undefined || healthMax === undefined || shield === undefined || shieldMax === undefined) return;
+    const { buildProgress, pos } = damagedUnit; if (buildProgress === undefined || pos === undefined) return;
+    const { actions, units } = resources.get();
+    const totalHealthShield = health + shield;
+    const maxHealthShield = healthMax + shieldMax;
     if ((totalHealthShield / maxHealthShield) < 1 / 3) {
-      if (damagedUnit.isStructure() && damagedUnit.buildProgress < 1) {
+      if (damagedUnit.isStructure() && buildProgress < 1) {
         const unitCommand = {
           abilityId: CANCEL_BUILDINPROGRESS,
           unitTags: [damagedUnit.tag],
@@ -70,7 +75,10 @@ const entry = createSystem({
         await actions.sendAction(unitCommand);
       }
     }
-    await assemblePlan.onUnitDamaged(resources, damagedUnit)
+    if (damagedUnit.labels.get('scoutEnemyMain') || damagedUnit.labels.get('scoutEnemyNatural')) {
+      const [closestEnemyUnit] = units.getClosest(pos, enemyTrackingService.enemyUnits);
+      await actions.sendAction(moveAway(damagedUnit, closestEnemyUnit, 4));
+    }
   },
   async onUnitFinished(world, finishedUnit) {
     const { resources } = world;

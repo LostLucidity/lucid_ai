@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, BARRACKS, GATEWAY, ZERGLING, PHOTONCANNON } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, WARPGATE, OVERLORD, SUPPLYDEPOT, SUPPLYDEPOTLOWERED, MINERALFIELD, BARRACKS, GATEWAY, PHOTONCANNON } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const rallyUnits = require("./rally-units");
@@ -13,7 +13,6 @@ const threats = require("./base-threats");
 const { generalScouting, cancelEarlyScout } = require("../builds/scouting");
 const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
-const { moveAway } = require("../builds/helper");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
 const { repairBurningStructures, repairDamagedMechUnits, repairBunker, finishAbandonedStructures } = require("../builds/terran/repair");
@@ -23,7 +22,6 @@ const { liftToThird } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const runBehaviors = require("./behavior/run-behaviors");
-const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
@@ -47,9 +45,8 @@ const { creeperBehavior } = require("./behavior/labelled-behavior");
 const { isStrongerAtPosition, getUnitCount, findPlacements, train, setFoodUsed, swapBuildings, findPosition, getUnitTypeCount, buildSupplyOrTrain, addAddOn, morphStructureAction, addEarmark, buildGasMine } = require("../services/world-service");
 const { convertLegacyStep, setSupplyMax, convertLegacyPlan } = require("../services/plan-service");
 const { warpIn } = require("../services/resource-manager-service");
+const { createUnitCommand } = require("../services/actions-service");
 
-let actions;
-let race;
 let ATTACKFOOD = 194;
 
 class AssemblePlan {
@@ -70,17 +67,13 @@ class AssemblePlan {
   onEnemyFirstSeen(seenEnemyUnit) {
     scoutingService.opponentRace = seenEnemyUnit.data().race;
   }
-  onGameStart(world) {
-    actions = world.resources.get().actions;
-    race = world.agent.race;
-    scoutingService.opponentRace = world.agent.opponent.race;
-  }
   /**
    * @param {World} world
    * @param {any} state
    */
   async onStep(world, state) {
-    const { data } = world;
+    const { data, resources } = world;
+    const { actions } = resources.get();
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     this.collectedActions = [];
     this.state = state;
@@ -131,15 +124,16 @@ class AssemblePlan {
     await actions.sendAction(this.collectedActions);
   }
 
-  async onUnitDamaged(resources, damagedUnit) {
-    const { units } = resources.get();
-    if (damagedUnit.labels.get('scoutEnemyMain') || damagedUnit.labels.get('scoutEnemyNatural')) {
-      const [closestEnemyUnit] = units.getClosest(damagedUnit.pos, enemyTrackingService.enemyUnits);
-      await actions.sendAction(moveAway(damagedUnit, closestEnemyUnit, 4));
-    }
-  }
-
-  async ability(food, abilityId, conditions) {
+  /**
+   * @param {World} world
+   * @param {number} food
+   * @param {AbilityId} abilityId
+   * @param {{ targetType?: UnitTypeId; targetCount?: number; countType?: UnitTypeId; continuous?: boolean; }} conditions
+   * @returns {Promise<void>}
+   */
+  async ability(world, food, abilityId, conditions) {
+    const { resources } = world;
+    const { actions } = resources.get();
     const { getFoodUsed } = worldService;
     if (getFoodUsed() >= food) {
       if (conditions === undefined || conditions.targetType || conditions.targetCount === this.units.getById(conditions.countType).length + this.units.withCurrentOrders(abilityId).length) {
@@ -151,7 +145,7 @@ class AssemblePlan {
         const unitsCanDo = this.units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
         if (unitsCanDo.length > 0) {
           let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-          const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
+          const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
           if (conditions && conditions.targetType) {
             let target;
             if (conditions.targetType === MINERALFIELD) {
@@ -184,7 +178,9 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async build(world, unitType, targetCount, candidatePositions = []) {
-    const { data, resources } = world;
+    const { agent, data, resources } = world;
+    const { race } = agent;
+    const { units } = resources.get();
     const { findPlacements } = worldService;
     const unitTypeCount = getUnitTypeCount(world, unitType);
     const unitCount = getUnitCount(world, unitType);
@@ -195,7 +191,7 @@ class AssemblePlan {
           break;
         case TownhallRace[race].includes(unitType):
           if (TownhallRace[race].indexOf(unitType) === 0) {
-            if (this.units.getBases().length === 2 && race === Race.TERRAN) {
+            if (units.getBases().length === 2 && race === Race.TERRAN) {
               candidatePositions = await getInTheMain(this.resources, unitType);
               await this.buildBuilding(world, unitType, candidatePositions);
             } else {
@@ -251,6 +247,8 @@ class AssemblePlan {
    * @param {Point2D[]} candidatePositions 
    */
   async buildBuilding(world, unitType, candidatePositions) {
+    const { resources } = world;
+    const { actions } = resources.get();
     const { premoveBuilderToPosition } = worldService;
     let buildingPosition = await getBuildingPosition(world, unitType, candidatePositions);
     planService.buildingPosition = buildingPosition;
@@ -358,6 +356,8 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async manageSupply(world, foodRanges = null) {
+    const { agent } = world;
+    const { race } = agent;
     const { isSupplyNeeded } = worldService;
     if (!foodRanges || foodRanges.indexOf(this.foodUsed) > -1) {
       if (isSupplyNeeded(this.world, 0.2)) {
@@ -384,7 +384,12 @@ class AssemblePlan {
     await generalScouting(world, createdUnit);
     await world.resources.get().actions.sendAction(this.collectedActions);
   }
+  /**
+   * @param {World} world
+   */
   async raceSpecificManagement(world) {
+    const { agent } = world;
+    const { race } = agent;
     switch (race) {
       case Race.ZERG:
         labelQueens(this.units);
@@ -470,7 +475,8 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async train(world, food, unitType, targetCount) {
-    const { data } = world;
+    const { data, resources } = world;
+    const { actions } = resources.get();
     const { canBuild, getFoodUsed, isSupplyNeeded, setAndLogExecutedSteps } = worldService;
     if (getFoodUsed() >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
@@ -527,7 +533,7 @@ class AssemblePlan {
    */
   async upgrade(world, food, upgradeId) {
     const { agent, data, resources } = world;
-    const { frame, units } = resources.get();
+    const { actions, frame, units } = resources.get();
     const { getFoodUsed, setAndLogExecutedSteps } = worldService;
     if (getFoodUsed() >= food) {
       const upgradeName = getStringNameOfConstant(Upgrade, upgradeId)
@@ -590,7 +596,7 @@ class AssemblePlan {
           case 'ability':
             const abilityId = planStep[2];
             conditions = planStep[3];
-            await this.ability(foodTarget, abilityId, conditions);
+            await this.ability(world, foodTarget, abilityId, conditions);
             break;
           case 'build': {
             unitType = planStep[2];
@@ -674,7 +680,8 @@ module.exports = AssemblePlan;
  * @returns {Promise<Point2D | false>}
  */
 async function getBuildingPosition(world, unitType, candidatePositions) {
-  const { resources } = world;
+  const { agent, resources } = world;
+  const { race } = agent;
   let position = planService.buildingPosition;
   if (position) {
     const { map, units } = resources.get();

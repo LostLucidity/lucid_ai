@@ -8,6 +8,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
+const { createUnitCommand } = require("../services/actions-service");
 const { getTimeInSeconds } = require("../services/frames-service");
 const { moveAwayPosition, getDistance } = require("../services/position-service");
 const { getClosestUnitByPath } = require("../services/resource-manager-service");
@@ -20,15 +21,14 @@ const helper = {
    * @param {Unit} unit 
    * @param {Unit} targetUnit 
    * @param {number} distance 
-   * @returns 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand}
    */
   moveAway(unit, targetUnit, distance = 2) {
-    const awayPoint = moveAwayPosition(targetUnit.pos, unit.pos, distance);
-    const unitCommand = {
-      abilityId: MOVE,
-      targetWorldSpacePos: awayPoint,
-      unitTags: [unit.tag]
-    }
+    const unitCommand = createUnitCommand(MOVE, [unit]);
+    const { pos } = unit;
+    const { pos: targetPos } = targetUnit; if (pos === undefined || targetPos === undefined) return unitCommand;
+    const awayPoint = moveAwayPosition(targetPos, pos, distance);
+    unitCommand.targetWorldSpacePos = awayPoint;
     return unitCommand;
   },
   /**
