@@ -15,6 +15,8 @@ module.exports = createSystem({
   async onGameStart(world) {
     const { data } = world;
     setUnitTypeTrainingAbilityMapping(data);
+    await runPlan(world);
+    dataService.clearEarmarks(data);
   },
   async onStep(world) {
     const { data } = world;
