@@ -77,7 +77,7 @@ module.exports = createSystem({
       await runAction(world, allAvailableAbilities);
     }
     collectedActions.push(...optimizeBuildCommands(world));
-    data.get('earmarks').forEach(earmark => data.settleEarmark(earmark.name));
+    dataService.clearEarmarks(data);
     return actions.sendAction(collectedActions);
   },
   async onEnemyFirstSeen(_world, seenEnemyUnit) {

@@ -1954,14 +1954,6 @@ const worldService = {
         break;
       }
     }
-    if (!hasEarmarks(data)) {
-      addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]));
-      const earmarkTotals = data.getEarmarkTotals('');
-      const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
-      const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
-      const vespeneNeeded = vespeneEarmarked - vespene > 0 ? vespeneEarmarked - vespene : 0;
-      balanceResources(world, mineralsNeeded / vespeneNeeded);
-    }
     if (!planService.pausedThisRound) {
       planService.pausePlan = false;
     }
