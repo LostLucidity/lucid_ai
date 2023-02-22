@@ -48,8 +48,8 @@ const entry = createSystem({
     // load build
     assemblePlan = new AssemblePlan(plan);
     scoutingService.opponentRace = race;
-    await assemblePlan.runPlan(world);
     setUnitTypeTrainingAbilityMapping(data);
+    await assemblePlan.runPlan(world);
   },
   async onStep(world) {
     const t0 = new Date().getTime();
