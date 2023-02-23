@@ -19,29 +19,32 @@ module.exports = createSystem({
     setUnitTypeTrainingAbilityMapping(data);
     setUpgradeAbilities(data);
     qTableService.Q = await qTableService.getQTable();
+    await runPlan(world);
+    await executeQLearning(world);
   },
   async onStep(world) {
-    // get food used
-    const { agent, data, resources } = world;
-    const { foodUsed } = agent; if (!foodUsed) { return; }
-    const { units } = resources.get();
-    // get state, contains steps and food used
     await runPlan(world);
-    dataService.clearEarmarks(data);
-    const { steps } = qTableService;
-    const state = { step: steps.length };
-    // get available actions
-    const availableActions = dataService.getAllAvailableAbilities(data, units);
-    // get current state index, if it doesn't exist, create it and add it to the Q table and return the index
-    const stateIndex = qTableService.getStateIndex(state);
-    // choose action
-    const actionIndex = qTableService.chooseAction(stateIndex, availableActions);
-    // get action
-    const action = getAllActions()[actionIndex];
-    // execute action
-    console.log('action', action);
-    availableActions.get(action);
-    await executeAction(world, action, availableActions);
-    dataService.clearEarmarks(data);
+    await executeQLearning(world);
   }
 });
+
+/**
+ * @param {World} world 
+ * @returns {Promise<void>}
+ */
+async function executeQLearning(world) {
+  const { data, resources } = world;
+  const { units } = resources.get();
+  const { steps } = qTableService;
+  const state = { step: steps.length };
+  const availableActions = dataService.getAllAvailableAbilities(data, units);
+  const stateIndex = qTableService.getStateIndex(state);
+  const actionIndex = qTableService.chooseAction(stateIndex, availableActions);
+  const action = getAllActions()[actionIndex];
+  if (action) {
+    console.log('action', action);
+  }
+  availableActions.get(action);
+  await executeAction(world, action, availableActions);
+  dataService.clearEarmarks(data);
+}

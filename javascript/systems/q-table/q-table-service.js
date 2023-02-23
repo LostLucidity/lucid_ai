@@ -12,7 +12,7 @@ const path = require('path');
 
 const qTableService = {
   alpha: 0.1,
-  epsilon: 1 / 2 ** 11,
+  epsilon: 1 / 2 ** 12,
   gamma: 0.9,
   /** @type {number[][]} */
   Q: [],
