@@ -161,11 +161,15 @@ const resourceManagerService = {
     const splitUnits = units.reduce((/** @type {{within16: Unit[], outside16: Unit[]}} */ acc, unit) => {
       const { pos } = unit; if (pos === undefined) return acc;
       const distanceToUnit = getDistance(pos, position);
-      if (distanceToUnit <= 16 && getDistanceByPath(resources, pos, position) <= 16) {
-        acc.within16.push(unit);
-      } else {
-        acc.outside16.push(unit);
+      let within16 = false;
+      if (distanceToUnit <= 16) {
+        const { pathablePosition, pathableTargetPosition } = getClosestPathablePositionsBetweenPositions(resources, pos, position);
+        if (getDistanceByPath(resources, pathablePosition, pathableTargetPosition) <= 16) {
+          within16 = true;
+          acc.within16.push(unit);
+        }
       }
+      !within16 && acc.outside16.push(unit);
       return acc;
     }, { within16: [], outside16: [] });
     const { within16, outside16 } = splitUnits;
@@ -174,7 +178,9 @@ const resourceManagerService = {
       const { pos: aPos } = a;
       const { pos: bPos } = b;
       if (aPos === undefined || bPos === undefined) return 0;
-      return getDistanceByPath(resources, aPos, position) - getDistanceByPath(resources, bPos, position);
+      const { pathablePosition: aPathablePosition, pathableTargetPosition: aPathableTargetPosition } = getClosestPathablePositionsBetweenPositions(resources, aPos, position);
+      const { pathablePosition: bPathablePosition, pathableTargetPosition: bPathableTargetPosition } = getClosestPathablePositionsBetweenPositions(resources, bPos, position);
+      return getDistanceByPath(resources, aPathablePosition, aPathableTargetPosition) - getDistanceByPath(resources, bPathablePosition, bPathableTargetPosition);
     });
     if (n === 1 && closestUnits.length > 0) return closestUnits;
     return [...closestUnits, ...outside16].map(unit => {

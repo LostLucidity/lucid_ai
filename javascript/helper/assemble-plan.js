@@ -409,7 +409,13 @@ class AssemblePlan {
         break;
     }
   }
-  async push(foodRanges) {
+  
+  /**
+   * @param {UnitResource} units
+   * @param {number[]} foodRanges
+   * @returns {Promise<void>}
+   */
+  async push(units, foodRanges) {
     const label = 'pusher';
     if (foodRanges.indexOf(this.foodUsed) > -1) {
       if (this.state.pushMode === false && !this.state.cancelPush) {
@@ -420,7 +426,7 @@ class AssemblePlan {
         this.state.pushMode = true;
       }
     }
-    if (this.units.withLabel(label).length > 0 && !this.state.cancelPush) {
+    if (units.withLabel(label).length > 0 && !this.state.cancelPush) {
       if (worldService.outpowered) {
         this.state.cancelPush = true;
         deleteLabel(this.units, label);
@@ -428,7 +434,7 @@ class AssemblePlan {
       } else {
         this.collectedActions.push(...await push(this.world, this.mainCombatTypes, this.supportUnitTypes));
       }
-    } else if (this.state.pushMode === true) {
+    } else if (this.state && this.state.pushMode === true) {
       this.state.pushMode = false;
       this.state.cancelPush = true;
       deleteLabel(this.units, label);
@@ -572,6 +578,7 @@ class AssemblePlan {
    */
   async runPlan(world) {
     const { agent, data, resources } = world;
+    const { units } = resources.get();
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
     planService.continueBuild = true;
     planService.pendingFood = 0;
@@ -617,7 +624,7 @@ class AssemblePlan {
           case 'liftToThird': if (foodUsed >= foodTarget) { await liftToThird(this.resources); } break;
           case 'maintainQueens': if (foodUsed >= foodTarget) { await maintainQueens(this.world); } break;
           case 'manageSupply': await this.manageSupply(world, planStep[0]); break;
-          case 'push': this.push(foodTarget); break;
+          case 'push': this.push(units, foodTarget); break;
           case 'scout': {
             unitType = planStep[2];
             const targetLocation = planStep[3];
@@ -639,7 +646,7 @@ class AssemblePlan {
             break;
           case 'upgrade':
             const upgradeId = planStep[2];
-            await this.upgrade(this.world, foodTarget, upgradeId);
+            await this.upgrade(world, foodTarget, upgradeId);
             break;
         }
         setFoodUsed(world);
