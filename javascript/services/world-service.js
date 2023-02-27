@@ -1219,7 +1219,7 @@ const worldService = {
       if (abilityId === undefined || orders === undefined || pendingOrders === undefined) return false;
       const allOrders = [...orders, ...pendingOrders];
       const spaceToTrain = allOrders.length === 0 || (unit.hasReactor() && allOrders.length < 2);
-      return spaceToTrain && unit.abilityAvailable(abilityId) && !unit.labels.has('reposition')
+      return spaceToTrain && unit.abilityAvailable(abilityId) && !unit.labels.has('reposition');
     });
     if (productionUnits.length === 0) {
       abilityId = WarpUnitAbility[unitTypeId];

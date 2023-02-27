@@ -48,6 +48,7 @@ const creepSpreadSystem = require('./systems/creep-spread-system');
 const cleanUpSystem = require('./systems/clean-up-system');
 const qTableSystem = require('./systems/q-table/q-table-system');
 const qTableService = require('./systems/q-table/q-table-service');
+const delayedStepSystem = require('./systems/delayed-step-system');
 
 // const aiBuild = AIBuild.Rush;
 agentService.difficulty = Difficulty.CHEATVISION;
@@ -161,6 +162,7 @@ async function runGame() {
     loggingSystem,
     workerBalanceSystem,   
     debugSystem,
+    delayedStepSystem,
     wallOffRampSystem,
     wallOffNaturalSystem,
     unitResourceSystem,

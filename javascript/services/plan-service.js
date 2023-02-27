@@ -55,6 +55,8 @@ const planService = {
   /** @type {boolean} */
   pausedThisRound: false,
   pendingFood: 0,
+  /** @type {boolean} */
+  pendingRunPlan: false,
   /** @type {(import("../interfaces/plan-step").PlanStep[])} */
   plan: [],
   planMax: {

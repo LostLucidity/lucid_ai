@@ -3,7 +3,9 @@
 
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { reactorTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
+const { REACTOR } = require("@node-sc2/core/constants/unit-type");
 const dataService = require("../../services/data-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
@@ -30,5 +32,19 @@ module.exports = createSystem({
     ) {
       planService.pausePlan = false;
     }
+  },
+  async onUnitFinished(world, unit) {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const { unitType } = unit; if (unitType === undefined) return;
+    if (reactorTypes.includes(unitType)) {
+      const building = units.getStructures().find(structure => structure.addOnTag === unit.tag);
+      if (building && !building.isIdle()) {
+        planService.pendingRunPlan = true;
+        return;
+      } 
+    }
+    await runPlan(world);
+    dataService.clearEarmarks(data);
   }
 });
