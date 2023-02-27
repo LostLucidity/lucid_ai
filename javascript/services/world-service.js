@@ -836,8 +836,8 @@ const worldService = {
     const movingOrConstructingNonDronesTimeToPosition = movingOrConstructingNonDrones.map(movingOrConstructingNonDrone => {
       const { orders, pos, unitType } = movingOrConstructingNonDrone; if (orders === undefined || pos === undefined || unitType === undefined) return;
       orders.push(...getPendingOrders(movingOrConstructingNonDrone));
-      const { abilityId, targetWorldSpacePos } = orders[0]; if (abilityId === undefined || targetWorldSpacePos === undefined) return;
-      const movingPosition = targetWorldSpacePos;
+      const { abilityId, targetWorldSpacePos, targetUnitTag } = orders[0]; if (abilityId === undefined || (targetWorldSpacePos === undefined && targetUnitTag === undefined)) return;
+      const movingPosition = targetWorldSpacePos ? targetWorldSpacePos : targetUnitTag ? units.getByTag(targetUnitTag).pos : undefined;
       const movementSpeed = getMovementSpeed(movingOrConstructingNonDrone); if (movingPosition === undefined || movementSpeed === undefined) return;
       const movementSpeedPerSecond = movementSpeed * 1.4;
       const pathableMovingPosition = getClosestUnitPositionByPath(resources, movingPosition, pos);
@@ -851,7 +851,7 @@ const worldService = {
         dataService.unitTypeTrainingAbilities.get(abilityId)
         const isConstructingSupplyDepot = dataService.unitTypeTrainingAbilities.get(abilityId) === SUPPLYDEPOT;
         if (isConstructingSupplyDepot) {
-          const [supplyDepot] = units.getClosest(targetWorldSpacePos, units.getStructures().filter(structure => structure.unitType === SUPPLYDEPOT)); if (supplyDepot === undefined) return;
+          const [supplyDepot] = units.getClosest(movingPosition, units.getStructures().filter(structure => structure.unitType === SUPPLYDEPOT)); if (supplyDepot === undefined) return;
           const { pos, unitType } = supplyDepot; if (pos === undefined || unitType === undefined) return;
           const footprint = getFootprint(unitType); if (footprint === undefined) return;
           supplyDepotCells = cellsInFootprint(pos, footprint);
