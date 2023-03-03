@@ -840,11 +840,14 @@ const worldService = {
       const movingPosition = targetWorldSpacePos ? targetWorldSpacePos : targetUnitTag ? units.getByTag(targetUnitTag).pos : undefined;
       const movementSpeed = getMovementSpeed(movingOrConstructingNonDrone); if (movingPosition === undefined || movementSpeed === undefined) return;
       const movementSpeedPerSecond = movementSpeed * 1.4;
+      const isSCV = unitType === SCV;
+      const constructingStructure = isSCV ? getStructureAtPosition(units, movingPosition) : undefined;
+      constructingStructure && setPathableGrids(map, constructingStructure, true);
       const pathableMovingPosition = getClosestUnitPositionByPath(resources, movingPosition, pos);
       const movingProbeTimeToMovePosition = getDistanceByPath(resources, pos, pathableMovingPosition) / movementSpeedPerSecond;
+      constructingStructure && setPathableGrids(map, constructingStructure, false);
       let buildTimeLeft = 0;
       let supplyDepotCells = [];
-      const isSCV = unitType === SCV;
       if (isSCV) {
         buildTimeLeft = getContructionTimeLeft(units, movingOrConstructingNonDrone);
         // if SCV is constructing a SUPPLY_DEPOT, set footprint as pathable premoving position
@@ -3089,3 +3092,28 @@ function getWorkers(units) {
   return unitResourceService.workers || (unitResourceService.workers = units.getWorkers());
 }
 
+/**
+ * @param {MapResource} map
+ * @param {Unit} structure
+ * @param {boolean} isPathable
+ * @returns {void}
+ * @description Sets the pathable grid for a structure.
+ */
+function setPathableGrids(map, structure, isPathable) {
+  const { pos, unitType } = structure; if (pos === undefined || unitType === undefined) return;
+  const footprint = getFootprint(unitType); if (footprint === undefined) return;
+  cellsInFootprint(createPoint2D(pos), footprint).forEach(cell => map.setPathable(cell, isPathable));
+}
+
+/**
+ * @param {UnitResource} units
+ * @param {Point2D} movingPosition
+ * @returns {Unit | undefined}
+ * @description Returns the structure at the given position.
+ */
+function getStructureAtPosition(units, movingPosition) {
+  return units.getStructures().find(unit => {
+    const { pos } = unit; if (pos === undefined) return false;
+    return distance(pos, movingPosition) < 1;
+  });
+}
