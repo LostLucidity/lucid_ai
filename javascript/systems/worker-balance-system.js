@@ -171,8 +171,9 @@ module.exports = createSystem({
           neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
         }
       })
-      // grab returning workers in townhall expansion and return it to townhall
       const [closestExpansion] = getClosestExpansion(map, pos);
+      const [closestBase] = units.getClosest(closestExpansion.townhallPosition, bases);
+      if (closestBase.tag !== newBuilding.tag) return;
       const { areas } = closestExpansion; if (areas === undefined) return;
       const { areaFill } = areas;
       units.getWorkers().forEach(worker => {
