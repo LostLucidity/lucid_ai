@@ -2315,7 +2315,9 @@ const worldService = {
         !attributes.includes(Attribute.STRUCTURE) &&
         foodRequired <= food - getFoodUsed() &&
         outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed() &&
-        !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]]) &&
+        (
+          !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]])
+        ) &&
         agent.hasTechFor(type) &&
         haveAvailableProductionUnitsFor(world, type)
       ) {
@@ -2361,13 +2363,14 @@ const worldService = {
     let conditionsMet = planService.bogIsActive && minimumWorkerCount <= 11;
     let foodDifference = getFoodDifference(world);
     if (!planService.bogIsActive) {
-      const conditions = [
-        haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]),
-        minerals < 512 || minimumWorkerCount <= 36,
-        shortOnWorkers(world) || foodDifference > 0,
-        !outpowered || (outpowered && !unitProductionAvailable)
-      ];
-      conditionsMet = conditions.every(condition => condition);
+      if (
+        (minerals < 512 || minimumWorkerCount <= 36) &&
+        (shortOnWorkers(world) || foodDifference > 0) &&
+        (!outpowered || (outpowered && !unitProductionAvailable)) &&
+        haveAvailableProductionUnitsFor(world, WorkerRace[agent.race])
+      ) {
+        conditionsMet = true;
+      }
     }
     if (conditionsMet) {
       unitTrainingService.workersTrainingTendedTo = false;
