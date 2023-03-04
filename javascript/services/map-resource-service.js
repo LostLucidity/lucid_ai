@@ -79,7 +79,6 @@ const MapResourceService = {
     const closestPathablePositions = MapResourceService.getClosestPathablePositions(map, position);
     pathablePositions.push(...closestPathablePositions);
     while (pathablePositions.length === 0) {
-      getGridsInCircleWithinMap
       pathablePositions = getGridsInCircleWithinMap(map, position, radius).filter(grid => map.isPathable(grid));
       radius += 1;
     }

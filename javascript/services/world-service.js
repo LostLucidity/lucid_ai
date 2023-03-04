@@ -2256,7 +2256,7 @@ const worldService = {
    */
   shortOnWorkers: (world) => {
     const { agent, resources } = world;
-    const { units } = resources.get();
+    const { map, units } = resources.get();
     const { getClosestPathablePositionsBetweenPositions, getDistanceByPath } = resourceManagerService;
     let idealHarvesters = 0
     let assignedHarvesters = 0
@@ -2269,22 +2269,24 @@ const worldService = {
         idealHarvesters += ideal;
       } else {
         if (townhallTypes.includes(unitType)) {
-          const mineralFields = mineralCollector.labels.get('mineralFields') || units.getMineralFields().filter(mineralField => {
-            const { pos } = mineralField; if (pos === undefined) return false;
-            const { pos: townhallPos } = mineralCollector; if (townhallPos === undefined) return false;
-            if (distance(pos, townhallPos) < 16) {
-              const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, townhallPos)
-              const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
-              const distanceByPath = getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
-              return distanceByPath <= 16;
-            } else {
-              return false;
+          const { pos: townhallPos } = mineralCollector; if (townhallPos === undefined) return false;
+          if (map.getExpansions().some(expansion => getDistance(expansion.townhallPosition, townhallPos) < 1)) {
+            const mineralFields = units.getMineralFields().filter(mineralField => {
+              const { pos } = mineralField; if (pos === undefined) return false;
+              if (distance(pos, townhallPos) < 16) {
+                const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, townhallPos)
+                const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
+                const distanceByPath = getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
+                return distanceByPath <= 16;
+              } else {
+                return false;
+              }
+            });
+            if (!mineralCollector.labels.has('mineralFields')) {
+              mineralCollector.labels.set('mineralFields', mineralFields);
             }
-          });
-          if (!mineralCollector.labels.has('mineralFields')) {
-            mineralCollector.labels.set('mineralFields', mineralFields);
+            idealHarvesters += mineralFields.length * 2 * buildProgress;
           }
-          idealHarvesters += mineralFields.length * 2 * buildProgress;
         } else {
           idealHarvesters += 3 * buildProgress;
         }
