@@ -7,21 +7,29 @@ const { getEnemyCombatSupply } = require("../enemy-tracking/enemy-tracking-servi
 const trackUnitsService = require("../track-units/track-units-service");
 const unitResourceService = require("../unit-resource/unit-resource-service");
 
-const scoutService = {
+const scoutingService = {
   earlyScout: true,
   earlyScoutTime: 122,
-  enemyBuildType: '',
+  enemyBuildType: 'standard',
   enemyCombatSupply: 0,
   /** @type {SC2APIProtocol.Race | undefined} */
   opponentRace: undefined,
   outsupplied: false,
-  scoutReport: '',
+  scoutReport: 'No cheese detected',
   lastSeen: {},
   setEnemyCombatSupply: (data) => {
-    scoutService.enemyCombatSupply = getEnemyCombatSupply(data);
+    scoutingService.enemyCombatSupply = getEnemyCombatSupply(data);
+  },
+  /**
+   * @param {Unit} unit
+   * @returns {void}
+   **/
+  setOpponentRace: (unit) => {
+    const { opponentRace } = scoutingService;
+    scoutingService.opponentRace = opponentRace ? opponentRace : unit.data().race;
   },
   setOutsupplied: () => {
-    scoutService.outsupplied = scoutService.enemyCombatSupply > trackUnitsService.selfCombatSupply;
+    scoutingService.outsupplied = scoutingService.enemyCombatSupply > trackUnitsService.selfCombatSupply;
   },
   /**
    * 
@@ -57,4 +65,4 @@ const scoutService = {
   }
 }
 
-module.exports = scoutService;
+module.exports = scoutingService;

@@ -16,7 +16,7 @@ const dataService = require("../services/data-service");
 const { setUnitTypeTrainingAbilityMapping, getAllAvailableAbilities, setUpgradeAbilities } = require("../services/data-service");
 const { supplyTypes } = require("../helper/groups");
 const { getDistanceByPath } = require("../services/resource-manager-service");
-const { setScout } = require("./scouting/scouting-service");
+const { setScout, setOpponentRace } = require("./scouting/scouting-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { getTargetLocation } = require("../services/map-resource-service");
 const { getTimeInSeconds } = require("../services/frames-service");
@@ -81,7 +81,7 @@ module.exports = createSystem({
     return actions.sendAction(collectedActions);
   },
   async onEnemyFirstSeen(_world, seenEnemyUnit) {
-    scoutingService.opponentRace = seenEnemyUnit.data().race;
+    setOpponentRace(seenEnemyUnit);
   }
 });
 /**

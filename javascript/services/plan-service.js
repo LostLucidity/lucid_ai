@@ -45,6 +45,8 @@ const planService = {
   foodMark: 12,
   /** @type {Point2D | false} */
   foundPosition: false,
+  /** @type {{enemyBuild?: string; units: {STALKER?: number; } } | null} */
+  harass: null,
   /** @type {boolean} */
   isPlanPaused: null,
   latestStep: 0,

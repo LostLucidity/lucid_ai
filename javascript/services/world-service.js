@@ -1390,6 +1390,7 @@ const worldService = {
   },
   /**
    * @param {World} world
+   * @returns {void}
    */
   getZergEarlyBuild(world) {
     const { data, resources } = world;
@@ -1407,30 +1408,35 @@ const worldService = {
     }
     const naturalCommandCenter = map.getNatural().getBase();
     const naturalCommandCenterStartTime = naturalCommandCenter ? frame.timeInSeconds() - dataService.getBuildTimeElapsed(data, naturalCommandCenter) : null;
-    const bothStructuresExist = spawningPoolExists && enemyNaturalHatchery;
-    const spawningPoolBeforeEnemyNatural = bothStructuresExist && spawningPoolStartTime < enemyNaturalHatcheryStartTime;
     const naturalCommandCenterBeforeEnemyNatural = naturalCommandCenter && enemyNaturalHatchery && naturalCommandCenterStartTime < enemyNaturalHatcheryStartTime;
     const { lastSeen } = scoutService;
-    // if spawningPoolStartTime is less than lastSeen['enemyNaturalTownhallFootprint'] with no enemy natural, then we can assume we can set earlyScout to false and enemyBuildType to 'cheese'
-    if (spawningPoolStartTime && spawningPoolStartTime < lastSeen['enemyNaturalTownhallFootprint'] && !enemyNaturalHatchery) {
-      scoutingService.earlyScout = false;
-      scoutingService.enemyBuildType = 'cheese';
-      scoutingService.scoutReport = 'Early scout set to false because Spawning Pool start time is less than time enemy natural position was last seen and no enemy natural was found';
-      return;
-    } else if (spawningPoolBeforeEnemyNatural) {
-      scoutingService.enemyBuildType = 'standard';
-      scoutingService.scoutReport = `Early scout cancelled: ${spawningPoolBeforeEnemyNatural ? 'spawning pool' : 'natural command center'} before enemy natural`;
-      if (bothStructuresExist) {
-        scoutingService.earlyScout = false;
+    if (!spawningPoolExists) {
+      if (naturalCommandCenterBeforeEnemyNatural) {
+        scoutingService.enemyBuildType = 'cheese';
+        scoutingService.scoutReport = `Early scout cancelled: natural command center before enemy natural`;
+        if (naturalCommandCenter && enemyNaturalHatchery) {
+          scoutingService.earlyScout = false;
+        }
+        return;
       }
-      return;
-    } else if (naturalCommandCenterBeforeEnemyNatural) {
-      scoutingService.enemyBuildType = 'cheese';
-      scoutingService.scoutReport = `Early scout cancelled: ${naturalCommandCenterBeforeEnemyNatural ? 'natural command center' : 'natural hatchery'} before enemy natural`;
-      if (naturalCommandCenter && enemyNaturalHatchery) {
-        scoutingService.earlyScout = false;
+    } else {
+      if (spawningPoolStartTime) {
+        if (enemyNaturalHatcheryStartTime) {
+          if (spawningPoolStartTime < enemyNaturalHatcheryStartTime) {
+            scoutingService.enemyBuildType = 'cheese';
+            scoutingService.scoutReport = `Early scout cancelled: spawning pool before enemy natural`;
+            scoutingService.earlyScout = false;
+            return;
+          }
+        } else {
+          if (spawningPoolStartTime < lastSeen['enemyNaturalTownhallFootprint']) {
+            scoutingService.enemyBuildType = 'cheese';
+            scoutingService.scoutReport = 'Early scout set to false because Spawning Pool start time is less than time enemy natural position was last seen and no enemy natural was found';
+            scoutingService.earlyScout = false;
+            return;
+          }
+        }
       }
-      return;
     }
   },
   /**

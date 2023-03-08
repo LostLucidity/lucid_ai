@@ -60,6 +60,7 @@ const saltConverter = {
       });
       planService.trainingTypes = Array.from(unitCount.keys());
     });
+    planService.harass = build.harass;
     planService.setPlan(convertedPlan);
   },
   /**

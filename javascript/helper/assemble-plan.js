@@ -64,9 +64,6 @@ class AssemblePlan {
     this.defenseStructures = plan.unitTypes.defenseStructures;
     this.supportUnitTypes = plan.unitTypes.supportUnitTypes;
   }
-  onEnemyFirstSeen(seenEnemyUnit) {
-    scoutingService.opponentRace = seenEnemyUnit.data().race;
-  }
   /**
    * @param {World} world
    * @param {any} state

@@ -233,7 +233,7 @@ const unitService = {
         }
       }
     });
-  },
+  }
 }
 
 module.exports = unitService;

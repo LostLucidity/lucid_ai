@@ -16,6 +16,7 @@ const { clearUnsettledBuildingPositions } = require("../services/world-service")
 const scoutingService = require("../systems/scouting/scouting-service");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { moveAway } = require("./helper");
+const { setOpponentRace } = require("../systems/scouting/scouting-service");
 
 let assemblePlan = null;
 let longestTime = 0;
@@ -33,11 +34,11 @@ const entry = createSystem({
     },
   },
   async onEnemyFirstSeen(_world, seenEnemyUnit) {
-    assemblePlan.onEnemyFirstSeen(seenEnemyUnit);
+    setOpponentRace(seenEnemyUnit);
   },
   async onGameStart(world) {
     const { agent, data, resources } = world;
-    const { race } = agent;
+    const { race, opponent } = agent;
     const { map, frame } = resources.get();
     console.log('frame.getGameInfo().playerInfo', frame.getGameInfo().playerInfo);
     console.log('Natural Wall:', !!map.getNatural().getWall());
@@ -47,7 +48,7 @@ const entry = createSystem({
     const plan = this.getBuild(race);
     // load build
     assemblePlan = new AssemblePlan(plan);
-    scoutingService.opponentRace = race;
+    scoutingService.opponentRace = opponent ? opponent.race : undefined;
     setUnitTypeTrainingAbilityMapping(data);
     await assemblePlan.runPlan(world);
   },
