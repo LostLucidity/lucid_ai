@@ -111,9 +111,9 @@ const armyBehavior = {
           const workersToDefend = [];
           for (const worker of workers) {
             const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
-            if (closestEnemyUnit.isWorker() && closestEnemyUnit['selfUnits'].length === 1 && distanceToClosestEnemy > 8) {
-              continue;
-            }
+            const isLoneWorkerAndOutOfRange = closestEnemyUnit.isWorker() && closestEnemyUnit['selfUnits'].length === 1 && distanceToClosestEnemy > 8;
+            const isAttackable = canAttack(resources, worker, closestEnemyUnit);
+            if (isLoneWorkerAndOutOfRange || !isAttackable) continue;
             if (defendWithUnit(world, worker, closestEnemyUnit)) {
               workersToDefend.push(worker);
               worker.labels.set('defending')

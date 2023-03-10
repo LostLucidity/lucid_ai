@@ -6,6 +6,7 @@ const { generalScouting } = require("../builds/scouting");
 const { scoutEnemyMainBehavior, clearFromEnemyBehavior } = require("../helper/behavior/labelled-behavior");
 const { supplyDepotBehavior, overlordBehavior, muleBehavior, orbitalCommandCenterBehavior, orbitalCommandCenterFlyingBehavior } = require("../helper/behavior/unit-behavior");
 const { setCombatBuildingsRallies } = require("../services/resources-service");
+const { setOpponentRace } = require("./scouting/scouting-service");
 const scoutService = require("./scouting/scouting-service");
 
 module.exports = createSystem({
@@ -15,7 +16,7 @@ module.exports = createSystem({
     scoutService.opponentRace = agent.opponent.race;
   },
   async onEnemyFirstSeen(_world, seenEnemyUnit) {
-    scoutService.opponentRace = seenEnemyUnit.data().race;
+    setOpponentRace(seenEnemyUnit);
   },
   async onStep(world) {
     const { resources } = world;

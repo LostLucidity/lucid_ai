@@ -298,6 +298,12 @@ const plans = {
         [151, 'build', GATEWAY, 5],
         [[...range(180, 200)], 'continuouslyBuild', [STALKER, COLOSSUS, ZEALOT]],
       ],
+      harass: {
+        enemyBuild: 'standard',
+        units: {
+          STALKER: 4,
+        }
+      }
     },
   }
 }

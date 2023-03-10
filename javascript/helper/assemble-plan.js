@@ -51,12 +51,13 @@ let ATTACKFOOD = 194;
 
 class AssemblePlan {
   /**
-   * @param {{ orders: any; unitTypes: { mainCombatTypes: any; defenseTypes: [UnitTypeId]; defenseStructures: any; supportUnitTypes: any; }; }} plan
+   * @param {{ orders: any; unitTypes: { mainCombatTypes: any; defenseTypes: [UnitTypeId]; defenseStructures: any; supportUnitTypes: any; }; harass: any; }} plan
    */
   constructor(plan) {
     this.collectedActions = [];
     /** @type {false | Point2D} */
     planService.legacyPlan = plan.orders;
+    planService.harass = plan.harass || null;
     planService.convertedLegacyPlan = convertLegacyPlan(plan.orders);
     planService.planMax.supply = setSupplyMax(plan.orders, true);
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
@@ -617,7 +618,6 @@ class AssemblePlan {
           case 'continuouslyBuild':
             const foodRanges = planStep[0];
             if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
-          case 'harass': if (scoutingService.enemyBuildType === 'standard') harassService.harassOn = true; break;
           case 'liftToThird': if (foodUsed >= foodTarget) { await liftToThird(this.resources); } break;
           case 'maintainQueens': if (foodUsed >= foodTarget) { await maintainQueens(this.world); } break;
           case 'manageSupply': await this.manageSupply(world, planStep[0]); break;
