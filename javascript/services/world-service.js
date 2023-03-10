@@ -89,10 +89,12 @@ const worldService = {
     }
     const unitsCanDo = units.getById(canDoTypes);
     if (unitsCanDo.length > 0) {
-      if (unitsCanDo.filter(unit => unit.abilityAvailable(abilityId)).length > 0) {
-        let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-        const unitCommand = { abilityId, unitTags: [unitCanDo.tag] }
+      const unitsCanDoWithAbilityAvailable = unitsCanDo.filter(unit => unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0);
+      if (unitsCanDoWithAbilityAvailable.length > 0) {
+        let unitCanDo = unitsCanDoWithAbilityAvailable[Math.floor(Math.random() * unitsCanDoWithAbilityAvailable.length)];
+        const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
         collectedActions.push(unitCommand);
+        setPendingOrders(unitCanDo, unitCommand);
       } else {
         // unitsCanDo may not have ability available, due to being busy or tech not available yet
         // if idle, give it pending order

@@ -178,6 +178,7 @@ module.exports = createSystem({
       const { areaFill } = areas;
       units.getWorkers().forEach(worker => {
         const { orders, pos: workerPos } = worker; if (orders === undefined || workerPos === undefined) return false;
+        if (orders.length === 0) return false;
         const { abilityId, targetUnitTag } = orders[0]; if (abilityId === undefined) return false;
         const inExpansionRange = pointsOverlap(areaFill, [workerPos]);
         if (!inExpansionRange) return;

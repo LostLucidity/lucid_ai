@@ -18,6 +18,9 @@ const enemyTrackingService = {
   mappedEnemyUnits: [],
   get movedEnemyUnits() {
     const movedEnemyUnits = [];
+    if (enemyTrackingService.enemyUnitsPositions.size === 0) {
+      enemyTrackingService.setEnemyUnitPositions();
+    }
     enemyTrackingService.mappedEnemyUnits.forEach(unit => {
       const { tag, pos } = unit; if (tag === undefined || pos === undefined) { return; }
       const lastPosition = enemyTrackingService.enemyUnitsPositions.get(tag);

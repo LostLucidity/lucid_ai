@@ -28,12 +28,10 @@ module.exports = createSystem({
     const collectedActions = [];
     if (unitsToAttackWith.length > 0) {
       const attack = foodUsed >= foodUsedService.minimumAmountToAttackWith;
-      const movedEnemyUnits = enemyTrackingService.movedEnemyUnits;
-      const enemyUnits = attack ? movedEnemyUnits : getUnitsWithinBaseRange(units);
+      const enemyUnits = attack ? enemyTrackingService.mappedEnemyUnits : getUnitsWithinBaseRange(units);
       const enemyTargets = getEnemyTargets(enemyUnits)
       if (enemyTargets.length > 0) {
         collectedActions.push(...attackTargets(world, unitsToAttackWith, enemyTargets));
-        enemyTrackingService.setEnemyUnitPositions();
         if (collectedActions.length > 0) {
           return actions.sendAction(collectedActions);
         }
