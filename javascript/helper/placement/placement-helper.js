@@ -129,7 +129,7 @@ const placementHelper = {
   },
   getInTheMain: async (resources, unitType) => {
     const { actions, map } = resources.get();
-    const candidatePositions = map.getMain().areas.areaFill
+    const candidatePositions = map.getMain().areas.placementGrid.filter(grid => map.isPlaceableAt(unitType, grid));
     return [await actions.canPlace(unitType, candidatePositions)];
   }
 }

@@ -1,12 +1,11 @@
 //@ts-check
 "use strict"
 
-const { townhallTypes } = require("@node-sc2/core/constants/groups");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+const { getFootprint, Townhall } = require("@node-sc2/core/utils/geometry/units");
 const { pointsOverlap } = require("./utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
@@ -15,15 +14,11 @@ module.exports = {
    * @param {ResourceManager} resources 
    */
   getAvailableExpansions: (resources) => {
-    const { map, units } = resources.get();
-    // get Expansion and filter by bases near townhall position.
-    const allBases = units.getById(townhallTypes);
+    const { map } = resources.get();
     const availableExpansions = map.getExpansions().filter(expansion => {
-      const [ closestUnit ] = units.getClosest(expansion.townhallPosition, allBases);
-      if (closestUnit) {
-        const { pos } = closestUnit; if (pos === undefined) return false;
-        return distance(expansion.townhallPosition, pos) > 1;
-      }
+      const { townhallPosition } = expansion;
+      const townhall = Townhall(townhallPosition);
+      return cellsInFootprint(townhallPosition, townhall).every(cell => map.isPlaceable(cell));
     });
     return availableExpansions;
   },
@@ -54,8 +49,9 @@ module.exports = {
   /**
    * @param {World} world
    * @param {Expansion[]} expansions
+   * @returns {Point2D | undefined}
    */
-  getNextSafeExpansion: async (world, expansions) => {
+  getNextSafeExpansion: (world, expansions) => {
     const { agent, resources } = world;
     const { map, units } = resources.get();
     const enemyUnits = units.getAlive(Alliance.ENEMY);

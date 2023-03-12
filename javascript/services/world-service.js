@@ -279,7 +279,7 @@ const worldService = {
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             } else {
               const availableExpansions = getAvailableExpansions(resources);
-              candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(world, availableExpansions)] : [];
+              candidatePositions = availableExpansions.length > 0 ? [getNextSafeExpansion(world, availableExpansions)] : [];
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             }
           } else {
@@ -835,6 +835,7 @@ const worldService = {
       );
       return isNotDuplicate && available;
     }));
+    builderCandidates = builderCandidates.filter(builder => !movingOrConstructingNonDrones.some(movingOrConstructingNonDrone => movingOrConstructingNonDrone.tag === builder.tag));
     const movingOrConstructingNonDronesTimeToPosition = movingOrConstructingNonDrones.map(movingOrConstructingNonDrone => {
       const { orders, pos, unitType } = movingOrConstructingNonDrone; if (orders === undefined || pos === undefined || unitType === undefined) return;
       orders.push(...getPendingOrders(movingOrConstructingNonDrone));
@@ -851,9 +852,7 @@ const worldService = {
       let buildTimeLeft = 0;
       let supplyDepotCells = [];
       if (isSCV) {
-        buildTimeLeft = getContructionTimeLeft(units, movingOrConstructingNonDrone);
-        // if SCV is constructing a SUPPLY_DEPOT, set footprint as pathable premoving position
-        dataService.unitTypeTrainingAbilities.get(abilityId)
+        buildTimeLeft = getContructionTimeLeft(world, movingOrConstructingNonDrone);
         const isConstructingSupplyDepot = dataService.unitTypeTrainingAbilities.get(abilityId) === SUPPLYDEPOT;
         if (isConstructingSupplyDepot) {
           const [supplyDepot] = units.getClosest(movingPosition, units.getStructures().filter(structure => structure.unitType === SUPPLYDEPOT)); if (supplyDepot === undefined) return;
@@ -3031,22 +3030,28 @@ function getUnitsInRangeOfPosition(units, position, range) {
   });
 }
 /**
- * @param {UnitResource} units
+ * @param {World} world
  * @param {Unit} unit 
  * @param {boolean} inSeconds
  * @returns {number}
  */
-function getContructionTimeLeft(units, unit, inSeconds = true) {
+function getContructionTimeLeft(world, unit, inSeconds = true) {
+  const { data, resources } = world;
+  const { units } = resources.get();
   const { orders } = unit; if (orders === undefined) return 0;
   const constructingOrder = orders.find(order => order.abilityId && constructionAbilities.includes(order.abilityId)); if (constructingOrder === undefined) return 0;
-  const { targetWorldSpacePos } = constructingOrder; if (targetWorldSpacePos === undefined) return 0;
+  const { targetWorldSpacePos, targetUnitTag } = constructingOrder; if (targetWorldSpacePos === undefined && targetUnitTag === undefined) return 0;
   const unitTypeBeingConstructed = constructingOrder.abilityId && dataService.unitTypeTrainingAbilities.get(constructingOrder.abilityId); if (unitTypeBeingConstructed === undefined) return 0;
   let buildTimeLeft = 0;
-  const unitAtTargetPosition = units.getStructures().find(unit => unit.pos && distance(unit.pos, targetWorldSpacePos) < 1);
+  let targetPosition = targetWorldSpacePos ? targetWorldSpacePos : targetUnitTag ? units.getByTag(targetUnitTag).pos : undefined; if (targetPosition === undefined) return 0;
+  // @ts-ignore
+  const unitAtTargetPosition = units.getStructures().find(unit => unit.pos && distance(unit.pos, targetPosition) < 1);
+  const { buildTime } = data.getUnitTypeData(unitTypeBeingConstructed); if (buildTime === undefined) return 0;
   if (unitAtTargetPosition !== undefined) {
-    const { buildTime } = unitAtTargetPosition.data(); if (buildTime === undefined) return 0;
     const progress = unitAtTargetPosition.buildProgress; if (progress === undefined) return 0;
     buildTimeLeft = getBuildTimeLeft(unitAtTargetPosition, buildTime, progress);
+  } else {
+    buildTimeLeft = buildTime;
   }
   if (inSeconds) {
     return getTimeInSeconds(buildTimeLeft);
