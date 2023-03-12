@@ -321,7 +321,7 @@ const worldService = {
           }
       }
     }
-    await actions.sendAction(collectedActions);
+    if (collectedActions.length > 0) await actions.sendAction(collectedActions);
   },
   /**
    * @param {World} world
