@@ -1925,7 +1925,7 @@ const worldService = {
   runPlan: async (world) => {
     const { agent, data } = world;
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
-    const { addEarmark, build, buildSupplyOrTrain, setFoodUsed, train, upgrade } = worldService;
+    const { build, buildSupplyOrTrain, setFoodUsed, train, upgrade } = worldService;
     planService.continueBuild = true;
     dataService.earmarks = [];
     planService.pausedThisRound = false;
@@ -2037,13 +2037,13 @@ const worldService = {
   */
   setAndLogExecutedSteps: (world, time, name, notes = '') => {
     const { agent, data } = world;
-    const { foodUsed, minerals, vespene } = agent;
+    const { minerals, vespene } = agent;
     let isStructure = false;
     if (UnitType[name]) {
       const { attributes } = data.getUnitTypeData(UnitType[name]); if (attributes === undefined) return;
       isStructure = attributes.includes(Attribute.STRUCTURE);
     }
-    // set foodCount to foodUsed plus 1 if it's a structure and race is zerg
+    const foodUsed = worldService.getFoodUsed();
     const foodCount = (isStructure && agent.race === Race.ZERG) ? foodUsed + 1 : foodUsed;
     const buildStepExecuted = [foodCount, formatToMinutesAndSeconds(time), name, planService.currentStep, worldService.outpowered, `${minerals}/${vespene}`];
     const count = UnitType[name] ? worldService.getUnitCount(world, UnitType[name]) : 0;
@@ -2207,7 +2207,9 @@ const worldService = {
           unpauseAndLog(world, UnitTypeId[unitTypeId]);
           await warpIn(resources, this, unitTypeId);
         }
-        addEarmark(data, data.getUnitTypeData(unitTypeId));
+        const unitTypeData = data.getUnitTypeData(unitTypeId);
+        addEarmark(data, unitTypeData);
+        planService.pendingFood += unitTypeData.foodRequired ? unitTypeData.foodRequired : 0;
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
