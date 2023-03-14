@@ -30,10 +30,9 @@ const planService = require("../services/plan-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
-const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
+const { getAvailableExpansions, getNextSafeExpansions } = require("./expansions");
 const { getSupply, hasEarmarks, clearEarmarks } = require("../services/data-service");
 const worldService = require("../services/world-service");
-const harassService = require("../systems/harass/harass-service");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
@@ -195,7 +194,7 @@ class AssemblePlan {
             } else {
               resourceManagerService.availableExpansions = resourceManagerService.availableExpansions.length === 0 ? getAvailableExpansions(resources) : resourceManagerService.availableExpansions;
               const { availableExpansions } = resourceManagerService;
-              candidatePositions = availableExpansions.length > 0 ? [await getNextSafeExpansion(world, availableExpansions)] : [];
+              candidatePositions.push(getNextSafeExpansions(world, availableExpansions)[0]);
               await this.buildBuilding(world, unitType, candidatePositions);
             }
           } else {

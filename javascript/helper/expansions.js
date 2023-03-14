@@ -49,14 +49,14 @@ module.exports = {
   /**
    * @param {World} world
    * @param {Expansion[]} expansions
-   * @returns {Point2D | undefined}
+   * @returns {Point2D[]}
    */
-  getNextSafeExpansion: (world, expansions) => {
+  getNextSafeExpansions: (world, expansions) => {
     const { agent, resources } = world;
     const { map, units } = resources.get();
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     const townhallType = TownhallRace[agent.race][0];
-    const [placeableExpansion] = expansions.filter(expansion => {
+    const placeableExpansions = expansions.filter(expansion => {
       const { townhallPosition } = expansion;
       const footprint = getFootprint(townhallType);
       if (footprint === undefined) return false;
@@ -75,8 +75,6 @@ module.exports = {
         }).flat();
       return map.isPlaceableAt(townhallType, townhallPosition) && !pointsOverlap(enemyUnitCoverage, cellsInFootprint(townhallPosition, footprint));
     });
-    if (placeableExpansion) {
-      return placeableExpansion.townhallPosition;
-    }
+    return placeableExpansions.map(expansion => expansion.townhallPosition);
   }
 }

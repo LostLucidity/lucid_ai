@@ -7,7 +7,7 @@ const { getStringNameOfConstant } = require("../services/logging-service");
 const planService = require("../services/plan-service");
 const { assignAndSendWorkerToBuild, setAndLogExecutedSteps, premoveBuilderToPosition, canBuild, addEarmark } = require("../services/world-service");
 const { balanceResources } = require("../systems/manage-resources");
-const { getAvailableExpansions, getNextSafeExpansion } = require("./expansions");
+const { getAvailableExpansions, getNextSafeExpansions } = require("./expansions");
 
 module.exports = {
   /**
@@ -19,7 +19,7 @@ module.exports = {
     let collectedActions = [];
     const { actions, frame, units } = resources.get();
     const availableExpansions = getAvailableExpansions(resources);
-    const expansionLocation = availableExpansions.length > 0 ? await getNextSafeExpansion(world, availableExpansions) : null;
+    const expansionLocation = availableExpansions.length > 0 ? getNextSafeExpansions(world, availableExpansions) : null;
     if (expansionLocation) {
       const townhallTypeId = TownhallRace[agent.race][0];
       if (canBuild(world, townhallTypeId)) {

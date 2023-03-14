@@ -28,7 +28,7 @@ const unitResourceService = require("../systems/unit-resource/unit-resource-serv
 const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions, isInMineralLine, isPlaceableAtGasGeyser } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
-const { getOccupiedExpansions, getNextSafeExpansion, getAvailableExpansions } = require("../helper/expansions");
+const { getOccupiedExpansions, getAvailableExpansions, getNextSafeExpansions } = require("../helper/expansions");
 const { existsInMap } = require("../helper/location");
 const { pointsOverlap, shuffle } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
@@ -279,7 +279,7 @@ const worldService = {
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             } else {
               const availableExpansions = getAvailableExpansions(resources);
-              candidatePositions = availableExpansions.length > 0 ? [getNextSafeExpansion(world, availableExpansions)] : [];
+              candidatePositions = availableExpansions.length > 0 ? [getNextSafeExpansions(world, availableExpansions)] : [];
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             }
           } else {
@@ -740,7 +740,7 @@ const worldService = {
         .map(a => a.pos)
         .slice(0, 20);
     } else if (race === Race.ZERG) {
-      placements.push(...findZergPlacements(resources, unitType))
+      placements.push(...findZergPlacements(world, unitType))
     }
     return placements;
   },
@@ -2593,41 +2593,48 @@ function calculateTimeToFinishStructure(data, unit) {
   return timeLeft;
 }
 /**
- * @param {ResourceManager} resources 
+ * @param {World} world 
  * @param {UnitTypeId} unitType
  * @returns {Point2D[]}
  */
-function findZergPlacements(resources, unitType) {
+function findZergPlacements(world, unitType) {
+  const { resources } = world;
   const { map, units } = resources.get();
-  // get all mineral line points
-  const mineralLinePoints = map.getExpansions().reduce((mineralLines, expansion) => {
-    const { mineralLine } = expansion.areas;
-    return [...mineralLines, ...mineralLine];
-  }, []);
   const candidatePositions = [];
-  if (unitType !== UnitType.NYDUSCANAL) {
-    // get all points with creep within 12.5 distance of ally structure
-    const creepCandidates = map.getCreep().filter((point) => {
-      const [closestMineralLine] = getClosestPosition(point, mineralLinePoints);
-      const [closestStructure] = units.getClosest(point, units.getStructures());
-      return (
-        distance(point, closestMineralLine) > 1.5 &&
-        distance(point, closestStructure.pos) > 3 &&
-        distance(point, closestStructure.pos) <= 12.5
-      );
-    });
-    candidatePositions.push(...creepCandidates);
+  if (townhallTypes.includes(unitType)) {
+    resourceManagerService.availableExpansions = resourceManagerService.availableExpansions.length === 0 ? getAvailableExpansions(resources) : resourceManagerService.availableExpansions;
+    const { availableExpansions } = resourceManagerService;
+    candidatePositions.push(getNextSafeExpansions(world, availableExpansions)[0]);
   } else {
-    // get all points in vision
-    const visionPoints = map.getVisibility().filter((point) => {
-      const [closestMineralLine] = getClosestPosition(point, mineralLinePoints);
-      const [closestStructure] = units.getClosest(point, units.getStructures());
-      return (
-        distance(point, closestMineralLine) > 1.5 &&
-        distance(point, closestStructure.pos) > 3
-      );
-    });
-    candidatePositions.push(...visionPoints);
+    // get all mineral line points
+    const mineralLinePoints = map.getExpansions().reduce((mineralLines, expansion) => {
+      const { mineralLine } = expansion.areas;
+      return [...mineralLines, ...mineralLine];
+    }, []);
+    if (unitType !== UnitType.NYDUSCANAL) {
+      // get all points with creep within 12.5 distance of ally structure
+      const creepCandidates = map.getCreep().filter((point) => {
+        const [closestMineralLine] = getClosestPosition(point, mineralLinePoints);
+        const [closestStructure] = units.getClosest(point, units.getStructures());
+        return (
+          distance(point, closestMineralLine) > 1.5 &&
+          distance(point, closestStructure.pos) > 3 &&
+          distance(point, closestStructure.pos) <= 12.5
+        );
+      });
+      candidatePositions.push(...creepCandidates);
+    } else {
+      // get all points in vision
+      const visionPoints = map.getVisibility().filter((point) => {
+        const [closestMineralLine] = getClosestPosition(point, mineralLinePoints);
+        const [closestStructure] = units.getClosest(point, units.getStructures());
+        return (
+          distance(point, closestMineralLine) > 1.5 &&
+          distance(point, closestStructure.pos) > 3
+        );
+      });
+      candidatePositions.push(...visionPoints);
+    }
   }
   return candidatePositions;
 }
@@ -2913,16 +2920,16 @@ function canWeaponAttackType(units, weapon, targetUnitType) {
  * @returns {Unit[]}
  */
 function setUnitsProperty(unit, units) {
+  const { pos, radius } = unit; if (pos === undefined || radius === undefined) return [];
   return units.filter(toFilterUnit => {
-    if (unit.pos === undefined || toFilterUnit.pos === undefined || unit.radius === undefined || toFilterUnit.radius === undefined) return false;
-    const { weapons } = toFilterUnit.data();
-    if (weapons === undefined) return false;
+    const { pos: toFilterUnitPos, radius: toFilterUnitRadius } = toFilterUnit; if (toFilterUnitPos === undefined || toFilterUnitRadius === undefined) return false;
+    const { weapons } = toFilterUnit.data(); if (weapons === undefined) return false;
     const weaponRange = weapons.reduce((acc, weapon) => {
       if (weapon.range === undefined) return acc;
       return weapon.range > acc ? weapon.range : acc;
     }, 0);
     
-    return distance(unit.pos, toFilterUnit.pos) <= weaponRange + unit.radius + toFilterUnit.radius + getTravelDistancePerStep(toFilterUnit) + getTravelDistancePerStep(unit);
+    return distance(pos, toFilterUnitPos) <= weaponRange + radius + toFilterUnitRadius + getTravelDistancePerStep(toFilterUnit) + getTravelDistancePerStep(unit);
   });
 }
 /**
