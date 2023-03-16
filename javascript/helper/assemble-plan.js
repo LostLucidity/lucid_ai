@@ -129,28 +129,29 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async ability(world, food, abilityId, conditions) {
-    const { resources } = world;
-    const { actions } = resources.get();
+    const { agent, data, resources } = world;
+    const { foodUsed } = agent;
+    const { actions, units } = resources.get();
     const { getFoodUsed } = worldService;
     if (getFoodUsed() >= food) {
-      if (conditions === undefined || conditions.targetType || conditions.targetCount === this.units.getById(conditions.countType).length + this.units.withCurrentOrders(abilityId).length) {
-        if (conditions && conditions.targetType && conditions.continuous === false) { if (this.foodUsed !== food) { return; } }
-        let canDoTypes = this.data.findUnitTypesWithAbility(abilityId);
+      if (conditions === undefined || conditions.targetType || conditions.targetCount === units.getById(conditions.countType).length + units.withCurrentOrders(abilityId).length) {
+        if (conditions && conditions.targetType && conditions.continuous === false) { if (foodUsed !== food) { return; } }
+        let canDoTypes = data.findUnitTypesWithAbility(abilityId);
         if (canDoTypes.length === 0) {
-          canDoTypes = this.units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
+          canDoTypes = units.getAlive(Alliance.SELF).filter(unit => unit.abilityAvailable(abilityId)).map(canDoUnit => canDoUnit.unitType);
         }
-        const unitsCanDo = this.units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
+        const unitsCanDo = units.getByType(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
         if (unitsCanDo.length > 0) {
           let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
           const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
           if (conditions && conditions.targetType) {
             let target;
             if (conditions.targetType === MINERALFIELD) {
-              if ((conditions.controlled && this.agent.minerals <= 512) || !conditions.controlled) {
-                target = getMineralFieldTarget(this.units, unitCanDo);
+              if ((conditions.controlled && agent.minerals <= 512) || !conditions.controlled) {
+                target = getMineralFieldTarget(units, unitCanDo);
               } else { return; }
             } else {
-              const targets = this.units.getById(conditions.targetType).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
+              const targets = units.getById(conditions.targetType).filter(unit => !unit.noQueue && unit.buffIds.indexOf(281) === -1);
               target = targets[Math.floor(Math.random() * targets.length)];
             }
             if (target) { unitCommand.targetUnitTag = target.tag; }

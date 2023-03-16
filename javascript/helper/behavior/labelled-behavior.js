@@ -206,12 +206,13 @@ module.exports = {
       const threateningUnits = getThreateningUnits(world, unit);
       if (calculateTotalHealthRatio(units, unit) > 0.5) {
         if (threateningUnits.length > 0) {
-          const enemyUnitTypes = threateningUnits.map(unit => unit.unitType && unit.unitType);
-          // @ts-ignore
-          const threateningUnitsDPSHealth = getDPSHealth(world, unit, enemyUnitTypes.filter(unitType => unitType !== undefined));
+          const closestThreateningUnit = getClosestByWeaponRange(world, unit, threateningUnits); if (closestThreateningUnit === undefined) return;
           const selfUnits = units.getAlive().filter(unit => unit.pos && unit.alliance === Alliance.SELF && getDistance(pos, unit.pos) < 16);
           // @ts-ignore
-          const selfUnitDPSHealth = getDPSHealth(world, unit, selfUnits.map(unit => unit.unitType && unit.unitType));
+          const threateningUnitsDPSHealth = getDPSHealth(world, closestThreateningUnit, selfUnits.map(unit => unit.unitType && unit.unitType));
+          const enemyUnitTypes = threateningUnits.map(unit => unit.unitType && unit.unitType);
+          // @ts-ignore
+          const selfUnitDPSHealth = getDPSHealth(world, unit, enemyUnitTypes.filter(unitType => unitType !== undefined));
           if (threateningUnitsDPSHealth > selfUnitDPSHealth) {
             unit.labels.set('Threatened', true);
             let closestByWeaponRange = getClosestByWeaponRange(world, unit, threateningUnits);
@@ -222,12 +223,11 @@ module.exports = {
                 const { centroid: expansionPos } = expansion; if (expansionPos === undefined) return;
                 return getDistanceByPath(resources, pos, expansionPos) < getDistanceByPath(resources, enemyPos, expansionPos)
               });
+              const unitCommand = createUnitCommand(MOVE, [unit]);
               if (farthestEmptyExpansionCloserToUnit) {
-                const unitCommand = createUnitCommand(MOVE, [unit]);
                 unitCommand.targetWorldSpacePos = farthestEmptyExpansionCloserToUnit.centroid;
                 collectedActions.push(unitCommand);
               } else {
-                const unitCommand = createUnitCommand(MOVE, [unit]);
                 unitCommand.targetWorldSpacePos = retreat(world, unit, closestByWeaponRange, false);
                 collectedActions.push(unitCommand);
               }

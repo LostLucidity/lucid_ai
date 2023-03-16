@@ -64,7 +64,7 @@ const entry = createSystem({
   async onUnitDamaged({ resources }, damagedUnit) {
     const { health, healthMax, shield, shieldMax } = damagedUnit; if (health === undefined || healthMax === undefined || shield === undefined || shieldMax === undefined) return;
     const { buildProgress, pos } = damagedUnit; if (buildProgress === undefined || pos === undefined) return;
-    const { actions, units } = resources.get();
+    const { actions } = resources.get();
     const totalHealthShield = health + shield;
     const maxHealthShield = healthMax + shieldMax;
     if ((totalHealthShield / maxHealthShield) < 1 / 3) {
@@ -75,10 +75,6 @@ const entry = createSystem({
         };
         await actions.sendAction(unitCommand);
       }
-    }
-    if (damagedUnit.labels.get('scoutEnemyMain') || damagedUnit.labels.get('scoutEnemyNatural')) {
-      const [closestEnemyUnit] = units.getClosest(pos, enemyTrackingService.enemyUnits);
-      await actions.sendAction(moveAway(damagedUnit, closestEnemyUnit, 4));
     }
   },
   async onUnitFinished(world, finishedUnit) {

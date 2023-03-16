@@ -1593,11 +1593,9 @@ const worldService = {
     const { data } = world;
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
-    const { radius, tag, unitType, weaponCooldown } = unit;
-    if (radius === undefined || tag === undefined || unitType === undefined || weaponCooldown === undefined) return collectedActions;
-    const weaponCooldownOverStepSize = weaponCooldown > 8;
-    const enemyWeapon = getWeapon(data, targetUnit, unit);
-    if ((weaponCooldownOverStepSize || unit.unitType === UnitType.CYCLONE) && enemyWeapon) {
+    const { radius, tag } = unit;
+    if (radius === undefined || tag === undefined) return collectedActions;
+    if (shouldMicro(data, unit, targetUnit)) {
       const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit);
       collectedActions.push({
         abilityId: MOVE,
@@ -3144,3 +3142,21 @@ function getStructureAtPosition(units, movingPosition) {
     return distance(pos, movingPosition) < 1;
   });
 }
+
+/**
+ * @param {DataStorage} data
+ * @param {Unit} unit 
+ * @param {Unit} targetUnit
+ * @returns {boolean}
+ */
+function shouldMicro(data, unit, targetUnit) {
+  const { enemyUnitsPositions } = enemyTrackingService;
+  const { pos, unitType, weaponCooldown } = unit; if (pos === undefined || unitType === undefined || weaponCooldown === undefined) return false;
+  const { tag } = targetUnit; if (tag === undefined) return false;
+  const weaponCooldownOverStepSize = weaponCooldown > 8;
+  const enemyWeapon = getWeapon(data, targetUnit, unit);
+  const targetPositions = enemyUnitsPositions.get(tag);
+  const targetUnitGettingCloser = targetPositions !== undefined && getDistance(targetPositions.current, pos) < getDistance(targetPositions.previous, pos);
+  return (weaponCooldownOverStepSize || unitType === UnitType.CYCLONE) && enemyWeapon !== undefined && targetUnitGettingCloser;
+}
+

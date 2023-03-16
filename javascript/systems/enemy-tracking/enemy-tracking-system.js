@@ -7,6 +7,7 @@ const { setSelfSupplyPowers, setEnemySupplyPowers } = require("../../services/da
 const { setArmorUpgradeLevel, setAttackUpgradeLevel } = require("../../services/unit-service");
 const { setSelfDPSHealthPower, setEnemyDPSHealthPower, setTotalEnemyDPSHealth } = require("../../services/world-service");
 const trackUnitsService = require("../track-units/track-units-service");
+const { setEnemyUnitPositions } = require("./enemy-tracking-service");
 const enemyTrackingService = require("./enemy-tracking-service")
 
 module.exports = createSystem({
@@ -19,6 +20,7 @@ module.exports = createSystem({
     enemyTrackingService.addUnmappedUnit(units);
     enemyTrackingService.setBaseThreats(resources);
     const { mappedEnemyUnits } = enemyTrackingService;
+    setEnemyUnitPositions()
     const { selfUnits } = trackUnitsService;
     setSelfSupplyPowers(data, mappedEnemyUnits);
     setEnemySupplyPowers(data, mappedEnemyUnits, selfUnits);

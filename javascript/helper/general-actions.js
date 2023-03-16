@@ -19,7 +19,7 @@ module.exports = {
     let collectedActions = [];
     const { actions, frame, units } = resources.get();
     const availableExpansions = getAvailableExpansions(resources);
-    const expansionLocation = availableExpansions.length > 0 ? getNextSafeExpansions(world, availableExpansions) : null;
+    const [expansionLocation] = availableExpansions.length > 0 ? getNextSafeExpansions(world, availableExpansions) : [];
     if (expansionLocation) {
       const townhallTypeId = TownhallRace[agent.race][0];
       if (canBuild(world, townhallTypeId)) {

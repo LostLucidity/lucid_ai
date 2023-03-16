@@ -97,9 +97,15 @@ const enemyTrackingService = {
     });
   },
   setEnemyUnitPositions() {
+    const { enemyUnitsPositions } = enemyTrackingService;
     enemyTrackingService.mappedEnemyUnits.forEach(unit => {
-      enemyTrackingService.enemyUnitsPositions.set(unit.tag, unit.pos);
+      if (enemyUnitsPositions.has(unit.tag)) {
+        enemyUnitsPositions.set(unit.tag, { current: unit.pos, previous: enemyUnitsPositions.get(unit.tag).current });
+      } else {
+        enemyUnitsPositions.set(unit.tag, { current: unit.pos, previous: unit.pos });
+      }
     });
+    enemyTrackingService.enemyUnitsPositions = enemyUnitsPositions;
   }
 }
 
