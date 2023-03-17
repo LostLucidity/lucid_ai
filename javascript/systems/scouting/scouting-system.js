@@ -12,9 +12,11 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cancelEarlyScout } = require("../../builds/scouting");
 const placementHelper = require("../../helper/placement/placement-helper");
+const { createUnitCommand } = require("../../services/actions-service");
 const planService = require("../../services/plan-service");
-const { getZergEarlyBuild } = require("../../services/world-service");
+const { getZergEarlyBuild, retreat } = require("../../services/world-service");
 const worldService = require("../../services/world-service");
+const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const scoutingService = require("./scouting-service");
 const scoutService = require("./scouting-service");
 const { setOutsupplied, setEnemyCombatSupply } = require("./scouting-service");
@@ -30,7 +32,20 @@ module.exports = createSystem({
     setPositionLastSeen(resources, TownhallRace[agent.race][0]);
     setOutsupplied();
     setOutpowered();
-  }
+  },
+  async onUnitDamaged(world, damagedUnit) {
+    const { resources } = world;
+    const { actions, units } = resources.get();
+    const { pos } = damagedUnit; if (pos === undefined) { return; }
+    const collectedActions = [];
+    if (damagedUnit.labels.get('scoutEnemyMain') || damagedUnit.labels.get('scoutEnemyNatural')) {
+      const [closestEnemyUnit] = units.getClosest(pos, enemyTrackingService.enemyUnits);
+      const unitCommand = createUnitCommand(MOVE, [damagedUnit]);
+      unitCommand.targetWorldSpacePos = retreat(world, damagedUnit, closestEnemyUnit, false);
+      collectedActions.push(unitCommand);
+    }
+    collectedActions.length && actions.sendAction(collectedActions);
+  },
 });
 
 /**
