@@ -279,7 +279,7 @@ const worldService = {
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             } else {
               const availableExpansions = getAvailableExpansions(resources);
-              candidatePositions = availableExpansions.length > 0 ? [getNextSafeExpansions(world, availableExpansions)] : [];
+              candidatePositions.push(getNextSafeExpansions(world, availableExpansions)[0]);
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             }
           } else {
@@ -1925,6 +1925,7 @@ const worldService = {
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
     const { build, buildSupplyOrTrain, setFoodUsed, train, upgrade } = worldService;
     planService.continueBuild = true;
+    if (planService.currentStep > -1) return;
     dataService.earmarks = [];
     planService.pausedThisRound = false;
     planService.pendingFood = 0;
@@ -1962,6 +1963,7 @@ const worldService = {
         break;
       }
     }
+    planService.currentStep = -1;
     if (!planService.pausedThisRound) {
       planService.pausePlan = false;
     }

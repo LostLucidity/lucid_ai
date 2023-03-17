@@ -40,7 +40,7 @@ const planService = {
   /** @type {import("../interfaces/plan-step").PlanStep[]} */
   convertedLegacyPlan: [],
   continueBuild: true,
-  currentStep: Infinity,
+  currentStep: -1,
   /** @type {number} */
   foodMark: 12,
   /** @type {Point2D | false} */
