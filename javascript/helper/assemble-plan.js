@@ -667,7 +667,7 @@ class AssemblePlan {
       balanceResources(world, mineralsNeeded / vespeneNeeded);
     }
     planService.latestStep = planService.currentStep;
-    planService.currentStep = null;
+    planService.currentStep = -1;
     if (!planService.pausedThisRound) {
       planService.pausePlan = false;
     }

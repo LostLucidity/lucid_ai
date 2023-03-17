@@ -61,7 +61,7 @@ const qTableService = {
         planService.plan.push({
           orderType, unitType, food: foodUsed, targetCount: getUnitTypeCount(world, unitType)
         });
-        planService.currentStep = planService.plan.length - 1;
+        planService.latestStep = planService.plan.length - 1;
         const { attributes } = data.getUnitTypeData(unitType);
         if (attributes === undefined) return;
         if (attributes.includes(Attribute.STRUCTURE)) {
