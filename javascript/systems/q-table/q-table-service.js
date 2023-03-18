@@ -7,6 +7,8 @@ const { getAllActions } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
 const { train, getStep, getUnitTypeCount, build, upgrade } = require("../../services/world-service");
 const path = require('path');
+const { maxEnergyNexusChronoboost } = require('../unit-resource/unit-resource-service');
+const { EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
 
 /** @typedef { { step: number } } State */
 
@@ -49,12 +51,13 @@ const qTableService = {
    * @param {Map<number, import("../../interfaces/actions-map").ActionsMap>} availableActions
    */
   async executeAction(world, action, availableActions) {
-    const { agent, data } = world;
+    const { agent, data, resources } = world;
     const { foodUsed } = agent; if (!foodUsed) { return; }
+    const { actions, units } = resources.get();
     const { steps } = qTableService;
     steps.push(action);
     const actionData = availableActions.get(action); if (!actionData) { return; }
-    const { orderType, unitType, upgrade: upgradeType } = actionData; if (!(orderType !== undefined && (unitType !== undefined || upgradeType !== undefined))) { return; }
+    const { orderType, unitType, upgrade: upgradeType } = actionData; if (!((orderType !== undefined && (unitType !== undefined || upgradeType !== undefined)) || orderType === 'Ability')) { return; }
     if (orderType === 'UnitType' && unitType !== undefined) {
       const matchingStep = getStep(world, unitType);
       if (!matchingStep) {
@@ -75,6 +78,8 @@ const qTableService = {
         orderType, upgrade: upgradeType, food: foodUsed
       });
       await upgrade(world, upgradeType);
+    } else if (orderType === 'Ability') {
+      if (action === EFFECT_CHRONOBOOSTENERGYCOST) await actions.sendAction(maxEnergyNexusChronoboost(units));
     }
   },
   getQTable() {

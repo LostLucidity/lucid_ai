@@ -1,9 +1,11 @@
 //@ts-check
 "use strict"
 
-const { UnitType, WarpUnitAbility, Upgrade } = require("@node-sc2/core/constants");
+const { Ability, UnitType, WarpUnitAbility, Upgrade } = require("@node-sc2/core/constants");
+const { EFFECT_CHRONOBOOSTENERGYCOST } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
+const curatedAbilities = require("../constants/curated-abilities");
 const { getTimeInSeconds } = require("./frames-service");
 const { getDistance } = require("./position-service");
 const { getWeaponThatCanAttack } = require("./unit-service");
@@ -11,6 +13,7 @@ const { getWeaponThatCanAttack } = require("./unit-service");
 const dataService = {
   /** @type number[] */
   allActions: [],
+  curatedAbilityMapping: [],
   /** @type {Earmark[]} */
   earmarks: [],
   /** @type {Map<string, number>} */
@@ -48,9 +51,9 @@ const dataService = {
    * @returns {number[]}
    */
   getAllActions: () => {
-    let { allActions, unitTypeTrainingAbilities, upgradeAbilities } = dataService;
+    let { allActions, curatedAbilityMapping, unitTypeTrainingAbilities, upgradeAbilities } = dataService;
     if (allActions.length === 0) {
-      allActions = Array.from(unitTypeTrainingAbilities.keys()).concat(Object.keys(upgradeAbilities).map(key => parseInt(key)));
+      allActions = Array.from(unitTypeTrainingAbilities.keys()).concat(Object.keys(upgradeAbilities).map(key => parseInt(key))).concat(curatedAbilityMapping);
       dataService.allActions = allActions;
     }
     return allActions;
@@ -88,7 +91,6 @@ const dataService = {
         availableAbilities.forEach(ability => {
           if (!allAvailableAbilities.has(ability)) {
             const unitTypeTrainingAbilities = dataService.unitTypeTrainingAbilities;
-            unitTypeTrainingAbilities.entries()
             if (Array.from(unitTypeTrainingAbilities.keys()).some(unitTypeAbility => unitTypeAbility === ability)) {
               const unitTypeData = data.getUnitTypeData(unitTypeTrainingAbilities.get(ability));
               if (unitTypeData.unitAlias === 0) {
@@ -98,6 +100,8 @@ const dataService = {
               }
             } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
               allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
+            } else if ([EFFECT_CHRONOBOOSTENERGYCOST].includes(ability)) {
+              allAvailableAbilities.set(ability, { orderType: 'Ability' });
             }
           }
         })
@@ -199,6 +203,17 @@ const dataService = {
       unit['selfUnits'] = units.filter(toFilterUnit => distance(unit.pos, toFilterUnit.pos) <= 16);
       unit['selfSupply'] = dataService.calculateNearSupply(data, unit['selfUnits']);
     });
+  },
+  /**
+   * @param {DataStorage} data 
+   */
+  setCuratedAbilityMapping: (data) => {
+    const { curatedAbilityMapping } = dataService;
+    Array.from(Object.values(curatedAbilities)).forEach(ability => {
+      const { abilityId } = data.getAbilityData(ability); if (abilityId === undefined) return;
+      curatedAbilityMapping[abilityId.toString()] = ability;
+    });
+    dataService.curatedAbilityMapping = curatedAbilityMapping;
   },
   /**
    * @param {DataStorage} data 

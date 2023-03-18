@@ -1,18 +1,20 @@
 //@ts-check
 "use strict"
 
-const { EFFECT_REPAIR, STOP } = require("@node-sc2/core/constants/ability");
+const { EFFECT_REPAIR, STOP, EFFECT_CHRONOBOOSTENERGYCOST: CHRONOBOOST } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes, gatheringAbilities } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { PROBE, COLOSSUS, MULE, DRONE } = require("@node-sc2/core/constants/unit-type");
+const { PROBE, COLOSSUS, MULE, DRONE, NEXUS } = require("@node-sc2/core/constants/unit-type");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+const getRandom = require("@node-sc2/core/utils/get-random");
 const { countTypes } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getDistance } = require("../../services/position-service");
 const { isPendingContructing } = require("../../services/shared-service");
+const { canBeChronoBoosted } = require("../../services/unit-service");
 const unitService = require("../../services/unit-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("../track-units/track-units-service");
@@ -403,6 +405,26 @@ const unitResourceService = {
       });
     });
     return workers;
+  },
+  /**
+   * @param {UnitResource} units 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  maxEnergyNexusChronoboost: (units) => {
+    const collectedActions = [];
+    const nexusWithChronoBoost = units.getById(NEXUS).filter(n => n.abilityAvailable(CHRONOBOOST));
+    if (nexusWithChronoBoost.length > 0) {
+      const structures = units.getStructures();
+      const structuresThatCanBeChronoBoosted = structures.filter(structure => canBeChronoBoosted(structure));
+      if (structuresThatCanBeChronoBoosted.length > 0) {
+        const [nexusWithMostEnergy] = nexusWithChronoBoost.sort((a, b) => b.energy && a.energy ? b.energy - a.energy : 0);
+        const randomStructure = getRandom(structuresThatCanBeChronoBoosted);
+        const unitCommand = createUnitCommand(CHRONOBOOST, [nexusWithMostEnergy]);
+        unitCommand.targetUnitTag = randomStructure.tag;
+        collectedActions.push(unitCommand);
+      }
+    }
+    return collectedActions;
   },
   /**
    * 

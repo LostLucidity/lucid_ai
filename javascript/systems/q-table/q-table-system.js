@@ -3,7 +3,7 @@
 
 const { createSystem } = require("@node-sc2/core");
 const dataService = require("../../services/data-service");
-const { setUnitTypeTrainingAbilityMapping, setUpgradeAbilities, getAllActions } = require("../../services/data-service");
+const { setUnitTypeTrainingAbilityMapping, setUpgradeAbilities, getAllActions, setCuratedAbilityMapping } = require("../../services/data-service");
 const { runPlan } = require("../../services/world-service");
 const { executeAction } = require("./q-table-service");
 const qTableService = require("./q-table-service");
@@ -18,6 +18,7 @@ module.exports = createSystem({
     const { data } = world;
     setUnitTypeTrainingAbilityMapping(data);
     setUpgradeAbilities(data);
+    setCuratedAbilityMapping(data);
     qTableService.Q = await qTableService.getQTable();
     await runPlan(world);
     await executeQLearning(world);

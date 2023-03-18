@@ -7,8 +7,8 @@ const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums")
 const { ZEALOT, ZERGLING, ROACH } = require("@node-sc2/core/constants/unit-type");
 const { add } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("./actions-service");
-const { CHRONOBOOSTENERGYCOST } = require("@node-sc2/core/constants/buff");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
+const { CHRONOBOOSTENERGYCOST: CHRONOBOOSTED } = require("@node-sc2/core/constants/buff");
 
 const unitService = {
   /**
@@ -41,6 +41,15 @@ const unitService = {
    * @type number
    */
   enemyAttackUpgradeLevel: 0,
+  /**
+   * @param {Unit} unit 
+   * @returns {boolean}
+   */
+  canBeChronoBoosted: (unit) => {
+    const { buffIds } = unit;
+    if (buffIds === undefined) return false;
+    return !buffIds.includes(CHRONOBOOSTED) && !unit.isIdle();
+  },
   /**
    * @param {Alliance} alliance 
    * @returns 
@@ -75,7 +84,7 @@ const unitService = {
   getBuildTimeLeft(unit, buildTime, progress) {
     const { buffIds } = unit;
     if (buffIds === undefined) return buildTime;
-    if (buffIds.includes(CHRONOBOOSTENERGYCOST)) {
+    if (buffIds.includes(CHRONOBOOSTED)) {
       buildTime = buildTime * 2 / 3;
     }
     return Math.round(buildTime * (1 - progress));
