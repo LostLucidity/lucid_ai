@@ -12,6 +12,7 @@ const { createUnitCommand } = require("../services/actions-service");
 const { getTimeInSeconds } = require("../services/frames-service");
 const { moveAwayPosition, getDistance } = require("../services/position-service");
 const { getClosestUnitByPath } = require("../services/resource-manager-service");
+const { canAttack } = require("../services/resources-service");
 const { getMovementSpeed } = require("../services/unit-service");
 const { retreat, getDPSOfInRangeAntiAirUnits } = require("../services/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
@@ -177,18 +178,22 @@ module.exports = helper;
  * @param {ResourceManager} resources
  * @param {Unit} unit
  * @param {Unit[]} shadowingUnits
- * @param {Unit} closestThreatUnit
+ * @param {Unit} targetUnit
  * @returns {boolean}
  */
-function checkIfShouldShadow(resources, unit, shadowingUnits, closestThreatUnit) {
+function checkIfShouldShadow(resources, unit, shadowingUnits, targetUnit) {
   const { frame, map, units } = resources.get();
   const { centroid } = map.getEnemyNatural(); if (centroid === undefined) return false;
   const [closestToEnemyNatural] = units.getClosest(centroid, shadowingUnits);
   const isClosestToEnemyNatural = closestToEnemyNatural && unit.tag === closestToEnemyNatural.tag;
-  const { pos } = closestThreatUnit; if (pos === undefined) return false;
-  const outOfNaturalRangeWorker = isWorker(closestThreatUnit) && getDistance(pos, centroid) > 16;
+  const { pos } = targetUnit; if (pos === undefined) return false;
+  const outOfNaturalRangeWorker = isWorker(targetUnit) && getDistance(pos, centroid) > 16;
   const isGameTimeLaterThanTargetTime = getTimeInSeconds(frame.getGameLoop()) >= 131;
-  const shouldClosestToEnemyNaturalShadow = isClosestToEnemyNatural && isGameTimeLaterThanTargetTime && [outOfNaturalRangeWorker, !isWorker(closestThreatUnit)].some(condition => condition);
+  const canBeAttacked = canAttack(resources, targetUnit, unit);
+  const shouldClosestToEnemyNaturalShadow = (
+    isClosestToEnemyNatural &&
+    (canBeAttacked || isGameTimeLaterThanTargetTime) &&
+    [outOfNaturalRangeWorker, !isWorker(targetUnit)].some(condition => condition));
   const conditions = [
     shouldClosestToEnemyNaturalShadow,
     !isClosestToEnemyNatural,
