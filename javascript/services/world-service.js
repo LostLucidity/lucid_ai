@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff, WarpUnitAbility, UpgradeId } = require("@node-sc2/core/constants");
-const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities, addonTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
@@ -34,7 +34,7 @@ const { pointsOverlap, shuffle } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE, CREEPTUMOR, WARPGATE, PYLON, OVERLORD, GREATERSPIRE, TECHLAB, ORBITALCOMMAND, SCV } = require("@node-sc2/core/constants/unit-type");
+const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE, CREEPTUMOR, WARPGATE, PYLON, OVERLORD, GREATERSPIRE, TECHLAB, ORBITALCOMMAND, SCV, ADEPTPHASESHIFT } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -44,7 +44,6 @@ const { keepPosition } = require('./placement-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
 const { canAttack } = require('./resources-service');
 const { getMiddleOfStructure, moveAwayPosition, getDistance } = require('./position-service');
-const { micro } = require('./micro-service');
 const MapResourceService = require('./map-resource-service');
 const { getPathCoordinates } = require('./path-service');
 const resourceManagerService = require('./resource-manager-service');
@@ -56,6 +55,8 @@ const unitTrainingService = require('../systems/unit-training/unit-training-serv
 const { haveAvailableProductionUnitsFor } = require('../systems/unit-training/unit-training-service');
 const { checkUnitCount } = require('../systems/track-units/track-units-service');
 const { convertLegacyStep } = require('./plan-service');
+const microService = require('./micro-service');
+const { getDistanceByPath, getClosestUnitByPath } = require('./resource-manager-service');
 
 const worldService = {
   /** @type {number} */
@@ -1497,10 +1498,21 @@ const worldService = {
     const selfDPSHealth = targetUnit['selfDPSHealth'] || 0;
     const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy', 'builder']) && !isRepairing(unit));
     const potentialFightersByDistance = getClosestUnitByPath(resources, pos, workers.filter(worker => !worker.isReturning() && !worker.isConstructing()), workers.length);
+    const potentialFightersGroupedByHealth = potentialFightersByDistance.reduce((/** @type {[Unit[], Unit[]]} */ groups, fighter) => {
+      const { health, healthMax, shield, shieldMax } = fighter; if (health === undefined || healthMax === undefined || shield === undefined || shieldMax === undefined) return groups;
+      const healthPercent = (health + shield) / (healthMax + shieldMax);
+      if (healthPercent > 0.25) {
+        groups[0].push(fighter);
+      } else {
+        groups[1].push(fighter);
+      }
+      return groups;
+    }, [[], []]);
+    const sortedPotentialFightersByDistance = potentialFightersGroupedByHealth[0].concat(potentialFightersGroupedByHealth[1]);
     const fighters = [];
     let dpsHealth = 0;
-    for (let i = 0; i < potentialFightersByDistance.length; i++) {
-      const fighter = potentialFightersByDistance[i];
+    for (let i = 0; i < sortedPotentialFightersByDistance.length; i++) {
+      const fighter = sortedPotentialFightersByDistance[i];
       const fighterDPSHealth = worldService.getDPSHealth(world, fighter, targetUnit['selfUnits'].map((/** @type {Unit} */ unit) => unit.unitType));
       fighters.push(fighter);
       if (dpsHealth + fighterDPSHealth >= selfDPSHealth) break;
@@ -1582,7 +1594,91 @@ const worldService = {
       }
     }
     return collectedActions;
-  }, 
+  },
+  /**
+   * @param {World} world
+   * @param {Unit} unit 
+   * @param {Unit} targetUnit 
+   * @param {Unit[]} enemyUnits 
+   * @returns 
+   */
+  microB: (world, unit, targetUnit, enemyUnits) => {
+    const { resources } = world;
+    const { map } = resources.get();
+    const collectedActions = [];
+    const { pos, health, radius, shield, tag, unitType, weaponCooldown } = unit;
+    if (pos === undefined || health === undefined || radius === undefined || shield === undefined || tag === undefined || unitType === undefined || weaponCooldown === undefined) { return collectedActions; }
+    const { pos: targetPos, health: targetHealth, radius: targetRadius, shield: targetShield, unitType: targetUnitType } = targetUnit;
+    if (targetPos === undefined || targetHealth === undefined || targetRadius === undefined || targetShield === undefined || targetUnitType === undefined) { return collectedActions; }
+    const retreatCommand = createUnitCommand(MOVE, [unit]);
+    if (unit.isWorker()) {
+      let closestCandidateMineralField = undefined;
+      for (const expansion of map.getExpansions()) {
+        const { areas, cluster } = expansion; if (areas === undefined || cluster === undefined) { continue; }
+        const { mineralLine } = areas; if (mineralLine === undefined) { continue; }
+        const { mineralFields } = cluster; if (mineralFields === undefined) { continue; }
+        const averageMineralLinePosition = avgPoints(mineralLine);
+        const distanceToMineralLine = getDistanceByPath(resources, pos, averageMineralLinePosition);
+        const distanceToTargetMineralLine = getDistanceByPath(resources, targetPos, averageMineralLinePosition);
+        if (distanceToMineralLine < distanceToTargetMineralLine) {
+          [closestCandidateMineralField] = mineralFields;
+          break;
+        }
+      }          
+      if (closestCandidateMineralField !== undefined) {
+        retreatCommand.abilityId = HARVEST_GATHER;
+        retreatCommand.targetUnitTag = closestCandidateMineralField.tag;
+      } else {
+        retreatCommand.targetWorldSpacePos = moveAwayPosition(targetPos, pos);
+      }
+    } else {
+      retreatCommand.targetWorldSpacePos = moveAwayPosition(targetPos, pos);
+    }
+    const meleeTargetsInRangeFacing = enemyUnits.filter(enemyUnit => {
+      const { pos: enemyPos, radius: enemyRadius } = enemyUnit; if (enemyPos === undefined || enemyRadius === undefined) { return false; }
+      const meleeTargetInRangeFacing = (
+        enemyUnit.isMelee() &&
+        (distance(pos, enemyPos) + 0.05) - (radius + enemyRadius) < 0.5 &&
+        microService.isFacing(targetUnit, unit)
+      );
+      return meleeTargetInRangeFacing;
+    });
+    const targetUnitsWeaponDPS = meleeTargetsInRangeFacing.reduce((acc, meleeTargetInRangeFacing) => {
+      const { unitType: meleeTargetInRangeFacingUnitType } = meleeTargetInRangeFacing; if (meleeTargetInRangeFacingUnitType === undefined) { return acc; }
+      return acc + worldService.getWeaponDPS(world, meleeTargetInRangeFacingUnitType, Alliance.ENEMY, [unitType]);
+    }, 0);
+    const totalUnitHealth = health + shield;
+    const lessTotalHealthThanTarget = totalUnitHealth < targetHealth + targetShield;
+    const timeToBeKilled = totalUnitHealth / targetUnitsWeaponDPS * 22.4;
+    const { frame } = resources.get();
+    if (frame.timeInSeconds() > 117 && frame.timeInSeconds() < 150 && totalUnitHealth < 20) {
+      console.log('targetUnitWeaponDPS', targetUnitsWeaponDPS, 'totalUnitHealth', totalUnitHealth, 'lessTotalHealthThanTarget', lessTotalHealthThanTarget, 'timeToBeKilled', timeToBeKilled);
+    }
+    if (
+      meleeTargetsInRangeFacing.length > 0 &&
+      (weaponCooldown > 8 || timeToBeKilled < 24)
+    ) {
+      console.log('unit.weaponCooldown', unit.weaponCooldown);
+      console.log('distance(unit.pos, targetUnit.pos)', distance(pos, targetPos));
+      collectedActions.push(retreatCommand);
+    } else {
+      const inRangeMeleeEnemyUnits = enemyUnits.filter(enemyUnit => enemyUnit.isMelee() && ((distance(pos, enemyUnit.pos) + 0.05) - (radius + enemyUnit.radius) < 0.25));
+      const [weakestInRange] = inRangeMeleeEnemyUnits.sort((a, b) => (a.health + a.shield) - (b.health + b.shield));
+      targetUnit = weakestInRange || targetUnit;
+      /** @type {SC2APIProtocol.ActionRawUnitCommand} */
+      const unitCommand = {
+        abilityId: ATTACK_ATTACK,
+        unitTags: [tag],
+      }
+      if (targetUnit.unitType === ADEPTPHASESHIFT) {
+        unitCommand.targetWorldSpacePos = targetUnit.pos;
+      } else {
+        unitCommand.targetUnitTag = targetUnit.tag;
+      }
+      collectedActions.push(unitCommand);
+    }
+    return collectedActions;
+  },
   /**
    * @param {World} world 
    * @param {Unit} unit 
@@ -1750,7 +1846,7 @@ const worldService = {
       const candidateMinerals = units.getByType(mineralFieldTypes).filter(mineralField => distance(worker.pos, mineralField.pos) < distance(targetUnit.pos, mineralField.pos));
       const [closestCandidateMineral] = units.getClosest(worker.pos, candidateMinerals);
       if (closestCandidateMineral) {
-        collectedActions.push(...micro(units, worker, targetUnit, enemyUnits));
+        collectedActions.push(...micro(world, worker, targetUnit, enemyUnits));
       }
     } else if (worker.isAttacking() && worker.orders.find(order => order.abilityId === ATTACK_ATTACK).targetUnitTag === targetUnit.tag) {
       collectedActions.push(...gatherOrMine(resources, worker));

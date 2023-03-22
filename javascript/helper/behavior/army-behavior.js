@@ -15,8 +15,7 @@ const { isRepairing, setPendingOrders } = require("../../systems/unit-resource/u
 const { createUnitCommand } = require("../../services/actions-service");
 const { getCombatPoint, canAttack } = require("../../services/resources-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { microRangedUnit, defendWithUnit, getDPSHealth, retreat } = require("../../services/world-service");
-const { micro } = require("../../services/micro-service");
+const { microRangedUnit, defendWithUnit, getDPSHealth, retreat, microB } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { moveAwayPosition } = require("../../services/position-service");
 const { getMovementSpeed, getWeaponThatCanAttack } = require("../../services/unit-service");
@@ -118,8 +117,9 @@ const armyBehavior = {
               workersToDefend.push(worker);
               worker.labels.set('defending')
             } else {
-              if (isTargetUnitInOrders(worker, closestEnemyUnit, [ATTACK, ATTACK_ATTACK])) {
-                worker.labels.has('defending') && worker.labels.delete('defending');
+              worker.isAttacking()
+              if (worker.isAttacking() && worker.labels.has('defending')) {
+                worker.labels.delete('defending');
                 collectedActions.push(...stop(worker));
               }
             }
@@ -171,7 +171,7 @@ const armyBehavior = {
           if (closestAttackableEnemyUnit['selfDPSHealth'] > selfDPSHealth) {
             if (getMovementSpeed(selfUnit) < getMovementSpeed(closestAttackableEnemyUnit) && closestAttackableEnemyUnit.unitType !== ADEPTPHASESHIFT) {
               if (selfUnit.isMelee()) {
-                collectedActions.push(...micro(units, selfUnit, closestAttackableEnemyUnit, enemyUnits));
+                collectedActions.push(...microB(world, selfUnit, closestAttackableEnemyUnit, enemyUnits));
               } else {
                 const enemyInAttackRange = isEnemyInAttackRange(data, selfUnit, closestAttackableEnemyUnit);
                 if (enemyInAttackRange) {
@@ -243,9 +243,7 @@ const armyBehavior = {
                     collectedActions.push(unitCommand);
                   }
                 } else {
-                  const unitCommand = createUnitCommand(ATTACK_ATTACK, [selfUnit]);
-                  unitCommand.targetWorldSpacePos = attackablePosition;
-                  collectedActions.push(unitCommand);
+                  collectedActions.push(...microB(world, selfUnit, closestAttackableEnemyUnit, enemyUnits));
                 }
               }
             } else {

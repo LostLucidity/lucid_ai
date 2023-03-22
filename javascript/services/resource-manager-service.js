@@ -82,7 +82,7 @@ const resourceManagerService = {
     if (combatRally) {
       return combatRally;
     } else {
-      return getNaturalWall(map).length > 0 ? map.getCombatRally() : location.getRallyPointByBases(map, units);
+      return map.getCombatRally() || location.getRallyPointByBases(map, units);
     }
   },
   /**
