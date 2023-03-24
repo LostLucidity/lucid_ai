@@ -24,7 +24,12 @@ const MapResourceService = {
       { x: Math.ceil(x), y: Math.floor(y) },
       { x: Math.floor(x), y: Math.ceil(y) },
       { x: Math.ceil(x), y: Math.ceil(y) },
-    ].filter((grid, index, self) => self.findIndex(g => areEqual(g, grid)) === index);
+    ].filter((grid, index, self) => {
+      const mapSize = map.getSize();
+      const mapEdge = { x: mapSize.x, y: mapSize.y };
+      if (grid.x === mapEdge.x || grid.y === mapEdge.y) return false;
+      return self.findIndex(g => areEqual(g, grid)) === index;
+    });
     const placeableCorners = gridCorners.filter(corner => map.isPathable(corner));
     const sortedCorners = placeableCorners.sort((a, b) => distance(a, position) - distance(b, position));
     const closestCorners = sortedCorners.filter(corner => distance(corner, position) === distance(sortedCorners[0], position));

@@ -14,8 +14,6 @@ const { getPendingOrders } = require("../services/unit-service");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { clearUnsettledBuildingPositions } = require("../services/world-service");
 const scoutingService = require("../systems/scouting/scouting-service");
-const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
-const { moveAway } = require("./helper");
 const { setOpponentRace } = require("../systems/scouting/scouting-service");
 
 let assemblePlan = null;
@@ -92,7 +90,8 @@ const entry = createSystem({
    * @param {Unit} idleUnit 
    * @returns {Promise<SC2APIProtocol.ResponseAction|void>}
    */
-  async onUnitIdle({ resources }, idleUnit) {
+  async onUnitIdle(world, idleUnit) {
+    const { resources } = world;
     const pendingOrders = getPendingOrders(idleUnit);
     if (idleUnit.isWorker() && idleUnit.noQueue && pendingOrders.length === 0) {
       const { actions, units } = resources.get();
@@ -104,6 +103,9 @@ const entry = createSystem({
     // delete combatPoint label if idle
     if (idleUnit.labels.has('combatPoint')) {
       idleUnit.labels.delete('combatPoint');
+    }
+    if (idleUnit.isStructure()) {
+      await assemblePlan.runPlan(world);
     }
   },
   /**
