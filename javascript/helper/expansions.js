@@ -63,10 +63,9 @@ module.exports = {
       const enemyUnitCoverage = enemyUnits
         .filter(enemyUnit => enemyUnit.pos && distance(enemyUnit.pos, townhallPosition) < 16)
         .map(enemyUnit => {
-          const { pos, radius, unitType } = enemyUnit;
-          if (pos === undefined || radius === undefined) return [];
+          const { isFlying, pos, radius, unitType } = enemyUnit; if (isFlying === undefined || pos === undefined || radius === undefined || unitType === undefined) return [];
           if (!enemyUnit.isStructure()) {
-            return [pos, ...gridsInCircle(pos, radius)];
+            return !isFlying && [pos, ...gridsInCircle(pos, radius)];
           } else {
             const footprint = getFootprint(unitType);
             if (footprint === undefined) return [];
