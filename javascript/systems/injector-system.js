@@ -14,9 +14,8 @@ const { getTimeInSeconds } = require("../services/frames-service");
 const planService = require("../services/plan-service");
 const { getDistance } = require("../services/position-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestUnitPositionByPath } = require("../services/resource-manager-service");
-const { getMovementSpeed, getPendingOrders } = require("../services/unit-service");
+const { getMovementSpeed, getPendingOrders, setPendingOrders } = require("../services/unit-service");
 const { getUnitCount } = require("../services/world-service");
-const { setPendingOrders } = require("./unit-resource/unit-resource-service");
 
 module.exports = createSystem({
   name: "InjectorSystem",

@@ -20,7 +20,7 @@ const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
 const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon, getBuildTimeLeft, isConstructing } = require("./unit-service");
+const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon, getBuildTimeLeft, isConstructing, setPendingOrders } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
@@ -56,7 +56,7 @@ const { haveAvailableProductionUnitsFor } = require('../systems/unit-training/un
 const { checkUnitCount } = require('../systems/track-units/track-units-service');
 const { convertLegacyStep } = require('./plan-service');
 const microService = require('./micro-service');
-const { getDistanceByPath, getClosestUnitByPath } = require('./resource-manager-service');
+const { getDistanceByPath } = require('./resource-manager-service');
 
 const worldService = {
   /** @type {number} */
@@ -78,7 +78,6 @@ const worldService = {
     const collectedActions = [];
     const { data, resources } = world;
     const { units } = resources.get();
-    const { setPendingOrders } = unitResourceService;
     let canDoTypes = data.findUnitTypesWithAbility(abilityId).reduce((/** @type {UnitTypeId[]} */acc, unitTypeId) => {
       acc.push(unitTypeId);
       const key = [...flyingTypesMapping.keys()].find(key => flyingTypesMapping.get(key) === unitTypeId);
@@ -119,7 +118,6 @@ const worldService = {
   addAddOn: async (world, unit, addOnType) => {
     const { data, resources } = world;
     const { actions, map } = resources.get();
-    const { setPendingOrders } = unitResourceService;
     for (const [key, value] of countTypes.entries()) {
       if (value.includes(addOnType)) {
         addOnType = key;
@@ -223,7 +221,6 @@ const worldService = {
     const { agent, data, resources } = world;
     const { race } = agent;
     const { units } = resources.get();
-    const { setPendingOrders } = unitResourceService;
     const { abilityId } = data.getUnitTypeData(unitType);
     const { getBuilder } = worldService;
     const collectedActions = [];
@@ -364,7 +361,6 @@ const worldService = {
     const { agent, data, resources } = world;
     const { race } = agent;
     const { units } = resources.get();
-    const { setPendingOrders } = unitResourceService;
     const { getIdleOrAlmostIdleUnits } = worldService;
     const { canBuild } = worldService;
     const collectedActions = [];
@@ -1084,10 +1080,11 @@ const worldService = {
     const { data, resources } = world;
   const { units } = resources.get();
     return units.getProductionUnits(unitType).filter(unit => {
-    const { orders } = unit; if (orders === undefined) return false;
-    const pendingOrders = getPendingOrders(unit);
-    if (orders.length === 0 && pendingOrders.length === 0) return true;
-    if (orders.length > 0) {
+      const { buildProgress, orders } = unit; if (buildProgress === undefined || orders === undefined) return false;
+      if (buildProgress < 1) return false;
+      const pendingOrders = getPendingOrders(unit);
+      if (orders.length === 0 && pendingOrders.length === 0) return true;
+      if (orders.length > 0) {
         const { abilityId, progress } = orders[0]; if (abilityId === undefined || progress === undefined) return false;
         const unitType = dataService.unitTypeTrainingAbilities.get(abilityId); if (unitType === undefined) return false;
         const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return false;
@@ -1751,7 +1748,7 @@ const worldService = {
     if (earmarkThresholdReached(data)) return [];
     const { debug, map, units } = resources.get();
     const { getClosestPathablePositionsBetweenPositions, getClosestPositionByPath, getClosestUnitByPath, getDistanceByPath } = resourceManagerService;
-    const { setPendingOrders, getOrderTargetPosition } = unitResourceService;
+    const { getOrderTargetPosition } = unitResourceService;
     const { rallyWorkerToTarget } = worldService;
     const collectedActions = [];
     position = getMiddleOfStructure(position, unitType);
@@ -1902,7 +1899,6 @@ const worldService = {
   repositionBuilding: (world) => {
     const { data, resources } = world;
     const { units } = resources.get();
-    const { setPendingOrders } = unitResourceService;
     const repositionUnits = units.withLabel('reposition');
     const collectedActions = [];
     if (repositionUnits.length > 0) {
@@ -2290,7 +2286,6 @@ const worldService = {
     const { actions, units } = resources.get();
     const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
     const { warpIn } = resourceManagerService;
-    const { setPendingOrders } = unitResourceService;
     let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return;
     if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
       const randomTrainer = getRandom(getTrainer(world, unitTypeId));
@@ -2331,7 +2326,6 @@ const worldService = {
     const collectedActions = [];
     const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
     const { warpInSync } = resourceManagerService;
-    const { setPendingOrders } = unitResourceService;
     let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return collectedActions;
     if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
       const randomTrainer = getRandom(getTrainer(world, unitTypeId));
@@ -2482,7 +2476,6 @@ const worldService = {
     }
     if (conditionsMet) {
       unitTrainingService.workersTrainingTendedTo = false;
-      const { abilityId } = data.getUnitTypeData(WorkerRace[race]); if (abilityId === undefined) { return []; }
       collectedActions.push(...buildWorkers(world, foodDifference, true));
     } else {
       unitTrainingService.workersTrainingTendedTo = true;

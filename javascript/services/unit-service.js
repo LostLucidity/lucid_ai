@@ -203,6 +203,7 @@ const unitService = {
   mine: (worker, target, queue = true) => {
     const unitCommand = createUnitCommand(HARVEST_GATHER, [worker], queue);
     unitCommand.targetUnitTag = target.tag;
+    unitService.setPendingOrders(worker, unitCommand);
     return unitCommand;
   },
   /**
@@ -242,7 +243,19 @@ const unitService = {
         }
       }
     });
-  }
+  },
+  /**
+  * @param {Unit} unit 
+  * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand
+  * @returns {void}
+  */
+  setPendingOrders: (unit, unitCommand) => {
+    if (unit['pendingOrders']) {
+      unit['pendingOrders'].push(unitCommand);
+    } else {
+      unit['pendingOrders'] = [unitCommand];
+    }
+  },
 }
 
 module.exports = unitService;

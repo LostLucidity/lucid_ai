@@ -447,18 +447,6 @@ const unitResourceService = {
     return workerTypes.includes(unit.unitType);
   },
   /**
-   * @param {Unit} unit 
-   * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand
-   * @returns {void}
-   */
-  setPendingOrders: (unit, unitCommand) => {
-    if (unit['pendingOrders']) {
-      unit['pendingOrders'].push(unitCommand);
-    } else {
-      unit['pendingOrders'] = [unitCommand];
-    }
-  },
-  /**
    * Returns an array of unitCommands to prevent multiple builders on the same task. 
    * @param {UnitResource} units 
    * @param {Unit} builder 

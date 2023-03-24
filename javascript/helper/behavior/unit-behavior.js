@@ -9,7 +9,7 @@ const { getInRangeUnits, calculateHealthAdjustedSupply } = require("../battle-an
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
-const { isRepairing, setPendingOrders, isMining } = require("../../systems/unit-resource/unit-resource-service");
+const { isRepairing, isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { getDistance } = require("../../services/position-service");
@@ -18,7 +18,7 @@ const { canAttack } = require("../../services/resources-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
 const { getCombatRally } = require("../../services/resource-manager-service");
-const { getPendingOrders } = require("../../services/unit-service");
+const { getPendingOrders, setPendingOrders } = require("../../services/unit-service");
 
 module.exports = {
   liberatorBehavior: (resources) => {

@@ -4,7 +4,7 @@
 const debugDebug = require('debug')('sc2:debug:WorkerBalance');
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 const { createSystem } = require('@node-sc2/core');
-const { SMART, MOVE } = require('@node-sc2/core/constants/ability');
+const { SMART, MOVE, STOP } = require('@node-sc2/core/constants/ability');
 const Ability = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/constants/groups');
@@ -14,10 +14,10 @@ const { pointsOverlap } = require('../helper/utilities');
 const { createUnitCommand } = require('../services/actions-service');
 const { getTimeInSeconds } = require('../services/frames-service');
 const { getClosestExpansion } = require('../services/map-resource-service');
-const { gather, getClosestPathablePositionsBetweenPositions } = require('../services/resource-manager-service');
-const { getPendingOrders, getBuildTimeLeft, getMovementSpeed } = require('../services/unit-service');
+const { gather, getClosestPathablePositionsBetweenPositions, getDistanceByPath } = require('../services/resource-manager-service');
+const { getPendingOrders, getBuildTimeLeft, getMovementSpeed, setPendingOrders } = require('../services/unit-service');
 const { gatherOrMine } = require('./manage-resources');
-const { getMineralFieldAssignments, setPendingOrders, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
+const { getMineralFieldAssignments, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',
@@ -121,6 +121,7 @@ module.exports = createSystem({
     collectedActions.push(...redirectReturningWorkers(world));
     collectedActions.push(...assignWorkers(resources));
     collectedActions.push(...gatherOrMineIdleGroup(world));
+    collectedActions.push(...stopExcessGasWorkers(world));
     await actions.sendAction(collectedActions);
   },
   async onUnitCreated(world, createdUnit) {
@@ -189,14 +190,15 @@ module.exports = createSystem({
         collectedActions.push(unitCommand);
       });
     }
-    await actions.sendAction(collectedActions);
+    if (collectedActions.length > 0) {
+      await actions.sendAction(collectedActions);
+    }
   },
   async onUnitIdle({ resources }, idleUnit) {
     const pendingOrders = getPendingOrders(idleUnit);
     if (idleUnit.isWorker() && idleUnit.noQueue && pendingOrders.length === 0) {
       const { actions, units } = resources.get();
       if (units.getBases(Alliance.SELF).length > 0) {
-        console.log('gatherOrMine');
         const unitCommands = gatherOrMine(resources, idleUnit);
         if (unitCommands.length > 0) {
           return actions.sendAction(unitCommands);
@@ -394,3 +396,35 @@ function redirectReturningWorkers(world) {
   return collectedActions;
 }
 
+/**
+ * @param {World} world
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function stopExcessGasWorkers(world) {
+  const { resources } = world;
+  const { units } = resources.get();
+  const collectedActions = [];
+  /** @type {Unit[]} */
+  const excessWorkers = [];
+  const gasMinesWithExcessWorkers = units.getGasMines().filter(mine => mine.assignedHarvesters && mine.assignedHarvesters > 3);
+  gasMinesWithExcessWorkers.forEach(mine => {
+    const { tag } = mine;
+    const workersAssignedToMine = units.getWorkers().filter(worker => worker.orders && worker.orders[0].targetUnitTag === tag);
+    excessWorkers.push(...workersAssignedToMine);
+  });
+  const sortedWorkers = excessWorkers.sort((a, b) => {
+    const { orders: aOrders, pos: aPos } = a; if (aOrders === undefined || aPos === undefined) return 0;
+    const { orders: bOrders, pos: bPos } = b; if (bOrders === undefined || bPos === undefined) return 0;
+    const { targetUnitTag: aTargetUnitTag } = aOrders[0]; if (aTargetUnitTag === undefined) return 0;
+    const { targetUnitTag: bTargetUnitTag } = bOrders[0]; if (bTargetUnitTag === undefined) return 0;
+    const { pos: bMinePos } = units.getByTag(bTargetUnitTag); if (bMinePos === undefined) return 0;
+    const { pos: aMinePos } = units.getByTag(aTargetUnitTag); if (aMinePos === undefined) return 0;
+    const aDistance = getDistanceByPath(resources, aPos, aMinePos);
+    const bDistance = getDistanceByPath(resources, bPos, bMinePos);
+    return bDistance - aDistance;
+  });
+  const workersToStop = sortedWorkers.slice(3);
+  const unitCommand = createUnitCommand(STOP, workersToStop);
+  collectedActions.push(unitCommand);
+  return collectedActions;
+}

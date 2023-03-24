@@ -8,16 +8,16 @@ const { combatTypes, creepGenerators } = require("@node-sc2/core/constants/group
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, areEqual, avgPoints, nClosestPoint } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const expansions = require("../helper/expansions");
 const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
-const { getTargetedByWorkers, setPendingOrders } = require("../systems/unit-resource/unit-resource-service");
+const { getTargetedByWorkers } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
 const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions, isCreepEdge } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
 const { getDistance } = require("./position-service");
+const { setPendingOrders } = require("./unit-service");
 
 const resourceManagerService = {
   /** @type {Expansion[]} */

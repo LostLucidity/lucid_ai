@@ -8,8 +8,8 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const { upgradeTypes } = require("../helper/groups");
 const { gather } = require("../services/resource-manager-service");
-const { mine, getPendingOrders } = require("../services/unit-service");
-const { setPendingOrders, getGatheringWorkers, isMining } = require("./unit-resource/unit-resource-service");
+const { mine, getPendingOrders, setPendingOrders } = require("../services/unit-service");
+const { getGatheringWorkers, isMining } = require("./unit-resource/unit-resource-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
