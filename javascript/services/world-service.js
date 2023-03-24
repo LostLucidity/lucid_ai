@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff, WarpUnitAbility, UpgradeId } = require("@node-sc2/core/constants");
-const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, HARVEST_GATHER, SMART } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities, addonTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
@@ -322,7 +322,10 @@ const worldService = {
           }
       }
     }
-    if (collectedActions.length > 0) await actions.sendAction(collectedActions);
+    if (collectedActions.length > 0) {
+      const response = await actions.sendAction(collectedActions);
+      if (response.result === undefined) return;
+    }
   },
   /**
    * @param {World} world
@@ -1800,7 +1803,8 @@ const worldService = {
           collectedActions.push(...rallyWorkerToTarget(world, position));
           collectedActions.push(...stopUnitFromMovingToPosition(unit, position));
         } else {
-          const movingButNotToPosition = isMoving(unit) && getOrderTargetPosition(units, unit) !== position;
+          const orderTargetPosition = getOrderTargetPosition(units, unit);
+          const movingButNotToPosition = isMoving(unit) && orderTargetPosition && getDistance(orderTargetPosition, position) > 1;
           if (!unit.isConstructing() && !movingButNotToPosition) {
             unitCommand.targetWorldSpacePos = position;
             setBuilderLabel(unit);
@@ -1866,15 +1870,16 @@ const worldService = {
     const workerSourceByPath = worldService.getWorkerSourceByPath(world, position);
     let rallyAbility = null;
     if (workerSourceByPath) {
-      const { orders, pos } = workerSourceByPath;
-      if (pos === undefined) return collectedActions;
+      const { orders, pos } = workerSourceByPath; if (pos === undefined) return collectedActions;
+      const pendingRallyOrders = getPendingOrders(workerSourceByPath).some(order => order.abilityId && order.abilityId === SMART);
+      if (pendingRallyOrders) return collectedActions;
       if (workerSourceByPath.unitType === EGG) {
         rallyAbility = orders.some(order => order.abilityId === data.getUnitTypeData(DRONE).abilityId) ? RALLY_BUILDING : null;
       } else {
         rallyAbility = rallyWorkersAbilities.find(ability => workerSourceByPath.abilityAvailable(ability));
       }
       if (rallyAbility) {
-        const unitCommand = createUnitCommand(rallyAbility, [workerSourceByPath]);
+        const unitCommand = createUnitCommand(SMART, [workerSourceByPath]);
         if (mineralTarget) {
           const [closestExpansion] = getClosestExpansion(map, pos);
           const { mineralFields } = closestExpansion.cluster;
@@ -1885,6 +1890,7 @@ const worldService = {
           unitCommand.targetWorldSpacePos = position;
         }
         collectedActions.push(unitCommand);
+        setPendingOrders(workerSourceByPath, unitCommand);
       }
     }
     return collectedActions;
@@ -2635,7 +2641,7 @@ const worldService = {
     if (agent.race === Race.ZERG) {
       [closestUnitByPath] = getClosestUnitByPath(resources, position, units.getById(EGG));
     } else {
-      [closestUnitByPath] = getClosestUnitByPath(resources, position, units.getBases());
+      [closestUnitByPath] = getClosestUnitByPath(resources, position, units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1));
     }
     return closestUnitByPath;
   }
