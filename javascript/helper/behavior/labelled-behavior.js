@@ -13,6 +13,7 @@ const { isFacing } = require("../../services/micro-service");
 const { getDistance } = require("../../services/position-service");
 const resourceManagerService = require("../../services/resource-manager-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
+const { canAttack } = require("../../services/resources-service");
 const { getWeaponThatCanAttack, getPendingOrders } = require("../../services/unit-service");
 const { retreat, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
@@ -35,7 +36,11 @@ module.exports = {
     const label = 'scoutAcrossTheMap';
     const [unit] = units.withLabel(label);
     if (unit) {
-      const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(enemyUnit => !(unit.unitType === LARVA) && distance(enemyUnit.pos, unit.pos) < 16);
+      const { pos } = unit; if (pos === undefined) return collectedActions;
+      const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(enemyUnit => {
+        const { pos: enemyPos } = enemyUnit; if (enemyPos === undefined) return false;
+        return !(unit.unitType === LARVA) && distance(enemyPos, pos) < 16 && canAttack(resources, unit, enemyUnit);
+      });
       const combatUnits = units.getCombatUnits().filter(combatUnit => {
         if (combatUnit.tag === unit.tag) return true;
         else if (combatUnit.isAttacking()) {
