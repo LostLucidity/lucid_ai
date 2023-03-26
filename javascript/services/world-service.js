@@ -1689,8 +1689,9 @@ const worldService = {
     const { data } = world;
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
-    const { radius, tag } = unit;
-    if (radius === undefined || tag === undefined) return collectedActions;
+    const { mappedEnemyUnits } = enemyTrackingService;
+    const { pos, radius, tag } = unit; if (pos === undefined || radius === undefined || tag === undefined) { return collectedActions; }
+    const { pos: targetPos, radius: targetRadius } = targetUnit; if (targetPos === undefined || targetRadius === undefined) { return collectedActions; }
     if (shouldMicro(data, unit, targetUnit)) {
       const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit);
       collectedActions.push({
@@ -1700,35 +1701,41 @@ const worldService = {
       });
     } else {
       const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
-      const enemyUnitsInRange = [];
+      let targetUnitInRange = false;
+      let enemyUnitsInRange = [];
+      let targetableEnemyUnits = [];
       const { weapons } = unit.data();
       if (weapons === undefined) return collectedActions;
       weapons.forEach(weapon => {
-        const { range } = weapon;
-        if (range === undefined || targetUnit.radius === undefined) return;
-        const weaponRange = range + radius + targetUnit.radius;
+        const { range } = weapon; if (range === undefined) return;
+        const weaponRange = range + radius + targetRadius;
+        targetUnitInRange = targetUnitInRange || getDistance(pos, targetPos) < weaponRange;
         if (weapon.type === WeaponTargetType.ANY) {
-          enemyUnitsInRange.push(...getInRangeUnits(unit, [...enemyTrackingService.mappedEnemyUnits], weaponRange));
-          return;
+          targetableEnemyUnits = mappedEnemyUnits;
+        } else if (weapon.type === WeaponTargetType.GROUND) {
+          targetableEnemyUnits = mappedEnemyUnits.filter(unit => !unit.isFlying);
+        } else if (weapon.type === WeaponTargetType.AIR) {
+          targetableEnemyUnits = mappedEnemyUnits.filter(unit => unit.isFlying);
         }
-        if (weapon.type === WeaponTargetType.GROUND) {
-          const groundEnemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => !unit.isFlying);
-          enemyUnitsInRange.push(...getInRangeUnits(unit, groundEnemyUnits, weaponRange));
-          return;
-        }
-        if (weapon.type === WeaponTargetType.AIR) {
-          const airEnemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => unit.isFlying);
-          enemyUnitsInRange.push(...getInRangeUnits(unit, airEnemyUnits, weaponRange));
-          return;
-        }
+        targetableEnemyUnits.forEach(targetableEnemyUnit => {
+          const { pos: enemyPos, radius: unitRadius } = targetableEnemyUnit; if (enemyPos === undefined || unitRadius === undefined) return;
+          const weaponRangeToMappedEnemyUnit = range + radius + unitRadius;
+          if (getDistance(pos, enemyPos) < weaponRangeToMappedEnemyUnit) {
+            enemyUnitsInRange.push(targetableEnemyUnit);
+          }
+        });
       });
       if (enemyUnitsInRange.length > 0) {
-        const weakestEnemyUnitInRange = enemyUnitsInRange.reduce((weakest, enemyUnit) => {
-          if (weakest === undefined) return enemyUnit;
-          return weakest.health < enemyUnit.health ? weakest : enemyUnit;
-        }, undefined);
-        if (weakestEnemyUnitInRange) {
-          unitCommand.targetUnitTag = weakestEnemyUnitInRange.tag;
+        if (!targetUnitInRange) {
+          unitCommand.targetUnitTag = targetUnit.tag;
+        } else {
+          const weakestEnemyUnitInRange = enemyUnitsInRange.reduce((weakest, enemyUnit) => {
+            if (weakest === undefined) return enemyUnit;
+            return weakest.health < enemyUnit.health ? weakest : enemyUnit;
+          }, undefined);
+          if (weakestEnemyUnitInRange) {
+            unitCommand.targetUnitTag = weakestEnemyUnitInRange.tag;
+          }
         }
       } else {
         unitCommand.targetWorldSpacePos = targetUnit.pos;
@@ -2452,7 +2459,7 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   trainWorkers: (world) => {
-    const { agent, data, resources } = world;
+    const { agent, resources } = world;
     const { minerals } = agent; if (minerals === undefined) return [];
     const { race } = agent;
     const { units } = resources.get();

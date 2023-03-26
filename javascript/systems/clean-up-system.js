@@ -18,5 +18,12 @@ module.exports = createSystem({
     sharedService.removePendingOrders(units);
     unitResourceService.workers = null;
     unitService.selfUnits = new Map();
+  },
+  async onUnitIdle(world) {
+    const { resources } = world;
+    const { units } = resources.get();
+    sharedService.removePendingOrders(units);
+    unitResourceService.workers = null;
+    unitService.selfUnits = new Map();
   }
 });

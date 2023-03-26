@@ -578,6 +578,7 @@ class AssemblePlan {
     const { agent, data, resources } = world;
     const { units } = resources.get();
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
+    if (planService.currentStep > -1) return;
     planService.continueBuild = true;
     planService.pendingFood = 0;
     const { legacyPlan } = planService;

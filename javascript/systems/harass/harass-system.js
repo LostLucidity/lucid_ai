@@ -5,11 +5,10 @@ const { createSystem } = require("@node-sc2/core");
 const { UnitType } = require("@node-sc2/core/constants");
 const { ATTACK_ATTACK, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { STALKER } = require("@node-sc2/core/constants/unit-type");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const planService = require("../../services/plan-service");
-const { getCombatRally } = require("../../services/resource-manager-service");
+const { getCombatRally, getDistanceByPath } = require("../../services/resource-manager-service");
 const { microRangedUnit } = require("../../services/world-service");
 const scoutingService = require("../scouting/scouting-service");
 const harassService = require("./harass-service");
@@ -51,7 +50,7 @@ module.exports = createSystem({
         let [closestEnemyWorker] = units.getClosest(averagePoints, enemyWorkers);
         const closestEnemyUnit = closestEnemyWorker ? closestEnemyWorker : units.getClosest(averagePoints, enemyUnits)[0];
         if (units.withLabel(label).filter(harasser => harasser.labels.get(label)).length === 4) {
-          if (closestEnemyUnit && distance(closestEnemyUnit.pos, averagePoints) <= 8) {
+          if (closestEnemyUnit && getDistanceByPath(resources, closestEnemyUnit.pos, averagePoints) <= 16) {
             const harasserActions = [];
             harassers.forEach(harasser => harasserActions.push(...microRangedUnit(world, harasser, closestEnemyUnit)));
             collectedActions.push(...harasserActions);
