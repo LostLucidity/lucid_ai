@@ -63,7 +63,8 @@ const resourcesService = {
     const { units } = resources.get();
     const collectedActions = [];
     units.getById([BARRACKS, FACTORY, STARPORT]).forEach(building => {
-      const { pos } = building; if (pos === undefined) { return []; }
+      const { pos, buildProgress } = building; if (pos === undefined || buildProgress === undefined) { return []; }
+      if (buildProgress < 1) { return []; }
       const foundRallyAbility = building.availableAbilities().find(ability => ability === Ability.RALLY_BUILDING);
       if (foundRallyAbility) {
         const unitCommand = createUnitCommand(foundRallyAbility, [building]);
