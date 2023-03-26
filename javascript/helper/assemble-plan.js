@@ -609,7 +609,7 @@ class AssemblePlan {
             this.unitType = unitType;
             if (planStep[5]) {
               const { enemyBuildType, races } = planStep[5];
-              if (enemyBuildType && scoutingService.enemyBuildType !== enemyBuildType && scoutingService.earlyScout) { break; }
+              if (enemyBuildType && scoutingService.enemyBuildType !== enemyBuildType && !scoutingService.earlyScout) { break; }
               if (races && !races.includes(scoutingService.opponentRace)) { break; }
             }
             const candidatePositions = planStep[4] ? await getCandidatePositions(resources, planStep[4], unitType) : [];
