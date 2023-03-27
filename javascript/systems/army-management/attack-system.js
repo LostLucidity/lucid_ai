@@ -143,18 +143,4 @@ function getUnitsToAttackWith(units) {
 function getUnitTypeName(unitType) {
   return Object.keys(UnitType).find(type => UnitType[type] === unitType);
 }
-/**
- * @param {DataStorage} data
- * @param {Unit} unit
- * @param {Unit} targetUnit
- * @returns {boolean}
- */
-function isInWeaponRange(data, unit, targetUnit) {
-  const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) { return false; }
-  const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, targetUnit); if (weaponThatCanAttack === undefined) { return false; }
-  const { range } = weaponThatCanAttack; if (range === undefined) { return false; }
-  const { pos: targetPos, radius: targetRadius } = targetUnit; if (targetPos === undefined || targetRadius === undefined) { return false; }
-  return getDistance(pos, targetPos) <= range + radius + targetRadius;
-
-}
 

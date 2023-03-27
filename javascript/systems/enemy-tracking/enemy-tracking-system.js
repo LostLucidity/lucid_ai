@@ -20,7 +20,7 @@ module.exports = createSystem({
     enemyTrackingService.addUnmappedUnit(units);
     enemyTrackingService.setBaseThreats(resources);
     const { mappedEnemyUnits } = enemyTrackingService;
-    setEnemyUnitPositions()
+    setEnemyUnitPositions();
     const { selfUnits } = trackUnitsService;
     setSelfSupplyPowers(data, mappedEnemyUnits);
     setEnemySupplyPowers(data, mappedEnemyUnits, selfUnits);

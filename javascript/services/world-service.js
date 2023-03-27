@@ -1543,18 +1543,9 @@ const worldService = {
     const collectedActions = [];
     const { pos, radius, unitType, weaponCooldown } = unit; if (pos === undefined || radius === undefined || unitType === undefined || weaponCooldown === undefined) { return collectedActions; }
     const enemyUnits = enemyTrackingService.mappedEnemyUnits;
-    const closestEnemyThatCanAttackUnitByWeaponRange = enemyUnits.reduce((/** @type {{ distance: number, enemyUnit: Unit | undefined }} */ acc, enemyUnit) => {
-      const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return acc; }
-      const weaponThatCanAttack = getWeaponThatCanAttack(data, enemyUnitType, unit); if (weaponThatCanAttack === undefined) { return acc; }
-      const { range } = weaponThatCanAttack; if (range === undefined) { return acc; }
-      const distanceBetweenUnitAndEnemyUnit = getDistance(pos, enemyUnitPos) - radius - enemyUnitRadius - range;
-      if (distanceBetweenUnitAndEnemyUnit < acc.distance) {
-        return { distance: distanceBetweenUnitAndEnemyUnit, enemyUnit };
-      }
-      return acc;
-    }, { distance: Infinity, enemyUnit: undefined });
-    const { enemyUnit } = closestEnemyThatCanAttackUnitByWeaponRange;
-    if (weaponCooldown > 8 && enemyUnit !== undefined) {
+    const closestEnemyThatCanAttackUnitByWeaponRange = getClosestThatCanAttackUnitByWeaponRange(data, unit, enemyUnits);
+    const { enemyUnit } = closestEnemyThatCanAttackUnitByWeaponRange; if (enemyUnit === undefined) { return collectedActions; }
+    if (shouldMicro(data, unit, enemyUnit)) {
       const unitCommand = createUnitCommand(MOVE, [unit]);
       const travelDistancePerStep = 2 * getTravelDistancePerStep(unit);
       unitCommand.targetWorldSpacePos = worldService.findClosestSafePosition(world, unit, travelDistancePerStep);
@@ -1648,12 +1639,7 @@ const worldService = {
       return acc + worldService.getWeaponDPS(world, meleeTargetInRangeFacingUnitType, Alliance.ENEMY, [unitType]);
     }, 0);
     const totalUnitHealth = health + shield;
-    const lessTotalHealthThanTarget = totalUnitHealth < targetHealth + targetShield;
     const timeToBeKilled = totalUnitHealth / targetUnitsWeaponDPS * 22.4;
-    const { frame } = resources.get();
-    if (frame.timeInSeconds() > 117 && frame.timeInSeconds() < 150 && totalUnitHealth < 20) {
-      console.log('targetUnitWeaponDPS', targetUnitsWeaponDPS, 'totalUnitHealth', totalUnitHealth, 'lessTotalHealthThanTarget', lessTotalHealthThanTarget, 'timeToBeKilled', timeToBeKilled);
-    }
     if (
       meleeTargetsInRangeFacing.length > 0 &&
       (weaponCooldown > 8 || timeToBeKilled < 24)
@@ -3259,3 +3245,22 @@ function shouldMicro(data, unit, targetUnit) {
   return (weaponCooldownOverStepSize || unitType === UnitType.CYCLONE) && enemyWeapon !== undefined && targetUnitGettingCloser;
 }
 
+/**
+ * @param {DataStorage} data 
+ * @param {Unit} unit 
+ * @param {Unit[]} enemyUnits 
+ * @returns {{ distance: number, enemyUnit: Unit | undefined }}
+ */
+function getClosestThatCanAttackUnitByWeaponRange(data, unit, enemyUnits) {
+  const { pos, radius } = unit; if (pos === undefined || radius === undefined) return { distance: Infinity, enemyUnit: undefined };
+  return enemyUnits.reduce((/** @type {{ distance: number, enemyUnit: Unit | undefined }} */ acc, enemyUnit) => {
+    const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return acc; }
+    const weaponThatCanAttack = getWeaponThatCanAttack(data, enemyUnitType, unit); if (weaponThatCanAttack === undefined) { return acc; }
+    const { range } = weaponThatCanAttack; if (range === undefined) { return acc; }
+    const distanceBetweenUnitAndEnemyUnit = getDistance(pos, enemyUnitPos) - radius - enemyUnitRadius - range;
+    if (distanceBetweenUnitAndEnemyUnit < acc.distance) {
+      return { distance: distanceBetweenUnitAndEnemyUnit, enemyUnit };
+    }
+    return acc;
+  }, { distance: Infinity, enemyUnit: undefined });
+}
