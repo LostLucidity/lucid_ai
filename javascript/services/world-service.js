@@ -2050,6 +2050,7 @@ const worldService = {
       }
     }
     planService.currentStep = -1;
+    if (!hasEarmarks(data)) balanceResources(world);
     if (!planService.pausedThisRound) {
       planService.pausePlan = false;
     }
