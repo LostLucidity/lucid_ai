@@ -1717,7 +1717,14 @@ const worldService = {
         } else {
           const weakestEnemyUnitInRange = enemyUnitsInRange.reduce((weakest, enemyUnit) => {
             if (weakest === undefined) return enemyUnit;
-            return weakest.health < enemyUnit.health ? weakest : enemyUnit;
+            const weakestHealth = weakest.health + weakest.shield;
+            const enemyUnitHealth = enemyUnit.health + enemyUnit.shield;
+            if (weakestHealth === enemyUnitHealth) {
+              const weakestDistance = getDistance(pos, weakest.pos);
+              const enemyUnitDistance = getDistance(pos, enemyUnit.pos);
+              return weakestDistance < enemyUnitDistance ? weakest : enemyUnit;
+            }
+            return weakestHealth < enemyUnitHealth ? weakest : enemyUnit;
           }, undefined);
           if (weakestEnemyUnitInRange) {
             unitCommand.targetUnitTag = weakestEnemyUnitInRange.tag;
