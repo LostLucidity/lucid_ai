@@ -57,10 +57,11 @@ const unitTrainingService = {
     return (
       units.getById(WARPGATE).some(warpgate => warpgate.abilityAvailable(warpInAbilityId)) ||
       units.getProductionUnits(unitType).some(unit => {
+        const { buildProgress } = unit; if (buildProgress === undefined) return false;
         return (
-          unitTrainingService.canTrainNow(world, unit, unitType) &&
-          unit.buildProgress >= 1 &&
-          !unit.isEnemy()
+          buildProgress >= 1 &&
+          !unit.isEnemy() &&
+          unitTrainingService.canTrainNow(world, unit, unitType)
         )
       })
     );

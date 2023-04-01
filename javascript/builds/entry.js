@@ -109,7 +109,7 @@ const entry = createSystem({
     }
   },
   /**
-   * @param {Race} race 
+   * @param {SC2APIProtocol.Race} race 
    * @returns {any}
    */
   getBuild(race) {

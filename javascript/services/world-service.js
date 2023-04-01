@@ -54,9 +54,9 @@ const { getUnitWeaponDistanceToPosition, isTrainingUnit, earmarkThresholdReached
 const unitTrainingService = require('../systems/unit-training/unit-training-service');
 const { haveAvailableProductionUnitsFor } = require('../systems/unit-training/unit-training-service');
 const { checkUnitCount } = require('../systems/track-units/track-units-service');
-const { convertLegacyStep } = require('./plan-service');
 const microService = require('./micro-service');
 const { getDistanceByPath } = require('./resource-manager-service');
+const UnitAbilityMap = require('@node-sc2/core/constants/unit-ability-map');
 
 const worldService = {
   /** @type {number} */
@@ -172,7 +172,7 @@ const worldService = {
           await actions.sendAction(unitCommand);
           planService.pausePlan = false;
           setPendingOrders(unit, unitCommand);
-          addEarmark(data, data.getUnitTypeData(addOnType));
+          worldService.addEarmark(data, data.getUnitTypeData(addOnType));
         }
       }
     }
@@ -2414,10 +2414,13 @@ const worldService = {
     const candidateTypesToBuild = plannedTrainingTypes.filter(type => {
       const { attributes, foodRequired } = data.getUnitTypeData(type); if (attributes === undefined || foodRequired === undefined) return false;
       const food = plan[currentStep] ? plan[currentStep].food : legacyPlan[currentStep][0];
+
       if (
         !attributes.includes(Attribute.STRUCTURE) &&
         foodRequired <= food - getFoodUsed() &&
-        outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed() &&
+        (
+          outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed()
+        ) &&
         (
           !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]])
         ) &&
@@ -2431,16 +2434,7 @@ const worldService = {
       let { selectedTypeToBuild } = unitTrainingService;
       selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : selectTypeToBuild(world, candidateTypesToBuild);
       if (selectedTypeToBuild !== undefined && selectedTypeToBuild !== null) {
-        let { totalMineralCost, totalVespeneCost } = getResourceDemand(world.data, [plan[currentStep] ? plan[currentStep] : convertLegacyStep(legacyPlan[currentStep])] || []);
-        let { mineralCost, vespeneCost } = data.getUnitTypeData(selectedTypeToBuild);
-        if (selectedTypeToBuild === ZERGLING) {
-          totalMineralCost += mineralCost;
-          totalVespeneCost += vespeneCost;
-        }
-        const enoughMinerals = minerals >= (totalMineralCost + mineralCost);
-        const enoughVespene = (vespeneCost === 0) || (vespene >= (totalVespeneCost + vespeneCost));
-        const freeBuildThreshold = enoughMinerals && enoughVespene;
-        if (outpowered || freeBuildThreshold) {
+        if (outpowered || agent.canAfford(selectedTypeToBuild)) {
           collectedActions.push(...trainSync(world, selectedTypeToBuild));
         }
       }
@@ -2539,84 +2533,85 @@ const worldService = {
     const { addEarmark, setAndLogExecutedSteps } = worldService;
     const upgradeResearched = upgradeIds.includes(upgradeId);
     const upgraders = units.getUpgradeFacilities(upgradeId).filter(upgrader => upgrader.alliance === Alliance.SELF);
-    const upgradeInProgress = upgraders.find(upgrader => upgrader.orders && upgrader.orders.find(order => order.abilityId === data.getUpgradeData(upgradeId).abilityId));
+    const { abilityId } = data.getUpgradeData(upgradeId); if (abilityId === undefined) return;
+    const upgradeInProgress = upgraders.find(upgrader => upgrader.orders && upgrader.orders.find(order => order.abilityId === abilityId));
     if (upgradeResearched || upgradeInProgress) return;
     addEarmark(data, data.getUpgradeData(upgradeId));
     const upgrader = getRandom(upgraders.filter(upgrader => {
-      const { abilityId } = data.getUpgradeData(upgradeId); if (abilityId === undefined) return;
       return upgrader.noQueue && upgrader.abilityAvailable(abilityId);
     }));
     if (upgrader) {
-      const { abilityId } = data.getUpgradeData(upgradeId); if (abilityId === undefined) return;
       const unitCommand = createUnitCommand(abilityId, [upgrader]);
       await actions.sendAction([unitCommand]);
       setAndLogExecutedSteps(world, frame.timeInSeconds(), UpgradeId[upgradeId]);
     } else {
-      // find techlabs
-      const techLabs = units.getAlive(Alliance.SELF).filter(unit => techLabTypes.includes(unit.unitType));
-      const orphanTechLabs = techLabs.filter(techLab => techLab.unitType === TECHLAB);
-      if (orphanTechLabs.length > 0) {
-        // get completed and idle barracks
-        let completedBarracks = units.getById(countTypes.get(BARRACKS)).filter(barracks => barracks.buildProgress >= 1);
-        let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
-        // if no idle barracks, get closest barracks to tech lab.
-        const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => isTrainingUnit(data, barracks) && barracks.orders[0].progress <= 0.5);
-        if (barracks.length > 0) {
-          let closestPair = [];
-          barracks.forEach(barracks => {
-            orphanTechLabs.forEach(techLab => {
-              const addOnBuildingPosition = getAddOnBuildingPosition(techLab.pos);
-              if (closestPair.length > 0) {
-                closestPair = distance(barracks.pos, addOnBuildingPosition) < distance(closestPair[0].pos, closestPair[1]) ? [barracks, addOnBuildingPosition] : closestPair;
-              } else { closestPair = [barracks, addOnBuildingPosition]; }
+      const techLabRequired = techLabTypes.some(techLabType => UnitAbilityMap[techLabType].some(ability => ability === abilityId));
+      if (techLabRequired) {
+        const techLabs = units.getAlive(Alliance.SELF).filter(unit => techLabTypes.includes(unit.unitType));
+        const orphanTechLabs = techLabs.filter(techLab => techLab.unitType === TECHLAB);
+        if (orphanTechLabs.length > 0) {
+          // get completed and idle barracks
+          let completedBarracks = units.getById(countTypes.get(BARRACKS)).filter(barracks => barracks.buildProgress >= 1);
+          let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
+          // if no idle barracks, get closest barracks to tech lab.
+          const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => isTrainingUnit(data, barracks) && barracks.orders[0].progress <= 0.5);
+          if (barracks.length > 0) {
+            let closestPair = [];
+            barracks.forEach(barracks => {
+              orphanTechLabs.forEach(techLab => {
+                const addOnBuildingPosition = getAddOnBuildingPosition(techLab.pos);
+                if (closestPair.length > 0) {
+                  closestPair = distance(barracks.pos, addOnBuildingPosition) < distance(closestPair[0].pos, closestPair[1]) ? [barracks, addOnBuildingPosition] : closestPair;
+                } else { closestPair = [barracks, addOnBuildingPosition]; }
+              });
             });
-          });
+            if (closestPair.length > 0) {
+              // if barracks is training unit, cancel training.
+              if (isTrainingUnit(data, closestPair[0])) {
+                // for each training unit, cancel training.
+                for (let i = 0; i < closestPair[0].orders.length; i++) {
+                  await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
+                }
+              }
+              const label = 'reposition';
+              closestPair[0].labels.set(label, closestPair[1]);
+            }
+          }
+        } else {
+          const nonOrphanTechLabs = techLabs.filter(techLab => techLab.unitType !== TECHLAB);
+          // find idle building with tech lab.
+          const idleBuildingsWithTechLab = nonOrphanTechLabs
+            .map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0])
+            .filter(building => building.noQueue && getPendingOrders(building).length === 0);
+          // find closest barracks to closest tech lab.
+          /** @type {Unit[]} */
+          let closestPair = [];
+          // get completed and idle barracks.
+          let completedBarracks = units.getById(countTypes.get(BARRACKS)).filter(barracks => barracks.buildProgress >= 1);
+          let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
+          // if no idle barracks, get closest barracks to tech lab.
+          const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => isTrainingUnit(data, barracks) && barracks.orders[0].progress <= 0.5);
+          if (barracks.length > 0) {
+            barracks.forEach(barracks => {
+              idleBuildingsWithTechLab.forEach(idleBuildingsWithtechLab => {
+                if (closestPair.length > 0) {
+                  closestPair = distance(barracks.pos, idleBuildingsWithtechLab.pos) < distance(closestPair[0].pos, closestPair[1].pos) ? [barracks, idleBuildingsWithtechLab] : closestPair;
+                } else { closestPair = [barracks, idleBuildingsWithtechLab]; }
+              });
+            });
+          }
           if (closestPair.length > 0) {
             // if barracks is training unit, cancel training.
             if (isTrainingUnit(data, closestPair[0])) {
-              // for each training unit, cancel training.
               for (let i = 0; i < closestPair[0].orders.length; i++) {
                 await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
               }
+            } else {
+              // if barracks is not training unit, move barracks to tech lab.
+              const label = 'reposition';
+              closestPair[0].labels.set(label, closestPair[1].pos);
+              closestPair[1].labels.set(label, 'lift');
             }
-            const label = 'reposition';
-            closestPair[0].labels.set(label, closestPair[1]);
-          }
-        }
-      } else {
-        const nonOrphanTechLabs = techLabs.filter(techLab => techLab.unitType !== TECHLAB);
-        // find idle building with tech lab.
-        const idleBuildingsWithTechLab = nonOrphanTechLabs
-          .map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0])
-          .filter(building => building.noQueue && getPendingOrders(building).length === 0);
-        // find closest barracks to closest tech lab.
-        /** @type {Unit[]} */
-        let closestPair = [];
-        // get completed and idle barracks.
-        let completedBarracks = units.getById(countTypes.get(BARRACKS)).filter(barracks => barracks.buildProgress >= 1);
-        let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
-        // if no idle barracks, get closest barracks to tech lab.
-        const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => isTrainingUnit(data, barracks) && barracks.orders[0].progress <= 0.5);
-        if (barracks.length > 0) {
-          barracks.forEach(barracks => {
-            idleBuildingsWithTechLab.forEach(idleBuildingsWithtechLab => {
-              if (closestPair.length > 0) {
-                closestPair = distance(barracks.pos, idleBuildingsWithtechLab.pos) < distance(closestPair[0].pos, closestPair[1].pos) ? [barracks, idleBuildingsWithtechLab] : closestPair;
-              } else { closestPair = [barracks, idleBuildingsWithtechLab]; }
-            });
-          });
-        }
-        if (closestPair.length > 0) {
-          // if barracks is training unit, cancel training.
-          if (isTrainingUnit(data, closestPair[0])) {
-            for (let i = 0; i < closestPair[0].orders.length; i++) {
-              await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
-            }
-          } else {
-            // if barracks is not training unit, move barracks to tech lab.
-            const label = 'reposition';
-            closestPair[0].labels.set(label, closestPair[1].pos);
-            closestPair[1].labels.set(label, 'lift');
           }
         }
       }

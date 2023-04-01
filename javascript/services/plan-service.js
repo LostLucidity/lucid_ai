@@ -95,9 +95,9 @@ const planService = {
   /**
    * @param {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number, candidatePositions?: Point2D[] }[]}  plan 
    */
-  setPlan: (plan) => {
+  setPlan: (plan, islegacyPlan = false) => {
     planService.plan = plan;
-    planService.planMax.supply = planService.setSupplyMax(plan);
+    planService.planMax.supply = planService.setSupplyMax(plan, islegacyPlan);
     planService.planMax.gasMine = Math.max.apply(Math, plan.filter(step => gasMineTypes.includes(step.unitType)).map(step => { return step.food; }));
     planService.trainingTypes.forEach(type => {
       planService.planMin[UnitTypeId[type]] = Math.min.apply(Math, plan.filter(step => step.unitType === type).map(step => { return step.food; }));

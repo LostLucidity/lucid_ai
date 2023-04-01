@@ -42,7 +42,7 @@ const { getTargetLocation } = require("../services/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
 const { isStrongerAtPosition, getUnitCount, findPlacements, train, setFoodUsed, swapBuildings, findPosition, getUnitTypeCount, buildSupplyOrTrain, addAddOn, morphStructureAction, addEarmark, buildGasMine } = require("../services/world-service");
-const { convertLegacyStep, setSupplyMax, convertLegacyPlan } = require("../services/plan-service");
+const { convertLegacyStep, convertLegacyPlan, setPlan } = require("../services/plan-service");
 const { warpIn } = require("../services/resource-manager-service");
 const { createUnitCommand } = require("../services/actions-service");
 
@@ -58,7 +58,8 @@ class AssemblePlan {
     planService.legacyPlan = plan.orders;
     planService.harass = plan.harass || null;
     planService.convertedLegacyPlan = convertLegacyPlan(plan.orders);
-    planService.planMax.supply = setSupplyMax(plan.orders, true);
+    planService.trainingTypes = getLegacyPlanTrainingTypes();
+    setPlan(planService.convertedLegacyPlan);
     this.mainCombatTypes = plan.unitTypes.mainCombatTypes;
     this.defenseTypes = plan.unitTypes.defenseTypes;
     this.defenseStructures = plan.unitTypes.defenseStructures;
@@ -727,4 +728,16 @@ function checkIfEnemyUnitsInWay(units, unitType, position) {
   return pointsOverlap(enemyUnitCoverage, cellsInFootprint(position, footprint));
 }
 
+/**
+ * return {number[]} - array of unit types that are trained in the plan
+ */
+function getLegacyPlanTrainingTypes() {
+  return planService.convertedLegacyPlan.reduce((/** @type {UnitTypeId[]} */ acc, step) => {
+    const { unitType } = step; if (unitType === null || unitType === undefined) { return acc; }
+    if (step.orderType === 'train') {
+      acc.push(unitType);
+    }
+    return acc;
+  }, []);
+}
 
