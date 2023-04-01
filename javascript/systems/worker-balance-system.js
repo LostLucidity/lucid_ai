@@ -404,27 +404,17 @@ function stopExcessGasWorkers(world) {
   const { resources } = world;
   const { units } = resources.get();
   const collectedActions = [];
-  /** @type {Unit[]} */
-  const excessWorkers = [];
-  const gasMinesWithExcessWorkers = units.getGasMines().filter(mine => mine.assignedHarvesters && mine.assignedHarvesters > 3);
-  gasMinesWithExcessWorkers.forEach(mine => {
-    const { tag } = mine;
-    const workersAssignedToMine = units.getWorkers().filter(worker => worker.orders && worker.orders[0].targetUnitTag === tag);
-    excessWorkers.push(...workersAssignedToMine);
+  units.getGasMines().forEach(mine => {
+    const { assignedHarvesters, idealHarvesters } = mine; if (assignedHarvesters === undefined || idealHarvesters === undefined) return;
+    const excessWorkersCount = assignedHarvesters - idealHarvesters;
+    if (excessWorkersCount > 0) {
+      const workersAssignedToMine = units.getWorkers().filter(worker => worker.orders && worker.orders[0].targetUnitTag === mine.tag);
+      const excessWorkers = workersAssignedToMine.slice(0, excessWorkersCount);
+      excessWorkers.forEach(worker => {
+        const unitCommand = createUnitCommand(STOP, [worker]);
+        collectedActions.push(unitCommand);
+      });
+    }
   });
-  const sortedWorkers = excessWorkers.sort((a, b) => {
-    const { orders: aOrders, pos: aPos } = a; if (aOrders === undefined || aPos === undefined) return 0;
-    const { orders: bOrders, pos: bPos } = b; if (bOrders === undefined || bPos === undefined) return 0;
-    const { targetUnitTag: aTargetUnitTag } = aOrders[0]; if (aTargetUnitTag === undefined) return 0;
-    const { targetUnitTag: bTargetUnitTag } = bOrders[0]; if (bTargetUnitTag === undefined) return 0;
-    const { pos: bMinePos } = units.getByTag(bTargetUnitTag); if (bMinePos === undefined) return 0;
-    const { pos: aMinePos } = units.getByTag(aTargetUnitTag); if (aMinePos === undefined) return 0;
-    const aDistance = getDistanceByPath(resources, aPos, aMinePos);
-    const bDistance = getDistanceByPath(resources, bPos, bMinePos);
-    return bDistance - aDistance;
-  });
-  const workersToStop = sortedWorkers.slice(3);
-  const unitCommand = createUnitCommand(STOP, workersToStop);
-  collectedActions.push(unitCommand);
   return collectedActions;
 }
