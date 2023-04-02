@@ -7,9 +7,13 @@ const { COMMANDCENTER, MULE } = require("@node-sc2/core/constants/unit-type");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const { upgradeTypes } = require("../helper/groups");
-const { gather } = require("../services/resource-manager-service");
+const { gather, getClosestPathablePositionsBetweenPositions } = require("../services/resource-manager-service");
 const { mine, getPendingOrders, setPendingOrders } = require("../services/unit-service");
 const { getGatheringWorkers, isMining } = require("./unit-resource/unit-resource-service");
+const { shuffle } = require("../helper/utilities");
+const { getDistance } = require("../services/position-service");
+const enemyTrackingService = require("./enemy-tracking/enemy-tracking-service");
+const { canAttack } = require("../services/resources-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
@@ -94,7 +98,7 @@ const manageResources = {
     const { units } = resources.get();
     if (units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1).length > 0) {
       const needyGasMines = getNeedyGasMines(units);
-      const needyGasMine = getRandom(needyGasMines);
+      const needyGasMine = chooseNeedyGasMine(resources, unit, needyGasMines);
       const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
       return needyGasMine && mineralMinerCount / vespeneMinerCount > 16 / 6 ? [mine(unit, needyGasMine, false)] : gather(resources, unit, mineralField, false);
     } else {
@@ -159,7 +163,6 @@ function getNeedyGasMines(units) {
   return units.getGasMines(readySelfFilter).filter(gasMine => {
     const { assignedHarvesters, idealHarvesters } = gasMine;
     if (assignedHarvesters === undefined || idealHarvesters === undefined) return false;
-    // find workers that are targeting this gas mine
     const workers = units.getWorkers().filter(worker => {
       const pendingOrders = getPendingOrders(worker);
       return pendingOrders.some(order => {
@@ -175,3 +178,45 @@ function getNeedyGasMines(units) {
     return assignedHarvestersWithWorkers < idealHarvesters;
   });
 }
+
+/**
+ * @param {ResourceManager} resources
+ * @param {Unit} unit
+ * @param {Unit[]} needyGasMines
+ * @returns {Unit|null}
+ */
+function chooseNeedyGasMine(resources, unit, needyGasMines) {
+  if (needyGasMines.length === 0) return null;
+  const { pos: unitPos } = unit; if (unitPos === undefined) return null;
+  const shuffledGasMines = shuffle(needyGasMines);
+  for (const gasMine of shuffledGasMines) {
+    const { pos: gasMinePos } = gasMine; if (gasMinePos === undefined) continue;
+    const pathablePositions = getClosestPathablePositionsBetweenPositions(resources, unitPos, gasMinePos);
+    const { pathCoordinates } = pathablePositions;
+    const enemyUnits = getEnemyUnitsCloseToPath(resources, unit, pathCoordinates);
+    if (enemyUnits.length === 0) return gasMine;
+  }
+  return null;
+}
+
+/**
+ * @param {ResourceManager} resources
+ * @param {Unit} unit
+ * @param {Point2D[]} pathCoordinates
+ * @returns {Unit[]}
+ */
+function getEnemyUnitsCloseToPath(resources, unit, pathCoordinates) {
+  const { mappedEnemyUnits } = enemyTrackingService;
+  const enemyUnits = [];
+  for (const enemyUnit of mappedEnemyUnits) {
+    const { pos: enemyUnitPos } = enemyUnit; if (enemyUnitPos === undefined) continue;
+    const enemyUnitCloseToPath = pathCoordinates.some(pathCoordinate => {
+      if (!canAttack(resources, enemyUnit, unit)) return false;
+      const closeToPath = getDistance(pathCoordinate, enemyUnitPos) <= 1;
+      return closeToPath;
+    });
+    if (enemyUnitCloseToPath) enemyUnits.push(enemyUnit);
+  }
+  return enemyUnits;
+}
+

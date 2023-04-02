@@ -107,9 +107,7 @@ const qTableService = {
   },
   saveQTable() {
     const { Q } = qTableService;
-    if (Q.length === 0) {
-      return;
-    }
+    if (Q.length === 0) return;
     fs.writeFileSync(path.join(__dirname, 'data', 'q-table.json'), JSON.stringify(Q), 'utf8');
   },
   /**
