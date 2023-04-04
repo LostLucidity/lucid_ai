@@ -442,24 +442,6 @@ function isEnemyInAttackRange(data, unit, targetUnit) {
 }
 /**
  * @param {Unit} unit 
- * @param {Unit} targetUnit 
- * @param {AbilityId[]} abilityIds
- * @returns {boolean}
- */
-function isTargetUnitInOrders(unit, targetUnit, abilityIds) {
-  return unit.orders.some(order => {
-    if (abilityIds.includes(order.abilityId)) {
-      if (order.targetUnitTag === targetUnit.tag) {
-        return true;
-      } else if (order.targetWorldSpacePos && distance(order.targetWorldSpacePos, targetUnit.pos) < 1) {
-        return true;
-      }
-    }
-    return false;
-  });
-}
-/**
- * @param {Unit} unit 
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function stop(unit) {

@@ -18,6 +18,7 @@ const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getC
 const { getPathCoordinates } = require("./path-service");
 const { getDistance } = require("./position-service");
 const { setPendingOrders } = require("./unit-service");
+const { shuffle } = require("../helper/utilities");
 
 const resourceManagerService = {
   /** @type {Expansion[]} */
@@ -479,16 +480,6 @@ function getCreepEdgesWithinRange(resources, position, range) {
 }
 
 /**
- * @param {MapResource} map
- * @returns {Point2D[]}
- */
-function getNaturalWall(map) {
-  const natural = map.getNatural(); if (natural === undefined) return [];
-  const naturalWall = natural.getWall(); if (naturalWall === undefined) return [];
-  return naturalWall;
-}
-
-/**
  * @param {World} world
  * @param {UnitTypeId} unitType
  * @param {Object?} opts
@@ -514,17 +505,16 @@ function warpInCommands(world, unitType, opts = {}) {
       .sort((a, b) => b.z - a.z)
       .filter((p, i, arr) => p.z === arr[0].z);
   }
-
   const myStructures = units.getStructures();
   const points = nClosestPoint(nearPosition, myPoints, 100)
     .filter((/** @type {Point2D} */ point) => myStructures.every(structure => structure.pos && distance(structure.pos, point) > 2));
   const warpGates = units.getById(UnitType.WARPGATE).filter(wg => wg.abilityAvailable(abilityId)).slice(0, qtyToWarp);
-  const destPoints = getRandom(points).slice(0, warpGates.length);
-  const commands = warpGates.map((warpGate, i) => {
+  /** @type {Point2D[]} */
+  const destPoints = shuffle(points).slice(0, warpGates.length);
+  return warpGates.map((warpGate, i) => {
     const unitCommand = createUnitCommand(abilityId, [warpGate]);
     unitCommand.targetWorldSpacePos = destPoints[i];
     return unitCommand;
   });
-  return commands;
 }
 

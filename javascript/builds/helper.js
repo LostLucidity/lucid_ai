@@ -186,17 +186,14 @@ function checkIfShouldShadow(resources, unit, shadowingUnits, targetUnit) {
   const { centroid } = map.getEnemyNatural(); if (centroid === undefined) return false;
   const [closestToEnemyNatural] = units.getClosest(centroid, shadowingUnits);
   const isClosestToEnemyNatural = closestToEnemyNatural && unit.tag === closestToEnemyNatural.tag;
+  if (!isClosestToEnemyNatural) return true;
   const { pos } = targetUnit; if (pos === undefined) return false;
-  const outOfNaturalRangeWorker = isWorker(targetUnit) && getDistance(pos, centroid) > 16;
+  const inRangeOfNaturalWorker = isWorker(targetUnit) && getDistance(pos, centroid) <= 16;
   const isGameTimeLaterThanTargetTime = getTimeInSeconds(frame.getGameLoop()) >= 131;
   const canBeAttacked = canAttack(resources, targetUnit, unit);
   const shouldClosestToEnemyNaturalShadow = (
-    isClosestToEnemyNatural &&
     (canBeAttacked || isGameTimeLaterThanTargetTime) &&
-    [outOfNaturalRangeWorker, !isWorker(targetUnit)].some(condition => condition));
-  const conditions = [
-    shouldClosestToEnemyNaturalShadow,
-    !isClosestToEnemyNatural,
-  ];
-  return conditions.some(condition => condition);
+    (inRangeOfNaturalWorker || !isWorker(targetUnit))
+  );
+  return shouldClosestToEnemyNaturalShadow;
 }

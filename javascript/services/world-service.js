@@ -1672,11 +1672,13 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   microRangedUnit: (world, unit, targetUnit) => {
-    const { data } = world;
+    const { data, resources } = world;
+    const { getWeaponDPS } = worldService;
+    const { getClosestPathablePositionsBetweenPositions } = resourceManagerService;
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
-    const { mappedEnemyUnits } = enemyTrackingService;
-    const { pos, radius, tag } = unit; if (pos === undefined || radius === undefined || tag === undefined) { return collectedActions; }
+    const { enemyUnitsPositions, mappedEnemyUnits } = enemyTrackingService;
+    const { alliance, pos, radius, tag, unitType } = unit; if (alliance === undefined || pos === undefined || radius === undefined || tag === undefined || unitType === undefined) { return collectedActions; }
     const { pos: targetPos, radius: targetRadius } = targetUnit; if (targetPos === undefined || targetRadius === undefined) { return collectedActions; }
     if (shouldMicro(data, unit, targetUnit)) {
       const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit);
@@ -1687,53 +1689,64 @@ const worldService = {
       });
     } else {
       const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
-      let targetUnitInRange = false;
-      let enemyUnitsInRange = [];
-      let targetableEnemyUnits = [];
-      const { weapons } = unit.data();
-      if (weapons === undefined) return collectedActions;
-      weapons.forEach(weapon => {
-        const { range } = weapon; if (range === undefined) return;
+      const { weapons } = unit.data(); if (weapons === undefined) return collectedActions;
+      const { targetableEnemyUnits } = weapons.reduce((/** @type {{ targetUnitInRange: boolean, enemyUnitsInRange: Unit[], targetableEnemyUnits: Unit[] }} */ acc, weapon) => {
+        const { range } = weapon; if (range === undefined) return acc;
         const weaponRange = range + radius + targetRadius;
-        targetUnitInRange = targetUnitInRange || getDistance(pos, targetPos) < weaponRange;
+        acc.targetUnitInRange = acc.targetUnitInRange || getDistance(pos, targetPos) < weaponRange;
         if (weapon.type === WeaponTargetType.ANY) {
-          targetableEnemyUnits = mappedEnemyUnits;
+          acc.targetableEnemyUnits = mappedEnemyUnits;
         } else if (weapon.type === WeaponTargetType.GROUND) {
-          targetableEnemyUnits = mappedEnemyUnits.filter(unit => !unit.isFlying);
+          acc.targetableEnemyUnits = mappedEnemyUnits.filter(unit => !unit.isFlying);
         } else if (weapon.type === WeaponTargetType.AIR) {
-          targetableEnemyUnits = mappedEnemyUnits.filter(unit => unit.isFlying);
+          acc.targetableEnemyUnits = mappedEnemyUnits.filter(unit => unit.isFlying);
         }
-        targetableEnemyUnits.forEach(targetableEnemyUnit => {
+        acc.targetableEnemyUnits.forEach(targetableEnemyUnit => {
           const { pos: enemyPos, radius: unitRadius } = targetableEnemyUnit; if (enemyPos === undefined || unitRadius === undefined) return;
           const weaponRangeToMappedEnemyUnit = range + radius + unitRadius;
           if (getDistance(pos, enemyPos) < weaponRangeToMappedEnemyUnit) {
-            enemyUnitsInRange.push(targetableEnemyUnit);
+            acc.enemyUnitsInRange.push(targetableEnemyUnit);
           }
         });
-      });
-      if (enemyUnitsInRange.length > 0) {
-        if (!targetUnitInRange) {
-          unitCommand.targetUnitTag = targetUnit.tag;
-        } else {
-          const weakestEnemyUnitInRange = enemyUnitsInRange.reduce((weakest, enemyUnit) => {
-            if (weakest === undefined) return enemyUnit;
-            const weakestHealth = weakest.health + weakest.shield;
-            const enemyUnitHealth = enemyUnit.health + enemyUnit.shield;
-            if (weakestHealth === enemyUnitHealth) {
-              const weakestDistance = getDistance(pos, weakest.pos);
-              const enemyUnitDistance = getDistance(pos, enemyUnit.pos);
-              return weakestDistance < enemyUnitDistance ? weakest : enemyUnit;
-            }
-            return weakestHealth < enemyUnitHealth ? weakest : enemyUnit;
-          }, undefined);
-          if (weakestEnemyUnitInRange) {
-            unitCommand.targetUnitTag = weakestEnemyUnitInRange.tag;
-          }
+        return acc;
+      }, { targetUnitInRange: false, enemyUnitsInRange: [], targetableEnemyUnits: [] });
+      const filteredTargetableEnemyUnits = targetableEnemyUnits.filter(targetableEnemyUnit => targetableEnemyUnit.pos && getDistance(pos, targetableEnemyUnit.pos) < 16);
+      const timeCalculations = new Map();
+      const timeToKill = filteredTargetableEnemyUnits.reduce((/** @type {{ [key: number]: number } | undefined} */ acc, targetableEnemyUnit) => {
+        if (acc === undefined) return undefined;
+        const { health, shield, pos: enemyPos, radius: unitRadius, unitType: enemyUnitType } = targetableEnemyUnit;
+        if (health === undefined || shield === undefined || enemyPos === undefined || unitRadius === undefined || enemyUnitType === undefined) return;
+        const weapon = getWeapon(data, unit, targetableEnemyUnit); if (weapon === undefined) return;
+        const { range } = weapon; if (range === undefined) return;
+        const { armor } = targetableEnemyUnit.data(); if (armor === undefined) return;
+        const weaponsDPS = getWeaponDPS(world, unitType, alliance, [enemyUnitType]);
+        const totalUnitHealth = health + shield;
+        const { tag } = targetableEnemyUnit; if (tag === undefined) return;
+        const positions = enemyUnitsPositions.get(tag); if (positions === undefined) return;
+        const { current, previous } = positions; if (current === undefined || previous === undefined) return;
+        const { distance: distanceByPath } = getClosestPathablePositionsBetweenPositions(resources, pos, enemyPos);
+        const distanceByPathToInRange = distanceByPath - radius - unitRadius - range;
+        const distanceToTargetableEnemyUnit = distanceByPathToInRange > 0 ? distanceByPathToInRange : 0;
+        const timeToKill = totalUnitHealth / weaponsDPS;
+        const movementSpeed = getMovementSpeed(unit, true); if (movementSpeed === undefined) return;
+        const distanceTravelledAwayFromUnit = getDistance(pos, current.pos) - getDistance(pos, previous.pos);
+        const timeElapsed = (current.lastSeen - previous.lastSeen) > 0 ? (current.lastSeen - previous.lastSeen) / 22.4 : 0;
+        const speedOfTargetableEnemyUnit = distanceTravelledAwayFromUnit / timeElapsed;
+        const timeToReach = distanceToTargetableEnemyUnit === 0 ? 0 : distanceToTargetableEnemyUnit / (movementSpeed - speedOfTargetableEnemyUnit)
+        const timeToKillWithMovement = timeToKill + (timeToReach >= 0 ? timeToReach : Infinity);
+        acc[tag] = timeToKillWithMovement;
+        if (unit.labels.has('scoutAcrossTheMap') && resources.get().frame.timeInSeconds() >= 270 && resources.get().frame.timeInSeconds() <= 290) {
+          console.log(`timeToKill: ${timeToKill}, timeToReach: ${timeToReach}, distanceToTargetableEnemyUnit: ${distanceToTargetableEnemyUnit}, distanceTravelledAwayFromUnit: ${distanceTravelledAwayFromUnit}, timeElapsed: ${timeElapsed}, speedOfTargetableEnemyUnit: ${speedOfTargetableEnemyUnit}, movementSpeed: ${movementSpeed}, timeToKillWithMovement: ${timeToKillWithMovement}, distanceByPath: ${distanceByPath}, distanceByPathToInRange: ${distanceByPathToInRange}, range: ${range}, radius: ${radius}, unitRadius: ${unitRadius}, weaponsDPS: ${weaponsDPS}, totalUnitHealth: ${totalUnitHealth}, armor: ${armor}, enemyUnitType: ${enemyUnitType}`);
         }
-      } else {
-        unitCommand.targetWorldSpacePos = targetUnit.pos;
+        return acc;
+      }, {});
+      const lowestTimeToKill = timeToKill ? Object.values(timeToKill).sort((a, b) => a - b)[0] : undefined;
+      const lowestTimeToKillUnit = timeToKill ? filteredTargetableEnemyUnits.find(unit => unit.tag && timeToKill[unit.tag] === lowestTimeToKill) : undefined;
+      if (lowestTimeToKillUnit) {
+        timeCalculations.get(lowestTimeToKillUnit.tag);
+        unitCommand.targetUnitTag = lowestTimeToKillUnit.tag;
+        collectedActions.push(unitCommand);
       }
-      collectedActions.push(unitCommand);
     }
     return collectedActions;
   },
@@ -2414,9 +2427,8 @@ const worldService = {
     const candidateTypesToBuild = plannedTrainingTypes.filter(type => {
       const { attributes, foodRequired } = data.getUnitTypeData(type); if (attributes === undefined || foodRequired === undefined) return false;
       const food = plan[currentStep] ? plan[currentStep].food : legacyPlan[currentStep][0];
-
       if (
-        !attributes.includes(Attribute.STRUCTURE) &&
+        (!attributes.includes(Attribute.STRUCTURE) && type !== OVERLORD) &&
         foodRequired <= food - getFoodUsed() &&
         (
           outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed()
@@ -3244,7 +3256,7 @@ function shouldMicro(data, unit, targetUnit) {
   const weaponCooldownOverStepSize = weaponCooldown > 8;
   const enemyWeapon = getWeapon(data, targetUnit, unit);
   const targetPositions = enemyUnitsPositions.get(tag);
-  const targetUnitGettingCloser = targetPositions !== undefined && getDistance(targetPositions.current, pos) < getDistance(targetPositions.previous, pos);
+  const targetUnitGettingCloser = targetPositions !== undefined && getDistance(targetPositions.current.pos, pos) < getDistance(targetPositions.previous.pos, pos);
   return (weaponCooldownOverStepSize || unitType === UnitType.CYCLONE) && enemyWeapon !== undefined && targetUnitGettingCloser;
 }
 
@@ -3266,4 +3278,21 @@ function getClosestThatCanAttackUnitByWeaponRange(data, unit, enemyUnits) {
     }
     return acc;
   }, { distance: Infinity, enemyUnit: undefined });
+}
+
+/**
+ * @description Returns the projected position of the unit.
+ * @param {Point2D} current
+ * @param {Point2D} previous
+ * @returns {Point2D}
+ * @example
+ * const current = { x: 1, y: 1 };
+ * const previous = { x: 0, y: 0 };
+ * const projectedPosition = getProjectedPosition(current, previous);
+ * // projectedPosition = { x: 2, y: 2 }
+ */
+function getProjectedPosition(current, previous) {
+  const { x, y } = current; if (x === undefined || y === undefined) return { x: 0, y: 0 };
+  const { x: previousX, y: previousY } = previous; if (previousX === undefined || previousY === undefined) return { x: 0, y: 0 };
+  return { x: x + (x - previousX), y: y + (y - previousY) };
 }

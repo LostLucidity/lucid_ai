@@ -12,6 +12,7 @@ const { getSupply } = require("../../services/data-service");
 const enemyTrackingService = {
   /** @type {Unit[]} */
   enemyUnits: [],
+  /** @type {Map<string, {current: { pos: Point2D, lastSeen: number }, previous: { pos: Point2D, lastSeen: number }}>} */
   enemyUnitsPositions: new Map(),
   enemySupply: null,
   /** @type {Unit[]} */
@@ -23,8 +24,8 @@ const enemyTrackingService = {
     }
     enemyTrackingService.mappedEnemyUnits.forEach(unit => {
       const { tag, pos } = unit; if (tag === undefined || pos === undefined) { return; }
-      const lastPosition = enemyTrackingService.enemyUnitsPositions.get(tag);
-      if (lastPosition && distance(lastPosition, pos) > 0.5) {
+      const lastPosition = enemyTrackingService.enemyUnitsPositions.get(tag); if (lastPosition === undefined) { return; }
+      if (lastPosition && distance(lastPosition.previous.pos, pos) > 0.5) {
         movedEnemyUnits.push(unit);
       }
     });
@@ -99,10 +100,18 @@ const enemyTrackingService = {
   setEnemyUnitPositions() {
     const { enemyUnitsPositions } = enemyTrackingService;
     enemyTrackingService.mappedEnemyUnits.forEach(unit => {
-      if (enemyUnitsPositions.has(unit.tag)) {
-        enemyUnitsPositions.set(unit.tag, { current: unit.pos, previous: enemyUnitsPositions.get(unit.tag).current });
+      const { lastSeen, tag, pos } = unit; if (lastSeen === undefined || tag === undefined || pos === undefined) { return; }
+      if (enemyUnitsPositions.has(tag)) {
+        enemyUnitsPositions.set(
+          tag,
+          {
+            current: { pos, lastSeen },
+              // @ts-ignore
+            previous: enemyUnitsPositions.get(tag).current,
+          }
+        );
       } else {
-        enemyUnitsPositions.set(unit.tag, { current: unit.pos, previous: unit.pos });
+        enemyUnitsPositions.set(tag, { current: { pos, lastSeen }, previous: { pos, lastSeen } });
       }
     });
     enemyTrackingService.enemyUnitsPositions = enemyUnitsPositions;
