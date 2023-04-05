@@ -855,16 +855,17 @@ const worldService = {
         buildTimeLeft = getContructionTimeLeft(world, movingOrConstructingNonDrone);
         const isConstructingSupplyDepot = dataService.unitTypeTrainingAbilities.get(abilityId) === SUPPLYDEPOT;
         if (isConstructingSupplyDepot) {
-          const [supplyDepot] = units.getClosest(movingPosition, units.getStructures().filter(structure => structure.unitType === SUPPLYDEPOT)); if (supplyDepot === undefined) return;
-          const { pos, unitType } = supplyDepot; if (pos === undefined || unitType === undefined) return;
-          const footprint = getFootprint(unitType); if (footprint === undefined) return;
-          supplyDepotCells = cellsInFootprint(pos, footprint);
-          supplyDepotCells.forEach(cell => map.setPathable(cell, true));
+          const [supplyDepot] = units.getClosest(movingPosition, units.getStructures().filter(structure => structure.unitType === SUPPLYDEPOT));
+          if (supplyDepot !== undefined) {
+            const { pos, unitType } = supplyDepot; if (pos === undefined || unitType === undefined) return;
+            const footprint = getFootprint(unitType); if (footprint === undefined) return;
+            supplyDepotCells = cellsInFootprint(pos, footprint);
+            supplyDepotCells.forEach(cell => map.setPathable(cell, true));
+          }
         }
       }
       const pathablePremovingPosition = getClosestUnitPositionByPath(resources, position, pathableMovingPosition);
       const targetTimeToPremovePosition = getDistanceByPath(resources, pathableMovingPosition, pathablePremovingPosition) / movementSpeedPerSecond;
-      // set pathable back to false
       if (isSCV) {
         supplyDepotCells.forEach(cell => map.setPathable(cell, false));
       }
