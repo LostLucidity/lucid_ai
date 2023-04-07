@@ -11,7 +11,7 @@ const plans = require("./plans");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
 const { getPendingOrders } = require("../services/unit-service");
-const { PYLON } = require("@node-sc2/core/constants/unit-type");
+const { PYLON, HATCHERY } = require("@node-sc2/core/constants/unit-type");
 const { clearUnsettledBuildingPositions } = require("../services/world-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { setOpponentRace } = require("../systems/scouting/scouting-service");
@@ -78,8 +78,9 @@ const entry = createSystem({
   async onUnitFinished(world, finishedUnit) {
     const { resources } = world;
     const { units } = resources.get();
-    if (finishedUnit.unitType === PYLON) {
-      if (units.getById(PYLON).length > 1) {
+    const { unitType } = finishedUnit; if (unitType === undefined) return;
+    if ([PYLON, HATCHERY].includes(unitType)) {
+      if (units.getById(unitType).length > 1) {
         clearUnsettledBuildingPositions(world);
       }
     }

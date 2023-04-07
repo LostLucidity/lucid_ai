@@ -200,8 +200,6 @@ class AssemblePlan {
               await this.buildBuilding(world, unitType, candidatePositions);
             }
           } else {
-            const unitTypeData = data.getUnitTypeData(unitType);
-            addEarmark(data, unitTypeData);
             this.collectedActions.push(...await morphStructureAction(world, unitType));
           }
           break;
@@ -696,11 +694,9 @@ async function getBuildingPosition(world, unitType, candidatePositions) {
     const strongerAtFoundPosition = isStrongerAtPosition(world, position);
     if (map.isPlaceableAt(unitType, position) && !enemyBlockingExpansion && strongerAtFoundPosition) {
       return position;
-    } else {
-      candidatePositions = await findPlacements(world, unitType);
     }
   }
-  return await findPosition(world, unitType, candidatePositions.filter(pos => isStrongerAtPosition(world, pos)));
+  return findPosition(world, unitType, candidatePositions.filter(pos => isStrongerAtPosition(world, pos)));
 }
 
 /**

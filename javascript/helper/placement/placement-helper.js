@@ -3,14 +3,9 @@
 
 const { distance, avgPoints, getNeighbors } = require('@node-sc2/core/utils/geometry/point');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
-const { UnitType } = require('@node-sc2/core/constants');
-const { flyingTypesMapping } = require('../groups');
-const { PYLON } = require('@node-sc2/core/constants/unit-type');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 const { getClosestPosition } = require('../get-closest');
-const getRandom = require('@node-sc2/core/utils/get-random');
 const wallOffNaturalService = require('../../systems/wall-off-natural/wall-off-natural-service');
-const { Race } = require('@node-sc2/core/constants/enums');
 
 const placementHelper = {
   getMineralLines: (resources) => {

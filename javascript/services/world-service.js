@@ -25,7 +25,7 @@ const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions, isInMineralLine, isPlaceableAtGasGeyser } = require("./map-resource-service");
+const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions, isInMineralLine } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getOccupiedExpansions, getAvailableExpansions, getNextSafeExpansions } = require("../helper/expansions");
@@ -34,7 +34,6 @@ const { pointsOverlap, shuffle } = require("../helper/utilities");
 const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natural-service");
 const { findWallOffPlacement } = require("../systems/wall-off-ramp/wall-off-ramp-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { SPAWNINGPOOL, ADEPT, EGG, DRONE, ZERGLING, PROBE, REACTOR, CREEPTUMORQUEEN, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, FORGE, CREEPTUMOR, WARPGATE, PYLON, OVERLORD, GREATERSPIRE, TECHLAB, ORBITALCOMMAND, SCV, ADEPTPHASESHIFT } = require("@node-sc2/core/constants/unit-type");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -183,23 +182,26 @@ const worldService = {
  * @param {SC2APIProtocol.UnitTypeData|SC2APIProtocol.UpgradeData} orderData 
  */
   addEarmark: (data, orderData) => {
+    const { ORBITALCOMMAND, ZERGLING } = UnitType;
     const { getFoodUsed } = worldService;
     if (dataService.earmarkThresholdReached(data)) return;
     const { name, mineralCost, vespeneCost } = orderData; if (name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
     let minerals = 0;
-    const key = `${planService.currentStep}_${getFoodUsed() + dataService.getEarmarkedFood()}`
-    if (orderData['unitId'] !== undefined) {
+    const key = `${planService.currentStep}_${getFoodUsed() + dataService.getEarmarkedFood()}`;
+    const unitId = orderData['unitId'];
+    if (unitId !== undefined) {
       /** @type {SC2APIProtocol.UnitTypeData} */
-      const { attributes, foodRequired, race, unitId } = orderData; if (attributes === undefined || foodRequired === undefined || race === undefined || unitId === undefined) return;
+      let { attributes, foodRequired, race, unitId } = orderData; if (attributes === undefined || foodRequired === undefined || race === undefined || unitId === undefined) return;
+      foodRequired += unitId === ZERGLING ? foodRequired : 0;
       const foodEarmark = dataService.foodEarmarks.get(key) || 0;
       dataService.foodEarmarks.set(key, foodEarmark + foodRequired);
-      minerals = (unitId === ORBITALCOMMAND ? -400 : 0)
+      minerals = (unitId === ORBITALCOMMAND ? -400 : 0);
       if (race === Race.ZERG && attributes.includes(Attribute.STRUCTURE)) {
         const foodEarmark = dataService.foodEarmarks.get(key) || 0;
         dataService.foodEarmarks.set(key, foodEarmark - 1);
       }
     }
-    minerals += mineralCost;
+    minerals += unitId === ZERGLING ? mineralCost * 2 : mineralCost;
     // set earmark name to include step number and food used plus food earmarked
     const earmarkName = `${name}_${key}`;
     const earmark = {
@@ -262,6 +264,7 @@ const worldService = {
    * @returns {Promise<void>}
    */
   build: async (world, unitType, targetCount = null, candidatePositions = []) => {
+    const { BARRACKS, ORBITALCOMMAND, GREATERSPIRE } = UnitType;
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
     const { agent, data, resources } = world;
@@ -448,7 +451,8 @@ const worldService = {
  * @param {UnitTypeId} addOnType 
  * @returns 
  */
-  checkAddOnPlacement: async (world, building, addOnType = REACTOR) => {
+  checkAddOnPlacement: async (world, building, addOnType = UnitType.REACTOR) => {
+    const { TECHLAB } = UnitType;
     const { data, resources } = world;
     const { map, units } = resources.get();
     const { findPosition } = worldService;
@@ -524,6 +528,7 @@ const worldService = {
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
   findAndPlaceBuilding: async (world, unitType, candidatePositions) => {
+    const { PYLON } = UnitType;
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
     const { findPosition } = worldService;
@@ -534,10 +539,10 @@ const worldService = {
       if (candidatePositions.length === 0) {
         candidatePositions = await worldService.findPlacements(world, unitType);
       }
-      position = await findPosition(world, unitType, candidatePositions);
+      position = findPosition(world, unitType, candidatePositions);
       if (!position) {
         candidatePositions = await worldService.findPlacements(world, unitType);
-        position = await findPosition(world, unitType, candidatePositions, true);
+        position = findPosition(world, unitType, candidatePositions);
       }
       planService.buildingPosition = position;
     }
@@ -566,7 +571,7 @@ const worldService = {
       } else {
         collectedActions.push(...await buildWithNydusNetwork(world, unitType, abilityId));
       }
-      const [pylon] = units.getById(UnitType.PYLON);
+      const [pylon] = units.getById(PYLON);
       if (pylon && pylon.buildProgress < 1) {
         collectedActions.push(...worldService.premoveBuilderToPosition(world, pylon.pos, pylon.unitType));
         planService.pausePlan = true;
@@ -582,6 +587,7 @@ const worldService = {
    * @returns {Promise<Point2D[]>}
    */
   findPlacements: async (world, unitType) => {
+    const { BARRACKS, ENGINEERINGBAY, FORGE, PYLON, REACTOR, SUPPLYDEPOT } = UnitType;
     const { agent, data, resources } = world;
     const { race } = agent;
     const { actions, map, units } = resources.get();
@@ -632,7 +638,7 @@ const worldService = {
      */
     let placements = [];
     if (race === Race.PROTOSS) {
-      if (unitType === UnitType.PYLON) {
+      if (unitType === PYLON) {
         if (worldService.getUnitTypeCount(world, unitType) === 0) {
           if (planService.naturalWallPylon) {
             return getCandidatePositions(resources, 'NaturalWallPylon', unitType);
@@ -655,10 +661,10 @@ const worldService = {
           });
       } else {
         let pylonsNearProduction;
-        if (units.getById(UnitType.PYLON).length === 1) {
-          pylonsNearProduction = units.getById(UnitType.PYLON);
+        if (units.getById(PYLON).length === 1) {
+          pylonsNearProduction = units.getById(PYLON);
         } else {
-          pylonsNearProduction = units.getById(UnitType.PYLON)
+          pylonsNearProduction = units.getById(PYLON)
             .filter(u => u.buildProgress >= 1)
             .filter(pylon => distance(pylon.pos, main.townhallPosition) < 50);
         }
@@ -766,26 +772,33 @@ const worldService = {
    * @param {World} world
    * @param {UnitTypeId} unitType
    * @param {Point3D[]} candidatePositions
-   * @returns {Promise<false | Point2D>}
+   * @returns {false | Point2D}
    */
-  findPosition: async (world, unitType, candidatePositions) => {
+  findPosition: (world, unitType, candidatePositions) => {
     if (candidatePositions.length === 0) return false;
-    const { resources, agent } = world;
-    const { actions, map } = resources.get();
+    const {agent, resources } = world;
+    const { map } = resources.get();
     if (flyingTypesMapping.has(unitType)) {
       const baseUnitType = flyingTypesMapping.get(unitType);
       unitType = baseUnitType === undefined ? unitType : baseUnitType;
     }
-    const isProtoss = agent.race === Race.PROTOSS;
-    if (isProtoss) {
-      candidatePositions = candidatePositions.filter(position => map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position));
-    }
+    candidatePositions = candidatePositions.filter(position => {
+      const footprint = getFootprint(unitType); if (footprint === undefined) return false;
+      const unitTypeCells = cellsInFootprint(position, footprint);
+      const isPlaceable = unitTypeCells.every(cell => {
+        const isPlaceable = map.isPlaceable(cell);
+        const needsCreep = agent.race === Race.ZERG && unitType !== UnitType.HATCHERY;
+        const hasCreep = map.hasCreep(cell);
+        return isPlaceable && (!needsCreep || hasCreep);
+      });
+      return isPlaceable;
+    });
     const randomPositions = candidatePositions
       .map(pos => ({ pos, rand: Math.random() }))
       .sort((a, b) => a.rand - b.rand)
       .map(a => a.pos)
       .slice(0, 20);
-    let foundPosition = isProtoss ? getRandom(randomPositions) : await actions.canPlace(unitType, randomPositions);
+    let foundPosition = getRandom(randomPositions);
     const unitTypeName = Object.keys(UnitType).find(type => UnitType[type] === unitType);
     if (foundPosition) console.log(`Found position for ${unitTypeName}`, foundPosition);
     else console.log(`Could not find position for ${unitTypeName}`);
@@ -817,6 +830,7 @@ const worldService = {
   getBuilder: (world, position) => {
     const { data, resources } = world;
     const { map, units } = resources.get();
+    const { PROBE, SCV, SUPPLYDEPOT } = UnitType;
     const { getClosestPathablePositionsBetweenPositions, getClosestUnitByPath, getClosestUnitPositionByPath, getDistanceByPath } = resourceManagerService;
     const { getBuilders } = unitResourceService;
     let builderCandidates = getBuilders(units);
@@ -973,11 +987,12 @@ const worldService = {
     const { resources } = world;
     const { units } = resources.get();
     const { getUnitTypeData } = unitResourceService;
+    const { ADEPT, ADEPTPHASESHIFT } = UnitType;
     let dPSHealth = 0;
     // if unit.unitType is an ADEPTPHASESHIFT, use values of ADEPT assigned to it
     let { alliance, buffIds, health, buildProgress, shield, unitType } = unit;
     if (alliance === undefined || buffIds === undefined || health === undefined || buildProgress === undefined || shield === undefined || unitType === undefined) return 0;
-    unitType = unitType !== UnitType.ADEPTPHASESHIFT ? unitType : ADEPT;
+    unitType = unitType !== ADEPTPHASESHIFT ? unitType : ADEPT;
     unit = getUnitForDPSCalculation(resources, unit);
     let healthAndShield = 0;
     if (unit && buildProgress >= 1) {
@@ -1004,12 +1019,13 @@ const worldService = {
     const { resources } = world;
     const { units } = resources.get();
     const { getUnitTypeData } = unitResourceService;
+    const { ZERGLING } = UnitType;
     let dPSHealth = 0;
     const unitTypeData = getUnitTypeData(units, unitType);
     if (unitTypeData) {
       const { healthMax, shieldMax } = unitTypeData;
       dPSHealth = worldService.getWeaponDPS(world, unitType, alliance, enemyUnitTypes) * (healthMax + shieldMax);
-      dPSHealth = unitType === UnitType.ZERGLING ? dPSHealth * 2 : dPSHealth;
+      dPSHealth = unitType === ZERGLING ? dPSHealth * 2 : dPSHealth;
     }
     return dPSHealth;
   },
@@ -1154,6 +1170,7 @@ const worldService = {
   getStep: (world, unitType) => {
     const { resources } = world;
     const { units } = resources.get();
+    const { DRONE } = UnitType;
     return planService.plan.find(step => {
       return (
         step.unitType === unitType &&
@@ -1216,6 +1233,7 @@ const worldService = {
  * @returns {Unit[]}
  */
   getTrainer: (world, unitTypeId) => {
+    const { WARPGATE } = UnitType;
     const { data, resources } = world;
     const { units } = resources.get();
     let { abilityId } = data.getUnitTypeData(unitTypeId);
@@ -1320,6 +1338,7 @@ const worldService = {
   getUnitCount: (world, unitType) => {
     const { data, resources } = world;
     const { units } = resources.get();
+    const { ZERGLING } = UnitType;
     const { abilityId, attributes } = data.getUnitTypeData(unitType);
     if (abilityId === undefined || attributes === undefined) return 0;
     if (attributes.includes(Attribute.STRUCTURE)) {
@@ -1398,8 +1417,9 @@ const worldService = {
   getZergEarlyBuild(world) {
     const { data, resources } = world;
     const { frame, map, units } = resources.get();
-    const zerglings = enemyTrackingService.mappedEnemyUnits.filter(unit => unit.unitType === UnitType.ZERGLING);
-    const spawningPool = units.getById(SPAWNINGPOOL, { alliance: Alliance.ENEMY }).sort((a, b) => b.buildProgress - a.buildProgress)[0];
+    const { ZERGLING } = UnitType;
+    const zerglings = enemyTrackingService.mappedEnemyUnits.filter(unit => unit.unitType === ZERGLING);
+    const spawningPool = units.getById(UnitType.SPAWNINGPOOL, { alliance: Alliance.ENEMY }).sort((a, b) => b.buildProgress - a.buildProgress)[0];
     const spawningPoolExists = spawningPool || zerglings.length > 0;
     const spawningPoolStartTime = spawningPool ? frame.timeInSeconds() - dataService.getBuildTimeElapsed(data, spawningPool) : null;
     const enemyNaturalHatchery = map.getEnemyNatural().getBase();
@@ -1473,15 +1493,20 @@ const worldService = {
    * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
    */
   morphStructureAction: async (world, unitType) => {
-    const { data } = world;
+    const { CYCLONE, LAIR } = UnitType;
+    const {agent, data } = world;
     const collectedActions = [];
-    const { addEarmark, ability, unpauseAndLog} = worldService;
-    const actions = await ability(world, data.getUnitTypeData(unitType).abilityId);
-    if (actions.length > 0) {
-      unpauseAndLog(world, UnitTypeId[unitType]);
-      addEarmark(data, data.getUnitTypeData(unitType));
-      collectedActions.push(...actions);
+    const { addEarmark, ability, unpauseAndLog } = worldService;
+    // use unitType for LAIR with CYCLONE when can afford as LAIR data is inflated by the cost of a HATCHERY
+    if (agent.canAfford(unitType === LAIR ? CYCLONE : unitType)) {
+      const { abilityId } = data.getUnitTypeData(unitType); if (abilityId === undefined) return collectedActions;
+      const actions = await ability(world, abilityId);
+      if (actions.length > 0) {
+        unpauseAndLog(world, UnitTypeId[unitType]);
+        collectedActions.push(...actions);
+      }
     }
+    addEarmark(data, data.getUnitTypeData(unitType));
     return collectedActions;
   },
   /**
@@ -1591,6 +1616,7 @@ const worldService = {
   microB: (world, unit, targetUnit, enemyUnits) => {
     const { resources } = world;
     const { map } = resources.get();
+    const { ADEPTPHASESHIFT } = UnitType;
     const collectedActions = [];
     const { pos, health, radius, shield, tag, unitType, weaponCooldown } = unit;
     if (pos === undefined || health === undefined || radius === undefined || shield === undefined || tag === undefined || unitType === undefined || weaponCooldown === undefined) { return collectedActions; }
@@ -1871,6 +1897,7 @@ const worldService = {
     const { data, resources } = world;
     const { map, units } = resources.get();
     const { getNeediestMineralField } = unitResourceService;
+    const { DRONE, EGG } = UnitType;
     const collectedActions = [];
     const workerSourceByPath = worldService.getWorkerSourceByPath(world, position);
     let rallyAbility = null;
@@ -2140,6 +2167,7 @@ const worldService = {
   setAndLogExecutedSteps: (world, time, name, notes = '') => {
     const { agent, data } = world;
     const { minerals, vespene } = agent;
+    const { CREEPTUMOR, CREEPTUMORQUEEN } = UnitType;
     let isStructure = false;
     if (UnitType[name]) {
       const { attributes } = data.getUnitTypeData(UnitType[name]); if (attributes === undefined) return;
@@ -2291,6 +2319,7 @@ const worldService = {
    * @returns {Promise<void>}
    */
   train: async (world, unitTypeId, targetCount = null) => {
+    const { WARPGATE } = UnitType;
     const { data, resources } = world;
     const { actions, units } = resources.get();
     const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
@@ -2331,6 +2360,7 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   trainSync: (world, unitTypeId, targetCount = null) => {
+    const { WARPGATE } = UnitType;
     const { data } = world;
     const collectedActions = [];
     const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
@@ -2410,6 +2440,7 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   trainCombatUnits: (world) => {
+    const { OVERLORD } = UnitType;
     const { agent, data, resources } = world;
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return [];
     const { units } = resources.get();
@@ -2534,6 +2565,7 @@ const worldService = {
    * @param {number} upgradeId 
    */
   upgrade: async (world, upgradeId) => {
+    const { BARRACKS, TECHLAB } = UnitType;
     const { agent, data, resources } = world;
     const { upgradeIds } = agent; if (upgradeIds === undefined) return;
     const { actions, frame, units } = resources.get();
@@ -2632,6 +2664,7 @@ const worldService = {
     const { agent, resources } = world;
     const { units } = resources.get();
     const { getClosestUnitByPath } = resourceManagerService;
+    const { EGG } = UnitType;
     // worker source is base or larva.
     let closestUnitByPath = null;
     if (agent.race === Race.ZERG) {
@@ -2652,12 +2685,13 @@ module.exports = worldService;
  * @returns {boolean}
  */
 function shouldPremoveNow(world, timeToTargetCost, timeToPosition) {
+  const { PYLON } = UnitType;
   const { agent, data, resources } = world;
   const { units } = resources.get();
   const willHaveEnoughMineralsByArrival = timeToTargetCost <= timeToPosition;
   // if race is protoss
   if (agent.race === Race.PROTOSS) {
-    const pylons = units.getById(UnitType.PYLON);
+    const pylons = units.getById(PYLON);
     // get time left for first pylon to warp in
     if (pylons.length === 1) {
       const [pylon] = pylons;
@@ -2918,7 +2952,8 @@ function getRetreatCandidates(world, unit, targetUnit) {
 function getUnitForDPSCalculation(resources, unit) {
   const { units } = resources.get();
   const { getDistanceByPath } = resourceManagerService;
-  if (unit.unitType === UnitType.ADEPTPHASESHIFT) {
+  const { ADEPT, ADEPTPHASESHIFT } = UnitType;
+  if (unit.unitType === ADEPTPHASESHIFT) {
     const label = 'ADEPT';
     if (unit.hasLabel(label)) {
       unit = getByTag(unit.getLabel(label));
@@ -3179,6 +3214,7 @@ function haveSupplyForUnit(world, unitType) {
  * @returns {Promise<void>} 
  */
 async function buildSupply(world) {
+  const { OVERLORD, PYLON, SUPPLYDEPOT } = UnitType;
   const { agent } = world;
   const { foodUsed, minerals } = agent; if (foodUsed === undefined || minerals === undefined) return;
   const { build, isSupplyNeeded, findPlacements, train } = worldService;
