@@ -12,7 +12,6 @@ const foodUsedService = require("../../services/food-used-service");
 const { getDistance } = require("../../services/position-service");
 const { getClosestUnitByPath } = require("../../services/resource-manager-service");
 const { canAttack } = require("../../services/resources-service");
-const { getWeaponThatCanAttack } = require("../../services/unit-service");
 const { micro } = require("../../services/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 
@@ -80,7 +79,6 @@ function attackTargets(world, unitsToAttackWith, enemyTargets) {
   unitsToAttackWith.forEach(unit => {
     const { orders, pos, unitType } = unit; if (orders === undefined || pos === undefined || unitType === undefined) { return; }
     const abilityId = unit.abilityAvailable(ATTACK_ATTACK) ? ATTACK_ATTACK : MOVE;
-    const unitTypeName = getUnitTypeName(unitType); if (unitTypeName === undefined) { return; }
     const attackableTargets = enemyTargets.filter(target => canAttack(resources, unit, target, false));
     if (orders.length > 0 && orders[0].abilityId === ATTACK_ATTACK) {
       const { targetUnitTag } = orders[0]; if (targetUnitTag === undefined) { return; }

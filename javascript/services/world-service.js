@@ -12,7 +12,7 @@ const { getClosestPosition } = require("../helper/get-closest");
 const { countTypes, morphMapping, addOnTypesMapping, flyingTypesMapping } = require("../helper/groups");
 const { getCandidatePositions, getInTheMain } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
-const { gatherOrMine, getResourceDemand, balanceResources } = require("../systems/manage-resources");
+const { gatherOrMine, balanceResources } = require("../systems/manage-resources");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
 const { formatToMinutesAndSeconds, getStringNameOfConstant } = require("./logging-service");
@@ -1539,10 +1539,9 @@ const worldService = {
    */
   micro: (world, unit) => {
     const { data, resources } = world;
-    const { units } = resources.get();
-    const { getClosestUnitByPath } = resourceManagerService;
+    const { getClosestPositionByPath } = resourceManagerService;
     const collectedActions = [];
-    const { pos, radius, unitType, weaponCooldown } = unit; if (pos === undefined || radius === undefined || unitType === undefined || weaponCooldown === undefined) { return collectedActions; }
+    const { pos, radius } = unit; if (pos === undefined || radius === undefined) { return collectedActions; }
     const enemyUnits = enemyTrackingService.mappedEnemyUnits;
     const closestEnemyThatCanAttackUnitByWeaponRange = getClosestThatCanAttackUnitByWeaponRange(data, unit, enemyUnits);
     const { enemyUnit } = closestEnemyThatCanAttackUnitByWeaponRange; if (enemyUnit === undefined) { return collectedActions; }
@@ -1552,23 +1551,18 @@ const worldService = {
       unitCommand.targetWorldSpacePos = worldService.findClosestSafePosition(world, unit, travelDistancePerStep);
       collectedActions.push(unitCommand);
     } else {
-      const inRangeAttackableEnemyUnits = enemyUnits.filter(enemyUnit => {
-        const { pos: enemyUnitPos, radius: enemyUnitRadius } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined) { return false; }
-        const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, enemyUnit); if (weaponThatCanAttack === undefined) { return false; }
-        const { range } = weaponThatCanAttack; if (range === undefined) { return false; }
-        return getDistance(pos, enemyUnitPos) <= range + radius + enemyUnitRadius;
-      });
+      const inRangeAttackableEnemyUnits = getInRangeAttackableEnemyUnits(data, unit, enemyUnits);
+      const enemyUnitsInRangeOfTheirAttack = getEnemyUnitsInRangeOfTheirAttack(data, unit, enemyUnits);
       if (inRangeAttackableEnemyUnits.length === 0) {
         const attackableEnemyUnits = enemyUnits.filter(enemyUnit => canAttack(resources, unit, enemyUnit));
-        const [closestAttackableEnemyUnit] = unit.isFlying ? units.getClosest(pos, attackableEnemyUnits) : getClosestUnitByPath(resources, pos, attackableEnemyUnits);
-        if (closestAttackableEnemyUnit !== undefined) {
-          const { pos: closestAttackableEnemyUnitPos } = closestAttackableEnemyUnit; if (closestAttackableEnemyUnitPos === undefined) { return collectedActions; }
+        const closeAttackableEnemyUnits = attackableEnemyUnits.filter(enemyUnit => enemyUnit.pos && getDistanceByPath(resources, pos, enemyUnit.pos) <= 16);
+        if (closeAttackableEnemyUnits.length > 0) {
+          const unitCommand = getCommandToMoveToClosestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks(world, unit, closeAttackableEnemyUnits, enemyUnitsInRangeOfTheirAttack);
+          if (unitCommand !== undefined) collectedActions.push(unitCommand);
+        }
+        if (collectedActions.length === 0) {
           const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
-          if (closestAttackableEnemyUnit.isCurrent()) {
-            unitCommand.targetUnitTag = closestAttackableEnemyUnit.tag;
-          } else {
-            unitCommand.targetWorldSpacePos = closestAttackableEnemyUnitPos;
-          }
+          unitCommand.targetWorldSpacePos = enemyUnit.pos;
           collectedActions.push(unitCommand);
         }
       } else {
@@ -3262,6 +3256,32 @@ function shouldMicro(data, unit, targetUnit) {
 }
 
 /**
+ * @description Return unit command to move to the closest position in range of enemy units not in range of enemy attacks.
+ * @param {World} world
+ * @param {Unit} unit
+ * @param {Unit[]} closeAttackableEnemyUnits
+ * @param {Unit[]} enemyUnitsInRangeOfTheirAttack
+ * @returns {SC2APIProtocol.ActionRawUnitCommand | undefined}
+ */
+function getCommandToMoveToClosestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks(world, unit, closeAttackableEnemyUnits, enemyUnitsInRangeOfTheirAttack) {
+  const { data, resources } = world;
+  const { pos } = unit; if (pos === undefined) return;
+  const { getClosestPositionByPath } = resourceManagerService;
+  const positionsInRangeOfEnemyUnits = findPositionsInRangeOfEnemyUnits(data, unit, closeAttackableEnemyUnits);
+  const positionsInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks = positionsInRangeOfEnemyUnits.filter(position => !enemyUnitsInRangeOfTheirAttack.some(enemyUnit => isInRangeOfEnemyUnits(data, unit, enemyUnit, position)));
+  const [closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks] = getClosestPositionByPath(resources, pos, positionsInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks);
+  if (closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks !== undefined) {
+    const [closestPositionInRangeOfEnemyUnits] = getClosestPositionByPath(resources, pos, positionsInRangeOfEnemyUnits);
+    const samePosition = closestPositionInRangeOfEnemyUnits !== undefined && closestPositionInRangeOfEnemyUnits.x === closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks.x && closestPositionInRangeOfEnemyUnits.y === closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks.y;
+    let abilityId = samePosition ? ATTACK_ATTACK : MOVE;
+    const unitCommand = createUnitCommand(abilityId, [unit]);
+    unitCommand.targetWorldSpacePos = samePosition ? closeAttackableEnemyUnits[0].pos : closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks;
+    return unitCommand;
+  }
+}
+
+
+/**
  * @param {DataStorage} data 
  * @param {Unit} unit 
  * @param {Unit[]} enemyUnits 
@@ -3282,18 +3302,93 @@ function getClosestThatCanAttackUnitByWeaponRange(data, unit, enemyUnits) {
 }
 
 /**
- * @description Returns the projected position of the unit.
- * @param {Point2D} current
- * @param {Point2D} previous
- * @returns {Point2D}
- * @example
- * const current = { x: 1, y: 1 };
- * const previous = { x: 0, y: 0 };
- * const projectedPosition = getProjectedPosition(current, previous);
- * // projectedPosition = { x: 2, y: 2 }
+ * @description Returns the enemy units that are in range of the unit's weapons.
+ * @param {DataStorage} data
+ * @param {Unit} unit
+ * @param {Unit[]} enemyUnits
+ * @returns {Unit[]}
  */
-function getProjectedPosition(current, previous) {
-  const { x, y } = current; if (x === undefined || y === undefined) return { x: 0, y: 0 };
-  const { x: previousX, y: previousY } = previous; if (previousX === undefined || previousY === undefined) return { x: 0, y: 0 };
-  return { x: x + (x - previousX), y: y + (y - previousY) };
+function getInRangeAttackableEnemyUnits(data, unit, enemyUnits) {
+  const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) return [];
+  return enemyUnits.filter(enemyUnit => {
+    const { pos: enemyUnitPos, radius: enemyUnitRadius } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined) { return false; }
+    const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, enemyUnit); if (weaponThatCanAttack === undefined) { return false; }
+    const { range } = weaponThatCanAttack; if (range === undefined) { return false; }
+    return getDistance(pos, enemyUnitPos) <= range + radius + enemyUnitRadius;
+  });
 }
+
+/**
+ * @description Returns the enemy units whose weapons are in range of the unit.
+ * @param {DataStorage} data
+ * @param {Unit} unit
+ * @param {Unit[]} enemyUnits
+ * @returns {Unit[]}
+ */
+function getEnemyUnitsInRangeOfTheirAttack(data, unit, enemyUnits) {
+  const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) return [];
+  return enemyUnits.filter(enemyUnit => {
+    const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return false; }
+    const weaponThatCanAttack = getWeaponThatCanAttack(data, enemyUnitType, unit); if (weaponThatCanAttack === undefined) { return false; }
+    const { range } = weaponThatCanAttack; if (range === undefined) { return false; }
+    return getDistance(pos, enemyUnitPos) <= range + radius + enemyUnitRadius;
+  });
+}
+
+/**
+ * @description Returns positions that are in range of the unit's weapons from enemy units.
+ * @param {DataStorage} data
+ * @param {Unit} unit
+ * @param {Unit[]} enemyUnits
+ * @returns {Point2D[]}
+ */
+function findPositionsInRangeOfEnemyUnits(data, unit, enemyUnits) {
+  const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) return [];
+  return enemyUnits.reduce((/** @type {Point2D[]} */ acc, enemyUnit) => {
+    const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return acc; }
+    const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, enemyUnit); if (weaponThatCanAttack === undefined) { return acc; }
+    const { range } = weaponThatCanAttack; if (range === undefined) { return acc; }
+    // get points around enemy unit that are in range of the unit's weapons
+    const pointsInRange = getPointsInRange(enemyUnitPos, range + radius + enemyUnitRadius);
+    acc.push(...pointsInRange);
+    return acc;
+  }, []);
+}
+
+/**
+ * @description Returns boolean if the unit is in range of the enemy unit's weapons.
+ * @param {DataStorage} data
+ * @param {Unit} unit
+ * @param {Unit} enemyUnit
+ * @param {Point2D} position
+ * @returns {boolean}
+ */
+function isInRangeOfEnemyUnits(data, unit, enemyUnit, position) {
+  const { radius, unitType } = unit; if (radius === undefined || unitType === undefined) return false;
+  const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return false; }
+  const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, enemyUnit); if (weaponThatCanAttack === undefined) { return false; }
+  const { range } = weaponThatCanAttack; if (range === undefined) { return false; }
+  return getDistance(position, enemyUnitPos) <= range + radius + enemyUnitRadius;
+}
+
+/**
+ * @description Returns boolean if the unit is in range of the enemy unit's weapons.
+ * @param {Point2D} position
+ * @param {number} range
+ * @returns {Point2D[]}
+ */
+function getPointsInRange(position, range) {
+  const { x, y } = position; if (x === undefined || y === undefined) return [];
+  // get points around enemy unit that are in range of the unit's weapons, at least 16 points
+  const pointsInRange = [];
+  for (let i = 0; i < 16; i++) {
+    const angle = i * 2 * Math.PI / 16;
+    const point = {
+      x: x + range * Math.cos(angle),
+      y: y + range * Math.sin(angle),
+    };
+    pointsInRange.push(point);
+  }
+  return pointsInRange;
+}
+
