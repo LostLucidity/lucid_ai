@@ -184,7 +184,7 @@ const resourceManagerService = {
       return getDistanceByPath(resources, aPathablePosition, aPathableTargetPosition) - getDistanceByPath(resources, bPathablePosition, bPathableTargetPosition);
     });
     if (n === 1 && closestUnits.length > 0) return closestUnits;
-    return [...closestUnits, ...outside16].map(unit => {
+    const unitsByDistance = [...closestUnits, ...outside16].map(unit => {
       const { pos } = unit; if (pos === undefined) return;
       const expansionWithin16 = map.getExpansions().find(expansion => {
         const { centroid: expansionPos } = expansion; if (expansionPos === undefined) return;
@@ -197,9 +197,37 @@ const resourceManagerService = {
       if (a === undefined || b === undefined) return 0;
       return a.distance - b.distance;
     })
+    const reducedUnitsByDistance = unitsByDistance.reduce((/** @type {{unit: Unit, distance: number}[]} */ acc, curr, i, arr) => {
+        if (curr === undefined) return acc;
+        if (i === 0) {
+          const { unit } = curr;
+          const { pos } = unit; if (pos === undefined) return acc;
+          curr = { ...curr, distance: getDistanceByPath(resources, pos, position) };
+          acc.push(curr);
+        } else {
+          const { distance: currDistance } = curr;
+          const { distance: prevDistance } = arr[i - 1] || {};
+          if (currDistance === prevDistance) {
+            const { unit } = curr;
+            const { pos } = unit; if (pos === undefined) return acc;
+            curr = { ...curr, distance: getDistanceByPath(resources, pos, position) };
+            acc.push(curr);
+          }
+        }
+        return acc;
+      }, []);
+    const newUnitsByDistance = unitsByDistance.map((unitByDistance) => {
+      if (unitByDistance === undefined) return;
+      const { unit } = unitByDistance;
+      const { pos } = unit; if (pos === undefined) return;
+      const { distance: newDistance } = reducedUnitsByDistance.find(u => u.unit.tag === unit.tag) || {};
+      if (newDistance !== undefined) {
+        return { unit, distance: newDistance };
+      }
+      return unitByDistance;
+    });
       // @ts-ignore
-      .map(u => u.unit)
-      .slice(0, n);
+    return newUnitsByDistance.map(u => u.unit).slice(0, n);
   },
   /**
    * @param {ResourceManager} resources

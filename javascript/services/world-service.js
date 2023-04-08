@@ -537,11 +537,11 @@ const worldService = {
     const validPosition = position && keepPosition(world, unitType, position);
     if (!validPosition) {
       if (candidatePositions.length === 0) {
-        candidatePositions = await worldService.findPlacements(world, unitType);
+        candidatePositions = worldService.findPlacements(world, unitType);
       }
       position = findPosition(world, unitType, candidatePositions);
       if (!position) {
-        candidatePositions = await worldService.findPlacements(world, unitType);
+        candidatePositions = worldService.findPlacements(world, unitType);
         position = findPosition(world, unitType, candidatePositions);
       }
       planService.buildingPosition = position;
@@ -581,16 +581,15 @@ const worldService = {
     return collectedActions;
   },
   /**
-   *
    * @param {World} world
    * @param {UnitTypeId} unitType
-   * @returns {Promise<Point2D[]>}
+   * @returns {Point2D[]}
    */
-  findPlacements: async (world, unitType) => {
+  findPlacements: (world, unitType) => {
     const { BARRACKS, ENGINEERINGBAY, FORGE, PYLON, REACTOR, SUPPLYDEPOT } = UnitType;
     const { agent, data, resources } = world;
     const { race } = agent;
-    const { actions, map, units } = resources.get();
+    const { map, units } = resources.get();
     const [main, natural] = map.getExpansions(); if (main === undefined || natural === undefined) { return []; }
     const mainMineralLine = main.areas.mineralLine;
     if (gasMineTypes.includes(unitType)) {
@@ -704,7 +703,7 @@ const worldService = {
     } else if (race === Race.TERRAN) {
       const placementGrids = [];
       const wallOffPositions = findWallOffPlacement(unitType).slice();
-      if (wallOffPositions.length > 0 && await actions.canPlace(unitType, wallOffPositions)) {
+      if (wallOffPositions.length > 0 && wallOffPositions.every(position => map.isPlaceableAt(unitType, position))) {
         return wallOffPositions;
       }
       getOccupiedExpansions(world.resources).forEach(expansion => {
@@ -775,7 +774,9 @@ const worldService = {
    * @returns {false | Point2D}
    */
   findPosition: (world, unitType, candidatePositions) => {
-    if (candidatePositions.length === 0) return false;
+    if (candidatePositions.length === 0) {
+      candidatePositions = worldService.findPlacements(world, unitType);
+    }
     const {agent, resources } = world;
     const { map } = resources.get();
     if (flyingTypesMapping.has(unitType)) {
@@ -940,6 +941,30 @@ const worldService = {
     return closestWorker;
   },
   /**
+   * @description Return unit command to move to the closest position in range of enemy units not in range of enemy attacks.
+   * @param {World} world
+   * @param {Unit} unit
+   * @param {Unit[]} closeAttackableEnemyUnits
+   * @param {Unit[]} enemyUnitsInRangeOfTheirAttack
+   * @returns {SC2APIProtocol.ActionRawUnitCommand | undefined}
+   */
+  getCommandToMoveToClosestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks: (world, unit, closeAttackableEnemyUnits, enemyUnitsInRangeOfTheirAttack) => {
+    const { data, resources } = world;
+    const { pos } = unit; if (pos === undefined) return;
+    const { getClosestPositionByPath } = resourceManagerService;
+    const positionsInRangeOfEnemyUnits = findPositionsInRangeOfEnemyUnits(data, unit, closeAttackableEnemyUnits);
+    const positionsInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks = positionsInRangeOfEnemyUnits.filter(position => !enemyUnitsInRangeOfTheirAttack.some(enemyUnit => isInRangeOfEnemyUnits(data, unit, enemyUnit, position)));
+    const [closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks] = getClosestPositionByPath(resources, pos, positionsInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks);
+    if (closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks !== undefined) {
+      const [closestPositionInRangeOfEnemyUnits] = getClosestPositionByPath(resources, pos, positionsInRangeOfEnemyUnits);
+      const samePosition = closestPositionInRangeOfEnemyUnits !== undefined && closestPositionInRangeOfEnemyUnits.x === closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks.x && closestPositionInRangeOfEnemyUnits.y === closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks.y;
+      let abilityId = samePosition ? ATTACK_ATTACK : MOVE;
+      const unitCommand = createUnitCommand(abilityId, [unit]);
+      unitCommand.targetWorldSpacePos = samePosition ? closeAttackableEnemyUnits[0].pos : closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks;
+      return unitCommand;
+    }
+  },
+  /**
    * @param {World} world
    * @returns {Point2D[]}
    */
@@ -961,6 +986,7 @@ const worldService = {
     });
     return contructionGrids;
   },
+  
   /**
    * @param {World} world
    * @param {Unit} unit
@@ -1563,8 +1589,8 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   micro: (world, unit) => {
+    const { getCommandToMoveToClosestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks } = worldService;
     const { data, resources } = world;
-    const { getClosestPositionByPath } = resourceManagerService;
     const collectedActions = [];
     const { pos, radius } = unit; if (pos === undefined || radius === undefined) { return collectedActions; }
     const enemyUnits = enemyTrackingService.mappedEnemyUnits;
@@ -1572,8 +1598,15 @@ const worldService = {
     const { enemyUnit } = closestEnemyThatCanAttackUnitByWeaponRange; if (enemyUnit === undefined) { return collectedActions; }
     if (shouldMicro(data, unit, enemyUnit)) {
       const unitCommand = createUnitCommand(MOVE, [unit]);
-      const travelDistancePerStep = 2 * getTravelDistancePerStep(unit);
-      unitCommand.targetWorldSpacePos = worldService.findClosestSafePosition(world, unit, travelDistancePerStep);
+      const positions = findPositionsInRangeOfEnemyUnits(data, unit, [enemyUnit]);
+      const closestPosition = positions.reduce((/** @type {{ distance: number, position: Point2D | undefined }} */ acc, position) => {
+        const distanceToPosition = getDistance(position, pos);
+        if (distanceToPosition < acc.distance) {
+          return { distance: distanceToPosition, position };
+        }
+        return acc;
+      }, { distance: Infinity, position: undefined });
+      const { position: closestPositionInRange } = closestPosition; if (closestPositionInRange === undefined) return false;
       collectedActions.push(unitCommand);
     } else {
       const inRangeAttackableEnemyUnits = getInRangeAttackableEnemyUnits(data, unit, enemyUnits);
@@ -1702,12 +1735,12 @@ const worldService = {
     const { alliance, pos, radius, tag, unitType } = unit; if (alliance === undefined || pos === undefined || radius === undefined || tag === undefined || unitType === undefined) { return collectedActions; }
     const { pos: targetPos, radius: targetRadius } = targetUnit; if (targetPos === undefined || targetRadius === undefined) { return collectedActions; }
     if (shouldMicro(data, unit, targetUnit)) {
-      const microPosition = worldService.getPositionVersusTargetUnit(world, unit, targetUnit);
-      collectedActions.push({
-        abilityId: MOVE,
-        targetWorldSpacePos: microPosition,
-        unitTags: [tag],
-      });
+      const positions = findPositionsInRangeOfEnemyUnits(data, unit, [targetUnit]);
+      const [closestPosition] = positions.sort((a, b) => getDistanceByPath(resources, pos, a) - getDistanceByPath(resources, pos, b));
+      const targetWorldSpacePos = closestPosition || moveAwayPosition(targetPos, pos);
+      const unitCommand = createUnitCommand(MOVE, [unit]);
+      unitCommand.targetWorldSpacePos = targetWorldSpacePos;
+      collectedActions.push(unitCommand);
     } else {
       const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
       const { weapons } = unit.data(); if (weapons === undefined) return collectedActions;
@@ -3226,12 +3259,12 @@ async function buildSupply(world) {
   if (conditions.some(condition => condition)) {
     switch (agent.race) {
       case Race.TERRAN: {
-        const candidatePositions = await findPlacements(world, SUPPLYDEPOT);
+        const candidatePositions = findPlacements(world, SUPPLYDEPOT);
         await build(world, SUPPLYDEPOT, null, candidatePositions);
         break;
       }
       case Race.PROTOSS: {
-        const candidatePositions = await findPlacements(world, PYLON);
+        const candidatePositions = findPlacements(world, PYLON);
         await build(world, PYLON, null, candidatePositions);
         break;
       }
@@ -3282,40 +3315,18 @@ function getStructureAtPosition(units, movingPosition) {
  */
 function shouldMicro(data, unit, targetUnit) {
   const { enemyUnitsPositions } = enemyTrackingService;
-  const { pos, unitType, weaponCooldown } = unit; if (pos === undefined || unitType === undefined || weaponCooldown === undefined) return false;
-  const { tag } = targetUnit; if (tag === undefined) return false;
+  const { pos, radius, unitType, weaponCooldown } = unit; if (pos === undefined || radius === undefined || unitType === undefined || weaponCooldown === undefined) return false;
+  const { pos: targetPos, radius: targetRadius, tag } = targetUnit; if (targetPos === undefined || targetRadius === undefined || tag === undefined) return false;
   const weaponCooldownOverStepSize = weaponCooldown > 8;
-  const enemyWeapon = getWeapon(data, targetUnit, unit);
   const targetPositions = enemyUnitsPositions.get(tag);
-  const targetUnitGettingCloser = targetPositions !== undefined && getDistance(targetPositions.current.pos, pos) < getDistance(targetPositions.previous.pos, pos);
-  return (weaponCooldownOverStepSize || unitType === UnitType.CYCLONE) && enemyWeapon !== undefined && targetUnitGettingCloser;
+  let projectedTargetPosition = targetPositions !== undefined && getProjectedPosition(targetPositions.current.pos, targetPositions.previous.pos, targetPositions.current.lastSeen, targetPositions.previous.lastSeen);
+  projectedTargetPosition = projectedTargetPosition ? projectedTargetPosition : targetPos;
+  const weapon = getWeapon(data, unit, targetUnit); if (weapon === undefined) return false;
+  const { range } = weapon; if (range === undefined) return false;
+  const distanceToProjectedPosition = getDistance(projectedTargetPosition, pos);
+  const isProjectedPositionInRange = distanceToProjectedPosition < (range + radius + targetRadius);
+  return (weaponCooldownOverStepSize || unitType === UnitType.CYCLONE) && isProjectedPositionInRange;
 }
-
-/**
- * @description Return unit command to move to the closest position in range of enemy units not in range of enemy attacks.
- * @param {World} world
- * @param {Unit} unit
- * @param {Unit[]} closeAttackableEnemyUnits
- * @param {Unit[]} enemyUnitsInRangeOfTheirAttack
- * @returns {SC2APIProtocol.ActionRawUnitCommand | undefined}
- */
-function getCommandToMoveToClosestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks(world, unit, closeAttackableEnemyUnits, enemyUnitsInRangeOfTheirAttack) {
-  const { data, resources } = world;
-  const { pos } = unit; if (pos === undefined) return;
-  const { getClosestPositionByPath } = resourceManagerService;
-  const positionsInRangeOfEnemyUnits = findPositionsInRangeOfEnemyUnits(data, unit, closeAttackableEnemyUnits);
-  const positionsInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks = positionsInRangeOfEnemyUnits.filter(position => !enemyUnitsInRangeOfTheirAttack.some(enemyUnit => isInRangeOfEnemyUnits(data, unit, enemyUnit, position)));
-  const [closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks] = getClosestPositionByPath(resources, pos, positionsInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks);
-  if (closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks !== undefined) {
-    const [closestPositionInRangeOfEnemyUnits] = getClosestPositionByPath(resources, pos, positionsInRangeOfEnemyUnits);
-    const samePosition = closestPositionInRangeOfEnemyUnits !== undefined && closestPositionInRangeOfEnemyUnits.x === closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks.x && closestPositionInRangeOfEnemyUnits.y === closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks.y;
-    let abilityId = samePosition ? ATTACK_ATTACK : MOVE;
-    const unitCommand = createUnitCommand(abilityId, [unit]);
-    unitCommand.targetWorldSpacePos = samePosition ? closeAttackableEnemyUnits[0].pos : closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks;
-    return unitCommand;
-  }
-}
-
 
 /**
  * @param {DataStorage} data 
@@ -3379,13 +3390,20 @@ function getEnemyUnitsInRangeOfTheirAttack(data, unit, enemyUnits) {
  * @returns {Point2D[]}
  */
 function findPositionsInRangeOfEnemyUnits(data, unit, enemyUnits) {
+  const { enemyUnitsPositions } = enemyTrackingService;
   const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) return [];
   return enemyUnits.reduce((/** @type {Point2D[]} */ acc, enemyUnit) => {
-    const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return acc; }
+    const { pos: enemyUnitPos, radius: enemyUnitRadius, tag, unitType: enemyUnitType } = enemyUnit;
+    if (enemyUnitPos === undefined || enemyUnitRadius === undefined || tag === undefined || enemyUnitType === undefined) { return acc; }
     const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, enemyUnit); if (weaponThatCanAttack === undefined) { return acc; }
     const { range } = weaponThatCanAttack; if (range === undefined) { return acc; }
-    // get points around enemy unit that are in range of the unit's weapons
-    const pointsInRange = getPointsInRange(enemyUnitPos, range + radius + enemyUnitRadius);
+    const targetPositions = enemyUnitsPositions.get(tag); if (targetPositions === undefined) {
+      const pointsInRange = getPointsInRange(enemyUnitPos, range + radius + enemyUnitRadius);
+      acc.push(...pointsInRange);
+      return acc;
+    }
+    const projectedEnemyUnitPos = getProjectedPosition(targetPositions.current.pos, targetPositions.previous.pos, targetPositions.current.lastSeen, targetPositions.previous.lastSeen);
+    const pointsInRange = getPointsInRange(projectedEnemyUnitPos, range + radius + enemyUnitRadius);
     acc.push(...pointsInRange);
     return acc;
   }, []);
@@ -3426,5 +3444,26 @@ function getPointsInRange(position, range) {
     pointsInRange.push(point);
   }
   return pointsInRange;
+}
+
+/**
+ * @description Returns projected position of unit.
+ * @param {Point2D} pos
+ * @param {Point2D} pos1
+ * @param {number} time
+ * @param {number} time1
+ * @returns {Point2D}
+ */
+function getProjectedPosition(pos, pos1, time, time1) {
+  const { x, y } = pos; if (x === undefined || y === undefined) return pos;
+  const { x: x1, y: y1 } = pos1; if (x1 === undefined || y1 === undefined) return pos;
+  const timeDiff = time1 - time;
+  const xDiff = x1 - x;
+  const yDiff = y1 - y;
+  const projectedPosition = {
+    x: x + xDiff / timeDiff,
+    y: y + yDiff / timeDiff,
+  };
+  return projectedPosition;
 }
 

@@ -19,12 +19,12 @@ module.exports = createSystem({
     if (conditions.some(condition => condition)) {
       switch (agent.race) {
         case Race.TERRAN: {
-          const candidatePositions = await findPlacements(world, SUPPLYDEPOT);
+          const candidatePositions = findPlacements(world, SUPPLYDEPOT);
           await build(world, SUPPLYDEPOT, null, candidatePositions);
           break;
         }
         case Race.PROTOSS: {
-          const candidatePositions = await findPlacements(world, PYLON);
+          const candidatePositions = findPlacements(world, PYLON);
           await build(world, PYLON, null, candidatePositions);
           break;
         }

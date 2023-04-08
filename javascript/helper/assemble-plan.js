@@ -180,7 +180,6 @@ class AssemblePlan {
     const { agent, data, resources } = world;
     const { race } = agent;
     const { map, units } = resources.get();
-    const { findPlacements } = worldService;
     const unitTypeCount = getUnitTypeCount(world, unitType);
     const unitCount = getUnitCount(world, unitType);
     if (unitTypeCount <= targetCount && unitCount <= targetCount) {
@@ -230,9 +229,6 @@ class AssemblePlan {
           if (PHOTONCANNON === unitType) { 
             candidatePositions = map.getNatural().areas.placementGrid;
           }
-          if (candidatePositions.length === 0 && (!planService.buildingPosition)) {
-            candidatePositions = await findPlacements(world, unitType);
-          }
           await this.buildBuilding(world, unitType, candidatePositions);
       }
     }
@@ -248,6 +244,7 @@ class AssemblePlan {
     const { actions } = resources.get();
     const { premoveBuilderToPosition } = worldService;
     let buildingPosition = await getBuildingPosition(world, unitType, candidatePositions);
+    candidatePositions = buildingPosition ? [buildingPosition] : findPlacements(world, unitType);
     planService.buildingPosition = buildingPosition;
     if (buildingPosition) {
       if (agent.canAfford(unitType)) {
