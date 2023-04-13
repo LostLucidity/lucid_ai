@@ -196,26 +196,26 @@ const resourceManagerService = {
     }).sort((a, b) => {
       if (a === undefined || b === undefined) return 0;
       return a.distance - b.distance;
-    })
+    });
     const reducedUnitsByDistance = unitsByDistance.reduce((/** @type {{unit: Unit, distance: number}[]} */ acc, curr, i, arr) => {
-        if (curr === undefined) return acc;
-        if (i === 0) {
+      if (curr === undefined) return acc;
+      if (i === 0) {
+        const { unit } = curr;
+        const { pos } = unit; if (pos === undefined) return acc;
+        curr = { ...curr, distance: getDistanceByPath(resources, pos, position) };
+        acc.push(curr);
+      } else {
+        const { distance: currDistance } = curr;
+        const { distance: prevDistance } = arr[i - 1] || {};
+        if (currDistance === prevDistance) {
           const { unit } = curr;
           const { pos } = unit; if (pos === undefined) return acc;
           curr = { ...curr, distance: getDistanceByPath(resources, pos, position) };
           acc.push(curr);
-        } else {
-          const { distance: currDistance } = curr;
-          const { distance: prevDistance } = arr[i - 1] || {};
-          if (currDistance === prevDistance) {
-            const { unit } = curr;
-            const { pos } = unit; if (pos === undefined) return acc;
-            curr = { ...curr, distance: getDistanceByPath(resources, pos, position) };
-            acc.push(curr);
-          }
         }
-        return acc;
-      }, []);
+      }
+      return acc;
+    }, []);
     const newUnitsByDistance = unitsByDistance.map((unitByDistance) => {
       if (unitByDistance === undefined) return;
       const { unit } = unitByDistance;
@@ -225,6 +225,9 @@ const resourceManagerService = {
         return { unit, distance: newDistance };
       }
       return unitByDistance;
+    }).sort((a, b) => {
+      if (a === undefined || b === undefined) return 0;
+      return a.distance - b.distance;
     });
       // @ts-ignore
     return newUnitsByDistance.map(u => u.unit).slice(0, n);
@@ -311,7 +314,7 @@ const resourceManagerService = {
         if (index > 0) {
           const previousPoint = line[index - 1];
           const heightDifference = map.getHeight(point) - map.getHeight(previousPoint);
-          if (heightDifference > 1) return false;
+          return Math.abs(heightDifference) <= 1;
         }
         const [closestPathablePosition] = getClosestPathablePositions(map, point);
         return closestPathablePosition !== undefined && map.isPathable(closestPathablePosition);
