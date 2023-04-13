@@ -206,6 +206,7 @@ async function runGame() {
     chronoBoostSystem,
     stateOfGameSystem,
     creepSpreadSystem,
+    enemyTrackingSystem,
   ];
   const QTableSystems = [
     ...baseSystems,

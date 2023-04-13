@@ -13,14 +13,41 @@ const { isRepairing, isMining } = require("../../systems/unit-resource/unit-reso
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { getDistance } = require("../../services/position-service");
-const { retreat, pullWorkersToDefend, calculateNearDPSHealth, getUnitsInRangeOfPosition } = require("../../services/world-service");
+const { retreat, pullWorkersToDefend, calculateNearDPSHealth, getUnitsInRangeOfPosition, getWeaponDPS } = require("../../services/world-service");
 const { canAttack } = require("../../services/resources-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
 const { getCombatRally } = require("../../services/resource-manager-service");
-const { getPendingOrders, setPendingOrders } = require("../../services/unit-service");
+const { getPendingOrders, setPendingOrders, getWeaponThatCanAttack } = require("../../services/unit-service");
 
 module.exports = {
+  /**
+   * @param {World} world
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  bunkerBehavior: (world) => {
+    const { resources } = world;
+    const { units } = resources.get();
+    const collectedActions = [];
+    const bunkers = units.getByType(UnitType.BUNKER);
+    bunkers.forEach(bunker => {
+      const { orders, passengers } = bunker; if (orders === undefined || passengers === undefined) return;
+      if (orders.length > 0) console.log('bunker order', orders[0]);
+      if (passengers.length > 0) {
+        const { tag } = passengers[0]; if (tag === undefined) return;
+        const passenger = units.getByTag(tag); if (passenger === undefined) return;
+        const { orders } = passenger; if (orders === undefined) return;
+        if (orders.length > 0) console.log('passenger order', orders[0]);
+        const lowestTimeToKill = getLowestTimeToKill(world, bunker);
+        if (lowestTimeToKill === null) return;
+        const { tag: lowestTimeToKillTag } = lowestTimeToKill;
+        const unitCommand = createUnitCommand(Ability.SMART, [bunker]);
+        unitCommand.targetUnitTag = lowestTimeToKillTag;
+        collectedActions.push(unitCommand);
+      }
+    });
+    return collectedActions;
+  },
   liberatorBehavior: (resources) => {
     const { MORPH_LIBERATORAAMODE, MORPH_LIBERATORAGMODE } = Ability;
     const {
@@ -334,3 +361,54 @@ function triggerAbilityByDistance(unit, target, operator, range, abilityId, poin
 function getExpansionsWithMineralFields(map) {
   return map.getExpansions().filter(expansion => expansion.townhallPosition && expansion.cluster.mineralFields.length > 0);
 }
+
+/**
+ * @param {World} world
+ * @param {Unit} bunker
+ * @returns {Unit | null}
+ * @description Returns the enemy unit with the lowest time to kill
+ */
+function getLowestTimeToKill(world, bunker) {
+  const { units } = world.resources.get();
+  const { pos } = bunker; if (pos === undefined) return null;
+  const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => unit.pos && getDistance(pos, unit.pos) <= 16);
+  const lowestTimeToKill = enemyUnits.reduce((/** @type {{ timeToKill: number, enemyUnit: Unit | null }} */ lowestTimeToKill, enemyUnit) => {
+    const timeToKill = calculateTimeToKill(world, bunker, enemyUnit);
+    if (timeToKill < lowestTimeToKill.timeToKill) {
+      lowestTimeToKill.timeToKill = timeToKill;
+      lowestTimeToKill.enemyUnit = enemyUnit;
+    }
+    return lowestTimeToKill;
+  }, { timeToKill: Infinity, enemyUnit: null });
+  return lowestTimeToKill.enemyUnit;
+}
+
+/**
+ * @param {World} world
+ * @param {Unit} bunker
+ * @param {Unit} enemyUnit
+ * @returns {number}
+ * @description Returns the time it takes to kill the enemy unit
+ */
+function calculateTimeToKill(world, bunker, enemyUnit) {
+  const { data } = world;
+  const { units } = world.resources.get();
+  const { alliance, passengers, pos, radius } = bunker; if (alliance === undefined || passengers === undefined || pos === undefined || radius === undefined) return Infinity;
+  const { health, pos: enemyUnitPos, radius: enemyUnitRadius, shield, unitType } = enemyUnit;
+  if (health === undefined || enemyUnitPos === undefined || enemyUnitRadius === undefined || shield === undefined || unitType === undefined) return Infinity;
+  const bunkerDistanceToEnemyUnit = getDistance(pos, enemyUnitPos);
+  const bunkerPassengers = passengers.map(passenger => passenger.tag && units.getByTag(passenger.tag));
+  return bunkerPassengers.reduce((timeToKill, passenger) => {
+    if (passenger === undefined || passenger === '') return timeToKill;
+    const { unitType: passengerUnitType } = passenger; if (passengerUnitType === undefined) return timeToKill;
+    const { weapons } = passenger.data(); if (weapons === undefined) return timeToKill;
+    const weapon = getWeaponThatCanAttack(data, passengerUnitType, enemyUnit); if (weapon === undefined) return timeToKill;
+    const { range, damage } = weapon; if (range === undefined || damage === undefined) return timeToKill;
+    const inRange = bunkerDistanceToEnemyUnit <= (range + 1 + radius + enemyUnitRadius);
+    if (!inRange) return timeToKill;
+    const totalUnitHealth = health + shield;
+    const timeToKillCurrent = totalUnitHealth / getWeaponDPS(world, unitType, alliance, [unitType]);
+    return (timeToKill === Infinity ? timeToKillCurrent : timeToKill + timeToKillCurrent);
+  }, Infinity);
+}
+
