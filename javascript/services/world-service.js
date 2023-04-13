@@ -703,9 +703,7 @@ const worldService = {
     } else if (race === Race.TERRAN) {
       const placementGrids = [];
       const wallOffPositions = findWallOffPlacement(unitType).slice();
-      if (wallOffPositions.length > 0 && wallOffPositions.every(position => map.isPlaceableAt(unitType, position))) {
-        return wallOffPositions;
-      }
+      if (wallOffPositions.filter(position => map.isPlaceableAt(unitType, position)).length > 0) return wallOffPositions;
       getOccupiedExpansions(world.resources).forEach(expansion => {
         placementGrids.push(...expansion.areas.placementGrid);
       });
