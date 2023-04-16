@@ -159,6 +159,7 @@ async function runGame() {
   const randomSeed = 2;
   const baseSystems = [
     cleanUpSystem,
+    enemyTrackingSystem,
     loggingSystem,
     workerBalanceSystem,   
     debugSystem,
@@ -172,7 +173,6 @@ async function runGame() {
     trackUnitsSystem,
     scoutingSystem,
     entry,
-    enemyTrackingSystem,
     taggingSystem,
     detectUpgradeSystem,
     swapBuildingSystem,
@@ -186,7 +186,6 @@ async function runGame() {
     executePlanSystem,
     runBehaviorsSystem,
     // defenseSystem,
-    enemyTrackingSystem,
     rallySystem,
     trackUnitsSystem,
     swapBuildingSystem,
@@ -206,7 +205,6 @@ async function runGame() {
     chronoBoostSystem,
     stateOfGameSystem,
     creepSpreadSystem,
-    enemyTrackingSystem,
   ];
   const QTableSystems = [
     ...baseSystems,
@@ -215,7 +213,6 @@ async function runGame() {
     injectorSystem,
     runBehaviorsSystem,
     mulingSystem,
-    chronoBoostSystem,
     stateOfGameSystem,
     creepSpreadSystem,
   ];

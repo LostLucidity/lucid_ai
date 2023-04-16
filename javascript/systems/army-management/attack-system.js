@@ -2,17 +2,15 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { UnitType } = require("@node-sc2/core/constants");
 const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getRandomPoint } = require("../../helper/location");
 const { createUnitCommand } = require("../../services/actions-service");
-const foodUsedService = require("../../services/food-used-service");
 const { getDistance } = require("../../services/position-service");
-const { getClosestUnitByPath } = require("../../services/resource-manager-service");
+const { getClosestUnitByPath, getCombatRally } = require("../../services/resource-manager-service");
 const { canAttack } = require("../../services/resources-service");
-const { micro } = require("../../services/world-service");
+const { micro, getWorkerDefenseCommands } = require("../../services/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 
 module.exports = createSystem({
@@ -23,21 +21,25 @@ module.exports = createSystem({
     const { foodUsed } = agent; if (foodUsed === undefined) { return; }
     const { map } = resources.get();
     const { actions, units } = resources.get();
-    const unitsToAttackWith = getUnitsToAttackWith(units);
+    let unitsToAttackWith = getUnitsToAttackWith(units);
+    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
     if (unitsToAttackWith.length > 0) {
-      const attack = foodUsed >= foodUsedService.minimumAmountToAttackWith;
-      const enemyUnits = attack ? enemyTrackingService.mappedEnemyUnits : getUnitsWithinBaseRange(units);
-      const enemyTargets = getEnemyTargets(enemyUnits)
+      const workersDefending = unitsToAttackWith.some(unit => unit.isWorker());
+      const enemyUnits = workersDefending ? getUnitsWithinBaseRange(units) : enemyTrackingService.mappedEnemyUnits;
+      const enemyTargets = getEnemyTargets(enemyUnits);
       if (enemyTargets.length > 0) {
-        collectedActions.push(...attackTargets(world, unitsToAttackWith, enemyTargets));
+        if (workersDefending) {
+          const [closestEnemy] = getClosestUnitByPath(resources, getCombatRally(resources), enemyTargets);
+          collectedActions.push(...getWorkerDefenseCommands(world, unitsToAttackWith, closestEnemy));
+        } else {
+          collectedActions.push(...attackTargets(world, unitsToAttackWith, enemyTargets));
+        }
         if (collectedActions.length > 0) {
           return actions.sendAction(collectedActions);
         }
       } else {
-        if (attack) {
-          collectedActions.push(...findEnemy(map, unitsToAttackWith));
-        }
+        collectedActions.push(...findEnemy(map, unitsToAttackWith));
       }
     }
     if (collectedActions.length > 0) {
@@ -108,7 +110,7 @@ function attackTargets(world, unitsToAttackWith, enemyTargets) {
 function findEnemy(map, unitsToAttackWith) {
   const collectedActions = [];
   unitsToAttackWith.forEach(unit => {
-    if (unit.isIdle()) {
+    if (unit.isIdle() && !unit.isWorker()) {
       const randomPosition = getRandomPoint(map);
       if (randomPosition) {
         const unitCommand = createUnitCommand(MOVE, [unit]);
@@ -125,20 +127,16 @@ function findEnemy(map, unitsToAttackWith) {
  */
 function getUnitsToAttackWith(units) {
   // exclude overlords, structures, workers and can't move
-  return units.getAlive(Alliance.SELF).filter(unit => {
+  const unitsToAttackWith = units.getAlive(Alliance.SELF).filter(unit => {
     return (
       !unit.isStructure() &&
       !unit.isWorker() &&
       unit.abilityAvailable(MOVE)
     );
   });
-}
-
-/**
- * @param {UnitTypeId} unitType
- * @returns {string | undefined}
- */
-function getUnitTypeName(unitType) {
-  return Object.keys(UnitType).find(type => UnitType[type] === unitType);
+  if (unitsToAttackWith.length === 0) {
+    return units.getAlive(Alliance.SELF).filter(unit => unit.isWorker());
+  }
+  return unitsToAttackWith;
 }
 

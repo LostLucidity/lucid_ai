@@ -2,13 +2,14 @@
 "use strict"
 
 const Buff = require("@node-sc2/core/constants/buff");
-const { HARVEST_GATHER, MOVE } = require("@node-sc2/core/constants/ability");
+const { HARVEST_GATHER, MOVE, STOP } = require("@node-sc2/core/constants/ability");
 const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { ZEALOT, ZERGLING, ROACH } = require("@node-sc2/core/constants/unit-type");
 const { add } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("./actions-service");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { CHRONOBOOSTENERGYCOST: CHRONOBOOSTED } = require("@node-sc2/core/constants/buff");
+const { filterLabels } = require("../helper/unit-selection");
 
 const unitService = {
   /**
@@ -168,6 +169,24 @@ const unitService = {
     return weapon;
   },
   /**
+   * 
+   * @param {UnitResource} units 
+   * @param {UnitTypeId[]} mainCombatTypes 
+   * @param {UnitTypeId[]} supportUnitTypes 
+   * @returns 
+   */
+  groupUnits: (units, mainCombatTypes, supportUnitTypes) => {
+    const combatUnits = [];
+    mainCombatTypes.forEach(type => {
+      combatUnits.push(...units.getById(type).filter(unit => filterLabels(unit, ['scout', 'harasser'])));
+    });
+    const supportUnits = [];
+    supportUnitTypes.forEach(type => {
+      supportUnits.push(...units.getById(type).filter(unit => !unit.labels.get('scout') && !unit.labels.get('creeper') && !unit.labels.get('injector')));
+    });
+    return [combatUnits, supportUnits];
+  },
+  /**
    * @param {Unit} unit
    * @param {boolean} pending
    * @returns {boolean}
@@ -256,6 +275,15 @@ const unitService = {
       unit['pendingOrders'] = [unitCommand];
     }
   },
+  /**
+   * @param {Unit[]} units 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  stop: (units) => {
+    const collectedActions = [];
+    collectedActions.push(createUnitCommand(STOP, units));
+    return collectedActions;
+  }
 }
 
 module.exports = unitService;
