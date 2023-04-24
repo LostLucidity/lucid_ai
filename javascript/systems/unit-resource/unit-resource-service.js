@@ -10,7 +10,7 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { countTypes } = require("../../helper/groups");
+const { countTypes, larvaOrEgg } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getDistance } = require("../../services/position-service");
 const { isPendingContructing } = require("../../services/shared-service");
@@ -18,6 +18,8 @@ const { canBeChronoBoosted } = require("../../services/unit-service");
 const unitService = require("../../services/unit-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("../track-units/track-units-service");
+const Ability = require("@node-sc2/core/constants/ability");
+const { UnitType } = require("@node-sc2/core/constants");
 
 const unitResourceService = {
   /** @type {{}} */
@@ -62,8 +64,9 @@ const unitResourceService = {
       const { healthMax, shieldMax } = unitResourceService.getUnitTypeData(units, unit.unitType)
       const totalHealthShield = unit.health + unit.shield;
       const maxHealthShield = healthMax + shieldMax;
-      return totalHealthShield / maxHealthShield;
+      return maxHealthShield > 0 ? totalHealthShield / maxHealthShield : 0;
     }
+    return 0;
   },
   deleteLabel(units, label) {
     units.withLabel(label).forEach(pusher => pusher.labels.delete(label));
@@ -464,7 +467,62 @@ const unitResourceService = {
       collectedActions.push(unitCommand);
     }
     return collectedActions;
-  }
+  },
+  /**
+   * @description Siege tanks will siege if target is within 4 distance and unsiege if target is greater than 4 distance.
+   * @param {UnitResource} units
+   * @param {Unit | null} target
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  tankBehavior: (units, target=null) => {
+    const collectedActions = [];
+    const { MORPH_SIEGEMODE, MORPH_UNSIEGE } = Ability;
+    const { SIEGETANK, SIEGETANKSIEGED } = UnitType;
+    // get siege tanks
+    if (target) {
+      units.getByType(SIEGETANK).filter(tank => {
+        collectedActions.push(...triggerAbilityByDistance(tank, target, '<', 4, MORPH_SIEGEMODE));
+      });
+      units.getByType(SIEGETANKSIEGED).filter(tank => {
+        collectedActions.push(...triggerAbilityByDistance(tank, target, '>', 4, MORPH_UNSIEGE));
+      });
+    } else {
+      const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
+      units.getByType(SIEGETANK).filter(tank => {
+        let [closestEnemyUnit] = units.getClosest(tank.pos, enemyUnits, 1);
+        if (closestEnemyUnit) {
+          collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit.pos, '<', 13, MORPH_SIEGEMODE));
+        }
+      });
+      units.getById(SIEGETANKSIEGED).filter(tank => {
+        let [closestEnemyUnit] = units.getClosest(tank.pos, enemyUnits, 1);
+        if (closestEnemyUnit) {
+          collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit.pos, '>', 13, MORPH_UNSIEGE));
+        }
+      });
+    }
+    return collectedActions;
+  },
 }
 
 module.exports = unitResourceService;
+
+
+function triggerAbilityByDistance(unit, target, operator, range, abilityId, pointType) {
+  const collectedActions = [];
+  if (!unit.isEnemy()) {
+    const unitCommand = {};
+    if (operator === '>' && distance(unit.pos, target) > range) {
+      unitCommand.abilityId = abilityId;
+      unitCommand.unitTags = [unit.tag];
+    } else if (operator === '<' && distance(unit.pos, target) < range) {
+      unitCommand.abilityId = abilityId;
+      unitCommand.unitTags = [unit.tag];
+    }
+    if (pointType === 'target') {
+      unitCommand.targetWorldSpacePos = target;
+    }
+    collectedActions.push(unitCommand);
+  }
+  return collectedActions;
+}

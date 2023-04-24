@@ -2,12 +2,12 @@
 "use strict"
 
 const { BUNKER, LARVA } = require("@node-sc2/core/constants/unit-type");
-const { engageOrRetreat } = require("./behavior/army-behavior");
-const { tankBehavior } = require("./behavior/unit-behavior");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { createUnitCommand } = require("../services/actions-service");
 const { STOP } = require("@node-sc2/core/constants/ability");
 const { getCombatRally } = require("../services/resource-manager-service");
+const { engageOrRetreat } = require("../services/world-service");
+const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
 
 /**
  * 
@@ -41,7 +41,7 @@ function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
     const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA));
     collectedActions.push(...engageOrRetreat(world, selfUnits, enemyUnits, rallyPoint));
   }
-  collectedActions.push(...tankBehavior(units, rallyPoint));
+  collectedActions.push(...tankBehavior(units));
   return collectedActions;
 }
 

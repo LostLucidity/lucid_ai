@@ -10,6 +10,7 @@ const { createUnitCommand } = require("./actions-service");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { CHRONOBOOSTENERGYCOST: CHRONOBOOSTED } = require("@node-sc2/core/constants/buff");
 const { filterLabels } = require("../helper/unit-selection");
+const { getDistance } = require("./position-service");
 
 const unitService = {
   /**
@@ -103,6 +104,18 @@ const unitService = {
       return b.range - a.range;
     });
     return highestRange;
+  },
+  getInRangeDestructables: (units, selfUnit) => {
+    let tag = null;
+    const ROCKS = [373, 638, 639, 640, 643];
+    const DEBRIS = [364, 365, 376, 377];
+    const destructableRockTypes = [...DEBRIS, ...ROCKS];
+    const destructableRockUnits = units.getAlive(Alliance.NEUTRAL).filter(unit => destructableRockTypes.includes(unit.unitType));
+    const [closestDestructable] = units.getClosest(selfUnit.pos, destructableRockUnits).filter(destructableRockUnit => getDistance(selfUnit.pos, destructableRockUnit.pos) < 16);
+    if (closestDestructable) {
+      tag = closestDestructable.tag;
+    }
+    return tag;
   },
   /**
    * @param {Unit} unit 

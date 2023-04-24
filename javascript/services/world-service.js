@@ -3,9 +3,8 @@
 
 const fs = require('fs');
 const { UnitTypeId, Ability, UnitType, Buff, WarpUnitAbility, UpgradeId } = require("@node-sc2/core/constants");
-const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, HARVEST_GATHER, SMART } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, HARVEST_GATHER, SMART, LOAD_BUNKER, ATTACK } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
-const { reactorTypes, techLabTypes, mineralFieldTypes, workerTypes, townhallTypes, constructionAbilities, liftingAbilities, landingAbilities, gasMineTypes, rallyWorkersAbilities, addonTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
@@ -19,8 +18,6 @@ const { formatToMinutesAndSeconds, getStringNameOfConstant } = require("./loggin
 const loggingService = require("./logging-service");
 const planService = require("./plan-service");
 const { isPendingContructing } = require("./shared-service");
-const unitService = require("../systems/unit-resource/unit-resource-service");
-const { getArmorUpgradeLevel, getAttackUpgradeLevel, getWeaponThatCanAttack, getMovementSpeed, isMoving, getPendingOrders, getHighestRangeWeapon, getBuildTimeLeft, isConstructing, setPendingOrders, stop, groupUnits } = require("./unit-service");
 const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
@@ -56,10 +53,15 @@ const { checkUnitCount } = require('../systems/track-units/track-units-service')
 const microService = require('./micro-service');
 const { getDistanceByPath } = require('./resource-manager-service');
 const UnitAbilityMap = require('@node-sc2/core/constants/unit-ability-map');
-const { ADEPTPHASESHIFT } = require('@node-sc2/core/constants/unit-type');
+const { ADEPTPHASESHIFT, QUEEN, BUNKER } = require('@node-sc2/core/constants/unit-type');
 const { scanCloakedEnemy } = require('../helper/terran');
+const { checkTechFor } = require('./agent-service');
+const resourcesService = require('./resources-service');
+const groupTypes = require('@node-sc2/core/constants/groups');
+const unitService = require('./unit-service');
 
 const worldService = {
+  availableProductionUnits: new Map(),
   /** @type {number} */
   foodUsed: 0,
   /** @type {boolean} */
@@ -76,9 +78,10 @@ const worldService = {
    * @returns {Promise<any[]>}
   */
   ability: async (world, abilityId) => {
-    const collectedActions = [];
+    const { getPendingOrders, setPendingOrders } = unitService;
     const { data, resources } = world;
     const { units } = resources.get();
+    const collectedActions = [];
     let canDoTypes = data.findUnitTypesWithAbility(abilityId).reduce((/** @type {UnitTypeId[]} */acc, unitTypeId) => {
       acc.push(unitTypeId);
       const key = [...flyingTypesMapping.keys()].find(key => flyingTypesMapping.get(key) === unitTypeId);
@@ -117,6 +120,8 @@ const worldService = {
  * @returns {Promise<void>}
  */
   addAddOn: async (world, unit, addOnType) => {
+    const { setPendingOrders } = unitService;
+    const { landingAbilities, liftingAbilities } = groupTypes;
     const { data, resources } = world;
     const { actions, map } = resources.get();
     for (const [key, value] of countTypes.entries()) {
@@ -221,7 +226,8 @@ const worldService = {
    * @param {Boolean} getMiddle
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  assignAndSendWorkerToBuild: (world, unitType, position, getMiddle=true) => {
+  assignAndSendWorkerToBuild: (world, unitType, position, getMiddle = true) => {
+    const { setPendingOrders } = unitService;
     const { agent, data, resources } = world;
     const { race } = agent;
     const { units } = resources.get();
@@ -252,9 +258,59 @@ const worldService = {
           resourceManagerService.availableExpansions = [];
         }
         setPendingOrders(unit, unitCommand);
-        collectedActions.push(...unitService.stopOverlappingBuilders(units, unit, position));
+        collectedActions.push(...unitResourceService.stopOverlappingBuilders(units, unit, position));
       }
     }
+    return collectedActions;
+  },
+  /**
+ * 
+ * @param {World} world 
+ * @param {{ combatPoint: Unit; combatUnits: Unit[]; enemyTarget: Unit; supportUnits?: any[]; }} army 
+ * @param {Unit[]} enemyUnits 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+  attackWithArmy: (world, army, enemyUnits) => {
+    const { changelingTypes } = groupTypes;
+    const { SIEGETANKSIEGED } = UnitType;
+    const { tankBehavior } = unitResourceService;
+    const { resources } = world;
+    const { units } = resources.get();
+    const collectedActions = [];
+    const pointType = army.combatPoint.unitType;
+    const pointTypeUnits = units.getById(pointType);
+    const nonPointTypeUnits = army.combatUnits.filter(unit => !(unit.unitType === pointType) && unit.labels.size === 0);
+    if (changelingTypes.includes(army.enemyTarget.unitType)) {
+      const killChanglingCommand = createUnitCommand(ATTACK, pointTypeUnits);
+      killChanglingCommand.targetUnitTag = army.enemyTarget.tag;
+      collectedActions.push(killChanglingCommand);
+    } else {
+      const range = Math.max.apply(Math, world.data.getUnitTypeData(SIEGETANKSIEGED).weapons.map(weapon => { return weapon.range; }));
+      const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
+      [...pointTypeUnits, ...nonPointTypeUnits].forEach(unit => {
+        const [closestUnit] = units.getClosest(unit.pos, enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < 16));
+        if (!unit.isMelee() && closestUnit) { collectedActions.push(...worldService.microRangedUnit(world, unit, closestUnit)); }
+        else {
+          const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
+          if (unit.labels.get('combatPoint')) {
+            unitCommand.targetWorldSpacePos = army.enemyTarget.pos;
+          } else {
+            unitCommand.targetWorldSpacePos = targetWorldSpacePos;
+          }
+          collectedActions.push(unitCommand);
+        }
+      });
+      if (army.supportUnits.length > 0) {
+        const supportUnitTags = army.supportUnits.map(unit => unit.tag);
+        let unitCommand = {
+          abilityId: MOVE,
+          targetWorldSpacePos: army.combatPoint.pos,
+          unitTags: [...supportUnitTags],
+        }
+        collectedActions.push(unitCommand);
+      }
+    }
+    collectedActions.push(...tankBehavior(units));
     return collectedActions;
   },
   /**
@@ -266,6 +322,7 @@ const worldService = {
    * @returns {Promise<void>}
    */
   build: async (world, unitType, targetCount = null, candidatePositions = []) => {
+    const { addonTypes } = groupTypes;
     const { BARRACKS, ORBITALCOMMAND, GREATERSPIRE } = UnitType;
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
@@ -366,8 +423,8 @@ const worldService = {
     const { agent, data, resources } = world;
     const { race } = agent;
     const { units } = resources.get();
-    const { getIdleOrAlmostIdleUnits } = worldService;
-    const { canBuild } = worldService;
+    const { setPendingOrders } = unitService;
+    const { canBuild, getIdleOrAlmostIdleUnits } = worldService;
     const collectedActions = [];
     const workerTypeId = WorkerRace[agent.race];
     if (canBuild(world, workerTypeId) || checkCanBuild) {
@@ -403,6 +460,7 @@ const worldService = {
    * @returns {number}
    */
   calculateDPSHealthOfTrainingUnits: (world, unitTypes, alliance, enemyUnits) => {
+    const { workerTypes } = groupTypes;
     return unitTypes.reduce((totalDPSHealth, unitType) => {
       if (workerTypes.includes(unitType)) {
         return totalDPSHealth;
@@ -505,6 +563,20 @@ const worldService = {
     return worldService.getUnitTypeCount(world, unitType) === targetCount;
   },
   /**
+   * @description Check if a unit type is available for production.
+   * @param {World} world
+   * @param {UnitTypeId} unitType
+   * @returns {boolean}
+   */
+  checkProductionAvailability: (world, unitType) => {
+    if (worldService.availableProductionUnits.has(unitType)) {
+      return worldService.availableProductionUnits.get(unitType);
+    }
+    const haveAvailableProductionUnits = haveAvailableProductionUnitsFor(world, unitType);
+    worldService.availableProductionUnits.set(unitType, haveAvailableProductionUnits);
+    return haveAvailableProductionUnits;
+  },
+  /**
    * @param {World} world
    */
   clearUnsettledBuildingPositions: (world) => {
@@ -532,10 +604,12 @@ const worldService = {
  * @returns 
  */
   defend: async (world, mainCombatTypes, supportUnitTypes, threats) => {
-    const { getDPSHealth } = worldService;
-    const { getClosestUnitByPath, getCombatPoint, getCombatRally } = resourceManagerService;
+    const { getClosestUnitByPath, getCombatRally } = resourceManagerService;
+    const { getCombatPoint } = resourcesService;
+    const { groupUnits } = unitService;
+    const { attackWithArmy, engageOrRetreat, getDPSHealth, getWorkerDefenseCommands } = worldService;
     const { QUEEN } = UnitType;
-    const { agent, resources } = world;
+    const { agent, data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY);
@@ -546,7 +620,7 @@ const worldService = {
         const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
         collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
         const [combatPoint] = getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits, 1);
-        const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !isRepairing(unit));
+        const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !unitResourceService.isRepairing(unit));
         if (combatPoint) {
           let allyUnits = [...combatUnits, ...supportUnits];
           let selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, enemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
@@ -579,9 +653,33 @@ const worldService = {
             collectedActions.push(...engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
           }
         } else {
-          const workerDefenseCommands = worldService.getWorkerDefenseCommands(world, workers, closestEnemyUnit)
-          console.log(`Pulling ${workerDefenseCommands.length} to defend with.`);
-          collectedActions.push(...workerDefenseCommands);
+          // check if any non workers are training
+          const unitsTraining = getUnitsTraining(world).filter(unitTraining => unitTraining.unitType !== WorkerRace[agent.race]);
+          // if not, pull workers to defend
+          if (unitsTraining.length === 0 || !canTrainingUnitsKillBeforeKilled(world, unitsTraining.map(unitTraining => unitTraining.unitType), threats)) {
+            const workerDefenseCommands = getWorkerDefenseCommands(world, workers, closestEnemyUnit)
+            console.log(`Pulling ${workerDefenseCommands.length} to defend with.`);
+            collectedActions.push(...workerDefenseCommands);
+          } else {
+            // this condition is when workers are not needed to defend
+            // grab any defending workers and send them back to work
+            units.withLabel('defending').forEach(worker => {
+              worker.labels.delete('defending');
+              const { pos } = worker; if (pos === undefined) return;
+              const closestEnemyThatCanAttackUnitByWeaponRange = getClosestThatCanAttackUnitByWeaponRange(data, worker, enemyUnits);
+              const { enemyUnit } = closestEnemyThatCanAttackUnitByWeaponRange; if (enemyUnit === undefined) return;
+              const { pos: targetPos } = enemyUnit; if (targetPos === undefined) return;
+              const unitCommand = createUnitCommand(MOVE, [worker]);
+              let closestCandidateMineralField = getClosestSafeMineralField(resources, pos, targetPos);
+              if (closestCandidateMineralField !== undefined) {
+                unitCommand.abilityId = HARVEST_GATHER;
+                unitCommand.targetUnitTag = closestCandidateMineralField.tag;
+              } else {
+                unitCommand.targetWorldSpacePos = moveAwayPosition(targetPos, pos);
+              }
+              collectedActions.push(unitCommand);
+            });
+          }
         }
       }
     }
@@ -610,7 +708,7 @@ const worldService = {
         candidatePositions = worldService.findPlacements(world, unitType);
         position = findPosition(world, unitType, candidatePositions);
       }
-      planService.buildingPosition = position;
+      planService.setBuildingPosition(unitType, position);
     }
     if (position) {
       // get unitTypes that can build the building
@@ -621,7 +719,7 @@ const worldService = {
           const canPlaceOrFalse = await actions.canPlace(unitType, [position]);
           if (canPlaceOrFalse === false) {
             position = keepPosition(world, unitType, position) ? position : false;
-            planService.buildingPosition = position;
+            planService.setBuildingPosition(unitType, position);
             if (position) {
               collectedActions.push(...worldService.premoveBuilderToPosition(world, position, unitType));
             }
@@ -652,7 +750,9 @@ const worldService = {
    * @returns {Point2D[]}
    */
   findPlacements: (world, unitType) => {
+    const { getBuildTimeLeft } = unitService;
     const { BARRACKS, ENGINEERINGBAY, FORGE, PYLON, REACTOR, SUPPLYDEPOT } = UnitType;
+    const { gasMineTypes } = groupTypes;
     const { agent, data, resources } = world;
     const { race } = agent;
     const { map, units } = resources.get();
@@ -838,6 +938,7 @@ const worldService = {
    * @returns {false | Point2D}
    */
   findPosition: (world, unitType, candidatePositions) => {
+    const { gasMineTypes } = groupTypes;
     if (candidatePositions.length === 0) {
       candidatePositions = worldService.findPlacements(world, unitType);
     }
@@ -894,11 +995,13 @@ const worldService = {
    * @returns {{unit: Unit, timeToPosition: number} | undefined}
    */
   getBuilder: (world, position) => {
+    const { constructionAbilities } = groupTypes;
+    const { getClosestPathablePositionsBetweenPositions, getClosestUnitByPath, getClosestUnitPositionByPath, getDistanceByPath } = resourceManagerService;
+    const { getMovementSpeed, getPendingOrders, isConstructing, isMoving } = unitService;
+    const { getBuilders } = unitResourceService;
     const { data, resources } = world;
     const { map, units } = resources.get();
     const { PROBE, SCV, SUPPLYDEPOT } = UnitType;
-    const { getClosestPathablePositionsBetweenPositions, getClosestUnitByPath, getClosestUnitPositionByPath, getDistanceByPath } = resourceManagerService;
-    const { getBuilders } = unitResourceService;
     let builderCandidates = getBuilders(units);
     /** @type {Unit[]} */
     const movingOrConstructingNonDrones = [];
@@ -1034,6 +1137,7 @@ const worldService = {
    * @returns {Point2D[]}
    */
   getCurrentlyEnrouteConstructionGrids: (world) => {
+    const { constructionAbilities } = groupTypes;
     const { data, resources } = world;
     const { units } = resources.get();
     const contructionGrids = [];
@@ -1154,6 +1258,7 @@ const worldService = {
    * @returns
    */
   getDPSOfInRangeAntiAirUnits: (world, unit) => {
+    const { getWeaponThatCanAttack } = unitService;
     const { data, resources } = world;
     const { units } = resources.get();
     const enemyUnits = units.getAlive(Alliance.ENEMY);
@@ -1185,8 +1290,9 @@ const worldService = {
    * @returns {Unit[]}
    */
   getIdleOrAlmostIdleUnits: (world, unitType) => {
+    const { getBuildTimeLeft, getPendingOrders } = unitService;
     const { data, resources } = world;
-  const { units } = resources.get();
+    const { units } = resources.get();
     return units.getProductionUnits(unitType).filter(unit => {
       const { buildProgress, orders } = unit; if (buildProgress === undefined || orders === undefined) return false;
       if (buildProgress < 1) return false;
@@ -1275,9 +1381,10 @@ const worldService = {
    * @returns {boolean}
    */
   isStrongerAtPosition: (world, position) => {
+    const { workerTypes } = groupTypes;
+    const { calculateNearDPSHealth } = worldService;
     const { resources } = world;
     const { units } = resources.get();
-    const { calculateNearDPSHealth } = worldService;
     let enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => unit.pos && distance(unit.pos, position) < 16);
     enemyUnits = enemyUnits.length === 1 && enemyUnits[0].unitType && workerTypes.includes(enemyUnits[0].unitType) ? [] : enemyUnits;
     if (enemyUnits.length === 0) return true;
@@ -1301,6 +1408,7 @@ const worldService = {
    * @returns {AbilityId[]}
    */
   getReactorAbilities: (data) => {
+    const { reactorTypes } = require("@node-sc2/core/constants/groups");
     const reactorAbilities = [];
     reactorTypes.forEach(type => {
       reactorAbilities.push(data.getUnitTypeData(type).abilityId)
@@ -1312,6 +1420,7 @@ const worldService = {
    * @returns {AbilityId[]}
    */
   getTechlabAbilities: (data) => {
+    const { techLabTypes } = groupTypes;
     const techlabAbilities = [];
     techLabTypes.forEach(type => {
       techlabAbilities.push(data.getUnitTypeData(type).abilityId)
@@ -1324,6 +1433,7 @@ const worldService = {
  * @returns {Unit[]}
  */
   getTrainer: (world, unitTypeId) => {
+    const { getPendingOrders } = unitService;
     const { WARPGATE } = UnitType;
     const { data, resources } = world;
     const { units } = resources.get();
@@ -1385,9 +1495,10 @@ const worldService = {
    * @returns {number}
   */
   getWeaponDPS(world, unitType, alliance, enemyUnitTypes) {
+    const { getArmorUpgradeLevel, getAttackUpgradeLevel } = unitService;
+    const { calculateSplashDamage } = unitResourceService;
     const { data, resources } = world;
     const { units } = resources.get();
-    const { calculateSplashDamage } = unitResourceService;
     const { weapons } = data.getUnitTypeData(unitType);
     if (weapons === undefined) return 0;
     const weaponsDPS = weapons.map(weapon => {
@@ -1636,7 +1747,7 @@ const worldService = {
       fighters.push(fighter);
       timeToKill = getTimeToKill(world, fighters, targetUnits);
       timeToDie = getTimeToKill(world, targetUnits, fighters);
-      if (timeToKill < timeToDie) break;
+      if ((timeToKill * 1.1) < timeToDie) break;
     }
     return fighters.some(fighter => fighter.tag === worker.tag);
   },
@@ -1650,9 +1761,11 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
   */
   engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
+    const { workerTypes } = groupTypes;
+    const { getInRangeDestructables, getMovementSpeed, getWeaponThatCanAttack, setPendingOrders } = unitService;
+    const { microB, microRangedUnit, retreat } = worldService;
     const { data, resources } = world;
     const { units } = resources.get();
-    const { microB, microRangedUnit, retreat } = worldService;
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
     const randomUnit = getRandom(selfUnits);
@@ -1758,7 +1871,7 @@ const worldService = {
               abilityId: ATTACK_ATTACK,
               unitTags: [selfUnit.tag],
             }
-            const destructableTag = armyBehavior.getInRangeDestructables(units, selfUnit);
+            const destructableTag = getInRangeDestructables(units, selfUnit);
             if (destructableTag && clearRocks && !worldService.outpowered) { unitCommand.targetUnitTag = destructableTag; }
             else {
               const [closestCompletedBunker] = units.getClosest(selfUnit.pos, units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1));
@@ -1785,6 +1898,7 @@ const worldService = {
   getWorkerDefenseCommands: (world, workers, closestEnemyUnit) => {
     const { resources } = world;
     const { units } = resources.get();
+    const { stop } = unitService;
     const { getWorkersToDefend, microB } = worldService;
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     const collectedActions = [];
@@ -1905,7 +2019,6 @@ const worldService = {
    */
   microB: (world, unit, targetUnit, enemyUnits) => {
     const { resources } = world;
-    const { map } = resources.get();
     const { ADEPTPHASESHIFT } = UnitType;
     const collectedActions = [];
     const { pos, health, radius, shield, tag, unitType, weaponCooldown } = unit;
@@ -1914,19 +2027,9 @@ const worldService = {
     if (targetPos === undefined || targetHealth === undefined || targetRadius === undefined || targetShield === undefined || targetUnitType === undefined) { return collectedActions; }
     const retreatCommand = createUnitCommand(MOVE, [unit]);
     if (unit.isWorker()) {
-      let closestCandidateMineralField = undefined;
-      for (const expansion of map.getExpansions()) {
-        const { areas, cluster } = expansion; if (areas === undefined || cluster === undefined) { continue; }
-        const { mineralLine } = areas; if (mineralLine === undefined) { continue; }
-        const { mineralFields } = cluster; if (mineralFields === undefined) { continue; }
-        const averageMineralLinePosition = avgPoints(mineralLine);
-        const distanceToMineralLine = getDistanceByPath(resources, pos, averageMineralLinePosition);
-        const distanceToTargetMineralLine = getDistanceByPath(resources, targetPos, averageMineralLinePosition);
-        if (distanceToMineralLine < distanceToTargetMineralLine) {
-          [closestCandidateMineralField] = mineralFields;
-          break;
-        }
-      }          
+      // describe the logic block below
+      // get worker retreat position
+      let closestCandidateMineralField = getClosestSafeMineralField(resources, pos, targetPos);       
       if (closestCandidateMineralField !== undefined) {
         retreatCommand.abilityId = HARVEST_GATHER;
         retreatCommand.targetUnitTag = closestCandidateMineralField.tag;
@@ -1984,6 +2087,7 @@ const worldService = {
    */
   microRangedUnit: (world, unit, targetUnit) => {
     const { data, resources } = world;
+    const { getMovementSpeed } = unitService;
     const { getWeaponDPS } = worldService;
     const { getClosestPathablePositionsBetweenPositions } = resourceManagerService;
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
@@ -2068,6 +2172,8 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   premoveBuilderToPosition: (world, position, unitType) => {
+    const { getBuildTimeLeft, getPendingOrders, isMoving, setPendingOrders } = unitService;
+    const { constructionAbilities, gasMineTypes, workerTypes } = groupTypes;
     const { agent, data, resources } = world;
     if (earmarkThresholdReached(data)) return [];
     const { debug, map, units } = resources.get();
@@ -2153,9 +2259,10 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   pullWorkersToDefend: (world, worker, targetUnit, enemyUnits) => {
+    const { mineralFieldTypes } = groupTypes;
+    const { isRepairing } = unitResourceService;
     const { agent, data, resources } = world;
     const { units } = resources.get();
-    const { isRepairing } = unitResourceService;
     const collectedActions = [];
     const inRangeEnemySupply = calculateHealthAdjustedSupply(world, getInRangeUnits(targetUnit, [...enemyTrackingService.mappedEnemyUnits]));
     const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
@@ -2179,14 +2286,50 @@ const worldService = {
     return collectedActions;
   },
   /**
- * @param {World} world 
- * @param {Point2D} position
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
+   * @param {World} world 
+   * @param {UnitTypeId} mainCombatTypes 
+   * @param {UnitTypeId} supportUnitTypes 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  push: (world, mainCombatTypes, supportUnitTypes) => {
+    const { getClosestUnitByPath, getCombatRally, searchAndDestroy } = resourceManagerService;
+    const { groupUnits } = unitService;
+    const { engageOrRetreat, getDPSHealth } = worldService;
+    const { resources } = world;
+    const { units } = resources.get();
+    const collectedActions = [];
+    let [closestEnemyBase] = getClosestUnitByPath(resources, getCombatRally(resources), units.getBases(Alliance.ENEMY), 1);
+    const { mappedEnemyUnits } = enemyTrackingService;
+    const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+    const avgCombatUnitsPoint = avgPoints(combatUnits.map(unit => unit.pos));
+    const closestEnemyTarget = closestEnemyBase || getClosestUnitByPath(resources, avgCombatUnitsPoint, mappedEnemyUnits, 1)[0];
+    if (closestEnemyTarget) {
+      const { pos } = closestEnemyTarget; if (pos === undefined) { return []; }
+      const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+      collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
+      if (combatUnits.length > 0) {
+        let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
+        let selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, mappedEnemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
+        console.log('Push', selfDPSHealth, closestEnemyTarget['selfDPSHealth']);
+        collectedActions.push(...engageOrRetreat(world, allyUnits, mappedEnemyUnits, pos, false));
+      }
+      collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
+    } else {
+      collectedActions.push(...searchAndDestroy(resources, combatUnits, supportUnits));
+    }
+    return collectedActions;
+  },
+  /**
+   * @param {World} world 
+   * @param {Point2D} position
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   rallyWorkerToTarget: (world, position, mineralTarget = false) => {
+    const { rallyWorkersAbilities } = groupTypes;
+    const { getPendingOrders, setPendingOrders } = unitService;
+    const { getNeediestMineralField } = unitResourceService;
     const { data, resources } = world;
     const { map, units } = resources.get();
-    const { getNeediestMineralField } = unitResourceService;
     const { DRONE, EGG } = UnitType;
     const collectedActions = [];
     const workerSourceByPath = worldService.getWorkerSourceByPath(world, position);
@@ -2222,6 +2365,8 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   repositionBuilding: (world) => {
+    const { setPendingOrders } = unitService;
+    const { landingAbilities, liftingAbilities } = groupTypes;
     const { data, resources } = world;
     const { units } = resources.get();
     const repositionUnits = units.withLabel('reposition');
@@ -2570,6 +2715,7 @@ const worldService = {
    * @param {[]} conditions 
    */
   swapBuildings: async (world, conditions = []) => {
+    const { addonTypes } = groupTypes;
     // get first building, if addon get building offset
     const { units } = world.resources.get();
     const label = 'swapBuilding';
@@ -2609,11 +2755,12 @@ const worldService = {
    * @returns {Promise<void>}
    */
   train: async (world, unitTypeId, targetCount = null) => {
+    const { warpIn } = resourceManagerService;
+    const { setPendingOrders } = unitService;
+    const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
     const { WARPGATE } = UnitType;
     const { data, resources } = world;
     const { actions, units } = resources.get();
-    const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
-    const { warpIn } = resourceManagerService;
     let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return;
     if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
       const randomTrainer = getRandom(getTrainer(world, unitTypeId));
@@ -2650,11 +2797,12 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   trainSync: (world, unitTypeId, targetCount = null) => {
+    const { warpInSync } = resourceManagerService;
+    const { setPendingOrders } = unitService;
+    const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
     const { WARPGATE } = UnitType;
     const { data } = world;
     const collectedActions = [];
-    const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
-    const { warpInSync } = resourceManagerService;
     let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return collectedActions;
     if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
       const randomTrainer = getRandom(getTrainer(world, unitTypeId));
@@ -2684,9 +2832,10 @@ const worldService = {
    * @returns {Boolean}
    */
   shortOnWorkers: (world) => {
+    const { gasMineTypes, townhallTypes } = groupTypes;
+    const { getClosestPathablePositionsBetweenPositions, getDistanceByPath } = resourceManagerService;
     const { agent, resources } = world;
     const { map, units } = resources.get();
-    const { getClosestPathablePositionsBetweenPositions, getDistanceByPath } = resourceManagerService;
     let idealHarvesters = 0
     let assignedHarvesters = 0
     const mineralCollectors = [...units.getBases(), ...units.getById(gasMineTypes)]
@@ -2731,6 +2880,7 @@ const worldService = {
    */
   trainCombatUnits: (world) => {
     const { OVERLORD } = UnitType;
+    const { checkProductionAvailability } = worldService;
     const { agent, data, resources } = world;
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return [];
     const { units } = resources.get();
@@ -2752,8 +2902,8 @@ const worldService = {
         (
           !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]])
         ) &&
-        agent.hasTechFor(type) &&
-        haveAvailableProductionUnitsFor(world, type)
+        checkTechFor(agent, type) &&
+        checkProductionAvailability(world, type)
       ) {
         return true;
       }
@@ -2855,11 +3005,13 @@ const worldService = {
    * @param {number} upgradeId 
    */
   upgrade: async (world, upgradeId) => {
+    const { getPendingOrders } = unitService;
+    const { addEarmark, setAndLogExecutedSteps } = worldService;
     const { BARRACKS, TECHLAB } = UnitType;
+    const { techLabTypes } = groupTypes
     const { agent, data, resources } = world;
     const { upgradeIds } = agent; if (upgradeIds === undefined) return;
     const { actions, frame, units } = resources.get();
-    const { addEarmark, setAndLogExecutedSteps } = worldService;
     if (upgradeIds.includes(upgradeId)) return;
     const upgraders = units.getUpgradeFacilities(upgradeId).filter(upgrader => upgrader.alliance === Alliance.SELF);
     const { abilityId } = data.getUpgradeData(upgradeId); if (abilityId === undefined) return;
@@ -3017,6 +3169,7 @@ function calculateTimeToFinishStructure(data, unit) {
  * @returns {Point2D[]}
  */
 function findZergPlacements(world, unitType) {
+  const { townhallTypes } = groupTypes;
   const { resources } = world;
   const { map, units } = resources.get();
   const candidatePositions = [];
@@ -3097,6 +3250,7 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
  * @returns {SC2APIProtocol.Weapon | undefined}
  **/
 function getWeapon(data, unit, targetUnit) {
+  const { getWeaponThatCanAttack } = unitService;
   const { unitType } = unit;
   if (!unitType) return undefined;
   if (unitType === UnitType.SENTRY) {
@@ -3157,6 +3311,7 @@ function getSafePositions(world, unit, radius = 1) {
  * @returns {boolean}
  */
 function isSafePositionFromTargets(map, unit, targetUnits, point) {
+  const { getHighestRangeWeapon } = unitService;
   if (!existsInMap(map, point)) return false;
   let weaponTargetType = null;
   const { pos, radius } = unit;
@@ -3358,6 +3513,7 @@ function setUnitsProperty(unit, units) {
  * @param {Unit} targetUnit 
  */
 function inCombatRange(data, unit, targetUnit) {
+  const { getWeaponThatCanAttack } = unitService;
   const { pos, radius, unitType } = unit;
   if (pos === undefined || radius === undefined || unitType === undefined) return false;
   const { pos: targetPos, radius: targetRadius } = targetUnit;
@@ -3465,6 +3621,8 @@ function getUnitsInRangeOfPosition(units, position, range) {
  * @returns {number}
  */
 function getContructionTimeLeft(world, unit, inSeconds = true) {
+  const { getBuildTimeLeft } = unitService;
+  const { constructionAbilities } = groupTypes;
   const { data, resources } = world;
   const { units } = resources.get();
   const { orders } = unit; if (orders === undefined) return 0;
@@ -3594,6 +3752,7 @@ function shouldMicro(data, unit, targetUnit) {
  * @returns {{ distance: number, enemyUnit: Unit | undefined }}
  */
 function getClosestThatCanAttackUnitByWeaponRange(data, unit, enemyUnits) {
+  const { getWeaponThatCanAttack } = unitService;
   const { pos, radius } = unit; if (pos === undefined || radius === undefined) return { distance: Infinity, enemyUnit: undefined };
   return enemyUnits.reduce((/** @type {{ distance: number, enemyUnit: Unit | undefined }} */ acc, enemyUnit) => {
     const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return acc; }
@@ -3615,6 +3774,7 @@ function getClosestThatCanAttackUnitByWeaponRange(data, unit, enemyUnits) {
  * @returns {Unit[]}
  */
 function getInRangeAttackableEnemyUnits(data, unit, enemyUnits) {
+  const { getWeaponThatCanAttack } = unitService;
   const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) return [];
   return enemyUnits.filter(enemyUnit => {
     const { pos: enemyUnitPos, radius: enemyUnitRadius } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined) { return false; }
@@ -3632,6 +3792,7 @@ function getInRangeAttackableEnemyUnits(data, unit, enemyUnits) {
  * @returns {Unit[]}
  */
 function getEnemyUnitsInRangeOfTheirAttack(data, unit, enemyUnits) {
+  const { getWeaponThatCanAttack } = unitService;
   const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) return [];
   return enemyUnits.filter(enemyUnit => {
     const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return false; }
@@ -3650,6 +3811,7 @@ function getEnemyUnitsInRangeOfTheirAttack(data, unit, enemyUnits) {
  */
 function findPositionsInRangeOfEnemyUnits(data, unit, enemyUnits) {
   const { enemyUnitsPositions } = enemyTrackingService;
+  const { getWeaponThatCanAttack } = unitService;
   const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) return [];
   return enemyUnits.reduce((/** @type {Point2D[]} */ acc, enemyUnit) => {
     const { pos: enemyUnitPos, radius: enemyUnitRadius, tag, unitType: enemyUnitType } = enemyUnit;
@@ -3677,6 +3839,7 @@ function findPositionsInRangeOfEnemyUnits(data, unit, enemyUnits) {
  * @returns {boolean}
  */
 function isInRangeOfEnemyUnits(data, unit, enemyUnit, position) {
+  const { getWeaponThatCanAttack } = unitService;
   const { radius, unitType } = unit; if (radius === undefined || unitType === undefined) return false;
   const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return false; }
   const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, enemyUnit); if (weaponThatCanAttack === undefined) { return false; }
@@ -3802,6 +3965,7 @@ function logBattleFieldSituation(selfUnit, targetUnit, selfDPSHealth) {
  * @returns {Boolean}
  */
 function isEnemyInAttackRange(data, unit, targetUnit) {
+  const { getWeaponThatCanAttack } = unitService;
   const { pos, radius, unitType } = unit;
   if (!pos || !radius || !unitType || !targetUnit.pos || !targetUnit.radius) return false;
   // check if properties exist
@@ -3816,6 +3980,7 @@ function isEnemyInAttackRange(data, unit, targetUnit) {
  * @returns {Unit|null}
  */
 function getClosestEnemyByRange(data, unit, enemyUnits) {
+  const { getWeaponThatCanAttack } = unitService;
   let shortestDifference = Number.MAX_VALUE;
   return enemyUnits.reduce((closestEnemyByRange, enemyUnit) => {
     const weapon = getWeaponThatCanAttack(data, enemyUnit.unitType, unit);
@@ -3848,3 +4013,106 @@ function setRecruitToBattleLabel(unit, position) {
     }
   });
 }
+
+/**
+ * @param {World} world
+ * @returns {{unitType: number, timeLeft: number}[]}
+ * @description returns unit types that are training, with time left to train
+ */
+function getUnitsTraining(world) {
+  const { getBuildTimeLeft } = unitService;
+  const { data, resources } = world;
+  const { units } = resources.get();
+  const unitsWithOrders = units.getAlive(Alliance.SELF).filter(unit => unit.orders !== undefined && unit.orders.length > 0);
+  return unitsWithOrders.reduce((/** @type {{unitType: number, timeLeft: number}[]} */ acc, unit) => {
+    const { orders } = unit; if (orders === undefined) return acc;
+    /** @type {{abilityId: number | undefined, progress: number | undefined}[]} */
+    const mappedOrders = orders.map(order => ({ abilityId: order.abilityId, progress: order.progress }));
+    mappedOrders.forEach(({ abilityId, progress }) => {
+      if (abilityId === undefined || progress === undefined) return acc;
+      const unitType = dataService.unitTypeTrainingAbilities.get(abilityId);
+      if (unitType !== undefined) {
+        const { attributes, buildTime } = data.getUnitTypeData(unitType); if (attributes === undefined || buildTime === undefined) return acc;
+        if (attributes.includes(Attribute.STRUCTURE)) return acc;
+        const timeLeft = getBuildTimeLeft(unit, buildTime, progress);
+        acc.push({ unitType, timeLeft });
+      }
+    });
+    return acc;
+  }, []);
+}
+
+/**
+ * @param {World} world
+ * @param {UnitTypeId[]} unitTypesTraining
+ * @param {Unit[]} threats
+ * @returns {{timeToKill: number, timeToBeKilled: number}}
+ */
+function calculateTimeToKillForTrainingUnits(world, unitTypesTraining, threats) {
+  const { getWeaponDPS } = worldService;
+  const { getUnitTypeData } = unitResourceService;
+  const { resources } = world;
+  const { units } = resources.get();
+  const timeToKill = threats.reduce((timeToKill, threat) => {
+    const { health, shield, unitType } = threat; if (health === undefined || shield === undefined || unitType === undefined) return timeToKill;
+    const totalHealth = health + shield;
+    const totalWeaponDPS = unitTypesTraining.reduce((totalWeaponDPS, unitType) => {
+      const weaponDPS = getWeaponDPS(world, unitType, Alliance.SELF, threats.map(threat => threat.unitType));
+      return totalWeaponDPS + weaponDPS;
+    }, 0);
+    const timeToKillCurrent = totalHealth / (totalWeaponDPS === 0 ? 1 : totalWeaponDPS);
+    return (timeToKill === Infinity) ? timeToKillCurrent : timeToKill + timeToKillCurrent;
+  }, Infinity);
+  const timeToBeKilled = unitTypesTraining.reduce((timeToBeKilled, unitType) => {
+    const { healthMax, shieldMax } = getUnitTypeData(units, unitType); if (healthMax === undefined || shieldMax === undefined) return timeToBeKilled;
+    const totalHealth = healthMax + shieldMax;
+    const totalWeaponDPS = threats.reduce((totalWeaponDPS, threat) => {
+      const { unitType } = threat; if (unitType === undefined) return totalWeaponDPS;
+      const weaponDPS = getWeaponDPS(world, unitType, Alliance.ENEMY, unitTypesTraining);
+      return totalWeaponDPS + weaponDPS;
+    }, 0);
+    const timeToBeKilledCurrent = totalHealth / (totalWeaponDPS === 0 ? 1 : totalWeaponDPS);
+    return (timeToBeKilled === Infinity) ? timeToBeKilledCurrent : timeToBeKilled + timeToBeKilledCurrent;
+  }, Infinity);
+  return { timeToKill, timeToBeKilled };
+}
+
+/**
+ * @param {World} world
+ * @param {UnitTypeId[]} unitTypesTraining
+ * @param {Unit[]} threats
+ * @returns {Boolean}
+ * @description returns true if training units can kill threats before they kill training units
+ */
+function canTrainingUnitsKillBeforeKilled(world, unitTypesTraining, threats) {
+  console.log('unitTypesTraining', unitTypesTraining, 'threats', threats.map(threat => threat.unitType));
+  const { timeToKill, timeToBeKilled } = calculateTimeToKillForTrainingUnits(world, unitTypesTraining, threats);
+  console.log('timeToKill', timeToKill, 'timeToBeKilled', timeToBeKilled);
+  return timeToKill < timeToBeKilled;
+}
+
+/**
+ * 
+ * @param {ResourceManager} resources 
+ * @param {Point2D} position
+ * @param {Point2D} targetPosition
+ * @returns {Unit | undefined}
+ * @description returns closest safe mineral field to position
+ */
+function getClosestSafeMineralField(resources, position, targetPosition) {
+  const { map } = resources.get();
+  return map.getExpansions().reduce((/** @type {Unit | undefined} */ acc, expansion) => {
+    const { areas, cluster } = expansion; if (areas === undefined || cluster === undefined) return acc;
+    const { mineralLine } = areas; if (mineralLine === undefined) return acc;
+    const { mineralFields } = cluster; if (mineralFields === undefined) return acc;
+    const averageMineralLinePosition = avgPoints(mineralLine);
+    const distancePositionToMineralLine = getDistanceByPath(resources, position, averageMineralLinePosition);
+    const distanceTargetToMineralLine = getDistanceByPath(resources, targetPosition, averageMineralLinePosition);
+    if (distancePositionToMineralLine < distanceTargetToMineralLine) {
+      const [closestMineralField] = mineralFields;
+      return closestMineralField;
+    }
+    return acc;
+  }, undefined);
+}
+

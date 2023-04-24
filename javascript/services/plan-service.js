@@ -93,6 +93,16 @@ const planService = {
     };  
   },
   /**
+   * @param {UnitTypeId} unitType
+   * @param {Point2D | false} position
+   * @returns {void}
+   */
+  setBuildingPosition: (unitType, position) => {
+    if (planService.legacyPlan[planService.currentStep][2] === unitType) {
+      planService.buildingPosition = position;
+    }
+  },
+  /**
    * @param {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number, candidatePositions?: Point2D[] }[]}  plan 
    */
   setPlan: (plan, islegacyPlan = false) => {

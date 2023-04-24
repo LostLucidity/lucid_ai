@@ -6,13 +6,12 @@ const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { SIEGETANKSIEGED, BUNKER, QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getInRangeUnits, getInRangeDestructables } = require("../helper/battle-analysis");
-const { tankBehavior } = require("../helper/behavior/unit-behavior");
-const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const { calculateNearSupply } = require("./data-service");
 const { moveAwayPosition, getDistance } = require("./position-service");
 const { getWeaponThatCanAttack } = require("./unit-service");
 const { retreat } = require("./world-service");
+const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
 
 const armyManagementService = {
   /** @type {Unit[]} */

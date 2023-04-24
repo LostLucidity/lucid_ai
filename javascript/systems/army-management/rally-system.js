@@ -5,10 +5,10 @@ const { createSystem } = require("@node-sc2/core");
 const { LOAD_BUNKER, SMART, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { BUNKER, QUEEN, LARVA } = require("@node-sc2/core/constants/unit-type");
-const { tankBehavior } = require("../../helper/behavior/unit-behavior");
 const armyManagementService = require("../../services/army-management-service");
 const { engageOrRetreat } = require("../../services/army-management-service");
 const { getCombatRally } = require("../../services/resource-manager-service");
+const { tankBehavior } = require("../unit-resource/unit-resource-service");
 
 module.exports = createSystem({
   name: 'RallySystem',
@@ -51,7 +51,7 @@ module.exports = createSystem({
           collectedActions.push(...engageOrRetreat({ data, resources }, selfUnits, enemyUnits, rallyPoint));
         }
       }
-      collectedActions.push(...tankBehavior(units, rallyPoint));
+      collectedActions.push(...tankBehavior(units));
       await actions.sendAction(collectedActions);
     }
   }

@@ -6,6 +6,8 @@ const dataService = require("../services/data-service");
 const sharedService = require("../services/shared-service");
 const unitService = require("../services/unit-service");
 const unitResourceService = require("./unit-resource/unit-resource-service");
+const agentService = require("../services/agent-service");
+const worldService = require("../services/world-service");
 
 
 module.exports = createSystem({
@@ -18,6 +20,8 @@ module.exports = createSystem({
     sharedService.removePendingOrders(units);
     unitResourceService.workers = null;
     unitService.selfUnits = new Map();
+    agentService.hasTechFor = new Map();
+    worldService.availableProductionUnits = new Map();
   },
   async onUnitIdle(world) {
     const { resources } = world;

@@ -2,7 +2,7 @@
 "use strict"
 
 const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
-const { SMART } = require("@node-sc2/core/constants/ability");
+const { SMART, MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes, creepGenerators } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
@@ -19,6 +19,8 @@ const { getPathCoordinates } = require("./path-service");
 const { getDistance } = require("./position-service");
 const { setPendingOrders } = require("./unit-service");
 const { shuffle } = require("../helper/utilities");
+const { PYLON } = require("@node-sc2/core/constants/unit-type");
+const { getOccupiedExpansions } = require("../helper/expansions");
 
 const resourceManagerService = {
   /** @type {Expansion[]} */
@@ -362,7 +364,13 @@ const resourceManagerService = {
     });
     return [...trainingUnitTypes];
   },
+  /**
+   * @param {ResourceManager} resources
+   * @returns {Point2D | undefined}
+   * @description Returns warp in locations for all warp gate units
+   */
   getWarpInLocations: (resources) => {
+    const { getCombatRally } = resourceManagerService;
     const { units } = resources.get();
     const pylonsNearProduction = units.getById(PYLON)
       .filter(pylon => pylon.buildProgress >= 1)
@@ -409,6 +417,36 @@ const resourceManagerService = {
     const { frame } = resources.get();
     const timeInSeconds = frame.timeInSeconds();
     return timeInSeconds > timeStart && timeInSeconds < timeEnd;
+  },
+  searchAndDestroy: (resources, combatUnits, supportUnits) => {
+    const { map, units } = resources.get();
+    const collectedActions = [];
+    const label = 'combatPoint';
+    const combatPoint = combatUnits.find(unit => unit.labels.get(label));
+    if (combatPoint) { combatPoint.labels.set(label, false); }
+    const expansions = [...map.getAvailableExpansions(), ...map.getOccupiedExpansions(4)];
+    const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
+    const randomExpansion = expansions[Math.floor(Math.random() * expansions.length)];
+    const randomPosition = randomExpansion ? randomExpansion.townhallPosition : getRandomPoint(map)
+    if (randomPosition) {
+      if (supportUnits.length > 1) {
+        const supportUnitTags = supportUnits.map(unit => unit.tag);
+        let unitCommand = {
+          abilityId: MOVE,
+          targetWorldSpacePos: randomPosition,
+          unitTags: [...supportUnitTags],
+        }
+        collectedActions.push(unitCommand);
+      }
+      const idleCombatUnitTags = idleCombatUnits.map(unit => unit.tag);
+      let unitCommand = {
+        abilityId: ATTACK_ATTACK,
+        targetWorldSpacePos: randomPosition,
+        unitTags: [...idleCombatUnitTags],
+      }
+      collectedActions.push(unitCommand);
+    }
+    return collectedActions;
   },
   /**
    * @param {ResourceManager} resources

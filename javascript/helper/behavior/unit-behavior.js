@@ -235,40 +235,11 @@ module.exports = {
     });
     return collectedActions;
   },
-  tankBehavior: (units, target) => {
-    const collectedActions = [];
-    const { MORPH_SIEGEMODE, MORPH_UNSIEGE } = Ability;
-    const { SIEGETANK, SIEGETANKSIEGED } = UnitType;
-    // get siege tanks
-    if (target) {
-      units.getByType(SIEGETANK).filter(tank => {
-        collectedActions.push(...triggerAbilityByDistance(tank, target, '<', 4, MORPH_SIEGEMODE));
-      });
-      units.getByType(SIEGETANKSIEGED).filter(tank => {
-        collectedActions.push(...triggerAbilityByDistance(tank, target, '>', 4, MORPH_UNSIEGE));
-      });
-    } else {
-      const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
-      units.getByType(SIEGETANK).filter(tank => {
-        let [closestEnemyUnit] = units.getClosest(tank.pos, enemyUnits, 1);
-        if (closestEnemyUnit) {
-          collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit.pos, '<', 13, MORPH_SIEGEMODE));
-        }
-      });
-      units.getById(SIEGETANKSIEGED).filter(tank => {
-        let [closestEnemyUnit] = units.getClosest(tank.pos, enemyUnits, 1);
-        if (closestEnemyUnit) {
-          collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit.pos, '>', 13, MORPH_UNSIEGE));
-        }
-      });
-    }
-    return collectedActions;
-  },
   /**
    * @param {World} world 
-   * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  workerBehavior: async (world) => {
+  workerBehavior: (world) => {
     const { MOVE } = Ability;
     const { agent, resources } = world
     const { frame, units } = resources.get();
@@ -324,7 +295,7 @@ module.exports = {
                   console.log('Ignore out of build range enemy.');
                   continue;
                 } else {
-                  collectedActions.push(...await pullWorkersToDefend(world, worker, closestEnemyUnit, enemyUnits));
+                  collectedActions.push(...pullWorkersToDefend(world, worker, closestEnemyUnit, enemyUnits));
                 }
               }
             }
@@ -336,24 +307,6 @@ module.exports = {
   }
 }
 
-function triggerAbilityByDistance(unit, target, operator, range, abilityId, pointType) {
-  const collectedActions = [];
-  if (!unit.isEnemy()) {
-    const unitCommand = {};
-    if (operator === '>' && distance(unit.pos, target) > range) {
-      unitCommand.abilityId = abilityId;
-      unitCommand.unitTags = [unit.tag];
-    } else if (operator === '<' && distance(unit.pos, target) < range) {
-      unitCommand.abilityId = abilityId;
-      unitCommand.unitTags = [unit.tag];
-    }
-    if (pointType === 'target') {
-      unitCommand.targetWorldSpacePos = target;
-    }
-    collectedActions.push(unitCommand);
-  }
-  return collectedActions;
-}
 /**
  * @param {MapResource} map 
  * @returns {Expansion[]}

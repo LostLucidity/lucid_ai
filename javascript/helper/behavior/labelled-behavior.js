@@ -15,14 +15,13 @@ const resourceManagerService = require("../../services/resource-manager-service"
 const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
 const { canAttack } = require("../../services/resources-service");
 const { getWeaponThatCanAttack, getPendingOrders } = require("../../services/unit-service");
-const { retreat, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth } = require("../../services/world-service");
+const { retreat, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth, engageOrRetreat } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
 const stateOfGameService = require("../../systems/state-of-game-system/state-of-game-service");
 const { calculateTotalHealthRatio, isByItselfAndNotAttacking } = require("../../systems/unit-resource/unit-resource-service");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
-const { engageOrRetreat } = require("./army-behavior");
 
 module.exports = {
   /**
