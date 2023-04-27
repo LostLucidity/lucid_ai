@@ -138,8 +138,8 @@ async function runGame() {
     race: Race.PROTOSS,
   }
   const opponentRace = Race.PROTOSS;
-  // const map = maps[Math.floor(Math.random() * maps.length)];
-  const map = 'BlackburnAIE';
+  // const map = Object.values(maps)[Math.floor(Math.random() * Object.values(maps).length)];
+  const map = maps.MAP_INSIDE_AND_OUT_AIE;
   console.log('map', map);
   const startTime = new Date();
   console.log('startTime', startTime);
