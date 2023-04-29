@@ -141,10 +141,16 @@ module.exports = {
       if (getUnitTypeCount(world, CREEPTUMORBURROWED) <= 3) {
         const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
         const { townhallPosition } = map.getEnemyNatural();
-        const [closestTownhallPositionToEnemy] = getClosestUnitByPath(resources, townhallPosition, occupiedTownhalls).map(unit => unit.pos);
-        if (closestTownhallPositionToEnemy === undefined) return collectedActions;
-        const closestPathablePositionsBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, closestTownhallPositionToEnemy, townhallPosition);
-        const { pathCoordinates } = closestPathablePositionsBetweenPositions;
+        const closestTownhallPositionToEnemy = occupiedTownhalls.reduce((/** @type {{ distance: number, pos: Point2D, pathCoordinates: Point2D[] }} */ closest, townhall) => {
+          const { pos } = townhall; if (pos === undefined) return closest;
+          const closestPathablePositionsBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, townhallPosition);
+          const { distance, pathCoordinates } = closestPathablePositionsBetweenPositions;
+          if (distance < closest.distance) {
+            return { distance, pos, pathCoordinates };
+          }
+          return closest;
+        }, { distance: Infinity, pos: { x: 0, y: 0 }, pathCoordinates: [] });
+        const { pathCoordinates } = closestTownhallPositionToEnemy;
         let creepEdgeAndPath = pathCoordinates.filter(path => isCreepEdge(map, path));
         if (creepEdgeAndPath.length > 0) {
           const creepEdgeAndPathWithinRange = creepEdgeAndPath.filter(position => getDistance(pos, position) <= 10 && getDistanceByPath(resources, pos, position) <= 10);

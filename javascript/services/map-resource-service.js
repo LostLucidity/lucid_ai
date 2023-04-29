@@ -137,7 +137,7 @@ const MapResourceService = {
    */
   isCreepEdge: (map, pos) => {
     const isCreep = MapResourceService.isCreep(map, pos);
-    return isCreep &&  getNeighbors(pos).some(neighbor => !map.getCreep().some(creepPosition => areEqual(creepPosition, neighbor)) && map.isPlaceable(neighbor));
+    return isCreep && getNeighbors(pos).some(neighbor => !map.hasCreep(neighbor) && map.isPathable(neighbor));
   },
   /**
    * @param {MapResource} map 

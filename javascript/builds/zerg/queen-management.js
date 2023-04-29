@@ -14,6 +14,7 @@ const { createUnitCommand } = require("../../services/actions-service");
 const { getPathCoordinates } = require("../../services/path-service");
 const { getMapPath } = require("../../services/map-resource-service");
 const { getClosestUnitByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("../../services/resource-manager-service");
+const { existsInMap } = require("../../helper/location");
 
 module.exports = {
   labelQueens: (units) => {
@@ -104,6 +105,7 @@ module.exports = {
           do {
             let excludedCircle = gridsInCircle(tumor.pos, lowerLimit);
             const candidatePositions = gridsInCircle(tumor.pos, radius).filter(position => {
+              if (!existsInMap(map, position)) return false;
               const [closestCreepGenerator] = units.getClosest(position, units.getById(creepGenerators));
               const [closestTownhallPosition] = getClosestPosition(position, map.getExpansions().map(expansion => expansion.townhallPosition));
               return [
