@@ -2368,13 +2368,12 @@ const worldService = {
     const { setPendingOrders } = unitService;
     const { landingAbilities, liftingAbilities } = groupTypes;
     const { data, resources } = world;
-    const { units } = resources.get();
+    const { map, units } = resources.get();
     const repositionUnits = units.withLabel('reposition');
     const collectedActions = [];
     if (repositionUnits.length > 0) {
       repositionUnits.forEach(unit => {
-        const { orders, pos } = unit;
-        if (orders === undefined || pos === undefined) return;
+        const { orders, pos, unitType } = unit; if (orders === undefined || pos === undefined || unitType === undefined) return collectedActions;
         if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
           if (unit.labels.get('reposition') === 'lift') {
             const unitCommand = createUnitCommand(Ability.LIFT, [unit]);
@@ -2403,9 +2402,11 @@ const worldService = {
             }
           } else {
             const unitCommand = createUnitCommand(Ability.LAND, [unit]);
-            unitCommand.targetWorldSpacePos = unit.labels.get('reposition');
+            if (!map.isPlaceableAt(unitType, unit.labels.get('reposition'))) {
+              unitCommand.abilityId = MOVE;
+            }
             collectedActions.push(unitCommand);
-            planService.pausePlan = false;
+            unitCommand.targetWorldSpacePos = unit.labels.get('reposition');
             setPendingOrders(unit, unitCommand);
           }
         }
@@ -2762,8 +2763,9 @@ const worldService = {
    */
   train: async (world, unitTypeId, targetCount = null) => {
     const { warpIn } = resourceManagerService;
-    const { setPendingOrders } = unitService;
+    const { getPendingOrders, setPendingOrders } = unitService;
     const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
+    const { reactorTypes, techLabTypes } = groupTypes
     const { WARPGATE } = UnitType;
     const { data, resources } = world;
     const { actions, units } = resources.get();
@@ -2786,11 +2788,31 @@ const worldService = {
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
-        addEarmark(data, data.getUnitTypeData(unitTypeId));
+        const unitTypeData = data.getUnitTypeData(unitTypeId);
+        const { requireAttached, techRequirement } = unitTypeData; if (requireAttached === undefined || techRequirement === undefined) return;
+        addEarmark(data, unitTypeData);
         let canDoTypes = data.findUnitTypesWithAbility(abilityId);
-        const canDoUnits = units.getById(canDoTypes);
+        const canDoUnits = units.getById(canDoTypes).filter(unit => unit.buildProgress && unit.buildProgress >= 1);
         const unit = canDoUnits[Math.floor(Math.random() * canDoUnits.length)];
         if (!unit) return;
+        const { addOnTag } = unit; if (addOnTag === undefined) return;
+        if (requireAttached && parseInt(addOnTag) === 0) {
+          // find add on that matches tech requirement, includes those that are already attached
+          const matchingAddOnTypes = techLabTypes.includes(techRequirement) ? techLabTypes : reactorTypes.includes(techRequirement) ? reactorTypes : [techRequirement];
+          // filter, starport lifts instead of building tech lab
+          const requiredAddOns = units.getById(matchingAddOnTypes).filter(addOn => {
+            const { pos } = addOn; if (pos === undefined) return;
+            // get building that add on is attached to
+            const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(pos), units.getStructures().filter(structure => structure.addOnTag === addOn.tag));
+            if (!addOnBuilding) return;
+            // check if building is idle
+            return addOnBuilding.noQueue && getPendingOrders(addOnBuilding).length === 0;
+          });
+          const addOn = requiredAddOns[Math.floor(Math.random() * requiredAddOns.length)];
+          if (addOn) {
+            unit.labels.set('reposition', getAddOnBuildingPosition(addOn.pos));
+          }
+        }
         const unitCommand = createUnitCommand(abilityId, [unit]);
         setPendingOrders(unit, unitCommand);
       }
