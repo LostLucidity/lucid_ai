@@ -296,7 +296,34 @@ const unitService = {
     const collectedActions = [];
     collectedActions.push(createUnitCommand(STOP, units));
     return collectedActions;
-  }
+  },
+  /**
+   * @param {Unit} unit
+   * @param {Unit} target
+   * @param {string} operator
+   * @param {number} range
+   * @param {AbilityId} abilityId
+   * @param {string} pointType
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
+  triggerAbilityByDistance: (unit, target, operator, range, abilityId, pointType='') => {
+    const collectedActions = [];
+    if (!unit.isEnemy()) {
+      const unitCommand = {};
+      if (operator === '>' && getDistance(unit.pos, target) > range) {
+        unitCommand.abilityId = abilityId;
+        unitCommand.unitTags = [unit.tag];
+      } else if (operator === '<' && getDistance(unit.pos, target) < range) {
+        unitCommand.abilityId = abilityId;
+        unitCommand.unitTags = [unit.tag];
+      }
+      if (pointType === 'target') {
+        unitCommand.targetWorldSpacePos = target;
+      }
+      collectedActions.push(unitCommand);
+    }
+    return collectedActions;
+  },
 }
 
 module.exports = unitService;

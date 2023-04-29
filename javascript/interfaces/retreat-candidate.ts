@@ -3,5 +3,6 @@ export interface RetreatCandidate {
   getDistanceByPathToRetreat: number;
   getDistanceByPathToTarget: number;
   closerOrEqualThanTarget: boolean;
-  safeToRetreat: boolean
+  safeToRetreat: boolean,
+  expansionsInPath: Point2D[];
 }

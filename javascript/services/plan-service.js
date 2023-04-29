@@ -93,15 +93,18 @@ const planService = {
     };  
   },
   /**
-   * @param {UnitTypeId} unitType
-   * @param {Point2D | false} position
-   * @returns {void}
-   */
+ * @param {UnitTypeId} unitType
+ * @param {Point2D | false} position
+ * @returns {void}
+ */
   setBuildingPosition: (unitType, position) => {
-    if (planService.legacyPlan[planService.currentStep][2] === unitType) {
-      planService.buildingPosition = position;
-    }
+    const { legacyPlan, currentStep } = planService;
+    planService.buildingPosition =
+      legacyPlan.length > 0 && legacyPlan[currentStep][2] !== unitType
+        ? planService.buildingPosition || false // Provide a default value
+        : position;
   },
+
   /**
    * @param {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number, candidatePositions?: Point2D[] }[]}  plan 
    */

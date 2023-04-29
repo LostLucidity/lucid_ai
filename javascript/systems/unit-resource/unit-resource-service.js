@@ -14,7 +14,7 @@ const { countTypes, larvaOrEgg } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getDistance } = require("../../services/position-service");
 const { isPendingContructing } = require("../../services/shared-service");
-const { canBeChronoBoosted } = require("../../services/unit-service");
+const { canBeChronoBoosted, triggerAbilityByDistance } = require("../../services/unit-service");
 const unitService = require("../../services/unit-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("../track-units/track-units-service");
@@ -506,23 +506,3 @@ const unitResourceService = {
 }
 
 module.exports = unitResourceService;
-
-
-function triggerAbilityByDistance(unit, target, operator, range, abilityId, pointType) {
-  const collectedActions = [];
-  if (!unit.isEnemy()) {
-    const unitCommand = {};
-    if (operator === '>' && distance(unit.pos, target) > range) {
-      unitCommand.abilityId = abilityId;
-      unitCommand.unitTags = [unit.tag];
-    } else if (operator === '<' && distance(unit.pos, target) < range) {
-      unitCommand.abilityId = abilityId;
-      unitCommand.unitTags = [unit.tag];
-    }
-    if (pointType === 'target') {
-      unitCommand.targetWorldSpacePos = target;
-    }
-    collectedActions.push(unitCommand);
-  }
-  return collectedActions;
-}

@@ -2461,11 +2461,12 @@ const worldService = {
           const retreatCandidates = getRetreatCandidates(world, unit, targetUnit);
           const [largestPathDifferenceRetreat] = retreatCandidates.map((retreat) => {
             if (retreat === undefined) return;
-            const { point } = retreat;
+            const { expansionsInPath, point } = retreat;
             const [closestPathablePosition] = getClosestPositionByPath(resources, pos, getPathablePositions(map, point));
             return {
               point,
               distanceByPath: getDistanceByPath(resources, pos, closestPathablePosition),
+              expansionsInPath
             }
           }).sort((a, b) => {
             const [closestPathablePositionA] = getClosestPositionByPath(resources, pos, getPathablePositions(map, a));
@@ -2473,7 +2474,12 @@ const worldService = {
             return getDistanceByPath(resources, pos, closestPathablePositionA) - getDistanceByPath(resources, pos, closestPathablePositionB);
           });
           if (largestPathDifferenceRetreat) {
-            return largestPathDifferenceRetreat.point;
+            const { expansionsInPath, point } = largestPathDifferenceRetreat;
+            const timeInSeconds = getTimeInSeconds(resources.get().frame.getGameLoop());
+            if (unit.isWorker() && timeInSeconds > 100 && timeInSeconds < 121) {
+              console.log('expansionsInPath', expansionsInPath);
+            }
+            return point;
           } else {
             return findClosestSafePosition(world, unit, travelDistancePerStep) || moveAwayPosition(targetUnit.pos, unit.pos, travelDistancePerStep);
           }
@@ -3345,7 +3351,6 @@ function getRetreatCandidates(world, unit, targetUnit) {
   const { resources } = world;
   const { map, units } = resources.get();
   const { getClosestUnitByPath, getClosestPositionByPath, getDistanceByPath } = resourceManagerService;
-  const { calculateNearDPSHealth } = worldService;
   const expansionLocations = map.getExpansions().map((expansion) => expansion.centroid);
   const { centroid } = map.getMain(); if (centroid === undefined) return [];
   return expansionLocations.map((point) => {
@@ -3365,22 +3370,27 @@ function getRetreatCandidates(world, unit, targetUnit) {
       if (getDistanceByPathToRetreat === Infinity) return undefined;
       const [closestUnit] = units.getClosest(point, [...trackUnitsService.selfUnits, ...enemyTrackingService.mappedEnemyUnits]);
       const { pos: closestUnitPos } = closestUnit; if (closestUnitPos === undefined) return undefined;
-      let safeToRetreat = true;
+      let expansionSafeToRetreat = true;
+      const enemiesNearUnit = getUnitsInRangeOfPosition(enemyTrackingService.mappedEnemyUnits, pos, 16);
       if (getDistance(closestUnitPos, point) < 16) {
-        const alliesAtPoint = getUnitsInRangeOfPosition(trackUnitsService.selfUnits, point, 16);
-        const enemiesNearUnit = getUnitsInRangeOfPosition(enemyTrackingService.mappedEnemyUnits, pos, 16);
-        // @ts-ignore
-        const dpsHealth = calculateNearDPSHealth(world, alliesAtPoint, enemiesNearUnit.map((enemy) => enemy.unitType));
-        // @ts-ignore
-        const dpsHealthOfEnemies = calculateNearDPSHealth(world, enemiesNearUnit, alliesAtPoint.map((ally) => ally.unitType));
-        safeToRetreat = dpsHealth >= dpsHealthOfEnemies;
+        const alliesAtPoint = getUnitsInRangeOfPosition(trackUnitsService.selfUnits, point, 16).filter((ally) => !ally.isWorker());
+        const { timeToKill, timeToBeKilled } = calculateTimeToKill(world, alliesAtPoint, enemiesNearUnit);
+        expansionSafeToRetreat = timeToKill < timeToBeKilled;
       }
+      const pathCoordinates = getPathCoordinates(MapResourceService.getMapPath(map, pos, point));
+      const expansionsInPath = map.getExpansions().filter((expansion) => {
+        const { areas } = expansion; if (areas === undefined) return false;
+        const { areaFill } = areas; if (areaFill === undefined) return false;
+        return pointsOverlap(pathCoordinates, areaFill);
+      })
+      const safeToRetreat = expansionSafeToRetreat && expansionsInPath.length <= 1
       return {
         'point': point,
         getDistanceByPathToRetreat,
         getDistanceByPathToTarget,
         'closerOrEqualThanTarget': getDistanceByPathToRetreat <= getDistanceByPathToTarget,
         'safeToRetreat': safeToRetreat,
+        'expansionsInPath': expansionsInPath.map((expansion) => expansion.centroid),
       }
     } else {
       return undefined;
@@ -4114,5 +4124,38 @@ function getClosestSafeMineralField(resources, position, targetPosition) {
     }
     return acc;
   }, undefined);
+}
+
+/**
+ * @param {World} world
+ * @param {Unit[]} selfUnits
+ * @param {Unit[]} enemyUnits
+ * @returns {{timeToKill: number, timeToBeKilled: number}}
+ */
+function calculateTimeToKill(world, selfUnits, enemyUnits) {
+  const { getWeaponDPS } = worldService;
+  const timeToKill = enemyUnits.reduce((timeToKill, threat) => {
+    const { health, shield, unitType } = threat; if (health === undefined || shield === undefined || unitType === undefined) return timeToKill;
+    const totalHealth = health + shield;
+    const totalWeaponDPS = selfUnits.reduce((totalWeaponDPS, unit) => {
+      const { unitType } = unit; if (unitType === undefined) return totalWeaponDPS;
+      const weaponDPS = getWeaponDPS(world, unitType, Alliance.SELF, enemyUnits.map(threat => threat.unitType));
+      return totalWeaponDPS + weaponDPS;
+    }, 0);
+    const timeToKillCurrent = totalHealth / (totalWeaponDPS === 0 ? 1 : totalWeaponDPS);
+    return (timeToKill === Infinity) ? timeToKillCurrent : timeToKill + timeToKillCurrent;
+  }, Infinity);
+  const timeToBeKilled = selfUnits.reduce((timeToBeKilled, unit) => {
+    const { health, shield, unitType } = unit; if (health === undefined || shield === undefined || unitType === undefined) return timeToBeKilled;
+    const totalHealth = health + shield;
+    const totalWeaponDPS = enemyUnits.reduce((totalWeaponDPS, threat) => {
+      const { unitType } = threat; if (unitType === undefined) return totalWeaponDPS;
+      const weaponDPS = getWeaponDPS(world, unitType, Alliance.ENEMY, selfUnits.map(unit => unit.unitType));
+      return totalWeaponDPS + weaponDPS;
+    }, 0);
+    const timeToBeKilledCurrent = totalHealth / (totalWeaponDPS === 0 ? 1 : totalWeaponDPS);
+    return (timeToBeKilled === Infinity) ? timeToBeKilledCurrent : timeToBeKilled + timeToBeKilledCurrent;
+  }, Infinity);
+  return { timeToKill, timeToBeKilled };
 }
 

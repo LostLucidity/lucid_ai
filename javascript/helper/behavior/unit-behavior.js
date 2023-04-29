@@ -18,7 +18,7 @@ const { canAttack } = require("../../services/resources-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
 const { getCombatRally } = require("../../services/resource-manager-service");
-const { getPendingOrders, setPendingOrders, getWeaponThatCanAttack } = require("../../services/unit-service");
+const { getPendingOrders, setPendingOrders, getWeaponThatCanAttack, triggerAbilityByDistance } = require("../../services/unit-service");
 
 module.exports = {
   /**
