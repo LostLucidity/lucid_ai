@@ -18,6 +18,7 @@ module.exports = createSystem({
     const { units } = resources.get();
     dataService.earmarks = [];
     sharedService.removePendingOrders(units);
+    unitResourceService.unitsById = new Map();
     unitResourceService.workers = null;
     unitService.selfUnits = new Map();
     agentService.hasTechFor = new Map();

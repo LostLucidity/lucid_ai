@@ -7,7 +7,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { intersectionOfPoints } = require("../../helper/utilities");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { creepGenerators } = require("@node-sc2/core/constants/groups");
+const { creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
 const { getClosestPosition } = require("../../helper/get-closest");
 const { canBuild, getDPSHealth, findPosition } = require("../../services/world-service");
 const { createUnitCommand } = require("../../services/actions-service");
@@ -104,9 +104,10 @@ module.exports = {
           const tumor = activeCreepTumors[step];
           do {
             let excludedCircle = gridsInCircle(tumor.pos, lowerLimit);
+            const creepGenerators = units.getById(creepGeneratorsTypes);
             const candidatePositions = gridsInCircle(tumor.pos, radius).filter(position => {
               if (!existsInMap(map, position)) return false;
-              const [closestCreepGenerator] = units.getClosest(position, units.getById(creepGenerators));
+              const [closestCreepGenerator] = units.getClosest(position, creepGenerators);
               const [closestTownhallPosition] = getClosestPosition(position, map.getExpansions().map(expansion => expansion.townhallPosition));
               return [
                 closestCreepGenerator,
@@ -142,8 +143,9 @@ module.exports = {
     if (idleCreeperQueens.length > 0) {
       if (units.getById(CREEPTUMORBURROWED).length <= 3) {
         // get own creep edges
+        const creepGenerators = units.getById(creepGeneratorsTypes);
         const ownCreepEdges = map.getCreep().filter(position => {
-          const [closestCreepGenerator] = units.getClosest(position, units.getById(creepGenerators));
+          const [closestCreepGenerator] = units.getClosest(position, creepGenerators);
           if (closestCreepGenerator) {
             const distanceToCreepGenerator = distance(position, closestCreepGenerator.pos);
             return distanceToCreepGenerator > 9 && distanceToCreepGenerator < 12.75

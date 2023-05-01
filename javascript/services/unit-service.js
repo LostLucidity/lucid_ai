@@ -43,6 +43,8 @@ const unitService = {
    * @type number
    */
   enemyAttackUpgradeLevel: 0,
+  /** @type Map<number, number> */
+  movementSpeedByType: new Map(),
   /**
    * @param {Unit} unit 
    * @returns {boolean}
@@ -129,8 +131,9 @@ const unitService = {
    * @param {boolean} adjustForRealSeconds
    * @returns {number | undefined}
    */
-  getMovementSpeed: (unit, adjustForRealSeconds=false) => {
-    let { movementSpeed } = unit.data();
+  getMovementSpeed: (unit, adjustForRealSeconds = false) => {
+    const { unitType } = unit; if (unitType === undefined) return;
+    let movementSpeed = unitService.getMovementSpeedByType(unit); if (movementSpeed === undefined) return;
     if (unit.unitType === ROACH) {
       if (unit.alliance === Alliance.SELF && unitService.selfGlialReconstitution) {
         movementSpeed += 0.75;
@@ -150,6 +153,18 @@ const unitService = {
       movementSpeed = movementSpeed * 1.5
     }
     return movementSpeed * (adjustForRealSeconds ? 1.4 : 1);
+  },
+  /**
+   * @param {Unit} unit
+   * @returns {number | undefined}
+   */
+  getMovementSpeedByType: (unit) => {
+    const { unitType } = unit; if (unitType === undefined) return;
+    if (!unitService.movementSpeedByType.has(unitType)) {
+      const { movementSpeed } = unit.data(); if (movementSpeed === undefined) return;
+      unitService.movementSpeedByType.set(unitType, movementSpeed);
+    }
+    return unitService.movementSpeedByType.get(unitType);
   },
   /**
    * @param {Unit} unit

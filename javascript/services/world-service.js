@@ -1590,7 +1590,7 @@ const worldService = {
     let count = unitsWithCurrentOrders.length;
     const unitTypes = countTypes.get(unitType) ? countTypes.get(unitType) : [unitType];
     unitTypes.forEach(type => {
-      let unitsToCount = units.getById(type);
+      let unitsToCount = unitResourceService.getById(units, [type]);
       if (agent.race === Race.TERRAN) {
         const completed = type === UnitType.ORBITALCOMMAND ? 0.998 : 1;
         unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= completed);
@@ -2866,7 +2866,7 @@ const worldService = {
     const { map, units } = resources.get();
     let idealHarvesters = 0
     let assignedHarvesters = 0
-    const mineralCollectors = [...units.getBases(), ...units.getById(gasMineTypes)]
+    const mineralCollectors = [...units.getBases(), ...unitResourceService.getById(units, gasMineTypes)]
     mineralCollectors.forEach(mineralCollector => {
       const { buildProgress, assignedHarvesters: assigned, idealHarvesters: ideal, unitType } = mineralCollector;
       if (buildProgress === undefined || assigned === undefined || ideal === undefined || unitType === undefined) return;
@@ -2877,20 +2877,22 @@ const worldService = {
         if (townhallTypes.includes(unitType)) {
           const { pos: townhallPos } = mineralCollector; if (townhallPos === undefined) return false;
           if (map.getExpansions().some(expansion => getDistance(expansion.townhallPosition, townhallPos) < 1)) {
-            const mineralFields = units.getMineralFields().filter(mineralField => {
-              const { pos } = mineralField; if (pos === undefined) return false;
-              if (distance(pos, townhallPos) < 16) {
-                const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, townhallPos)
-                const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
-                const distanceByPath = getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
-                return distanceByPath <= 16;
-              } else {
-                return false;
-              }
-            });
+            let mineralFields = [];
             if (!mineralCollector.labels.has('mineralFields')) {
+              mineralFields = units.getMineralFields().filter(mineralField => {
+                const { pos } = mineralField; if (pos === undefined) return false;
+                if (distance(pos, townhallPos) < 16) {
+                  const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, townhallPos)
+                  const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
+                  const distanceByPath = getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
+                  return distanceByPath <= 16;
+                } else {
+                  return false;
+                }
+              });
               mineralCollector.labels.set('mineralFields', mineralFields);
             }
+            mineralFields = mineralCollector.labels.get('mineralFields');
             idealHarvesters += mineralFields.length * 2 * buildProgress;
           }
         } else {
@@ -2953,14 +2955,15 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   trainWorkers: (world) => {
+    const { getById } = unitResourceService;
+    const { getFoodDifference } = worldService;
     const { agent, resources } = world;
     const { minerals } = agent; if (minerals === undefined) return [];
     const { race } = agent;
     const { units } = resources.get();
-    const { getFoodDifference } = worldService;
     const collectedActions = [];
-    const workerCount = units.getById(WorkerRace[race]).length;
-    const assignedWorkerCount = [...units.getBases(), ...units.getById(GasMineRace[race])].reduce((assignedWorkerCount, base) => base.assignedHarvesters + assignedWorkerCount, 0);
+    const workerCount = getById(units, [WorkerRace[race]]).length;
+    const assignedWorkerCount = [...units.getBases(), ...getById(units, [GasMineRace[race]])].reduce((assignedWorkerCount, base) => base.assignedHarvesters + assignedWorkerCount, 0);
     const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
     const { outpowered, unitProductionAvailable, buildWorkers, shortOnWorkers } = worldService
     let conditionsMet = planService.bogIsActive && minimumWorkerCount <= 11;

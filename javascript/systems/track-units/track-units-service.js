@@ -6,6 +6,7 @@ const { combatTypes } = require("@node-sc2/core/constants/groups");
 const { morphMapping } = require("../../helper/groups");
 const { getSupply } = require("../../services/data-service");
 const { getTrainingSupply } = require("../../services/shared-service");
+const { getById } = require("../../systems/unit-resource/unit-resource-service");
 
 const trackUnitsService = {
   /** @type {Unit[]} */
@@ -16,7 +17,14 @@ const trackUnitsService = {
   /** @type {Unit[]} */
   selfUnits: [],
   selfCombatSupply: 0,
-  checkUnitCount: ({ data, resources }, unitType, targetCount) => {
+  /**
+   * @param {World} world
+   * @param {UnitTypeId} unitType
+   * @param {number} targetCount
+   * @returns {boolean}
+   */
+  checkUnitCount: (world, unitType, targetCount) => {
+    const { data, resources } = world;
     const { units } = resources.get();
     const orders = [];
     let unitTypes = [];
@@ -30,7 +38,7 @@ const trackUnitsService = {
       unit.orders.forEach(order => { if (order.abilityId === abilityId) { orders.push(order); } });
     });
     const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => u.pendingOrders && u.pendingOrders.some(o => o.abilityId === abilityId));
-    const unitCount = units.getById(unitTypes).length + orders.length + unitsWithPendingOrders.length + trackUnitsService.missingUnits.filter(unit => unit.unitType === unitType).length;
+    const unitCount = getById(units, unitTypes).length + orders.length + unitsWithPendingOrders.length + trackUnitsService.missingUnits.filter(unit => unit.unitType === unitType).length;
     return unitCount === targetCount;
   },
   setSelfCombatSupply: (world) => {

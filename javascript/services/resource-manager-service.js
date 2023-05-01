@@ -4,10 +4,9 @@
 const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { SMART, MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { combatTypes, creepGenerators } = require("@node-sc2/core/constants/groups");
+const { combatTypes, creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, areEqual, avgPoints, nClosestPoint } = require("@node-sc2/core/utils/geometry/point");
-const getRandom = require("@node-sc2/core/utils/get-random");
 const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -289,8 +288,9 @@ const resourceManagerService = {
       }
     }
     if (creepEdgesWithinRangeI.length === 0) {
+      const creepGenerators = units.getById(creepGeneratorsTypes);
       return map.getCreep().filter(position => {
-        const [closestCreepGenerator] = units.getClosest(position, units.getById(creepGenerators));
+        const [closestCreepGenerator] = units.getClosest(position, creepGenerators);
         if (closestCreepGenerator) {
           const { pos } = closestCreepGenerator; if (pos === undefined) return false;
           const distanceToCreepGenerator = getDistance(position, pos);

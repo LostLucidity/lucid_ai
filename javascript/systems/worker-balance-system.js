@@ -247,10 +247,11 @@ function assignWorkers(resources) {
   const { map, units } = resources.get();
   const collectedActions = [];
   const gatheringMineralWorkers = getGatheringWorkers(units, 'minerals');
+  const completedBases = units.getBases({ buildProgress: 1, alliance: Alliance.SELF })
   gatheringMineralWorkers.forEach(worker => {
     const { pos } = worker;
     if (pos === undefined) return;
-    const [closestBase] = units.getClosest(pos, units.getBases({ buildProgress: 1, alliance: Alliance.SELF }), 1);
+    const [closestBase] = units.getClosest(pos, completedBases, 1);
     if (closestBase) {
       const [closestExpansion] = getClosestExpansion(map, closestBase.pos); if (closestExpansion === undefined) return;
       const { mineralFields } = closestExpansion.cluster;

@@ -5,6 +5,7 @@ const { WarpUnitAbility } = require("@node-sc2/core/constants");
 const { WARPGATE, TECHLAB } = require("@node-sc2/core/constants/unit-type");
 const dataService = require("../../services/data-service");
 const { getPendingOrders, getBuildTimeLeft } = require("../../services/unit-service");
+const { getById } = require("../unit-resource/unit-resource-service");
 
 const unitTrainingService = {
   /** @type {number|null} */
@@ -36,7 +37,7 @@ const unitTrainingService = {
         conditions.push(unit.hasTechLab());
       } else {
         conditions.push(
-          units.getById(techRequirement).some(unit => {
+          getById(units, [techRequirement]).some(unit => {
             return unit.buildProgress >= 1;
           })
         );

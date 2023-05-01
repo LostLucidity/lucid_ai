@@ -26,6 +26,8 @@ const unitResourceService = {
   unitTypeData: {},
   /** @type {Point2D[]} */
   seigeTanksSiegedGrids: [],
+  /** @type Map<number, Unit[]> */
+  unitsById: new Map(),
   /** @type {Unit[] | null} */
   workers: null,
   /**
@@ -70,6 +72,19 @@ const unitResourceService = {
   },
   deleteLabel(units, label) {
     units.withLabel(label).forEach(pusher => pusher.labels.delete(label));
+  },
+  /**
+   * @param {UnitResource} units
+   * @param {UnitTypeId[]} unitTypes
+   * @returns {Unit[]}
+   */
+  getById(units, unitTypes) {
+    return unitTypes.reduce((/** @type {Unit[]} */ unitsById, unitType) => {
+      if (!unitResourceService.unitsById.has(unitType)) {
+        unitResourceService.unitsById.set(unitType, units.getById(unitType));
+      }
+      return [...unitsById, ...unitResourceService.unitsById.get(unitType) || []];
+    }, []);
   },
   /**
    * @param {UnitResource} units
