@@ -5,7 +5,6 @@ const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { reactorTypes } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { REACTOR } = require("@node-sc2/core/constants/unit-type");
 const dataService = require("../../services/data-service");
 const { setUnitTypeTrainingAbilityMapping } = require("../../services/data-service");
 const planService = require("../../services/plan-service");

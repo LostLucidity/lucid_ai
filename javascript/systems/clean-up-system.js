@@ -28,6 +28,7 @@ module.exports = createSystem({
     const { resources } = world;
     const { units } = resources.get();
     sharedService.removePendingOrders(units);
+    unitResourceService.unitsById = new Map();
     unitResourceService.workers = null;
     unitService.selfUnits = new Map();
   }

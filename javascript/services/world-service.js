@@ -6,7 +6,7 @@ const { UnitTypeId, Ability, UnitType, Buff, WarpUnitAbility, UpgradeId } = requ
 const { MOVE, ATTACK_ATTACK, STOP, CANCEL_QUEUE5, TRAIN_ZERGLING, RALLY_BUILDING, HARVEST_GATHER, SMART, LOAD_BUNKER, ATTACK } = require("@node-sc2/core/constants/ability");
 const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-sc2/core/constants/enums");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, avgPoints, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
+const { distance, avgPoints, createPoint2D, add, subtract } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { countTypes, morphMapping, addOnTypesMapping, flyingTypesMapping } = require("../helper/groups");
 const { getCandidatePositions, getInTheMain } = require("../helper/placement/placement-helper");
@@ -2094,10 +2094,13 @@ const worldService = {
     const collectedActions = [];
     const { enemyUnitsPositions, mappedEnemyUnits } = enemyTrackingService;
     const { alliance, pos, radius, tag, unitType } = unit; if (alliance === undefined || pos === undefined || radius === undefined || tag === undefined || unitType === undefined) { return collectedActions; }
-    const { pos: targetPos, radius: targetRadius } = targetUnit; if (targetPos === undefined || targetRadius === undefined) { return collectedActions; }
+    const { pos: targetPos, radius: targetRadius, tag: targetTag } = targetUnit; if (targetPos === undefined || targetRadius === undefined || targetTag === undefined) { return collectedActions; }
     if (shouldMicro(data, unit, targetUnit)) {
       const positions = findPositionsInRangeOfEnemyUnits(data, unit, [targetUnit]);
-      const [closestPosition] = positions.sort((a, b) => getDistanceByPath(resources, pos, a) - getDistanceByPath(resources, pos, b));
+      const targetPositions = enemyUnitsPositions.get(targetTag);
+      const projectedTargetPosition = targetPositions ? getProjectedPosition(targetPositions.current.pos, targetPositions.previous.pos, targetPositions.current.lastSeen, targetPositions.previous.lastSeen) : targetPos;
+      const addPosition = add(pos, subtract(projectedTargetPosition, targetPos));
+      const [closestPosition] = positions.sort((a, b) => getDistanceByPath(resources, addPosition, a) - getDistanceByPath(resources, addPosition, b));
       const targetWorldSpacePos = closestPosition || moveAwayPosition(targetPos, pos);
       const unitCommand = createUnitCommand(MOVE, [unit]);
       unitCommand.targetWorldSpacePos = targetWorldSpacePos;
@@ -3853,7 +3856,8 @@ function findPositionsInRangeOfEnemyUnits(data, unit, enemyUnits) {
     if (enemyUnitPos === undefined || enemyUnitRadius === undefined || tag === undefined || enemyUnitType === undefined) { return acc; }
     const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, enemyUnit); if (weaponThatCanAttack === undefined) { return acc; }
     const { range } = weaponThatCanAttack; if (range === undefined) { return acc; }
-    const targetPositions = enemyUnitsPositions.get(tag); if (targetPositions === undefined) {
+    const targetPositions = enemyUnitsPositions.get(tag);
+    if (targetPositions === undefined) {
       const pointsInRange = getPointsInRange(enemyUnitPos, range + radius + enemyUnitRadius);
       acc.push(...pointsInRange);
       return acc;
@@ -3909,17 +3913,20 @@ function getPointsInRange(position, range) {
  * @param {Point2D} pos1
  * @param {number} time
  * @param {number} time1
+ * @param {number} [stepSize=8]
  * @returns {Point2D}
  */
-function getProjectedPosition(pos, pos1, time, time1) {
+function getProjectedPosition(pos, pos1, time, time1, stepSize = 8) {
   const { x, y } = pos; if (x === undefined || y === undefined) return pos;
   const { x: x1, y: y1 } = pos1; if (x1 === undefined || y1 === undefined) return pos;
   const timeDiff = time1 - time;
+  if (timeDiff === 0) return pos;
+  const adjustedTimeDiff = timeDiff / stepSize;
   const xDiff = x1 - x;
   const yDiff = y1 - y;
   const projectedPosition = {
-    x: x + xDiff / timeDiff,
-    y: y + yDiff / timeDiff,
+    x: x + xDiff / adjustedTimeDiff,
+    y: y + yDiff / adjustedTimeDiff,
   };
   return projectedPosition;
 }

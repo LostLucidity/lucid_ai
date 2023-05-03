@@ -18,7 +18,6 @@ const wallOffRampSystem = require('./systems/wall-off-ramp/wall-off-ramp-system'
 const runBehaviorsSystem = require('./systems/run-behaviors-system');
 const enemyTrackingSystem = require('./systems/enemy-tracking/enemy-tracking-system');
 const rallySystem = require('./systems/army-management/rally-system');
-const defenseSystem = require('./systems/army-management/defense-system');
 const manageSupplySystem = require('./systems/manage-supply-system');
 const debugSystem = require('./systems/debug-system');
 const trackUnitsSystem = require('./systems/track-units/track-units-system');
