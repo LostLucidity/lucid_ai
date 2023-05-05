@@ -8,7 +8,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getInRangeUnits, getInRangeDestructables } = require("../helper/battle-analysis");
 const { createUnitCommand } = require("./actions-service");
 const { calculateNearSupply } = require("./data-service");
-const { moveAwayPosition, getDistance } = require("./position-service");
+const { moveAwayPosition, getDistance, getBorderPositions } = require("./position-service");
 const { getWeaponThatCanAttack } = require("./unit-service");
 const { retreat } = require("./world-service");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
@@ -178,21 +178,4 @@ function unitHasTargetPosition(unit, targetPosition) {
     return getDistance(targetWorldSpacePos, targetPosition) < defaultDistance;
   });
   return !orderFound && getDistance(pos, targetPosition) > defaultDistance;
-}
-
-/**
- * @param {Point2D} pos
- * @param {Number} radius
- * @returns {Point2D[]}
- */
-function getBorderPositions(pos, radius) {
-  const positions = [];
-  for (let i = 0; i < 360; i += 10) {
-    const { x, y } = pos; if (x === undefined || y === undefined) { return []; }
-    const angle = i * Math.PI / 180;
-    const x1 = x + radius * Math.cos(angle);
-    const y1 = y + radius * Math.sin(angle);
-    positions.push({ x: x1, y: y1 });
-  }
-  return positions;
 }

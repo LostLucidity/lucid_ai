@@ -8,6 +8,22 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const positionService = {
   /**
+   * @param {Point2D} pos
+   * @param {Number} radius
+   * @returns {Point2D[]}
+   */
+  getBorderPositions(pos, radius) {
+    const positions = [];
+    for (let i = 0; i < 360; i += 10) {
+      const { x, y } = pos; if (x === undefined || y === undefined) { return []; }
+      const angle = i * Math.PI / 180;
+      const x1 = x + radius * Math.cos(angle);
+      const y1 = y + radius * Math.sin(angle);
+      positions.push({ x: x1, y: y1 });
+    }
+      return positions;
+    },
+  /**
    * @param {Point2D} posA
    * @param {Point2D} posB
    * @returns {number}

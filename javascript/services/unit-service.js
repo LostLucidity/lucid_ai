@@ -107,6 +107,12 @@ const unitService = {
     });
     return highestRange;
   },
+  /**
+   * 
+   * @param {UnitResource} units
+   * @param {Unit} selfUnit
+   * @returns {string | null | undefined}
+   */
   getInRangeDestructables: (units, selfUnit) => {
     let tag = null;
     const ROCKS = [373, 638, 639, 640, 643];
