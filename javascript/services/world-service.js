@@ -2821,7 +2821,7 @@ const worldService = {
         const { requireAttached, techRequirement } = unitTypeData; if (requireAttached === undefined || techRequirement === undefined) return;
         addEarmark(data, unitTypeData);
         let canDoTypes = data.findUnitTypesWithAbility(abilityId);
-        const canDoUnits = units.getById(canDoTypes).filter(unit => unit.buildProgress && unit.buildProgress >= 1);
+        const canDoUnits = units.getById(canDoTypes).filter(unit => abilityId && unit.abilityAvailable(abilityId));
         const unit = canDoUnits[Math.floor(Math.random() * canDoUnits.length)];
         if (!unit) return;
         const { addOnTag } = unit; if (addOnTag === undefined) return;
