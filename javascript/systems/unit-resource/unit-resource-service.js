@@ -22,6 +22,10 @@ const Ability = require("@node-sc2/core/constants/ability");
 const { UnitType } = require("@node-sc2/core/constants");
 
 const unitResourceService = {
+  /** @type {Map<string, UnitTypeId>} */
+  flyingStructures: new Map(),
+  /** @type {Point2D[]} */
+  landingGrids: [],
   /** @type {{}} */
   unitTypeData: {},
   /** @type {Point2D[]} */

@@ -12,6 +12,9 @@ const { supplyDepotBehavior } = require("../../helper/behavior/unit-behavior");
 const { getDistance } = require("../../services/position-service");
 const { getWeaponThatCanAttack } = require("../../services/unit-service");
 const unitResourceService = require("./unit-resource-service");
+const { landingAbilities } = require("@node-sc2/core/constants/groups");
+const { flyingTypesMapping } = require("../../helper/groups");
+const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 
 module.exports = createSystem({
   name: 'UnitResourceSystem',
@@ -38,6 +41,8 @@ module.exports = createSystem({
         }
       });
     });
+    unitResourceService.landingGrids = getLandingGrids(units);
+    maintainPlaceableGridsForFlyingStructures(resources);
   },
   async onUnitDamaged(world, unit) {
     const { data, resources } = world;
@@ -62,3 +67,44 @@ module.exports = createSystem({
     }
   }
 });
+
+/**
+ * @param {UnitResource} units
+ * @returns {Point2D[]}
+ */
+function getLandingGrids(units) {
+  return units.getStructures().reduce((/** @type {Point2D[]} */gridList, structure) => {
+    const { orders, pos, radius, unitType } = structure; if (orders === undefined || pos === undefined || radius === undefined || unitType === undefined) return gridList;
+    const landingOrder = orders.find(order => order.abilityId && landingAbilities.includes(order.abilityId)); if (landingOrder === undefined) return gridList;
+    const { targetWorldSpacePos } = landingOrder; if (targetWorldSpacePos === undefined) return gridList;
+    const footprint = getFootprint(flyingTypesMapping.get(unitType)); if (footprint === undefined) return gridList;
+    const cells = cellsInFootprint(createPoint2D(targetWorldSpacePos), footprint);
+    gridList.push(...cells);
+    return gridList;
+  }, []);
+}
+
+/**
+ * @param {ResourceManager} resources
+ * @returns {void}
+ */
+function maintainPlaceableGridsForFlyingStructures(resources) {
+  const { map, units } = resources.get();
+  units.getStructures().forEach(structure => {
+    const { tag, pos, unitType } = structure; if (tag === undefined || pos === undefined || unitType === undefined) { return; }
+    const { flyingStructures } = unitResourceService;
+    const isExisting = flyingStructures.has(tag);
+    if (!isExisting && flyingTypesMapping.get(unitType)) {
+      unitResourceService.flyingStructures.set(tag, unitType);
+      const footprint = getFootprint(flyingTypesMapping.get(unitType)); if (footprint === undefined) return;
+      cellsInFootprint(pos, footprint).forEach(cell => map.setPlaceable(cell, true));
+    }
+    if (isExisting) {
+      const landedStructure = flyingStructures.get(tag) !== unitType; if (!landedStructure) return;
+      flyingStructures.delete(tag);
+      const footprint = getFootprint(unitType); if (footprint === undefined) return;
+      cellsInFootprint(pos, footprint).forEach(cell => map.setPlaceable(cell, false));
+    }
+  });
+}
+

@@ -2431,7 +2431,8 @@ const worldService = {
             }
           } else {
             const unitCommand = createUnitCommand(Ability.LAND, [unit]);
-            if (!map.isPlaceableAt(unitType, unit.labels.get('reposition'))) {
+            const unitTypeOfFlyingBuilding = flyingTypesMapping.get(unitType); if (unitTypeOfFlyingBuilding === undefined) return collectedActions;
+            if (!map.isPlaceableAt(unitTypeOfFlyingBuilding, unit.labels.get('reposition'))) {
               unitCommand.abilityId = MOVE;
             }
             collectedActions.push(unitCommand);
@@ -2840,6 +2841,10 @@ const worldService = {
           const addOn = requiredAddOns[Math.floor(Math.random() * requiredAddOns.length)];
           if (addOn) {
             unit.labels.set('reposition', getAddOnBuildingPosition(addOn.pos));
+            const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(addOn.pos), units.getStructures().filter(structure => structure.addOnTag === addOn.tag));
+            if (addOnBuilding) {
+              addOnBuilding.labels.set('reposition', 'lift');
+            }
           }
         }
         const unitCommand = createUnitCommand(abilityId, [unit]);
@@ -3089,7 +3094,11 @@ const worldService = {
         const techLabRequired = techLabTypes.some(techLabType => UnitAbilityMap[techLabType].some(ability => ability === abilityId));
         if (techLabRequired) {
           const techLabs = units.getAlive(Alliance.SELF).filter(unit => techLabTypes.includes(unit.unitType));
-          const orphanTechLabs = techLabs.filter(techLab => techLab.unitType === TECHLAB);
+          const orphanTechLabs = techLabs.filter(techLab => {
+            const { pos } = techLab; if (pos === undefined) return false;
+            const footprint = getFootprint(BARRACKS); if (footprint === undefined) return false;
+            return techLab.unitType === TECHLAB && !pointsOverlap(cellsInFootprint(getAddOnBuildingPlacement(pos), footprint), unitResourceService.landingGrids);
+          });
           if (orphanTechLabs.length > 0) {
             // get completed and idle barracks
             let completedBarracks = units.getById(countTypes.get(BARRACKS)).filter(barracks => barracks.buildProgress >= 1);
@@ -3132,7 +3141,7 @@ const worldService = {
             let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
             // if no idle barracks, get closest barracks to tech lab.
             const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => isTrainingUnit(data, barracks) && barracks.orders[0].progress <= 0.5);
-            if (barracks.length > 0) {
+            if (barracks.length > 0 && idleBuildingsWithTechLab.length > 0) {
               barracks.forEach(barracks => {
                 idleBuildingsWithTechLab.forEach(idleBuildingsWithtechLab => {
                   if (closestPair.length > 0) {
