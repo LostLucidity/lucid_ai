@@ -512,7 +512,7 @@ const worldService = {
  * @returns 
  */
   checkAddOnPlacement: async (world, building, addOnType = UnitType.REACTOR) => {
-    const { TECHLAB } = UnitType;
+    const { REACTOR, TECHLAB } = UnitType;
     const { data, resources } = world;
     const { map, units } = resources.get();
     const { findPosition } = worldService;
@@ -523,8 +523,10 @@ const worldService = {
       let range = 1;
       do {
         const nearPoints = gridsInCircle(getAddOnPlacement(building.pos), range).filter(grid => {
-          const addOnBuildingPlacementsForOrphanAddOns = units.getAlive(Alliance.SELF).filter(techLab => techLab.unitType === TECHLAB).reduce((acc, techLab) => {
-            return [...acc, ...cellsInFootprint(getAddOnBuildingPlacement(techLab.pos), { h: 3, w: 3 })];
+          const addOnBuildingPlacementsForOrphanAddOns = units.getStructures(Alliance.SELF).reduce((/** @type {Point2D[]} */acc, structure) => {
+            const { unitType } = structure; if (unitType === undefined) return acc;
+            const isOrphanAddOn = [REACTOR, TECHLAB].includes(unitType); if (!isOrphanAddOn) return acc;
+            return [...acc, ...cellsInFootprint(getAddOnBuildingPlacement(structure.pos), { h: 3, w: 3 })];
           }, []);
           const getBuildingAndAddOnPlacement = [...cellsInFootprint(grid, getFootprint(addOnType)), ...cellsInFootprint(getAddOnBuildingPlacement(grid), { h: 3, w: 3 })];
           return [
