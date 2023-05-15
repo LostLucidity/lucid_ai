@@ -347,7 +347,7 @@ const resourceManagerService = {
    */
   getTrainingUnitTypes: (resources) => {
     const { units } = resources.get();
-    const trainingUnitTypes = new Set();
+    const trainingUnitTypes = [];
     const combatTypesPlusQueens = [...combatTypes, UnitType.QUEEN];
     const unitsWithOrders = units.getAlive(Alliance.SELF).filter(unit => unit.orders !== undefined && unit.orders.length > 0);
     unitsWithOrders.forEach(unit => {
@@ -358,7 +358,7 @@ const resourceManagerService = {
         if (abilityId === undefined) return false;
         const unitType = dataService.unitTypeTrainingAbilities.get(abilityId);
         if (unitType !== undefined && combatTypesPlusQueens.includes(unitType)) {
-          trainingUnitTypes.add(unitType);
+          trainingUnitTypes.push(unitType);
         }
       });
     });
