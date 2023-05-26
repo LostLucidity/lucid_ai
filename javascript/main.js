@@ -158,7 +158,6 @@ async function runGame() {
   const randomSeed = 2;
   const baseSystems = [
     cleanUpSystem,
-    enemyTrackingSystem,
     loggingSystem,
     workerBalanceSystem,   
     debugSystem,
@@ -169,6 +168,7 @@ async function runGame() {
   ];
   const legacySystems = [
     ...baseSystems,
+    enemyTrackingSystem,
     trackUnitsSystem,
     scoutingSystem,
     entry,
@@ -286,3 +286,10 @@ function updateQtable(gameResult) {
   }
 }
 
+process.on('exit', listener => {
+  console.log('exit', listener);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('An unhandled exception occurred:', error);
+});

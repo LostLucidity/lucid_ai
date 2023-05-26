@@ -20,7 +20,7 @@ const { getMiddleOfNaturalWall, getCandidatePositions, getInTheMain } = require(
 const { restorePower } = require("./protoss");
 const { liftToThird } = require("./terran");
 const { balanceResources } = require("../systems/manage-resources");
-const { addonTypes } = require("@node-sc2/core/constants/groups");
+const { addonTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
 const runBehaviors = require("./behavior/run-behaviors");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
 const { getStringNameOfConstant } = require("../services/logging-service");
@@ -45,6 +45,7 @@ const { convertLegacyStep, convertLegacyPlan, setPlan } = require("../services/p
 const { warpIn } = require("../services/resource-manager-service");
 const { createUnitCommand } = require("../services/actions-service");
 const { setPendingOrders } = require("../services/unit-service");
+const MapResourceService = require("../services/map-resource-service");
 
 let ATTACKFOOD = 194;
 
@@ -176,7 +177,7 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async build(world, unitType, targetCount, candidatePositions = []) {
-    const { addAddOn, buildGasMine, getUnitCount, getUnitTypeCount, morphStructureAction } = worldService;
+    const { addAddOn, getUnitCount, getUnitTypeCount, morphStructureAction } = worldService;
     const { agent, data, resources } = world;
     const { race } = agent;
     const { map, units } = resources.get();
@@ -184,9 +185,6 @@ class AssemblePlan {
     const unitCount = getUnitCount(world, unitType);
     if (unitTypeCount <= targetCount && unitCount <= targetCount) {
       switch (true) {
-        case GasMineRace[race] === unitType:
-          this.collectedActions.push(...await buildGasMine(world, unitType));
-          break;
         case TownhallRace[race].includes(unitType):
           if (TownhallRace[race].indexOf(unitType) === 0) {
             if (units.getBases().length === 2 && race === Race.TERRAN) {
@@ -664,12 +662,17 @@ async function getBuildingPosition(world, unitType, candidatePositions) {
     const areEnemyUnitsInWay = checkIfEnemyUnitsInWay(units, unitType, position);
     const enemyBlockingExpansion = areEnemyUnitsInWay && TownhallRace[race][0] === unitType;
     const strongerAtFoundPosition = isStrongerAtPosition(world, position);
-    if (map.isPlaceableAt(unitType, position) && !enemyBlockingExpansion && strongerAtFoundPosition) {
+    if (
+      (gasMineTypes.includes(unitType) ? MapResourceService.isGeyserFree(map, position) : map.isPlaceableAt(unitType, position))
+      && !enemyBlockingExpansion
+      && strongerAtFoundPosition
+    ) {
       return position;
     }
   }
   return findPosition(world, unitType, candidatePositions.filter(pos => isStrongerAtPosition(world, pos)));
 }
+
 
 /**
  * @param {UnitResource} units

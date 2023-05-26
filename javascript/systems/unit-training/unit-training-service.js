@@ -1,8 +1,7 @@
 //@ts-check
 "use strict"
 
-const { WarpUnitAbility } = require("@node-sc2/core/constants");
-const { WARPGATE, TECHLAB } = require("@node-sc2/core/constants/unit-type");
+const { TECHLAB } = require("@node-sc2/core/constants/unit-type");
 const dataService = require("../../services/data-service");
 const { getPendingOrders, getBuildTimeLeft } = require("../../services/unit-service");
 const { getById } = require("../unit-resource/unit-resource-service");
@@ -44,28 +43,6 @@ const unitTrainingService = {
       }
     }
     return conditions.every(condition => condition);
-  },
-  /**
-   * Check if unitType has prerequisites to build when minerals are available.
-   * @param {World} world 
-   * @param {UnitTypeId} unitType 
-   * @returns {boolean}
-   */
-  haveAvailableProductionUnitsFor: (world, unitType) => {
-    const { resources } = world;
-    const { units } = resources.get();
-    const warpInAbilityId = WarpUnitAbility[unitType];
-    return (
-      units.getById(WARPGATE).some(warpgate => warpgate.abilityAvailable(warpInAbilityId)) ||
-      units.getProductionUnits(unitType).some(unit => {
-        const { buildProgress } = unit; if (buildProgress === undefined) return false;
-        return (
-          buildProgress >= 1 &&
-          !unit.isEnemy() &&
-          unitTrainingService.canTrainNow(world, unit, unitType)
-        )
-      })
-    );
   },
   workersTrainingTendedTo: false,
 }

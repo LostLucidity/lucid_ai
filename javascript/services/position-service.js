@@ -8,6 +8,71 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const positionService = {
   /**
+   * @param {Point2D[]} points
+   * @param {number} eps
+   * @param {number} minPts
+   * @returns {Point2D[]}
+   */
+  dbscan(points, eps = 1.5, minPts = 1) {
+  let clusters = [];
+  let visited = new Set();
+  let noise = new Set();
+
+  function rangeQuery(p) {
+    return points.filter((point) => {
+      const distance = positionService.getDistance(p, point); // Assume getDistance is defined
+      return distance <= eps;
+    });
+  }
+
+  points.forEach((point) => {
+    if (!visited.has(point)) {
+      visited.add(point);
+
+      let neighbors = rangeQuery(point);
+
+      if (neighbors.length < minPts) {
+        noise.add(point);
+      } else {
+        let cluster = new Set([point]);
+
+        for (let point2 of neighbors) {
+          if (!visited.has(point2)) {
+            visited.add(point2);
+
+            let neighbors2 = rangeQuery(point2);
+
+            if (neighbors2.length >= minPts) {
+              neighbors = neighbors.concat(neighbors2);
+            }
+          }
+
+          if (!Array.from(cluster).includes(point2)) {
+            cluster.add(point2);
+          }
+        }
+
+        clusters.push(cluster);
+      }
+    }
+  });
+
+  // Return center of each cluster
+    return clusters.map((cluster) => {
+      let x = 0;
+      let y = 0;
+      for (let point of cluster) {
+        x += point.x;
+        y += point.y;
+      }
+
+      return {
+        x: x / cluster.size,
+        y: y / cluster.size
+      };
+    });
+  },
+  /**
    * @param {Point2D} pos
    * @param {Number} radius
    * @returns {Point2D[]}
@@ -22,7 +87,16 @@ const positionService = {
       positions.push({ x: x1, y: y1 });
     }
       return positions;
-    },
+  },
+  /**
+   * @param {Point2D[]} points
+   * @param {number} eps
+   * @param {number} minPts
+   * @returns {Point2D[]}
+   */
+  getClusters(points, eps = 1.5, minPts = 1) {
+    return positionService.dbscan(points, eps, minPts);
+  },
   /**
    * @param {Point2D} posA
    * @param {Point2D} posB

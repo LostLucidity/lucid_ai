@@ -10,7 +10,7 @@ const { createUnitCommand } = require("../../services/actions-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
 const { getPathablePositions, isCreepEdge, isInMineralLine } = require("../../services/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
-const { getDistance } = require("../../services/position-service");
+const { getDistance, getClusters } = require("../../services/position-service");
 const resourceManagerService = require("../../services/resource-manager-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
 const { canAttack } = require("../../services/resources-service");
@@ -135,41 +135,32 @@ module.exports = {
     const label = 'creeper';
     resourceManagerService.creepEdges = [];
     const idleCreeperQueens = units.withLabel(label).filter(unit => unit.isIdle());
+
+    const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
+    const { townhallPosition } = map.getEnemyNatural();
+
     idleCreeperQueens.forEach(unit => {
       let selectedCreepEdge;
       const { pos } = unit; if (pos === undefined) return collectedActions;
       if (getUnitTypeCount(world, CREEPTUMORBURROWED) <= 3) {
-        const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
-        const { townhallPosition } = map.getEnemyNatural();
         const closestTownhallPositionToEnemy = occupiedTownhalls.reduce((/** @type {{ distance: number, pos: Point2D, pathCoordinates: Point2D[] }} */ closest, townhall) => {
           const { pos } = townhall; if (pos === undefined) return closest;
           const closestPathablePositionsBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, townhallPosition);
           const { distance, pathCoordinates } = closestPathablePositionsBetweenPositions;
-          if (distance < closest.distance) {
-            return { distance, pos, pathCoordinates };
-          }
-          return closest;
+          return distance < closest.distance ? { distance, pos, pathCoordinates } : closest;
         }, { distance: Infinity, pos: { x: 0, y: 0 }, pathCoordinates: [] });
-        const { pathCoordinates } = closestTownhallPositionToEnemy;
-        let creepEdgeAndPath = pathCoordinates.filter(path => isCreepEdge(map, path));
+
+        const creepEdgeAndPath = closestTownhallPositionToEnemy.pathCoordinates.filter(path => isCreepEdge(map, path));
         if (creepEdgeAndPath.length > 0) {
-          const creepEdgeAndPathWithinRange = creepEdgeAndPath.filter(position => getDistance(pos, position) <= 10 && getDistanceByPath(resources, pos, position) <= 10);
-          if (creepEdgeAndPathWithinRange.length > 0) {
-            creepEdgeAndPath = creepEdgeAndPathWithinRange;
-          }
-          const outEdgeCandidate = getClosestPositionByPath(resources, closestTownhallPositionToEnemy, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
-          selectedCreepEdge = outEdgeCandidate;
+          selectedCreepEdge = getClosestPositionByPath(resources, closestTownhallPositionToEnemy.pos, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
         }
       } else {
-        let creepCandidates = getCreepEdges(resources, pos);
-        const creepEdgeAndPathWithinRange = getCreepEdges(resources, pos).filter(position => getDistance(pos, position) <= 10 && getDistanceByPath(resources, pos, position) <= 10);
+        let clusteredCreepEdges = getClusters(getCreepEdges(resources, pos));
+        const creepEdgeAndPathWithinRange = clusteredCreepEdges.filter(position => getDistanceSq(pos, position) <= 100); // using square distance
         if (creepEdgeAndPathWithinRange.length > 0) {
-          creepCandidates = creepEdgeAndPathWithinRange;
+          clusteredCreepEdges = creepEdgeAndPathWithinRange;
         }
-        const [closestCreepEdge] = getClosestPositionByPath(resources, pos, creepCandidates);
-        if (closestCreepEdge) {
-          selectedCreepEdge = closestCreepEdge;
-        }
+        selectedCreepEdge = getClosestPositionByPath(resources, pos, clusteredCreepEdges)[0];
       }
       if (selectedCreepEdge) {
         const abilityId = unit.abilityAvailable(BUILD_CREEPTUMOR_QUEEN) ? BUILD_CREEPTUMOR_QUEEN : MOVE;
@@ -434,3 +425,15 @@ function isGathering(units, unit, type=undefined) {
   } 
 }
 
+/**
+ * @param {Point2D} a
+ * @param {Point2D} b
+ * @returns {number}
+ */
+function getDistanceSq(a, b) {
+  const { x: ax, y: ay } = a; if (ax === undefined || ay === undefined) return Infinity
+  const { x: bx, y: by } = b; if (bx === undefined || by === undefined) return Infinity
+  const dx = ax - bx;
+  const dy = ay - by;
+  return dx * dx + dy * dy;
+}

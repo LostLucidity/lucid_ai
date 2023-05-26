@@ -11,6 +11,10 @@ const { getDistance } = require("./position-service");
 
 const MapResourceService = {
   creepEdges: [],
+  /** @type {Map<string, Unit[]>} */
+  freeGasGeysersCache: new Map(),
+  /** @type {Map<string, number[][]>} */
+  pathCache: new Map(),
   /**
    * @param {MapResource} map
    * @param {Point2D} position 
@@ -44,34 +48,66 @@ const MapResourceService = {
   },
   /**
    * @param {MapResource} map
+   * @returns {Unit[]}
+   */
+  getFreeGasGeysers: (map) => {
+    const { freeGasGeysersCache } = MapResourceService;
+    // check if free gas geysers have already been calculated
+    if (!freeGasGeysersCache.has('freeGasGeysers')) {
+      freeGasGeysersCache.set('freeGasGeysers', map.freeGasGeysers());
+    }
+    return freeGasGeysersCache.get('freeGasGeysers') || [];
+  },
+  /**
+   * @param {MapResource} map
    * @param {Point2D} start
    * @param {Point2D} end
    * @returns {number[][]}
    */
   getMapPath: (map, start, end) => {
-    const { getClosestPathablePositions } = MapResourceService;
-    const [startGrid] = getClosestPathablePositions(map, start);
-    const [endGrid] = getClosestPathablePositions(map, end);
-    let force = false;
+    const { pathCache, getClosestPathablePositions } = MapResourceService;
+    const [startGrid, endGrid] = [getClosestPathablePositions(map, start)[0], getClosestPathablePositions(map, end)[0]];
+
     start = startGrid || start;
     end = endGrid || end;
-    const startAndEndAreEqual = areEqual(start, end);
-    if (startAndEndAreEqual) {
+
+    if (areEqual(start, end)) {
       return [];
-    } else {
-      let mapPath = map.path(start, end);
-      mapPath = mapPath.length === 0 ? map.path(end, start) : mapPath;
-      if (mapPath.length > 0) {
-        const pathCoordinates = getPathCoordinates(mapPath);
-        const foundNonPathable = pathCoordinates.some(coordinate => !map.isPathable(coordinate));
-        if (foundNonPathable) {
-          force = true;
-          mapPath = map.path(start, end, { force });
-          mapPath = mapPath.length === 0 ? map.path(end, start, { force }) : mapPath;
-        }
-      }
-      return mapPath;
     }
+
+    const pathKey = `${start.x},${start.y}-${end.x},${end.y}`;
+
+    if (pathCache.has(pathKey)) {
+      const cachedPath = pathCache.get(pathKey) || [];
+      const pathCoordinates = getPathCoordinates(cachedPath);
+
+      if (pathCoordinates.every(coordinate => map.isPathable(coordinate))) {
+        return cachedPath;
+      }
+
+      pathCache.delete(pathKey);
+    }
+
+    const mapPath = map.path(start, end);
+    if (mapPath.length === 0) {
+      return [];
+    }
+
+    pathCache.set(pathKey, mapPath);
+
+    for (let i = 1; i < mapPath.length; i++) {
+      const subStart = mapPath[i];
+      const subPathKey = `${subStart[0]},${subStart[1]}-${end.x},${end.y}`;
+      if (!pathCache.has(subPathKey)) {
+        pathCache.set(subPathKey, mapPath.slice(i));
+      } else {
+        // If the path from the current point to the end is already cached, 
+        // there's no need to set it for the rest of the points in the current path.
+        break;
+      }
+    }
+
+    return mapPath;
   },
   /**
    * @param {MapResource} map
@@ -84,6 +120,7 @@ const MapResourceService = {
     const closestPathablePositions = MapResourceService.getClosestPathablePositions(map, position);
     pathablePositions.push(...closestPathablePositions);
     while (pathablePositions.length === 0) {
+
       pathablePositions = getGridsInCircleWithinMap(map, position, radius).filter(grid => map.isPathable(grid));
       radius += 1;
     }
@@ -137,7 +174,31 @@ const MapResourceService = {
    */
   isCreepEdge: (map, pos) => {
     const isCreep = MapResourceService.isCreep(map, pos);
-    return isCreep && getNeighbors(pos).some(neighbor => !map.hasCreep(neighbor) && map.isPathable(neighbor));
+    if (!isCreep) return false;
+    const { x, y } = pos; if (x === undefined || y === undefined) return false;
+    // Directly calculating the neighbor positions without creating an array.
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        // Skip the center point
+        if (dx === 0 && dy === 0) continue;
+
+        const neighbor = { x: x + dx, y: y + dy };
+        
+        // Check the condition and return early if satisfied
+        if (!map.hasCreep(neighbor) && map.isPathable(neighbor)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  },
+  /**
+   * @param {MapResource} map
+   * @param {Point2D} position
+   * @returns {boolean}
+   */
+  isGeyserFree: (map, position) => {
+    return MapResourceService.getFreeGasGeysers(map).some(geyser => geyser.pos && areEqual(geyser.pos, position));
   },
   /**
    * @param {MapResource} map 

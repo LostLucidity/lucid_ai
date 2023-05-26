@@ -57,24 +57,31 @@ const terran = {
       }
     }
   },
+  /**
+   * @param {UnitResource} units
+   * @param {Unit} target
+   * @param {Unit[]} selfUnits
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   scanCloakedEnemy: (units, target, selfUnits) => {
     const collectedActions = []
-    if (target.cloak === 1) {
+    if (target && target.cloak === 1) {
+      const { pos } = target; if (pos === undefined) return collectedActions;
       let position = null;
-      if (target.cloak === 1) {
-        const [closestToCloak] = units.getClosest(target.pos, selfUnits);
-        if (distance(closestToCloak.pos, target.pos) < 8) {
-          position = target.pos;
+      const [closestToCloak] = units.getClosest(pos, selfUnits); if (closestToCloak === undefined) return collectedActions;
+      const { pos: closestToCloakPos } = closestToCloak; if (closestToCloakPos === undefined) return collectedActions;
+      if (closestToCloak && distance(closestToCloakPos, pos) < 8) {
+        position = target.pos;
+      }
+      const orbitalCommand = units.getById(ORBITALCOMMAND).find(n => n.energy && n.energy > 50);
+      if (position && orbitalCommand) {
+        const { tag } = orbitalCommand; if (tag === undefined) return collectedActions;
+        const unitCommand = {
+          abilityId: EFFECT_SCAN,
+          targetWorldSpacePos: position,
+          unitTags: [tag],
         }
-        const orbitalCommand = units.getById(ORBITALCOMMAND).find(n => n.energy > 50);
-        if (position && orbitalCommand) {
-          const unitCommand = {
-            abilityId: EFFECT_SCAN,
-            targetWorldSpacePos: position,
-            unitTags: [orbitalCommand.tag],
-          }
-          collectedActions.push(unitCommand);
-        }
+        collectedActions.push(unitCommand);
       }
     }
     return collectedActions;

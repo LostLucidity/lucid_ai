@@ -12,10 +12,9 @@ const getClosest = {
    * @returns {Point2D[]}
    */
   getClosestPosition: (position, locations, n = 1) => {
-    return locations.map(location => ({ location, distance: distance(position, location) }))
-      .sort((a, b) => a.distance - b.distance)
-      .map(u => u.location)
-      .slice(0, n);
+    let sortedLocations = locations.map(location => ({ location, distance: distance(position, location) }));
+    sortedLocations.sort((a, b) => a.distance - b.distance);
+    return sortedLocations.slice(0, n).map(u => u.location);
   }
 }
 

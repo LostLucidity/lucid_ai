@@ -406,10 +406,13 @@ function stopExcessGasWorkers(world) {
   const { units } = resources.get();
   const collectedActions = [];
   units.getGasMines().forEach(mine => {
-    const { assignedHarvesters, idealHarvesters } = mine; if (assignedHarvesters === undefined || idealHarvesters === undefined) return;
+    const { assignedHarvesters, idealHarvesters } = mine;
+    if (assignedHarvesters === undefined || idealHarvesters === undefined) return;
     const excessWorkersCount = assignedHarvesters - idealHarvesters;
     if (excessWorkersCount > 0) {
-      const workersAssignedToMine = units.getWorkers().filter(worker => worker.orders && worker.orders[0].targetUnitTag === mine.tag);
+      const workersAssignedToMine = units.getWorkers().filter(worker =>
+        worker.orders && worker.orders.length > 0 && worker.orders[0].targetUnitTag === mine.tag
+      );
       const excessWorkers = workersAssignedToMine.slice(0, excessWorkersCount);
       excessWorkers.forEach(worker => {
         const unitCommand = createUnitCommand(STOP, [worker]);

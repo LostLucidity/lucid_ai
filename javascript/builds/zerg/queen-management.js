@@ -87,9 +87,8 @@ module.exports = {
           const { pos } = tumor;
           if (pos === undefined) return;
           const pathablePositions = getClosestPathablePositionsBetweenPositions(resources, pos, enemyNaturalTownhallPosition);
-          const { pathablePosition, pathableTargetPosition } = pathablePositions;
+          const { pathablePosition, pathCoordinates } = pathablePositions;
           if (!pathablePosition) return;
-          const pathCoordinates = getPathCoordinates(getMapPath(map, pathablePosition, pathableTargetPosition));
           const [farthestPosition] = pathCoordinates.filter(position => distance(position, pos) <= 10 && map.hasCreep(position)).sort((a, b) => distance(b, pos) - distance(a, pos));
           if (!farthestPosition) return;
           const unitCommand = createUnitCommand(BUILD_CREEPTUMOR_TUMOR, [tumor]);

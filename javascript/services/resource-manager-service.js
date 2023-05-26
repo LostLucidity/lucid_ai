@@ -6,7 +6,7 @@ const { SMART, MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes, creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, areEqual, avgPoints, nClosestPoint } = require("@node-sc2/core/utils/geometry/point");
+const { distance, areEqual, avgPoints, nClosestPoint, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -15,11 +15,13 @@ const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
 const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions, isCreepEdge } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
-const { getDistance } = require("./position-service");
+const { getDistance, getClusters } = require("./position-service");
 const { setPendingOrders } = require("./unit-service");
 const { shuffle } = require("../helper/utilities");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { getOccupiedExpansions } = require("../helper/expansions");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const resourceManagerService = {
   /** @type {Expansion[]} */
@@ -94,13 +96,39 @@ const resourceManagerService = {
    * @returns {{distance: number, pathCoordinates: Point2D[], pathablePosition: Point2D, pathableTargetPosition: Point2D}}
    */
   getClosestPathablePositionsBetweenPositions: (resources, position, targetPosition) => {
-    const { map } = resources.get();
+    const { map, units } = resources.get();
+    const mapFixturesToCheck = [
+      ...units.getStructures({ alliance: Alliance.SELF }),
+      ...units.getStructures({ alliance: Alliance.ENEMY }),
+      ...units.getGasGeysers(),
+    ];
+
+    const structureAtPositionCells = getStructureCells(position, mapFixturesToCheck);
+    const structureAtTargetPositionCells = getStructureCells(targetPosition, mapFixturesToCheck);
+
+    // Store the original state of each cell
+    const originalCellStates = new Map();
+    [...structureAtPositionCells, ...structureAtTargetPositionCells].forEach(cell => {
+      originalCellStates.set(cell, map.isPathable(cell));
+      map.setPathable(cell, true);
+    });
+
     const pathablePositions = getPathablePositions(map, position);
     const isAnyPositionCorner = checkIfPositionIsCorner(pathablePositions, position);
+    const filteredPathablePositions = isAnyPositionCorner && pathablePositions.length > 1 ? pathablePositions.filter(pos => {
+      const { x, y } = pos; if (x === undefined || y === undefined) return false;
+      const { x: centerX, y: centerY } = position; if (centerX === undefined || centerY === undefined) return false;
+      return (x > centerX && y > centerY) || (x < centerX && y < centerY);
+    }) : pathablePositions;
     const pathableTargetPositions = getPathablePositions(map, targetPosition);
     const isAnyTargetPositionCorner = checkIfPositionIsCorner(pathableTargetPositions, targetPosition);
-    const distancesAndPositions = pathablePositions.map(pathablePosition => {
-      const distancesToTargetPositions = pathableTargetPositions.map(pathableTargetPosition => {
+    const filteredPathableTargetPositions = isAnyTargetPositionCorner && pathableTargetPositions.length > 1 ? pathableTargetPositions.filter(pos => {
+      const { x, y } = pos; if (x === undefined || y === undefined) return false;
+      const { x: centerX, y: centerY } = targetPosition; if (centerX === undefined || centerY === undefined) return false;
+      return (x > centerX && y > centerY) || (x < centerX && y < centerY);
+    }) : pathableTargetPositions;
+    const distancesAndPositions = filteredPathablePositions.map(pathablePosition => {
+      const distancesToTargetPositions = filteredPathableTargetPositions.map(pathableTargetPosition => {
         return {
           pathablePosition,
           pathableTargetPosition,
@@ -120,20 +148,31 @@ const resourceManagerService = {
         return distancesToTargetPositions.reduce((acc, curr) => acc.distance < curr.distance ? acc : curr);
       }
     }).sort((a, b) => a.distance - b.distance);
+    let result;
     if (isAnyPositionCorner || isAnyTargetPositionCorner) {
       const averageDistance = distancesAndPositions.reduce((acc, curr) => {
         return acc + curr.distance;
       }, 0) / distancesAndPositions.length;
-      const pathablePosition = isAnyPositionCorner ? avgPoints(pathablePositions) : getClosestPosition(position, pathablePositions)[0];
-      const pathableTargetPosition = isAnyTargetPositionCorner ? avgPoints(pathableTargetPositions) : getClosestPosition(targetPosition, pathableTargetPositions)[0];
-      return {
+      const pathablePosition = isAnyPositionCorner ? avgPoints(filteredPathablePositions) : getClosestPosition(position, filteredPathablePositions)[0];
+      const pathableTargetPosition = isAnyTargetPositionCorner ? avgPoints(filteredPathableTargetPositions) : getClosestPosition(targetPosition, filteredPathableTargetPositions)[0];
+      result = {
         pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, pathableTargetPosition)),
         pathablePosition,
         pathableTargetPosition,
         distance: averageDistance
       };
+    } else {
+      result = distancesAndPositions[0];
     }
-    return distancesAndPositions[0];
+
+    // Restore each cell to its original state
+    [...structureAtPositionCells, ...structureAtTargetPositionCells].forEach(cell => {
+      const originalState = originalCellStates.get(cell);
+      map.setPathable(cell, originalState);
+    });
+
+    // return the result after restoring unpathable cells
+    return result;
   },
   /**
    * 
@@ -160,78 +199,49 @@ const resourceManagerService = {
   getClosestUnitByPath: (resources, position, units, n = 1) => {
     const { map } = resources.get();
     const { getClosestPathablePositionsBetweenPositions, getDistanceByPath } = resourceManagerService;
-    const splitUnits = units.reduce((/** @type {{within16: Unit[], outside16: Unit[]}} */ acc, unit) => {
+
+    const splitUnits = units.reduce((/** @type {{within16: Unit[], outside16: Unit[]}} */acc, unit) => {
       const { pos } = unit; if (pos === undefined) return acc;
       const distanceToUnit = getDistance(pos, position);
-      let within16 = false;
-      if (distanceToUnit <= 16) {
-        const { pathablePosition, pathableTargetPosition } = getClosestPathablePositionsBetweenPositions(resources, pos, position);
-        if (getDistanceByPath(resources, pathablePosition, pathableTargetPosition) <= 16) {
-          within16 = true;
-          acc.within16.push(unit);
-        }
-      }
-      !within16 && acc.outside16.push(unit);
-      return acc;
+      const pathablePosData = getClosestPathablePositionsBetweenPositions(resources, pos, position);
+      const distanceByPath = getDistanceByPath(resources, pathablePosData.pathablePosition, pathablePosData.pathableTargetPosition);
+      const isWithin16 = distanceToUnit <= 16 && distanceByPath <= 16;
+      return {
+        within16: isWithin16 ? [...acc.within16, unit] : acc.within16,
+        outside16: isWithin16 ? acc.outside16 : [...acc.outside16, unit]
+      };
     }, { within16: [], outside16: [] });
-    const { within16, outside16 } = splitUnits;
-    let closestUnits = [];
-    closestUnits = [...within16].sort((a, b) => {
-      const { pos: aPos } = a;
-      const { pos: bPos } = b;
-      if (aPos === undefined || bPos === undefined) return 0;
-      const { pathablePosition: aPathablePosition, pathableTargetPosition: aPathableTargetPosition } = getClosestPathablePositionsBetweenPositions(resources, aPos, position);
-      const { pathablePosition: bPathablePosition, pathableTargetPosition: bPathableTargetPosition } = getClosestPathablePositionsBetweenPositions(resources, bPos, position);
-      return getDistanceByPath(resources, aPathablePosition, aPathableTargetPosition) - getDistanceByPath(resources, bPathablePosition, bPathableTargetPosition);
+
+    let closestUnits = splitUnits.within16.sort((a, b) => {
+      const { pos } = a; if (pos === undefined) return 1;
+      const { pos: bPos } = b; if (bPos === undefined) return -1;
+      const aData = getClosestPathablePositionsBetweenPositions(resources, pos, position);
+      const bData = getClosestPathablePositionsBetweenPositions(resources, bPos, position);
+      return getDistanceByPath(resources, aData.pathablePosition, aData.pathableTargetPosition) - getDistanceByPath(resources, bData.pathablePosition, bData.pathableTargetPosition);
     });
+
     if (n === 1 && closestUnits.length > 0) return closestUnits;
-    const unitsByDistance = [...closestUnits, ...outside16].map(unit => {
-      const { pos } = unit; if (pos === undefined) return;
+
+    const unitsByDistance = [...closestUnits, ...splitUnits.outside16].reduce((/** @type {{unit: Unit, distance: number}[]} */acc, unit) => {
+      const { pos } = unit;
+      if (pos === undefined) return acc;
+
       const expansionWithin16 = map.getExpansions().find(expansion => {
-        const { centroid: expansionPos } = expansion; if (expansionPos === undefined) return;
-        if (getDistance(expansionPos, pos) <= 16 && getClosestPathablePositionsBetweenPositions(resources, expansionPos, pos).distance <= 16) return true;
+        const { centroid: expansionPos } = expansion;
+        if (expansionPos === undefined) return;
+        return getDistance(expansionPos, pos) <= 16 && getClosestPathablePositionsBetweenPositions(resources, expansionPos, pos).distance <= 16;
       });
-      const { centroid: expansionPos } = expansionWithin16 || {};
-      const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, expansionPos ? expansionPos : pos, position);
-      return { unit, distance: closestPathablePositionBetweenPositions.distance };
-    }).sort((a, b) => {
-      if (a === undefined || b === undefined) return 0;
+
+      const targetPosition = expansionWithin16 ? expansionWithin16.centroid : pos; if (targetPosition === undefined) return acc;
+      const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, targetPosition, position);
+      return [...acc, { unit, distance: closestPathablePositionBetweenPositions.distance }];
+    }, []).sort((a, b) => {
+      if (a === undefined) return 1;
+      if (b === undefined) return -1;
       return a.distance - b.distance;
     });
-    const reducedUnitsByDistance = unitsByDistance.reduce((/** @type {{unit: Unit, distance: number}[]} */ acc, curr, i, arr) => {
-      if (curr === undefined) return acc;
-      if (i === 0) {
-        const { unit } = curr;
-        const { pos } = unit; if (pos === undefined) return acc;
-        curr = { ...curr, distance: getDistanceByPath(resources, pos, position) };
-        acc.push(curr);
-      } else {
-        const { distance: currDistance } = curr;
-        const { distance: prevDistance } = arr[i - 1] || {};
-        if (currDistance === prevDistance) {
-          const { unit } = curr;
-          const { pos } = unit; if (pos === undefined) return acc;
-          curr = { ...curr, distance: getDistanceByPath(resources, pos, position) };
-          acc.push(curr);
-        }
-      }
-      return acc;
-    }, []);
-    const newUnitsByDistance = unitsByDistance.map((unitByDistance) => {
-      if (unitByDistance === undefined) return;
-      const { unit } = unitByDistance;
-      const { pos } = unit; if (pos === undefined) return;
-      const { distance: newDistance } = reducedUnitsByDistance.find(u => u.unit.tag === unit.tag) || {};
-      if (newDistance !== undefined) {
-        return { unit, distance: newDistance };
-      }
-      return unitByDistance;
-    }).sort((a, b) => {
-      if (a === undefined || b === undefined) return 0;
-      return a.distance - b.distance;
-    });
-      // @ts-ignore
-    return newUnitsByDistance.map(u => u.unit).slice(0, n);
+
+    return unitsByDistance.slice(0, n).map(u => u.unit);
   },
   /**
    * @param {ResourceManager} resources
@@ -271,23 +281,26 @@ const resourceManagerService = {
     return resourceManagerService.getClosestUnitByPath(resources, closestPathablePosition, units, 1)[0];
   },
   /**
-   * @param {ResourceManager} resources
-   * @param {Point2D} position
-   * @returns {Point2D[]}
-   */
+ * @param {ResourceManager} resources
+ * @param {Point2D} position
+ * @returns {Point2D[]}
+ */
   getCreepEdges: (resources, position) => {
     const { creepEdges } = resourceManagerService;
     if (creepEdges.length > 0) return creepEdges;
     const { map, units } = resources.get();
     // get Creep Edges within range with increasing range
-    const creepEdgesWithinRangeI = [];
-    for (let range = 0; range < 10; range++) {
-      const creepEdgesWithinRangeI = getCreepEdgesWithinRange(resources, position, range);
-      if (creepEdgesWithinRangeI.length > 0) {
-        return creepEdgesWithinRangeI;
+
+    const maxRange = 10;
+    const creepEdgesByRange = getCreepEdgesWithinRanges(resources, position, maxRange);
+
+    for (let range = 0; range < maxRange; range++) {
+      if (creepEdgesByRange[range].length > 0) {
+        return creepEdgesByRange[range];
       }
     }
-    if (creepEdgesWithinRangeI.length === 0) {
+
+    if (creepEdgesByRange.every(rangeEdges => rangeEdges.length === 0)) {
       const creepGenerators = units.getById(creepGeneratorsTypes);
       return map.getCreep().filter(position => {
         const [closestCreepGenerator] = units.getClosest(position, creepGenerators);
@@ -300,6 +313,8 @@ const resourceManagerService = {
         }
       });
     }
+    // Default return statement to handle scenarios where no condition is met
+    return [];
   },
   /**
   * @param {ResourceManager} resources
@@ -547,6 +562,36 @@ function getCreepEdgesWithinRange(resources, position, range) {
     return isCreepEdge(map, grid) && getDistanceByPath(resources, position, grid) <= 10;
   });
 }
+/**
+ * @param {ResourceManager} resources
+ * @param {Point2D} position
+ * @param {Number} maxRange
+ * @returns {Point2D[][]}
+ */
+function getCreepEdgesWithinRanges(resources, position, maxRange) {
+  const { map } = resources.get();
+  const { getDistanceByPath } = resourceManagerService;
+  const grids = gridsInCircle(position, maxRange);
+  
+  const clusters = getClusters(grids);
+  // Create an array to hold creep edges for each range
+  /** @type {Point2D[][]} */
+  const creepEdgesByRange = Array.from({ length: maxRange }, () => []);
+
+  clusters.forEach(grid => {
+    if (isCreepEdge(map, grid)) {
+      const distance = getDistanceByPath(resources, position, grid);
+      if (distance <= maxRange) {
+        // Ensure that index is at least 0 to avoid undefined array element
+        const index = Math.floor(distance) > 0 ? Math.floor(distance) - 1 : 0;
+        creepEdgesByRange[index].push(grid);
+      }
+    }
+  });
+
+
+  return creepEdgesByRange;
+}
 
 /**
  * @param {World} world
@@ -587,3 +632,20 @@ function warpInCommands(world, unitType, opts = {}) {
   });
 }
 
+/**
+ * @param {Point2D} position
+ * @param {Unit[]} structures
+ * @returns {Point2D[]}
+ */
+function getStructureCells(position, structures) {
+  return structures.reduce((/** @type {Point2D[]} */ acc, structure) => {
+    const { pos, unitType } = structure;
+    if (pos === undefined || unitType === undefined) return acc;
+    if (getDistance(pos, position) <= 1) {
+      const footprint = getFootprint(unitType);
+      if (footprint === undefined) return acc;
+      acc.push(...cellsInFootprint(createPoint2D(pos), footprint));
+    }
+    return acc;
+  }, []);
+}

@@ -25,11 +25,12 @@ module.exports = createSystem({
     const { frame } = resources.get();
     const gameLoop = frame.getGameLoop();
     if (unit.isStructure() && gameLoop > 0) {
-      logActionIfNearPosition(world, unit);
       const { unitType } = unit; if (unitType === undefined) return;
       if (agent.race === Race.ZERG && ![CREEPTUMOR, CREEPTUMORQUEEN].includes(unitType)) {
         planService.pausePlan = false;
       }
+      worldService.setFoodUsed(world);
+      logActionIfNearPosition(world, unit);
     }
   }
 });
