@@ -39,7 +39,7 @@ const foodUsedService = require('./food-used-service');
 const { keepPosition } = require('./placement-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
 const { canAttack } = require('./resources-service');
-const { getMiddleOfStructure, moveAwayPosition, getDistance, getBorderPositions, dbscan, getClusters } = require('./position-service');
+const { getMiddleOfStructure, moveAwayPosition, getDistance, getBorderPositions, dbscan } = require('./position-service');
 const MapResourceService = require('./map-resource-service');
 const { getPathCoordinates } = require('./path-service');
 const resourceManagerService = require('./resource-manager-service');
@@ -359,8 +359,11 @@ const worldService = {
               collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
             } else {
               const availableExpansions = getAvailableExpansions(resources);
-              candidatePositions.push(getNextSafeExpansions(world, availableExpansions)[0]);
-              collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
+              const nextSafeExpansions = getNextSafeExpansions(world, availableExpansions);
+              if (nextSafeExpansions.length > 0) {
+                candidatePositions.push(nextSafeExpansions[0]);
+                collectedActions.push(...await findAndPlaceBuilding(world, unitType, candidatePositions));
+              }
             }
           } else {
             const unitTypeToCheckAfford = unitType === ORBITALCOMMAND ? BARRACKS : unitType;
@@ -2307,19 +2310,18 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   premoveBuilderToPosition: (world, position, unitType) => {
-    const { getBuildTimeLeft, getPendingOrders, isMoving, setPendingOrders } = unitService;
+    const { getBuildTimeLeft, getPendingOrders } = unitService;
     const { constructionAbilities, gasMineTypes, workerTypes } = groupTypes;
     const { agent, data, resources } = world;
     if (earmarkThresholdReached(data)) return [];
     const { debug, map, units } = resources.get();
     const { getClosestPathablePositionsBetweenPositions, getClosestPositionByPath, getClosestUnitByPath, getDistanceByPath } = resourceManagerService;
-    const { getOrderTargetPosition } = unitResourceService;
     const { rallyWorkerToTarget } = worldService;
     const collectedActions = [];
     position = getMiddleOfStructure(position, unitType);
     const builder = worldService.getBuilder(world, position);
     if (builder) {
-      const { unit, timeToPosition, movementSpeedPerSecond } = getBuilderInformation(builder);
+      let { unit, timeToPosition, movementSpeedPerSecond } = getBuilderInformation(builder);
       const { orders, pos } = unit; if (orders === undefined || pos === undefined) return collectedActions;
       const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, position);
       const { pathCoordinates, pathableTargetPosition } = closestPathablePositionBetweenPositions;
@@ -3958,16 +3960,55 @@ function shouldMicro(data, unit, targetUnit) {
  */
 function getClosestThatCanAttackUnitByWeaponRange(data, unit, enemyUnits) {
   const { getWeaponThatCanAttack } = unitService;
-  const { pos, radius } = unit; if (pos === undefined || radius === undefined) return { distance: Infinity, enemyUnit: undefined };
-  return enemyUnits.reduce((/** @type {{ distance: number, enemyUnit: Unit | undefined }} */ acc, enemyUnit) => {
-    const { pos: enemyUnitPos, radius: enemyUnitRadius, unitType: enemyUnitType } = enemyUnit; if (enemyUnitPos === undefined || enemyUnitRadius === undefined || enemyUnitType === undefined) { return acc; }
-    const weaponThatCanAttack = getWeaponThatCanAttack(data, enemyUnitType, unit); if (weaponThatCanAttack === undefined) { return acc; }
-    const { range } = weaponThatCanAttack; if (range === undefined) { return acc; }
-    const distanceBetweenUnitAndEnemyUnit = getDistance(pos, enemyUnitPos) - radius - enemyUnitRadius - range;
-    if (distanceBetweenUnitAndEnemyUnit < acc.distance) {
-      return { distance: distanceBetweenUnitAndEnemyUnit, enemyUnit };
+  const { pos: unitPos, radius: unitRadius, unitType: unitType } = unit;
+
+  // If essential properties are missing, return early
+  if (unitPos === undefined || unitRadius === undefined || unitType === undefined) {
+    return { distance: Infinity, enemyUnit: undefined };
+  }
+
+  // Iterate through enemy units to find closest that our unit can attack
+  return enemyUnits.reduce((/** @type {{ distance: number, enemyUnit: Unit | undefined }} */ closest, enemyUnit) => {
+    const { pos: enemyPos, radius: enemyRadius, unitType: enemyType } = enemyUnit;
+
+    // Skip if essential enemy properties are missing
+    if (enemyPos === undefined || enemyRadius === undefined || enemyType === undefined) {
+      return closest;
     }
-    return acc;
+
+    // Calculate initial distance between our unit and the enemy
+    let distanceToEnemy = getDistance(unitPos, enemyPos) - unitRadius - enemyRadius;
+
+    // Check if the enemy can be attacked by our unit
+    const weaponThatCanAttackEnemy = getWeaponThatCanAttack(data, enemyType, unit);
+    if (weaponThatCanAttackEnemy !== undefined) {
+      const { range } = weaponThatCanAttackEnemy;
+      if (range === undefined) {
+        return closest;
+      }
+      distanceToEnemy -= range;
+    }
+    // If the enemy is a flying unit and our unit can attack air, check for a weapon
+    else if (enemyUnit.isFlying && unit.canShootUp()) {
+      const weapon = getWeaponThatCanAttack(data, unitType, enemyUnit);
+      if (weapon !== undefined) {
+        const { range } = weapon;
+        if (range !== undefined) {
+          distanceToEnemy -= range;
+        }
+      }
+    }
+    // If our unit can't attack the enemy, skip to the next
+    else {
+      return closest;
+    }
+
+    // If the enemy is closer than the previous closest, update
+    if (distanceToEnemy < closest.distance) {
+      return { distance: distanceToEnemy, enemyUnit };
+    }
+
+    return closest;
   }, { distance: Infinity, enemyUnit: undefined });
 }
 
@@ -4522,4 +4563,22 @@ function boundingBoxesOverlap(box1, box2) {
     box2.maxX < box1.minX ||
     box2.minY > box1.maxY ||
     box2.maxY < box1.minY);
+}
+
+/**
+ * @param {DataStorage} data 
+ * @param {Unit} unit
+ * @returns {boolean}
+ */
+function canUnitTypeAttackAir(data, unit) {
+  const weapons = getWeapons(data, unit);
+
+  for (const weapon of weapons) {
+    const { targets } = weapon;
+    if (targets.includes("air")) {
+      return true;
+    }
+  }
+
+  return false;
 }

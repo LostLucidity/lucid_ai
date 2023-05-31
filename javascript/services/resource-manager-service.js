@@ -6,7 +6,7 @@ const { SMART, MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes, creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, areEqual, avgPoints, nClosestPoint, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
+const { distance, areEqual, avgPoints, nClosestPoint } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
@@ -15,13 +15,11 @@ const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
 const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions, isCreepEdge } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
-const { getDistance, getClusters } = require("./position-service");
+const { getDistance, getClusters, getStructureCells } = require("./position-service");
 const { setPendingOrders } = require("./unit-service");
 const { shuffle } = require("../helper/utilities");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { getOccupiedExpansions } = require("../helper/expansions");
-const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const resourceManagerService = {
   /** @type {Expansion[]} */
@@ -115,18 +113,26 @@ const resourceManagerService = {
 
     const pathablePositions = getPathablePositions(map, position);
     const isAnyPositionCorner = checkIfPositionIsCorner(pathablePositions, position);
-    const filteredPathablePositions = isAnyPositionCorner && pathablePositions.length > 1 ? pathablePositions.filter(pos => {
-      const { x, y } = pos; if (x === undefined || y === undefined) return false;
-      const { x: centerX, y: centerY } = position; if (centerX === undefined || centerY === undefined) return false;
-      return (x > centerX && y > centerY) || (x < centerX && y < centerY);
-    }) : pathablePositions;
+    const filteredPathablePositions = isAnyPositionCorner && pathablePositions.length === 4
+      ? pathablePositions.filter(pos => {
+        const { x, y } = pos;
+        if (x === undefined || y === undefined) return false;
+        const { x: centerX, y: centerY } = position;
+        if (centerX === undefined || centerY === undefined) return false;
+        return (x > centerX && y > centerY) || (x < centerX && y < centerY);
+      })
+      : pathablePositions;
     const pathableTargetPositions = getPathablePositions(map, targetPosition);
     const isAnyTargetPositionCorner = checkIfPositionIsCorner(pathableTargetPositions, targetPosition);
-    const filteredPathableTargetPositions = isAnyTargetPositionCorner && pathableTargetPositions.length > 1 ? pathableTargetPositions.filter(pos => {
-      const { x, y } = pos; if (x === undefined || y === undefined) return false;
-      const { x: centerX, y: centerY } = targetPosition; if (centerX === undefined || centerY === undefined) return false;
-      return (x > centerX && y > centerY) || (x < centerX && y < centerY);
-    }) : pathableTargetPositions;
+    const filteredPathableTargetPositions = isAnyTargetPositionCorner && pathableTargetPositions.length === 4
+      ? pathableTargetPositions.filter(pos => {
+        const { x, y } = pos;
+        if (x === undefined || y === undefined) return false;
+        const { x: centerX, y: centerY } = targetPosition;
+        if (centerX === undefined || centerY === undefined) return false;
+        return (x > centerX && y > centerY) || (x < centerX && y < centerY);
+      })
+      : pathableTargetPositions;
     const distancesAndPositions = filteredPathablePositions.map(pathablePosition => {
       const distancesToTargetPositions = filteredPathableTargetPositions.map(pathableTargetPosition => {
         return {
@@ -442,7 +448,7 @@ const resourceManagerService = {
     const expansions = [...map.getAvailableExpansions(), ...map.getOccupiedExpansions(4)];
     const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue);
     const randomExpansion = expansions[Math.floor(Math.random() * expansions.length)];
-    const randomPosition = randomExpansion ? randomExpansion.townhallPosition : getRandomPoint(map)
+    const randomPosition = randomExpansion ? randomExpansion.townhallPosition : location.getRandomPoint(map)
     if (randomPosition) {
       if (supportUnits.length > 1) {
         const supportUnitTags = supportUnits.map(unit => unit.tag);
@@ -630,22 +636,4 @@ function warpInCommands(world, unitType, opts = {}) {
     unitCommand.targetWorldSpacePos = destPoints[i];
     return unitCommand;
   });
-}
-
-/**
- * @param {Point2D} position
- * @param {Unit[]} structures
- * @returns {Point2D[]}
- */
-function getStructureCells(position, structures) {
-  return structures.reduce((/** @type {Point2D[]} */ acc, structure) => {
-    const { pos, unitType } = structure;
-    if (pos === undefined || unitType === undefined) return acc;
-    if (getDistance(pos, position) <= 1) {
-      const footprint = getFootprint(unitType);
-      if (footprint === undefined) return acc;
-      acc.push(...cellsInFootprint(createPoint2D(pos), footprint));
-    }
-    return acc;
-  }, []);
 }

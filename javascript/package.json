@@ -5,12 +5,15 @@
   "main": "main.js",
   "bin": "main.js",
   "dependencies": {
+    "@babel/core": "^7.22.1",
+    "@babel/eslint-parser": "^7.21.8",
     "@node-sc2/core": "^0.9.0-beta.1",
     "uuid": "^8.3.2"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.22.2",
     "@types/pathfinding": "^0.0.6",
-    "eslint": "^8.8.0",
+    "eslint": "^8.41.0",
     "pkg": "^4.4.8",
     "webpack": "^4.43.0",
     "webpack-cli": "^3.3.11"

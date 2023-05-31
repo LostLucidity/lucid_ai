@@ -3,7 +3,8 @@
 
 const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
+const { distance, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const positionService = {
@@ -121,6 +122,23 @@ const positionService = {
       y += 0.5;
     }
     return { x, y };
+  },
+  /**
+   * @param {Point2D} position
+   * @param {Unit[]} structures
+   * @returns {Point2D[]}
+   */
+  getStructureCells(position, structures) {
+    return structures.reduce((/** @type {Point2D[]} */ acc, structure) => {
+      const { pos, unitType } = structure;
+      if (pos === undefined || unitType === undefined) return acc;
+      if (positionService.getDistance(pos, position) <= 1) {
+        const footprint = getFootprint(unitType);
+        if (footprint === undefined) return acc;
+        acc.push(...cellsInFootprint(createPoint2D(pos), footprint));
+      }
+      return acc;
+    }, []);
   },
   /**
    * return position directly away from targetPosition based on position
