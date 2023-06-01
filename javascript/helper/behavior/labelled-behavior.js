@@ -8,7 +8,7 @@ const { PHOTONCANNON, LARVA, CREEPTUMORBURROWED } = require("@node-sc2/core/cons
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
-const { getPathablePositions, isCreepEdge, isInMineralLine } = require("../../services/map-resource-service");
+const { getPathablePositions, isCreepEdge, isInMineralLine, getMapPath } = require("../../services/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
 const { getDistance, getClusters } = require("../../services/position-service");
 const resourceManagerService = require("../../services/resource-manager-service");
@@ -209,11 +209,20 @@ module.exports = {
         if (threateningUnits.length > 0) {
           const closestThreateningUnit = getClosestByWeaponRange(world, unit, threateningUnits); if (closestThreateningUnit === undefined) return;
           const selfUnits = units.getAlive().filter(unit => unit.pos && unit.alliance === Alliance.SELF && getDistance(pos, unit.pos) < 16);
-          // @ts-ignore
-          const threateningUnitsDPSHealth = getDPSHealth(world, closestThreateningUnit, selfUnits.map(unit => unit.unitType && unit.unitType));
+          const threateningUnitsDPSHealth = getDPSHealth(world, closestThreateningUnit, selfUnits.reduce((/** @type {UnitTypeId[]} */ unitTypes, unit) => {
+            const { unitType } = unit; if (unitType === undefined) return unitTypes;
+            if (!unitTypes.includes(unitType)) {
+              unitTypes.push(unitType);
+            }
+            return unitTypes;
+          }, []));
           const enemyUnitTypes = threateningUnits.map(unit => unit.unitType && unit.unitType);
-          // @ts-ignore
-          const selfUnitDPSHealth = getDPSHealth(world, unit, enemyUnitTypes.filter(unitType => unitType !== undefined));
+          const selfUnitDPSHealth = getDPSHealth(world, unit, enemyUnitTypes.reduce((/** @type {UnitTypeId[]} */ unitTypes, unitType) => {
+            if (unitType && !unitTypes.includes(unitType)) {
+              unitTypes.push(unitType);
+            }
+            return unitTypes;
+          }, []));
           if (threateningUnitsDPSHealth > selfUnitDPSHealth) {
             unit.labels.set('Threatened', true);
             let closestByWeaponRange = getClosestByWeaponRange(world, unit, threateningUnits);
@@ -283,20 +292,55 @@ module.exports = {
         }
       } else {
         if (threateningUnits.length > 0) {
-          let [closestThreateningUnit] = units.getClosest(pos, threateningUnits, 1);
+          const enemyWorkerMovingToNatural = threateningUnits.find(unit => {
+            // Check if unit is a worker and is moving towards natural
+            const { townhallPosition } = map.getEnemyNatural();
+            return unit.isWorker() && isMovingTowards(map, unit, townhallPosition);
+          });
+
+          if (enemyWorkerMovingToNatural) {
+            console.log('Found enemy worker moving towards natural:', enemyWorkerMovingToNatural);
+          }
+
           const unitCommand = createUnitCommand(MOVE, [unit]);
-          if (closestThreateningUnit) {
-            unitCommand.targetWorldSpacePos = retreat(world, unit, closestThreateningUnit, false);
-            const { targetWorldSpacePos } = unitCommand;
-            if (targetWorldSpacePos === undefined) return;
-            console.log('retreat!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
+
+          if (enemyWorkerMovingToNatural) {
+            // Get distances
+            const { townhallPosition } = map.getEnemyNatural();
+            if (!unit.pos || !enemyWorkerMovingToNatural.pos) return;
+            const myDistance = getDistanceByPath(resources, unit.pos, townhallPosition);
+            const enemyDistance = getDistanceByPath(resources, enemyWorkerMovingToNatural.pos, townhallPosition);
+
+            console.log('My Distance:', myDistance, 'Enemy Distance:', enemyDistance);
+
+            // Move to natural to block worker if your unit can get there within an absolute distance difference of 2.5 compared to the enemy unit getting there.
+            if (Math.abs(myDistance - enemyDistance) <= 2.5) {
+              unitCommand.targetWorldSpacePos = townhallPosition;
+              console.log('Moving towards townhall to block enemy worker');
+            } else {
+              console.log('Not close enough to block worker at townhall');
+            }
+          } else if (unit.pos === map.getEnemyNatural().townhallPosition) {
+            // If already at natural, patrol around the area
+            const patrolPoint = getPatrolPointAroundNatural(map);
+            unitCommand.targetWorldSpacePos = patrolPoint;
           } else {
-            unitCommand.targetWorldSpacePos = getCombatRally(resources);
-            const { targetWorldSpacePos } = unitCommand;
-            console.log('rally!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
+            // If no worker moving to natural, continue previous behavior
+            let [closestThreateningUnit] = units.getClosest(pos, threateningUnits, 1);
+            if (closestThreateningUnit) {
+              unitCommand.targetWorldSpacePos = retreat(world, unit, closestThreateningUnit, false);
+              const { targetWorldSpacePos } = unitCommand;
+              if (targetWorldSpacePos === undefined) return;
+              console.log('retreat!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
+            } else {
+              unitCommand.targetWorldSpacePos = getCombatRally(resources);
+              const { targetWorldSpacePos } = unitCommand;
+              console.log('rally!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
+            }
           }
           collectedActions.push(unitCommand);
         }
+
       }
     }
     collectedActions.length > 0 && await actions.sendAction(collectedActions);
@@ -437,3 +481,90 @@ function getDistanceSq(a, b) {
   const dy = ay - by;
   return dx * dx + dy * dy;
 }
+
+/**
+ * Gets a patrol point around the enemy's natural expansion.
+ * @param {MapResource} map - The game map.
+ * @returns {Point2D} A patrol point around the enemy's natural expansion.
+ */
+const getPatrolPointAroundNatural = (map) => {
+  const { townhallPosition } = map.getEnemyNatural();
+  const patrolRadius = 2.5; // Adjust this value as needed
+  const angle = Math.random() * 2 * Math.PI; // Random angle
+  const dx = patrolRadius * Math.cos(angle);
+  const dy = patrolRadius * Math.sin(angle);
+  const { x: tx, y: ty } = townhallPosition; if (tx === undefined || ty === undefined) return { x: 0, y: 0 };
+  const patrolPoint = {
+    x: tx + dx,
+    y: ty + dy,
+  };
+  return patrolPoint;
+};
+
+// Add these new helper functions before the scoutEnemyMainBehavior function
+const getFacingDirection = (unit) => {
+  // Assuming the 'facing' property of the unit is in degrees and it represents the direction in which the unit is currently moving
+  return unit.facing;
+};
+
+/**
+ * Gets the direction from one position to another.
+ * @param {MapResource} map - The game map.
+ * @param {Unit} unit - The unit.
+ * @param {Point2D} targetPos - The target position.
+ * @returns {number | null} The direction from the unit to the target position.
+ */
+const getPathDirection = (map, unit, targetPos) => {
+  if (!unit.pos) {
+    return null;
+  }
+
+  const path = getMapPath(map, unit.pos, targetPos);
+  if (path.length < 2) {
+    // Cannot determine path direction if path length is less than 2
+    return null;
+  }
+
+  const nextPos = path[1]; // Get the next position in the path
+  const nextPosPoint = { x: nextPos[0], y: nextPos[1] }; // Convert to Point2D
+  return getDirection(unit.pos, nextPosPoint); // Get the direction from current position to the next position
+};
+
+/**
+ * Gets the direction from one position to another.
+ * @param {MapResource} map - The game map.
+ * @param {Unit} unit - The unit.
+ * @param {Point2D} targetPos - The target position.
+ * @returns {boolean} True if the unit is moving towards the target position, false otherwise.
+ */
+const isMovingTowards = (map, unit, targetPos) => {
+  const pathDirection = getPathDirection(map, unit, targetPos);
+  const facingDirection = getFacingDirection(unit);
+
+  // Check if pathDirection is null
+  if (pathDirection === null) {
+    return false;
+  }
+
+  // Here, you can define the condition for a unit to be considered as 'moving towards' the target.
+  // As a simple example, we can say that if the difference between the path direction and facing direction is small, the unit is moving towards the target.
+  const directionDifference = Math.abs(pathDirection - facingDirection);
+
+  return directionDifference < 30; // If the difference is less than 30 degrees, consider the unit as moving towards the target
+};
+
+/**
+ * @param {Point2D} fromPos - The initial position.
+ * @param {Point2D} toPos - The final position.
+ * @returns {number | null} The angle in degrees from the initial position to the final position.
+ */
+const getDirection = (fromPos, toPos) => {
+  if (!fromPos || !toPos || fromPos.x === undefined || fromPos.y === undefined || toPos.x === undefined || toPos.y === undefined) {
+    return null;
+  }
+  const deltaX = toPos.x - fromPos.x;
+  const deltaY = toPos.y - fromPos.y;
+  const rad = Math.atan2(deltaY, deltaX); // In radians
+  const deg = rad * (180 / Math.PI); // Convert to degrees
+  return deg;
+};
