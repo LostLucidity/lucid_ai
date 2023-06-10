@@ -12,7 +12,7 @@ const loggingService = {
     return `${Object.keys(constants).find(constant => constants[constant] === value)}`;
   },
   logoutStepsExecuted: () => {
-    loggingService.executedSteps.forEach(step => console.log(step));
+    loggingService.executedSteps.forEach(step => console.log(JSON.stringify(step)));
   },
   formatToMinutesAndSeconds: (time) => {
     const minutes = Math.floor(time / 60);

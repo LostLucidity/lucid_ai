@@ -18,6 +18,10 @@ const placementUtilities = {
   getAddOnPosition: (position) => {
     return { x: position.x + 2.5, y: position.y - 0.5 }
   },
+  /**
+   * @param {Point2D} position
+   * @returns {Point2D}
+   */
   getAddOnBuildingPlacement: (position) => {
     return { x: position.x - 3, y: position.y }
   },

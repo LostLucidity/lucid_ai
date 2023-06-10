@@ -83,105 +83,80 @@ const worldService = {
     const { data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
-    let canDoTypes = data.findUnitTypesWithAbility(abilityId).reduce((/** @type {UnitTypeId[]} */acc, unitTypeId) => {
-      acc.push(unitTypeId);
-      const key = [...flyingTypesMapping.keys()].find(key => flyingTypesMapping.get(key) === unitTypeId);
-      if (key) acc.push(key);
-      return acc;
-    }, []);
+
+    let canDoTypes = data.findUnitTypesWithAbility(abilityId)
+      .flatMap(unitTypeId => {
+        const key = [...flyingTypesMapping.keys()].find(key => flyingTypesMapping.get(key) === unitTypeId);
+        return key ? [unitTypeId, key] : [unitTypeId];
+      });
+
     if (canDoTypes.length === 0) {
-      canDoTypes = units.getAlive(Alliance.SELF).map(selfUnits => selfUnits.unitType);
+      canDoTypes = units.getAlive(Alliance.SELF)
+        .flatMap(selfUnits => selfUnits.unitType !== undefined ? [selfUnits.unitType] : []);
     }
+
     const unitsCanDo = units.getById(canDoTypes);
     if (unitsCanDo.length > 0) {
       const unitsCanDoWithAbilityAvailable = unitsCanDo.filter(unit => unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0);
+      let unitCanDo;
+
       if (unitsCanDoWithAbilityAvailable.length > 0) {
-        let unitCanDo = unitsCanDoWithAbilityAvailable[Math.floor(Math.random() * unitsCanDoWithAbilityAvailable.length)];
-        const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
-        collectedActions.push(unitCommand);
-        setPendingOrders(unitCanDo, unitCommand);
+        unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
       } else {
         // unitsCanDo may not have ability available, due to being busy or tech not available yet
         // if idle, give it pending order
         const idleUnits = unitsCanDo.filter(unit => unit.isIdle);
         if (idleUnits.length > 0) {
-          const unit = idleUnits[Math.floor(Math.random() * idleUnits.length)];
-          const unitCommand = createUnitCommand(abilityId, [unit]);
-          setPendingOrders(unit, unitCommand);
+          unitCanDo = getRandom(idleUnits);
         }
       }
+
+      if (unitCanDo) {
+        const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
+        collectedActions.push(unitCommand);
+        setPendingOrders(unitCanDo, unitCommand);
+      }
     }
+
     return collectedActions;
   },
   /**
- * Adds addon, with placement checks and relocating logic.
- * @param {World} world 
- * @param {Unit} unit 
- * @param {UnitTypeId} addOnType 
- * @returns {Promise<void>}
- */
+   * Adds addon, with placement checks and relocating logic.
+   * @param {World} world 
+   * @param {Unit} unit 
+   * @param {UnitTypeId} addOnType 
+   * @returns {Promise<void>}
+   */
   addAddOn: async (world, unit, addOnType) => {
-    const { setPendingOrders } = unitService;
     const { landingAbilities, liftingAbilities } = groupTypes;
     const { data, resources } = world;
-    const { actions, map } = resources.get();
-    for (const [key, value] of countTypes.entries()) {
-      if (value.includes(addOnType)) {
-        addOnType = key;
-        break;
+    const { actions } = resources.get();
+    const { tag } = unit; if (tag === undefined) return;
+
+    addOnType = updateAddOnType(addOnType, countTypes);
+    const unitTypeToBuild = getUnitTypeToBuild(unit, flyingTypesMapping, addOnType);
+
+    const { abilityId } = data.getUnitTypeData(unitTypeToBuild); if (abilityId === undefined) return;
+    const unitCommand = { abilityId, unitTags: [tag] };
+
+    if (!unit.noQueue || unit.labels.has('swapBuilding')) {
+      return;
+    }
+
+    if (unit.abilityAvailable(abilityId)) {
+      if (await attemptBuildAddOn(world, unit, addOnType, unitCommand)) {
+        return;
       }
     }
-    const unitTypeToBuild = UnitType[`${UnitTypeId[flyingTypesMapping.get(unit.unitType) || unit.unitType]}${UnitTypeId[addOnType]}`];
-    let { abilityId } = data.getUnitTypeData(unitTypeToBuild);
-    if (unit.noQueue && !unit.labels.has('swapBuilding')) {
-      if (unit.availableAbilities().some(ability => ability === abilityId)) {
-        const unitCommand = {
-          abilityId,
-          unitTags: [unit.tag]
-        }
-        const addonPlacement = getAddOnPlacement(unit.pos);
-        const addOnFootprint = getFootprint(addOnType);
-        if (addOnFootprint === undefined) return;
-        const canPlace = map.isPlaceableAt(addOnType, addonPlacement) && !pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids);
-        console.log('map.isPlaceableAt(addOnType, addonPlacement)', map.isPlaceableAt(addOnType, addonPlacement));
-        console.log(!pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids));
-        if (canPlace) {
-          unitCommand.targetWorldSpacePos = unit.pos;
-          await actions.sendAction(unitCommand);
-          planService.pausePlan = false;
-          setPendingOrders(unit, unitCommand);
-          worldService.addEarmark(data, data.getUnitTypeData(addOnType));
-          return;
-        }
+
+    if (unit.availableAbilities().some(ability => liftingAbilities.includes(ability))) {
+      if (await attemptLiftOff(actions, unit)) {
+        return;
       }
-      if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
-        const addOnPosition = unit.labels.get('addAddOn');
-        if (addOnPosition && distance(getAddOnPlacement(unit.pos), addOnPosition) < 1) {
-          unit.labels.delete('addAddOn');
-        } else {
-          const unitCommand = {
-            abilityId: Ability.LIFT,
-            unitTags: [unit.tag],
-          }
-          await actions.sendAction(unitCommand);
-          setPendingOrders(unit, unitCommand);
-        }
-      }
-      if (unit.availableAbilities().find(ability => landingAbilities.includes(ability))) {
-        const foundPosition = await worldService.checkAddOnPlacement(world, unit, addOnType);
-        if (foundPosition) {
-          unit.labels.set('addAddOn', foundPosition);
-          const unitCommand = {
-            abilityId: abilityId,
-            unitTags: [unit.tag],
-            targetWorldSpacePos: foundPosition
-          }
-          await actions.sendAction(unitCommand);
-          planService.pausePlan = false;
-          setPendingOrders(unit, unitCommand);
-          worldService.addEarmark(data, data.getUnitTypeData(addOnType));
-        }
-      }
+    }
+
+    if (unit.availableAbilities().some(ability => landingAbilities.includes(ability))) {
+      await attemptLand(world, unit, addOnType);
     }
   },
   /**
@@ -534,7 +509,7 @@ const worldService = {
  * @param {World} world 
  * @param {Unit} building 
  * @param {UnitTypeId} addOnType 
- * @returns 
+ * @returns {Promise<Point2D | undefined>}
  */
   checkAddOnPlacement: async (world, building, addOnType = UnitType.REACTOR) => {
     const { REACTOR, TECHLAB } = UnitType;
@@ -1015,152 +990,42 @@ const worldService = {
     }
     return abilityIds;
   },
-
   /**
    * @param {World} world 
    * @param {Point2D} position 
    * @returns {{unit: Unit, timeToPosition: number} | undefined}
    */
   getBuilder: (world, position) => {
-    const { constructionAbilities } = groupTypes;
-    const { getClosestPathablePositionsBetweenPositions, getClosestUnitByPath, getClosestUnitPositionByPath, getDistanceByPath } = resourceManagerService;
-    const { getMovementSpeed, getPendingOrders, isConstructing, isMoving } = unitService;
     const { getBuilders } = unitResourceService;
-    const { data, resources } = world;
-    const { map, units } = resources.get();
-    const { PROBE, SCV, SUPPLYDEPOT } = UnitType;
+    const { resources } = world;
+    const { units } = resources.get();
+
+    // Define builderCandidates before using it
     let builderCandidates = getBuilders(units);
-    /** @type {Unit[]} */
-    const movingOrConstructingNonDrones = [];
-    builderCandidates.push(...units.getWorkers().filter(worker => {
-      const isNotDuplicate = !builderCandidates.some(builder => builder.tag === worker.tag);
-      const gatheringAndNotMining = worker.isGathering() && !unitResourceService.isMining(units, worker);
-      const isConstructingOrMovingProbe = (isConstructing(worker, true) || isMoving(worker, true)) && worker.unitType === PROBE;
-      const isConstructingSCV = isConstructing(worker, true) && worker.unitType === SCV;
-      if (isConstructingOrMovingProbe || isConstructingSCV) movingOrConstructingNonDrones.push(worker);
-      const available = (
-        worker.noQueue ||
-        gatheringAndNotMining ||
-        worker.orders.findIndex(order => order.targetWorldSpacePos && (distance(order.targetWorldSpacePos, position) < 1)) > -1
-      );
-      return isNotDuplicate && available;
-    }));
-    builderCandidates = builderCandidates.filter(builder => !movingOrConstructingNonDrones.some(movingOrConstructingNonDrone => movingOrConstructingNonDrone.tag === builder.tag));
-    // Perform clustering on builderCandidates
-    let builderCandidatePoints = builderCandidates.reduce((/** @type {Point2D[]} */accumulator, builder) => {
-      const { pos } = builder; if (pos === undefined) return accumulator;
-      accumulator.push(pos);
-      return accumulator;
-    }, []);
-    // Apply DBSCAN to get clusters
-    let builderCandidateClusters = dbscan(builderCandidatePoints, 9);
 
-    // Find the closest builderCandidate to each centroid
-    let closestBuilderCandidates = builderCandidateClusters.reduce((/** @type {Unit[]} */acc, builderCandidateCluster) => {
-      let closestBuilderCandidate;
-      let shortestDistance = Infinity;
+    builderCandidates = gatherBuilderCandidates(units, builderCandidates, position);
+    const movingOrConstructingNonDrones = filterMovingOrConstructingNonDrones(units, builderCandidates);
+    builderCandidates = filterBuilderCandidates(builderCandidates, movingOrConstructingNonDrones);
 
-      for (let builderCandidate of builderCandidates) {
-        const { pos } = builderCandidate; if (pos === undefined) return acc;
-        let distance = getDistance(builderCandidateCluster, pos);
-        if (distance < shortestDistance) {
-          shortestDistance = distance;
-          closestBuilderCandidate = builderCandidate;
-        }
-      }
+    const builderCandidateClusters = getBuilderCandidateClusters(builderCandidates);
 
-      if (closestBuilderCandidate) {
-        acc.push(closestBuilderCandidate);
-      }
+    let closestBuilderCandidates = getClosestBuilderCandidates(resources, builderCandidateClusters, builderCandidates, position);
+    const movingOrConstructingNonDronesTimeToPosition = calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrConstructingNonDrones, position);
 
-      return acc;
-    }, []);
-    const movingOrConstructingNonDronesTimeToPosition = movingOrConstructingNonDrones.map(movingOrConstructingNonDrone => {
-      const { orders, pos, unitType } = movingOrConstructingNonDrone; if (orders === undefined || pos === undefined || unitType === undefined) return;
-      orders.push(...getPendingOrders(movingOrConstructingNonDrone));
-      const { abilityId, targetWorldSpacePos, targetUnitTag } = orders[0]; if (abilityId === undefined || (targetWorldSpacePos === undefined && targetUnitTag === undefined)) return;
-      const movingPosition = targetWorldSpacePos ? targetWorldSpacePos : targetUnitTag ? units.getByTag(targetUnitTag).pos : undefined;
-      const movementSpeed = getMovementSpeed(movingOrConstructingNonDrone); if (movingPosition === undefined || movementSpeed === undefined) return;
-      const movementSpeedPerSecond = movementSpeed * 1.4;
-      const isSCV = unitType === SCV;
-      const constructingStructure = isSCV ? getStructureAtPosition(units, movingPosition) : undefined;
-      constructingStructure && setPathableGrids(map, constructingStructure, true);
-      const pathableMovingPosition = getClosestUnitPositionByPath(resources, movingPosition, pos);
-      const movingProbeTimeToMovePosition = getDistanceByPath(resources, pos, pathableMovingPosition) / movementSpeedPerSecond;
-      constructingStructure && setPathableGrids(map, constructingStructure, false);
-      let buildTimeLeft = 0;
-      let supplyDepotCells = [];
-      if (isSCV) {
-        buildTimeLeft = getContructionTimeLeft(world, movingOrConstructingNonDrone);
-        const isConstructingSupplyDepot = dataService.unitTypeTrainingAbilities.get(abilityId) === SUPPLYDEPOT;
-        if (isConstructingSupplyDepot) {
-          const [supplyDepot] = units.getClosest(movingPosition, units.getStructures().filter(structure => structure.unitType === SUPPLYDEPOT));
-          if (supplyDepot !== undefined) {
-            const { pos, unitType } = supplyDepot; if (pos === undefined || unitType === undefined) return;
-            const footprint = getFootprint(unitType); if (footprint === undefined) return;
-            supplyDepotCells = cellsInFootprint(pos, footprint);
-            supplyDepotCells.forEach(cell => map.setPathable(cell, true));
-          }
-        }
-      }
-      const pathablePremovingPosition = getClosestUnitPositionByPath(resources, position, pathableMovingPosition);
-      const targetTimeToPremovePosition = getDistanceByPath(resources, pathableMovingPosition, pathablePremovingPosition) / movementSpeedPerSecond;
-      if (isSCV) {
-        supplyDepotCells.forEach(cell => map.setPathable(cell, false));
-      }
-      return { unit: movingOrConstructingNonDrone, timeToPosition: movingProbeTimeToMovePosition + targetTimeToPremovePosition + buildTimeLeft };
-    });
-    const candidateWorkersTimeToPosition = []
-    const [movingOrConstructingNonDrone] = movingOrConstructingNonDronesTimeToPosition.sort((a, b) => {
-      if (a === undefined || b === undefined) return 0;
-      return a.timeToPosition - b.timeToPosition;
-    });
-    if (movingOrConstructingNonDrone !== undefined) {
-      candidateWorkersTimeToPosition.push(movingOrConstructingNonDrone);
-    }
-    const [closestBuilder] = getClosestUnitByPath(resources, position, closestBuilderCandidates);
-    if (closestBuilder !== undefined) {
-      const { pos } = closestBuilder;
-      if (pos === undefined) return;
-      const movementSpeed = getMovementSpeed(closestBuilder); if (movementSpeed === undefined) return;
-      const movementSpeedPerSecond = movementSpeed * 1.4;
-      const closestPathablePositionsBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, position);
-      const closestBuilderWithDistance = {
-        unit: closestBuilder,
-        timeToPosition: closestPathablePositionsBetweenPositions.distance / movementSpeedPerSecond
-      };
-      candidateWorkersTimeToPosition.push(closestBuilderWithDistance);
-    }
+    const candidateWorkersTimeToPosition = gatherCandidateWorkersTimeToPosition(resources, movingOrConstructingNonDronesTimeToPosition, position, closestBuilderCandidates);
+
     const constructingWorkers = units.getConstructingWorkers();
-    // calculate build time left plus distance to position by path
-    const [closestConstructingWorker] = constructingWorkers.map(worker => {
-      // get unit type of building in construction
-      const constructingOrder = worker.orders.find(order => constructionAbilities.includes(order.abilityId));
-      const unitType = dataService.unitTypeTrainingAbilities.get(constructingOrder.abilityId);
-      const { buildTime } = data.getUnitTypeData(unitType);
-      // get closest unit type to worker position if within unit type radius
-      const closestUnitType = units.getClosest(worker.pos, units.getById(unitType)).filter(unit => distance(unit.pos, worker.pos) < 3)[0];
-      let timeToPosition = Infinity;
-      if (closestUnitType) {
-        const { buildProgress } = closestUnitType;
-        const buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * buildProgress));
-        const distanceToPositionByPath = getDistanceByPath(resources, worker.pos, position);
-        const { movementSpeed } = worker.data(); if (movementSpeed === undefined) return;
-        const movementSpeedPerSecond = movementSpeed * 1.4;
-        timeToPosition = buildTimeLeft + (distanceToPositionByPath / movementSpeedPerSecond);
-      }
-      return {
-        unit: worker,
-        timeToPosition
-      };
-    }).sort((a, b) => a.timeToPosition - b.timeToPosition);
+    const closestConstructingWorker = calculateClosestConstructingWorker(world, constructingWorkers, position);
+
     if (closestConstructingWorker !== undefined) {
       candidateWorkersTimeToPosition.push(closestConstructingWorker);
     }
+
     const [closestWorker] = candidateWorkersTimeToPosition.sort((a, b) => {
       if (a === undefined || b === undefined) return 0;
       return a.timeToPosition - b.timeToPosition;
     });
+
     if (closestWorker === undefined) return;
     return closestWorker;
   },
@@ -1543,9 +1408,9 @@ const worldService = {
     const { WARPGATE } = UnitType;
     const { data, resources } = world;
     const { units } = resources.get();
-    let { abilityId } = data.getUnitTypeData(unitTypeId);
+    let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return [];
 
-    const unitFilter = (unit) => {
+    const unitFilter = (/** @type {Unit} */ unit) => {
       const { orders } = unit;
       const pendingOrders = getPendingOrders(unit);
       if (abilityId === undefined || orders === undefined || pendingOrders === undefined) return false;
@@ -1553,12 +1418,20 @@ const worldService = {
       const spaceToTrain = allOrders.length === 0 || (unit.hasReactor() && allOrders.length < 2);
       return spaceToTrain && unit.abilityAvailable(abilityId) && !unit.labels.has('reposition');
     };
+
     let productionUnits = worldService.getProductionUnits(world, unitTypeId).filter(unitFilter);
 
     if (productionUnits.length === 0) {
-      abilityId = WarpUnitAbility[unitTypeId];
+      const abilityId = WarpUnitAbility[unitTypeId];
       productionUnits = units.getById(WARPGATE).filter(warpgate => abilityId && warpgate.abilityAvailable(abilityId));
     }
+
+    // Check for flying units
+    const unitTypesWithAbility = data.findUnitTypesWithAbility(abilityId);
+    const flyingTypes = unitTypesWithAbility.flatMap(value => findKeysForValue(flyingTypesMapping, value));
+    const flyingUnits = units.getById(flyingTypes).filter(unit => unit.isIdle());
+
+    productionUnits = [...productionUnits, ...flyingUnits];
 
     return productionUnits;
   },
@@ -2496,55 +2369,83 @@ const worldService = {
     const { data, resources } = world;
     const { map, units } = resources.get();
     const repositionUnits = units.withLabel('reposition');
-    const collectedActions = [];
-    if (repositionUnits.length > 0) {
-      repositionUnits.forEach(unit => {
-        const { orders, pos, unitType } = unit; if (orders === undefined || pos === undefined || unitType === undefined) return collectedActions;
-        if (unit.availableAbilities().find(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
-          if (unit.labels.get('reposition') === 'lift') {
-            const unitCommand = createUnitCommand(Ability.LIFT, [unit]);
-            collectedActions.push(unitCommand);
-            setPendingOrders(unit, unitCommand);
+
+    let collectedActions = [];
+
+    /**
+     * @param {AbilityId} ability
+     * @param {Unit} unit
+     * @param {Point2D | null} targetPos
+     * @returns {void}
+     */
+    function storeUnitCommand(ability, unit, targetPos = null) {
+      const unitCommand = createUnitCommand(ability, [unit]);
+      if (targetPos) {
+        unitCommand.targetWorldSpacePos = targetPos;
+      }
+      collectedActions.push(unitCommand);
+      setPendingOrders(unit, unitCommand);
+    }
+
+    collectedActions = repositionUnits.reduce((/** @type {SC2APIProtocol.ActionRawUnitCommand[]} */ actions, unit) => {
+      const { orders, pos, unitType } = unit;
+      if (orders === undefined || pos === undefined || unitType === undefined) return actions;
+
+      const unitAbilities = unit.availableAbilities();
+      const repositionState = unit.labels.get('reposition');
+      const addOnTag = unit.addOnTag;
+      const addOn = addOnTag !== undefined ? units.getByTag(addOnTag) : null;
+
+      if (unitAbilities.some(ability => liftingAbilities.includes(ability)) && !unit.labels.has('pendingOrders')) {
+        if (repositionState === 'lift') {
+          storeUnitCommand(Ability.LIFT, unit);
+        } else {
+          if (distance(pos, repositionState) > 1) {
+            storeUnitCommand(Ability.LIFT, unit);
           } else {
-            if (distance(pos, unit.labels.get('reposition')) > 1) {
-              const unitCommand = createUnitCommand(Ability.LIFT, [unit]);
-              collectedActions.push(unitCommand);
-              setPendingOrders(unit, unitCommand);
-            } else {
-              unit.labels.delete('reposition');
-              const { addOnTag } = unit; if (addOnTag === undefined) return collectedActions;
-              const addOn = units.getByTag(addOnTag); if (!addOn) return collectedActions;
-              addOn.labels.delete('reposition');
-            }
-          }
-        }
-        if (unit.availableAbilities().find(ability => landingAbilities.includes(ability))) {
-          if (unit.labels.get('reposition') === 'lift') {
             unit.labels.delete('reposition');
-            const { addOnTag } = unit; if (addOnTag === undefined) return collectedActions;
-            const addOn = units.getByTag(addOnTag); if (!addOn) return collectedActions;
-            if (addOn.labels) {
+            if (addOn) {
               addOn.labels.delete('reposition');
             }
-          } else {
-            const unitCommand = createUnitCommand(Ability.LAND, [unit]);
-            const unitTypeOfFlyingBuilding = flyingTypesMapping.get(unitType); if (unitTypeOfFlyingBuilding === undefined) return collectedActions;
-            if (!map.isPlaceableAt(unitTypeOfFlyingBuilding, unit.labels.get('reposition'))) {
-              unitCommand.abilityId = MOVE;
-            }
-            collectedActions.push(unitCommand);
-            unitCommand.targetWorldSpacePos = unit.labels.get('reposition');
-            setPendingOrders(unit, unitCommand);
           }
         }
-        // cancel training orders
-        if (dataService.isTrainingUnit(data, unit)) {
-          orders.forEach(() => {
-            collectedActions.push(createUnitCommand(CANCEL_QUEUE5, [unit]));
-          });
+      }
+
+      if (unitAbilities.some(ability => landingAbilities.includes(ability))) {
+        if (repositionState === 'lift') {
+          unit.labels.delete('reposition');
+          if (addOn && addOn.labels) {
+            addOn.labels.delete('reposition');
+          }
+        } else {
+          const unitTypeOfFlyingBuilding = flyingTypesMapping.get(unitType);
+          if (!unitTypeOfFlyingBuilding || !map.isPlaceableAt(unitTypeOfFlyingBuilding, repositionState)) {
+            storeUnitCommand(MOVE, unit);
+          } else {
+            storeUnitCommand(Ability.LAND, unit, repositionState);
+          }
+        }
+      }
+
+      // delete reposition label for addOns that have a building that has it as an addOn
+      units.getStructures().forEach(structure => {
+        const addOnTag = structure.addOnTag;
+        const addOn = addOnTag !== undefined ? units.getByTag(addOnTag) : null;
+        if (addOn && addOn.labels && addOn.labels.has('reposition')) {
+          addOn.labels.delete('reposition');
         }
       });
-    }
+
+      // cancel training orders
+      if (dataService.isTrainingUnit(data, unit)) {
+        orders.forEach(() => {
+          storeUnitCommand(CANCEL_QUEUE5, unit);
+        });
+      }
+
+      return collectedActions;
+    }, []);
+
     return collectedActions;
   },
   /**
@@ -2891,20 +2792,56 @@ const worldService = {
   train: async (world, unitTypeId, targetCount = null) => {
     const { warpIn } = resourceManagerService;
     const { getPendingOrders, setPendingOrders } = unitService;
-    const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
+    const { addEarmark, canBuild, checkAddOnPlacement, getTrainer, unpauseAndLog } = worldService;
     const { reactorTypes, techLabTypes } = groupTypes
     const { WARPGATE } = UnitType;
-    const { data, resources } = world;
+    const { agent, data, resources } = world;
     const { actions, units } = resources.get();
     let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return;
-    if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
+
+    // Helper function to create and store unit commands
+    /**
+     * @param {AbilityId} ability
+     * @param {Unit} unit
+     * @param {Point2D | null} targetPos
+     * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand>}
+     */
+    const sendCommand = async (ability, unit, targetPos = null) => {
+      const unitCommand = createUnitCommand(ability, [unit]);
+      if (targetPos) {
+        unitCommand.targetWorldSpacePos = targetPos;
+      }
+      await actions.sendAction(unitCommand);
+      setPendingOrders(unit, unitCommand);
+      return unitCommand;
+    }
+
+    /**
+     * @param {Unit} unit
+     * @param {Point2D} position
+     * @returns {void}
+     */
+    const setRepositionLabel = (unit, position) => {
+      unit.labels.set('reposition', position);
+      console.log('reposition', position);
+    }
+
+    if (targetCount === null || checkUnitCount(world, unitTypeId, targetCount)) {
       const randomTrainer = getRandom(getTrainer(world, unitTypeId));
       if (canBuild(world, unitTypeId) && randomTrainer) {
         if (randomTrainer.unitType !== WARPGATE) {
-          const unitCommand = createUnitCommand(abilityId, [randomTrainer]);
-          setPendingOrders(randomTrainer, unitCommand);
-          unpauseAndLog(world, UnitTypeId[unitTypeId]);
-          await actions.sendAction([unitCommand]);
+          if (randomTrainer.isFlying) {
+            // Land the flying unit before training
+            const landingPosition = await checkAddOnPlacement(world, randomTrainer);
+            if (landingPosition) {
+              setRepositionLabel(randomTrainer, landingPosition);
+              await sendCommand(Ability.LAND, randomTrainer, landingPosition);
+              planService.pausePlan = false;
+            }
+          } else {
+            await sendCommand(abilityId, randomTrainer);
+            unpauseAndLog(world, UnitTypeId[unitTypeId]);
+          }
         } else {
           unpauseAndLog(world, UnitTypeId[unitTypeId]);
           await warpIn(resources, this, unitTypeId);
@@ -2917,35 +2854,76 @@ const worldService = {
       } else {
         const unitTypeData = data.getUnitTypeData(unitTypeId);
         const { requireAttached, techRequirement } = unitTypeData; if (requireAttached === undefined || techRequirement === undefined) return;
-        addEarmark(data, unitTypeData);
+
         let canDoTypes = data.findUnitTypesWithAbility(abilityId);
         const canDoUnits = units.getById(canDoTypes).filter(unit => abilityId && unit.abilityAvailable(abilityId));
-        const unit = canDoUnits[Math.floor(Math.random() * canDoUnits.length)];
-        if (!unit) return;
-        const { addOnTag } = unit; if (addOnTag === undefined) return;
-        if (requireAttached && parseInt(addOnTag) === 0) {
-          // find add on that matches tech requirement, includes those that are already attached
-          const matchingAddOnTypes = techLabTypes.includes(techRequirement) ? techLabTypes : reactorTypes.includes(techRequirement) ? reactorTypes : [techRequirement];
-          // filter, starport lifts instead of building tech lab
-          const requiredAddOns = units.getById(matchingAddOnTypes).filter(addOn => {
-            const { pos } = addOn; if (pos === undefined) return;
-            // get building that add on is attached to
-            const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(pos), units.getStructures().filter(structure => structure.addOnTag === addOn.tag));
-            if (!addOnBuilding) return;
-            // check if building is idle
-            return addOnBuilding.noQueue && getPendingOrders(addOnBuilding).length === 0;
-          });
-          const addOn = requiredAddOns[Math.floor(Math.random() * requiredAddOns.length)];
-          if (addOn) {
-            unit.labels.set('reposition', getAddOnBuildingPosition(addOn.pos));
-            const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(addOn.pos), units.getStructures().filter(structure => structure.addOnTag === addOn.tag));
-            if (addOnBuilding) {
-              addOnBuilding.labels.set('reposition', 'lift');
+
+        const selectRandomUnit = (unitList) => unitList[Math.floor(Math.random() * unitList.length)];
+
+        let unit = selectRandomUnit(canDoUnits);
+        if (!unit) {
+          if (agent.canAfford(unitTypeId) && techRequirement !== undefined) {
+            const idleUnits = units.getById(canDoTypes).filter(unit => abilityId && unit.isIdle() && unit.buildProgress === 1);
+            unit = selectRandomUnit(idleUnits); if (!unit) return;
+            const { pos } = unit; if (pos === undefined) return;
+
+            // Find a TECHLAB that's currently in use
+            const matchingAddOnTypes = techLabTypes.includes(techRequirement) ? techLabTypes : reactorTypes.includes(techRequirement) ? reactorTypes : [techRequirement];
+            const techLabUnits = units.getById(matchingAddOnTypes).filter(unit => unit.unitType !== techRequirement);
+
+            if (techLabUnits.length > 0) {
+              // Choose a closest TECHLAB
+              const techLab = techLabUnits.reduce((closestTechLab, techLab) => {
+                const { pos: techLabPos } = techLab; if (techLabPos === undefined) return closestTechLab;
+                const { pos: closestTechLabPos } = closestTechLab; if (closestTechLabPos === undefined) return closestTechLab;
+                return getDistance(techLabPos, pos) < getDistance(closestTechLabPos, pos) ? techLab : closestTechLab;
+              }, techLabUnits[0]);
+
+              if (techLab) {
+                // Get the position of the TECHLAB
+                const techLabPosition = techLab.pos;
+                // Get the building the TECHLAB is currently attached to
+                const [currentBuilding] = units.getClosest(getAddOnBuildingPosition(techLabPosition), units.getStructures().filter(structure => structure.addOnTag === techLab.tag && structure.buildProgress === 1));
+
+                if (currentBuilding) {
+                  unit.labels.set('reposition', getAddOnBuildingPosition(techLabPosition));
+                  console.log('reposition', getAddOnBuildingPosition(techLabPosition));
+                  const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(techLabPosition), units.getStructures().filter(structure => structure.addOnTag === techLab.tag));
+                  if (addOnBuilding) {
+                    addOnBuilding.labels.set('reposition', 'lift');
+                    console.log('reposition', 'lift')
+                  }
+                }
+              }
             }
           }
+        } else {
+          const { addOnTag } = unit; if (addOnTag === undefined) return;
+          if (requireAttached && parseInt(addOnTag) === 0) {
+            // find add on that matches tech requirement, includes those that are already attached
+            const matchingAddOnTypes = techLabTypes.includes(techRequirement) ? techLabTypes : reactorTypes.includes(techRequirement) ? reactorTypes : [techRequirement];
+            // filter, starport lifts instead of building tech lab
+            const requiredAddOns = units.getById(matchingAddOnTypes).filter(addOn => {
+              const { pos } = addOn; if (pos === undefined) return;
+              // get building that add on is attached to
+              const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(pos), units.getStructures().filter(structure => structure.addOnTag === addOn.tag));
+              if (!addOnBuilding) return;
+              // check if building is idle
+              return addOnBuilding.noQueue && getPendingOrders(addOnBuilding).length === 0;
+            });
+            const addOn = selectRandomUnit(requiredAddOns);
+            if (addOn) {
+              unit.labels.set('reposition', getAddOnBuildingPosition(addOn.pos));
+              const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(addOn.pos), units.getStructures().filter(structure => structure.addOnTag === addOn.tag));
+              if (addOnBuilding) {
+                addOnBuilding.labels.set('reposition', 'lift');
+              }
+            }
+          }
+          const unitCommand = createUnitCommand(abilityId, [unit]);
+          setPendingOrders(unit, unitCommand);
         }
-        const unitCommand = createUnitCommand(abilityId, [unit]);
-        setPendingOrders(unit, unitCommand);
+        addEarmark(data, unitTypeData);
       }
     }
   },
@@ -3166,8 +3144,6 @@ const worldService = {
   unpauseAndLog: (world, name, extra = '') => {
     const { agent, resources } = world;
     const { frame } = resources.get();
-    planService.pausePlan = false;
-    planService.continueBuild = true;
     if (!(WorkerRace[agent.race] === UnitType[name])) {
       worldService.setAndLogExecutedSteps(world, frame.timeInSeconds(), name, extra);
     }
@@ -4566,19 +4542,395 @@ function boundingBoxesOverlap(box1, box2) {
 }
 
 /**
- * @param {DataStorage} data 
- * @param {Unit} unit
- * @returns {boolean}
+ * @param {Map} map 
+ * @param {any} targetValue
+ * @returns {Array}
  */
-function canUnitTypeAttackAir(data, unit) {
-  const weapons = getWeapons(data, unit);
+function findKeysForValue(map, targetValue) {
+  const keys = [];
 
-  for (const weapon of weapons) {
-    const { targets } = weapon;
-    if (targets.includes("air")) {
-      return true;
+  for (const [key, value] of map.entries()) {
+    if (value === targetValue) {
+      keys.push(key);
     }
   }
 
+  return keys;
+}
+
+/**
+ * Returns updated addOnType using countTypes.
+ * @param {UnitTypeId} addOnType 
+ * @param {Map} countTypes 
+ * @returns {UnitTypeId}
+ */
+function updateAddOnType(addOnType, countTypes) {
+  for (const [key, value] of countTypes.entries()) {
+    if (value.includes(addOnType)) {
+      return key;
+    }
+  }
+  return addOnType;
+}
+
+/**
+ * Returns unit type to build.
+ * @param {Unit} unit 
+ * @param {Map} flyingTypesMapping 
+ * @param {UnitTypeId} addOnType 
+ * @returns {UnitTypeId}
+ */
+function getUnitTypeToBuild(unit, flyingTypesMapping, addOnType) {
+  return UnitType[`${UnitTypeId[flyingTypesMapping.get(unit.unitType) || unit.unitType]}${UnitTypeId[addOnType]}`];
+}
+
+/**
+ * Attempt to build addOn
+ * @param {World} world
+ * @param {Unit} unit
+ * @param {UnitTypeId} addOnType
+ * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand
+ * @returns {Promise<boolean>}
+ */
+async function attemptBuildAddOn(world, unit, addOnType, unitCommand) {
+  const { data, resources } = world;
+  const { actions, map } = resources.get();
+  const { pos } = unit; if (pos === undefined) return false;
+  const addonPlacement = getAddOnPlacement(pos);
+  const addOnFootprint = getFootprint(addOnType);
+
+  if (addOnFootprint === undefined) return false;
+
+  const canPlace = map.isPlaceableAt(addOnType, addonPlacement) &&
+    !pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids);
+
+  if (!canPlace) return false;
+
+  unitCommand.targetWorldSpacePos = unit.pos;
+  await actions.sendAction(unitCommand);
+  planService.pausePlan = false;
+  unitService.setPendingOrders(unit, unitCommand);
+  worldService.addEarmark(data, data.getUnitTypeData(addOnType));
+
+  return true;
+}
+
+/**
+ * Attempt to lift off the unit if it doesn't have pending orders.
+ * @param {ActionManager} actions 
+ * @param {Unit} unit 
+ * @returns {Promise<Boolean>}
+ */
+async function attemptLiftOff(actions, unit) {
+  const { pos, tag } = unit; if (pos === undefined || tag === undefined) return false;
+  if (!unit.labels.has('pendingOrders')) {
+    const addOnPosition = unit.labels.get('addAddOn');
+    if (addOnPosition && distance(getAddOnPlacement(pos), addOnPosition) < 1) {
+      unit.labels.delete('addAddOn');
+    } else {
+      unit.labels.set('addAddOn', null);
+      const unitCommand = {
+        abilityId: Ability.LIFT,
+        unitTags: [tag],
+      };
+      await actions.sendAction(unitCommand);
+      unitService.setPendingOrders(unit, unitCommand);
+      return true;
+    }
+  }
   return false;
 }
+
+/**
+ * Attempts to land the unit at a suitable location.
+ * @param {World} world
+ * @param {Unit} unit 
+ * @param {UnitTypeId} addOnType 
+ * @returns {Promise<void>}
+ */
+async function attemptLand(world, unit, addOnType) {
+  const { data, resources } = world;
+  const { actions } = resources.get();
+  const { tag, unitType } = unit; if (tag === undefined || unitType === undefined) return;
+  const foundPosition = await worldService.checkAddOnPlacement(world, unit, addOnType);
+
+  if (!foundPosition) {
+    return;
+  }
+
+  unit.labels.set('addAddOn', foundPosition);
+
+  const unitCommand = {
+    abilityId: data.getUnitTypeData(UnitType[`${UnitTypeId[flyingTypesMapping.get(unitType) || unitType]}${UnitTypeId[addOnType]}`]).abilityId,
+    unitTags: [tag],
+    targetWorldSpacePos: foundPosition
+  }
+
+  await actions.sendAction(unitCommand);
+  planService.pausePlan = false;
+  unitService.setPendingOrders(unit, unitCommand);
+  worldService.addEarmark(data, data.getUnitTypeData(addOnType));
+}
+
+/**
+ * Function to gather builder candidates
+ * @param {UnitResource} units
+ * @param {Unit[]} builderCandidates
+ * @param {Point2D} position
+ * @returns {Unit[]}
+ */
+function gatherBuilderCandidates(units, builderCandidates, position) {
+  const { isConstructing, isMoving } = unitService;
+  /** @type {Unit[]} */
+  const movingOrConstructingNonDrones = [];
+  builderCandidates.push(...units.getWorkers().filter(worker => {
+    const { orders } = worker; if (orders === undefined) return false;
+    const isNotDuplicate = !builderCandidates.some(builder => builder.tag === worker.tag);
+    const gatheringAndNotMining = worker.isGathering() && !unitResourceService.isMining(units, worker);
+    const isConstructingOrMovingProbe = (isConstructing(worker, true) || isMoving(worker, true)) && worker.unitType === UnitType.PROBE;
+    const isConstructingSCV = isConstructing(worker, true) && worker.unitType === UnitType.SCV;
+    if (isConstructingOrMovingProbe || isConstructingSCV) movingOrConstructingNonDrones.push(worker);
+    const available = (
+      worker.noQueue ||
+      gatheringAndNotMining ||
+      orders.findIndex(order => order.targetWorldSpacePos && (getDistance(order.targetWorldSpacePos, position) < 1)) > -1
+    );
+    return isNotDuplicate && available;
+  }));
+  return builderCandidates;
+}
+
+/**
+ * @param {UnitResource} units
+ * @param {Unit[]} builderCandidates
+ * @returns {Unit[]}
+ */
+function filterMovingOrConstructingNonDrones(units, builderCandidates) {
+  const { isConstructing, isMoving } = unitService;
+  const { PROBE, SCV } = UnitType;
+
+  return units.getWorkers().filter(worker => {
+    const isNotDuplicate = !builderCandidates.some(builder => builder.tag === worker.tag);
+    const isConstructingOrMovingProbe = (isConstructing(worker, true) || isMoving(worker, true)) && worker.unitType === PROBE;
+    const isConstructingSCV = isConstructing(worker, true) && worker.unitType === SCV;
+
+    return (isConstructingOrMovingProbe || isConstructingSCV) && isNotDuplicate;
+  });
+}
+
+/**
+ * Filter out builder candidates who are also moving or constructing drones.
+ * 
+ * @param {Unit[]} builderCandidates - The array of builder candidates.
+ * @param {Unit[]} movingOrConstructingNonDrones - The array of drones that are either moving or in construction.
+ * @returns {Unit[]} - The filtered array of builder candidates.
+ */
+function filterBuilderCandidates(builderCandidates, movingOrConstructingNonDrones) {
+  return builderCandidates.filter(builder => !movingOrConstructingNonDrones.some(movingOrConstructingNonDrone => movingOrConstructingNonDrone.tag === builder.tag));
+}
+
+/**
+ * Get clusters of builder candidate positions
+ * @param {Unit[]} builderCandidates 
+ * @returns {Point2D[]} Clusters of builder candidate positions
+ */
+function getBuilderCandidateClusters(builderCandidates) {
+  // Extract positions from builderCandidates
+  let builderCandidatePoints = builderCandidates.reduce((/** @type {Point2D[]} */accumulator, builder) => {
+    const { pos } = builder;
+    if (pos === undefined) return accumulator;
+    accumulator.push(pos);
+    return accumulator;
+  }, []);
+
+  // Apply DBSCAN to get clusters
+  let builderCandidateClusters = dbscan(builderCandidatePoints, 9);
+
+  return builderCandidateClusters;
+}
+
+/**
+ * @param {ResourceManager} resources
+ * @param {Point2D[]} builderCandidateClusters
+ * @param {Unit[]} builderCandidates
+ * @param {Point2D} position
+ * @returns {Unit[]}
+ */
+function getClosestBuilderCandidates(resources, builderCandidateClusters, builderCandidates, position) {
+  return builderCandidateClusters.reduce((/** @type {Unit[]} */closestCandidates, cluster) => {
+    let closestBuilderCandidate;
+    let shortestDistance = Infinity;
+
+    for (let builderCandidate of builderCandidates) {
+      const { pos } = builderCandidate;
+      if (pos === undefined) continue;
+
+      const isCloseCluster = getDistance(cluster, position) < 16;
+
+      // Choose either cluster or position as a reference point depending on distance
+      const referencePoint = isCloseCluster ? position : cluster;
+
+      const distance = getDistanceByPath(resources, pos, referencePoint);
+
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        closestBuilderCandidate = builderCandidate;
+      }
+    }
+
+    if (closestBuilderCandidate !== undefined) {
+      closestCandidates.push(closestBuilderCandidate);
+    }
+
+    return closestCandidates;
+  }, []); // Initial value of closestCandidates is an empty array
+}
+
+/**
+ * @param {World} world
+ * @param {Unit[]} movingOrConstructingNonDrones 
+ * @param {Point2D} position 
+ * @returns {{unit: Unit, timeToPosition: number}[]}
+ */
+function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrConstructingNonDrones, position) {
+  const { getClosestUnitPositionByPath, getDistanceByPath } = resourceManagerService;
+  const { getMovementSpeed, getPendingOrders } = unitService;
+  const { resources } = world;
+  const { map, units } = resources.get();
+  const { SCV, SUPPLYDEPOT } = UnitType;
+
+  return movingOrConstructingNonDrones.reduce((/** @type {{unit: Unit, timeToPosition: number}[]} */acc, movingOrConstructingNonDrone) => {
+    const { orders, pos, unitType } = movingOrConstructingNonDrone;
+    if (orders === undefined || pos === undefined || unitType === undefined) return acc;
+
+    orders.push(...getPendingOrders(movingOrConstructingNonDrone));
+    const { abilityId, targetWorldSpacePos, targetUnitTag } = orders[0];
+    if (abilityId === undefined || (targetWorldSpacePos === undefined && targetUnitTag === undefined)) return acc;
+
+    const movingPosition = targetWorldSpacePos ? targetWorldSpacePos : targetUnitTag ? units.getByTag(targetUnitTag).pos : undefined;
+    const movementSpeed = getMovementSpeed(movingOrConstructingNonDrone);
+    if (movingPosition === undefined || movementSpeed === undefined) return acc;
+
+    const movementSpeedPerSecond = movementSpeed * 1.4;
+    const isSCV = unitType === SCV;
+    const constructingStructure = isSCV ? getStructureAtPosition(units, movingPosition) : undefined;
+    constructingStructure && setPathableGrids(map, constructingStructure, true);
+
+    const pathableMovingPosition = getClosestUnitPositionByPath(resources, movingPosition, pos);
+    const movingProbeTimeToMovePosition = getDistanceByPath(resources, pos, pathableMovingPosition) / movementSpeedPerSecond;
+
+    constructingStructure && setPathableGrids(map, constructingStructure, false);
+
+    let buildTimeLeft = 0;
+    let supplyDepotCells = [];
+    if (isSCV) {
+      buildTimeLeft = getContructionTimeLeft(world, movingOrConstructingNonDrone);
+      const isConstructingSupplyDepot = dataService.unitTypeTrainingAbilities.get(abilityId) === SUPPLYDEPOT;
+      if (isConstructingSupplyDepot) {
+        const [supplyDepot] = units.getClosest(movingPosition, units.getStructures().filter(structure => structure.unitType === SUPPLYDEPOT));
+        if (supplyDepot !== undefined) {
+          const { pos, unitType } = supplyDepot; if (pos === undefined || unitType === undefined) return acc;
+          const footprint = getFootprint(unitType); if (footprint === undefined) return acc;
+          supplyDepotCells = cellsInFootprint(pos, footprint);
+          supplyDepotCells.forEach(cell => map.setPathable(cell, true));
+        }
+      }
+    }
+
+    const pathablePremovingPosition = getClosestUnitPositionByPath(resources, position, pathableMovingPosition);
+    const targetTimeToPremovePosition = getDistanceByPath(resources, pathableMovingPosition, pathablePremovingPosition) / movementSpeedPerSecond;
+    supplyDepotCells.forEach(cell => map.setPathable(cell, false));
+
+    const timeToPosition = movingProbeTimeToMovePosition + buildTimeLeft + targetTimeToPremovePosition;
+
+    acc.push({
+      unit: movingOrConstructingNonDrone,
+      timeToPosition: timeToPosition
+    });
+
+    return acc;
+  }, []);
+}
+
+/**
+ * @param {ResourceManager} resources
+ * @param {{unit: Unit, timeToPosition: number}[]} movingOrConstructingNonDronesTimeToPosition
+ * @param {Point2D} position
+ * @param {Unit[]} closestBuilderCandidates
+ * @returns {Array<{unit: Unit, timeToPosition: number}>}
+ */
+const gatherCandidateWorkersTimeToPosition = (resources, movingOrConstructingNonDronesTimeToPosition, position, closestBuilderCandidates) => {
+  const { getClosestUnitByPath, getClosestPathablePositionsBetweenPositions } = resourceManagerService;
+  let candidateWorkersTimeToPosition = [];
+
+  const [movingOrConstructingNonDrone] = movingOrConstructingNonDronesTimeToPosition.sort((a, b) => {
+    if (a === undefined || b === undefined) return 0;
+    return a.timeToPosition - b.timeToPosition;
+  });
+
+  if (movingOrConstructingNonDrone !== undefined) {
+    candidateWorkersTimeToPosition.push(movingOrConstructingNonDrone);
+  }
+
+  const [closestBuilder] = getClosestUnitByPath(resources, position, closestBuilderCandidates);
+  if (closestBuilder !== undefined) {
+    const { pos } = closestBuilder;
+    if (pos === undefined) return candidateWorkersTimeToPosition;
+
+    const movementSpeed = unitService.getMovementSpeed(closestBuilder);
+    if (movementSpeed === undefined) return candidateWorkersTimeToPosition;
+
+    const movementSpeedPerSecond = movementSpeed * 1.4;
+    const closestPathablePositionsBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, position);
+    const closestBuilderWithDistance = {
+      unit: closestBuilder,
+      timeToPosition: closestPathablePositionsBetweenPositions.distance / movementSpeedPerSecond
+    };
+
+    candidateWorkersTimeToPosition.push(closestBuilderWithDistance);
+  }
+
+  return candidateWorkersTimeToPosition;
+};
+
+/**
+ * Calculate the closest constructing worker and the time to reach a specific position
+ * @param {World} world - The resources object to access game state
+ * @param {Unit[]} constructingWorkers - The array of workers currently in constructing state
+ * @param {Point2D} position - The position to calculate the distance to
+ * @returns {{unit: Unit, timeToPosition: number} | undefined} - Closest constructing worker and time to reach the position or undefined
+ */
+function calculateClosestConstructingWorker(world, constructingWorkers, position) {
+  const { getDistanceByPath } = resourceManagerService;
+  const { data, resources } = world;
+  const { units } = resources.get();
+
+  return constructingWorkers.reduce((/** @type {{unit: Unit, timeToPosition: number} | undefined} */closestWorker, worker) => {
+    const { orders, pos } = worker; if (orders === undefined || pos === undefined) return closestWorker;
+    // get unit type of building in construction
+    const constructingOrder = orders.find(order => order.abilityId && groupTypes.constructionAbilities.includes(order.abilityId)); if (constructingOrder === undefined) return closestWorker;
+    const { abilityId } = constructingOrder; if (abilityId === undefined) return closestWorker;
+    const unitType = dataService.unitTypeTrainingAbilities.get(abilityId); if (unitType === undefined) return closestWorker;
+    const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return closestWorker;
+
+    // get closest unit type to worker position if within unit type radius
+    const closestUnitType = units.getClosest(pos, units.getById(unitType)).filter(unit => unit.pos && distance(unit.pos, pos) < 3)[0];
+
+    if (closestUnitType) {
+      const { buildProgress } = closestUnitType; if (buildProgress === undefined) return closestWorker;
+      const buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * buildProgress));
+      const distanceToPositionByPath = getDistanceByPath(resources, pos, position);
+      const { movementSpeed } = worker.data(); if (movementSpeed === undefined) return closestWorker;
+      const movementSpeedPerSecond = movementSpeed * 1.4;
+      const timeToPosition = buildTimeLeft + (distanceToPositionByPath / movementSpeedPerSecond);
+
+      // If this is the first worker or if it's closer than the current closest worker, update closestWorker
+      if (!closestWorker || timeToPosition < closestWorker.timeToPosition) {
+        return { unit: worker, timeToPosition };
+      }
+    }
+
+    return closestWorker;
+  }, undefined);
+}
+
