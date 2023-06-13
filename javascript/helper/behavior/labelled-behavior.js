@@ -34,27 +34,18 @@ module.exports = {
     const collectedActions = [];
     const label = 'scoutAcrossTheMap';
     const [unit] = units.withLabel(label);
+
     if (unit) {
-      const { pos } = unit; if (pos === undefined) return collectedActions;
-      const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(enemyUnit => {
-        const { pos: enemyPos } = enemyUnit; if (enemyPos === undefined) return false;
-        return !(unit.unitType === LARVA) && distance(enemyPos, pos) < 16 && canAttack(resources, unit, enemyUnit);
-      });
-      const combatUnits = units.getCombatUnits().filter(combatUnit => {
-        if (combatUnit.tag === unit.tag) return true;
-        else if (combatUnit.isAttacking()) {
-          const foundOrder = combatUnit.orders.find(order => order.abilityId === ATTACK_ATTACK && units.getByTag(order.targetUnitTag));
-          const targetPosition = foundOrder ? units.getByTag(foundOrder.targetUnitTag).pos : combatUnit.orders.find(order => order.abilityId === ATTACK_ATTACK).targetWorldSpacePos;
-          if (targetPosition) {
-            return distance(targetPosition, unit.pos) < 16;
-          }
-        }
-      });
+      const { pos } = unit; if (pos === undefined) return [];
+      const enemyUnits = filterEnemyUnits(unit, enemyTrackingService.mappedEnemyUnits);
+      const combatUnits = filterCombatUnits(units, unit, units.getCombatUnits());
+
       // if an enemy unit within distance of 16, use engageOrRetreat logic, else ATTACK_ATTACK across the map
       if (enemyUnits.length > 0) {
         // get the closest enemy unit by path
-        const [closestEnemyUnit] = getClosestUnitByPath(resources, unit.pos, enemyUnits);
-        collectedActions.push(...engageOrRetreat(world, combatUnits, enemyUnits, closestEnemyUnit.pos));
+        const [closestEnemyUnit] = getClosestUnitByPath(resources, pos, enemyUnits);
+        const { pos: enemyPos } = closestEnemyUnit; if (enemyPos === undefined) return [];
+        collectedActions.push(...engageOrRetreat(world, combatUnits, enemyUnits, enemyPos));
       } else {
         const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
         unitCommand.targetWorldSpacePos = getAcrossTheMap(map);
@@ -568,3 +559,46 @@ const getDirection = (fromPos, toPos) => {
   const deg = rad * (180 / Math.PI); // Convert to degrees
   return deg;
 };
+
+/**
+ * @param {Unit} unit
+ * @param {Unit[]} enemyUnits
+ * @returns {Unit[]}
+ */
+function filterEnemyUnits(unit, enemyUnits) {
+  const { pos } = unit; if (pos === undefined) return [];
+  return enemyUnits.filter(enemyUnit => {
+    const { pos: enemyPos } = enemyUnit;
+    if (enemyPos === undefined) return false;
+    return !(unit.unitType === LARVA) && distance(enemyPos, pos) < 16 && canAttack(unit, enemyUnit, false);
+  });
+}
+
+/**
+ * @param {UnitResource} units
+ * @param {Unit} unit
+ * @param {Unit[]} combatUnits
+ * @returns {Unit[]}
+ */
+function filterCombatUnits(units, unit, combatUnits) {
+  const { pos } = unit; if (pos === undefined) return [];
+  return combatUnits.filter(combatUnit => {
+    if (combatUnit.tag === unit.tag) return true;
+    else if (combatUnit.isAttacking()) {
+      const { orders } = combatUnit; if (orders === undefined) return false;
+      const foundOrder = orders.find(order =>
+        order.abilityId === ATTACK_ATTACK &&
+        order.targetUnitTag !== undefined &&
+        units.getByTag(order.targetUnitTag)
+      );
+      let targetPosition;
+      if (foundOrder && foundOrder.targetUnitTag) {
+        const targetUnit = units.getByTag(foundOrder.targetUnitTag);
+        targetPosition = targetUnit ? targetUnit.pos : undefined;
+      } else {
+        targetPosition = combatUnit.orders ? combatUnit.orders.find(order => order.abilityId === ATTACK_ATTACK)?.targetWorldSpacePos : undefined;
+      }
+      return targetPosition && distance(targetPosition, pos) < 16;
+    }
+  });
+}

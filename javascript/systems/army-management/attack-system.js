@@ -85,7 +85,7 @@ function attackTargets(world, unitsToAttackWith, enemyTargets) {
   unitsToAttackWith.forEach(unit => {
     const { orders, pos, unitType } = unit; if (orders === undefined || pos === undefined || unitType === undefined) { return; }
     const abilityId = unit.abilityAvailable(ATTACK_ATTACK) ? ATTACK_ATTACK : MOVE;
-    const attackableTargets = enemyTargets.filter(target => canAttack(resources, unit, target, false));
+    const attackableTargets = enemyTargets.filter(target => canAttack(unit, target, false));
     if (orders.length > 0 && orders[0].abilityId === ATTACK_ATTACK && orders[0].targetUnitTag !== undefined) {
       const { targetUnitTag } = orders[0];
       const target = units.getByTag(targetUnitTag);

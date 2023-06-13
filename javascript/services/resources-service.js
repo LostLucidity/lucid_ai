@@ -11,24 +11,24 @@ const { getClosestUnitByPath, getCombatRally } = require("./resource-manager-ser
 const resourcesService = {
   /**
  * Checks whether unit can attack targetUnit.
- * @param {ResourceManager} resources
  * @param {Unit} unit
  * @param {Unit} targetUnit
  * @param {boolean} requireVisible
  * @return {boolean}
  */
-  canAttack(resources, unit, targetUnit, requireVisible = true) {
-    const { map } = resources.get();
+  canAttack(unit, targetUnit, requireVisible = true) {
     const { cloak, isFlying, pos } = targetUnit;
-    if (cloak === undefined || isFlying === undefined || pos === undefined) { return false; }
-    const canShootAtTarget = isFlying && unit.canShootUp() || !isFlying && unit.canShootGround();
+
+    if (!pos) {
+      return false;
+    }
+
+    const canShootAtTarget = isFlying ? unit.canShootUp() : unit.canShootGround();
     const targetDetected = cloak !== CloakState.CLOAKED;
-    const conditions = [
-      canShootAtTarget,
-      targetDetected,
-      !requireVisible || map.isVisible(pos),
-    ];
-    return conditions.every(condition => condition);
+
+    const visibilityCondition = requireVisible ? targetUnit.isCurrent() : true;
+
+    return canShootAtTarget && targetDetected && visibilityCondition;
   },
   /**
    * @param {ResourceManager} resources 

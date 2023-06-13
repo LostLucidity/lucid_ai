@@ -267,7 +267,7 @@ module.exports = {
               const unitCommand = { abilityId: MOVE }
               if (worker['pendingOrders'] === undefined || worker['pendingOrders'].length === 0) {
                 const [closestArmedEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
-                const [closestAttackableEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(enemyUnit => canAttack(resources, worker, enemyUnit)));
+                const [closestAttackableEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(enemyUnit => canAttack(worker, enemyUnit)));
                 const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, getCombatRally(resources));
                 // @ts-ignore
                 const selfCombatRallyDPSHealth = calculateNearDPSHealth(world, selfCombatRallyUnits, closestEnemyUnit['inRangeUnits'].map((/** @type {{ Unit }} */ unit) => unit.unitType));

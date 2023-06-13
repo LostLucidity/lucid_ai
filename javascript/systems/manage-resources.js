@@ -193,25 +193,24 @@ function chooseNeedyGasMine(resources, unit, needyGasMines) {
     const { pos: gasMinePos } = gasMine; if (gasMinePos === undefined) continue;
     const pathablePositions = getClosestPathablePositionsBetweenPositions(resources, unitPos, gasMinePos);
     const { pathCoordinates } = pathablePositions;
-    const enemyUnits = getEnemyUnitsCloseToPath(resources, unit, pathCoordinates);
+    const enemyUnits = getEnemyUnitsCloseToPath(unit, pathCoordinates);
     if (enemyUnits.length === 0) return gasMine;
   }
   return null;
 }
 
 /**
- * @param {ResourceManager} resources
  * @param {Unit} unit
  * @param {Point2D[]} pathCoordinates
  * @returns {Unit[]}
  */
-function getEnemyUnitsCloseToPath(resources, unit, pathCoordinates) {
+function getEnemyUnitsCloseToPath(unit, pathCoordinates) {
   const { mappedEnemyUnits } = enemyTrackingService;
   const enemyUnits = [];
   for (const enemyUnit of mappedEnemyUnits) {
     const { pos: enemyUnitPos } = enemyUnit; if (enemyUnitPos === undefined) continue;
     const enemyUnitCloseToPath = pathCoordinates.some(pathCoordinate => {
-      if (!canAttack(resources, enemyUnit, unit)) return false;
+      if (!canAttack(enemyUnit, unit)) return false;
       const closeToPath = getDistance(pathCoordinate, enemyUnitPos) <= 1;
       return closeToPath;
     });

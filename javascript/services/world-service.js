@@ -1086,7 +1086,7 @@ const worldService = {
   getDamageDealingUnits: (world, unit, enemyUnits) => {
     const { data, resources } = world;
     return enemyUnits.filter(enemyUnit => {
-      if (canAttack(resources, enemyUnit, unit) && inCombatRange(data, enemyUnit, unit)) {
+      if (canAttack(enemyUnit, unit) && inCombatRange(data, enemyUnit, unit)) {
         return true;
       } else {
         return false;
@@ -1754,9 +1754,10 @@ const worldService = {
     const randomUnit = getRandom(selfUnits);
     const selfUnitsAttackingInRange = getUnitsAttackingInRange(world, selfUnits);
     selfUnits.forEach(selfUnit => {
+      const { pos } = selfUnit; if (pos === undefined) return;
       let targetPosition = position;
       if (!workerTypes.includes(selfUnit.unitType) || selfUnit.labels.has('defending')) {
-        const [closestAttackableEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => canAttack(resources, selfUnit, enemyUnit)));
+        const [closestAttackableEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => canAttack(selfUnit, enemyUnit)));
         const attackablePosition = closestAttackableEnemyUnit ? closestAttackableEnemyUnit.pos : null;
         if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
           const selfDPSHealth = selfUnit['selfDPSHealth'] > closestAttackableEnemyUnit['enemyDPSHealth'] ? selfUnit['selfDPSHealth'] : closestAttackableEnemyUnit['enemyDPSHealth'];
@@ -1780,7 +1781,9 @@ const worldService = {
             } else {
               const unitCommand = createUnitCommand(MOVE, [selfUnit]);
               if (selfUnit.isFlying) {
-                unitCommand.targetWorldSpacePos = moveAwayPosition(attackablePosition, selfUnit.pos);
+                if (attackablePosition) {
+                  createAndAddUnitCommand(MOVE, selfUnit, moveAwayPosition(attackablePosition, pos), collectedActions);
+                }
               } else {
                 if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
                   const closestEnemyRange = getClosestEnemyByRange(data, selfUnit, enemyUnits)
@@ -1816,12 +1819,13 @@ const worldService = {
             }
           } else {
             setRecruitToBattleLabel(selfUnit, attackablePosition);
-            if (canAttack(resources, selfUnit, closestAttackableEnemyUnit)) {
+            if (canAttack(selfUnit, closestAttackableEnemyUnit, false)) {
               if (!selfUnit.isMelee()) { collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit)); }
               else {
                 const [rangedUnitAlly] = units.getClosest(selfUnit.pos, selfUnit['selfUnits']
                   .filter((/** @type {Unit} */ unit) => unit.data().weapons.some(w => w.range > 1) && getWeaponThatCanAttack(data, unit.unitType, closestAttackableEnemyUnit) !== undefined));
                 if (rangedUnitAlly) {
+                  const { pos: rangedUnitAllyPos } = rangedUnitAlly; if (rangedUnitAllyPos === undefined) return;
                   const distanceBetweenUnits = distance(selfUnit.pos, rangedUnitAlly.pos);
                   const rangedAllyEdgeDistance = distance(rangedUnitAlly.pos, closestAttackableEnemyUnit.pos) - rangedUnitAlly.radius - closestAttackableEnemyUnit.radius;
                   const weaponRange = getWeaponThatCanAttack(data, rangedUnitAlly.unitType, closestAttackableEnemyUnit).range + selfUnit.radius;
@@ -1829,16 +1833,16 @@ const worldService = {
                     distanceBetweenUnits < 16 &&
                     rangedAllyEdgeDistance > weaponRange + getTravelDistancePerStep(rangedUnitAlly)
                   ) {
-                    const unitCommand = createUnitCommand(MOVE, [selfUnit]);
-                    unitCommand.targetWorldSpacePos = rangedUnitAlly.pos;
-                    collectedActions.push(unitCommand);
+                    createAndAddUnitCommand(MOVE, selfUnit, rangedUnitAllyPos, collectedActions);
                   } else {
-                    const unitCommand = createUnitCommand(ATTACK_ATTACK, [selfUnit]);
-                    unitCommand.targetWorldSpacePos = attackablePosition;
-                    collectedActions.push(unitCommand);
+                    if (attackablePosition) {
+                      createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
+                    }
                   }
                 } else {
-                  collectedActions.push(...microB(world, selfUnit, closestAttackableEnemyUnit, enemyUnits));
+                  const unitCommand = createUnitCommand(MOVE, [selfUnit]);
+                  unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestAttackableEnemyUnit);
+                  collectedActions.push(unitCommand);
                 }
               }
             } else {
@@ -1936,7 +1940,7 @@ const worldService = {
       const { pos: workerPos } = worker; if (workerPos === undefined) return acc;
       const distanceToClosestEnemy = distance(workerPos, pos);
       const isLoneWorkerAndOutOfRange = closestEnemyUnit.isWorker() && closestEnemyUnit['selfUnits'].length === 1 && distanceToClosestEnemy > 8;
-      const isAttackable = canAttack(resources, worker, closestEnemyUnit);
+      const isAttackable = canAttack(worker, closestEnemyUnit);
       if (isLoneWorkerAndOutOfRange || !isAttackable) return acc;
       if (defendWithUnit(world, worker, closestEnemyUnit)) {
         acc.push(worker);
@@ -1990,7 +1994,7 @@ const worldService = {
       const inRangeAttackableEnemyUnits = getInRangeAttackableEnemyUnits(data, unit, enemyUnits);
       const enemyUnitsInRangeOfTheirAttack = getEnemyUnitsInRangeOfTheirAttack(data, unit, enemyUnits);
       if (inRangeAttackableEnemyUnits.length === 0) {
-        const attackableEnemyUnits = enemyUnits.filter(enemyUnit => canAttack(resources, unit, enemyUnit));
+        const attackableEnemyUnits = enemyUnits.filter(enemyUnit => canAttack(unit, enemyUnit));
         const closeAttackableEnemyUnits = attackableEnemyUnits.filter(enemyUnit => enemyUnit.pos && getDistanceByPath(resources, pos, enemyUnit.pos) <= 16);
         if (closeAttackableEnemyUnits.length > 0) {
           const unitCommand = getCommandToMoveToClosestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks(world, unit, closeAttackableEnemyUnits, enemyUnitsInRangeOfTheirAttack);
@@ -4123,13 +4127,12 @@ function getProjectedPosition(pos, pos1, time, time1, stepSize = 8) {
  * @returns {number}
  */
 function getTimeToKill(world, fighters, targetUnits) {
-  const { resources } = world;
   const { getWeaponDPS } = worldService;
   // get the time it takes to kill target units by all fighters
   const fightersDPS = fighters.reduce((acc, fighter) => {
     // keep dps of each fighter for next iteration
     const { unitType, alliance } = fighter; if (unitType === undefined || alliance === undefined) return acc;
-    const attackableTargetUnits = targetUnits.filter(targetUnit => canAttack(resources, fighter, targetUnit));
+    const attackableTargetUnits = targetUnits.filter(targetUnit => canAttack(fighter, targetUnit));
     // @ts-ignore
     const fighterDPS = getWeaponDPS(world, unitType, alliance, attackableTargetUnits.map(targetUnit => targetUnit.unitType));
     return acc + fighterDPS;
@@ -4934,3 +4937,14 @@ function calculateClosestConstructingWorker(world, constructingWorkers, position
   }, undefined);
 }
 
+/**
+ * @param {AbilityId} abilityId
+ * @param {Unit} selfUnit
+ * @param {Point2D} targetPosition
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions
+ */
+function createAndAddUnitCommand(abilityId, selfUnit, targetPosition, collectedActions) {
+  const unitCommand = createUnitCommand(abilityId, [selfUnit]);
+  unitCommand.targetWorldSpacePos = targetPosition;
+  collectedActions.push(unitCommand);
+}

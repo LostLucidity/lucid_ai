@@ -190,7 +190,7 @@ function checkIfShouldShadow(resources, unit, shadowingUnits, targetUnit) {
   const { pos } = targetUnit; if (pos === undefined) return false;
   const inRangeOfNaturalWorker = isWorker(targetUnit) && getDistance(pos, centroid) <= 16;
   const isGameTimeLaterThanTargetTime = getTimeInSeconds(frame.getGameLoop()) >= 131;
-  const canBeAttacked = canAttack(resources, targetUnit, unit);
+  const canBeAttacked = canAttack(targetUnit, unit);
   const shouldClosestToEnemyNaturalShadow = (
     (canBeAttacked || isGameTimeLaterThanTargetTime) &&
     (inRangeOfNaturalWorker || !isWorker(targetUnit))
