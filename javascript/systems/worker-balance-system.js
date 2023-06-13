@@ -95,7 +95,7 @@ module.exports = createSystem({
           if (buildProgress < 1) {
             const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return false;
             const buildTimeLeft = getBuildTimeLeft(needyTownhall, buildTime, buildProgress);
-            const timeToMineralField = getUnitTimeToPosition(resources, donatingWorker, mineralFieldPos); if (timeToMineralField === undefined) return false;
+            const timeToMineralField = getUnitTimeToPosition(resources, donatingWorker, mineralFieldTarget); if (timeToMineralField === undefined) return false;
             if (getTimeInSeconds(buildTimeLeft) > timeToMineralField) return false;
           }
           donatingWorker.labels.set('mineralField', mineralFieldTarget);
@@ -349,16 +349,26 @@ function getLeastNeediestMineralField(units, mineralFields) {
 /**
  * @param {ResourceManager} resources
  * @param {Unit} donatingWorker
- * @param {Point2D} targetPosition
+ * @param {Unit} targetUnit
  * @returns {number | undefined}
  */
-function getUnitTimeToPosition(resources, donatingWorker, targetPosition) {
-  const { pos } = donatingWorker; if (pos === undefined) { return }
+function getUnitTimeToPosition(resources, donatingWorker, targetUnit) {
+  const { pos, radius: workerRadius } = donatingWorker; // assuming worker has radius property
+  const { pos: targetPosition, radius: targetRadius } = targetUnit; // assuming targetUnit has radius property
+
+  if (pos === undefined || targetPosition === undefined || workerRadius === undefined || targetRadius === undefined) { return }
+
   const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, targetPosition);
-  const { distance } = closestPathablePositionBetweenPositions;
-  const movementSpeedPerSecond = getMovementSpeed(donatingWorker, true); if (movementSpeedPerSecond === undefined) { return }
+  let { distance } = closestPathablePositionBetweenPositions;
+
+  distance = distance - targetRadius - workerRadius; // adjust distance
+
+  const movementSpeedPerSecond = getMovementSpeed(donatingWorker, true);
+  if (movementSpeedPerSecond === undefined) { return }
+
   return distance / movementSpeedPerSecond
 }
+
 /**
  * @param {World} world
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
@@ -384,7 +394,7 @@ function redirectReturningWorkers(world) {
       const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return;
       const { buildProgress } = townHall; if (buildProgress === undefined) return;
       const buildTimeLeft = getBuildTimeLeft(townHall, buildTime, buildProgress);
-      const timeToPosition = getUnitTimeToPosition(resources, worker, pos); if (timeToPosition === undefined) return;
+      const timeToPosition = getUnitTimeToPosition(resources, worker, townHall); if (timeToPosition === undefined) return;
       if (getTimeInSeconds(buildTimeLeft) < timeToPosition) {
         if (orders[0].targetUnitTag !== townHall.tag) {
           const unitCommand = createUnitCommand(SMART, [worker]);
