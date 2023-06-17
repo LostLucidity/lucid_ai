@@ -74,6 +74,64 @@ const positionService = {
     });
   },
   /**
+   * @param {{point: Point2D, unit: Unit}[]} pointsWithUnits
+   * @param {number} eps
+   * @param {number} minPts
+   * @returns {{center: Point2D, units: Unit[]}[]}
+   */
+  dbscanWithUnits(pointsWithUnits, eps = 1.5, minPts = 1) {
+    let clusters = [];
+    let visited = new Set();
+    let noise = new Set();
+
+    function rangeQuery(p) {
+      return pointsWithUnits.filter(({ point }) => {
+        const distance = positionService.getDistance(p, point); // Assume getDistance is defined
+        return distance <= eps;
+      });
+    }
+
+    pointsWithUnits.forEach(({ point }) => {
+      if (!visited.has(point)) {
+        visited.add(point);
+
+        let neighbors = rangeQuery(point);
+
+        if (neighbors.length < minPts) {
+          noise.add(point);
+        } else {
+          let cluster = new Set([point]);
+
+          for (let { point: point2 } of neighbors) {
+            if (!visited.has(point2)) {
+              visited.add(point2);
+
+              let neighbors2 = rangeQuery(point2);
+
+              if (neighbors2.length >= minPts) {
+                neighbors = neighbors.concat(neighbors2);
+              }
+            }
+
+            if (!Array.from(cluster).includes(point2)) {
+              cluster.add(point2);
+            }
+          }
+
+          const clusterUnits = pointsWithUnits.filter(pt => cluster.has(pt.point)).map(pt => pt.unit);
+          const center = {
+            x: Array.from(cluster).reduce((a, b) => a + b.x, 0) / cluster.size,
+            y: Array.from(cluster).reduce((a, b) => a + b.y, 0) / cluster.size
+          };
+
+          clusters.push({ center, units: clusterUnits });
+        }
+      }
+    });
+
+    return clusters;
+  },
+  /**
    * @param {Point2D} pos
    * @param {Number} radius
    * @returns {Point2D[]}

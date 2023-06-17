@@ -39,7 +39,7 @@ const foodUsedService = require('./food-used-service');
 const { keepPosition } = require('./placement-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
 const { canAttack } = require('./resources-service');
-const { getMiddleOfStructure, moveAwayPosition, getDistance, getBorderPositions, dbscan } = require('./position-service');
+const { getMiddleOfStructure, moveAwayPosition, getDistance, getBorderPositions, dbscan, dbscanWithUnits } = require('./position-service');
 const MapResourceService = require('./map-resource-service');
 const { getPathCoordinates } = require('./path-service');
 const resourceManagerService = require('./resource-manager-service');
@@ -477,6 +477,11 @@ const worldService = {
    * @returns {number}
    */
   calculateNearDPSHealth: (world, units, enemyUnitTypes) => {
+    // If there are no enemy units, there's no DPS to calculate
+    if (enemyUnitTypes.length === 0) {
+      return 0;
+    }
+
     const { resources } = world;
     const { map, units: unitResource } = resources.get();
     const { isByItselfAndNotAttacking } = unitResourceService;
@@ -1009,10 +1014,10 @@ const worldService = {
 
     const builderCandidateClusters = getBuilderCandidateClusters(builderCandidates);
 
-    let closestBuilderCandidates = getClosestBuilderCandidates(resources, builderCandidateClusters, builderCandidates, position);
+    let closestBuilderCandidate = getClosestBuilderCandidate(resources, builderCandidateClusters, position);
     const movingOrConstructingNonDronesTimeToPosition = calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrConstructingNonDrones, position);
 
-    const candidateWorkersTimeToPosition = gatherCandidateWorkersTimeToPosition(resources, movingOrConstructingNonDronesTimeToPosition, position, closestBuilderCandidates);
+    const candidateWorkersTimeToPosition = gatherCandidateWorkersTimeToPosition(resources, position, movingOrConstructingNonDronesTimeToPosition, closestBuilderCandidate);
 
     const constructingWorkers = units.getConstructingWorkers();
     const closestConstructingWorker = calculateClosestConstructingWorker(world, constructingWorkers, position);
@@ -4736,58 +4741,63 @@ function filterBuilderCandidates(builderCandidates, movingOrConstructingNonDrone
 /**
  * Get clusters of builder candidate positions
  * @param {Unit[]} builderCandidates 
- * @returns {Point2D[]} Clusters of builder candidate positions
+ * @returns {{center: Point2D, units: Unit[]}[]}
  */
 function getBuilderCandidateClusters(builderCandidates) {
-  // Extract positions from builderCandidates
-  let builderCandidatePoints = builderCandidates.reduce((/** @type {Point2D[]} */accumulator, builder) => {
+  // Prepare data for dbscanWithUnits
+  let pointsWithUnits = builderCandidates.reduce((/** @type {{point: Point2D, unit: Unit}[]} */accumulator, builder) => {
     const { pos } = builder;
     if (pos === undefined) return accumulator;
-    accumulator.push(pos);
+    accumulator.push({ point: pos, unit: builder });
     return accumulator;
   }, []);
 
   // Apply DBSCAN to get clusters
-  let builderCandidateClusters = dbscan(builderCandidatePoints, 9);
+  let builderCandidateClusters = dbscanWithUnits(pointsWithUnits, 9);
 
   return builderCandidateClusters;
 }
 
 /**
  * @param {ResourceManager} resources
- * @param {Point2D[]} builderCandidateClusters
- * @param {Unit[]} builderCandidates
+ * @param {{center: Point2D, units: Unit[]}[]} builderCandidateClusters
  * @param {Point2D} position
- * @returns {Unit[]}
+ * @returns {Unit | undefined}
  */
-function getClosestBuilderCandidates(resources, builderCandidateClusters, builderCandidates, position) {
-  return builderCandidateClusters.reduce((/** @type {Unit[]} */closestCandidates, cluster) => {
-    let closestBuilderCandidate;
-    let shortestDistance = Infinity;
+function getClosestBuilderCandidate(resources, builderCandidateClusters, position) {
+  let closestCluster;
+  let shortestClusterDistance = Infinity;
 
-    for (let builderCandidate of builderCandidates) {
-      const { pos } = builderCandidate;
-      if (pos === undefined) continue;
-
-      const isCloseCluster = getDistance(cluster, position) < 16;
-
-      // Choose either cluster or position as a reference point depending on distance
-      const referencePoint = isCloseCluster ? position : cluster;
-
-      const distance = getDistanceByPath(resources, pos, referencePoint);
-
-      if (distance < shortestDistance) {
-        shortestDistance = distance;
-        closestBuilderCandidate = builderCandidate;
-      }
+  // Find the closest cluster to the position
+  for (let cluster of builderCandidateClusters) {
+    const distance = getDistance(cluster.center, position);
+    if (distance < shortestClusterDistance) {
+      shortestClusterDistance = distance;
+      closestCluster = cluster;
     }
+  }
 
-    if (closestBuilderCandidate !== undefined) {
-      closestCandidates.push(closestBuilderCandidate);
+  // If no clusters, return undefined
+  if (!closestCluster) return undefined;
+
+  let closestBuilderCandidate;
+  let shortestCandidateDistance = Infinity;
+
+  // Find the closest candidate within that cluster
+  for (let builderCandidate of closestCluster.units) {
+    const { pos } = builderCandidate;
+    if (pos === undefined) continue;
+
+    const distance = getDistanceByPath(resources, pos, position);
+
+    if (distance < shortestCandidateDistance) {
+      shortestCandidateDistance = distance;
+      closestBuilderCandidate = builderCandidate;
     }
+  }
 
-    return closestCandidates;
-  }, []); // Initial value of closestCandidates is an empty array
+  // Return the closest candidate, or undefined if none was found
+  return closestBuilderCandidate;
 }
 
 /**
@@ -4858,13 +4868,13 @@ function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrCon
 
 /**
  * @param {ResourceManager} resources
- * @param {{unit: Unit, timeToPosition: number}[]} movingOrConstructingNonDronesTimeToPosition
  * @param {Point2D} position
- * @param {Unit[]} closestBuilderCandidates
+ * @param {{unit: Unit, timeToPosition: number}[]} movingOrConstructingNonDronesTimeToPosition
+ * @param {Unit | undefined} closestBuilder
  * @returns {Array<{unit: Unit, timeToPosition: number}>}
  */
-const gatherCandidateWorkersTimeToPosition = (resources, movingOrConstructingNonDronesTimeToPosition, position, closestBuilderCandidates) => {
-  const { getClosestUnitByPath, getClosestPathablePositionsBetweenPositions } = resourceManagerService;
+const gatherCandidateWorkersTimeToPosition = (resources, position, movingOrConstructingNonDronesTimeToPosition, closestBuilder) => {
+  const { getClosestPathablePositionsBetweenPositions } = resourceManagerService;
   let candidateWorkersTimeToPosition = [];
 
   const [movingOrConstructingNonDrone] = movingOrConstructingNonDronesTimeToPosition.sort((a, b) => {
@@ -4876,7 +4886,6 @@ const gatherCandidateWorkersTimeToPosition = (resources, movingOrConstructingNon
     candidateWorkersTimeToPosition.push(movingOrConstructingNonDrone);
   }
 
-  const [closestBuilder] = getClosestUnitByPath(resources, position, closestBuilderCandidates);
   if (closestBuilder !== undefined) {
     const { pos } = closestBuilder;
     if (pos === undefined) return candidateWorkersTimeToPosition;
