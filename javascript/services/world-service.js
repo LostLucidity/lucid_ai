@@ -121,12 +121,12 @@ const worldService = {
     return collectedActions;
   },
   /**
-   * Adds addon, with placement checks and relocating logic.
-   * @param {World} world 
-   * @param {Unit} unit 
-   * @param {UnitTypeId} addOnType 
-   * @returns {Promise<void>}
-   */
+ * Adds addon, with placement checks and relocating logic.
+ * @param {World} world 
+ * @param {Unit} unit 
+ * @param {UnitTypeId} addOnType 
+ * @returns {Promise<void>}
+ */
   addAddOn: async (world, unit, addOnType) => {
     const { landingAbilities, liftingAbilities } = groupTypes;
     const { data, resources } = world;
@@ -143,19 +143,22 @@ const worldService = {
       return;
     }
 
+    const availableAbilities = unit.availableAbilities();
+
     if (unit.abilityAvailable(abilityId)) {
       if (await attemptBuildAddOn(world, unit, addOnType, unitCommand)) {
+        worldService.addEarmark(data, data.getUnitTypeData(addOnType));
         return;
       }
     }
 
-    if (unit.availableAbilities().some(ability => liftingAbilities.includes(ability))) {
+    if (availableAbilities.some(ability => liftingAbilities.includes(ability))) {
       if (await attemptLiftOff(actions, unit)) {
         return;
       }
     }
 
-    if (unit.availableAbilities().some(ability => landingAbilities.includes(ability))) {
+    if (availableAbilities.some(ability => landingAbilities.includes(ability))) {
       await attemptLand(world, unit, addOnType);
     }
   },

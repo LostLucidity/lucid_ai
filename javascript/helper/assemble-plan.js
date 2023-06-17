@@ -200,29 +200,33 @@ class AssemblePlan {
             this.collectedActions.push(...await morphStructureAction(world, unitType));
           }
           break;
-        case addonTypes.includes(unitType):
-          const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = worldService;
-          const abilityIds = getAbilityIdsForAddons(data, unitType);
-          let canDoTypes = getUnitTypesWithAbilities(data, abilityIds);
-          const addOnUnits = units.withLabel('addAddOn').filter(addOnUnit => {
-            const addOnPosition = addOnUnit.labels.get('addAddOn');
-            if (addOnPosition && distance(addOnUnit.pos, addOnPosition) < 1) { addOnUnit.labels.delete('addAddOn'); }
-            else { return true; }
-          });
-          const availableAddOnUnits = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && (!unit['pendingOrders'] || unit['pendingOrders'].length === 0)));
-          const unitsCanDo = availableAddOnUnits.length > 0 ? addOnUnits : units.getByType(canDoTypes).filter(unit => {
-            return abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && (!unit['pendingOrders'] || unit['pendingOrders'].length === 0));
-          });
-          if (unitsCanDo.length > 0) {
-            let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
-            await addAddOn(world, unitCanDo, unitType);
-          } else {
-            const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
-            await balanceResources(world, mineralCost / vespeneCost);
-            planService.pausePlan = true;
-            planService.continueBuild = false;
-          }
+        case addonTypes.includes(unitType): {
+          const { addEarmark, getAbilityIdsForAddons, getUnitTypesWithAbilities } = worldService;
+          if (agent.canAfford(unitType)) {
+            const abilityIds = getAbilityIdsForAddons(data, unitType);
+            let canDoTypes = getUnitTypesWithAbilities(data, abilityIds);
+            const addOnUnits = units.withLabel('addAddOn').filter(addOnUnit => {
+              const addOnPosition = addOnUnit.labels.get('addAddOn');
+              if (addOnPosition && distance(addOnUnit.pos, addOnPosition) < 1) { addOnUnit.labels.delete('addAddOn'); }
+              else { return true; }
+            });
+            const availableAddOnUnits = addOnUnits.filter(unit => abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && (!unit['pendingOrders'] || unit['pendingOrders'].length === 0)));
+            const unitsCanDo = availableAddOnUnits.length > 0 ? addOnUnits : units.getByType(canDoTypes).filter(unit => {
+              return abilityIds.some(abilityId => unit.abilityAvailable(abilityId) && (!unit['pendingOrders'] || unit['pendingOrders'].length === 0));
+            });
+            if (unitsCanDo.length > 0) {
+              let unitCanDo = unitsCanDo[Math.floor(Math.random() * unitsCanDo.length)];
+              await addAddOn(world, unitCanDo, unitType);
+            } else {
+              const { mineralCost, vespeneCost } = data.getUnitTypeData(unitType);
+              await balanceResources(world, mineralCost / vespeneCost);
+              planService.pausePlan = true;
+              planService.continueBuild = false;
+            }
+          }       
+          addEarmark(data, data.getUnitTypeData(unitType));
           break;
+        }
         default:
           if (PHOTONCANNON === unitType) { 
             candidatePositions = map.getNatural().areas.placementGrid;
