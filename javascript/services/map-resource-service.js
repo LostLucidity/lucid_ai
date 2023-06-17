@@ -62,9 +62,10 @@ const MapResourceService = {
    * @param {MapResource} map
    * @param {Point2D} start
    * @param {Point2D} end
+   * @param {MapPathOptions} options
    * @returns {number[][]}
    */
-  getMapPath: (map, start, end) => {
+  getMapPath: (map, start, end, options = {}) => {
     const { pathCache, getClosestPathablePositions } = MapResourceService;
     const [startGrid, endGrid] = [getClosestPathablePositions(map, start)[0], getClosestPathablePositions(map, end)[0]];
 
@@ -88,7 +89,7 @@ const MapResourceService = {
       pathCache.delete(pathKey);
     }
 
-    const mapPath = map.path(start, end);
+    const mapPath = map.path(start, end, options);
     if (mapPath.length === 0) {
       return [];
     }

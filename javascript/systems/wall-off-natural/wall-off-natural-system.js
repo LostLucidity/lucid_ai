@@ -38,6 +38,7 @@ function setUpWallOffNatural(world) {
     const baseCells = cellsInFootprint(townhallPosition, baseFootprint);
     return !pointsOverlap([coordinate], baseCells)
   });
+  // debug && debug.setDrawCells('pthTEnm', coordinatesToEnemy.map(r => ({ pos: r })), { size: 1, cube: false });
   const slicedGridsToEnemy = coordinatesToEnemy.slice(4, 13);
   debug.setDrawCells('pthTEnm', slicedGridsToEnemy.map(r => ({ pos: r })), { size: 1, cube: false });
   const rampIntoNatural = slicedGridsToEnemy.some(grid => map.isRamp(grid));
@@ -105,37 +106,42 @@ function getCandidateWallEnds(map, grid) {
  * @returns {{path: Point2D[], pathLength: number}[]}
  */
 function getCandidateWalls(map, candidateWallEnds, pathToCross) {
-  // For each candidateWallEnd, find other candidateWallEnds that cross the pathToCross
   const candidateWalls = [];
   candidateWallEnds.forEach(candidateWallEnd => {
-    // find another candidateWallEnd that has a greater distance than 8
     const candidateWallEndsThatCross = candidateWallEnds.filter(candidateWallEndTwo => {
       if (distance(candidateWallEnd, candidateWallEndTwo) < 9) return false;
-      // find path between candidateWallEnd and second candidateWallEnd
+
       const pathCoordinates = getPathCoordinates(map.path(candidateWallEnd, candidateWallEndTwo, { diagonal: true, force: true }));
+
       if (pathCoordinates.some(grid => getNeighbors(grid).some(neighbor => map.isRamp(neighbor)))) return false;
-      // find if pathCoordinates only has 1 path that is near the pathToCross
-      const pathCoordinatesThatCross = pathCoordinates.filter(pathCoordinate => {
-        return pathToCross.some(pathToCrossCoordinate => {
-          return distance(pathCoordinate, pathToCrossCoordinate) <= 1;
-        });
-      }).length;
-      return pathCoordinatesThatCross === 1;
+
+      // get indices where pathCoordinates crosses pathToCross
+      const pathCoordinatesCrossIndices = pathCoordinates
+        .map((pathCoordinate, index) => ({ index, crosses: pathToCross.some(pathToCrossCoordinate => distance(pathCoordinate, pathToCrossCoordinate) <= 1) }))
+        .filter(({ crosses }) => crosses)
+        .map(({ index }) => index);
+
+      // check if crossing indices are sequential
+      const isSequential = pathCoordinatesCrossIndices.every((value, index, array) => index === 0 || value === array[index - 1] + 1);
+
+      // only return true if pathCoordinates cross pathToCross exactly once, or crosses multiple times but sequentially
+      return pathCoordinatesCrossIndices.length === 1 || isSequential;
     });
+
     if (candidateWallEndsThatCross.length > 0) {
-      // get the closest candidateWallEndsThatCross to the candidateWallEnd
       const [closestCandidateWallEndThatCross] = getClosestPosition(candidateWallEnd, candidateWallEndsThatCross);
-      // get the path between the candidateWallEnd and the closest candidateWallEndThatCross
       const pathCoordinates = getPathCoordinates(map.path(candidateWallEnd, closestCandidateWallEndThatCross, { diagonal: true, force: true }));
+
       if (areCandidateWallEndsUnique(candidateWalls, pathCoordinates)) {
         candidateWalls.push({ path: pathCoordinates, pathLength: pathCoordinates.length });
       }
     }
   });
-  // sort candidateWalls by pathLength
+
   candidateWalls.sort((a, b) => a.pathLength - b.pathLength);
   return candidateWalls;
 }
+
 
 /**
  * 

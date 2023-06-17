@@ -4485,13 +4485,14 @@ const handleNonRallyBase = (world, unit, position, unitCommand, unitType) => {
   const { units } = resources.get();
   const { pos } = unit; if (pos === undefined) return [];
   let actions = [];
+
   const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, unit);
   const movingButNotToPosition = unitService.isMoving(unit) && orderTargetPosition && getDistance(orderTargetPosition, position) > 1;
 
   // check for a current unit that is heading towards position
   const currentUnitMovingToPosition = units.getWorkers().find(u => {
     const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, u); if (orderTargetPosition === undefined) return false;
-    return unitService.isMoving(u) && areEqual(orderTargetPosition, position)
+    return unitService.isMoving(u) && areApproximatelyEqual(orderTargetPosition, position);
   });
 
   // if there is a unit already moving to position, check if current unit is closer
@@ -4947,4 +4948,21 @@ function createAndAddUnitCommand(abilityId, selfUnit, targetPosition, collectedA
   const unitCommand = createUnitCommand(abilityId, [selfUnit]);
   unitCommand.targetWorldSpacePos = targetPosition;
   collectedActions.push(unitCommand);
+}
+
+/**
+ * @param {SC2APIProtocol.Point2D} point1
+ * @param {SC2APIProtocol.Point2D} point2
+ * @param {number} epsilon
+ * @returns {boolean}
+ */
+const areApproximatelyEqual = (point1, point2, epsilon = 0.0002) => {
+  if (point1.x === undefined || point1.y === undefined || point2.x === undefined || point2.y === undefined) {
+    return false;
+  }
+
+  const dx = Math.abs(point1.x - point2.x);
+  const dy = Math.abs(point1.y - point2.y);
+
+  return dx < epsilon && dy < epsilon;
 }
