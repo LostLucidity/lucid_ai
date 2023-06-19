@@ -91,31 +91,33 @@ const worldService = {
       });
 
     if (canDoTypes.length === 0) {
-      canDoTypes = units.getAlive(Alliance.SELF)
-        .flatMap(selfUnits => selfUnits.unitType !== undefined ? [selfUnits.unitType] : []);
+      canDoTypes = units.getAlive(Alliance.SELF).reduce((/** @type {UnitTypeId[]} */acc, unit) => {
+        if (unit.unitType) {
+          acc.push(unit.unitType);
+        }
+        return acc;
+      }, []);
     }
 
     const unitsCanDo = units.getById(canDoTypes);
-    if (unitsCanDo.length > 0) {
-      const unitsCanDoWithAbilityAvailable = unitsCanDo.filter(unit => unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0);
-      let unitCanDo;
+    if (!unitsCanDo.length) return collectedActions;
 
-      if (unitsCanDoWithAbilityAvailable.length > 0) {
-        unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
-      } else {
-        // unitsCanDo may not have ability available, due to being busy or tech not available yet
-        // if idle, give it pending order
-        const idleUnits = unitsCanDo.filter(unit => unit.isIdle);
-        if (idleUnits.length > 0) {
-          unitCanDo = getRandom(idleUnits);
-        }
-      }
+    const unitsCanDoWithAbilityAvailable = unitsCanDo.filter(unit => unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0);
+    let unitCanDo;
 
-      if (unitCanDo) {
-        const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
-        collectedActions.push(unitCommand);
-        setPendingOrders(unitCanDo, unitCommand);
+    if (unitsCanDoWithAbilityAvailable.length > 0) {
+      unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
+    } else {
+      const idleUnits = unitsCanDo.filter(unit => unit.isIdle() && (unit.buildProgress || 0) >= 1);
+      if (idleUnits.length > 0) {
+        unitCanDo = getRandom(idleUnits);
       }
+    }
+
+    if (unitCanDo) {
+      const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
+      collectedActions.push(unitCommand);
+      setPendingOrders(unitCanDo, unitCommand);
     }
 
     return collectedActions;
