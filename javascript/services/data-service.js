@@ -3,7 +3,7 @@
 
 const { Ability, UnitType, WarpUnitAbility, Upgrade } = require("@node-sc2/core/constants");
 const { EFFECT_CHRONOBOOSTENERGYCOST } = require("@node-sc2/core/constants/ability");
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, Race, Attribute } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const curatedAbilities = require("../constants/curated-abilities");
 const { getTimeInSeconds } = require("./frames-service");
@@ -77,15 +77,17 @@ const dataService = {
     return totalBonusDamage > 0 ? (totalBonusDamage / enemyUnitTypes.length) : 0;
   },
   /**
-   * @param {DataStorage} data 
-   * @param {UnitResource} units 
-   * @returns {Map<number, import("../interfaces/actions-map").ActionsMap>}
-   */
-  getAllAvailableAbilities(data, units) {
+ * @param {World} world 
+ * @param {UnitResource} units 
+ * @returns {Map<number, import("../interfaces/actions-map").ActionsMap>}
+ */
+  getAllAvailableAbilities(world, units) {
+    const { agent, data } = world;
     /** @type {Map<number, any>} */
     const allAvailableAbilities = new Map();
     const { upgradeAbilities } = dataService;
     units.getAlive(Alliance.SELF).forEach(unit => {
+      const { unitType } = unit; if (unitType === undefined) return;
       if (!unit.isStructure() || unit.isIdle() || unit.hasReactor() && unit.orders.length === 1) {
         const availableAbilities = unit.availableAbilities();
         availableAbilities.forEach(ability => {
@@ -94,6 +96,9 @@ const dataService = {
             if (Array.from(unitTypeTrainingAbilities.keys()).some(unitTypeAbility => unitTypeAbility === ability)) {
               const unitTypeData = data.getUnitTypeData(unitTypeTrainingAbilities.get(ability));
               if (unitTypeData.unitAlias === 0) {
+                if (requiresPylon(agent, unitTypeData) && units.getById(UnitType.PYLON).length === 0) {
+                  return; // Skip this unit if it's a Protoss structure that requires a Pylon and there's no Pylon
+                }
                 allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeTrainingAbilities.get(ability) });
               } else {
                 // ignore
@@ -238,3 +243,23 @@ const dataService = {
 }
 
 module.exports = dataService
+
+/**
+ * @param {Agent} agent
+ * @param {SC2APIProtocol.UnitTypeData} unitTypeData
+ * @returns {boolean}
+ */
+function requiresPylon(agent, unitTypeData) {
+  // return false immediately if agent race is not protoss
+  if (agent.race !== Race.PROTOSS) return false;
+
+  // Nexus, assimilator, pylon do not require pylon
+  const { attributes, unitId } = unitTypeData;
+  if (attributes === undefined || unitId === undefined) return false;
+
+  const isStructure = attributes.includes(Attribute.STRUCTURE);
+  const requiresPylon = [UnitType.NEXUS, UnitType.ASSIMILATOR, UnitType.PYLON].every(unitType => unitId !== unitType);
+
+  return isStructure && requiresPylon;
+}
+

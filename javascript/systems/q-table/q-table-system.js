@@ -38,7 +38,7 @@ async function executeQLearning(world) {
   const { units } = resources.get();
   const { steps } = qTableService;
   const state = { step: steps.length };
-  const availableActions = dataService.getAllAvailableAbilities(data, units);
+  const availableActions = dataService.getAllAvailableAbilities(world, units);
   const stateIndex = qTableService.getStateIndex(state);
   const actionIndex = qTableService.chooseAction(stateIndex, availableActions);
   const action = getAllActions()[actionIndex];

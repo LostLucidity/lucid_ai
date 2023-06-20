@@ -73,7 +73,7 @@ module.exports = createSystem({
       return;
     }
     if (agent.minerals > mineralMaxThreshold && planService.continueBuild) {
-      const allAvailableAbilities = getAllAvailableAbilities(data, units);
+      const allAvailableAbilities = getAllAvailableAbilities(world, units);
       await runAction(world, allAvailableAbilities);
     }
     collectedActions.push(...optimizeBuildCommands(world));
