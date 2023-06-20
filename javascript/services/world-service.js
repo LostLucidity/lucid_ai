@@ -84,11 +84,13 @@ const worldService = {
     const { units } = resources.get();
     const collectedActions = [];
 
+    const flyingTypesKeys = [...flyingTypesMapping.keys()];
+
     let canDoTypes = data.findUnitTypesWithAbility(abilityId)
-      .flatMap(unitTypeId => {
-        const key = [...flyingTypesMapping.keys()].find(key => flyingTypesMapping.get(key) === unitTypeId);
+      .map(unitTypeId => {
+        const key = flyingTypesKeys.find(key => flyingTypesMapping.get(key) === unitTypeId);
         return key ? [unitTypeId, key] : [unitTypeId];
-      });
+      }).flat();
 
     if (canDoTypes.length === 0) {
       canDoTypes = units.getAlive(Alliance.SELF).reduce((/** @type {UnitTypeId[]} */acc, unit) => {
@@ -104,6 +106,18 @@ const worldService = {
 
     const unitsCanDoWithAbilityAvailable = unitsCanDo.filter(unit => unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0);
     let unitCanDo;
+      if (unitsCanDoWithAbilityAvailable.length > 0) {
+        unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
+      } else {
+        // unitsCanDo may not have ability available, due to being busy or tech not available yet
+        // if idle or almost idle, give it pending order
+        const idleOrAlmostIdleUnits = unitsCanDo.filter(unit => isIdleOrAlmostIdle(data, unit));
+
+        if (idleOrAlmostIdleUnits.length > 0) {
+          unitCanDo = getRandom(idleOrAlmostIdleUnits);
+        }
+
+      }
 
     if (unitsCanDoWithAbilityAvailable.length > 0) {
       unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
@@ -4516,6 +4530,16 @@ const handleNonRallyBase = (world, unit, position, unitCommand, unitType) => {
     }
   }
 
+  // check for units near the building position
+  const unitsNearPosition = units.getAlive(Alliance.SELF).filter(u => u.pos && getDistance(u.pos, position) <= 2);
+  unitsNearPosition.forEach(u => {
+    if (u.pos) { // only consider units where pos is defined
+      const moveAwayCommand = createUnitCommand(MOVE, [u]);
+      moveAwayCommand.targetWorldSpacePos = getAwayPosition(u.pos, position);
+      actions.push(moveAwayCommand);
+    }
+  });
+
   if (!unit.isConstructing() && !movingButNotToPosition) {
     unitCommand.targetWorldSpacePos = position;
     setBuilderLabel(unit);
@@ -4979,4 +5003,51 @@ const areApproximatelyEqual = (point1, point2, epsilon = 0.0002) => {
   const dy = Math.abs(point1.y - point2.y);
 
   return dx < epsilon && dy < epsilon;
+}
+
+/**
+ * @param {DataStorage} data
+ * @param {Unit} unit
+ * @returns {boolean}
+ */
+function isIdleOrAlmostIdle(data, unit) {
+  // if the unit is idle, no need to check anything else
+  if (unit.orders && unit.orders.length === 0 && unit.buildProgress && unit.buildProgress === 1) {
+    return true;
+  }
+
+  // now check if it is almost idle
+  const { abilityId = null, progress = null } = (unit.orders && unit.orders.length > 0) ? unit.orders[0] : {};
+  let unitTypeTraining;
+  if (abilityId !== null) {
+    unitTypeTraining = dataService.unitTypeTrainingAbilities.get(abilityId);
+  }
+  const unitTypeData = unitTypeTraining && data.getUnitTypeData(unitTypeTraining);
+  const { buildTime } = unitTypeData || {};
+  let buildTimeLeft;
+  if (buildTime !== undefined && progress !== null) {
+    buildTimeLeft = unitService.getBuildTimeLeft(unit, buildTime, progress);
+  }
+  const isAlmostIdle = buildTimeLeft !== undefined && buildTimeLeft <= 8 && unitService.getPendingOrders(unit).length === 0;
+  return isAlmostIdle;
+}
+
+/**
+ * @param {Point2D} buildingPosition
+ * @param {Point2D} unitPosition
+ * @returns {Point2D}
+ */
+function getAwayPosition(buildingPosition, unitPosition) {
+  // Default to 0 if undefined
+  const unitX = unitPosition.x || 0;
+  const unitY = unitPosition.y || 0;
+  const buildingX = buildingPosition.x || 0;
+  const buildingY = buildingPosition.y || 0;
+
+  const dx = unitX - buildingX;
+  const dy = unitY - buildingY;
+  return {
+    x: unitX + dx,
+    y: unitY + dy
+  };
 }
