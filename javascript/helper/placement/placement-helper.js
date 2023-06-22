@@ -66,7 +66,7 @@ const placementHelper = {
   getNaturalWallPylon: (resources) => {
     const { map } = resources.get();
     // front of natural pylon for great justice
-    let possiblePlacements = [];
+    let possiblePlacements = wallOffNaturalService.pylonPlacement ? [wallOffNaturalService.pylonPlacement] : [];
     const naturalWall = wallOffNaturalService.wall.length > 0 ? wallOffNaturalService.wall : map.getNatural().getWall();
     if (naturalWall) {
       const naturalTownhallPosition = map.getNatural().townhallPosition;
