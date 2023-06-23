@@ -2820,12 +2820,20 @@ const worldService = {
   train: async (world, unitTypeId, targetCount = null) => {
     const { warpIn } = resourceManagerService;
     const { getPendingOrders, setPendingOrders } = unitService;
-    const { addEarmark, canBuild, checkAddOnPlacement, getTrainer, unpauseAndLog } = worldService;
+    const { addEarmark, canBuild, checkAddOnPlacement, getTrainer, getUnitTypeCount, unpauseAndLog } = worldService;
     const { reactorTypes, techLabTypes } = groupTypes
     const { WARPGATE } = UnitType;
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
-    let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return;
+    // Store the result of getUnitTypeData in a variable
+    const unitTypeData = data.getUnitTypeData(unitTypeId);
+    let { abilityId } = unitTypeData; if (abilityId === undefined) return;
+
+    // Check if unit count is less than target count and earmark resources
+    const currentUnitTypeCount = getUnitTypeCount(world, unitTypeId);
+    if (targetCount && currentUnitTypeCount < targetCount) {
+      addEarmark(data, unitTypeData);
+    }
 
     // Helper function to create and store unit commands
     /**
@@ -2874,13 +2882,11 @@ const worldService = {
           unpauseAndLog(world, UnitTypeId[unitTypeId]);
           await warpIn(resources, this, unitTypeId);
         }
-        const unitTypeData = data.getUnitTypeData(unitTypeId);
         addEarmark(data, unitTypeData);
         planService.pendingFood += unitTypeData.foodRequired ? unitTypeData.foodRequired : 0;
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
         unitTrainingService.selectedTypeToBuild = null;
       } else {
-        const unitTypeData = data.getUnitTypeData(unitTypeId);
         const { requireAttached, techRequirement } = unitTypeData; if (requireAttached === undefined || techRequirement === undefined) return;
 
         let canDoTypes = data.findUnitTypesWithAbility(abilityId);

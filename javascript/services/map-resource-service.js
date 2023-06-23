@@ -167,31 +167,60 @@ const MapResourceService = {
     const grid = { x: Math.floor(x), y: Math.floor(y) };
     return map.getCreep().some(creep => areEqual(creep, grid));
   },
-  /**
-   * 
-   * @param {MapResource} map 
-   * @param {Point2D} pos 
-   * @returns {Boolean}
-   */
+  /** 
+ * 
+  * @param {MapResource} map 
+  * @param {Point2D} pos 
+  * @returns {Boolean}
+ */
   isCreepEdge: (map, pos) => {
-    const isCreep = MapResourceService.isCreep(map, pos);
-    if (!isCreep) return false;
-    const { x, y } = pos; if (x === undefined || y === undefined) return false;
-    // Directly calculating the neighbor positions without creating an array.
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        // Skip the center point
-        if (dx === 0 && dy === 0) continue;
+    const { x, y } = pos;
 
-        const neighbor = { x: x + dx, y: y + dy };
-        
-        // Check the condition and return early if satisfied
-        if (!map.hasCreep(neighbor) && map.isPathable(neighbor)) {
-          return true;
+    if (x === undefined || y === undefined) return false;
+
+    /** 
+     * @param {number} x 
+     * @param {number} y 
+     * @param {SC2APIProtocol.Size2DI} mapSize 
+     */
+    const isWithinMap = (x, y, mapSize) =>
+      mapSize.x !== undefined && mapSize.y !== undefined &&
+      x >= 0 && x < mapSize.x && y >= 0 && y < mapSize.y;
+
+    const mapSize = map.getSize();
+
+    // Verify position is valid and within map
+    if (!isWithinMap(x, y, mapSize)) return false;
+
+    /**
+     * @param {number} x
+     * @param {number} y
+     * @returns {boolean}
+     */
+    const checkNeighbors = (x, y) => {
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          // Skip the center point
+          if (dx === 0 && dy === 0) continue;
+
+          const neighborX = x + dx;
+          const neighborY = y + dy;
+
+          // Check if the neighbor is within map boundaries
+          if (!isWithinMap(neighborX, neighborY, mapSize)) continue;
+
+          const neighbor = { x: neighborX, y: neighborY };
+
+          // Check the condition and return early if satisfied
+          if (!map.hasCreep(neighbor) && map.isPathable(neighbor)) {
+            return true;
+          }
         }
       }
+      return false;
     }
-    return false;
+
+    return MapResourceService.isCreep(map, pos) && checkNeighbors(x, y);
   },
   /**
    * @param {MapResource} map
