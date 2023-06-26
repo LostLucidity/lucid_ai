@@ -179,33 +179,46 @@ const worldService = {
     }
   },
   /**
- * 
- * @param {DataStorage} data 
- * @param {SC2APIProtocol.UnitTypeData|SC2APIProtocol.UpgradeData} orderData 
- */
+   * 
+   * @param {DataStorage} data 
+   * @param {SC2APIProtocol.UnitTypeData|SC2APIProtocol.UpgradeData} orderData 
+   */
   addEarmark: (data, orderData) => {
     const { ORBITALCOMMAND, ZERGLING } = UnitType;
     const { getFoodUsed } = worldService;
-    if (dataService.earmarkThresholdReached(data)) return;
-    const { name, mineralCost, vespeneCost } = orderData; if (name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
+
+    const { name, mineralCost, vespeneCost } = orderData;
+
+    if (dataService.earmarkThresholdReached(data) || name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
+
+    const foodKey = `${getFoodUsed() + dataService.getEarmarkedFood()}`;
+    const stepKey = `${planService.currentStep}`;
+    const fullKey = `${stepKey}_${foodKey}`;
+
     let minerals = 0;
-    const key = `${planService.currentStep}_${getFoodUsed() + dataService.getEarmarkedFood()}`;
-    const unitId = orderData['unitId'];
-    if (unitId !== undefined) {
-      /** @type {SC2APIProtocol.UnitTypeData} */
-      let { attributes, foodRequired, race, unitId } = orderData; if (attributes === undefined || foodRequired === undefined || race === undefined || unitId === undefined) return;
-      foodRequired += unitId === ZERGLING ? foodRequired : 0;
-      const foodEarmark = dataService.foodEarmarks.get(key) || 0;
-      dataService.foodEarmarks.set(key, foodEarmark + foodRequired);
-      minerals = (unitId === ORBITALCOMMAND ? -400 : 0);
-      if (race === Race.ZERG && attributes.includes(Attribute.STRUCTURE)) {
-        const foodEarmark = dataService.foodEarmarks.get(key) || 0;
-        dataService.foodEarmarks.set(key, foodEarmark - 1);
+    let foodEarmark = dataService.foodEarmarks.get(fullKey) || 0;
+
+    if ('unitId' in orderData) {
+      const isZergling = orderData.unitId === ZERGLING;
+      const isOrbitalCommand = orderData.unitId === ORBITALCOMMAND;
+      const { attributes, foodRequired, race, unitId } = orderData;
+
+      if (attributes !== undefined && foodRequired !== undefined && race !== undefined && unitId !== undefined) {
+        const adjustedFoodRequired = isZergling ? foodRequired * 2 : foodRequired;
+        dataService.foodEarmarks.set(fullKey, foodEarmark + adjustedFoodRequired);
+
+        minerals = isOrbitalCommand ? -400 : 0;
+
+        if (race === Race.ZERG && attributes.includes(Attribute.STRUCTURE)) {
+          dataService.foodEarmarks.set(fullKey, foodEarmark - 1);
+        }
       }
+
+      minerals += isZergling ? mineralCost * 2 : mineralCost;
     }
-    minerals += unitId === ZERGLING ? mineralCost * 2 : mineralCost;
+
     // set earmark name to include step number and food used plus food earmarked
-    const earmarkName = `${name}_${key}`;
+    const earmarkName = `${name}_${fullKey}`;
     const earmark = {
       name: earmarkName,
       minerals,
@@ -1534,10 +1547,23 @@ const worldService = {
    */
   getUnitsWithCurrentOrders: (units, abilityIds) => {
     const unitsWithCurrentOrders = [];
+    const allUnits = units.getAlive(Alliance.SELF);
+
     abilityIds.forEach(abilityId => {
+      // Add units with matching current orders
       unitsWithCurrentOrders.push(...units.withCurrentOrders(abilityId));
+
+      // Add units with matching pending orders
+      allUnits.forEach(unit => {
+        const pendingOrders = unitService.getPendingOrders(unit);
+        if (pendingOrders.some(order => order.abilityId === abilityId)) {
+          unitsWithCurrentOrders.push(unit);
+        }
+      });
     });
-    return unitsWithCurrentOrders;
+
+    // Remove duplicates
+    return Array.from(new Set(unitsWithCurrentOrders));
   },
   /**
    * @param {World} world 
@@ -2831,9 +2857,8 @@ const worldService = {
 
     // Check if unit count is less than target count and earmark resources
     const currentUnitTypeCount = getUnitTypeCount(world, unitTypeId);
-    if (targetCount && currentUnitTypeCount < targetCount) {
-      addEarmark(data, unitTypeData);
-    }
+
+    let earmarkNeeded = targetCount && currentUnitTypeCount < targetCount;
 
     // Helper function to create and store unit commands
     /**
@@ -2863,6 +2888,8 @@ const worldService = {
     }
 
     if (targetCount === null || checkUnitCount(world, unitTypeId, targetCount)) {
+      earmarkNeeded = earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
+
       const randomTrainer = getRandom(getTrainer(world, unitTypeId));
       if (canBuild(world, unitTypeId) && randomTrainer) {
         if (randomTrainer.unitType !== WARPGATE) {
@@ -2882,11 +2909,12 @@ const worldService = {
           unpauseAndLog(world, UnitTypeId[unitTypeId]);
           await warpIn(resources, this, unitTypeId);
         }
-        addEarmark(data, unitTypeData);
         planService.pendingFood += unitTypeData.foodRequired ? unitTypeData.foodRequired : 0;
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
         unitTrainingService.selectedTypeToBuild = null;
+        earmarkNeeded = true;
       } else {
+        const unitTypeData = data.getUnitTypeData(unitTypeId);
         const { requireAttached, techRequirement } = unitTypeData; if (requireAttached === undefined || techRequirement === undefined) return;
 
         let canDoTypes = data.findUnitTypesWithAbility(abilityId);
@@ -2957,9 +2985,12 @@ const worldService = {
           const unitCommand = createUnitCommand(abilityId, [unit]);
           setPendingOrders(unit, unitCommand);
         }
-        addEarmark(data, unitTypeData);
+        earmarkNeeded = earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
       }
     }
+
+    earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
+
   },
   /**
    * @param {World} world 
@@ -5057,3 +5088,21 @@ function getAwayPosition(buildingPosition, unitPosition) {
     y: unitY + dy
   };
 }
+
+/**
+ * Earmark resources if needed.
+ *
+ * @param {World} world
+ * @param {SC2APIProtocol.UnitTypeData} unitTypeData
+ * @param {number | boolean | null} earmarkNeeded
+ * @returns {boolean}
+ */
+const earmarkResourcesIfNeeded = (world, unitTypeData, earmarkNeeded) => {
+  const earmarkNeededBool = Boolean(earmarkNeeded);
+
+  if (earmarkNeededBool) {
+    worldService.addEarmark(world.data, unitTypeData);
+  }
+
+  return !earmarkNeededBool;
+};
