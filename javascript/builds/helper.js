@@ -42,40 +42,70 @@ const helper = {
     const { units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY);
+
+    /** @type {(unitType: number) => number} */
+    const maxWeaponRange = (unitType) => {
+      const weaponsData = data.getUnitTypeData(unitType)?.weapons;
+      if (!weaponsData) return 0;
+      return weaponsData.reduce((maxRange, weapon) => {
+        return weapon.range !== undefined && weapon.range > maxRange ? weapon.range : maxRange;
+      }, 0);
+    };
+
     shadowingUnits.forEach(unit => {
-      const inRangeUnits = enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < unit.data().sightRange);
-      const [closestInRangeUnit] = units.getClosest(unit.pos, inRangeUnits);
-      const inRangeThreateningUnits = inRangeUnits.filter(inRangeUnit => inRangeUnit.canShootUp()).sort((a, b) => {
-        const weaponsAirRangeA = Math.max.apply(Math, data.getUnitTypeData(a.unitType).weapons.map(weapon => { return weapon.range; }));
-        const distanceToRangeA = distance(a.pos, unit.pos) - weaponsAirRangeA;
-        const weaponsAirRangeB = Math.max.apply(Math, data.getUnitTypeData(b.unitType).weapons.map(weapon => { return weapon.range; }));
-        const distanceToRangeB = distance(b.pos, unit.pos) - weaponsAirRangeB;
+      const { pos } = unit; if (pos === undefined) return;
+      const inRangeUnits = enemyUnits.reduce((/** @type {{ unit: Unit, dist: number }[]} */acc, enemyUnit) => {
+        const { pos: enemyPos } = enemyUnit; if (enemyPos === undefined) return acc;
+        const { sightRange } = enemyUnit.data(); if (sightRange === undefined) return acc;
+        const enemyRadius = enemyUnit.radius || 0;
+        const unitRadius = unit.radius || 0;
+        const rawDistance = getDistance(pos, enemyPos);
+        const dist = rawDistance - enemyRadius - unitRadius;
+        if (dist < sightRange) {
+          acc.push({
+            unit: enemyUnit,
+            dist: dist
+          });
+        }
+        return acc;
+      }, []);
+
+      const [closestInRangeUnit] = units.getClosest(pos, inRangeUnits.map(u => u.unit));
+
+      const inRangeThreateningUnits = inRangeUnits.filter(({ unit: inRangeUnit }) => inRangeUnit.canShootUp()).sort((a, b) => {
+        const distanceToRangeA = a.dist - maxWeaponRange(a.unit.unitType);
+        const distanceToRangeB = b.dist - maxWeaponRange(b.unit.unitType);
         return distanceToRangeA - distanceToRangeB;
       });
+
       const [closestThreatUnit] = inRangeThreateningUnits;
-      const unitToShadow = closestThreatUnit || closestInRangeUnit || null;
+
+      const unitsToAvoid = [...inRangeThreateningUnits, ...inRangeUnits].map(u => u.unit);
+
+      const unitToShadow = (closestThreatUnit && closestThreatUnit.unit) || closestInRangeUnit || null;
       const shouldShadow = unitToShadow && checkIfShouldShadow(resources, unit, shadowingUnits, unitToShadow);
-      if (shouldShadow) { 
-        if (inRangeThreateningUnits.length > 0) {
-          // get closest threatening unit by weapon range
-          if (distance(unit.pos, closestThreatUnit.pos) > closestThreatUnit.data().sightRange + unit.radius + closestThreatUnit.radius) {
-            collectedActions.push(moveToTarget(unit, closestThreatUnit));
+      if (shouldShadow) {
+        if (unitsToAvoid.length > 0) {
+          if (closestThreatUnit && closestThreatUnit.unit.pos && getDistance(pos, closestThreatUnit.unit.pos) > closestThreatUnit.unit.data().sightRange + unit.radius + closestThreatUnit.unit.radius) {
+            collectedActions.push(moveToTarget(unit, closestThreatUnit.unit));
+          } else if (closestInRangeUnit && !closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) {
+            if (inRangeUnits.every(({ dist, unit: inRangeUnit }) => dist > inRangeUnit.data().sightRange + unit.radius + inRangeUnit.radius)) {
+              collectedActions.push(moveToTarget(unit, closestInRangeUnit));
+            } else {
+              collectedActions.push(moveAwayFromTarget(world, unit, unitsToAvoid));
+            }
           } else {
-            collectedActions.push(moveAwayFromTarget(world, unit, inRangeThreateningUnits));
-          }
-        } else if (closestInRangeUnit) {
-          if (closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) { return }
-          if (inRangeUnits.every(inRangeUnit => distance(unit.pos, inRangeUnit.pos) > inRangeUnit.data().sightRange)) {
-            collectedActions.push(moveToTarget(unit, closestInRangeUnit));
-          } else {
-            collectedActions.push(moveAwayFromTarget(world, unit, enemyUnits))
+            collectedActions.push(moveAwayFromTarget(world, unit, unitsToAvoid));
           }
         }
       }
     });
+
     return collectedActions;
   }
 }
+
+module.exports = helper;
 
 function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
   const { map, units } = resources.get();
@@ -98,54 +128,13 @@ function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
  */
 function moveAwayFromTarget(world, unit, targetUnits) {
   const { resources } = world;
-  const { map, units } = resources.get();
-  const { isFlying, pos } = unit; if (pos === undefined) { return null; }
+  const { units } = resources.get();
+  const { isFlying, pos, tag } = unit; if (isFlying === undefined || pos === undefined || tag === undefined) return null;
+  if (pos === undefined) { return null; }
+
   let position;
   if (isFlying) {
-    const sightRange = unit.data().sightRange;
-    const highPointCandidates = gridsInCircle(unit.pos, sightRange).filter(grid => {
-      if (existsInMap(map, grid)) {
-        const unitsInSightRangeTo = targetUnits.filter(targetUnit => {
-          return distance(targetUnit.pos, grid) < targetUnit.data().sightRange + unit.radius + targetUnit.radius;
-        });
-        try {
-          const gridHeight = map.getHeight(grid);
-          const circleCandidates = gridsInCircle(grid, unit.radius).filter(candidate => existsInMap(map, candidate) && distance(candidate, grid) <= unit.radius);
-          const targetUnitHeight = targetUnits.reduce((acc, targetUnit) => {
-            const { pos } = targetUnit; if (pos === undefined) return acc;
-            const { z } = pos; if (z === undefined) return acc;
-            return Math.max(acc, Math.round(z));
-          }, 0);
-          const isVisibleToAnyTargetUnit = unitsInSightRangeTo.some(unitInSight => {
-            const { pos } = unitInSight; if (pos === undefined) return true;
-            const { z } = pos; if (z === undefined) return true;
-            return unitInSight.isFlying || unitInSight.unitType === COLOSSUS || Math.round(z) + 2 > gridHeight;
-          });
-          return (
-            [
-              gridHeight - targetUnitHeight >= 2,
-              !isVisibleToAnyTargetUnit,
-              circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight),
-            ].every(condition => condition)
-          );
-        } catch (error) {
-          console.log('error', error);
-          return false;
-        }
-      }
-    });
-    const [closestHighPoint] = getClosestPosition(unit.pos, highPointCandidates);
-    // calculate dps of enemy versus distance and speed of overlord.
-    if (closestHighPoint) {
-      const dPSOfInRangeUnits = getDPSOfInRangeAntiAirUnits(world, unit);
-      const timeToBeKilled = (unit.health + unit.shield) / dPSOfInRangeUnits;
-      const distanceToHighPoint = distance(unit.pos, closestHighPoint);
-      const speed = getMovementSpeed(unit);
-      const timeToTarget = distanceToHighPoint / speed;
-      if (timeToBeKilled > timeToTarget) {
-        position = closestHighPoint;
-      }
-    }
+    position = getFlyingUnitPosition(world, unit, targetUnits);
     if (!position) {
       const averageEnemyPos = avgPoints(targetUnits.map(unit => unit.pos));
       position = moveAwayPosition(averageEnemyPos, pos);
@@ -158,7 +147,7 @@ function moveAwayFromTarget(world, unit, targetUnits) {
   return {
     abilityId: MOVE,
     targetWorldSpacePos: position,
-    unitTags: [unit.tag],
+    unitTags: [tag],
   }
 }
 
@@ -171,8 +160,6 @@ function moveToTarget(unit, targetUnit) {
     }
   }
 }
-
-module.exports = helper;
 
 /**
  * @param {ResourceManager} resources
@@ -197,3 +184,63 @@ function checkIfShouldShadow(resources, unit, shadowingUnits, targetUnit) {
   );
   return shouldClosestToEnemyNaturalShadow;
 }
+
+/**
+ * Returns position for flying unit
+ * @param {World} world
+ * @param {Unit} unit 
+ * @param {Unit[]} targetUnits 
+ * @returns {Point2D | undefined}
+ */
+function getFlyingUnitPosition(world, unit, targetUnits) {
+  const { resources } = world;
+  const { map } = resources.get();
+  const { health, shield, pos } = unit; if (health === undefined || shield === undefined || pos === undefined) return;
+  const highPointCandidates = getHighPointCandidates(map, unit, targetUnits);
+
+  const [closestHighPoint] = getClosestPosition(pos, highPointCandidates);
+
+  if (closestHighPoint) {
+    const dPSOfInRangeUnits = getDPSOfInRangeAntiAirUnits(world, unit);
+    const timeToBeKilled = (health + shield) / dPSOfInRangeUnits;
+    const distanceToHighPoint = distance(pos, closestHighPoint);
+    const speed = getMovementSpeed(unit); if (speed === undefined) return;
+    const timeToTarget = distanceToHighPoint / speed;
+    if (timeToBeKilled > timeToTarget) {
+      return closestHighPoint;
+    }
+  }
+}
+
+/**
+ * Returns a list of high point grid positions that the flying unit could move to.
+ * @param {MapResource} map
+ * @param {Unit} unit 
+ * @param {Unit[]} targetUnits 
+ * @returns {Point2D[]}
+ */
+function getHighPointCandidates(map, unit, targetUnits) {
+  const { pos, radius } = unit; if (pos === undefined || radius === undefined) return [];
+  const { sightRange } = unit.data(); if (sightRange === undefined) return [];
+  return gridsInCircle(pos, sightRange).filter(grid => {
+    if (existsInMap(map, grid)) {
+      const gridHeight = map.getHeight(grid);
+      const circleCandidates = gridsInCircle(grid, radius).filter(candidate =>
+        existsInMap(map, candidate) && distance(candidate, grid) <= radius);
+
+      const isVisibleToAnyTargetUnit = targetUnits.some(targetUnit => {
+        const { pos: targetPos, radius: targetRadius } = targetUnit; if (targetPos === undefined || targetRadius === undefined) return true;
+        const { sightRange: targetSightRange } = targetUnit.data(); if (targetSightRange === undefined) return true;
+        const { z } = targetPos; if (z === undefined) return true;
+        const unitInSightRange = getDistance(targetPos, grid) <
+          targetSightRange + radius + targetRadius;
+        return unitInSightRange &&
+          (targetUnit.isFlying || targetUnit.unitType === COLOSSUS || Math.round(z) + 2 > gridHeight);
+      });
+
+      return !isVisibleToAnyTargetUnit &&
+        circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight);
+    }
+  });
+}
+

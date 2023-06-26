@@ -143,10 +143,19 @@ module.exports = {
     });
     return collectedActions; 
   },
+  /**
+   * @param {World} world
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   observerBehavior: (world) => {
     const collectedActions = [];
-    const { units } = world.resources.get()
-    collectedActions.push(...shadowEnemy(world, units.getById(UnitType.OBSERVER)));
+    const { units } = world.resources.get();
+    const observers = units.getById(UnitType.OBSERVER);
+
+    if (observers.length > 0) {
+      collectedActions.push(...shadowEnemy(world, observers));
+    }
+
     return collectedActions;
   },
   /**
