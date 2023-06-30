@@ -24,6 +24,8 @@ const { UnitType } = require("@node-sc2/core/constants");
 const unitResourceService = {
   /** @type {Map<string, UnitTypeId>} */
   flyingStructures: new Map(),
+  /** @type {Unit[] | null} */
+  gasGeysers: null,
   /** @type {Point2D[]} */
   landingGrids: [],
   /** @type {{}} */
@@ -126,6 +128,13 @@ const unitResourceService = {
       });
     }
     return gatheringWorkers;
+  },
+  /**
+   * @param {UnitResource} units
+   * @returns {Unit[]}
+   */
+  getGasGeysers(units) {
+    return unitResourceService.gasGeysers || (unitResourceService.gasGeysers = units.getGasGeysers());
   },
   /**
    * Returns whether target unit is in sightRange of unit.

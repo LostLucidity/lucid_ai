@@ -177,6 +177,7 @@ async function runGame() {
     swapBuildingSystem,
     // healthTrackingSystem,
     harassSystem,
+    performanceTrackingSystem,
   ];
   const updatedSystems = [
     ...baseSystems,

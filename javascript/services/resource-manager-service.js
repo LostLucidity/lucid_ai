@@ -10,7 +10,7 @@ const { distance, areEqual, avgPoints, nClosestPoint } = require("@node-sc2/core
 const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
-const { getTargetedByWorkers } = require("../systems/unit-resource/unit-resource-service");
+const { getTargetedByWorkers, getGasGeysers } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
 const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions, isCreepEdge } = require("./map-resource-service");
@@ -98,7 +98,7 @@ const resourceManagerService = {
     const mapFixturesToCheck = [
       ...units.getStructures({ alliance: Alliance.SELF }),
       ...units.getStructures({ alliance: Alliance.ENEMY }),
-      ...units.getGasGeysers(),
+      ...getGasGeysers(units),
     ];
 
     const structureAtPositionCells = getStructureCells(position, mapFixturesToCheck);
