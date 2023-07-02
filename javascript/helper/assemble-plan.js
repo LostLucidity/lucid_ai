@@ -46,6 +46,7 @@ const { warpIn } = require("../services/resource-manager-service");
 const { createUnitCommand } = require("../services/actions-service");
 const { setPendingOrders } = require("../services/unit-service");
 const MapResourceService = require("../services/map-resource-service");
+const { requiresPylon } = require("../services/agent-service");
 
 let ATTACKFOOD = 194;
 
@@ -580,6 +581,15 @@ class AssemblePlan {
           case 'build': {
             unitType = planStep[2];
             this.unitType = unitType;
+            // Check if the unitType requires a Pylon for power
+            if (requiresPylon(agent, unitType)) {
+              // Check if there is a Pylon available
+              const pylons = units.getAlive(Alliance.SELF).filter(unit => unit.unitType === UnitType.PYLON);
+              if (pylons.length === 0) {
+                // If there's no Pylon, we break from the switch statement to prevent the build command
+                break;
+              }
+            }
             if (planStep[5]) {
               const { enemyBuildType, races } = planStep[5];
               if (enemyBuildType && scoutingService.enemyBuildType !== enemyBuildType && !scoutingService.earlyScout) { break; }

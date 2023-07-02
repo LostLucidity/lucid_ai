@@ -9,6 +9,7 @@ const curatedAbilities = require("../constants/curated-abilities");
 const { getTimeInSeconds } = require("./frames-service");
 const { getDistance } = require("./position-service");
 const { getWeaponThatCanAttack } = require("./unit-service");
+const { requiresPylon } = require("./agent-service");
 
 const dataService = {
   /** @type number[] */
@@ -243,23 +244,4 @@ const dataService = {
 }
 
 module.exports = dataService
-
-/**
- * @param {Agent} agent
- * @param {SC2APIProtocol.UnitTypeData} unitTypeData
- * @returns {boolean}
- */
-function requiresPylon(agent, unitTypeData) {
-  // return false immediately if agent race is not protoss
-  if (agent.race !== Race.PROTOSS) return false;
-
-  // Nexus, assimilator, pylon do not require pylon
-  const { attributes, unitId } = unitTypeData;
-  if (attributes === undefined || unitId === undefined) return false;
-
-  const isStructure = attributes.includes(Attribute.STRUCTURE);
-  const requiresPylon = [UnitType.NEXUS, UnitType.ASSIMILATOR, UnitType.PYLON].every(unitType => unitId !== unitType);
-
-  return isStructure && requiresPylon;
-}
 
