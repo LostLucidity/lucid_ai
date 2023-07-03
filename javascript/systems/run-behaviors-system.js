@@ -28,7 +28,7 @@ module.exports = createSystem({
     collectedActions.push(...clearFromEnemyBehavior(world));
     collectedActions.push(...overlordBehavior(world));
     collectedActions.push(...muleBehavior(resources));
-    await scoutEnemyMainBehavior(world);
+    collectedActions.push(...scoutEnemyMainBehavior(world));
     collectedActions.push(...supplyDepotBehavior(resources));
     await actions.sendAction(collectedActions);
   },

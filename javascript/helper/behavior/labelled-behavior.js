@@ -20,7 +20,7 @@ const enemyTrackingService = require("../../systems/enemy-tracking/enemy-trackin
 const { gatherOrMine } = require("../../systems/manage-resources");
 const scoutService = require("../../systems/scouting/scouting-service");
 const stateOfGameService = require("../../systems/state-of-game-system/state-of-game-service");
-const { calculateTotalHealthRatio, isByItselfAndNotAttacking } = require("../../systems/unit-resource/unit-resource-service");
+const { calculateTotalHealthRatio, isByItselfAndNotAttacking, isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
 
 module.exports = {
@@ -185,156 +185,30 @@ module.exports = {
     return collectedActions;
   },
   /**
-   * @param {World} world 
-   * @returns {Promise<void>}
-   */
-  scoutEnemyMainBehavior: async (world) => {
+ * @param {World} world 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+  scoutEnemyMainBehavior: (world) => {
     const { resources } = world;
-    const { actions, map, units } = resources.get();
-    const [unit] = units.withLabel('scoutEnemyMain');
+    const { units } = resources.get();
+    const scoutUnit = units.withLabel('scoutEnemyMain')[0];
+    if (!scoutUnit) return [];
+    const { pos } = scoutUnit;
+    if (!pos) return [];
+
+    const threateningUnits = getThreateningUnits(world, scoutUnit);
     const collectedActions = [];
-    if (unit) {
-      const { pos } = unit; if (pos === undefined) return;
-      const threateningUnits = getThreateningUnits(world, unit);
-      if (calculateTotalHealthRatio(units, unit) > 0.5) {
-        if (threateningUnits.length > 0) {
-          const closestThreateningUnit = getClosestByWeaponRange(world, unit, threateningUnits); if (closestThreateningUnit === undefined) return;
-          const selfUnits = units.getAlive().filter(unit => unit.pos && unit.alliance === Alliance.SELF && getDistance(pos, unit.pos) < 16);
-          const threateningUnitsDPSHealth = getDPSHealth(world, closestThreateningUnit, selfUnits.reduce((/** @type {UnitTypeId[]} */ unitTypes, unit) => {
-            const { unitType } = unit; if (unitType === undefined) return unitTypes;
-            if (!unitTypes.includes(unitType)) {
-              unitTypes.push(unitType);
-            }
-            return unitTypes;
-          }, []));
-          const enemyUnitTypes = threateningUnits.map(unit => unit.unitType && unit.unitType);
-          const selfUnitDPSHealth = getDPSHealth(world, unit, enemyUnitTypes.reduce((/** @type {UnitTypeId[]} */ unitTypes, unitType) => {
-            if (unitType && !unitTypes.includes(unitType)) {
-              unitTypes.push(unitType);
-            }
-            return unitTypes;
-          }, []));
-          if (threateningUnitsDPSHealth > selfUnitDPSHealth) {
-            unit.labels.set('Threatened', true);
-            let closestByWeaponRange = getClosestByWeaponRange(world, unit, threateningUnits);
-            if (closestByWeaponRange) {
-              const { pos: enemyPos } = closestByWeaponRange; if (enemyPos === undefined) return;
-              const emptyExpansions = getEmptyExpansions(resources);
-              const [farthestEmptyExpansionCloserToUnit] = emptyExpansions.filter(expansion => {
-                const { centroid: expansionPos } = expansion; if (expansionPos === undefined) return;
-                return getDistanceByPath(resources, pos, expansionPos) < getDistanceByPath(resources, enemyPos, expansionPos)
-              });
-              const unitCommand = createUnitCommand(MOVE, [unit]);
-              if (farthestEmptyExpansionCloserToUnit) {
-                unitCommand.targetWorldSpacePos = farthestEmptyExpansionCloserToUnit.centroid;
-                collectedActions.push(unitCommand);
-              } else {
-                unitCommand.targetWorldSpacePos = retreat(world, unit, closestByWeaponRange, false);
-                collectedActions.push(unitCommand);
-              }
-            }
-          }  
-        } else {
-          let queueCommand = true;
-          if (unit.labels.has('Threatened')) {
-            unit.labels.delete('Threatened');
-            queueCommand = false;
-          }
-          const { areas } = map.getEnemyMain();
-          if (areas === undefined) return [];
-          const pathableAreasFill = areas.areaFill.filter(pos => map.isPathable(pos));
-          const randomPointsOfInterest = [...getRandomPoints(map, 3, pathableAreasFill)];
-          if (scoutService.opponentRace === Race.ZERG) {
-            const { townhallPosition } = map.getEnemyNatural();
-            if (map.isPathable(townhallPosition)) {
-              randomPointsOfInterest.push(townhallPosition);
-            }
-          }
-          const { orders } = unit;
-          if (orders === undefined) return [];
-          const nonPlaceableOrderFound = orders.some(order => {
-            if (order.abilityId === MOVE) {
-              const { targetWorldSpacePos } = order;
-              if (targetWorldSpacePos === undefined) return false;
-              if (!map.isPathable(targetWorldSpacePos)) return true;
-            }
-            return false;
-          });
-          if (nonPlaceableOrderFound) {
-            const unitCommand = createUnitCommand(MOVE, [unit]);
-            unitCommand.targetWorldSpacePos = randomPointsOfInterest[0];
-            unitCommand.queueCommand = false;
-            collectedActions.push(unitCommand);
-          } else {
-            if (randomPointsOfInterest.length > orders.length) {
-              queueCommand = isGathering(units, unit) ? false : true;
-              randomPointsOfInterest.forEach(point => {
-                const unitCommand = {
-                  abilityId: MOVE,
-                  unitTags: [unit.tag],
-                  queueCommand: queueCommand,
-                  targetWorldSpacePos: point,
-                };
-                collectedActions.push(unitCommand);
-                queueCommand = true;
-              });
-            }
-          }
-        }
-      } else {
-        if (threateningUnits.length > 0) {
-          const enemyWorkerMovingToNatural = threateningUnits.find(unit => {
-            // Check if unit is a worker and is moving towards natural
-            const { townhallPosition } = map.getEnemyNatural();
-            return unit.isWorker() && isMovingTowards(map, unit, townhallPosition);
-          });
-
-          if (enemyWorkerMovingToNatural) {
-            console.log('Found enemy worker moving towards natural:', enemyWorkerMovingToNatural);
-          }
-
-          const unitCommand = createUnitCommand(MOVE, [unit]);
-
-          if (enemyWorkerMovingToNatural) {
-            // Get distances
-            const { townhallPosition } = map.getEnemyNatural();
-            if (!unit.pos || !enemyWorkerMovingToNatural.pos) return;
-            const myDistance = getDistanceByPath(resources, unit.pos, townhallPosition);
-            const enemyDistance = getDistanceByPath(resources, enemyWorkerMovingToNatural.pos, townhallPosition);
-
-            console.log('My Distance:', myDistance, 'Enemy Distance:', enemyDistance);
-
-            // Move to natural to block worker if your unit can get there within an absolute distance difference of 2.5 compared to the enemy unit getting there.
-            if (Math.abs(myDistance - enemyDistance) <= 2.5) {
-              unitCommand.targetWorldSpacePos = townhallPosition;
-              console.log('Moving towards townhall to block enemy worker');
-            } else {
-              console.log('Not close enough to block worker at townhall');
-            }
-          } else if (unit.pos === map.getEnemyNatural().townhallPosition) {
-            // If already at natural, patrol around the area
-            const patrolPoint = getPatrolPointAroundNatural(map);
-            unitCommand.targetWorldSpacePos = patrolPoint;
-          } else {
-            // If no worker moving to natural, continue previous behavior
-            let [closestThreateningUnit] = units.getClosest(pos, threateningUnits, 1);
-            if (closestThreateningUnit) {
-              unitCommand.targetWorldSpacePos = retreat(world, unit, closestThreateningUnit, false);
-              const { targetWorldSpacePos } = unitCommand;
-              if (targetWorldSpacePos === undefined) return;
-              console.log('retreat!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
-            } else {
-              unitCommand.targetWorldSpacePos = getCombatRally(resources);
-              const { targetWorldSpacePos } = unitCommand;
-              console.log('rally!', pos, targetWorldSpacePos, getDistanceByPath(resources, pos, targetWorldSpacePos));
-            }
-          }
-          collectedActions.push(unitCommand);
-        }
-
+    const healthRatio = calculateTotalHealthRatio(units, scoutUnit);
+    if (healthRatio > 0.5) {
+      const closestThreateningUnit = getClosestByWeaponRange(world, scoutUnit, threateningUnits);
+      if (closestThreateningUnit) {
+        collectedActions.push(...handleThreateningUnits(world, scoutUnit, threateningUnits, closestThreateningUnit));
       }
     }
-    collectedActions.length > 0 && await actions.sendAction(collectedActions);
+
+    collectedActions.push(...handleNonThreateningUnits(world, scoutUnit));
+
+    return collectedActions;
   },
   scoutEnemyNaturalBehavior: async (/** @type {ResourceManager} */ resources) => {
     const { actions, map, units } = resources.get();
@@ -601,4 +475,126 @@ function filterCombatUnits(units, unit, combatUnits) {
       return targetPosition && distance(targetPosition, pos) < 16;
     }
   });
+}
+
+/**
+ * Get units close to a target unit.
+ *
+ * @param {UnitResource} units - The set of all units to filter.
+ * @param {Unit} targetUnit - The unit to measure distance from.
+ * @param {number} range - The maximum distance from the target unit a unit can be.
+ * @returns {Unit[]} - The units within range of the target unit.
+ */
+function getUnitsCloseTo(units, targetUnit, range) {
+  const { pos: targetPos } = targetUnit;
+  if (targetPos === undefined) return [];
+
+  return units.getAlive().filter(unit => {
+    const { pos } = unit; if (pos === undefined) return false;
+    const distance = getDistance(targetPos, pos);
+    return distance < range && unit.alliance === Alliance.SELF;
+  });
+}
+
+/**
+ * Handle the case where there are threatening units near the scout.
+ *
+ * @param {World} world The current world state.
+ * @param {Unit} scoutUnit The scouting unit.
+ * @param {Unit[]} threateningUnits The threatening units.
+ * @param {Unit} closestThreateningUnit The closest threatening unit.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to perform.
+ */
+function handleThreateningUnits(world, scoutUnit, threateningUnits, closestThreateningUnit) {
+  const { units } = world.resources.get();
+  const collectedActions = [];
+  const selfUnits = getUnitsCloseTo(units, scoutUnit, 16);
+  const threateningUnitsDPSHealth = getDPSHealth(world, closestThreateningUnit, selfUnits.reduce((/** @type {UnitTypeId[]} */ unitTypes, unit) => {
+    const { unitType } = unit; if (unitType === undefined) return unitTypes;
+    if (!unitTypes.includes(unitType)) {
+      unitTypes.push(unitType);
+    }
+    return unitTypes;
+  }, []));
+  const enemyUnitTypes = threateningUnits.reduce((/** @type {UnitTypeId[]} */ unitTypes, unit) => {
+    const { unitType } = unit; if (unitType === undefined) return unitTypes;
+    if (!unitTypes.includes(unitType)) {
+      unitTypes.push(unitType);
+    }
+    return unitTypes;
+  }, []);
+  const selfUnitDPSHealth = getDPSHealth(world, scoutUnit, enemyUnitTypes);
+  if (closestThreateningUnit && threateningUnitsDPSHealth > selfUnitDPSHealth) {
+    scoutUnit.labels.set('Threatened', true);
+    const { pos, tag } = scoutUnit; if (pos === undefined || tag === undefined) return [];
+    const { pos: enemyPos } = closestThreateningUnit;
+    if (!pos || !enemyPos) return [];
+    const farthestEmptyExpansionCloserToUnit = getEmptyExpansions(world.resources).find(expansion => {
+      if (!expansion.centroid) {
+        return false;
+      }
+      return getDistanceByPath(world.resources, pos, expansion.centroid) < getDistanceByPath(world.resources, enemyPos, expansion.centroid);
+    });
+    collectedActions.push({
+      abilityId: MOVE,
+      unitTags: [tag],
+      targetWorldSpacePos: farthestEmptyExpansionCloserToUnit ? farthestEmptyExpansionCloserToUnit.centroid : retreat(world, scoutUnit, closestThreateningUnit, false),
+    });
+  }
+  return collectedActions;
+}
+
+/**
+ * Handle the case where there are no threatening units near the scout.
+ *
+ * @param {World} world The current world state.
+ * @param {Unit} scoutUnit The scouting unit.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to perform.
+ */
+function handleNonThreateningUnits(world, scoutUnit) {
+  const { map, units } = world.resources.get();
+  const { orders, tag } = scoutUnit; if (orders === undefined || tag === undefined) return [];
+  const collectedActions = [];
+  const nonPlaceableOrderFound = scoutUnit.orders?.some(order => order.abilityId === MOVE && order.targetWorldSpacePos !== undefined && !map.isPathable(order.targetWorldSpacePos));
+  const { areas } = map.getEnemyMain();
+  if (areas === undefined) return [];
+  const pathableAreasFill = areas.areaFill.filter(pos => map.isPathable(pos));
+  const randomPointsOfInterest = [...getRandomPoints(map, 3, pathableAreasFill)];
+  if (nonPlaceableOrderFound) {
+    collectedActions.push({
+      abilityId: MOVE,
+      unitTags: [tag],
+      targetWorldSpacePos: randomPointsOfInterest[0],
+      queueCommand: false,
+    });
+  } else {
+    if (randomPointsOfInterest.length > orders.length) {
+      let queueCommand = isGathering(units, scoutUnit) && !isMining(units, scoutUnit) ? false : true;
+      randomPointsOfInterest.forEach(point => {
+        collectedActions.push({
+          abilityId: MOVE,
+          unitTags: [scoutUnit.tag],
+          targetWorldSpacePos: point,
+          queueCommand,
+        });
+        queueCommand = true;
+      });
+    }
+  }
+  return collectedActions;
+}
+
+/**
+ * Checks if a unit has a pending building order.
+ *
+ * @param {Unit} unit - The unit to check.
+ * @returns {boolean} - True if the unit has a pending building order, false otherwise.
+ */
+function hasBuildingOrder(unit) {
+  // This example assumes that 'unit' has an 'orders' attribute that is an array of 'order' objects,
+  // and each 'order' has an 'abilityId' that corresponds to the command the unit is currently performing.
+
+  // This also assumes that you have a constant or function BUILD_COMMAND that corresponds to the id for the building command in your game.
+
+  return unit.orders.some(order => order.abilityId === BUILD_COMMAND);
 }
