@@ -1100,9 +1100,23 @@ const worldService = {
     const { units } = resources.get();
     const contructionGrids = [];
     units.getWorkers().forEach(worker => {
+      const { orders } = worker; if (orders === undefined) return;
+      const allOrders = [...orders, ...(unitService.getPendingOrders(worker))];
+      const moveOrder = allOrders.find(order => order.abilityId === MOVE);
+      if (moveOrder && moveOrder.targetWorldSpacePos) {
+        const intendedConstructionLocation = moveOrder.targetWorldSpacePos;
+        // Find corresponding building type
+        const buildingStep = [...planService.buildingPositions.entries()].find((entry) => getDistance(entry[1], intendedConstructionLocation) < 1)
+        if (buildingStep) {
+          const buildingType = planService.legacyPlan[buildingStep[0]][2];
+          const footprint = getFootprint(buildingType);
+          if (footprint) {
+            contructionGrids.push(...cellsInFootprint(createPoint2D(intendedConstructionLocation), footprint));
+          }
+        }
+      }
       if (worker.isConstructing() || isPendingContructing(worker)) {
-        const orders = [...worker.orders, ...worker['pendingOrders']];
-        const foundOrder = orders.find(order => constructionAbilities.includes(order.abilityId));
+        const foundOrder = allOrders.find(order => constructionAbilities.includes(order.abilityId));
         if (foundOrder && foundOrder.targetWorldSpacePos) {
           const foundUnitTypeName = Object.keys(UnitType).find(unitType => data.getUnitTypeData(UnitType[unitType]).abilityId === foundOrder.abilityId);
           if (foundUnitTypeName) {
@@ -3937,7 +3951,6 @@ async function buildSupply(world) {
     }
   }
 }
-
 /**
  * @param {UnitResource} units
  * @returns {Unit[]}
