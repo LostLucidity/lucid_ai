@@ -181,7 +181,7 @@ class AssemblePlan {
     const { addAddOn, getUnitCount, getUnitTypeCount, morphStructureAction } = worldService;
     const { agent, data, resources } = world;
     const { race } = agent;
-    const { map, units } = resources.get();
+    const { actions, map, units } = resources.get();
     const unitTypeCount = getUnitTypeCount(world, unitType);
     const unitCount = getUnitCount(world, unitType);
     if (unitTypeCount <= targetCount && unitCount <= targetCount) {
@@ -198,7 +198,7 @@ class AssemblePlan {
               await this.buildBuilding(world, unitType, candidatePositions);
             }
           } else {
-            this.collectedActions.push(...await morphStructureAction(world, unitType));
+            await actions.sendAction(await morphStructureAction(world, unitType));
           }
           break;
         case addonTypes.includes(unitType): {

@@ -111,7 +111,7 @@ const worldService = {
       } else {
         // unitsCanDo may not have ability available, due to being busy or tech not available yet
         // if idle or almost idle, give it pending order
-        const idleOrAlmostIdleUnits = unitsCanDo.filter(unit => isIdleOrAlmostIdle(data, unit));
+        const idleOrAlmostIdleUnits = unitsCanDo.filter(unit => isIdleOrAlmostIdle(data, unit) && getPendingOrders(unit).length === 0);
 
         if (idleOrAlmostIdleUnits.length > 0) {
           unitCanDo = getRandom(idleOrAlmostIdleUnits);
@@ -122,16 +122,18 @@ const worldService = {
     if (unitsCanDoWithAbilityAvailable.length > 0) {
       unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
     } else {
-      const idleUnits = unitsCanDo.filter(unit => unit.isIdle() && (unit.buildProgress || 0) >= 1);
+      const idleUnits = unitsCanDo.filter(unit => unit.isIdle() && getPendingOrders(unit).length === 0 && (unit.buildProgress || 0) >= 1);
       if (idleUnits.length > 0) {
         unitCanDo = getRandom(idleUnits);
       }
     }
 
     if (unitCanDo) {
-      const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
-      collectedActions.push(unitCommand);
-      setPendingOrders(unitCanDo, unitCommand);
+      if (unitCanDo.abilityAvailable(abilityId)) {
+        const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
+        collectedActions.push(unitCommand);
+        setPendingOrders(unitCanDo, unitCommand);
+      }
     }
 
     return collectedActions;
