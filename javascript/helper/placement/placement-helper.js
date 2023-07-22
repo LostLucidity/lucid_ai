@@ -24,11 +24,20 @@ const placementHelper = {
    *
    * @param {ResourceManager} resources
    * @param {Point2D[]|string} positions
-   * @param {UnitTypeId} unitType
-   * @returns {Point2D[]}
+   * @param {UnitTypeId | null} unitType
+   * @returns {Promise<Point2D[]>}
    */
-  getCandidatePositions: (resources, positions, unitType = null) => {
-    return typeof positions === 'string' ? placementHelper[`get${positions}`](resources, unitType) : positions
+  getCandidatePositions: async (resources, positions, unitType = null) => {
+    if (typeof positions === 'string') {
+      const functionName = `get${positions}`;
+      if (typeof placementHelper[functionName] === 'function') {
+        return placementHelper[functionName](resources, unitType);
+      } else {
+        throw new Error(`Function "${functionName}" does not exist in placementHelper`);
+      }
+    } else {
+      return positions;
+    }
   },
   /**
    * @param {ResourceManager} resources 
@@ -46,16 +55,18 @@ const placementHelper = {
    * 
    * @param {ResourceManager} resources 
    * @param {UnitTypeId} unitType 
-   * @returns {Promise<false[] | Point2D[]>}
+   * @returns {Point2D[]}
    */
-  getMiddleOfNaturalWall: async (resources, unitType) => {
-    const { actions, map } = resources.get();
+  getMiddleOfNaturalWall: (resources, unitType) => {
+    const { map } = resources.get();
     const naturalWall = map.getNatural().getWall() || wallOffNaturalService.wall;
     let candidates = [];
     if (naturalWall) {
-      const wallPositions = placementHelper.getPlaceableAtPositions(naturalWall, map, unitType);
+      let wallPositions = placementHelper.getPlaceableAtPositions(naturalWall, map, unitType);
+      // Filter placeable positions first to reduce size of array
+      wallPositions = wallPositions.filter(point => map.isPlaceableAt(unitType, point));
       const middleOfWall = getClosestPosition(avgPoints(wallPositions), wallPositions, 2);
-      candidates = [await actions.canPlace(unitType, middleOfWall)];
+      candidates = middleOfWall;
     }
     return candidates;
   },

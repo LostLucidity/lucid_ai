@@ -41,6 +41,7 @@ const wallOffNaturalService = {
     if (threeByThreeGrid === undefined) return;
     for (let i = 0; i < shuffledWalls.length; i++) {
       const currentWall = shuffledWalls[i].path;
+      wallOffNaturalService.wall = currentWall;
       const middleOfWall = avgPoints(currentWall);
       const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, map.getNatural().townhallPosition))
         .filter(point => {
