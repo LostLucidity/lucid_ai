@@ -4565,17 +4565,43 @@ const handleNonRallyBase = (world, unit, position, unitCommand, unitType) => {
   const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, unit);
   const movingButNotToPosition = unitService.isMoving(unit) && orderTargetPosition && getDistance(orderTargetPosition, position) > 1;
 
+  const timeInSeconds = resources.get().frame.timeInSeconds();
+
+  // Log only between 90 and 105 seconds
+  if (timeInSeconds >= 90 && timeInSeconds <= 105) {
+    console.log(`orderTargetPosition: ${JSON.stringify(orderTargetPosition)}, movingButNotToPosition: ${movingButNotToPosition}`);
+  }
+
   // check for a current unit that is heading towards position
   const currentUnitMovingToPosition = units.getWorkers().find(u => {
     const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, u); if (orderTargetPosition === undefined) return false;
     return unitService.isMoving(u) && areApproximatelyEqual(orderTargetPosition, position);
   });
 
+  if (timeInSeconds >= 90 && timeInSeconds <= 105) {
+    if (currentUnitMovingToPosition) {
+      console.log(`currentUnitMovingToPosition tag: ${currentUnitMovingToPosition.tag}, orders: ${JSON.stringify(currentUnitMovingToPosition.orders)}`);
+    } else {
+      console.log('currentUnitMovingToPosition is undefined');
+    }
+  }
+
   // if there is a unit already moving to position, check if current unit is closer
   if (currentUnitMovingToPosition) {
     const { pos: currentUnitMovingToPositionPos } = currentUnitMovingToPosition; if (currentUnitMovingToPositionPos === undefined) return [];
     const distanceOfCurrentUnit = getDistanceByPath(resources, pos, position);
     const distanceOfMovingUnit = getDistanceByPath(resources, currentUnitMovingToPositionPos, position);
+
+    if (timeInSeconds >= 90 && timeInSeconds <= 105) {
+      console.log(`distanceOfCurrentUnit: ${distanceOfCurrentUnit}, current unit position: ${JSON.stringify(pos)}, target position: ${JSON.stringify(position)}`);
+      console.log(`distanceOfMovingUnit: ${distanceOfMovingUnit}, moving unit position: ${JSON.stringify(currentUnitMovingToPositionPos)}, target position: ${JSON.stringify(position)}`);
+      if (currentUnitMovingToPosition && currentUnitMovingToPositionPos) {
+        console.log(`distanceOfMovingUnit: ${distanceOfMovingUnit}, moving unit position: ${JSON.stringify(currentUnitMovingToPositionPos)}, target position: ${JSON.stringify(position)}`);
+      } else {
+        console.log('currentUnitMovingToPosition or currentUnitMovingToPositionPos is undefined');
+      }
+    }
+
     if (distanceOfCurrentUnit >= distanceOfMovingUnit) {
       // if current unit is not closer, return early
       return actions;
@@ -4584,6 +4610,11 @@ const handleNonRallyBase = (world, unit, position, unitCommand, unitType) => {
 
   // check for units near the building position
   const unitsNearPosition = units.getAlive(Alliance.SELF).filter(u => u.pos && getDistance(u.pos, position) <= 2);
+
+  if (timeInSeconds >= 90 && timeInSeconds <= 105) {
+    console.log(`unitsNearPosition: ${JSON.stringify(unitsNearPosition)}`);
+  }
+
   unitsNearPosition.forEach(u => {
     if (u.pos) { // only consider units where pos is defined
       const moveAwayCommand = createUnitCommand(MOVE, [u]);
@@ -4604,7 +4635,16 @@ const handleNonRallyBase = (world, unit, position, unitCommand, unitType) => {
       }
     }
   }
+  if (timeInSeconds >= 90 && timeInSeconds <= 105) {
+    console.log(`actions before final push: ${JSON.stringify(actions)}`);
+  }
+
   actions.push(...worldService.rallyWorkerToTarget(world, position, true));
+
+  if (timeInSeconds >= 90 && timeInSeconds <= 105) {
+    console.log(`final actions: ${JSON.stringify(actions)}`);
+  }
+
   return actions;
 };
 

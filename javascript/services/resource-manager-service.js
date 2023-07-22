@@ -10,10 +10,10 @@ const { distance, areEqual, avgPoints, nClosestPoint } = require("@node-sc2/core
 const { getClosestPosition } = require("../helper/get-closest");
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
-const { getTargetedByWorkers, getGasGeysers } = require("../systems/unit-resource/unit-resource-service");
+const { getTargetedByWorkers, getGasGeysers, isByItselfAndNotAttacking } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
-const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions, isCreepEdge } = require("./map-resource-service");
+const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions, isCreepEdge, isInMineralLine } = require("./map-resource-service");
 const { getPathCoordinates } = require("./path-service");
 const { getDistance, getClusters, getStructureCells } = require("./position-service");
 const { setPendingOrders } = require("./unit-service");
@@ -347,11 +347,30 @@ const resourceManagerService = {
       } else {
         let path = getMapPath(map, position, targetPosition);
         const pathCoordinates = getPathCoordinates(path);
-        distance = pathCoordinates.reduce((acc, curr, index) => {
-          if (index === 0) return acc;
-          const prev = pathCoordinates[index - 1];
-          return acc + getDistance(prev, curr);
+
+        let straightLineSegments = [];
+        let currentSegmentStart = pathCoordinates[0];
+
+        for (let i = 1; i < pathCoordinates.length; i++) {
+          const point = pathCoordinates[i];
+          const segment = [currentSegmentStart, point];
+
+          // If the segment is not a straight line that the unit can traverse,
+          // add the previous straight line segment to the list and start a new one
+          if (!isLineTraversable(map, segment)) {
+            straightLineSegments.push([currentSegmentStart, pathCoordinates[i - 1]]);
+            currentSegmentStart = pathCoordinates[i - 1];
+          }
+        }
+
+        // Add the last straight line segment
+        straightLineSegments.push([currentSegmentStart, pathCoordinates[pathCoordinates.length - 1]]);
+
+        // Now calculate the sum of distances of the straight line segments
+        distance = straightLineSegments.reduce((acc, segment) => {
+          return acc + getDistance(segment[0], segment[1]);
         }, 0);
+        
         const calculatedZeroPath = path.length === 0;
         const isZeroPathDistance = calculatedZeroPath && getDistance(position, targetPosition) <= 2 ? true : false;
         const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
@@ -427,6 +446,18 @@ const resourceManagerService = {
         }
       }
     }
+  },
+  /**
+   * @param {ResourceManager} resources
+   * @param {Unit} enemyUnit
+   * @returns {boolean}
+   * @description Returns true if enemy unit is a worker and is in mineral line or is by itself and not attacking
+   */
+  isPeacefulWorker: (resources, enemyUnit) => {
+    const { map, units } = resources.get();
+    const { pos: enemyPos } = enemyUnit;
+    if (enemyPos === undefined) return false;
+    return enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(units, enemyUnit));
   },
   /**
    * @param {ResourceManager} resources
@@ -558,19 +589,6 @@ function checkIfPositionIsCorner(positions, position) {
 /**
  * @param {ResourceManager} resources
  * @param {Point2D} position
- * @param {Number} range
- * @returns {Point2D[]}
- */
-function getCreepEdgesWithinRange(resources, position, range) {
-  const { map } = resources.get();
-  const { getDistanceByPath } = resourceManagerService;
-  return gridsInCircle(position, range).filter(grid => {
-    return isCreepEdge(map, grid) && getDistanceByPath(resources, position, grid) <= 10;
-  });
-}
-/**
- * @param {ResourceManager} resources
- * @param {Point2D} position
  * @param {Number} maxRange
  * @returns {Point2D[][]}
  */
@@ -636,4 +654,40 @@ function warpInCommands(world, unitType, opts = {}) {
     unitCommand.targetWorldSpacePos = destPoints[i];
     return unitCommand;
   });
+}
+
+/**
+ * @param {MapResource} map
+ * @param {Point2D[]} line - An array containing two points that define a straight line segment.
+ * @returns {boolean}
+ */
+function isLineTraversable(map, line) {
+  const [start, end] = line;
+  const { x: startX, y: startY } = start; if (startX === undefined || startY === undefined) return false;
+  const { x: endX, y: endY } = end; if (endX === undefined || endY === undefined) return false;
+  const distance = getDistance(start, end);
+
+  // Assume the unit width is 1
+  const unitWidth = 1;
+
+  // Calculate the number of points to check along the line, spaced at unit-width intervals
+  const numPoints = Math.ceil(distance / unitWidth);
+
+  // For each point along the line segment
+  for (let i = 0; i <= numPoints; i++) {
+    const t = i / numPoints;  // The fraction of the way from the start point to the end point
+
+    // Calculate the coordinates of the point
+    const x = startX + t * (endX - startX);
+    const y = startY + t * (endY - startY);
+    const point = { x, y };
+
+    // If the point is not on walkable terrain, return false
+    if (!map.isPathable(point)) {
+      return false;
+    }
+  }
+
+  // If all points along the line are on walkable terrain, return true
+  return true;
 }
