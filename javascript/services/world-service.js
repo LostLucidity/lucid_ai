@@ -477,8 +477,6 @@ const worldService = {
           const unitCommand = createUnitCommand(abilityId, [trainer]);
           collectedActions.push(unitCommand);
           setPendingOrders(trainer, unitCommand);
-          const { foodRequired } = data.getUnitTypeData(workerTypeId); if (foodRequired === undefined) return collectedActions;
-          planService.pendingFood += foodRequired;
         });
         return collectedActions;
       }
@@ -2868,7 +2866,7 @@ const worldService = {
   train: async (world, unitTypeId, targetCount = null) => {
     const { warpIn } = resourceManagerService;
     const { getPendingOrders, setPendingOrders } = unitService;
-    const { addEarmark, canBuild, checkAddOnPlacement, getTrainer, getUnitTypeCount, unpauseAndLog } = worldService;
+    const { canBuild, checkAddOnPlacement, getTrainer, getUnitTypeCount, unpauseAndLog } = worldService;
     const { reactorTypes, techLabTypes } = groupTypes
     const { WARPGATE } = UnitType;
     const { agent, data, resources } = world;
@@ -2931,7 +2929,6 @@ const worldService = {
           unpauseAndLog(world, UnitTypeId[unitTypeId]);
           await warpIn(resources, this, unitTypeId);
         }
-        planService.pendingFood += unitTypeData.foodRequired ? unitTypeData.foodRequired : 0;
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
         unitTrainingService.selectedTypeToBuild = null;
         earmarkNeeded = true;
@@ -3844,16 +3841,25 @@ function getTimeToTargetTech(world, unitType) {
   if (techRequirement === undefined || techRequirement === 0) return 0;
   const { buildTime } = data.getUnitTypeData(techRequirement);
   if (buildTime === undefined) return 0;
-  const [techUnit] = units.getById(techRequirement).sort((a, b) => {
-    const { buildProgress: buildProgressA } = a;
-    const { buildProgress: buildProgressB } = b;
-    if (buildProgressA === undefined || buildProgressB === undefined) return 0;
-    return buildProgressB - buildProgressA;
-  });
-  if (techUnit === undefined) return 0;
-  const { buildProgress } = techUnit;
-  if (buildProgress === undefined) return 0;
-  return getTimeInSeconds((1 - buildProgress) * buildTime);
+
+  // Check for morphed units which still meet tech requirement
+  const possibleTechUnits = countTypes.has(techRequirement) ? countTypes.get(techRequirement) : [techRequirement];
+  if (possibleTechUnits !== undefined) {
+    const [techUnit] = units.getById(possibleTechUnits).sort((a, b) => {
+      const { buildProgress: buildProgressA } = a;
+      const { buildProgress: buildProgressB } = b;
+      if (buildProgressA === undefined || buildProgressB === undefined) return 0;
+      return buildProgressB - buildProgressA;
+    });
+    if (techUnit !== undefined) {
+      const { buildProgress } = techUnit;
+      if (buildProgress !== undefined) {
+        return getTimeInSeconds((1 - buildProgress) * buildTime);
+      }
+    }
+  }
+
+  return 0;
 }
 /**
  * @param {Unit} builder
