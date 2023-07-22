@@ -957,18 +957,24 @@ const worldService = {
   /**
    * @param {World} world
    * @param {Unit} unit 
+   * @param {Unit} targetUnit 
    * @param {number} radius
    * @returns {Point2D|undefined}
    */
-  findClosestSafePosition: (world, unit, radius = 1) => {
+  findClosestSafePosition: (world, unit, targetUnit, radius = 1) => {
     const { resources } = world;
+    const { units } = resources.get();
     const { getClosestPositionByPath } = resourceManagerService;
-    const safePositions = getSafePositions(world, unit, radius);
+    const safePositions = getSafePositions(world, unit, targetUnit, radius);
+    const { pos } = unit; if (pos === undefined) return;
     if (unit.isFlying) {
-      const [closestPoint] = getClosestPosition(unit.pos, safePositions);
+      const [closestPoint] = getClosestPosition(pos, safePositions);
       return closestPoint;
     } else {
-      const [closestPoint] = getClosestPositionByPath(resources, unit.pos, safePositions);
+      // Get current destination if any
+      const currentDestination = unitResourceService.getOrderTargetPosition(units, unit); if (currentDestination === undefined) return;
+      // Otherwise, find a new safe position
+      const [closestPoint] = getClosestPositionByPath(resources, currentDestination, safePositions);
       return closestPoint;
     }
   },
@@ -2531,7 +2537,7 @@ const worldService = {
     const { pos } = unit;
     if (pos === undefined) return;
     const { findClosestSafePosition } = worldService;
-    const closestSafePosition = findClosestSafePosition(world, unit);
+    const closestSafePosition = findClosestSafePosition(world, unit, targetUnit);
     const travelDistancePerStep = 2 * getTravelDistancePerStep(unit);
     if (closestSafePosition) {
       if (distance(pos, closestSafePosition) < travelDistancePerStep) {
@@ -2580,7 +2586,7 @@ const worldService = {
             }
             return point;
           } else {
-            return findClosestSafePosition(world, unit, travelDistancePerStep) || moveAwayPosition(targetUnit.pos, unit.pos, travelDistancePerStep);
+            return findClosestSafePosition(world, unit, targetUnit, travelDistancePerStep) || moveAwayPosition(targetUnit.pos, unit.pos, travelDistancePerStep);
           }
         }
       } else {
@@ -3496,28 +3502,50 @@ function getWeapon(data, unit, targetUnit) {
 /**
  * @param {World} world
  * @param {Unit} unit
+ * @param {Unit} targetUnit
  * @param {number} radius
  * @returns {Point2D[]}
  **/
-function getSafePositions(world, unit, radius = 1) {
-  const { data, resources } = world;
-  const { map } = resources.get();
+function getSafePositions(world, unit, targetUnit, radius = 0.5) {
+  const { resources } = world;
+  const { map, units } = resources.get();
   let safePositions = [];
-  const { pos } = unit;
-  if (pos === undefined || radius === undefined) return safePositions;
+  const { pos } = unit; if (pos === undefined || radius === undefined) return safePositions;
+  const { x, y } = pos; if (x === undefined || y === undefined) return safePositions;
+  const { pos: targetPos } = targetUnit; if (targetPos === undefined) return safePositions;
+  const { x: targetX, y: targetY } = targetPos; if (targetX === undefined || targetY === undefined) return safePositions;
   const { mappedEnemyUnits } = enemyTrackingService;
-  const enemyUnits = mappedEnemyUnits.filter(enemyUnit => enemyUnit.pos && distance(pos, enemyUnit.pos) <= 16);
+  const enemyUnits = mappedEnemyUnits.filter(enemyUnit => {
+    // Check if the unit has a position and is not a peaceful worker
+    if (!enemyUnit.pos || resourceManagerService.isPeacefulWorker(resources, enemyUnit)) {
+      return false;
+    }
+
+    // Check if the unit is within a certain range
+    if (distance(pos, enemyUnit.pos) > 16) {
+      return false;
+    }
+
+    // Check if the unit can attack the worker
+    return canAttack(enemyUnit, unit);
+  });
+
+  // get the angle to the target enemy unit
+  let angleToEnemy = Math.atan2(targetY - y, targetX - x);
+  let startAngle = angleToEnemy + Math.PI - Math.PI / 2; // 180 degree cone
+  let endAngle = angleToEnemy + Math.PI + Math.PI / 2;
+
   while (safePositions.length === 0 && radius <= 16) {
-    for (let i = 0; i < 360; i += 5) {
-      const angle = i * Math.PI / 180;
-      const { x, y } = pos; if (x === undefined || y === undefined) return safePositions;
+    for (let i = startAngle; i < endAngle; i += 2.5 * Math.PI / 180) {  // Half the original step size
+      const { x, y } = pos;
+      if (x === undefined || y === undefined) return safePositions;
       const point = {
-        x: x + radius * Math.cos(angle),
-        y: y + radius * Math.sin(angle),
+        x: x + radius * Math.cos(i),
+        y: y + radius * Math.sin(i),
       };
       if (existsInMap(map, point) && map.isPathable(point)) {
-        const fartherThanEnemyUnits = enemyUnits.every(enemyUnit => enemyUnit.pos && (distance(point, enemyUnit.pos) > distance(point, pos)))
-        if (fartherThanEnemyUnits) {
+        const [closestEnemyUnit] = units.getClosest(point, enemyUnits, 1);
+        if (closestEnemyUnit && closestEnemyUnit.pos && distance(point, closestEnemyUnit.pos) > distance(pos, closestEnemyUnit.pos)) {
           const pointWithHeight = { ...point, z: map.getHeight(point) };
           const safePositionFromTargets = isSafePositionFromTargets(map, unit, enemyUnits, pointWithHeight);
           if (safePositionFromTargets) {
@@ -3526,9 +3554,22 @@ function getSafePositions(world, unit, radius = 1) {
         }
       }
     }
-    radius += 1;
+    radius += 0.5;  // Increment radius by smaller steps
   }
-  return safePositions.sort((b, a) => getUnitWeaponDistanceToPosition(data, a, unit, enemyUnits) - getUnitWeaponDistanceToPosition(data, b, unit, enemyUnits));
+
+  // Get the worker's destination
+  const workerDestination = unitResourceService.getOrderTargetPosition(units, unit);
+
+  // If workerDestination is defined, then sort the safe positions based on their proximity to the worker's destination
+  if (workerDestination) {
+    safePositions.sort((a, b) => {
+      const distanceA = distance(a, workerDestination);
+      const distanceB = distance(b, workerDestination);
+      return distanceA - distanceB; // Sorting in ascending order of distance to worker's destination
+    });
+  }
+
+  return safePositions;
 }
 /**
  * @param {MapResource} map
@@ -4429,6 +4470,15 @@ function getClosestSafeMineralField(resources, position, targetPosition) {
  */
 function calculateTimeToKill(world, selfUnits, enemyUnits) {
   const { getWeaponDPS } = worldService;
+
+  if (selfUnits.length === 0) {
+    return { timeToKill: Infinity, timeToBeKilled: 0 };
+  }
+
+  if (enemyUnits.length === 0) {
+    return { timeToKill: 0, timeToBeKilled: Infinity };
+  }
+
   const timeToKill = enemyUnits.reduce((timeToKill, threat) => {
     const { health, shield, unitType } = threat; if (health === undefined || shield === undefined || unitType === undefined) return timeToKill;
     const totalHealth = health + shield;

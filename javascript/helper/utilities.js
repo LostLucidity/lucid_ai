@@ -39,9 +39,10 @@ module.exports = {
      * 
      * @param {Point2D[]} firstArray 
      * @param {Point2D[]} secondArray 
+     * @param {number} range
      * @returns {Boolean}
      */
-    pointsOverlap: (firstArray, secondArray) => firstArray.some(first => secondArray.some(second => distance(first, second) < 1)),
+    pointsOverlap: (firstArray, secondArray, range = 1) => firstArray.some(first => secondArray.some(second => distance(first, second) < range)),
     /**
      * @param {Point2D[]} points
      * @param {Point2D[]} grids

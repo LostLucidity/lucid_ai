@@ -3,7 +3,7 @@
 
 const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, areEqual, getNeighbors, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
+const { distance, areEqual, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const location = require("../helper/location");
 const { pointsOverlap } = require("../helper/utilities");
 const { getPathCoordinates } = require("./path-service");
@@ -240,7 +240,7 @@ const MapResourceService = {
     const closestExpansion = map.getClosestExpansion(point);
     const { areas } = closestExpansion; if (areas === undefined) return false;
     const { mineralLine } = areas; if (mineralLine === undefined) return false;
-    return pointsOverlap([point], mineralLine);
+    return pointsOverlap([point], mineralLine, 1.1);
   },
   /**
    * @param {MapResource} map 

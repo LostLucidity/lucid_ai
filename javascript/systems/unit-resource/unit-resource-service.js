@@ -146,9 +146,10 @@ const unitResourceService = {
   /**
    * @param {UnitResource} units
    * @param {Unit} unit
+   * @param {number} withinRange
    * @returns {Unit[]}
    */
-  getSelfUnits: (units, unit) => {
+  getSelfUnits: (units, unit, withinRange=16) => {
     const { pos, tag } = unit; if (pos === undefined || tag === undefined) return [];
     let hasSelfUnits = unitService.selfUnits.has(tag);
     if (!hasSelfUnits) {
@@ -160,7 +161,7 @@ const unitResourceService = {
       }
       const selfUnits = unitsByAlliance.filter(allyUnit => {
         const { pos: allyPos } = allyUnit; if (allyPos === undefined) return false;
-        return getDistance(pos, allyPos) < 16;
+        return getDistance(pos, allyPos) < withinRange;
       });
       unitService.selfUnits.set(tag, selfUnits);
     }
@@ -178,7 +179,7 @@ const unitResourceService = {
    * @returns {boolean}
    */
   isByItselfAndNotAttacking: (units, unit) => {
-    const isByItself = unitResourceService.getSelfUnits(units, unit).length === 1;
+    const isByItself = unitResourceService.getSelfUnits(units, unit, 8).length === 1;
     const isAttacking = unit.labels.get('hasAttacked');
     return isByItself && !isAttacking;
   },
@@ -399,12 +400,12 @@ const unitResourceService = {
   },
   /**
    * @param {UnitResource} units
-   * @param {Unit} worker
+   * @param {Unit} unit
    * @returns {Point2D|undefined}
    */
-  getOrderTargetPosition: (units, worker) => {
-    if (worker.orders && worker.orders.length > 0) {
-      const order = worker.orders[0];
+  getOrderTargetPosition: (units, unit) => {
+    if (unit.orders && unit.orders.length > 0) {
+      const order = unit.orders[0];
       if (order.targetWorldSpacePos) {
         return order.targetWorldSpacePos;
       } else if (order.targetUnitTag) {

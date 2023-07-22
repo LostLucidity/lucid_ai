@@ -10,12 +10,12 @@ const { getClosestUnitByPath, getCombatRally } = require("./resource-manager-ser
 
 const resourcesService = {
   /**
- * Checks whether unit can attack targetUnit.
- * @param {Unit} unit
- * @param {Unit} targetUnit
- * @param {boolean} requireVisible
- * @return {boolean}
- */
+   * Checks whether unit can attack targetUnit.
+   * @param {Unit} unit
+   * @param {Unit} targetUnit
+   * @param {boolean} requireVisible
+   * @return {boolean}
+   */
   canAttack(unit, targetUnit, requireVisible = true) {
     const { cloak, isFlying, pos } = targetUnit;
 

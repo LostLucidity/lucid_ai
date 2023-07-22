@@ -18,7 +18,6 @@ const { getWeaponThatCanAttack, getPendingOrders } = require("../../services/uni
 const { retreat, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth, engageOrRetreat } = require("../../services/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
-const scoutService = require("../../systems/scouting/scouting-service");
 const stateOfGameService = require("../../systems/state-of-game-system/state-of-game-service");
 const { calculateTotalHealthRatio, isByItselfAndNotAttacking, isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
@@ -185,9 +184,9 @@ module.exports = {
     return collectedActions;
   },
   /**
- * @param {World} world 
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
+   * @param {World} world 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   scoutEnemyMainBehavior: (world) => {
     const { resources } = world;
     const { units } = resources.get();
@@ -197,18 +196,20 @@ module.exports = {
     if (!pos) return [];
 
     const threateningUnits = getThreateningUnits(world, scoutUnit);
-    const collectedActions = [];
-    const healthRatio = calculateTotalHealthRatio(units, scoutUnit);
-    if (healthRatio > 0.5) {
-      const closestThreateningUnit = getClosestByWeaponRange(world, scoutUnit, threateningUnits);
-      if (closestThreateningUnit) {
-        collectedActions.push(...handleThreateningUnits(world, scoutUnit, threateningUnits, closestThreateningUnit));
+
+    // Check for threats first
+    if (threateningUnits.length > 0) {
+      const healthRatio = calculateTotalHealthRatio(units, scoutUnit);
+      if (healthRatio > 0.5) {
+        const closestThreateningUnit = getClosestByWeaponRange(world, scoutUnit, threateningUnits);
+        if (closestThreateningUnit) {
+          return handleThreateningUnits(world, scoutUnit, threateningUnits, closestThreateningUnit);
+        }
       }
     }
 
-    collectedActions.push(...handleNonThreateningUnits(world, scoutUnit));
-
-    return collectedActions;
+    // If no threats, handle non-threatening units
+    return handleNonThreateningUnits(world, scoutUnit);
   },
   scoutEnemyNaturalBehavior: async (/** @type {ResourceManager} */ resources) => {
     const { actions, map, units } = resources.get();
@@ -263,10 +264,11 @@ function getEmptyExpansions(resources) {
 function getThreateningUnits(world, unit) {
   const { data, resources } = world;
   const { map, units } = resources.get();
-  const { pos, radius} = unit; if (pos === undefined || radius === undefined) return [];
+  const { pos, radius } = unit; if (pos === undefined || radius === undefined) return [];
   const enemyUnits = unit['enemyUnits'] || stateOfGameService.getEnemyUnits(unit);
   const threateningUnits = enemyUnits && enemyUnits.filter((/** @type {Unit} */ enemyUnit) => {
-    const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit; if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
+    const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit;
+    if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
     if (enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(units, enemyUnit))) return false;
     const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
@@ -278,16 +280,18 @@ function getThreateningUnits(world, unit) {
       const degrees = inWeaponRange ? 180 / 4 : 180 / 8;
       const higherRange = weaponRangeOfEnemy > getSightRange ? weaponRangeOfEnemy : getSightRange;
       const enemyFacingUnit = enemyUnit.isMelee() ? isFacing(enemyUnit, unit, degrees) : true;
+
+      console.log(`Unit: ${unit.unitType}, Enemy: ${enemyUnit.unitType}, Weapon: ${weaponThatCanAttack ? weaponThatCanAttack.name : 'none'}, Range: ${range}, Distance to enemy: ${distanceToEnemy}, Weapon range of enemy: ${weaponRangeOfEnemy}, In weapon range: ${inWeaponRange}, Higher range: ${higherRange}, Enemy facing unit: ${enemyFacingUnit}`);
+
       return distanceToEnemy <= higherRange && enemyFacingUnit;
     }
   });
   return threateningUnits || [];
 }
-
 /**
  * @param {World} world
  * @param {Unit} unit
- * @param {Unit[]} threateningUnits\
+ * @param {Unit[]} threateningUnits
  * @returns Unit
  */
 function getClosestByWeaponRange(world, unit, threateningUnits) {
@@ -346,25 +350,6 @@ function getDistanceSq(a, b) {
   const dy = ay - by;
   return dx * dx + dy * dy;
 }
-
-/**
- * Gets a patrol point around the enemy's natural expansion.
- * @param {MapResource} map - The game map.
- * @returns {Point2D} A patrol point around the enemy's natural expansion.
- */
-const getPatrolPointAroundNatural = (map) => {
-  const { townhallPosition } = map.getEnemyNatural();
-  const patrolRadius = 2.5; // Adjust this value as needed
-  const angle = Math.random() * 2 * Math.PI; // Random angle
-  const dx = patrolRadius * Math.cos(angle);
-  const dy = patrolRadius * Math.sin(angle);
-  const { x: tx, y: ty } = townhallPosition; if (tx === undefined || ty === undefined) return { x: 0, y: 0 };
-  const patrolPoint = {
-    x: tx + dx,
-    y: ty + dy,
-  };
-  return patrolPoint;
-};
 
 // Add these new helper functions before the scoutEnemyMainBehavior function
 const getFacingDirection = (unit) => {
@@ -524,6 +509,9 @@ function handleThreateningUnits(world, scoutUnit, threateningUnits, closestThrea
     return unitTypes;
   }, []);
   const selfUnitDPSHealth = getDPSHealth(world, scoutUnit, enemyUnitTypes);
+
+  const BUFFER_DISTANCE = 2; // Set the buffer distance
+
   if (closestThreateningUnit && threateningUnitsDPSHealth > selfUnitDPSHealth) {
     scoutUnit.labels.set('Threatened', true);
     const { pos, tag } = scoutUnit; if (pos === undefined || tag === undefined) return [];
@@ -533,14 +521,20 @@ function handleThreateningUnits(world, scoutUnit, threateningUnits, closestThrea
       if (!expansion.centroid) {
         return false;
       }
-      return getDistanceByPath(world.resources, pos, expansion.centroid) < getDistanceByPath(world.resources, enemyPos, expansion.centroid);
+      const scoutDistance = getDistanceByPath(world.resources, pos, expansion.centroid);
+      const enemyDistance = getDistanceByPath(world.resources, enemyPos, expansion.centroid);
+
+      // Check if the scout's distance to the expansion (plus the buffer) is less than the enemy's distance
+      return scoutDistance + BUFFER_DISTANCE < enemyDistance;
     });
+
     collectedActions.push({
       abilityId: MOVE,
       unitTags: [tag],
       targetWorldSpacePos: farthestEmptyExpansionCloserToUnit ? farthestEmptyExpansionCloserToUnit.centroid : retreat(world, scoutUnit, closestThreateningUnit, false),
     });
   }
+
   return collectedActions;
 }
 
@@ -582,19 +576,4 @@ function handleNonThreateningUnits(world, scoutUnit) {
     }
   }
   return collectedActions;
-}
-
-/**
- * Checks if a unit has a pending building order.
- *
- * @param {Unit} unit - The unit to check.
- * @returns {boolean} - True if the unit has a pending building order, false otherwise.
- */
-function hasBuildingOrder(unit) {
-  // This example assumes that 'unit' has an 'orders' attribute that is an array of 'order' objects,
-  // and each 'order' has an 'abilityId' that corresponds to the command the unit is currently performing.
-
-  // This also assumes that you have a constant or function BUILD_COMMAND that corresponds to the id for the building command in your game.
-
-  return unit.orders.some(order => order.abilityId === BUILD_COMMAND);
 }

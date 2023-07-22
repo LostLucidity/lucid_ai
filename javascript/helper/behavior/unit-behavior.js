@@ -9,7 +9,7 @@ const { getInRangeUnits, calculateHealthAdjustedSupply } = require("../battle-an
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
-const { isRepairing, isMining } = require("../../systems/unit-resource/unit-resource-service");
+const { isRepairing, isMining, getOrderTargetPosition } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { getDistance } = require("../../services/position-service");
@@ -17,8 +17,12 @@ const { retreat, pullWorkersToDefend, calculateNearDPSHealth, getUnitsInRangeOfP
 const { canAttack } = require("../../services/resources-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
-const { getCombatRally } = require("../../services/resource-manager-service");
+const { getCombatRally, isPeacefulWorker, getDistanceByPath } = require("../../services/resource-manager-service");
 const { getPendingOrders, setPendingOrders, getWeaponThatCanAttack, triggerAbilityByDistance } = require("../../services/unit-service");
+const { getMapPath } = require("../../services/map-resource-service");
+const { getPathCoordinates } = require("../../services/path-service");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 
 module.exports = {
   /**
@@ -251,7 +255,7 @@ module.exports = {
   workerBehavior: (world) => {
     const { MOVE } = Ability;
     const { agent, resources } = world
-    const { frame, units } = resources.get();
+    const { frame, map, units } = resources.get();
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !larvaOrEgg.includes(unit.unitType));
     const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !isRepairing(unit));
@@ -259,7 +263,17 @@ module.exports = {
       for (const worker of workers) {
         let [closestEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(unit => !unit.isStructure()), 1);
         if (!closestEnemyUnit) { [closestEnemyUnit] = units.getClosest(worker.pos, units.getStructures(Alliance.ENEMY), 1) }
-        const distanceToClosestEnemy = distance(worker.pos, closestEnemyUnit.pos);
+
+        // Skip if the closest enemy unit is a peaceful worker
+        if (isPeacefulWorker(resources, closestEnemyUnit)) {
+          continue;
+        }
+
+        const { pos } = worker; if (pos === undefined) continue;
+        const { x, y } = pos; if (x === undefined || y === undefined) continue;
+        const { pos: closestEnemyUnitPos } = closestEnemyUnit; if (closestEnemyUnitPos === undefined) continue;
+        const { x: closestEnemyUnitX, y: closestEnemyUnitY } = closestEnemyUnitPos; if (closestEnemyUnitX === undefined || closestEnemyUnitY === undefined) continue;
+        const distanceToClosestEnemy = distance(pos, closestEnemyUnitPos);
         if (distanceToClosestEnemy < 16) {
           const inRangeSelfCombatUnits = getInRangeUnits(worker, units.getCombatUnits(Alliance.SELF));
           const inRangeCombatSupply = calculateHealthAdjustedSupply(world, inRangeSelfCombatUnits);
@@ -272,23 +286,118 @@ module.exports = {
             const inRangeWorkers = getInRangeUnits(worker, workers);
             const inRangeWorkerSupply = calculateHealthAdjustedSupply(world, inRangeWorkers);
             if (inRangeEnemySupply > inRangeWorkerSupply) {
-              worker.labels.set('retreating');
-              const unitCommand = { abilityId: MOVE }
-              if (worker['pendingOrders'] === undefined || worker['pendingOrders'].length === 0) {
-                const [closestArmedEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
-                const [closestAttackableEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(enemyUnit => canAttack(worker, enemyUnit)));
-                const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, getCombatRally(resources));
-                // @ts-ignore
-                const selfCombatRallyDPSHealth = calculateNearDPSHealth(world, selfCombatRallyUnits, closestEnemyUnit['inRangeUnits'].map((/** @type {{ Unit }} */ unit) => unit.unitType));
-                // @ts-ignore
-                const inRangeCombatUnitsOfEnemyDPSHealth = calculateNearDPSHealth(world, closestEnemyUnit['inRangeUnits'], selfCombatRallyUnits.map(unit => unit.unitType));
-                const shouldRallyToCombatRally = selfCombatRallyDPSHealth > inRangeCombatUnitsOfEnemyDPSHealth; 
-                unitCommand.targetWorldSpacePos = retreat(world, worker, closestArmedEnemyUnit || closestAttackableEnemyUnit, shouldRallyToCombatRally);
-                unitCommand.unitTags = workers.filter(unit => distance(unit.pos, worker.pos) <= 1).map(unit => {
-                  setPendingOrders(unit, unitCommand);
-                  return unit.tag;
-                });
-                collectedActions.push(unitCommand);
+              worker.labels.set('retreating', true);
+              const { orders } = worker; if (orders === undefined) continue;
+              const lastOrder = orders[orders.length - 1];
+              const workerDestination = lastOrder && getOrderTargetPosition(units, worker);
+              if (workerDestination && distance(pos, workerDestination) > 16) {
+                // Calculate angles
+                const { x: workerDestinationX, y: workerDestinationY } = workerDestination;
+                if (workerDestinationX === undefined || workerDestinationY === undefined) continue;
+                const angleToEnemy = Math.atan2(closestEnemyUnitY - y, closestEnemyUnitX - x);
+                const angleToDestination = Math.atan2(workerDestinationY - y, workerDestinationX - x);
+
+                if (worker.isGathering()) {
+                  // if gathering mineral, use mineral field footprint, else use gas geyser footprint
+                  const gatherType = worker.isGathering('minerals') ? UnitType.MINERALFIELD : UnitType.VESPENEGEYSER;
+                  const footprint = getFootprint(gatherType);
+                  if (footprint === undefined) return collectedActions;
+                  const footprintCells = cellsInFootprint(workerDestination, footprint);
+                  footprintCells.forEach(cell => map.setPathable(cell, true));
+                }
+                const workerPathDistance = getDistanceByPath(resources, pos, workerDestination);
+                const enemyPathDistance = getDistanceByPath(resources, closestEnemyUnitPos, workerDestination);
+                if (worker.isGathering()) {
+                  // if gathering mineral, use mineral field footprint, else use gas geyser footprint
+                  const gatherType = worker.isGathering('minerals') ? UnitType.MINERALFIELD : UnitType.VESPENEGEYSER;
+                  const footprint = getFootprint(gatherType);
+                  if (footprint === undefined) return collectedActions;
+                  const footprintCells = cellsInFootprint(workerDestination, footprint);
+                  footprintCells.forEach(cell => map.setPathable(cell, false));
+                }
+                if (workerPathDistance < enemyPathDistance) {
+                  if (!worker.isGathering()) {
+                    const finalMoveCommand = createUnitCommand(Ability.SMART, [worker]);
+                    finalMoveCommand.targetWorldSpacePos = workerDestination;
+                    finalMoveCommand.queueCommand = true;
+                    collectedActions.push(finalMoveCommand);
+                  }
+                  continue;
+                }
+
+                // Calculate angle difference, adjust to range -180 to 180
+                let angleDifference = (angleToDestination - angleToEnemy) * (180 / Math.PI);
+                if (angleDifference > 180) {
+                  angleDifference -= 360;
+                }
+                if (angleDifference < -180) {
+                  angleDifference += 360;
+                }
+
+                // Generate potential waypoints
+                let potentialWaypoints = [];
+                let numWaypoints = 8;  // number of potential waypoints
+                let bypassDistance = 3;  // distance to bypass enemy
+                for (let i = 0; i < numWaypoints; i++) {
+                  let angle = 2 * Math.PI / numWaypoints * i;
+                  let potentialWaypoint = {
+                    x: x + bypassDistance * Math.cos(angle),
+                    y: y + bypassDistance * Math.sin(angle)
+                  };
+                  if (map.isPathable(potentialWaypoint)) {
+                    potentialWaypoints.push(potentialWaypoint);
+                  }
+                }
+
+                // Select the best waypoint
+                let waypoint = potentialWaypoints
+                  .filter(wp => Math.abs(Math.atan2(wp.y - y, wp.x - x) - angleToDestination) < Math.PI / 2)
+                  .sort((a, b) => distance(a, closestEnemyUnitPos) - distance(b, closestEnemyUnitPos))
+                  .pop();
+
+                // If no suitable waypoint was found, skip to the next worker
+                if (!waypoint) continue;
+
+                // Compute the path to the waypoint, then to the original destination
+                const pathToWaypoint = getMapPath(map, pos, waypoint);
+                const pathCoordinates = getPathCoordinates(pathToWaypoint);
+                pathCoordinates[0] = pos;
+                // Issue a clear command at the first position in the complete path
+                const clearCommand = createUnitCommand(MOVE, [worker]);
+                clearCommand.targetWorldSpacePos = pathCoordinates[0];
+                clearCommand.queueCommand = false;  // This will clear any previous orders
+                collectedActions.push(clearCommand);
+                // Issue move orders to waypoint
+                for (const point of pathCoordinates) {
+                  const moveCommand = createUnitCommand(MOVE, [worker]);
+                  moveCommand.targetWorldSpacePos = point;
+                  moveCommand.queueCommand = true;
+                  collectedActions.push(moveCommand);
+                }
+
+                // Set the last order to the original destination
+                const finalMoveCommand = createUnitCommand(Ability.SMART, [worker]);
+                finalMoveCommand.targetWorldSpacePos = workerDestination;
+                finalMoveCommand.queueCommand = true;
+                collectedActions.push(finalMoveCommand);
+              } else {
+                const unitCommand = { abilityId: MOVE }
+                if (worker['pendingOrders'] === undefined || worker['pendingOrders'].length === 0) {
+                  const [closestArmedEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(unit => unit.data().weapons.some(w => w.range > 0)));
+                  const [closestAttackableEnemyUnit] = units.getClosest(worker.pos, enemyUnits.filter(enemyUnit => canAttack(worker, enemyUnit)));
+                  const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, getCombatRally(resources));
+                  // @ts-ignore
+                  const selfCombatRallyDPSHealth = calculateNearDPSHealth(world, selfCombatRallyUnits, closestEnemyUnit['inRangeUnits'].map((/** @type {{ Unit }} */ unit) => unit.unitType));
+                  // @ts-ignore
+                  const inRangeCombatUnitsOfEnemyDPSHealth = calculateNearDPSHealth(world, closestEnemyUnit['inRangeUnits'], selfCombatRallyUnits.map(unit => unit.unitType));
+                  const shouldRallyToCombatRally = selfCombatRallyDPSHealth > inRangeCombatUnitsOfEnemyDPSHealth;
+                  unitCommand.targetWorldSpacePos = retreat(world, worker, closestArmedEnemyUnit || closestAttackableEnemyUnit, shouldRallyToCombatRally);
+                  unitCommand.unitTags = workers.filter(unit => distance(unit.pos, worker.pos) <= 1).map(unit => {
+                    setPendingOrders(unit, unitCommand);
+                    return unit.tag;
+                  });
+                  collectedActions.push(unitCommand);
+                }
               }
             } else {
               if (worker.labels.get('builder')) {
