@@ -104,47 +104,35 @@ const worldService = {
     const unitsCanDo = units.getById(canDoTypes);
     if (!unitsCanDo.length) return collectedActions;
 
-    const unitsCanDoWithAbilityAvailable = unitsCanDo.filter(unit => unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0);
-    let unitCanDo;
-      if (unitsCanDoWithAbilityAvailable.length > 0) {
-        unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
-      } else {
-        // unitsCanDo may not have ability available, due to being busy or tech not available yet
-        // if idle or almost idle, give it pending order
-        const idleOrAlmostIdleUnits = unitsCanDo.filter(unit => isIdleOrAlmostIdle(data, unit) && getPendingOrders(unit).length === 0);
+    const unitsCanDoWithAbilityAvailable = unitsCanDo.filter(unit => 
+      unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0);
 
-        if (idleOrAlmostIdleUnits.length > 0) {
-          unitCanDo = getRandom(idleOrAlmostIdleUnits);
-        }
+    let unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
 
-      }
+    if (!unitCanDo) {
+      const idleOrAlmostIdleUnits = unitsCanDo.filter(unit => 
+        isIdleOrAlmostIdle(data, unit) && getPendingOrders(unit).length === 0);
 
-    if (unitsCanDoWithAbilityAvailable.length > 0) {
-      unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
-    } else {
-      const idleUnits = unitsCanDo.filter(unit => unit.isIdle() && getPendingOrders(unit).length === 0 && (unit.buildProgress || 0) >= 1);
-      if (idleUnits.length > 0) {
-        unitCanDo = getRandom(idleUnits);
-      }
+      unitCanDo = getRandom(idleOrAlmostIdleUnits);
     }
 
     if (unitCanDo) {
+      const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
+      setPendingOrders(unitCanDo, unitCommand);
       if (unitCanDo.abilityAvailable(abilityId)) {
-        const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
         collectedActions.push(unitCommand);
-        setPendingOrders(unitCanDo, unitCommand);
       }
     }
 
     return collectedActions;
   },
   /**
- * Adds addon, with placement checks and relocating logic.
- * @param {World} world 
- * @param {Unit} unit 
- * @param {UnitTypeId} addOnType 
- * @returns {Promise<void>}
- */
+   * Adds addon, with placement checks and relocating logic.
+   * @param {World} world 
+   * @param {Unit} unit 
+   * @param {UnitTypeId} addOnType 
+   * @returns {Promise<void>}
+   */
   addAddOn: async (world, unit, addOnType) => {
     const { landingAbilities, liftingAbilities } = groupTypes;
     const { data, resources } = world;
