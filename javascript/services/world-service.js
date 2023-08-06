@@ -22,7 +22,7 @@ const { GasMineRace, WorkerRace, SupplyUnitRace, TownhallRace } = require("@node
 const { calculateHealthAdjustedSupply, getInRangeUnits } = require("../helper/battle-analysis");
 const { filterLabels } = require("../helper/unit-selection");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { getPathablePositionsForStructure, getClosestExpansion, getPathablePositions, isInMineralLine, isPlaceableAtGasGeyser } = require("./map-resource-service");
+const { getPathablePositionsForStructure, getPathablePositions, isInMineralLine, isPlaceableAtGasGeyser } = require("./map-resource-service");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getOccupiedExpansions, getAvailableExpansions, getNextSafeExpansions } = require("../helper/expansions");
@@ -36,23 +36,23 @@ const { getTimeInSeconds, getTravelDistancePerStep } = require("./frames-service
 const scoutService = require("../systems/scouting/scouting-service");
 const path = require('path');
 const foodUsedService = require('./food-used-service');
-const { keepPosition } = require('./placement-service');
+const { keepPosition, getBuildingFootprintOfOrphanAddons } = require('./placement-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
 const { canAttack } = require('./resources-service');
-const { getMiddleOfStructure, moveAwayPosition, getDistance, getBorderPositions, dbscan, dbscanWithUnits } = require('./position-service');
+const { getMiddleOfStructure, moveAwayPosition, getDistance, getBorderPositions, dbscan, dbscanWithUnits, getStructureCells } = require('./position-service');
 const MapResourceService = require('./map-resource-service');
 const { getPathCoordinates } = require('./path-service');
 const resourceManagerService = require('./resource-manager-service');
 const { getAddOnPlacement, getAddOnBuildingPosition, getAddOnBuildingPlacement } = require('../helper/placement/placement-utilities');
 const { getEnemyUnits } = require('../systems/state-of-game-system/state-of-game-service');
 const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
-const { getUnitWeaponDistanceToPosition, isTrainingUnit, earmarkThresholdReached, getEarmarkedFood, hasEarmarks } = require('./data-service');
+const { isTrainingUnit, earmarkThresholdReached, getEarmarkedFood, hasEarmarks } = require('./data-service');
 const unitTrainingService = require('../systems/unit-training/unit-training-service');
 const { checkUnitCount } = require('../systems/track-units/track-units-service');
 const microService = require('./micro-service');
 const { getDistanceByPath } = require('./resource-manager-service');
 const UnitAbilityMap = require('@node-sc2/core/constants/unit-ability-map');
-const { ADEPTPHASESHIFT, QUEEN, BUNKER, WARPGATE } = require('@node-sc2/core/constants/unit-type');
+const { ADEPTPHASESHIFT, QUEEN, BUNKER, WARPGATE, BARRACKSFLYING, STARPORT } = require('@node-sc2/core/constants/unit-type');
 const { scanCloakedEnemy } = require('../helper/terran');
 const { checkTechFor } = require('./agent-service');
 const resourcesService = require('./resources-service');
@@ -973,8 +973,23 @@ const worldService = {
         addonFootprint = getFootprint(REACTOR); if (addonFootprint === undefined) return [];
       }
       if (unitTypeFootprint === undefined) return [];
+      // Get all existing barracks and starports
+      const barracks = units.getById(BARRACKS);
+      const starports = units.getById(STARPORT);
+      const barracksPositions = barracks.map(b => b.pos);
+      const buildingFootprintOfOrphanAddons = getBuildingFootprintOfOrphanAddons(units);
+
       placements = placementGrids.filter(grid => {
         const cells = [...cellsInFootprint(grid, unitTypeFootprint)];
+
+        // Check if the unit is a STARPORT and there's a nearby BARRACKS, and it's the first STARPORT
+        if (unitType === STARPORT && starports.length === 0) {
+          // If there is no nearby BARRACKS within 23.6 units, return false to filter out this grid
+          if (!barracksPositions.some(bPos => bPos && getDistance(bPos, grid) <= 23.6)) {
+            return false;
+          }
+        }
+
         if (addonFootprint) {
           cells.push(...cellsInFootprint(getAddOnPlacement(grid), addonFootprint));
         }
