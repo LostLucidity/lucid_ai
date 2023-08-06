@@ -778,7 +778,7 @@ const worldService = {
    */
   findPlacements: (world, unitType) => {
     const { getBuildTimeLeft } = unitService;
-    const { BARRACKS, ENGINEERINGBAY, FORGE, PYLON, REACTOR, SUPPLYDEPOT } = UnitType;
+    const { BARRACKS, ENGINEERINGBAY, FORGE, PYLON, REACTOR, STARPORT, SUPPLYDEPOT, TECHLAB } = UnitType;
     const { gasMineTypes } = groupTypes;
     const { agent, data, resources } = world;
     const { race } = agent;
@@ -895,8 +895,56 @@ const worldService = {
       }
     } else if (race === Race.TERRAN) {
       const placementGrids = [];
+      const orphanAddons = units.getById([REACTOR, TECHLAB]);
+
+      const buildingFootprints = Array.from(planService.buildingPositions.entries()).reduce((/** @type {Point2D[]} */positions, [step, buildingPos]) => {
+        if (buildingPos === false) return positions;
+        const stepUnitType = planService.plan[step] ? planService.plan[step].unitType : planService.convertLegacyPlan(planService.legacyPlan)[step][2]; if (unitType === undefined) return positions;
+        const footprint = getFootprint(stepUnitType); if (footprint === undefined) return positions;
+        const newPositions = cellsInFootprint(buildingPos, footprint);
+        if (canUnitBuildAddOn(stepUnitType)) {
+          const addonFootprint = getFootprint(REACTOR); if (addonFootprint === undefined) return positions;
+          const addonPositions = cellsInFootprint(getAddOnPlacement(buildingPos), addonFootprint);
+          return [...positions, ...newPositions, ...addonPositions];
+        }
+        return [...positions, ...newPositions];
+      }, []);
+
+      const orphanAddonPositions = orphanAddons.reduce((/** @type {Point2D[]} */positions, addon) => {
+        const { pos } = addon; if (pos === undefined) return positions;
+        const newPositions = getAddOnBuildingPlacement(pos);
+        const footprint = getFootprint(addon.unitType); if (footprint === undefined) return positions;
+        const cells = cellsInFootprint(newPositions, footprint);
+        if (cells.length === 0) return positions;
+        return [...positions, ...cells];
+      }, []);
+
       const wallOffPositions = findWallOffPlacement(unitType).slice();
-      if (wallOffPositions.filter(position => map.isPlaceableAt(unitType, position)).length > 0) return wallOffPositions;
+      if (wallOffPositions.filter(position => map.isPlaceableAt(unitType, position)).length > 0) {
+        // Check if the structure is one that cannot use an orphan add-on
+        if (!canUnitBuildAddOn(unitType)) {
+          // Exclude positions that are suitable for orphan add-ons and inside existing footprints
+          const filteredWallOffPositions = wallOffPositions.filter(position =>
+            !orphanAddonPositions.some(orphanPosition => getDistance(orphanPosition, position) < 1) &&
+            !buildingFootprints.some(buildingFootprint => getDistance(buildingFootprint, position) < 1)
+          );
+          // If there are any positions left, use them
+          if (filteredWallOffPositions.length > 0) {
+            return filteredWallOffPositions;
+          }
+        }
+        // If the structure can use an orphan add-on, use all wall-off positions
+        if (wallOffPositions.length > 0) {
+          // Filter out positions already taken by buildings
+          const newWallOffPositions = wallOffPositions.filter(position =>
+            !buildingFootprints.some(buildingFootprint => getDistance(buildingFootprint, position) < 1)
+          );
+          if (newWallOffPositions.length > 0) {
+            return newWallOffPositions;
+          }
+        }
+      }
+
       getOccupiedExpansions(world.resources).forEach(expansion => {
         placementGrids.push(...expansion.areas.placementGrid);
       });
@@ -930,7 +978,8 @@ const worldService = {
         if (addonFootprint) {
           cells.push(...cellsInFootprint(getAddOnPlacement(grid), addonFootprint));
         }
-        return cells.every(cell => map.isPlaceable(cell)) && !pointsOverlap(cells, [...wallOffPositions]);
+
+        return cells.every(cell => map.isPlaceable(cell)) && !pointsOverlap(cells, [...wallOffPositions, ...buildingFootprintOfOrphanAddons, ...orphanAddonPositions]);
       }).map(pos => ({ pos, rand: Math.random() }))
         .sort((a, b) => a.rand - b.rand)
         .map(a => a.pos)

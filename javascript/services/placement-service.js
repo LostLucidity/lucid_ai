@@ -27,6 +27,10 @@ const placementService = {
     }
     return conditions.every(condition => condition)
   },
+  /**
+   * @param {UnitResource} units
+   * @returns {Point2D[]}
+   */
   getBuildingFootprintOfOrphanAddons: (units) => {
     const orphanAddons = units.getById([TECHLAB, REACTOR]);
     const buildingFootprints = [];

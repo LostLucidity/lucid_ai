@@ -171,7 +171,8 @@ const positionService = {
    */
   getMiddleOfStructure(position, unitType ) {
     if (gasMineTypes.includes(unitType)) return position;
-    let { x, y } = position;
+    const point2D = createPoint2D(position);
+    let { x, y } = point2D;
     if (x === undefined || y === undefined) return position;
     const footprint = getFootprint(unitType);
     if (footprint === undefined) return position;
