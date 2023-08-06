@@ -21,6 +21,8 @@ const unitService = {
    * @type boolean
    */
   enemyMetabolicBoost: false,
+  /** @type number */
+  liftAndLandingTime: 64 / 22.4,
   /**
    * @type boolean
    */

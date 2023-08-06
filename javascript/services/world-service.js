@@ -145,7 +145,7 @@ const worldService = {
     const { abilityId } = data.getUnitTypeData(unitTypeToBuild); if (abilityId === undefined) return;
     const unitCommand = { abilityId, unitTags: [tag] };
 
-    if (!unit.noQueue || unit.labels.has('swapBuilding')) {
+    if (!unit.noQueue || unit.labels.has('swapBuilding') || unitService.getPendingOrders(unit).length > 0) {
       return;
     }
 
@@ -205,6 +205,9 @@ const worldService = {
       }
 
       minerals += isZergling ? mineralCost * 2 : mineralCost;
+    } else if ('upgradeId' in orderData) {
+      // This is an upgrade
+      minerals += mineralCost;
     }
 
     // set earmark name to include step number and food used plus food earmarked
@@ -345,8 +348,10 @@ const worldService = {
     const collectedActions = [];
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
-    const { addEarmark, addAddOn, checkBuildingCount, findAndPlaceBuilding, getUnitsCanDoWithAddOnAndIdle, getUnitsCanDoWithoutAddOnAndIdle, morphStructureAction } = worldService;
-    if (checkBuildingCount(world, unitType, targetCount) || targetCount === null) {
+    const { addEarmark, addAddOn, findAndPlaceBuilding, getUnitCount, getUnitTypeCount, morphStructureAction } = worldService;
+    const unitTypeCount = getUnitTypeCount(world, unitType);
+    const unitCount = getUnitCount(world, unitType);
+    if (targetCount === null || (unitTypeCount <= targetCount && unitCount <= targetCount)) {
       const { race } = agent;
       switch (true) {
         case TownhallRace[race].includes(unitType):
@@ -371,24 +376,51 @@ const worldService = {
           }
           break;
         case addonTypes.includes(unitType): {
+          const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
+          const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
+          const canDoTypeUnits = units.getById(canDoTypes);
+          // First, get the units that can perform the action regardless of affordability
           if (agent.canAfford(unitType)) {
-            const abilityIds = worldService.getAbilityIdsForAddons(data, unitType);
-            const canDoTypes = worldService.getUnitTypesWithAbilities(data, abilityIds);
-            const canDoTypeUnits = units.getById(canDoTypes);
-            const unitsCanDoWithoutAddOnAndIdle = getUnitsCanDoWithoutAddOnAndIdle(world, unitType);
-            const unitsCanDoIdle = unitsCanDoWithoutAddOnAndIdle.length > 0 ? unitsCanDoWithoutAddOnAndIdle : getUnitsCanDoWithAddOnAndIdle(canDoTypeUnits);
-            addEarmark(data, data.getUnitTypeData(unitType));
-            if (unitsCanDoIdle.length > 0) {
-              let unitCanDo = unitsCanDoIdle[Math.floor(Math.random() * unitsCanDoIdle.length)];
-              await addAddOn(world, unitCanDo, unitType);
-            } else {
-              const busyCanDoUnits = canDoTypeUnits.filter(unit => unit.addOnTag === '0').filter(unit => isTrainingUnit(data, unit));
-              const randomBusyTrainingUnit = getRandom(busyCanDoUnits); if (randomBusyTrainingUnit === undefined || randomBusyTrainingUnit.orders === undefined) return;
-              const { orders } = randomBusyTrainingUnit;
-              const { progress } = orders[0]; if (progress === undefined) return;
-              if (!worldService.outpowered && progress <= 0.5) {
-                await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [randomBusyTrainingUnit]));
+            const allUnits = getUnitsCapableToAddOn(canDoTypeUnits);
+
+            let fastestAvailableUnit = null;
+            let fastestAvailableTime = Infinity;
+
+            // Calculate time until each unit can build the add-on
+            for (let unit of allUnits) {
+              let timeUntilAvailable = getTimeUntilUnitCanBuildAddon(world, unit);
+              if (timeUntilAvailable < fastestAvailableTime) {
+                fastestAvailableUnit = unit;
+                fastestAvailableTime = timeUntilAvailable;
               }
+            }
+
+            // If a suitable unit is found, build the add-on with it
+            if (fastestAvailableUnit) {
+              addEarmark(data, data.getUnitTypeData(unitType));
+              await addAddOn(world, fastestAvailableUnit, unitType);
+            }
+          } else {
+            const timeUntilCanBeAfforded = getTimeUntilCanBeAfforded(world, unitType);
+            const allUnits = getUnitsCapableToAddOn(canDoTypeUnits);
+
+            let fastestAvailableUnit = null;
+            let fastestAvailableTime = Infinity;
+
+            // Calculate time until each unit can build the addon
+            for (let unit of allUnits) {
+              let timeUntilAvailable = getTimeUntilUnitCanBuildAddon(world, unit);
+              if (timeUntilAvailable < fastestAvailableTime) {
+                fastestAvailableUnit = unit;
+                fastestAvailableTime = timeUntilAvailable;
+              }
+            }
+            // Check if we have a suitable unit to build the addon soon
+            if (fastestAvailableUnit && fastestAvailableTime >= timeUntilCanBeAfforded) {
+              // Prepare the fastest available unit to build the addon
+              // TODO: Implement a function to prepare the unit to build the addon
+              let targetPosition = findBestPositionForAddOn(world, fastestAvailableUnit);
+              const response = await prepareUnitToBuildAddon(world, fastestAvailableUnit, targetPosition); if (response === undefined) return;
             }
           }
           break;
@@ -534,15 +566,15 @@ const worldService = {
  * @param {World} world 
  * @param {Unit} building 
  * @param {UnitTypeId} addOnType 
- * @returns {Promise<Point2D | undefined>}
+ * @returns {Point2D | undefined}
  */
-  checkAddOnPlacement: async (world, building, addOnType = UnitType.REACTOR) => {
+  checkAddOnPlacement: (world, building, addOnType = UnitType.REACTOR) => {
     const { REACTOR, TECHLAB } = UnitType;
-    const { data, resources } = world;
-    const { map, units } = resources.get();
     const { findPosition } = worldService;
-    const abilityIds = worldService.getAbilityIdsForAddons(data, addOnType);
-    if (abilityIds.some(abilityId => building.abilityAvailable(abilityId))) {
+    const { resources } = world;
+    const { map, units } = resources.get();
+    const { unitType } = building; if (unitType === undefined) return;
+    if (canUnitBuildAddOn(unitType)) {
       let position = null;
       let addOnPosition = null;
       let range = 1;
@@ -566,9 +598,9 @@ const worldService = {
             position = getAddOnBuildingPlacement(addOnPosition);
             console.log(`isPlaceableAt for ${getStringNameOfConstant(UnitType, building.unitType)}`, position);
           } else {
-            addOnPosition = await findPosition(world, addOnType, nearPoints);
+            addOnPosition = findPosition(world, addOnType, nearPoints);
             if (addOnPosition) {
-              position = await findPosition(world, building.unitType, [getAddOnBuildingPlacement(addOnPosition)]);
+              position = findPosition(world, building.unitType, [getAddOnBuildingPlacement(addOnPosition)]);
             }
           }
         }
@@ -2966,7 +2998,7 @@ const worldService = {
         if (randomTrainer.unitType !== WARPGATE) {
           if (randomTrainer.isFlying) {
             // Land the flying unit before training
-            const landingPosition = await checkAddOnPlacement(world, randomTrainer);
+            const landingPosition = checkAddOnPlacement(world, randomTrainer);
             if (landingPosition) {
               setRepositionLabel(randomTrainer, landingPosition);
               await sendCommand(Ability.LAND, randomTrainer, landingPosition);
@@ -2990,7 +3022,7 @@ const worldService = {
         let canDoTypes = data.findUnitTypesWithAbility(abilityId);
         const canDoUnits = units.getById(canDoTypes).filter(unit => abilityId && unit.abilityAvailable(abilityId));
 
-        const selectRandomUnit = (unitList) => unitList[Math.floor(Math.random() * unitList.length)];
+        const selectRandomUnit = (/** @type {Unit[]} */ unitList) => unitList[Math.floor(Math.random() * unitList.length)];
 
         let unit = selectRandomUnit(canDoUnits);
         if (!unit) {
@@ -3027,6 +3059,15 @@ const worldService = {
                   }
                 }
               }
+            }
+          } else {
+            // If you can't afford the unit or tech requirement is undefined
+            // Find an idle unit to set the pending order
+            const idleUnits = units.getById(canDoTypes).filter(unit => abilityId && unit.isIdle() && unit.buildProgress === 1);
+            const unitToReserve = selectRandomUnit(idleUnits);
+            if (unitToReserve) {
+              const unitCommand = createUnitCommand(abilityId, [unitToReserve]);
+              setPendingOrders(unitToReserve, unitCommand);
             }
           }
         } else {
@@ -3307,6 +3348,7 @@ const worldService = {
       if (upgrader) {
         const unitCommand = createUnitCommand(abilityId, [upgrader]);
         await actions.sendAction([unitCommand]);
+        unitService.setPendingOrders(upgrader, unitCommand);
         setAndLogExecutedSteps(world, frame.timeInSeconds(), UpgradeId[upgradeId]);
       } else {
         const techLabRequired = techLabTypes.some(techLabType => UnitAbilityMap[techLabType].some(ability => ability === abilityId));
@@ -3339,10 +3381,21 @@ const worldService = {
                   // for each training unit, cancel training.
                   for (let i = 0; i < closestPair[0].orders.length; i++) {
                     await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
+                    unitService.setPendingOrders(closestPair[0], createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
                   }
                 }
-                const label = 'reposition';
-                closestPair[0].labels.set(label, closestPair[1]);
+                // Calculate the time until we can afford the upgrade and the time until the required tech becomes available
+                const timeUntilCanAfford = getTimeToTargetCost(world, TECHLAB);
+                const timeUntilTechAvailable = getTimeToTargetTech(world, TECHLAB);
+                const timeUntilUpgradeCanStart = Math.max(timeUntilCanAfford, timeUntilTechAvailable);
+                const distance = getDistance(closestPair[0].pos, closestPair[1]);
+                const { movementSpeed } = data.getUnitTypeData(BARRACKSFLYING); if (movementSpeed === undefined) return;
+                const movementSpeedPerSecond = movementSpeed * 1.4;
+                const timeToMove = distance / movementSpeedPerSecond + (unitService.liftAndLandingTime * 2);
+                if (timeUntilUpgradeCanStart < timeToMove) {
+                  const label = 'reposition';
+                  closestPair[0].labels.set(label, closestPair[1]);
+                }
               }
             }
           } else {
@@ -3369,16 +3422,138 @@ const worldService = {
               });
             }
             if (closestPair.length > 0) {
+              const { pos: pos0, orders: orders0 } = closestPair[0]; if (pos0 === undefined || orders0 === undefined) return;
+              const { pos: pos1 } = closestPair[1]; if (pos1 === undefined) return;
+              // if barracks is training unit, cancel training.
+              // Calculate the time until we can afford the upgrade and the time until the required tech becomes available
+              const timeUntilCanAfford = getTimeToTargetCost(world, TECHLAB);
+              const timeUntilTechAvailable = getTimeToTargetTech(world, TECHLAB);
+              const timeUntilUpgradeCanStart = Math.max(timeUntilCanAfford, timeUntilTechAvailable);
+              const distance = getDistance(pos1, pos0);
+              if (distance > 0) {
+                const { movementSpeed } = data.getUnitTypeData(BARRACKSFLYING); if (movementSpeed === undefined) return;
+                const movementSpeedPerSecond = movementSpeed * 1.4;
+                const timeToMove = distance / movementSpeedPerSecond + (64 / 22.4);
+                if (timeUntilUpgradeCanStart < timeToMove) {
+                  if (isTrainingUnit(data, closestPair[0])) {
+                    for (let i = 0; i < orders0.length; i++) {
+                      await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
+                      unitService.setPendingOrders(closestPair[0], createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
+                    }
+                  } else {
+                    const label = 'reposition';
+                    closestPair[0].labels.set(label, closestPair[1].pos);
+                    closestPair[1].labels.set(label, 'lift');
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } else {
+      const techLabRequired = techLabTypes.some(techLabType => UnitAbilityMap[techLabType].some(ability => ability === abilityId));
+      if (techLabRequired) {
+        const techLabs = units.getAlive(Alliance.SELF).filter(unit => techLabTypes.includes(unit.unitType));
+        const orphanTechLabs = techLabs.filter(techLab => {
+          const { pos } = techLab; if (pos === undefined) return false;
+          const footprint = getFootprint(BARRACKS); if (footprint === undefined) return false;
+          return techLab.unitType === TECHLAB && !pointsOverlap(cellsInFootprint(getAddOnBuildingPlacement(pos), footprint), unitResourceService.landingGrids);
+        });
+        if (orphanTechLabs.length > 0) {
+          // get completed and idle barracks
+          let completedBarracks = units.getById(countTypes.get(BARRACKS)).filter(barracks => barracks.buildProgress >= 1);
+          let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
+
+          // if no idle barracks, get closest barracks to tech lab.
+          const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => isTrainingUnit(data, barracks) && barracks.orders[0].progress <= 0.5);
+
+          if (barracks.length > 0) {
+            let closestPair = [];
+            barracks.forEach(barracks => {
+              orphanTechLabs.forEach(techLab => {
+                const addOnBuildingPosition = getAddOnBuildingPosition(techLab.pos);
+                if (closestPair.length > 0) {
+                  closestPair = distance(barracks.pos, addOnBuildingPosition) < distance(closestPair[0].pos, closestPair[1]) ? [barracks, addOnBuildingPosition] : closestPair;
+                } else { closestPair = [barracks, addOnBuildingPosition]; }
+              });
+            });
+            if (closestPair.length > 0) {
               // if barracks is training unit, cancel training.
               if (isTrainingUnit(data, closestPair[0])) {
+                // for each training unit, cancel training.
                 for (let i = 0; i < closestPair[0].orders.length; i++) {
                   await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
+                  unitService.setPendingOrders(closestPair[0], createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
                 }
-              } else {
-                // if barracks is not training unit, move barracks to tech lab.
+              }
+              // Calculate the time until we can afford the upgrade and the time until the required tech becomes available
+              const timeUntilCanAfford = getTimeToTargetCost(world, TECHLAB);
+              const timeUntilTechAvailable = getTimeToTargetTech(world, TECHLAB);
+              const timeUntilUpgradeCanStart = Math.max(timeUntilCanAfford, timeUntilTechAvailable);
+              const distance = getDistance(closestPair[0].pos, closestPair[1]);
+              const { movementSpeed } = data.getUnitTypeData(BARRACKSFLYING); if (movementSpeed === undefined) return;
+              const movementSpeedPerSecond = movementSpeed * 1.4;
+              const timeToMove = distance / movementSpeedPerSecond + (unitService.liftAndLandingTime * 2);
+              if (timeUntilUpgradeCanStart < timeToMove) {
                 const label = 'reposition';
-                closestPair[0].labels.set(label, closestPair[1].pos);
-                closestPair[1].labels.set(label, 'lift');
+                closestPair[0].labels.set(label, closestPair[1]);
+              }
+            }
+          }
+        } else {
+          const nonOrphanTechLabs = techLabs.filter(techLab => techLab.unitType !== TECHLAB);
+          // find idle building with tech lab.
+          const idleBuildingsWithTechLab = nonOrphanTechLabs
+            .map(techLab => units.getClosest(getAddOnBuildingPosition(techLab.pos), units.getAlive(Alliance.SELF), 1)[0])
+            .filter(building => building.noQueue && getPendingOrders(building).length === 0);
+          // find closest barracks to closest tech lab.
+          /** @type {Unit[]} */
+          let closestPair = [];
+          // get completed and idle barracks.
+          let completedBarracks = units.getById(countTypes.get(BARRACKS)).filter(barracks => barracks.buildProgress >= 1);
+          let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
+          // if no idle barracks, get closest barracks to tech lab.
+          const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => isTrainingUnit(data, barracks) && barracks.orders[0].progress <= 0.5);
+          if (barracks.length > 0 && idleBuildingsWithTechLab.length > 0) {
+            barracks.forEach(barracks => {
+              idleBuildingsWithTechLab.forEach(idleBuildingsWithtechLab => {
+                if (closestPair.length > 0) {
+                  closestPair = distance(barracks.pos, idleBuildingsWithtechLab.pos) < distance(closestPair[0].pos, closestPair[1].pos) ? [barracks, idleBuildingsWithtechLab] : closestPair;
+                } else { closestPair = [barracks, idleBuildingsWithtechLab]; }
+                if (frame.timeInSeconds() >= 329 && resources.get().frame.timeInSeconds() <= 354) {
+                  console.log(`Closest pair currently: [${closestPair[0].pos}, ${closestPair[1].pos}]`);
+                }
+              });
+            });
+          }
+          if (closestPair.length > 0) {
+            const { pos: pos0, orders: orders0 } = closestPair[0]; if (pos0 === undefined || orders0 === undefined) return;
+            const { pos: pos1 } = closestPair[1]; if (pos1 === undefined) return;
+            // if barracks is training unit, cancel training.
+            // Calculate the time until we can afford the upgrade and the time until the required tech becomes available
+            const timeUntilCanAfford = getTimeToTargetCost(world, TECHLAB);
+            const timeUntilTechAvailable = getTimeToTargetTech(world, TECHLAB);
+            const timeUntilUpgradeCanStart = Math.max(timeUntilCanAfford, timeUntilTechAvailable);
+            const distance = getDistance(pos1, pos0);
+            if (distance > 0) {
+              const { movementSpeed } = data.getUnitTypeData(BARRACKSFLYING); if (movementSpeed === undefined) return;
+              const movementSpeedPerSecond = movementSpeed * 1.4;
+              const timeToMove = distance / movementSpeedPerSecond + (64 / 22.4);
+              if (timeUntilUpgradeCanStart < timeToMove) {
+                if (isTrainingUnit(data, closestPair[0])) {
+                  for (let i = 0; i < orders0.length; i++) {
+                    const response = await actions.sendAction(createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
+                    if (response.result && response.result.find(x => x !== 1)) {
+                      console.log('Error cancelling queue');
+                    }
+                    unitService.setPendingOrders(closestPair[0], createUnitCommand(CANCEL_QUEUE5, [closestPair[0]]));
+                  }
+                } else {
+                  const label = 'reposition';
+                  closestPair[0].labels.set(label, closestPair[1].pos);
+                  closestPair[1].labels.set(label, 'lift');
+                }
               }
             }
           }
@@ -5250,3 +5425,332 @@ const earmarkResourcesIfNeeded = (world, unitTypeData, earmarkNeeded) => {
 
   return !earmarkNeededBool;
 };
+
+/**
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @returns {number} The time in seconds until the agent can afford the specified unit type.
+ */
+function getTimeUntilCanBeAfforded(world, unitType) {
+  const timeToTargetCost = getTimeToTargetCost(world, unitType);
+  const timeToTargetTech = getTimeToTargetTech(world, unitType);
+
+  // the time until the unit can be afforded is the maximum of the two times
+  return Math.max(timeToTargetCost, timeToTargetTech);
+}
+
+/**
+ * Get units that are capable to add an add-on (either they don't have one or they have one but can add another).
+ * @param {Unit[]} units 
+ * @returns {Unit[]}
+ */
+function getUnitsCapableToAddOn(units) {
+  return units.filter(unit => unit.unitType && canUnitBuildAddOn(unit.unitType));
+}
+
+
+/**
+ * Check if a unit type can construct an addon.
+ * @param {UnitTypeId} unitType 
+ * @returns {boolean}
+ */
+function canUnitBuildAddOn(unitType) {
+  const { BARRACKS, FACTORY, STARPORT } = UnitType;
+  // Add the unit types that can construct addons here
+  const addonConstructingUnits = [
+    ...(countTypes.get(BARRACKS) || []), ...(addOnTypesMapping.get(BARRACKS) || []),
+    ...(countTypes.get(FACTORY) || []), ...(addOnTypesMapping.get(FACTORY) || []),
+    ...(countTypes.get(STARPORT) || []), ...(addOnTypesMapping.get(STARPORT) || []),
+  ];
+  return addonConstructingUnits.includes(unitType);
+}
+
+/**
+ * @param {World} world
+ * @param {Unit} unit
+ * @returns {number}
+ */
+function getTimeUntilUnitCanBuildAddon(world, unit) {
+  const { data } = world;
+  const { buildProgress, isFlying, orders, pos, unitType } = unit;
+  if (buildProgress === undefined || isFlying === undefined || orders === undefined || pos === undefined || unitType === undefined) return Infinity;
+
+  // If unit is under construction, calculate the time until it finishes
+  if (buildProgress !== undefined && buildProgress < 1) {
+    const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return Infinity;
+    const remainingTime = getTimeInSeconds(buildTime - (buildTime * buildProgress));
+    return remainingTime;
+  }
+
+  // If unit is idle, check if it already has an add-on
+  if (unit.isIdle()) {
+    // If unit already has an add-on, calculate the time it takes for the structure to lift off, move, and land
+    if (hasAddOn(unit)) {
+      return calculateLiftLandAndMoveTime(world, unit);
+    } else if (isFlying) { // New condition for flying and idle units
+      return calculateLiftLandAndMoveTime(world, unit);
+    }
+    return 0;
+  }
+
+  // If unit is flying or its unit type indicates that it's a flying unit
+  if (isFlying || flyingTypesMapping.has(unitType)) {
+    if (orders && orders.length > 0) {
+      const order = orders[0];
+      if (order.targetWorldSpacePos) {
+        return calculateLiftLandAndMoveTime(world, unit, order.targetWorldSpacePos);
+      }
+    }
+
+    // If the unit's orders don't provide a target position, return Infinity
+    return Infinity;
+  }
+
+  // If unit is training or doing something else, calculate the time until it finishes
+  if (orders && orders.length > 0) {
+    const order = orders[0];
+    const { abilityId, progress } = order; if (abilityId === undefined || progress === undefined) return Infinity;
+    const unitTypeTraining = dataService.unitTypeTrainingAbilities.get(abilityId); if (unitTypeTraining === undefined) return Infinity;
+    const { buildTime } = data.getUnitTypeData(unitTypeTraining); if (buildTime === undefined) return Infinity;
+
+    const remainingTime = getTimeInSeconds(buildTime - (buildTime * progress));
+    if (hasAddOn(unit)) {
+      return remainingTime + calculateLiftLandAndMoveTime(world, unit);
+    }
+    return remainingTime;
+  }
+
+  // If unit is not idle, not under construction, and not building something, assume it will take a longer time to be available
+  return Infinity;
+}
+
+/**
+ * Calculate the time it takes for a unit with an add-on to lift off (if not already flying), move, and land
+ * @param {World} world
+ * @param {Unit} unit
+ * @param {Point2D | undefined} targetPosition
+ * @returns {number}
+ */
+function calculateLiftLandAndMoveTime(world, unit, targetPosition=undefined) {
+  const { data } = world;
+  const { isFlying, pos, unitType } = unit; if (isFlying === undefined || pos === undefined || unitType === undefined) return Infinity;
+
+  // Get lift and landing time from service
+  const { liftAndLandingTime } = unitService; // placeholder value, replace with actual value
+
+  // Get movement speed data for a flying barracks
+  const { movementSpeed } = data.getUnitTypeData(BARRACKSFLYING); if (movementSpeed === undefined) return Infinity;
+  const movementSpeedPerSecond = movementSpeed * 1.4;
+
+  targetPosition = targetPosition || findBestPositionForAddOn(world, unit); // placeholder function, replace with your own logic
+  if (!targetPosition) return Infinity;
+  const distance = getDistance(pos, targetPosition); // placeholder function, replace with your own logic
+  const timeToMove = distance / movementSpeedPerSecond;
+
+  // If unit is already flying, don't account for the lift-off time
+  const totalLiftAndLandingTime = (isFlying || flyingTypesMapping.has(unitType)) ? liftAndLandingTime : liftAndLandingTime * 2;
+
+  return totalLiftAndLandingTime + timeToMove;
+}
+
+/**
+ * @param {World} world
+ * @param {Unit} unit
+ * @param {Point2D | undefined} targetPosition
+ * @returns {Promise<SC2APIProtocol.ResponseAction | undefined>}
+ */
+async function prepareUnitToBuildAddon(world, unit, targetPosition) {
+  const { getPendingOrders } = unitService;
+  const { agent, data, resources } = world;
+  const { foodUsed } = agent; if (foodUsed === undefined) return;
+  const { actions } = resources.get();
+
+  const currentFood = foodUsed;
+  const unitBeingTrained = getUnitBeingTrained(unit); // Placeholder function, replace with your own logic
+  const foodUsedByTrainingUnit = unitBeingTrained ? getFoodUsedByUnitType(data, unitBeingTrained) : 0;
+  const plan = getPlanFoodValue(); // Function to get the plan's food value
+
+  // If the structure is idle (and has no pending orders) and flying, it should land at the target position
+  if (unit.isIdle() && getPendingOrders(unit).length === 0 && isStructureLifted(unit) && targetPosition) {
+    const landCommand = createUnitCommand(Ability.LAND, [unit]);
+    landCommand.targetWorldSpacePos = targetPosition;
+    return actions.sendAction([landCommand]);
+  }
+
+  // If the structure can be lifted and has no pending orders, issue a lift command
+  if (canStructureLiftOff(unit) && getPendingOrders(unit).length === 0) {
+    const liftCommand = createUnitCommand(Ability.LIFT, [unit]);
+    return actions.sendAction([liftCommand]);
+  }
+
+  // If the structure is in a lifted state and has no pending orders, issue a land command
+  if (isStructureLifted(unit) && getPendingOrders(unit).length === 0 && targetPosition) {
+    const landCommand = createUnitCommand(Ability.LAND, [unit]);
+    landCommand.targetWorldSpacePos = targetPosition;
+    return actions.sendAction([landCommand]);
+  }
+
+  // If the unit is busy with another order, cancel it only if it doesn't break the plan and has no pending orders
+  if (!unit.isIdle() && getPendingOrders(unit).length === 0 && (currentFood - foodUsedByTrainingUnit >= plan)) {
+    const cancelCommand = createUnitCommand(CANCEL_QUEUE5, [unit]);
+    return actions.sendAction([cancelCommand]);
+  }
+}
+
+
+/**
+ * @param {World} world
+ * @param {Unit} unit 
+ * @param {boolean} logCondition
+ * @returns {Point2D | undefined}
+ */
+function findBestPositionForAddOn(world, unit, logCondition = false) {
+  const { checkAddOnPlacement } = worldService;
+  const { resources } = world;
+  const { map } = resources.get();
+  const { isFlying, pos } = unit; if (isFlying === undefined || pos === undefined) return undefined;
+
+  // use logCondition to log the reason why the function returned undefined
+  if (logCondition) {
+    console.log(`findBestPositionForAddOn: ${unit.unitType} ${unit.tag} ${unit.isFlying ? 'is flying' : 'is grounded'} and ${unit.isIdle() ? 'is idle' : 'is busy'} and ${hasAddOn(unit) ? 'has an add-on' : 'does not have an add-on'}`);
+  }
+
+  // Scenario 0: The building is idle, doesn't have an add-on, and is flying.
+  if (unit.isIdle() && !hasAddOn(unit) && isFlying) {
+    const landingSpot = checkAddOnPlacement(world, unit);
+    if (landingSpot !== undefined) {
+      // If a suitable landing spot is available, return it
+      return landingSpot;
+    } else {
+      // If no suitable landing spot is available, we can't handle this scenario
+      return undefined;
+    }
+  }
+
+  // Scenario 1: The building is idle, doesn't have an add-on, and is grounded.
+  if (unit.isIdle() && !hasAddOn(unit) && !isFlying) {
+    const addonPosition = getAddOnPlacement(pos); // get the position where the add-on would be built
+    if (map.isPlaceableAt(UnitType.REACTOR, addonPosition)) { // check if the add-on can be placed there
+      return undefined; // The building is idle and can build an add-on, return null and check it again later.
+    }
+  }
+
+  // Scenario 2: The building is busy but will become idle after current action.
+  if (!unit.isIdle() && !hasAddOn(unit)) {
+    // Here, it depends on the urgency of the add-on and your strategy
+    // You might wait for the unit to be idle or cancel the current action
+    // Then, it becomes Scenario 1 again.
+    // For simplicity, we assume we wait until it's idle and can use the same logic to find position
+    return undefined; // The building is currently busy, return null and check it again later.
+  }
+
+  // Scenario 3: The building is under construction.
+  if (unit.buildProgress !== undefined && unit.buildProgress < 1) {
+    // The building is still being constructed, so it cannot build an add-on yet.
+    // Similar to Scenario 2, we will check it again later.
+    return undefined;
+  }
+
+  // Scenario 4: The building already has an add-on.
+  if (hasAddOn(unit)) {
+    // Find a suitable landing spot
+    const landingSpot = checkAddOnPlacement(world, unit);
+    if (logCondition) {
+      console.log(`findBestPositionForAddOn: ${unit.unitType} ${unit.tag} has an add-on and ${landingSpot ? 'has a suitable landing spot' : 'does not have a suitable landing spot'}`);
+    }
+    if (landingSpot !== undefined) {
+      // If a suitable landing spot is available, return it
+      return landingSpot;
+    } else {
+      // If no suitable landing spot is available, we can't handle this scenario
+      return undefined;
+    }
+  }
+
+  // Scenario 5: The building can lift off and there is a nearby location with enough space.
+  if (canLiftOff(unit)) {
+    // You will have to define the function findNearbyLocationWithSpace()
+    // which finds a nearby location with enough space for the building and an add-on.
+    const newLocation = checkAddOnPlacement(world, unit);
+    if (newLocation) {
+      // In this case, you will want to move your unit to the new location before building the add-on.
+      // You might want to store this information (that the unit needs to move before building the add-on) somewhere.
+      return newLocation;
+    }
+  }
+
+  // If no suitable position was found, return null
+  return undefined;
+}
+
+/**
+ * @param {Unit} unit
+ * @returns {boolean}
+ */
+function hasAddOn(unit) {
+  return String(unit.addOnTag) !== '0';
+}
+
+/**
+ * @param {Unit} unit 
+ * @returns {boolean}
+ */
+function canLiftOff(unit) {
+  const { unitType } = unit; if (unitType === undefined) return false;
+  // The unit types that can lift off
+  const typesThatCanLiftOff = new Set([UnitType.COMMANDCENTER, UnitType.BARRACKS, UnitType.FACTORY, UnitType.STARPORT]);
+
+  return typesThatCanLiftOff.has(unitType);
+}
+
+/**
+ * @param {DataStorage} data
+ * @param {UnitTypeId} unitType
+ * @returns {number}
+ */
+function getFoodUsedByUnitType(data, unitType) {
+  const { foodRequired } = data.getUnitTypeData(unitType);
+  return foodRequired || 0;
+}
+
+function getPlanFoodValue() {
+  return planService.plan[planService.currentStep].food;
+}
+
+/**
+ * @param {Unit} unit 
+ * @returns {UnitTypeId | null}
+ */
+function getUnitBeingTrained(unit) {
+  // Access the unit's orders, assuming they exist and are structured as an array
+  const { orders } = unit;
+  if (!orders || orders.length === 0) return null;
+
+  // The training order should be the first order in the list
+  const trainingOrder = orders[0];
+  const { abilityId } = trainingOrder; if (abilityId === undefined) return null;
+
+  // The target type of the training order should be the unit type being trained
+  const unitBeingTrained = dataService.unitTypeTrainingAbilities.get(abilityId); if (unitBeingTrained === undefined) return null;
+
+  return unitBeingTrained || null;
+}
+
+/**
+ * Checks if a structure can lift off.
+ * @param {Unit} unit The unit to check.
+ * @returns {boolean} Returns true if the unit can lift off.
+ */
+function canStructureLiftOff(unit) {
+  return unit.availableAbilities().some(ability => groupTypes.liftingAbilities.includes(ability));
+}
+
+/**
+ * Checks if a structure is lifted.
+ * @param {Unit} unit The unit to check.
+ * @returns {boolean} Returns true if the unit is lifted.
+ */
+function isStructureLifted(unit) {
+  return unit.availableAbilities().some(ability => groupTypes.landingAbilities.includes(ability));
+}
+
