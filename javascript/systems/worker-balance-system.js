@@ -18,6 +18,7 @@ const { gather, getClosestPathablePositionsBetweenPositions } = require('../serv
 const { getPendingOrders, getBuildTimeLeft, getMovementSpeed, setPendingOrders } = require('../services/unit-service');
 const { gatherOrMine } = require('./manage-resources');
 const { getMineralFieldAssignments, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
+const { getDistance } = require('../services/position-service');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',
@@ -253,8 +254,9 @@ function assignWorkers(resources) {
     if (pos === undefined) return;
     const [closestBase] = units.getClosest(pos, completedBases, 1);
     if (closestBase) {
-      const [closestExpansion] = getClosestExpansion(map, closestBase.pos); if (closestExpansion === undefined) return;
-      const { mineralFields } = closestExpansion.cluster;
+      const { pos: basePos } = closestBase; if (basePos === undefined) return;
+      const [closestExpansion] = getClosestExpansion(map, basePos); if (closestExpansion === undefined) return;
+      const mineralFields = units.getMineralFields().filter(mineralField => mineralField.pos && getDistance(basePos, mineralField.pos) < 14);
       /** @type {Unit} */
       const assignedMineralField = worker.labels.get('mineralField');
       if (assignedMineralField && assignedMineralField.tag !== undefined) {

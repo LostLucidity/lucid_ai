@@ -2433,7 +2433,7 @@ const worldService = {
     const { getPendingOrders, setPendingOrders } = unitService;
     const { getNeediestMineralField } = unitResourceService;
     const { data, resources } = world;
-    const { map, units } = resources.get();
+    const { units } = resources.get();
     const { DRONE, EGG } = UnitType;
     const collectedActions = [];
     const workerSourceByPath = worldService.getWorkerSourceByPath(world, position);
@@ -2456,8 +2456,7 @@ const worldService = {
 
     const unitCommand = createUnitCommand(SMART, [workerSourceByPath]);
     if (mineralTarget) {
-      const [closestExpansion] = getClosestExpansion(map, pos);
-      const { mineralFields } = closestExpansion.cluster;
+      const mineralFields = units.getMineralFields().filter(mineralField => mineralField.pos && getDistance(pos, mineralField.pos) < 14);
       const neediestMineralField = getNeediestMineralField(units, mineralFields);
       if (neediestMineralField === undefined) return collectedActions;
       unitCommand.targetUnitTag = neediestMineralField.tag;
@@ -4489,11 +4488,11 @@ function canTrainingUnitsKillBeforeKilled(world, unitTypesTraining, threats) {
  * @description returns closest safe mineral field to position
  */
 function getClosestSafeMineralField(resources, position, targetPosition) {
-  const { map } = resources.get();
+  const { map, units } = resources.get();
   return map.getExpansions().reduce((/** @type {Unit | undefined} */ acc, expansion) => {
-    const { areas, cluster } = expansion; if (areas === undefined || cluster === undefined) return acc;
+    const { areas, cluster, townhallPosition } = expansion; if (areas === undefined || cluster === undefined) return acc;
     const { mineralLine } = areas; if (mineralLine === undefined) return acc;
-    const { mineralFields } = cluster; if (mineralFields === undefined) return acc;
+    const mineralFields = units.getMineralFields().filter(mineralField => mineralField.pos && getDistance(townhallPosition, mineralField.pos) < 14);
     const averageMineralLinePosition = avgPoints(mineralLine);
     const distancePositionToMineralLine = getDistanceByPath(resources, position, averageMineralLinePosition);
     const distanceTargetToMineralLine = getDistanceByPath(resources, targetPosition, averageMineralLinePosition);
