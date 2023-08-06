@@ -1,1 +1,1 @@
-export interface ActionsMap { "orderType": string, "unitType"?: number, "upgrade"?: number }
+export interface ActionsMap { "orderType": 'UnitType' | 'Upgrade' | 'Ability', "unitType"?: number, "upgrade"?: number }

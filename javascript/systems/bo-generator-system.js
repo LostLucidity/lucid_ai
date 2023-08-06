@@ -43,7 +43,7 @@ module.exports = createSystem({
   },
   async onStep(world) {
     const { agent, data, resources } = world;
-    const { actions, units } = resources.get();
+    const { actions } = resources.get();
     const { mineralMaxThreshold, mineralMinThreshold } = planService;
     const collectedActions = [];
     // starting at 12 food, while at current food, 1/3 chance of action else build drone and increment food by 1
@@ -73,7 +73,7 @@ module.exports = createSystem({
       return;
     }
     if (agent.minerals > mineralMaxThreshold && planService.continueBuild) {
-      const allAvailableAbilities = getAllAvailableAbilities(world, units);
+      const allAvailableAbilities = getAllAvailableAbilities(world);
       await runAction(world, allAvailableAbilities);
     }
     collectedActions.push(...optimizeBuildCommands(world));

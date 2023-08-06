@@ -52,7 +52,7 @@ const { checkUnitCount } = require('../systems/track-units/track-units-service')
 const microService = require('./micro-service');
 const { getDistanceByPath } = require('./resource-manager-service');
 const UnitAbilityMap = require('@node-sc2/core/constants/unit-ability-map');
-const { ADEPTPHASESHIFT, QUEEN, BUNKER, WARPGATE, BARRACKSFLYING, STARPORT } = require('@node-sc2/core/constants/unit-type');
+const { ADEPTPHASESHIFT, QUEEN, BUNKER, WARPGATE, BARRACKSFLYING } = require('@node-sc2/core/constants/unit-type');
 const { scanCloakedEnemy } = require('../helper/terran');
 const { checkTechFor } = require('./agent-service');
 const resourcesService = require('./resources-service');
@@ -3308,7 +3308,6 @@ const worldService = {
         }
       }
     }
-
     setFoodUsed(world);
   },
   /**
@@ -4209,7 +4208,8 @@ async function buildSupply(world) {
   const greaterThanPlanSupply = foodUsed > planService.planMax.supply;
   const conditions = [
     isSupplyNeeded(world, 0.2) &&
-    (greaterThanPlanSupply || minerals > 512)
+    (greaterThanPlanSupply || minerals > 512) &&
+    planService.automateSupply,
   ];
   if (conditions.some(condition => condition)) {
     switch (agent.race) {

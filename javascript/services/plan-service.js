@@ -33,6 +33,8 @@ const planService = {
     planService.pausedThisRound = value;
   },
   /** @type {boolean} */
+  automateSupply: true,
+  /** @type {boolean} */
   bogIsActive: false,
   /** @type {Map<number, false | Point2D>} */
   buildingPositions: new Map(),

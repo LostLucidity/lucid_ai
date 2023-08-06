@@ -3,10 +3,11 @@
 
 const { createSystem } = require("@node-sc2/core");
 const dataService = require("../../services/data-service");
-const { setUnitTypeTrainingAbilityMapping, setUpgradeAbilities, getAllActions, setCuratedAbilityMapping } = require("../../services/data-service");
-const { runPlan } = require("../../services/world-service");
+const { getAllActions } = require("../../services/data-service");
+const { runPlan, setFoodUsed } = require("../../services/world-service");
 const { executeAction } = require("./q-table-service");
 const qTableService = require("./q-table-service");
+const planService = require("../../services/plan-service");
 
 module.exports = createSystem({
   name: 'QTableSystem',
@@ -16,10 +17,10 @@ module.exports = createSystem({
   },
   async onGameStart(world) {
     const { data } = world;
-    setUnitTypeTrainingAbilityMapping(data);
-    setUpgradeAbilities(data);
-    setCuratedAbilityMapping(data);
+    dataService.setGameData(data);
     qTableService.Q = await qTableService.getQTable();
+    setFoodUsed(world);
+    planService.automateSupply = false;
     await runPlan(world);
     await executeQLearning(world);
   },
@@ -34,11 +35,10 @@ module.exports = createSystem({
  * @returns {Promise<void>}
  */
 async function executeQLearning(world) {
-  const { data, resources } = world;
-  const { units } = resources.get();
+  const { data } = world;
   const { steps } = qTableService;
   const state = { step: steps.length };
-  const availableActions = dataService.getAllAvailableAbilities(world, units);
+  const availableActions = dataService.getAllAvailableAbilities(world);
   const stateIndex = qTableService.getStateIndex(state);
   const actionIndex = qTableService.chooseAction(stateIndex, availableActions);
   const action = getAllActions()[actionIndex];

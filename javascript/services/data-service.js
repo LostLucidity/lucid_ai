@@ -78,12 +78,12 @@ const dataService = {
     return totalBonusDamage > 0 ? (totalBonusDamage / enemyUnitTypes.length) : 0;
   },
   /**
- * @param {World} world 
- * @param {UnitResource} units 
- * @returns {Map<number, import("../interfaces/actions-map").ActionsMap>}
- */
-  getAllAvailableAbilities(world, units) {
-    const { agent, data } = world;
+   * @param {World} world 
+   * @returns {Map<number, import("../interfaces/actions-map").ActionsMap>}
+   */
+  getAllAvailableAbilities(world) {
+    const { agent, data, resources } = world;
+    const { units } = resources.get();
     /** @type {Map<number, any>} */
     const allAvailableAbilities = new Map();
     const { upgradeAbilities } = dataService;
@@ -220,6 +220,15 @@ const dataService = {
       curatedAbilityMapping[abilityId.toString()] = ability;
     });
     dataService.curatedAbilityMapping = curatedAbilityMapping;
+  },
+  /**
+   * @param {DataStorage} data 
+   */
+  setGameData: (data) => {
+    const { setUnitTypeTrainingAbilityMapping, setUpgradeAbilities, setCuratedAbilityMapping } = dataService;
+    setUnitTypeTrainingAbilityMapping(data);
+    setUpgradeAbilities(data);
+    setCuratedAbilityMapping(data);
   },
   /**
    * @param {DataStorage} data 
