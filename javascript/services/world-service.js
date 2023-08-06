@@ -3390,6 +3390,7 @@ const worldService = {
   /**
    * @param {World} world
    * @param {Point2D} position
+   * @returns {Unit}
    */
   getWorkerSourceByPath: (world, position) => {
     const { agent, resources } = world;
@@ -4672,55 +4673,8 @@ const handleNonRallyBase = (world, unit, position, unitCommand, unitType) => {
   const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, unit);
   const movingButNotToPosition = unitService.isMoving(unit) && orderTargetPosition && getDistance(orderTargetPosition, position) > 1;
 
-  const timeInSeconds = resources.get().frame.timeInSeconds();
-
-  // Log only between 90 and 105 seconds
-  if (timeInSeconds >= 90 && timeInSeconds <= 105) {
-    console.log(`orderTargetPosition: ${JSON.stringify(orderTargetPosition)}, movingButNotToPosition: ${movingButNotToPosition}`);
-  }
-
-  // check for a current unit that is heading towards position
-  const currentUnitMovingToPosition = units.getWorkers().find(u => {
-    const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, u); if (orderTargetPosition === undefined) return false;
-    return unitService.isMoving(u) && areApproximatelyEqual(orderTargetPosition, position);
-  });
-
-  if (timeInSeconds >= 90 && timeInSeconds <= 105) {
-    if (currentUnitMovingToPosition) {
-      console.log(`currentUnitMovingToPosition tag: ${currentUnitMovingToPosition.tag}, orders: ${JSON.stringify(currentUnitMovingToPosition.orders)}`);
-    } else {
-      console.log('currentUnitMovingToPosition is undefined');
-    }
-  }
-
-  // if there is a unit already moving to position, check if current unit is closer
-  if (currentUnitMovingToPosition) {
-    const { pos: currentUnitMovingToPositionPos } = currentUnitMovingToPosition; if (currentUnitMovingToPositionPos === undefined) return [];
-    const distanceOfCurrentUnit = getDistanceByPath(resources, pos, position);
-    const distanceOfMovingUnit = getDistanceByPath(resources, currentUnitMovingToPositionPos, position);
-
-    if (timeInSeconds >= 90 && timeInSeconds <= 105) {
-      console.log(`distanceOfCurrentUnit: ${distanceOfCurrentUnit}, current unit position: ${JSON.stringify(pos)}, target position: ${JSON.stringify(position)}`);
-      console.log(`distanceOfMovingUnit: ${distanceOfMovingUnit}, moving unit position: ${JSON.stringify(currentUnitMovingToPositionPos)}, target position: ${JSON.stringify(position)}`);
-      if (currentUnitMovingToPosition && currentUnitMovingToPositionPos) {
-        console.log(`distanceOfMovingUnit: ${distanceOfMovingUnit}, moving unit position: ${JSON.stringify(currentUnitMovingToPositionPos)}, target position: ${JSON.stringify(position)}`);
-      } else {
-        console.log('currentUnitMovingToPosition or currentUnitMovingToPositionPos is undefined');
-      }
-    }
-
-    if (distanceOfCurrentUnit >= distanceOfMovingUnit) {
-      // if current unit is not closer, return early
-      return actions;
-    }
-  }
-
   // check for units near the building position
   const unitsNearPosition = units.getAlive(Alliance.SELF).filter(u => u.pos && getDistance(u.pos, position) <= 2);
-
-  if (timeInSeconds >= 90 && timeInSeconds <= 105) {
-    console.log(`unitsNearPosition: ${JSON.stringify(unitsNearPosition)}`);
-  }
 
   unitsNearPosition.forEach(u => {
     if (u.pos) { // only consider units where pos is defined
@@ -4729,6 +4683,26 @@ const handleNonRallyBase = (world, unit, position, unitCommand, unitType) => {
       actions.push(moveAwayCommand);
     }
   });
+
+  actions.push(...worldService.rallyWorkerToTarget(world, position, true));
+
+  // check for a current unit that is heading towards position
+  const currentUnitMovingToPosition = units.getWorkers().find(u => {
+    const orderTargetPosition = unitResourceService.getOrderTargetPosition(units, u); if (orderTargetPosition === undefined) return false;
+    return unitService.isMoving(u) && areApproximatelyEqual(orderTargetPosition, position);
+  });
+
+  // if there is a unit already moving to position, check if current unit is closer
+  if (currentUnitMovingToPosition) {
+    const { pos: currentUnitMovingToPositionPos } = currentUnitMovingToPosition; if (currentUnitMovingToPositionPos === undefined) return [];
+    const distanceOfCurrentUnit = getDistanceByPath(resources, pos, position);
+    const distanceOfMovingUnit = getDistanceByPath(resources, currentUnitMovingToPositionPos, position);
+
+    if (distanceOfCurrentUnit >= distanceOfMovingUnit) {
+      // if current unit is not closer, return early
+      return actions;
+    }
+  }
 
   if (!unit.isConstructing() && !movingButNotToPosition) {
     unitCommand.targetWorldSpacePos = position;
@@ -4742,15 +4716,7 @@ const handleNonRallyBase = (world, unit, position, unitCommand, unitType) => {
       }
     }
   }
-  if (timeInSeconds >= 90 && timeInSeconds <= 105) {
-    console.log(`actions before final push: ${JSON.stringify(actions)}`);
-  }
-
   actions.push(...worldService.rallyWorkerToTarget(world, position, true));
-
-  if (timeInSeconds >= 90 && timeInSeconds <= 105) {
-    console.log(`final actions: ${JSON.stringify(actions)}`);
-  }
 
   return actions;
 };
@@ -4889,7 +4855,7 @@ async function attemptLand(world, unit, addOnType) {
   const { data, resources } = world;
   const { actions } = resources.get();
   const { tag, unitType } = unit; if (tag === undefined || unitType === undefined) return;
-  const foundPosition = await worldService.checkAddOnPlacement(world, unit, addOnType);
+  const foundPosition = worldService.checkAddOnPlacement(world, unit, addOnType);
 
   if (!foundPosition) {
     return;
@@ -4993,6 +4959,7 @@ function getBuilderCandidateClusters(builderCandidates) {
  * @returns {Unit | undefined}
  */
 function getClosestBuilderCandidate(resources, builderCandidateClusters, position) {
+  const { map, units } = resources.get();
   let closestCluster;
   let shortestClusterDistance = Infinity;
 
@@ -5011,6 +4978,15 @@ function getClosestBuilderCandidate(resources, builderCandidateClusters, positio
   let closestBuilderCandidate;
   let shortestCandidateDistance = Infinity;
 
+  // Store the original state of each cell
+  const originalCellStates = new Map();
+  const gasGeysers = unitResourceService.getGasGeysers(units).filter(geyser => geyser.pos && getDistance(geyser.pos, position) < 1);
+  const structureAtPositionCells = getStructureCells(position, gasGeysers);
+  [...structureAtPositionCells].forEach(cell => {
+    originalCellStates.set(cell, map.isPathable(cell));
+    map.setPathable(cell, true);
+  });
+
   // Find the closest candidate within that cluster
   for (let builderCandidate of closestCluster.units) {
     const { pos } = builderCandidate;
@@ -5023,6 +4999,12 @@ function getClosestBuilderCandidate(resources, builderCandidateClusters, positio
       closestBuilderCandidate = builderCandidate;
     }
   }
+
+  // Restore each cell to its original state
+  [...structureAtPositionCells].forEach(cell => {
+    const originalState = originalCellStates.get(cell);
+    map.setPathable(cell, originalState);
+  });
 
   // Return the closest candidate, or undefined if none was found
   return closestBuilderCandidate;
