@@ -165,6 +165,7 @@ async function runGame() {
     wallOffRampSystem,
     wallOffNaturalSystem,
     unitResourceSystem,
+    performanceTrackingSystem,
   ];
   const legacySystems = [
     ...baseSystems,

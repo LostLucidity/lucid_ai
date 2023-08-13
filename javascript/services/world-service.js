@@ -954,7 +954,14 @@ const worldService = {
 
       const buildingFootprints = Array.from(planService.buildingPositions.entries()).reduce((/** @type {Point2D[]} */positions, [step, buildingPos]) => {
         if (buildingPos === false) return positions;
-        const stepUnitType = planService.plan[step] ? planService.plan[step].unitType : planService.convertLegacyPlan(planService.legacyPlan)[step][2]; if (unitType === undefined) return positions;
+        const stepData = planService.plan[step] ?
+          planService.plan[step] :
+          planService.convertLegacyPlan(planService.legacyPlan)[step];
+
+        const stepUnitType = (stepData && stepData[2]) ? stepData[2] : undefined;
+
+        if (unitType === undefined) return positions;
+
         const footprint = getFootprint(stepUnitType); if (footprint === undefined) return positions;
         const newPositions = cellsInFootprint(buildingPos, footprint);
         if (canUnitBuildAddOn(stepUnitType)) {
