@@ -20,8 +20,6 @@ module.exports = createSystem({
     dataService.earmarks = [];
     MapResourceService.freeGasGeysersCache = new Map();
     sharedService.removePendingOrders(units);
-    unitResourceService.unitsById = new Map();
-    unitResourceService.workers = null;
     unitService.selfUnits = new Map();
     agentService.hasTechFor = new Map();
     worldService.availableProductionUnits = new Map();
@@ -31,8 +29,6 @@ module.exports = createSystem({
     const { resources } = world;
     const { units } = resources.get();
     sharedService.removePendingOrders(units);
-    unitResourceService.unitsById = new Map();
-    unitResourceService.workers = null;
     unitService.selfUnits = new Map();
   }
 });

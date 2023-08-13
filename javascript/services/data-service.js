@@ -1,9 +1,9 @@
 //@ts-check
 "use strict"
 
-const { Ability, UnitType, WarpUnitAbility, Upgrade } = require("@node-sc2/core/constants");
+const { UnitType, WarpUnitAbility, Upgrade } = require("@node-sc2/core/constants");
 const { EFFECT_CHRONOBOOSTENERGYCOST } = require("@node-sc2/core/constants/ability");
-const { Alliance, Race, Attribute } = require("@node-sc2/core/constants/enums");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const curatedAbilities = require("../constants/curated-abilities");
 const { getTimeInSeconds } = require("./frames-service");
@@ -86,33 +86,35 @@ const dataService = {
     const { units } = resources.get();
     /** @type {Map<number, any>} */
     const allAvailableAbilities = new Map();
+
     const { upgradeAbilities } = dataService;
+    const unitTypeTrainingAbilitiesKeys = new Set(dataService.unitTypeTrainingAbilities.keys());
+    const upgradeAbilitiesKeys = new Set(Object.keys(upgradeAbilities).map(Number));
+
     units.getAlive(Alliance.SELF).forEach(unit => {
-      const { unitType } = unit; if (unitType === undefined) return;
-      if (!unit.isStructure() || unit.isIdle() || unit.hasReactor() && unit.orders.length === 1) {
-        const availableAbilities = unit.availableAbilities();
-        availableAbilities.forEach(ability => {
+      const { unitType } = unit;
+      if (unitType === undefined) return;
+      if (!unit.isStructure() || unit.isIdle() || (unit.hasReactor() && unit.orders.length === 1)) {
+        unit.availableAbilities().forEach(ability => {
           if (!allAvailableAbilities.has(ability)) {
-            const unitTypeTrainingAbilities = dataService.unitTypeTrainingAbilities;
-            if (Array.from(unitTypeTrainingAbilities.keys()).some(unitTypeAbility => unitTypeAbility === ability)) {
-              const unitTypeData = data.getUnitTypeData(unitTypeTrainingAbilities.get(ability));
+            if (unitTypeTrainingAbilitiesKeys.has(ability)) {
+              const unitTypeData = data.getUnitTypeData(dataService.unitTypeTrainingAbilities.get(ability));
               if (unitTypeData.unitAlias === 0) {
                 if (requiresPylon(agent, unitTypeData) && units.getById(UnitType.PYLON).length === 0) {
-                  return; // Skip this unit if it's a Protoss structure that requires a Pylon and there's no Pylon
+                  return;
                 }
-                allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: unitTypeTrainingAbilities.get(ability) });
-              } else {
-                // ignore
+                allAvailableAbilities.set(ability, { orderType: 'UnitType', unitType: dataService.unitTypeTrainingAbilities.get(ability) });
               }
-            } else if (Object.keys(upgradeAbilities).some(upgradeAbility => parseInt(upgradeAbility) === ability)) {
+            } else if (upgradeAbilitiesKeys.has(ability)) {
               allAvailableAbilities.set(ability, { orderType: 'Upgrade', upgrade: upgradeAbilities[ability] });
-            } else if ([EFFECT_CHRONOBOOSTENERGYCOST].includes(ability)) {
+            } else if (ability === EFFECT_CHRONOBOOSTENERGYCOST) {
               allAvailableAbilities.set(ability, { orderType: 'Ability' });
             }
           }
-        })
+        });
       }
     });
+
     allAvailableAbilities.set(0, { orderType: 'NoOp' });
     return allAvailableAbilities;
   },

@@ -4,7 +4,7 @@
 const { TECHLAB } = require("@node-sc2/core/constants/unit-type");
 const dataService = require("../../services/data-service");
 const { getPendingOrders, getBuildTimeLeft } = require("../../services/unit-service");
-const { getById } = require("../unit-resource/unit-resource-service");
+const { getById } = require("../../services/resource-manager-service");
 
 const unitTrainingService = {
   /** @type {number|null} */
@@ -18,7 +18,6 @@ const unitTrainingService = {
    */
   canTrainNow: (world, unit, unitType) => {
     const { data, resources } = world;
-    const { units } = resources.get();
     const { orders } = unit; if (orders === undefined) return false;
     const allOrders = orders.filter(order => {
       const { abilityId, progress } = order; if (abilityId === undefined || progress === undefined) return false;
@@ -36,7 +35,7 @@ const unitTrainingService = {
         conditions.push(unit.hasTechLab());
       } else {
         conditions.push(
-          getById(units, [techRequirement]).some(unit => {
+          getById(resources, [techRequirement]).some(unit => {
             return unit.buildProgress >= 1;
           })
         );

@@ -1,51 +1,72 @@
 //@ts-check
 "use strict"
 
+// Core and service imports
 const { createSystem } = require("@node-sc2/core");
 const dataService = require("../../services/data-service");
-const { getAllActions } = require("../../services/data-service");
-const { runPlan, setFoodUsed } = require("../../services/world-service");
-const { executeAction } = require("./q-table-service");
 const qTableService = require("./q-table-service");
 const planService = require("../../services/plan-service");
+const { runPlan, setFoodUsed } = require("../../services/world-service");
+const { executeAction } = require("./q-table-service");
 
 module.exports = createSystem({
   name: 'QTableSystem',
   type: 'agent',
   defaultOptions: {
-    stepIncrement: 2**1,
+    stepIncrement: 2 ** 1,
   },
   async onGameStart(world) {
-    const { data } = world;
-    dataService.setGameData(data);
-    qTableService.Q = await qTableService.getQTable();
-    setFoodUsed(world);
-    planService.automateSupply = false;
-    await runPlan(world);
-    await executeQLearning(world);
+    initGame(world);
+    await runQLearningStep(world);
   },
   async onStep(world) {
-    await runPlan(world);
-    await executeQLearning(world);
+    await runQLearningStep(world);
   }
 });
 
 /**
+ * Initial setup for the game start.
+ * @param {World} world 
+ */
+function initGame(world) {
+  const { data } = world;
+  dataService.setGameData(data);
+  qTableService.Q = qTableService.getQTable();  // Assuming a synchronous version exists
+  setFoodUsed(world);
+  planService.automateSupply = false;
+}
+
+/**
+ * Execute Q-learning logic.
  * @param {World} world 
  * @returns {Promise<void>}
  */
-async function executeQLearning(world) {
+async function runQLearningStep(world) {
+  await runPlan(world);  // Running the plan
+
   const { data } = world;
   const { steps } = qTableService;
+
   const state = { step: steps.length };
   const availableActions = dataService.getAllAvailableAbilities(world);
-  const stateIndex = qTableService.getStateIndex(state);
-  const actionIndex = qTableService.chooseAction(stateIndex, availableActions);
-  const action = getAllActions()[actionIndex];
+  const action = chooseQLearningAction(state, availableActions);
+
   if (action) {
-    console.log('action', action);
+    console.log('Action:', action);
   }
-  availableActions.get(action);
+
   await executeAction(world, action, availableActions);
   dataService.clearEarmarks(data);
+}
+
+/**
+ * Choose an action based on Q-learning.
+ * @param {Object} state 
+ * @param {Map<number, import("../../interfaces/actions-map").ActionsMap>} availableActions 
+ * @returns {any} Chosen action.
+ */
+function chooseQLearningAction(state, availableActions) {
+  const stateIndex = qTableService.getStateIndex(state);
+  const actionIndex = qTableService.chooseAction(stateIndex, availableActions);
+  return dataService.getAllActions()[actionIndex];
 }

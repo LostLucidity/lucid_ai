@@ -20,6 +20,7 @@ const { setPendingOrders } = require("./unit-service");
 const { shuffle } = require("../helper/utilities");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { getOccupiedExpansions } = require("../helper/expansions");
+const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 
 const resourceManagerService = {
   /** @type {Expansion[]} */
@@ -73,6 +74,24 @@ const resourceManagerService = {
       setPendingOrders(unit, sendToGather);
     }
     return collectedActions;
+  },
+  /**
+  * @param {ResourceManager} resources
+  * @param {UnitTypeId[]} unitTypes
+  * @returns {Unit[]}
+  */
+  getById(resources, unitTypes) {
+    const { isCurrent } = unitResourceService;
+    const { frame, units } = resources.get();
+    const currentFrame = frame.getGameLoop();
+    return unitTypes.reduce((/** @type {Unit[]} */ unitsById, unitType) => {
+      if (!isCurrent(unitType, frame.getGameLoop())) {
+        const newUnits = units.getById(unitType);
+        unitResourceService.unitsById.set(unitType, { units: newUnits, frame: currentFrame });
+      }
+      const entry = unitResourceService.unitsById.get(unitType);
+      return [...unitsById, ...(entry ? entry.units : [])];
+    }, []);
   },
   /**
    * @param {ResourceManager} resources 

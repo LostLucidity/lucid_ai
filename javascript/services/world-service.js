@@ -48,7 +48,6 @@ const { getEnemyUnits } = require('../systems/state-of-game-system/state-of-game
 const wallOffRampService = require('../systems/wall-off-ramp/wall-off-ramp-service');
 const { isTrainingUnit, earmarkThresholdReached, getEarmarkedFood, hasEarmarks } = require('./data-service');
 const unitTrainingService = require('../systems/unit-training/unit-training-service');
-const { checkUnitCount } = require('../systems/track-units/track-units-service');
 const microService = require('./micro-service');
 const { getDistanceByPath } = require('./resource-manager-service');
 const UnitAbilityMap = require('@node-sc2/core/constants/unit-ability-map');
@@ -62,7 +61,7 @@ const unitService = require('./unit-service');
 const worldService = {
   availableProductionUnits: new Map(),
   /** @type {number} */
-  foodUsed: 0,
+  foodUsed: 12,
   /** @type {boolean} */
   outpowered: false,
   /** @type {Map<UnitTypeId, Unit[]>} */
@@ -482,8 +481,7 @@ const worldService = {
     const collectedActions = [];
     const workerTypeId = WorkerRace[agent.race];
     if (canBuild(world, workerTypeId) || checkCanBuild) {
-      const { abilityId } = data.getUnitTypeData(workerTypeId);
-      if (abilityId === undefined) return collectedActions;
+      const { abilityId, foodRequired } = data.getUnitTypeData(workerTypeId); if (abilityId === undefined || foodRequired === undefined) return collectedActions;
       let trainers = [];
       if (agent.race === Race.ZERG) {
         trainers = units.getById(UnitType.LARVA).filter(larva => !larva['pendingOrders'] || larva['pendingOrders'].length === 0);
@@ -497,6 +495,7 @@ const worldService = {
           const unitCommand = createUnitCommand(abilityId, [trainer]);
           collectedActions.push(unitCommand);
           setPendingOrders(trainer, unitCommand);
+          planService.pendingFood += foodRequired;
         });
         return collectedActions;
       }
@@ -634,6 +633,30 @@ const worldService = {
     const haveAvailableProductionUnits = worldService.haveAvailableProductionUnitsFor(world, unitType);
     worldService.availableProductionUnits.set(unitType, haveAvailableProductionUnits);
     return haveAvailableProductionUnits;
+  },
+  /**
+   * @param {World} world
+   * @param {UnitTypeId} unitType
+   * @param {number} targetCount
+   * @returns {boolean}
+   */
+  checkUnitCount: (world, unitType, targetCount) => {
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const orders = [];
+    let unitTypes = [];
+    if (morphMapping.has(unitType)) {
+      unitTypes = morphMapping.get(unitType);
+    } else {
+      unitTypes = [unitType];
+    }
+    let abilityId = data.getUnitTypeData(unitType).abilityId;
+    units.withCurrentOrders(abilityId).forEach(unit => {
+      unit.orders.forEach(order => { if (order.abilityId === abilityId) { orders.push(order); } });
+    });
+    const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => u.pendingOrders && u.pendingOrders.some(o => o.abilityId === abilityId));
+    const unitCount = resourceManagerService.getById(resources, unitTypes).length + orders.length + unitsWithPendingOrders.length + trackUnitsService.missingUnits.filter(unit => unit.unitType === unitType).length;
+    return unitCount === targetCount;
   },
   /**
    * @param {World} world
@@ -1727,7 +1750,7 @@ const worldService = {
     let count = unitsWithCurrentOrders.length;
     const unitTypes = countTypes.get(unitType) ? countTypes.get(unitType) : [unitType];
     unitTypes.forEach(type => {
-      let unitsToCount = unitResourceService.getById(units, [type]);
+      let unitsToCount = resourceManagerService.getById(resources, [type])
       if (agent.race === Race.TERRAN) {
         const completed = type === UnitType.ORBITALCOMMAND ? 0.998 : 1;
         unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= completed);
@@ -2849,10 +2872,9 @@ const worldService = {
    * @param {World} world
    */
   setFoodUsed: (world) => {
-    const { agent, resources } = world;
-    const { units } = resources.get();
+    const { agent } = world;
     const { foodUsed, race } = agent; if (foodUsed === undefined) { return 0; }
-    const pendingFoodUsed = race === Race.ZERG ? getWorkers(units).filter(worker => worker.isConstructing()).length : 0;
+    const pendingFoodUsed = race === Race.ZERG ? getWorkers(world).filter(worker => worker.isConstructing()).length : 0;
     const calculatedFoodUsed = foodUsed + planService.pendingFood - pendingFoodUsed;
     worldService.foodUsed = calculatedFoodUsed;
   },
@@ -2949,7 +2971,7 @@ const worldService = {
   train: async (world, unitTypeId, targetCount = null) => {
     const { warpIn } = resourceManagerService;
     const { getPendingOrders, setPendingOrders } = unitService;
-    const { canBuild, checkAddOnPlacement, getTrainer, getUnitTypeCount, unpauseAndLog } = worldService;
+    const { canBuild, checkAddOnPlacement, checkUnitCount, getTrainer, getUnitTypeCount, unpauseAndLog } = worldService;
     const { reactorTypes, techLabTypes } = groupTypes
     const { WARPGATE } = UnitType;
     const { agent, data, resources } = world;
@@ -3112,7 +3134,7 @@ const worldService = {
   trainSync: (world, unitTypeId, targetCount = null) => {
     const { warpInSync } = resourceManagerService;
     const { setPendingOrders } = unitService;
-    const { addEarmark, canBuild, getTrainer, unpauseAndLog } = worldService;
+    const { addEarmark, canBuild, checkUnitCount, getTrainer, unpauseAndLog } = worldService;
     const { WARPGATE } = UnitType;
     const { data } = world;
     const collectedActions = [];
@@ -3146,12 +3168,12 @@ const worldService = {
    */
   shortOnWorkers: (world) => {
     const { gasMineTypes, townhallTypes } = groupTypes;
-    const { getClosestPathablePositionsBetweenPositions, getDistanceByPath } = resourceManagerService;
+    const { getById, getClosestPathablePositionsBetweenPositions, getDistanceByPath } = resourceManagerService;
     const { agent, resources } = world;
     const { map, units } = resources.get();
     let idealHarvesters = 0
     let assignedHarvesters = 0
-    const mineralCollectors = [...units.getBases(), ...unitResourceService.getById(units, gasMineTypes)]
+    const mineralCollectors = [...units.getBases(), ...getById(resources, gasMineTypes)];
     mineralCollectors.forEach(mineralCollector => {
       const { buildProgress, assignedHarvesters: assigned, idealHarvesters: ideal, unitType } = mineralCollector;
       if (buildProgress === undefined || assigned === undefined || ideal === undefined || unitType === undefined) return;
@@ -3240,16 +3262,14 @@ const worldService = {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
   trainWorkers: (world) => {
-    const { getById } = unitResourceService;
+    const { getById } = resourceManagerService;
     const { getFoodDifference, haveAvailableProductionUnitsFor } = worldService;
     const { agent, resources } = world;
-    const { minerals } = agent;
-    if (minerals === undefined) return [];
-    const { race } = agent;
+    const { minerals, race } = agent; if (minerals === undefined || race === undefined) return [];
     const { units } = resources.get();
     const collectedActions = [];
-    const workerCount = getById(units, [WorkerRace[race]]).length;
-    const assignedWorkerCount = [...units.getBases(), ...getById(units, [GasMineRace[race]])].reduce((acc, base) => base.assignedHarvesters + acc, 0);
+    const workerCount = getById(resources, [WorkerRace[race]]).length;
+    const assignedWorkerCount = [...units.getBases(), ...getById(resources, [GasMineRace[race]])].reduce((acc, base) => base.assignedHarvesters + acc, 0);
     const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
     const { outpowered, unitProductionAvailable, buildWorkers, shortOnWorkers } = worldService;
     let conditionsMet = planService.bogIsActive && minimumWorkerCount <= 11;
@@ -4228,11 +4248,13 @@ async function buildSupply(world) {
   }
 }
 /**
- * @param {UnitResource} units
+ * @param {World} world
  * @returns {Unit[]}
  */
-function getWorkers(units) {
-  return unitResourceService.workers || (unitResourceService.workers = units.getWorkers());
+function getWorkers(world) {
+  const { agent, resources } = world;
+  const { race } = agent; if (race === undefined) return [];
+  return resourceManagerService.getById(resources, [groupTypes.workerTypes[race]])
 }
 
 /**
