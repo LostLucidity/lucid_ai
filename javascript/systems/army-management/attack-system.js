@@ -39,15 +39,17 @@ module.exports = createSystem({
           const [nearestEnemy] = getClosestUnitByPath(resources, getCombatRally(resources), enemyUnits);
           actionQueue.push(...getWorkerDefenseCommands(world, unitsReadyForAttack.flat(), nearestEnemy));
         } else {
-          let attackableUnits = unitsReadyForAttack.filter(myUnitGroup => {
-            const closestEnemyGroup = getClosestEnemyGroupWithSafePath(world, myUnitGroup, enemyUnits);
+          let attackableUnitGroups = unitsReadyForAttack.filter(myUnitGroup => {
+            // Group the enemy targets by proximity.
+            const enemyGroups = groupUnitsByProximity(enemyUnits);
+            const closestEnemyGroup = getClosestEnemyGroupWithSafePath(world, myUnitGroup, enemyGroups);
             return closestEnemyGroup && wouldWinFight(data, myUnitGroup, closestEnemyGroup);
           });
 
           const allEnemiesUnreachable = enemyUnits.every(unit => isUnreachable(world, unit, unitsReadyForAttack.flat()));
 
-          if (attackableUnits.length > 0) {
-            actionQueue.push(...attackTargets(world, attackableUnits.flat(), enemyUnits));
+          if (attackableUnitGroups.length > 0) {
+            actionQueue.push(...attackTargets(world, attackableUnitGroups.flat(), enemyUnits));
           } else if (allEnemiesUnreachable) {
             actionQueue.push(...findEnemy(map, unitsReadyForAttack.flat()));
           } else {
@@ -297,10 +299,10 @@ function groupUnitsByProximity(units) {
 /**
  * @param {World} world
  * @param {Unit[]} myUnitGroup
- * @param {Unit[]} enemyTargets
+ * @param {Unit[][]} enemyGroups
  * @returns {Unit[] | undefined}
  */
-const getClosestEnemyGroupWithSafePath = (world, myUnitGroup, enemyTargets) => {
+const getClosestEnemyGroupWithSafePath = (world, myUnitGroup, enemyGroups) => {
   const { data, resources } = world;
   const { map } = resources.get();
   const groupCenter = getCenterPosition(myUnitGroup);
@@ -309,60 +311,51 @@ const getClosestEnemyGroupWithSafePath = (world, myUnitGroup, enemyTargets) => {
     return undefined;
   }
 
-  // Define the radius based on your strategy
   const enemyGroupRadius = 16;
 
-  // Sort enemy targets by distance from the center of myUnitGroup
-  enemyTargets = enemyTargets.filter(enemy => enemy.pos !== undefined);
-  enemyTargets.sort((a, b) => {
-    const structureAtAPositionCells = getStructureCells(a.pos, enemyTargets);
-    const structureAtBPositionCells = getStructureCells(b.pos, enemyTargets);
-    structureAtAPositionCells.forEach(cell => map.setPathable(cell, true));
-    structureAtBPositionCells.forEach(cell => map.setPathable(cell, true));
+  // Sorting enemy groups based on their center's distance to myUnitGroup.
+  enemyGroups.sort((groupA, groupB) => {
+    const centerA = getCenterPosition(groupA);
+    const centerB = getCenterPosition(groupB);
 
-    const distanceToA = a.pos ? getDistanceByPath(resources, a.pos, groupCenter) : Infinity;
-    const distanceToB = b.pos ? getDistanceByPath(resources, b.pos, groupCenter) : Infinity;
-
-    structureAtAPositionCells.forEach(cell => map.setPathable(cell, false));
-    structureAtBPositionCells.forEach(cell => map.setPathable(cell, false));
+    const distanceToA = centerA ? getDistanceByPath(resources, centerA, groupCenter) : Infinity;
+    const distanceToB = centerB ? getDistanceByPath(resources, centerB, groupCenter) : Infinity;
 
     return distanceToA - distanceToB;
   });
 
-  for (const enemy of enemyTargets) {
-    // If enemy.pos is undefined, continue to the next iteration
-    if (!enemy.pos) {
+  for (const enemyGroup of enemyGroups) {
+    const enemyCenter = getCenterPosition(enemyGroup);
+
+    if (!enemyCenter) {
       continue;
     }
 
     // Make structures temporarily pathable
-    const structureAtEnemyPositionCells = getStructureCells(enemy.pos, enemyTargets);
+    const structureAtEnemyGroupCells = getStructureCells(enemyCenter, enemyGroup);
     const originalCellStates = new Map();
 
-    structureAtEnemyPositionCells.forEach(cell => {
+    structureAtEnemyGroupCells.forEach(cell => {
       originalCellStates.set(cell, map.isPathable(cell));
       map.setPathable(cell, true);
     });
 
     // Compute the path
-    const path = getMapPath(map, groupCenter, enemy.pos);
+    const path = getMapPath(map, groupCenter, enemyCenter);
 
     // Restore the original pathability of cells
-    structureAtEnemyPositionCells.forEach(cell => {
+    structureAtEnemyGroupCells.forEach(cell => {
       const originalState = originalCellStates.get(cell);
       map.setPathable(cell, originalState);
     });
 
-    const unitsAlongPath = enemyTargets.filter(enemy => {
+    const unitsAlongPath = enemyGroup.filter(enemy => {
       if (enemy.pos) {
-        // Define a 'radius' around the path
-        const proximityThreshold = 16; // Adjust this value as needed
-
-        // Check if enemy is within proximityThreshold of any point along the path
+        const proximityThreshold = 16;
         return path.some(pathPoint =>
           getDistance(
             toPoint2D(pathPoint),
-            toPoint2D(toPointArray(enemy.pos || { x: 0, y: 0, z: 0 })) // If enemy.pos is undefined, use a default value
+            toPoint2D(toPointArray(enemy.pos || { x: 0, y: 0, z: 0 }))
           ) <= proximityThreshold
         );
       }
@@ -373,7 +366,6 @@ const getClosestEnemyGroupWithSafePath = (world, myUnitGroup, enemyTargets) => {
       continue;
     }
 
-    // Return the closest safe enemy target and all other enemy targets along the path
     /**
      * @param {Unit} enemy
      * @param {number[][]} path
@@ -395,10 +387,10 @@ const getClosestEnemyGroupWithSafePath = (world, myUnitGroup, enemyTargets) => {
       return false;
     };
 
-    const enemyGroup = enemyTargets.filter(enemy => enemyGroupFilter(enemy, path, enemyGroupRadius));
+    const relevantEnemyGroup = enemyGroup.filter(enemy => enemyGroupFilter(enemy, path, enemyGroupRadius));
 
-    if (enemyGroup.length > 0) {
-      return enemyGroup;
+    if (relevantEnemyGroup.length > 0) {
+      return relevantEnemyGroup;
     }
   }
 
