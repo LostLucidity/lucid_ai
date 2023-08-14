@@ -3364,7 +3364,8 @@ const worldService = {
     const { actions, frame, units } = resources.get();
     if (upgradeIds.includes(upgradeId)) return;
     const upgraders = units.getUpgradeFacilities(upgradeId).filter(upgrader => upgrader.alliance === Alliance.SELF);
-    const { abilityId } = data.getUpgradeData(upgradeId); if (abilityId === undefined) return;
+    const upgradeData = data.getUpgradeData(upgradeId);
+    const { abilityId } = upgradeData; if (abilityId === undefined) return;
     const upgradeInProgress = upgraders.find(upgrader => upgrader.orders && upgrader.orders.find(order => order.abilityId === abilityId));
     if (upgradeInProgress) return;
     if (agent.canAffordUpgrade(upgradeId)) {
@@ -3586,7 +3587,7 @@ const worldService = {
         }
       }
     }
-    addEarmark(data, data.getUpgradeData(upgradeId));
+    addEarmark(data, upgradeData);
   },
   /**
    * @param {World} world

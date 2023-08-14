@@ -511,37 +511,37 @@ class AssemblePlan {
   async upgrade(world, food, upgradeId) {
     const { addEarmark, getFoodUsed, setAndLogExecutedSteps } = worldService;
     const { agent, data, resources } = world;
+    const { upgradeIds } = agent; if (upgradeIds === undefined) return;
     const { actions, frame, units } = resources.get();
+    if (upgradeIds.includes(upgradeId)) return;
+    const upgraders = units.getUpgradeFacilities(upgradeId).filter(upgrader => upgrader.alliance === Alliance.SELF);
+    const upgradeData = data.getUpgradeData(upgradeId);
+    const { abilityId } = data.getUpgradeData(upgradeId); if (abilityId === undefined) return;
+    const upgradeInProgress = upgraders.find(upgrader => upgrader.orders && upgrader.orders.find(order => order.abilityId === abilityId));
+    if (upgradeInProgress) return;
     if (getFoodUsed() >= food) {
       const upgradeName = getStringNameOfConstant(Upgrade, upgradeId)
       upgradeId = mismatchMappings[upgradeName] ? Upgrade[mismatchMappings[upgradeName]] : Upgrade[upgradeName];
-      const upgraders = units.getUpgradeFacilities(upgradeId);
-      const upgradeData = data.getUpgradeData(upgradeId);
       const { abilityId } = upgradeData;
-      const foundUpgradeInProgress = upgraders.find(upgrader => upgrader.orders.find(order => order.abilityId === abilityId));
-      const { upgradeIds } = agent;
-      if (upgradeIds === undefined) return;
-      if (!upgradeIds.includes(upgradeId) && foundUpgradeInProgress === undefined) {
-        const { mineralCost, vespeneCost } = data.getUpgradeData(upgradeId);
-        if (mineralCost === undefined || vespeneCost === undefined) return;
-        if (agent.canAffordUpgrade(upgradeId)) {
-          const upgrader = units.getUpgradeFacilities(upgradeId).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
-          if (upgrader) {
-            const unitCommand = { abilityId, unitTags: [upgrader.tag] };
-            await actions.sendAction([unitCommand]);
-            planService.pausePlan = false;
-            setAndLogExecutedSteps(world, frame.timeInSeconds(), upgradeName);
-            console.log(`Upgrading ${upgradeName}`);
-          } else {
-            console.log(`${upgradeName} not available`);
-            await balanceResources(world, mineralCost / vespeneCost);
-          }
+      const { mineralCost, vespeneCost } = data.getUpgradeData(upgradeId);
+      if (mineralCost === undefined || vespeneCost === undefined) return;
+      if (agent.canAffordUpgrade(upgradeId)) {
+        const upgrader = units.getUpgradeFacilities(upgradeId).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
+        if (upgrader) {
+          const unitCommand = { abilityId, unitTags: [upgrader.tag] };
+          await actions.sendAction([unitCommand]);
+          planService.pausePlan = false;
+          setAndLogExecutedSteps(world, frame.timeInSeconds(), upgradeName);
+          console.log(`Upgrading ${upgradeName}`);
         } else {
-          console.log(`Cannot afford ${upgradeName}`);
+          console.log(`${upgradeName} not available`);
+          await balanceResources(world, mineralCost / vespeneCost);
         }
-        addEarmark(data, upgradeData);
+      } else {
+        console.log(`Cannot afford ${upgradeName}`);
       }
     }
+    addEarmark(data, upgradeData);
   }
 
   /**
