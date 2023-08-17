@@ -687,7 +687,6 @@ async function getBuildingPosition(world, unitType, candidatePositions) {
   return findPosition(world, unitType, candidatePositions.filter(pos => isStrongerAtPosition(world, pos)));
 }
 
-
 /**
  * @param {UnitResource} units
  * @param {UnitTypeId} unitType

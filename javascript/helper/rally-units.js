@@ -20,7 +20,10 @@ function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
   const { resources } = world
   const { units } = resources.get();
   const collectedActions = [];
-  const combatUnits = units.getCombatUnits().filter(unit => unit.labels.size === 0);
+  const combatUnits = units.getCombatUnits().filter(unit => {
+    // Check if a unit does not have any labels or only has the 'combatPoint' label
+    return unit.labels.size === 0 || (unit.labels.size === 1 && unit.labels.has('combatPoint'));
+  });
   const label = 'defending';
   units.withLabel(label).forEach(unit => {
     unit.labels.delete(label) && collectedActions.push(createUnitCommand(STOP, [unit]));
