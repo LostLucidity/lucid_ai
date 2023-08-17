@@ -196,7 +196,7 @@ function getFlyingUnitPosition(world, unit, targetUnits) {
   const { resources } = world;
   const { map } = resources.get();
   const { health, shield, pos } = unit; if (health === undefined || shield === undefined || pos === undefined) return;
-  const highPointCandidates = getHighPointCandidates(map, unit, targetUnits);
+  const highPointCandidates = getHiddenElevatedPositions(map, unit, targetUnits);
 
   const [closestHighPoint] = getClosestPosition(pos, highPointCandidates);
 
@@ -219,21 +219,39 @@ function getFlyingUnitPosition(world, unit, targetUnits) {
  * @param {Unit[]} targetUnits 
  * @returns {Point2D[]}
  */
-function getHighPointCandidates(map, unit, targetUnits) {
-  const { pos, radius } = unit; if (pos === undefined || radius === undefined) return [];
-  const { sightRange } = unit.data(); if (sightRange === undefined) return [];
+function getHiddenElevatedPositions(map, unit, targetUnits) {
+  const { pos, radius } = unit;
+  if (pos === undefined || radius === undefined) return [];
+  const { sightRange } = unit.data();
+  if (sightRange === undefined) return [];
+
+  // Get the highest height among all target units
+  const highestTargetHeight = Math.max(...targetUnits.map(targetUnit => {
+    const { z } = targetUnit.pos;
+    return z !== undefined ? z : 0;
+  }));
+
   return gridsInCircle(pos, sightRange).filter(grid => {
     if (existsInMap(map, grid)) {
       const gridHeight = map.getHeight(grid);
+
+      // Check if gridHeight is significantly higher than the highest target unit height
+      if (gridHeight <= highestTargetHeight + 2) return false;
+
       const circleCandidates = gridsInCircle(grid, radius).filter(candidate =>
         existsInMap(map, candidate) && distance(candidate, grid) <= radius);
 
       const isVisibleToAnyTargetUnit = targetUnits.some(targetUnit => {
-        const { pos: targetPos, radius: targetRadius } = targetUnit; if (targetPos === undefined || targetRadius === undefined) return true;
-        const { sightRange: targetSightRange } = targetUnit.data(); if (targetSightRange === undefined) return true;
-        const { z } = targetPos; if (z === undefined) return true;
+        const { pos: targetPos, radius: targetRadius } = targetUnit;
+        if (targetPos === undefined || targetRadius === undefined) return true;
+        const { sightRange: targetSightRange } = targetUnit.data();
+        if (targetSightRange === undefined) return true;
+        const { z } = targetPos;
+        if (z === undefined) return true;
+
         const unitInSightRange = getDistance(targetPos, grid) <
           targetSightRange + radius + targetRadius;
+
         return unitInSightRange &&
           (targetUnit.isFlying || targetUnit.unitType === COLOSSUS || Math.round(z) + 2 > gridHeight);
       });
@@ -243,4 +261,3 @@ function getHighPointCandidates(map, unit, targetUnits) {
     }
   });
 }
-
