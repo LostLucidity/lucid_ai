@@ -1858,7 +1858,6 @@ const worldService = {
     const conditions = [
       pendingSupplyLeft < pendingSupplyCap * buffer,
       !(foodCap == 200),
-      agent.canAfford(supplyUnitId), // can afford to build a pylon
     ];
     return conditions.every(c => c);
   },

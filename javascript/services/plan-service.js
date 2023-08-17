@@ -86,13 +86,21 @@ const planService = {
    * @returns {import("../interfaces/plan-step").PlanStep}
    */
   convertLegacyStep(trueStep) {
-    const [food, orderType, unitType, targetCount] = trueStep;
-    return {
+    const [food, orderType, itemType, targetCount] = trueStep;
+    /** @type {import("../interfaces/plan-step").PlanStep} */
+    const step = {
       food,
       orderType,
-      unitType,
       targetCount,
-    };  
+    };
+
+    if (orderType === 'upgrade') {
+      step.upgrade = itemType;
+    } else {
+      step.unitType = itemType;
+    }
+
+    return step;
   },
   /**
  * @param {UnitTypeId} unitType
