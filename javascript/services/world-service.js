@@ -8,7 +8,7 @@ const { Race, Attribute, Alliance, WeaponTargetType, RaceId } = require("@node-s
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints, createPoint2D, add, subtract, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
-const { countTypes, morphMapping, addOnTypesMapping, flyingTypesMapping } = require("../helper/groups");
+const { countTypes, morphMapping, addOnTypesMapping, flyingTypesMapping, upgradeTypes } = require("../helper/groups");
 const { getCandidatePositions, getInTheMain } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine, balanceResources } = require("../systems/manage-resources");
@@ -168,12 +168,12 @@ const worldService = {
     }
   },
   /**
-   * 
-   * @param {DataStorage} data 
-   * @param {SC2APIProtocol.UnitTypeData|SC2APIProtocol.UpgradeData} orderData 
-   */
+ * 
+ * @param {DataStorage} data 
+ * @param {SC2APIProtocol.UnitTypeData|SC2APIProtocol.UpgradeData} orderData 
+ */
   addEarmark: (data, orderData) => {
-    const { ORBITALCOMMAND, ZERGLING } = UnitType;
+    const { ZERGLING } = UnitType;
     const { getFoodUsed } = worldService;
 
     const { name, mineralCost, vespeneCost } = orderData;
@@ -189,14 +189,20 @@ const worldService = {
 
     if ('unitId' in orderData) {
       const isZergling = orderData.unitId === ZERGLING;
-      const isOrbitalCommand = orderData.unitId === ORBITALCOMMAND;
       const { attributes, foodRequired, race, unitId } = orderData;
 
       if (attributes !== undefined && foodRequired !== undefined && race !== undefined && unitId !== undefined) {
         const adjustedFoodRequired = isZergling ? foodRequired * 2 : foodRequired;
         dataService.foodEarmarks.set(fullKey, foodEarmark + adjustedFoodRequired);
 
-        minerals = isOrbitalCommand ? -400 : 0;
+        // Check for town hall upgrades
+        for (let [base, upgrades] of upgradeTypes.entries()) {
+          if (upgrades.includes(unitId)) {
+            const baseTownHallData = data.getUnitTypeData(base);
+            minerals = -(baseTownHallData?.mineralCost ?? 400); // defaulting to 400 if not found
+            break;
+          }
+        }
 
         if (race === Race.ZERG && attributes.includes(Attribute.STRUCTURE)) {
           dataService.foodEarmarks.set(fullKey, foodEarmark - 1);

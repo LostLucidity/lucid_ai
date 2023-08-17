@@ -40,6 +40,7 @@ const countTypes = new Map([
 
 const upgradeTypes = new Map([
   [COMMANDCENTER, [ORBITALCOMMAND, PLANETARYFORTRESS]],
+  [HATCHERY, [LAIR]],
 ]);
 
 const larvaOrEgg = [EGG, LARVA];
