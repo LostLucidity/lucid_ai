@@ -9,13 +9,14 @@ const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
 const { createUnitCommand } = require("../services/actions-service");
-const { getTimeInSeconds } = require("../services/frames-service");
+const { getTimeInSeconds, getTravelDistancePerStep } = require("../services/frames-service");
 const { moveAwayPosition, getDistance } = require("../services/position-service");
 const { getClosestUnitByPath } = require("../services/resource-manager-service");
 const { canAttack } = require("../services/resources-service");
 const { getMovementSpeed } = require("../services/unit-service");
 const { retreat, getDPSOfInRangeAntiAirUnits } = require("../services/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
+const worldService = require("../services/world-service");
 
 const helper = {
   /**
@@ -43,38 +44,18 @@ const helper = {
     const collectedActions = [];
     const enemyUnits = units.getAlive(Alliance.ENEMY);
 
-    /** @type {(unitType: number) => number} */
-    const maxWeaponRange = (unitType) => {
-      const weaponsData = data.getUnitTypeData(unitType)?.weapons;
-      if (!weaponsData) return 0;
-      return weaponsData.reduce((maxRange, weapon) => {
-        return weapon.range !== undefined && weapon.range > maxRange ? weapon.range : maxRange;
-      }, 0);
-    };
-
     shadowingUnits.forEach(unit => {
-      const { pos } = unit; if (pos === undefined) return;
-      const inRangeUnits = enemyUnits.reduce((/** @type {{ unit: Unit, dist: number }[]} */acc, enemyUnit) => {
-        const { pos: enemyPos } = enemyUnit; if (enemyPos === undefined) return acc;
-        const { sightRange } = enemyUnit.data(); if (sightRange === undefined) return acc;
-        const enemyRadius = enemyUnit.radius || 0;
-        const unitRadius = unit.radius || 0;
-        const rawDistance = getDistance(pos, enemyPos);
-        const dist = rawDistance - enemyRadius - unitRadius;
-        if (dist < sightRange) {
-          acc.push({
-            unit: enemyUnit,
-            dist: dist
-          });
-        }
-        return acc;
-      }, []);
+      const { pos } = unit;
+      if (pos === undefined) return;
+
+      const extraRangeFactor = worldService.outpowered ? 0.1 : 0; // increase by 10% if outpowered
+      const inRangeUnits = calculateInRangeUnits(unit, enemyUnits, extraRangeFactor);
 
       const [closestInRangeUnit] = units.getClosest(pos, inRangeUnits.map(u => u.unit));
 
       const inRangeThreateningUnits = inRangeUnits.filter(({ unit: inRangeUnit }) => inRangeUnit.canShootUp()).sort((a, b) => {
-        const distanceToRangeA = a.dist - maxWeaponRange(a.unit.unitType);
-        const distanceToRangeB = b.dist - maxWeaponRange(b.unit.unitType);
+        const distanceToRangeA = a.dist - maxWeaponRange(data, a.unit.unitType);
+        const distanceToRangeB = b.dist - maxWeaponRange(data, b.unit.unitType);
         return distanceToRangeA - distanceToRangeB;
       });
 
@@ -84,19 +65,18 @@ const helper = {
 
       const unitToShadow = (closestThreatUnit && closestThreatUnit.unit) || closestInRangeUnit || null;
       const shouldShadow = unitToShadow && checkIfShouldShadow(resources, unit, shadowingUnits, unitToShadow);
-      if (shouldShadow) {
-        if (unitsToAvoid.length > 0) {
-          if (closestThreatUnit && closestThreatUnit.unit.pos && getDistance(pos, closestThreatUnit.unit.pos) > closestThreatUnit.unit.data().sightRange + unit.radius + closestThreatUnit.unit.radius) {
-            collectedActions.push(moveToTarget(unit, closestThreatUnit.unit));
-          } else if (closestInRangeUnit && !closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) {
-            if (inRangeUnits.every(({ dist, unit: inRangeUnit }) => dist > inRangeUnit.data().sightRange + unit.radius + inRangeUnit.radius)) {
-              collectedActions.push(moveToTarget(unit, closestInRangeUnit));
-            } else {
-              collectedActions.push(moveAwayFromTarget(world, unit, unitsToAvoid));
-            }
+
+      if (shouldShadow && unitsToAvoid.length > 0) {
+        if (closestThreatUnit && closestThreatUnit.unit.pos && getDistance(pos, closestThreatUnit.unit.pos) > closestThreatUnit.unit.data().sightRange + unit.radius + closestThreatUnit.unit.radius) {
+          collectedActions.push(moveToTarget(unit, closestThreatUnit.unit));
+        } else if (closestInRangeUnit && !closestToNaturalBehavior(resources, shadowingUnits, unit, closestInRangeUnit)) {
+          if (inRangeUnits.every(({ dist, unit: inRangeUnit }) => dist > inRangeUnit.data().sightRange + unit.radius + inRangeUnit.radius)) {
+            collectedActions.push(moveToTarget(unit, closestInRangeUnit));
           } else {
             collectedActions.push(moveAwayFromTarget(world, unit, unitsToAvoid));
           }
+        } else {
+          collectedActions.push(moveAwayFromTarget(world, unit, unitsToAvoid));
         }
       }
     });
@@ -128,22 +108,46 @@ function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
  */
 function moveAwayFromTarget(world, unit, targetUnits) {
   const { resources } = world;
-  const { units } = resources.get();
-  const { isFlying, pos, tag } = unit; if (isFlying === undefined || pos === undefined || tag === undefined) return null;
-  if (pos === undefined) { return null; }
+  const { map, units } = resources.get();
+  const { isFlying, pos, tag } = unit;
+  if (isFlying === undefined || pos === undefined || tag === undefined) return null;
+  const { x, y } = pos; if (x === undefined || y === undefined) return null;
 
   let position;
+  const maxDistance = getTravelDistancePerStep(map, unit) * 2;  // Set the distance you want the unit to move
+
   if (isFlying) {
     position = getFlyingUnitPosition(world, unit, targetUnits);
     if (!position) {
       const averageEnemyPos = avgPoints(targetUnits.map(unit => unit.pos));
       position = moveAwayPosition(averageEnemyPos, pos);
+    } else {
+      // Calculate the direction vector
+      const { x: posx, y: posy } = position; if (posx === undefined || posy === undefined) return null;
+      const direction = { x: posx - x, y: posy - y };
+
+      // Normalize the direction vector
+      const length = Math.sqrt(direction.x ** 2 + direction.y ** 2);
+      const normalizedDirection = { x: direction.x / length, y: direction.y / length };
+
+      // Check if the position is closer than maxDistance
+      if (length <= maxDistance) {
+        // Move to the calculated position if it's closer than maxDistance
+        position = { x: x + direction.x, y: y + direction.y };
+      } else {
+        // Calculate the new position
+        position = {
+          x: x + normalizedDirection.x * maxDistance,
+          y: y + normalizedDirection.y * maxDistance
+        };
+      }
     }
   } else {
     const enemyUnits = units.getAlive(Alliance.ENEMY);
     const [closestTargetUnit] = getClosestUnitByPath(resources, pos, enemyUnits)
     position = retreat(world, unit, closestTargetUnit);
   }
+
   return {
     abilityId: MOVE,
     targetWorldSpacePos: position,
@@ -196,15 +200,15 @@ function getFlyingUnitPosition(world, unit, targetUnits) {
   const { resources } = world;
   const { map } = resources.get();
   const { health, shield, pos } = unit; if (health === undefined || shield === undefined || pos === undefined) return;
-  const highPointCandidates = getHiddenElevatedPositions(map, unit, targetUnits);
+  const elevatedPositions = getHiddenElevatedPositions(map, unit, targetUnits);
 
-  const [closestHighPoint] = getClosestPosition(pos, highPointCandidates);
+  const [closestHighPoint] = getClosestPosition(pos, elevatedPositions);
 
   if (closestHighPoint) {
     const dPSOfInRangeUnits = getDPSOfInRangeAntiAirUnits(world, unit);
     const timeToBeKilled = (health + shield) / dPSOfInRangeUnits;
     const distanceToHighPoint = distance(pos, closestHighPoint);
-    const speed = getMovementSpeed(unit); if (speed === undefined) return;
+    const speed = getMovementSpeed(map, unit); if (speed === undefined) return;
     const timeToTarget = distanceToHighPoint / speed;
     if (timeToBeKilled > timeToTarget) {
       return closestHighPoint;
@@ -227,16 +231,16 @@ function getHiddenElevatedPositions(map, unit, targetUnits) {
 
   // Get the highest height among all target units
   const highestTargetHeight = Math.max(...targetUnits.map(targetUnit => {
-    const { z } = targetUnit.pos;
-    return z !== undefined ? z : 0;
+    const { pos: targetPos } = targetUnit; if (targetPos === undefined) return 0;
+    const { z } = targetPos; return z !== undefined ? Math.round(z) : 0;
   }));
 
-  return gridsInCircle(pos, sightRange).filter(grid => {
+  return gridsInCircle(pos, Math.round(sightRange * 1.2)).filter(grid => {
     if (existsInMap(map, grid)) {
       const gridHeight = map.getHeight(grid);
 
       // Check if gridHeight is significantly higher than the highest target unit height
-      if (gridHeight <= highestTargetHeight + 2) return false;
+      if (gridHeight < highestTargetHeight + 2) return false;
 
       const circleCandidates = gridsInCircle(grid, radius).filter(candidate =>
         existsInMap(map, candidate) && distance(candidate, grid) <= radius);
@@ -261,3 +265,47 @@ function getHiddenElevatedPositions(map, unit, targetUnits) {
     }
   });
 }
+
+/**
+ * @param {DataStorage} data
+ * @param {UnitTypeId} unitType
+ * @returns {number}
+ */
+const maxWeaponRange = (data, unitType) => {
+  const weaponsData = data.getUnitTypeData(unitType)?.weapons;
+  return weaponsData?.reduce((maxRange, weapon) => (weapon.range && weapon.range > maxRange) ? weapon.range : maxRange, 0) || 0;
+};
+
+/**
+ * @param {Unit} unit
+ * @param {Unit[]} enemyUnits
+ * @param {number} [extraRangeFactor]
+ * @returns {{ unit: Unit, dist: number }[]}
+ */
+const calculateInRangeUnits = (unit, enemyUnits, extraRangeFactor = 0) => {
+  const { pos } = unit;
+  if (pos === undefined) return [];
+
+  return enemyUnits.reduce((/** @type {{ unit: Unit, dist: number }[]} */acc, enemyUnit) => {
+    const { pos: enemyPos } = enemyUnit;
+    if (enemyPos === undefined) return acc;
+
+    const { sightRange } = enemyUnit.data();
+    if (sightRange === undefined) return acc;
+
+    const enemyRadius = enemyUnit.radius || 0;
+    const unitRadius = unit.radius || 0;
+    const rawDistance = getDistance(pos, enemyPos);
+    const dist = rawDistance - enemyRadius - unitRadius;
+
+    const extraRange = sightRange * extraRangeFactor; // calculate extra range as a percentage of sightRange
+
+    if (dist < sightRange + extraRange) {
+      acc.push({
+        unit: enemyUnit,
+        dist: dist
+      });
+    }
+    return acc;
+  }, []);
+};
