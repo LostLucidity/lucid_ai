@@ -12,7 +12,7 @@ const { getClosestPosition } = require("../../helper/get-closest");
 const { canBuild, getDPSHealth, findPosition } = require("../../services/world-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getPathCoordinates } = require("../../services/path-service");
-const { getMapPath } = require("../../services/map-resource-service");
+const { getMapPath } = require("../../systems/map-resource-system/map-resource-service");
 const { getClosestUnitByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("../../services/resource-manager-service");
 const { existsInMap } = require("../../helper/location");
 

@@ -18,7 +18,7 @@ const { supplyTypes } = require("../helper/groups");
 const { getDistanceByPath } = require("../services/resource-manager-service");
 const { setScout, setOpponentRace } = require("./scouting/scouting-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { getTargetLocation } = require("../services/map-resource-service");
+const { getTargetLocation } = require("./map-resource-system/map-resource-service");
 const { getTimeInSeconds } = require("../services/frames-service");
 
 module.exports = createSystem({

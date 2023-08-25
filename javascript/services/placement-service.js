@@ -6,7 +6,7 @@ const { TECHLAB, REACTOR, PYLON } = require("@node-sc2/core/constants/unit-type"
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getAddOnBuildingPlacement } = require("../helper/placement/placement-utilities");
-const { isPlaceableAtGasGeyser } = require("./map-resource-service");
+const { isPlaceableAtGasGeyser } = require("../systems/map-resource-system/map-resource-service");
 
 const placementService = {
   /**

@@ -13,7 +13,7 @@ const { canAttack } = require("../../services/resources-service");
 const { micro, getWorkerDefenseCommands } = require("../../services/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const { getWeaponThatCanAttack } = require("../../services/unit-service");
-const { getMapPath } = require("../../services/map-resource-service");
+const { getMapPath } = require("../map-resource-system/map-resource-service");
 const Ability = require("@node-sc2/core/constants/ability");
 
 module.exports = createSystem({

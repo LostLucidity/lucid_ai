@@ -38,14 +38,14 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { pointsOverlap } = require("./utilities");
 const resourceManagerService = require("../services/resource-manager-service");
-const { getTargetLocation } = require("../services/map-resource-service");
+const { getTargetLocation } = require("../systems/map-resource-system/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
 const { convertLegacyStep, convertLegacyPlan, setPlan } = require("../services/plan-service");
 const { warpIn } = require("../services/resource-manager-service");
 const { createUnitCommand } = require("../services/actions-service");
 const { setPendingOrders } = require("../services/unit-service");
-const MapResourceService = require("../services/map-resource-service");
+const MapResourceService = require("../systems/map-resource-system/map-resource-service");
 const { requiresPylon } = require("../services/agent-service");
 
 let ATTACKFOOD = 194;

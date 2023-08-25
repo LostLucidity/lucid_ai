@@ -13,7 +13,7 @@ const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { pointsOverlap } = require('../helper/utilities');
 const { createUnitCommand } = require('../services/actions-service');
 const { getTimeInSeconds } = require('../services/frames-service');
-const { getClosestExpansion } = require('../services/map-resource-service');
+const { getClosestExpansion } = require('./map-resource-system/map-resource-service');
 const { gather, getClosestPathablePositionsBetweenPositions } = require('../services/resource-manager-service');
 const { getPendingOrders, getBuildTimeLeft, getMovementSpeed, setPendingOrders } = require('../services/unit-service');
 const { gatherOrMine } = require('./manage-resources');
@@ -355,6 +355,7 @@ function getLeastNeediestMineralField(units, mineralFields) {
  * @returns {number | undefined}
  */
 function getUnitTimeToPosition(resources, donatingWorker, targetUnit) {
+  const { map } = resources.get();
   const { pos, radius: workerRadius } = donatingWorker; // assuming worker has radius property
   const { pos: targetPosition, radius: targetRadius } = targetUnit; // assuming targetUnit has radius property
 
@@ -365,7 +366,7 @@ function getUnitTimeToPosition(resources, donatingWorker, targetUnit) {
 
   distance = distance - targetRadius - workerRadius; // adjust distance
 
-  const movementSpeedPerSecond = getMovementSpeed(donatingWorker, true);
+  const movementSpeedPerSecond = getMovementSpeed(map, donatingWorker, true);
   if (movementSpeedPerSecond === undefined) { return }
 
   return distance / movementSpeedPerSecond

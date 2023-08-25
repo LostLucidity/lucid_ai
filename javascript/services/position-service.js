@@ -165,6 +165,18 @@ const positionService = {
     return distance(posA, posB);
   },
   /**
+   * @param {Point2D} a
+   * @param {Point2D} b
+   * @returns {number}
+   */
+  getDistanceSquared(a, b) {
+    const { x: ax, y: ay } = a; if (ax === undefined || ay === undefined) return Infinity
+    const { x: bx, y: by } = b; if (bx === undefined || by === undefined) return Infinity
+    const dx = ax - bx;
+    const dy = ay - by;
+    return dx * dx + dy * dy;
+  },
+  /**
    * @param {Point2D} position 
    * @param {UnitTypeId} unitType
    * @returns {Point2D}
@@ -205,10 +217,10 @@ const positionService = {
    * @param {Point2D} position 
    * @param {number} distance 
    * @returns {Point2D}
- */
+  */
   moveAwayPosition(targetPosition, position, distance = 2) {
     const angle = toDegrees(Math.atan2(targetPosition.y - position.y, targetPosition.x - position.x));
-    const oppositeAngle = angle + 180 % 360;
+    const oppositeAngle = (angle + 180) % 360;
     const awayPoint = {
       x: Math.cos(oppositeAngle * Math.PI / 180) * distance + position.x,
       y: Math.sin(oppositeAngle * Math.PI / 180) * distance + position.y

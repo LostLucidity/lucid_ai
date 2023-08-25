@@ -11,7 +11,7 @@ const { getClosestPosition } = require("../../helper/get-closest");
 const { pointsOverlap, intersectionOfPoints, allPointsWithinGrid, shuffle } = require("../../helper/utilities");
 const { getPathCoordinates } = require("../../services/path-service");
 const { getDistance, getMiddleOfStructure } = require("../../services/position-service");
-const { getMapPath } = require("../../services/map-resource-service");
+const { getMapPath } = require("../map-resource-system/map-resource-service");
 
 const wallOffNaturalService = {
   /**
