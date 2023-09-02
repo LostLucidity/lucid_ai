@@ -3,8 +3,8 @@
 
 const { createSystem } = require("@node-sc2/core");
 const planService = require("../../services/plan-service");
-const { shortOnWorkers, trainCombatUnits } = require("../../services/world-service");
-const worldService = require("../../services/world-service");
+const { shortOnWorkers, trainCombatUnits } = require("../../src/world-service");
+const worldService = require("../../src/world-service");
 const unitTrainingService = require("./unit-training-service");
 
 module.exports = createSystem({

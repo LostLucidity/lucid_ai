@@ -6,7 +6,7 @@ const { createSystem } = require("@node-sc2/core");
 const dataService = require("../../services/data-service");
 const qTableService = require("./q-table-service");
 const planService = require("../../services/plan-service");
-const { runPlan, setFoodUsed } = require("../../services/world-service");
+const { runPlan, setFoodUsed } = require("../../src/world-service");
 const { executeAction } = require("./q-table-service");
 
 module.exports = createSystem({

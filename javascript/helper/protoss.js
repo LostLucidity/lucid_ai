@@ -5,7 +5,7 @@ const { PYLON, NEXUS, ASSIMILATOR } = require("@node-sc2/core/constants/unit-typ
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { assignAndSendWorkerToBuild, findPosition } = require("../services/world-service");
+const { assignAndSendWorkerToBuild, findPosition } = require("../src/world-service");
 
 module.exports = {
   /**

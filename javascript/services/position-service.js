@@ -2,7 +2,7 @@
 "use strict"
 
 const { gasMineTypes } = require("@node-sc2/core/constants/groups");
-const { toDegrees } = require("@node-sc2/core/utils/geometry/angle");
+const { toDegrees, toRadians } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -212,21 +212,103 @@ const positionService = {
     }, []);
   },
   /**
-   * return position directly away from targetPosition based on position
+   * Return position directly away from targetPosition based on position.
+   * @param {MapResource} map
    * @param {Point2D} targetPosition 
    * @param {Point2D} position 
    * @param {number} distance 
-   * @returns {Point2D}
-  */
-  moveAwayPosition(targetPosition, position, distance = 2) {
-    const angle = toDegrees(Math.atan2(targetPosition.y - position.y, targetPosition.x - position.x));
-    const oppositeAngle = (angle + 180) % 360;
-    const awayPoint = {
-      x: Math.cos(oppositeAngle * Math.PI / 180) * distance + position.x,
-      y: Math.sin(oppositeAngle * Math.PI / 180) * distance + position.y
+   * @param {boolean} isFlyingUnit 
+   * @returns {Point2D | undefined}
+   */
+  moveAwayPosition(map, targetPosition, position, distance = 2, isFlyingUnit = false) {
+    const { x: targetX = null, y: targetY = null } = targetPosition;
+    const { x: positionX = null, y: positionY = null } = position;
+
+    if (targetX === null || targetY === null || positionX === null || positionY === null) {
+      throw new Error("Incomplete Point2D provided");
     }
-    return awayPoint;
-  },
+
+    const angle = toDegrees(Math.atan2(targetY - positionY, targetX - positionX));
+    const oppositeAngle = (angle + 180) % 360;
+
+    const awayPoint = {
+      x: positionX + distance * Math.cos(toRadians(oppositeAngle)),
+      y: positionY + distance * Math.sin(toRadians(oppositeAngle))
+    };
+
+    const clampedPoint = clampPointToBounds(awayPoint);
+
+    // Skip pathability check for flying units
+    if (isFlyingUnit) {
+      return clampedPoint;
+    }
+
+    return map.isPathable(clampedPoint) ? clampedPoint : findPathablePointByAngleAdjustment(map, position, oppositeAngle, distance);
+  }
 }
 
 module.exports = positionService;
+
+/**
+ * Clamps a point to be within specified bounds.
+ * @param {Point2D} point The point to clamp.
+ * @param {number} [minX=0] The minimum allowable x value.
+ * @param {number} [maxX=100] The maximum allowable x value.
+ * @param {number} [minY=0] The minimum allowable y value.
+ * @param {number} [maxY=100] The maximum allowable y value.
+ * @returns {Point2D} The clamped point.
+ */
+function clampPointToBounds(point, minX = 0, maxX = 100, minY = 0, maxY = 100) {
+  const x = point.x ?? 0;  // Using the nullish coalescing operator to provide a default value
+  const y = point.y ?? 0;
+
+  return {
+    x: Math.min(Math.max(x, minX), maxX),
+    y: Math.min(Math.max(y, minY), maxY)
+  };
+}
+
+/**
+ * Find a nearby pathable point by adjusting the angle.
+ * @param {MapResource} map
+ * @param {Point2D} position
+ * @param {number} oppositeAngle
+ * @param {number} distance
+ * @returns {Point2D | undefined}
+ */
+function findPathablePointByAngleAdjustment(map, position, oppositeAngle, distance) {
+  const MAX_ADJUSTMENT_ANGLE = 90;  // Limit to how much we adjust the angle
+  const ANGLE_INCREMENT = 10;       // Angle step
+
+  // Handle the potential for undefined x and y values by providing defaults
+  const x = position.x ?? 0;
+  const y = position.y ?? 0;
+
+  for (let i = ANGLE_INCREMENT; i <= MAX_ADJUSTMENT_ANGLE; i += ANGLE_INCREMENT) {
+    // Check counter-clockwise
+    let adjustedAngle1 = (oppositeAngle - i + 360) % 360;
+    let point1 = {
+      x: Math.cos(adjustedAngle1 * Math.PI / 180) * distance + x,
+      y: Math.sin(adjustedAngle1 * Math.PI / 180) * distance + y
+    };
+
+    if (map.isPathable(point1)) {
+      return point1;
+    }
+
+    // Check clockwise
+    let adjustedAngle2 = (oppositeAngle + i) % 360;
+    let point2 = {
+      x: Math.cos(adjustedAngle2 * Math.PI / 180) * distance + x,
+      y: Math.sin(adjustedAngle2 * Math.PI / 180) * distance + y
+    };
+
+    if (map.isPathable(point2)) {
+      return point2;
+    }
+  }
+
+  // No pathable point found within max adjustments
+  return null;
+}
+

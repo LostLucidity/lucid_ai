@@ -6,7 +6,7 @@ const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-s
 const { createUnitCommand } = require("../services/actions-service");
 const { STOP } = require("@node-sc2/core/constants/ability");
 const { getCombatRally } = require("../services/resource-manager-service");
-const { engageOrRetreat } = require("../services/world-service");
+const { engageOrRetreat } = require("../src/world-service");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
 
 /**

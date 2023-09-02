@@ -1,20 +1,17 @@
 //@ts-check
 "use strict"
 
-const { EFFECT_INJECTLARVA, BUILD_CREEPTUMOR_QUEEN, BUILD_CREEPTUMOR_TUMOR } = require("@node-sc2/core/constants/ability");
+const { EFFECT_INJECTLARVA, BUILD_CREEPTUMOR_QUEEN } = require("@node-sc2/core/constants/ability");
 const { QUEEN, CREEPTUMORBURROWED, CREEPTUMOR, HATCHERY, LAIR } = require("@node-sc2/core/constants/unit-type");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { intersectionOfPoints } = require("../../helper/utilities");
-const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
-const { getClosestPosition } = require("../../helper/get-closest");
-const { canBuild, getDPSHealth, findPosition } = require("../../services/world-service");
+const { canBuild, getDPSHealth } = require("../../src/world-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getPathCoordinates } = require("../../services/path-service");
 const { getMapPath } = require("../../systems/map-resource-system/map-resource-service");
 const { getClosestUnitByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("../../services/resource-manager-service");
-const { existsInMap } = require("../../helper/location");
 
 module.exports = {
   labelQueens: (units) => {
@@ -69,66 +66,6 @@ module.exports = {
         }
       }
     }
-  },
-  /**
-   * @param {World} world
-   * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
-   */
-  spreadCreep: async (world) => {
-    const { resources } = world;
-    const { map, units } = resources.get();
-    const collectedActions = [];
-    const activeCreepTumors = units.getById(CREEPTUMORBURROWED).filter(unit => unit.availableAbilities().length > 0 && !unit.labels.get('done'));
-    if (activeCreepTumors.length > 0) {
-      if (units.getById(CREEPTUMORBURROWED).length <= 3) {
-        const enemyNaturalTownhallPosition = map.getEnemyNatural().townhallPosition;
-        activeCreepTumors.forEach(tumor => {
-          // get placeable around creep tumor
-          const { pos } = tumor;
-          if (pos === undefined) return;
-          const pathablePositions = getClosestPathablePositionsBetweenPositions(resources, pos, enemyNaturalTownhallPosition);
-          const { pathablePosition, pathCoordinates } = pathablePositions;
-          if (!pathablePosition) return;
-          const [farthestPosition] = pathCoordinates.filter(position => distance(position, pos) <= 10 && map.hasCreep(position)).sort((a, b) => distance(b, pos) - distance(a, pos));
-          if (!farthestPosition) return;
-          const unitCommand = createUnitCommand(BUILD_CREEPTUMOR_TUMOR, [tumor]);
-          unitCommand.targetWorldSpacePos = farthestPosition;
-          collectedActions.push(unitCommand);
-        });
-      } else {
-        for (let step = 0; step < activeCreepTumors.length; step++) {
-          const radius = 10;
-          let lowerLimit = 9;
-          let foundPosition = null;
-          const tumor = activeCreepTumors[step];
-          do {
-            let excludedCircle = gridsInCircle(tumor.pos, lowerLimit);
-            const creepGenerators = units.getById(creepGeneratorsTypes);
-            const candidatePositions = gridsInCircle(tumor.pos, radius).filter(position => {
-              if (!existsInMap(map, position)) return false;
-              const [closestCreepGenerator] = units.getClosest(position, creepGenerators);
-              const [closestTownhallPosition] = getClosestPosition(position, map.getExpansions().map(expansion => expansion.townhallPosition));
-              return [
-                closestCreepGenerator,
-                !excludedCircle.includes(position),
-                distance(position, closestCreepGenerator.pos) > lowerLimit,
-                distance(position, tumor.pos) <= radius,
-                closestTownhallPosition ? distance(position, closestTownhallPosition) > 3 : true
-              ].every(condition => condition);
-            });
-            foundPosition = await findPosition(world, CREEPTUMOR, candidatePositions);
-            lowerLimit -= 0.5;
-          } while (!foundPosition && lowerLimit > 0);
-          if (foundPosition) {
-            const unitCommand = createUnitCommand(BUILD_CREEPTUMOR_TUMOR, [tumor]);
-            unitCommand.targetWorldSpacePos = foundPosition;
-            collectedActions.push(unitCommand);
-          }
-          tumor.labels.set('done', true);
-        }
-      }
-    }
-    return collectedActions;
   },
   /**
    * @param {ResourceManager} resources

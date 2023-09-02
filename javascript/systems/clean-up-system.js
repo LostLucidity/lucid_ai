@@ -6,7 +6,7 @@ const dataService = require("../services/data-service");
 const sharedService = require("../services/shared-service");
 const unitService = require("../services/unit-service");
 const agentService = require("../services/agent-service");
-const worldService = require("../services/world-service");
+const worldService = require("../src/world-service");
 const MapResourceService = require("./map-resource-system/map-resource-service");
 
 

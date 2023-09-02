@@ -11,7 +11,7 @@ const { TownhallRace, GasMineRace, WorkerRace } = require("@node-sc2/core/consta
 const { attack } = require("./behavior/army-behavior");
 const threats = require("./base-threats");
 const { generalScouting, cancelEarlyScout } = require("../builds/scouting");
-const { labelQueens, inject, spreadCreep, maintainQueens } = require("../builds/zerg/queen-management");
+const { labelQueens, inject, maintainQueens } = require("../builds/zerg/queen-management");
 const { overlordCoverage } = require("../builds/zerg/overlord-management");
 const { salvageBunker } = require("../builds/terran/salvage-bunker");
 const { expand } = require("./general-actions");
@@ -32,7 +32,7 @@ const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const { getAvailableExpansions, getNextSafeExpansions } = require("./expansions");
 const { getSupply, hasEarmarks, clearEarmarks } = require("../services/data-service");
-const worldService = require("../services/world-service");
+const worldService = require("../src/world-service");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
@@ -359,14 +359,13 @@ class AssemblePlan {
    * @param {World} world
    */
   async raceSpecificManagement(world) {
-    const { agent } = world;
+    const { agent, resources } = world;
     const { race } = agent;
     switch (race) {
       case Race.ZERG:
         labelQueens(this.units);
         this.collectedActions.push(...inject(this.world));
-        this.collectedActions.push(...overlordCoverage(this.units));
-        this.collectedActions.push(...await spreadCreep(world));
+        this.collectedActions.push(...overlordCoverage(resources));
         this.collectedActions.push(...creeperBehavior(world));
         break;
       case Race.TERRAN:

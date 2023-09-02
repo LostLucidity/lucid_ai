@@ -3,7 +3,7 @@
 
 const { setCombatBuildingsRallies } = require("../../services/resources-service");
 const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior, acrossTheMapBehavior, recruitToBattleBehavior } = require("./labelled-behavior");
-const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior, bunkerBehavior } = require("./unit-behavior");
+const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior, bunkerBehavior, creepTumorBurrowedBehavior } = require("./unit-behavior");
 
 /**
  * @param {World} world 
@@ -15,6 +15,7 @@ async function runBehaviors(world) {
   const collectedActions = []
   collectedActions.push(...acrossTheMapBehavior(world));
   collectedActions.push(...bunkerBehavior(world));
+  collectedActions.push(...creepTumorBurrowedBehavior(world));
   collectedActions.push(...clearFromEnemyBehavior(world));
   collectedActions.push(...liberatorBehavior(resources));
   collectedActions.push(...marineBehavior(resources));

@@ -4,7 +4,7 @@
 const { createSystem } = require("@node-sc2/core");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { getWeaponDPS } = require("../../services/world-service");
+const { getWeaponDPS } = require("../../src/world-service");
 const healthTrackingService = require("./health-tracking-service");
 
 module.exports = createSystem({

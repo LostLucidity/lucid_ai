@@ -8,7 +8,7 @@ const { scanCloakedEnemy } = require("../terran");
 const { getCombatPoint } = require("../../services/resources-service");
 const { getClosestUnitByPath, getCombatRally, searchAndDestroy } = require("../../services/resource-manager-service");
 const { groupUnits } = require("../../services/unit-service");
-const { attackWithArmy } = require("../../services/world-service");
+const { attackWithArmy } = require("../../src/world-service");
 
 const armyBehavior = {
   /**

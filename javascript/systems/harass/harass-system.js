@@ -9,7 +9,7 @@ const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const planService = require("../../services/plan-service");
 const { getCombatRally, getDistanceByPath } = require("../../services/resource-manager-service");
-const { microRangedUnit } = require("../../services/world-service");
+const { microRangedUnit } = require("../../src/world-service");
 const scoutingService = require("../scouting/scouting-service");
 const harassService = require("./harass-service");
 

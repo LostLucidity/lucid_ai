@@ -12,7 +12,7 @@ const wallOffNaturalService = require("../systems/wall-off-natural/wall-off-natu
 const { setUnitTypeTrainingAbilityMapping } = require("../services/data-service");
 const { getPendingOrders } = require("../services/unit-service");
 const { PYLON, HATCHERY } = require("@node-sc2/core/constants/unit-type");
-const { clearUnsettledBuildingPositions } = require("../services/world-service");
+const { clearUnsettledBuildingPositions } = require("../src/world-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const { setOpponentRace } = require("../systems/scouting/scouting-service");
 

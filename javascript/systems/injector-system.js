@@ -15,7 +15,7 @@ const planService = require("../services/plan-service");
 const { getDistance } = require("../services/position-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestUnitPositionByPath } = require("../services/resource-manager-service");
 const { getMovementSpeed, getPendingOrders, setPendingOrders } = require("../services/unit-service");
-const { getUnitCount } = require("../services/world-service");
+const { getUnitCount } = require("../src/world-service");
 
 module.exports = createSystem({
   name: "InjectorSystem",
@@ -127,10 +127,11 @@ function getEnergyRegenRate() {
  * @returns {number}
  */
 function getTimeToDistance(resources, unit, target) {
+  const { map } = resources.get();
   const { pos } = unit;
   if (pos === undefined) return Infinity
   const distanceByPath = getDistanceByPath(resources, pos, target);
-  const movementSpeed = getMovementSpeed(unit);
+  const movementSpeed = getMovementSpeed(map, unit);
   if (movementSpeed === undefined) return Infinity;
   return distanceByPath / movementSpeed;
 }

@@ -5,7 +5,7 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { getStringNameOfConstant } = require("../services/logging-service");
 const planService = require("../services/plan-service");
-const { assignAndSendWorkerToBuild, setAndLogExecutedSteps, premoveBuilderToPosition, canBuild, addEarmark } = require("../services/world-service");
+const { assignAndSendWorkerToBuild, setAndLogExecutedSteps, premoveBuilderToPosition, canBuild, addEarmark } = require("../src/world-service");
 const { balanceResources } = require("../systems/manage-resources");
 const { getAvailableExpansions, getNextSafeExpansions } = require("./expansions");
 

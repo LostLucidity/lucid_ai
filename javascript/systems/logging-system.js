@@ -9,8 +9,8 @@ const { CREEPTUMOR, CREEPTUMORQUEEN } = require("@node-sc2/core/constants/unit-t
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const loggingService = require("../services/logging-service");
 const planService = require("../services/plan-service");
-const worldService = require("../services/world-service");
-const { logActionIfNearPosition } = require("../services/world-service");
+const worldService = require("../src/world-service");
+const { logActionIfNearPosition } = require("../src/world-service");
 const healthTrackingService = require("./health-tracking/health-tracking-service");
 
 module.exports = createSystem({

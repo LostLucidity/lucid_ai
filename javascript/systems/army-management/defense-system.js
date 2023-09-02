@@ -10,7 +10,7 @@ const armyManagementService = require("../../services/army-management-service");
 const { attackWithArmy, engageOrRetreat } = require("../../services/army-management-service");
 const { getClosestUnitByPath, getCombatRally } = require("../../services/resource-manager-service");
 const { getCombatPoint } = require("../../services/resources-service");
-const { canBuild } = require("../../services/world-service");
+const { canBuild } = require("../../src/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const scoutService = require("../scouting/scouting-service");
 

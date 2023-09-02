@@ -60,26 +60,33 @@ const resourcesService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   setCombatBuildingsRallies: (resources) => {
-    const { units } = resources.get();
+    const { map, units } = resources.get();
     const collectedActions = [];
     units.getById([BARRACKS, FACTORY, STARPORT]).forEach(building => {
-      const { pos, buildProgress } = building; if (pos === undefined || buildProgress === undefined) { return []; }
-      if (buildProgress < 1) { return []; }
+      const { pos, buildProgress } = building;
+      if (!pos || !buildProgress) return;
+      if (buildProgress < 1) return;
       const foundRallyAbility = building.availableAbilities().find(ability => ability === Ability.RALLY_BUILDING);
       if (foundRallyAbility) {
         const unitCommand = createUnitCommand(foundRallyAbility, [building]);
         let rallyPosition = getCombatRally(resources);
         const [closestEnemyUnit] = units.getClosest(pos, units.getAlive(Alliance.ENEMY)).filter(enemyUnit => enemyUnit.pos && getDistance(enemyUnit.pos, pos) < 16);
         if (closestEnemyUnit && building['selfDPSHealth'] < closestEnemyUnit['selfDPSHealth']) {
-          const { pos: enemyPos } = closestEnemyUnit; if (enemyPos === undefined) { return []; }
-          rallyPosition = moveAwayPosition(enemyPos, pos);
+          if (!closestEnemyUnit.pos) return;
+          const movedAwayPosition = moveAwayPosition(map, closestEnemyUnit.pos, pos);
+          if (movedAwayPosition) {
+            rallyPosition = movedAwayPosition;
+          }
         }
-        unitCommand.targetWorldSpacePos = rallyPosition;
-        collectedActions.push(unitCommand);
+        if (rallyPosition) {
+          unitCommand.targetWorldSpacePos = rallyPosition;
+          collectedActions.push(unitCommand);
+        }
       }
     });
     return collectedActions;
-  },
+  }
+,
   /**
    * @param {ResourceManager} resources 
    * @param {Unit[]} units 

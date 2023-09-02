@@ -2,20 +2,20 @@
 "use strict"
 
 const { MOVE, ATTACK_ATTACK, BUILD_CREEPTUMOR_QUEEN, SMART } = require("@node-sc2/core/constants/ability");
-const { Race, Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance } = require("@node-sc2/core/constants/enums");
 const { mineralFieldTypes, vespeneGeyserTypes } = require("@node-sc2/core/constants/groups");
 const { PHOTONCANNON, LARVA, CREEPTUMORBURROWED } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
-const { getPathablePositions, isCreepEdge, isInMineralLine, getMapPath } = require("../../services/map-resource-service");
+const { getPathablePositions, isCreepEdge, isInMineralLine, getMapPath } = require("../../systems/map-resource-system/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
-const { getDistance, getClusters } = require("../../services/position-service");
+const { getDistance, getClusters, getDistanceSquared } = require("../../services/position-service");
 const resourceManagerService = require("../../services/resource-manager-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
 const { canAttack } = require("../../services/resources-service");
 const { getWeaponThatCanAttack, getPendingOrders } = require("../../services/unit-service");
-const { retreat, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth, engageOrRetreat } = require("../../services/world-service");
+const { retreat, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth, engageOrRetreat } = require("../../src/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const stateOfGameService = require("../../systems/state-of-game-system/state-of-game-service");
@@ -24,33 +24,41 @@ const { getRandomPoints, getAcrossTheMap } = require("../location");
 
 module.exports = {
   /**
-   * @param {World} world 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
-   */
+ * @param {World} world 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
   acrossTheMapBehavior: (world) => {
     const { resources } = world;
     const { map, units } = resources.get();
-    const collectedActions = [];
     const label = 'scoutAcrossTheMap';
     const [unit] = units.withLabel(label);
 
-    if (unit) {
-      const { pos } = unit; if (pos === undefined) return [];
-      const enemyUnits = filterEnemyUnits(unit, enemyTrackingService.mappedEnemyUnits);
-      const combatUnits = filterCombatUnits(units, unit, units.getCombatUnits());
+    // If no unit with the given label, return early
+    if (!unit) return [];
 
-      // if an enemy unit within distance of 16, use engageOrRetreat logic, else ATTACK_ATTACK across the map
-      if (enemyUnits.length > 0) {
-        // get the closest enemy unit by path
-        const [closestEnemyUnit] = getClosestUnitByPath(resources, pos, enemyUnits);
-        const { pos: enemyPos } = closestEnemyUnit; if (enemyPos === undefined) return [];
-        collectedActions.push(...engageOrRetreat(world, combatUnits, enemyUnits, enemyPos));
-      } else {
-        const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
-        unitCommand.targetWorldSpacePos = getAcrossTheMap(map);
-        collectedActions.push(unitCommand);
-      }
+    const { pos } = unit;
+    if (!pos) return [];
+
+    const enemyUnits = filterEnemyUnits(unit, enemyTrackingService.mappedEnemyUnits);
+    const combatUnits = filterCombatUnits(units, unit, units.getCombatUnits());
+
+    const collectedActions = [];
+
+    // If an enemy unit within distance of 16, use engageOrRetreat logic
+    if (enemyUnits.length > 0) {
+      const [closestEnemyUnit] = getClosestUnitByPath(resources, pos, enemyUnits);
+
+      const { pos: enemyPos } = closestEnemyUnit;
+      if (!enemyPos) return [];
+
+      collectedActions.push(...engageOrRetreat(world, combatUnits, enemyUnits, enemyPos, false));
+    } else {
+      // If no enemy units close, move ATTACK_ATTACK across the map
+      const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
+      unitCommand.targetWorldSpacePos = getAcrossTheMap(map);
+      collectedActions.push(unitCommand);
     }
+
     return collectedActions;
   },
   /**
@@ -120,48 +128,21 @@ module.exports = {
    */
   creeperBehavior: (world) => {
     const { resources } = world;
-    const { map, units } = resources.get();
+    const { units } = resources.get();
     const collectedActions = [];
-    const label = 'creeper';
-    resourceManagerService.creepEdges = [];
-    const idleCreeperQueens = units.withLabel(label).filter(unit => unit.isIdle());
 
-    const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
-    const { townhallPosition } = map.getEnemyNatural();
+    const creeperQueens = units.withLabel('creeper');
 
-    idleCreeperQueens.forEach(unit => {
-      let selectedCreepEdge;
-      const { pos } = unit; if (pos === undefined) return collectedActions;
-      if (getUnitTypeCount(world, CREEPTUMORBURROWED) <= 3) {
-        const closestTownhallPositionToEnemy = occupiedTownhalls.reduce((/** @type {{ distance: number, pos: Point2D, pathCoordinates: Point2D[] }} */ closest, townhall) => {
-          const { pos } = townhall; if (pos === undefined) return closest;
-          const closestPathablePositionsBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, townhallPosition);
-          const { distance, pathCoordinates } = closestPathablePositionsBetweenPositions;
-          return distance < closest.distance ? { distance, pos, pathCoordinates } : closest;
-        }, { distance: Infinity, pos: { x: 0, y: 0 }, pathCoordinates: [] });
+    creeperQueens.forEach(unit => {
+      const pos = unit.pos;
+      if (!pos) return;
 
-        const creepEdgeAndPath = closestTownhallPositionToEnemy.pathCoordinates.filter(path => isCreepEdge(map, path));
-        if (creepEdgeAndPath.length > 0) {
-          selectedCreepEdge = getClosestPositionByPath(resources, closestTownhallPositionToEnemy.pos, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
-        }
-      } else {
-        let clusteredCreepEdges = getClusters(getCreepEdges(resources, pos));
-        const creepEdgeAndPathWithinRange = clusteredCreepEdges.filter(position => getDistanceSq(pos, position) <= 100); // using square distance
-        if (creepEdgeAndPathWithinRange.length > 0) {
-          clusteredCreepEdges = creepEdgeAndPathWithinRange;
-        }
-        selectedCreepEdge = getClosestPositionByPath(resources, pos, clusteredCreepEdges)[0];
-      }
-      if (selectedCreepEdge) {
-        const abilityId = unit.abilityAvailable(BUILD_CREEPTUMOR_QUEEN) ? BUILD_CREEPTUMOR_QUEEN : MOVE;
-        const unitCommand = {
-          abilityId,
-          targetWorldSpacePos: selectedCreepEdge,
-          unitTags: [unit.tag]
-        }
-        collectedActions.push(unitCommand);
-      }
+      if (handleThreats(world, unit, collectedActions)) return;
+      if (!unit.isIdle()) return;
+
+      handleCreepSpread(world, unit, collectedActions);
     });
+
     return collectedActions;
   },
   /**
@@ -275,7 +256,7 @@ function getThreateningUnits(world, unit) {
       const distanceToEnemy = getDistance(pos, enemyPos);
       const { range } = weaponThatCanAttack; if (range === undefined) return false;
       const getSightRange = enemyUnit.data().sightRange || 0;
-      const weaponRangeOfEnemy = range + radius + enemyRadius + getTravelDistancePerStep(enemyUnit) + getTravelDistancePerStep(unit);
+      const weaponRangeOfEnemy = range + radius + enemyRadius + getTravelDistancePerStep(map, enemyUnit) + getTravelDistancePerStep(map, unit);
       const inWeaponRange = distanceToEnemy <= weaponRangeOfEnemy;
       const degrees = inWeaponRange ? 180 / 4 : 180 / 8;
       const higherRange = weaponRangeOfEnemy > getSightRange ? weaponRangeOfEnemy : getSightRange;
@@ -295,7 +276,8 @@ function getThreateningUnits(world, unit) {
  * @returns Unit
  */
 function getClosestByWeaponRange(world, unit, threateningUnits) {
-  const { data } = world;
+  const { data, resources } = world;
+  const { map } = resources.get();
   const { pos, radius } = unit; if (pos === undefined || radius === undefined) return;
   const closestThreateningUnit = threateningUnits.reduce((/** @type {{distance: number; unit: Unit;} | undefined} */ closest, threateningUnit) => {
     const { pos: threateningUnitPos, radius: threateningUnitRadius, unitType } = threateningUnit; if (threateningUnitPos === undefined || threateningUnitRadius === undefined || unitType === undefined) return closest;
@@ -303,7 +285,7 @@ function getClosestByWeaponRange(world, unit, threateningUnits) {
     const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
       const { range } = weaponThatCanAttack; if (range === undefined) return closest;
-      const weaponRangeOfThreateningUnit = range + radius + threateningUnitRadius + getTravelDistancePerStep(threateningUnit) + getTravelDistancePerStep(unit);
+      const weaponRangeOfThreateningUnit = range + radius + threateningUnitRadius + getTravelDistancePerStep(map, threateningUnit) + getTravelDistancePerStep(map, unit);
       if (distanceToThreateningUnit <= weaponRangeOfThreateningUnit) {
         return closest && closest.distance < distanceToThreateningUnit ? closest : { distance: distanceToThreateningUnit, unit: threateningUnit };
       }
@@ -337,87 +319,6 @@ function isGathering(units, unit, type=undefined) {
     return unit.isGathering(type);
   } 
 }
-
-/**
- * @param {Point2D} a
- * @param {Point2D} b
- * @returns {number}
- */
-function getDistanceSq(a, b) {
-  const { x: ax, y: ay } = a; if (ax === undefined || ay === undefined) return Infinity
-  const { x: bx, y: by } = b; if (bx === undefined || by === undefined) return Infinity
-  const dx = ax - bx;
-  const dy = ay - by;
-  return dx * dx + dy * dy;
-}
-
-// Add these new helper functions before the scoutEnemyMainBehavior function
-const getFacingDirection = (unit) => {
-  // Assuming the 'facing' property of the unit is in degrees and it represents the direction in which the unit is currently moving
-  return unit.facing;
-};
-
-/**
- * Gets the direction from one position to another.
- * @param {MapResource} map - The game map.
- * @param {Unit} unit - The unit.
- * @param {Point2D} targetPos - The target position.
- * @returns {number | null} The direction from the unit to the target position.
- */
-const getPathDirection = (map, unit, targetPos) => {
-  if (!unit.pos) {
-    return null;
-  }
-
-  const path = getMapPath(map, unit.pos, targetPos);
-  if (path.length < 2) {
-    // Cannot determine path direction if path length is less than 2
-    return null;
-  }
-
-  const nextPos = path[1]; // Get the next position in the path
-  const nextPosPoint = { x: nextPos[0], y: nextPos[1] }; // Convert to Point2D
-  return getDirection(unit.pos, nextPosPoint); // Get the direction from current position to the next position
-};
-
-/**
- * Gets the direction from one position to another.
- * @param {MapResource} map - The game map.
- * @param {Unit} unit - The unit.
- * @param {Point2D} targetPos - The target position.
- * @returns {boolean} True if the unit is moving towards the target position, false otherwise.
- */
-const isMovingTowards = (map, unit, targetPos) => {
-  const pathDirection = getPathDirection(map, unit, targetPos);
-  const facingDirection = getFacingDirection(unit);
-
-  // Check if pathDirection is null
-  if (pathDirection === null) {
-    return false;
-  }
-
-  // Here, you can define the condition for a unit to be considered as 'moving towards' the target.
-  // As a simple example, we can say that if the difference between the path direction and facing direction is small, the unit is moving towards the target.
-  const directionDifference = Math.abs(pathDirection - facingDirection);
-
-  return directionDifference < 30; // If the difference is less than 30 degrees, consider the unit as moving towards the target
-};
-
-/**
- * @param {Point2D} fromPos - The initial position.
- * @param {Point2D} toPos - The final position.
- * @returns {number | null} The angle in degrees from the initial position to the final position.
- */
-const getDirection = (fromPos, toPos) => {
-  if (!fromPos || !toPos || fromPos.x === undefined || fromPos.y === undefined || toPos.x === undefined || toPos.y === undefined) {
-    return null;
-  }
-  const deltaX = toPos.x - fromPos.x;
-  const deltaY = toPos.y - fromPos.y;
-  const rad = Math.atan2(deltaY, deltaX); // In radians
-  const deg = rad * (180 / Math.PI); // Convert to degrees
-  return deg;
-};
 
 /**
  * @param {Unit} unit
@@ -577,3 +478,112 @@ function handleNonThreateningUnits(world, scoutUnit) {
   }
   return collectedActions;
 }
+
+/**
+ * @param {World} world
+ * @param {Unit} unit
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions
+ * @returns {boolean}
+ */
+function handleThreats(world, unit, collectedActions) {
+  const { resources } = world;
+  const { units } = resources.get();
+  const { pos } = unit; if (pos === undefined) return false;
+  const nearbyEnemyUnits = units.getClosest(pos, units.getAlive(Alliance.ENEMY)
+    .filter((/** @type {Unit} */ e) => e.pos && getDistanceSquared(pos, e.pos) <= 16 * 16));
+  if (nearbyEnemyUnits.length > 0) {
+    collectedActions.push(...engageOrRetreat(world, [unit], nearbyEnemyUnits, getCombatRally(resources)));
+    return true; // Threat handled, skip rest of behavior for this unit
+  }
+  return false; // No threats
+}
+
+/**
+ * @param {World} world
+ * @param {Unit} unit
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions
+ * @returns {void}
+ */
+function handleCreepSpread(world, unit, collectedActions) {
+  const { resources } = world;
+  const { pos } = unit; if (pos === undefined) return;
+  /** @type Point2D | undefined */
+  let selectedCreepEdge;
+
+
+  if (getUnitTypeCount(world, CREEPTUMORBURROWED) <= 3) {
+    selectedCreepEdge = getCreepEdgeCloseToEnemy(resources);
+  } else {
+    selectedCreepEdge = getCreepEdgeCloseToEnemy(resources, pos);
+  }
+
+  if (selectedCreepEdge) {
+    issueCreepCommand(unit, selectedCreepEdge, collectedActions);
+  }
+}
+
+/**
+ * @param {ResourceManager} resources
+ * @param {Point2D | undefined} pos
+ * @returns {Point2D | undefined}
+ */
+function getCreepEdgeCloseToEnemy(resources, pos=undefined) {
+  const { map } = resources.get();
+  if (!pos) {
+    const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
+    const { townhallPosition } = map.getEnemyNatural();
+    const closestTownhallPositionToEnemy = occupiedTownhalls.reduce((/** @type {{ distance: number, pos: Point2D, pathCoordinates: Point2D[] }} */ closest, townhall) => {
+      const pos = townhall.pos;
+      if (!pos) return closest;
+  
+      const pathData = getClosestPathablePositionsBetweenPositions(resources, pos, townhallPosition);
+      const { distance, pathCoordinates } = pathData;
+      return distance < closest.distance ? { distance, pos, pathCoordinates } : closest;
+    }, { distance: Infinity, pos: { x: 0, y: 0 }, pathCoordinates: [] });
+  
+    const creepEdgeAndPath = closestTownhallPositionToEnemy.pathCoordinates.filter(path => isCreepEdge(map, path));
+    if (creepEdgeAndPath.length > 0) {
+      return getClosestPositionByPath(resources, closestTownhallPositionToEnemy.pos, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
+    }
+  } else {
+    let clusteredCreepEdges = getClusters(getCreepEdges(resources, pos));
+    const creepEdgeAndPathWithinRange = clusteredCreepEdges.filter(position => getDistanceSquared(pos, position) <= 100); // using square distance
+    if (creepEdgeAndPathWithinRange.length > 0) {
+      clusteredCreepEdges = creepEdgeAndPathWithinRange;
+    }
+    return getClosestPositionByPath(resources, pos, clusteredCreepEdges)[0];
+  }
+}
+
+/**
+ * @param {Unit} unit
+ * @param {Point2D} selectedCreepEdge
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions
+ * @returns {void}
+ */
+function issueCreepCommand(unit, selectedCreepEdge, collectedActions) {
+  const { pos, tag } = unit;
+  if (pos === undefined || tag === undefined) return;
+
+  const distanceToCreepEdge = getDistance(pos, selectedCreepEdge);
+  const isCloseEnough = distanceToCreepEdge <= 0.8;
+  const canBuildTumor = unit.abilityAvailable(BUILD_CREEPTUMOR_QUEEN);
+
+  if (!isCloseEnough) {
+    // If the unit isn't close enough to the creep edge, command it to MOVE
+    collectedActions.push({
+      abilityId: MOVE,
+      targetWorldSpacePos: selectedCreepEdge,
+      unitTags: [tag]
+    });
+  } else if (isCloseEnough && canBuildTumor) {
+    // If the unit is close enough and can build the tumor, issue the BUILD_CREEPTUMOR_QUEEN command
+    collectedActions.push({
+      abilityId: BUILD_CREEPTUMOR_QUEEN,
+      targetWorldSpacePos: selectedCreepEdge,  // Assuming the tumor is built on the creep edge
+      unitTags: [tag]
+    });
+  }
+}
+
+

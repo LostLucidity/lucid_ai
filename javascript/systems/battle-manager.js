@@ -45,7 +45,7 @@ module.exports = createSystem({
    */
   async onStep(world) {
     const {agent, resources} = world;
-    const { actions, frame, units } = resources.get();
+    const { actions, map, frame, units } = resources.get();
     const collectedActions = [];
     this.threats = threats(resources, this.state);
     this.foodUsed = agent.foodUsed;
@@ -94,7 +94,7 @@ module.exports = createSystem({
                     let targetWorldSpacePos;
                     const isFlying = selfUnit.isFlying;
                     if (isFlying) {
-                      targetWorldSpacePos = moveAwayPosition(closestEnemyUnit.pos, selfUnit.pos);
+                      targetWorldSpacePos = moveAwayPosition(map, closestEnemyUnit.pos, selfUnit.pos);
                     } else {
                       targetWorldSpacePos = retreat(world, selfUnit, closestEnemyUnit);
                     }

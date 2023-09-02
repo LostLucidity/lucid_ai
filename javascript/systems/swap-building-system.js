@@ -7,7 +7,7 @@ const { liftingAbilities, landingAbilities } = require("@node-sc2/core/constants
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const planService = require("../services/plan-service");
 const { setPendingOrders } = require("../services/unit-service");
-const { repositionBuilding } = require("../services/world-service");
+const { repositionBuilding } = require("../src/world-service");
 
 module.exports = createSystem({
   name: 'SwapBuildingSystem',

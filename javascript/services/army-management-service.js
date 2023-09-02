@@ -10,8 +10,8 @@ const { createUnitCommand } = require("./actions-service");
 const { calculateNearSupply } = require("./data-service");
 const { moveAwayPosition, getDistance, getBorderPositions } = require("./position-service");
 const { getWeaponThatCanAttack } = require("./unit-service");
-const { retreat } = require("./world-service");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
+const { retreat } = require("../src/world-service");
 
 const armyManagementService = {
   /** @type {Unit[]} */
@@ -65,7 +65,7 @@ const armyManagementService = {
    */
   engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { data, resources } = world;
-    const { units } = resources.get();
+    const { map, units } = resources.get();
     const collectedActions = [];
     armyManagementService.attackingInRange = selfUnits.filter(unit => {
       if (unit.isAttacking()) {
@@ -97,7 +97,7 @@ const armyManagementService = {
             let targetWorldSpacePos;
             const isFlying = selfUnit.isFlying;
             if (isFlying) {
-              targetWorldSpacePos = moveAwayPosition(closestEnemyUnit, selfUnit);
+              targetWorldSpacePos = moveAwayPosition(map, closestEnemyUnit, selfUnit);
             } else {
               targetWorldSpacePos = retreat(world, selfUnit, closestEnemyUnit);
             }

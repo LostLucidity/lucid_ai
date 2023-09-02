@@ -6,7 +6,7 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { getCandidatePositions } = require("../helper/placement/placement-helper");
 const planService = require("../services/plan-service");
 const resourceManagerService = require("../services/resource-manager-service");
-const { getFoodUsed } = require("../services/world-service");
+const { getFoodUsed } = require("../src/world-service");
 
 module.exports = createSystem({
   name: 'SetRallySystem',

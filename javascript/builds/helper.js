@@ -4,7 +4,7 @@
 const { MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { OVERLORD, COLOSSUS } = require("@node-sc2/core/constants/unit-type");
-const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { gridsInCircle, toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
@@ -14,23 +14,38 @@ const { moveAwayPosition, getDistance } = require("../services/position-service"
 const { getClosestUnitByPath } = require("../services/resource-manager-service");
 const { canAttack } = require("../services/resources-service");
 const { getMovementSpeed } = require("../services/unit-service");
-const { retreat, getDPSOfInRangeAntiAirUnits } = require("../services/world-service");
+const { retreat, getDPSOfInRangeAntiAirUnits } = require("../src/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
-const worldService = require("../services/world-service");
+const worldService = require("../src/world-service");
 
 const helper = {
   /**
+   * @param {MapResource} map
    * @param {Unit} unit 
    * @param {Unit} targetUnit 
    * @param {number} distance 
    * @returns {SC2APIProtocol.ActionRawUnitCommand}
    */
-  moveAway(unit, targetUnit, distance = 2) {
+  moveAway(map, unit, targetUnit, distance = 2) {
     const unitCommand = createUnitCommand(MOVE, [unit]);
     const { pos } = unit;
-    const { pos: targetPos } = targetUnit; if (pos === undefined || targetPos === undefined) return unitCommand;
-    const awayPoint = moveAwayPosition(targetPos, pos, distance);
-    unitCommand.targetWorldSpacePos = awayPoint;
+    const { pos: targetPos } = targetUnit;
+    if (!pos || !pos.x || !pos.y || !targetPos || !targetPos.x || !targetPos.y) return unitCommand;
+
+    let awayPoint = moveAwayPosition(map, targetPos, pos, distance);
+
+    if (awayPoint === null) {
+      // Rotate and Retry
+      for (let i = 0; i < 36; i++) {  // Trying 10 degrees at a time
+        awayPoint = rotateAndFindPathablePoint(map, targetPos, pos, i * 10, distance);
+        if (awayPoint !== null) break;
+      }
+    }
+
+    if (awayPoint !== null) {
+      unitCommand.targetWorldSpacePos = awayPoint;
+    }
+
     return unitCommand;
   },
   /**
@@ -108,51 +123,37 @@ function closestToNaturalBehavior(resources, shadowingUnits, unit, targetUnit) {
  */
 function moveAwayFromTarget(world, unit, targetUnits) {
   const { resources } = world;
-  const { map, units } = resources.get();
+  const { map } = resources.get();
   const { isFlying, pos, tag } = unit;
-  if (isFlying === undefined || pos === undefined || tag === undefined) return null;
-  const { x, y } = pos; if (x === undefined || y === undefined) return null;
 
+  if (isFlying === undefined || pos === undefined || tag === undefined) return null;
+  const { x, y } = pos;
+  if (x === undefined || y === undefined) return null;
+
+  const maxDistance = getTravelDistancePerStep(map, unit) * 2;
   let position;
-  const maxDistance = getTravelDistancePerStep(map, unit) * 2;  // Set the distance you want the unit to move
 
   if (isFlying) {
-    position = getFlyingUnitPosition(world, unit, targetUnits);
-    if (!position) {
-      const averageEnemyPos = avgPoints(targetUnits.map(unit => unit.pos));
-      position = moveAwayPosition(averageEnemyPos, pos);
-    } else {
-      // Calculate the direction vector
-      const { x: posx, y: posy } = position; if (posx === undefined || posy === undefined) return null;
-      const direction = { x: posx - x, y: posy - y };
+    position = getFlyingUnitPosition(world, unit, targetUnits) ||
+      moveAwayPosition(map, avgPoints(targetUnits.map(u => u.pos)), pos, 2, true);
 
-      // Normalize the direction vector
-      const length = Math.sqrt(direction.x ** 2 + direction.y ** 2);
-      const normalizedDirection = { x: direction.x / length, y: direction.y / length };
-
-      // Check if the position is closer than maxDistance
-      if (length <= maxDistance) {
-        // Move to the calculated position if it's closer than maxDistance
-        position = { x: x + direction.x, y: y + direction.y };
+    if (position) {
+      const newPosition = calculatePositionByDirection(pos, position, maxDistance);
+      if (newPosition) {
+        position = newPosition;
       } else {
-        // Calculate the new position
-        position = {
-          x: x + normalizedDirection.x * maxDistance,
-          y: y + normalizedDirection.y * maxDistance
-        };
+        return null;
       }
+    } else {
+      return null;
     }
-  } else {
-    const enemyUnits = units.getAlive(Alliance.ENEMY);
-    const [closestTargetUnit] = getClosestUnitByPath(resources, pos, enemyUnits)
-    position = retreat(world, unit, closestTargetUnit);
   }
 
   return {
     abilityId: MOVE,
     targetWorldSpacePos: position,
     unitTags: [tag],
-  }
+  };
 }
 
 function moveToTarget(unit, targetUnit) {
@@ -309,3 +310,61 @@ const calculateInRangeUnits = (unit, enemyUnits, extraRangeFactor = 0) => {
     return acc;
   }, []);
 };
+
+/**
+ * Rotates around the original position by the given angle and tries to find a pathable point.
+ * 
+ * @param {MapResource} map
+ * @param {Point2D} targetPos
+ * @param {Point2D} originalPos
+ * @param {number} rotationAngle
+ * @param {number} distance
+ * @returns {Point2D | undefined}
+ */
+function rotateAndFindPathablePoint(map, targetPos, originalPos, rotationAngle, distance) {
+  // Check for undefined positions
+  if (!targetPos || !targetPos.x || !targetPos.y || !originalPos || !originalPos.x || !originalPos.y) return undefined;
+
+  // Calculate the original angle
+  const originalAngle = toDegrees(Math.atan2(targetPos.y - originalPos.y, targetPos.x - originalPos.x));
+
+  // Adjust by the rotation angle
+  const rotatedAngle = (originalAngle + rotationAngle) % 360;
+
+  // Calculate the new point
+  let rotatedPoint = {
+    x: Math.cos(rotatedAngle * Math.PI / 180) * distance + originalPos.x,
+    y: Math.sin(rotatedAngle * Math.PI / 180) * distance + originalPos.y
+  };
+
+  // Check if the new point is pathable
+  if (map.isPathable(rotatedPoint)) {
+    return rotatedPoint;
+  } else {
+    return undefined;
+  }
+}
+
+/**
+ * Calculate a position based on direction and max distance.
+ * @param {Point2D} start
+ * @param {Point2D} end
+ * @param {number} maxDistance
+ * @returns {Point2D | null}
+ */
+function calculatePositionByDirection(start, end, maxDistance) {
+  if (!start.x || !start.y || !end.x || !end.y) return null;
+
+  const direction = { x: end.x - start.x, y: end.y - start.y };
+  const length = Math.sqrt(direction.x ** 2 + direction.y ** 2);
+
+  if (length <= maxDistance) return end;
+
+  const normalizedDirection = { x: direction.x / length, y: direction.y / length };
+  return {
+    x: start.x + normalizedDirection.x * maxDistance,
+    y: start.y + normalizedDirection.y * maxDistance
+  };
+}
+
+
