@@ -3309,46 +3309,40 @@ const worldService = {
     return collectedActions;
   },
   /**
- * Trains workers based on the conditions of the world and agent.
- * @param {World} world 
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
+   * Trains workers based on the conditions of the world and agent.
+   * @param {World} world 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   trainWorkers: (world) => {
     const { getById } = resourceManagerService;
-    const { getFoodDifference, haveAvailableProductionUnitsFor, outpowered, unitProductionAvailable, buildWorkers, shortOnWorkers } = worldService;
-    const { agent, resources } = world;
-    const { minerals, race } = agent;
+    const { getFoodDifference, haveAvailableProductionUnitsFor, outpowered, unitProductionAvailable, shortOnWorkers } = worldService;
+    const { agent: { minerals, race }, resources } = world;
 
     // Early exit if essential properties are not defined.
     if (minerals === undefined || race === undefined) return [];
 
-    const { units } = resources.get();
-    const collectedActions = [];
     const workerCount = getById(resources, [WorkerRace[race]]).length;
-    const assignedWorkerCount = [...units.getBases(), ...getById(resources, [GasMineRace[race]])]
-      .reduce((acc, base) => base.assignedHarvesters + acc, 0);
+    const assignedWorkerCount = [...resources.get().units.getBases(), ...getById(resources, [GasMineRace[race]])]
+      .reduce((acc, base) => (base.assignedHarvesters || 0) + acc, 0);
     const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
     const foodDifference = getFoodDifference(world);
+    const sufficientMinerals = minerals < 512 || minimumWorkerCount <= 36;
+    const productionPossible = race ? haveAvailableProductionUnitsFor(world, WorkerRace[race]) : false;
+    const notOutpoweredOrNoUnits = !outpowered || (outpowered && !unitProductionAvailable);
 
-    // Determine if conditions are met to train workers.
-    let shouldTrainWorkers = planService.bogIsActive && minimumWorkerCount <= 11;
+    let shouldTrainWorkers;
 
-    if (!planService.bogIsActive) {
-      const sufficientMinerals = minerals < 512 || minimumWorkerCount <= 36;
-      const productionPossible = haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]);
-      const notOutpoweredOrNoUnits = !outpowered || (outpowered && !unitProductionAvailable);
-
+    if (planService.bogIsActive) {
+      shouldTrainWorkers = minimumWorkerCount <= 11;
+    } else {
       shouldTrainWorkers = sufficientMinerals && (shortOnWorkers(world) || foodDifference > 0)
         && notOutpoweredOrNoUnits && productionPossible;
     }
 
     // Update the workersTrainingTendedTo flag and potentially add actions to train workers.
-    if (shouldTrainWorkers) {
-      unitTrainingService.workersTrainingTendedTo = false;
-      collectedActions.push(...buildWorkers(world, foodDifference, true));
-    } else {
-      unitTrainingService.workersTrainingTendedTo = true;
-    }
+    const collectedActions = shouldTrainWorkers
+      ? (unitTrainingService.workersTrainingTendedTo = false, [...worldService.buildWorkers(world, foodDifference, true)])
+      : (unitTrainingService.workersTrainingTendedTo = true, []);
 
     return collectedActions;
   },
