@@ -24,9 +24,9 @@ const { getRandomPoints, getAcrossTheMap } = require("../location");
 
 module.exports = {
   /**
- * @param {World} world 
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
+   * @param {World} world 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   acrossTheMapBehavior: (world) => {
     const { resources } = world;
     const { map, units } = resources.get();
@@ -330,7 +330,7 @@ function filterEnemyUnits(unit, enemyUnits) {
   return enemyUnits.filter(enemyUnit => {
     const { pos: enemyPos } = enemyUnit;
     if (enemyPos === undefined) return false;
-    return !(unit.unitType === LARVA) && distance(enemyPos, pos) < 16 && canAttack(unit, enemyUnit, false);
+    return !(enemyUnit.unitType === LARVA) && getDistance(enemyPos, pos) < 16 && canAttack(unit, enemyUnit, false);
   });
 }
 

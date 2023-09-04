@@ -236,7 +236,15 @@ const positionService = {
       y: positionY + distance * Math.sin(toRadians(oppositeAngle))
     };
 
-    const clampedPoint = clampPointToBounds(awayPoint);
+    const { x: mapWidth, y: mapHeight } = map.getSize();
+
+    if (typeof mapWidth === 'undefined' || typeof mapHeight === 'undefined') {
+      // Handle this case. For instance, log an error or throw an exception.
+      console.error("Map dimensions are undefined");
+      return;  // or throw an exception, or handle in another way that fits your logic
+    }
+
+    const clampedPoint = clampPointToBounds(awayPoint, 0, mapWidth, 0, mapHeight);
 
     // Skip pathability check for flying units
     if (isFlyingUnit) {
@@ -252,13 +260,13 @@ module.exports = positionService;
 /**
  * Clamps a point to be within specified bounds.
  * @param {Point2D} point The point to clamp.
- * @param {number} [minX=0] The minimum allowable x value.
- * @param {number} [maxX=100] The maximum allowable x value.
- * @param {number} [minY=0] The minimum allowable y value.
- * @param {number} [maxY=100] The maximum allowable y value.
+ * @param {number} minX The minimum allowable x value.
+ * @param {number} maxX The maximum allowable x value.
+ * @param {number} minY The minimum allowable y value.
+ * @param {number} maxY The maximum allowable y value.
  * @returns {Point2D} The clamped point.
  */
-function clampPointToBounds(point, minX = 0, maxX = 100, minY = 0, maxY = 100) {
+function clampPointToBounds(point, minX, maxX, minY, maxY) {
   const x = point.x ?? 0;  // Using the nullish coalescing operator to provide a default value
   const y = point.y ?? 0;
 

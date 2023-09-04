@@ -2,7 +2,6 @@
 "use strict"
 
 const { MOVE } = require("@node-sc2/core/constants/ability");
-const { Alliance } = require("@node-sc2/core/constants/enums");
 const { OVERLORD, COLOSSUS } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle, toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
@@ -11,12 +10,12 @@ const { existsInMap } = require("../helper/location");
 const { createUnitCommand } = require("../services/actions-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("../services/frames-service");
 const { moveAwayPosition, getDistance } = require("../services/position-service");
-const { getClosestUnitByPath } = require("../services/resource-manager-service");
 const { canAttack } = require("../services/resources-service");
 const { getMovementSpeed } = require("../services/unit-service");
-const { retreat, getDPSOfInRangeAntiAirUnits } = require("../src/world-service");
+const { getDPSOfInRangeAntiAirUnits } = require("../src/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 const worldService = require("../src/world-service");
+const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 
 const helper = {
   /**
@@ -57,7 +56,7 @@ const helper = {
     const { data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
-    const enemyUnits = units.getAlive(Alliance.ENEMY);
+    const enemyUnits = enemyTrackingService.mappedEnemyUnits;
 
     shadowingUnits.forEach(unit => {
       const { pos } = unit;
