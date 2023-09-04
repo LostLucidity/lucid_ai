@@ -6055,11 +6055,9 @@ const shouldRetreatToCombatRally = (world, unit, targetUnit, toCombatRally, trav
   const { map, units } = resources.get();
   const combatRally = resourceManagerService.getCombatRally(resources);
 
-  const closestSafePosition = worldService.findClosestSafePosition(world, unit, targetUnit);
-  if (!closestSafePosition || getDistance(pos, closestSafePosition) >= travelDistancePerStep) return false;
-
   const unitToCombatRallyDistance = getDistanceByPath(resources, pos, combatRally);
-  if (unitToCombatRallyDistance <= 16 || unitToCombatRallyDistance === Infinity) return false;
+  const minDistanceToRally = travelDistancePerStep;
+  if (unitToCombatRallyDistance <= minDistanceToRally || unitToCombatRallyDistance === Infinity) return false;
 
   const targetUnitToCombatRallyDistance = getDistanceByPath(resources, targetPos, combatRally);
   if (unitToCombatRallyDistance > targetUnitToCombatRallyDistance) return false;
@@ -6079,7 +6077,6 @@ const shouldRetreatToCombatRally = (world, unit, targetUnit, toCombatRally, trav
   const pathToRally = MapResourceService.getMapPath(map, pos, combatRally);
   return isSafePathToRally(world, unit, pathToRally);
 }
-
 /**
  * @param {ResourceManager} resources
  * @param {Point2D} pos
