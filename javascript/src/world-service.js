@@ -1221,7 +1221,7 @@ const worldService = {
     const { data, resources } = world;
     const { pos } = unit; if (pos === undefined) return;
     const { getClosestPositionByPath } = resourceManagerService;
-    const positionsInRangeOfEnemyUnits = findPositionsInRangeOfEnemyUnits(data, unit, closeAttackableEnemyUnits);
+    const positionsInRangeOfEnemyUnits = findPositionsInRangeOfEnemyUnits(world, unit, closeAttackableEnemyUnits);
     const positionsInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks = positionsInRangeOfEnemyUnits.filter(position => !enemyUnitsInRangeOfTheirAttack.some(enemyUnit => isInRangeOfEnemyUnits(data, unit, enemyUnit, position)));
     const [closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks] = getClosestPositionByPath(resources, pos, positionsInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks);
     if (closestPositionInRangeOfEnemyUnitsNotInRangeOfEnemyAttacks !== undefined) {
@@ -2218,7 +2218,7 @@ const worldService = {
     const { enemyUnit } = closestEnemyThatCanAttackUnitByWeaponRange; if (enemyUnit === undefined) { return collectedActions; }
     if (shouldMicro(data, unit, enemyUnit)) {
       const unitCommand = createUnitCommand(MOVE, [unit]);
-      const positions = findPositionsInRangeOfEnemyUnits(data, unit, [enemyUnit]);
+      const positions = findPositionsInRangeOfEnemyUnits(world, unit, [enemyUnit]);
       const closestPosition = positions.reduce((/** @type {{ distance: number, position: Point2D | undefined }} */ acc, position) => {
         const distanceToPosition = getDistance(position, pos);
         if (distanceToPosition < acc.distance) {
@@ -4439,12 +4439,14 @@ function getEnemyUnitsInRangeOfTheirAttack(data, unit, enemyUnits) {
 
 /**
  * @description Returns positions that are in range of the unit's weapons from enemy units.
- * @param {DataStorage} data
+ * @param {World} world
  * @param {Unit} unit
  * @param {Unit[]} enemyUnits
  * @returns {Point2D[]}
  */
-function findPositionsInRangeOfEnemyUnits(data, unit, enemyUnits) {
+function findPositionsInRangeOfEnemyUnits(world, unit, enemyUnits) {
+  const { data, resources } = world;
+  const { map } = resources.get();
   const { enemyUnitsPositions } = enemyTrackingService;
   const { getWeaponThatCanAttack } = unitService;
   const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) return [];
@@ -4461,7 +4463,8 @@ function findPositionsInRangeOfEnemyUnits(data, unit, enemyUnits) {
     }
     const projectedEnemyUnitPos = getProjectedPosition(targetPositions.current.pos, targetPositions.previous.pos, targetPositions.current.lastSeen, targetPositions.previous.lastSeen);
     const pointsInRange = getPointsInRange(projectedEnemyUnitPos, range + radius + enemyUnitRadius);
-    acc.push(...pointsInRange);
+    const pathablePointsInRange = pointsInRange.filter(point => map.isPathable(point));
+    acc.push(...pathablePointsInRange);
     return acc;
   }, []);
 }
@@ -6429,7 +6432,6 @@ function shouldReturnEarly(unit) {
   return properties.some(prop => unit[prop] === undefined);
 }
 
-
 /**
  * @param {World} world
  * @param {Unit} unit
@@ -6437,14 +6439,13 @@ function shouldReturnEarly(unit) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function getActionsForMicro(world, unit, targetUnit) {
-  const { data, resources } = world;
+  const { resources } = world;
   const { map } = resources.get();
-  const positions = findPositionsInRangeOfEnemyUnits(data, unit, [targetUnit]);
+  const positions = findPositionsInRangeOfEnemyUnits(world, unit, [targetUnit]);
   const targetTag = targetUnit.tag;
 
   if (typeof targetTag === "undefined") {
-    // handle this case, maybe return an empty array or some other action
-    return [];
+    return []; // return an empty array or fallback action
   }
 
   const targetPositions = enemyTrackingService.enemyUnitsPositions.get(targetTag);
@@ -6466,12 +6467,24 @@ function getActionsForMicro(world, unit, targetUnit) {
     getDistanceByPath(resources, addPosition, a) - getDistanceByPath(resources, addPosition, b)
   );
 
-  const targetWorldSpacePos = closestPosition || moveAwayPosition(map, targetUnit.pos, unit.pos);
+  let targetWorldSpacePos = closestPosition || moveAwayPosition(map, targetUnit.pos, unit.pos);
+
+  // Ensure the position is pathable
+  if (!map.isPathable(targetWorldSpacePos)) {
+    const pathablePosition = findClosestPathablePosition(map, targetWorldSpacePos);
+    if (!pathablePosition) {
+      console.error("Could not find a pathable position");
+      return []; // Return early if no pathable position is found
+    }
+    targetWorldSpacePos = pathablePosition;
+  }
+
   const unitCommand = createUnitCommand(MOVE, [unit]);
   unitCommand.targetWorldSpacePos = targetWorldSpacePos;
 
   return [unitCommand];
 }
+
 
 /**
  * @param {World} world
