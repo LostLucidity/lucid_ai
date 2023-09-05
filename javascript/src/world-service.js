@@ -1549,7 +1549,7 @@ const worldService = {
     const { calculateNearDPSHealth } = worldService;
     const { resources } = world;
     const { units } = resources.get();
-    let enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => unit.pos && distance(unit.pos, position) < 16);
+    let enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => unit.pos && distance(unit.pos, position) < 16);
     enemyUnits = enemyUnits.length === 1 && enemyUnits[0].unitType && workerTypes.includes(enemyUnits[0].unitType) ? [] : enemyUnits;
     if (enemyUnits.length === 0) return true;
     const selfUnits = units.getAlive(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) < 16);

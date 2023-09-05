@@ -30,6 +30,7 @@ const { getClosestPosition } = require("../get-closest");
 const { CREEPTUMOR } = require("@node-sc2/core/constants/unit-type");
 const InfoRetrievalService = require('../../src/services/info-retrieval-service');
 const { mappedEnemyUnits } = require("../../systems/enemy-tracking/enemy-tracking-service");
+const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 
 module.exports = {
   /**
@@ -278,7 +279,7 @@ module.exports = {
     const { agent, resources } = world;
     const { units } = resources.get();
 
-    const enemyUnits = mappedEnemyUnits
+    const enemyUnits = enemyTrackingService.mappedEnemyUnits
       .filter(unit => unit.unitType && !larvaOrEgg.includes(unit.unitType));
 
     const workers = units.getById(WorkerRace[agent.race])
