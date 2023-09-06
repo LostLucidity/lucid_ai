@@ -653,37 +653,6 @@ function selectBestWaypoint(waypoints, enemyPos) {
   return waypoints.sort((a, b) => getDistance(a, enemyPos) - getDistance(b, enemyPos)).pop();
 }
 
-/**
- * Collects and adds waypoint actions for a given worker to move towards its destination.
- * This function will create a command to clear the worker's existing orders, followed by
- * a series of move commands to guide the worker through the provided path coordinates,
- * ending with a final command to move to the destination.
- *
- * @param {Unit} worker - The worker unit that needs to be moved.
- * @param {Point2D[]} pathCoordinates - An array of path coordinates to guide the worker.
- * @param {Point2D} destination - The final destination point for the worker.
- * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - An array of actions where the commands will be added.
- */
-function collectWaypointActions(worker, pathCoordinates, destination, collectedActions) {
-  // Helper function to reduce redundancy
-  function addCommand(ability, position, queue = true) {
-    const command = createUnitCommand(ability, [worker]);
-    command.targetWorldSpacePos = position;
-    command.queueCommand = queue;
-    collectedActions.push(command);
-  }
-
-  // Clear the worker's existing orders
-  addCommand(Ability.MOVE, pathCoordinates[0], false);
-
-  // Add move commands through the path coordinates
-  for (const point of pathCoordinates) {
-    addCommand(Ability.MOVE, point);
-  }
-
-  // Add a final move command to the destination
-  addCommand(Ability.SMART, destination);
-}
 
 /**
  * @param {Unit[]} unitsToExtract

@@ -61,6 +61,25 @@ const dataService = {
   },
   /**
    * @param {DataStorage} data
+   * @param {Unit} unit
+   * @returns {number}
+   * @description Returns the attack range of the given unit.
+   * If the unit data or weapons data is not available, an attack range of 0 is assumed.
+   * Otherwise, the maximum range among the unit's weapons is returned.
+   */
+  getAttackRange: (data, unit) => {
+    const unitTypeData = unit.unitType && data.getUnitTypeData(unit.unitType);
+
+    if (!unitTypeData || !unitTypeData.weapons) {
+      return 0;
+    }
+
+    return unitTypeData.weapons.reduce((max, weapon) => {
+      return weapon.range ? Math.max(max, weapon.range) : max;
+    }, 0);
+  },
+  /**
+   * @param {DataStorage} data
    * @param {SC2APIProtocol.Weapon} weapon 
    * @param {UnitTypeId[]} enemyUnitTypes
    * @returns number

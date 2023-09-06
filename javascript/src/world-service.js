@@ -6469,16 +6469,6 @@ function getActionsForMicro(world, unit, targetUnit) {
 
   let targetWorldSpacePos = closestPosition || moveAwayPosition(map, targetUnit.pos, unit.pos);
 
-  // Ensure the position is pathable
-  if (!map.isPathable(targetWorldSpacePos)) {
-    const pathablePosition = findClosestPathablePosition(map, targetWorldSpacePos);
-    if (!pathablePosition) {
-      console.error("Could not find a pathable position");
-      return []; // Return early if no pathable position is found
-    }
-    targetWorldSpacePos = pathablePosition;
-  }
-
   const unitCommand = createUnitCommand(MOVE, [unit]);
   unitCommand.targetWorldSpacePos = targetWorldSpacePos;
 
@@ -6493,7 +6483,8 @@ function getActionsForMicro(world, unit, targetUnit) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function getActionsForNotMicro(world, unit, targetUnit) {
-  const currentStep = world.resources.get().frame.getGameLoop();
+  const { data, resources } = world;
+  const currentStep = resources.get().frame.getGameLoop();
 
   if (!isUnitDataComplete(unit) || !unit.pos) return [];
 
@@ -6503,7 +6494,13 @@ function getActionsForNotMicro(world, unit, targetUnit) {
   let optimalTarget = null;
   let smallestRemainingHealth = Infinity;  // Initializing to a high value for comparison.
 
+  let immediateThreat = null;
+
   for (const enemyUnit of weaponResults.targetableEnemyUnits) {
+    if (isActivelyAttacking(data, enemyUnit, unit)) {  // This is a new method you'd have to implement.
+      immediateThreat = enemyUnit;
+      break;  // Exit the loop once you've found an active threat.
+    }
     if (!unit.pos || !enemyUnit.pos) continue;
 
     const distance = getDistance(unit.pos, enemyUnit.pos);
@@ -6523,6 +6520,11 @@ function getActionsForNotMicro(world, unit, targetUnit) {
       smallestRemainingHealth = remainingHealthAfterAttack;
       optimalTarget = enemyUnit;
     }
+  }
+
+  if (immediateThreat) {
+    // Prioritize the immediate threat.
+    optimalTarget = immediateThreat;
   }
 
   if (!optimalTarget || typeof optimalTarget.unitType !== 'number') return [];
@@ -6702,3 +6704,61 @@ function calculateDistances(resources, fromPos, toPoints) {
   const distance = getDistanceByPath(resources, fromPos, closestPosition);
   return { closestPosition, distance };
 }
+
+/**
+ * Tries to determine if enemyUnit is likely attacking targetUnit based on indirect information.
+ * @param {DataStorage} data - The data required to get the attack range.
+ * @param {Unit} enemyUnit - The enemy unit we're checking.
+ * @param {Unit} targetUnit - The unit we want to see if it's being attacked by the enemyUnit.
+ * @returns {boolean} - True if it seems the enemyUnit is attacking the targetUnit, false otherwise.
+ */
+function isActivelyAttacking(data, enemyUnit, targetUnit) {
+  if (!enemyUnit.pos || !targetUnit.pos) {
+    return false; // If position is undefined for either unit, they can't be actively attacking.
+  }
+
+  // Determine the dynamic threat range.
+  const threatRange = calculateThreatRange(data, enemyUnit);
+
+  // Check proximity based on the dynamic threat range.
+  const distance = getDistance(enemyUnit.pos, targetUnit.pos);
+
+  return distance <= threatRange;
+}
+
+/**
+ * Calculate a dynamic threat range based on the enemy unit's characteristics.
+ * @param {DataStorage} data - The data required to get the attack range.
+ * @param {Unit} enemyUnit
+ * @returns {number} - The calculated threat range.
+ */
+function calculateThreatRange(data, enemyUnit) {
+  const baseAttackRange = dataService.getAttackRange(data, enemyUnit);
+
+  // Get the projected position for the enemy unit.
+  const targetPositions = enemyUnit.tag ? enemyTrackingService.enemyUnitsPositions.get(enemyUnit.tag) : null;
+  const projectedTargetPosition = targetPositions ?
+    getProjectedPosition(
+      targetPositions.current.pos,
+      targetPositions.previous.pos,
+      targetPositions.current.lastSeen,
+      targetPositions.previous.lastSeen
+    ) : enemyUnit.pos;
+
+  // If we can't determine a projected position, we'll stick to the current position
+  const currentPosition = projectedTargetPosition || enemyUnit.pos;
+
+  // Calculate anticipated movement as the distance between current position and projected position.
+  // This might overestimate the actual threat range a bit, but it's safer to be cautious.
+  // Calculate anticipated movement as the distance between current position and projected position.
+  let anticipatedMovement = 0;
+  if (enemyUnit.pos && currentPosition) {
+    anticipatedMovement = getDistance(enemyUnit.pos, currentPosition);
+  }
+
+  return baseAttackRange + anticipatedMovement;
+}
+
+
+
+
