@@ -616,7 +616,6 @@ class AssemblePlan {
           }
           case 'train':
             unitType = planStep[2];
-            // try { await this.train(world, foodTarget, unitType, targetCount); } catch (error) { console.log(error) } break;
             await train(world, unitType, targetCount);
             break;
           case 'swapBuildings':

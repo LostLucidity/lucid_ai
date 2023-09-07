@@ -3066,19 +3066,29 @@ const worldService = {
     if (targetCount === null || checkUnitCount(world, unitTypeId, targetCount)) {
       earmarkNeeded = earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
 
-      const randomTrainer = getRandom(getTrainer(world, unitTypeId));
-      if (canBuild(world, unitTypeId) && randomTrainer) {
-        if (randomTrainer.unitType !== WARPGATE) {
-          if (randomTrainer.isFlying) {
+      const trainers = getTrainer(world, unitTypeId);
+      const safeTrainers = trainers.filter(trainer => {
+        const trainerPosition = trainer.pos;
+        return trainerPosition && worldService.isStrongerAtPosition(world, trainerPosition);
+      });
+
+      const randomSafeTrainer = getRandom(safeTrainers);
+      if (!randomSafeTrainer) {
+        return;
+      }
+
+      if (canBuild(world, unitTypeId) && randomSafeTrainer) {
+        if (randomSafeTrainer.unitType !== WARPGATE) {
+          if (randomSafeTrainer.isFlying) {
             // Land the flying unit before training
-            const landingPosition = checkAddOnPlacement(world, randomTrainer);
+            const landingPosition = checkAddOnPlacement(world, randomSafeTrainer);
             if (landingPosition) {
-              setRepositionLabel(randomTrainer, landingPosition);
-              await sendCommand(Ability.LAND, randomTrainer, landingPosition);
+              setRepositionLabel(randomSafeTrainer, landingPosition);
+              await sendCommand(Ability.LAND, randomSafeTrainer, landingPosition);
               planService.pausePlan = false;
             }
           } else {
-            await sendCommand(abilityId, randomTrainer);
+            await sendCommand(abilityId, randomSafeTrainer);
             unpauseAndLog(world, UnitTypeId[unitTypeId]);
           }
         } else {
