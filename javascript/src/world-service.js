@@ -3014,177 +3014,189 @@ const worldService = {
     }
   },
   /**
-   * @param {World} world 
-   * @param {UnitTypeId} unitTypeId 
-   * @param {number | null} targetCount
+   * Train a unit.
+   * @param {World} world The current game world.
+   * @param {UnitTypeId} unitTypeId Type of the unit to train.
+   * @param {number | null} targetCount Target number of units.
    * @returns {Promise<void>}
    */
   train: async (world, unitTypeId, targetCount = null) => {
-    const { warpIn } = resourceManagerService;
-    const { getPendingOrders, setPendingOrders } = unitService;
-    const { canBuild, checkAddOnPlacement, checkUnitCount, getTrainer, getUnitTypeCount, unpauseAndLog } = worldService;
-    const { reactorTypes, techLabTypes } = groupTypes
-    const { WARPGATE } = UnitType;
-    const { agent, data, resources } = world;
+    const {
+      getPendingOrders, setPendingOrders
+    } = unitService;
+
+    const {
+      isStrongerAtPosition, canBuild, checkAddOnPlacement, checkUnitCount, getTrainer, getUnitTypeCount, unpauseAndLog
+    } = worldService;
+
+    const {
+      agent, data, resources
+    } = world;
+
+    const { reactorTypes, techLabTypes } = groupTypes;
     const { actions, units } = resources.get();
-    // Store the result of getUnitTypeData in a variable
     const unitTypeData = data.getUnitTypeData(unitTypeId);
-    let { abilityId } = unitTypeData; if (abilityId === undefined) return;
+    const { abilityId } = unitTypeData;
 
-    // Check if unit count is less than target count and earmark resources
+    if (abilityId === undefined) return;
     const currentUnitTypeCount = getUnitTypeCount(world, unitTypeId);
-
     let earmarkNeeded = targetCount && currentUnitTypeCount < targetCount;
 
-    // Helper function to create and store unit commands
-    /**
-     * @param {AbilityId} ability
-     * @param {Unit} unit
-     * @param {Point2D | null} targetPos
-     * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand>}
-     */
-    const sendCommand = async (ability, unit, targetPos = null) => {
+    const sendCommand = async (/** @type {number} */ ability, /** @type {Unit} */ unit, /** @type {Point2D | null} */ targetPos = null) => {
       const unitCommand = createUnitCommand(ability, [unit]);
-      if (targetPos) {
-        unitCommand.targetWorldSpacePos = targetPos;
-      }
+      if (targetPos) unitCommand.targetWorldSpacePos = targetPos;
       await actions.sendAction(unitCommand);
       setPendingOrders(unit, unitCommand);
       return unitCommand;
-    }
+    };
 
-    /**
-     * @param {Unit} unit
-     * @param {Point2D} position
-     * @returns {void}
-     */
-    const setRepositionLabel = (unit, position) => {
+    const setRepositionLabel = (/** @type {Unit} */ unit, /** @type {Point2D} */ position) => {
       unit.labels.set('reposition', position);
       console.log('reposition', position);
-    }
+    };
 
-    if (targetCount === null || checkUnitCount(world, unitTypeId, targetCount)) {
-      earmarkNeeded = earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
+    const handleNonWarpgateTrainer = async (/** @type {Unit} */ trainer) => {
+      if (trainer.isFlying) {
+        const landingPosition = checkAddOnPlacement(world, trainer);
+        if (landingPosition) {
+          setRepositionLabel(trainer, landingPosition);
+          await sendCommand(Ability.LAND, trainer, landingPosition);
+        }
+      } else {
+        await sendCommand(abilityId, trainer);
+        unpauseAndLog(world, UnitTypeId[unitTypeId]);
+      }
+    };
 
-      const trainers = getTrainer(world, unitTypeId);
-      const safeTrainers = trainers.filter(trainer => {
-        const trainerPosition = trainer.pos;
-        return trainerPosition && worldService.isStrongerAtPosition(world, trainerPosition);
-      });
+    const selectRandomUnit = (/** @type {Unit[]} */ unitList) => unitList[Math.floor(Math.random() * unitList.length)];
 
-      const randomSafeTrainer = getRandom(safeTrainers);
-      if (!randomSafeTrainer) {
-        return;
+    const handleTechRequirements = (/** @type {Unit} */ unit, /** @type {number} */ techRequirement) => {
+      if (!techRequirement) return;
+
+      const matchingAddOnTypes = techLabTypes.includes(techRequirement)
+        ? techLabTypes
+        : reactorTypes.includes(techRequirement)
+          ? reactorTypes
+          : [techRequirement];
+
+      const techLabUnits = units.getById(matchingAddOnTypes).filter(unit => unit.unitType !== techRequirement);
+
+      if (techLabUnits.length > 0) {
+        const techLab = techLabUnits.reduce((closestTechLab, techLab) => {
+          const techLabPos = techLab.pos;
+          if (!techLabPos) {
+            return closestTechLab;  // return the current closestTechLab if techLabPos is undefined
+          }
+
+          const closestTechLabPos = closestTechLab.pos;
+          if (!closestTechLabPos) {
+            return closestTechLab;  // return the current closestTechLab if closestTechLabPos is undefined
+          }
+
+          if (!unit.pos) {
+            return closestTechLab;  // return the current closestTechLab if unit.pos is undefined
+          }
+
+          return getDistance(techLabPos, unit.pos) < getDistance(closestTechLabPos, unit.pos)
+            ? techLab
+            : closestTechLab;
+        }, techLabUnits[0]);
+
+        if (techLab) {
+          const techLabPosition = techLab.pos;
+          const [currentBuilding] = units.getClosest(getAddOnBuildingPosition(techLabPosition), units.getStructures().filter(structure => structure.addOnTag === techLab.tag && structure.buildProgress === 1));
+
+          if (currentBuilding) {
+            unit.labels.set('reposition', getAddOnBuildingPosition(techLabPosition));
+            const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(techLabPosition), units.getStructures().filter(structure => structure.addOnTag === techLab.tag));
+            if (addOnBuilding) {
+              addOnBuilding.labels.set('reposition', 'lift');
+            }
+          }
+        }
+      }
+    };
+
+    const handleUnitBuilding = (/** @type {Unit} */ unit) => {
+      const { requireAttached, techRequirement } = unitTypeData;
+      if (requireAttached && unit.addOnTag && parseInt(unit.addOnTag) === 0) {
+        if (typeof techRequirement !== 'undefined') {
+          const matchingAddOnTypes = techLabTypes.includes(techRequirement) ? techLabTypes : reactorTypes.includes(techRequirement) ? reactorTypes : [techRequirement];
+          const requiredAddOns = units.getById(matchingAddOnTypes).filter(addOn => {
+            const addOnBuilding = units.getClosest(getAddOnBuildingPosition(addOn.pos), units.getStructures().filter(structure => structure.addOnTag === addOn.tag && structure.buildProgress === 1))[0];
+            return addOnBuilding && addOnBuilding.noQueue && getPendingOrders(addOnBuilding).length === 0;
+          });
+          const addOn = selectRandomUnit(requiredAddOns);
+          if (addOn) {
+            unit.labels.set('reposition', getAddOnBuildingPosition(addOn.pos));
+            const addOnBuilding = units.getClosest(getAddOnBuildingPosition(addOn.pos), units.getStructures().filter(structure => structure.addOnTag === addOn.tag))[0];
+            if (addOnBuilding) {
+              addOnBuilding.labels.set('reposition', 'lift');
+            }
+          }
+        }
       }
 
-      if (canBuild(world, unitTypeId) && randomSafeTrainer) {
+      const unitCommand = createUnitCommand(abilityId, [unit]);
+      setPendingOrders(unit, unitCommand);
+    };
+
+    // Move the logic for determining if a unit can be trained here
+    const canTrainUnit = (/** @type {World} */ world, /** @type {number} */ unitTypeId) => {
+      return targetCount === null || checkUnitCount(world, unitTypeId, targetCount);
+    };
+
+    if (canTrainUnit(world, unitTypeId)) {
+      earmarkNeeded = earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
+      const trainers = getTrainer(world, unitTypeId);
+      const safeTrainers = trainers.filter(trainer => {
+        if (trainer.pos) {
+          return isStrongerAtPosition(world, trainer.pos);
+        }
+        return false;
+      });
+      const randomSafeTrainer = selectRandomUnit(safeTrainers);
+
+      if (randomSafeTrainer && canBuild(world, unitTypeId)) {
         if (randomSafeTrainer.unitType !== WARPGATE) {
-          if (randomSafeTrainer.isFlying) {
-            // Land the flying unit before training
-            const landingPosition = checkAddOnPlacement(world, randomSafeTrainer);
-            if (landingPosition) {
-              setRepositionLabel(randomSafeTrainer, landingPosition);
-              await sendCommand(Ability.LAND, randomSafeTrainer, landingPosition);
-              planService.pausePlan = false;
-            }
-          } else {
-            await sendCommand(abilityId, randomSafeTrainer);
-            unpauseAndLog(world, UnitTypeId[unitTypeId]);
-          }
+          await handleNonWarpgateTrainer(randomSafeTrainer);
         } else {
           unpauseAndLog(world, UnitTypeId[unitTypeId]);
-          await warpIn(resources, this, unitTypeId);
+          await resourceManagerService.warpIn(resources, this, unitTypeId);
         }
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
-        unitTrainingService.selectedTypeToBuild = null;
         earmarkNeeded = true;
-      } else {
-        const unitTypeData = data.getUnitTypeData(unitTypeId);
-        const { requireAttached, techRequirement } = unitTypeData; if (requireAttached === undefined || techRequirement === undefined) return;
+      }
 
-        let canDoTypes = data.findUnitTypesWithAbility(abilityId);
-        const canDoUnits = units.getById(canDoTypes).filter(unit => abilityId && unit.abilityAvailable(abilityId));
+      if (!canBuild(world, unitTypeId)) {
+        const { requireAttached, techRequirement } = unitTypeData;
+        if (requireAttached || techRequirement) {
+          let canDoTypes = data.findUnitTypesWithAbility(abilityId);
+          const canDoUnits = units.getById(canDoTypes).filter(unit => unit.abilityAvailable(abilityId));
+          let unit = selectRandomUnit(canDoUnits);
 
-        const selectRandomUnit = (/** @type {Unit[]} */ unitList) => unitList[Math.floor(Math.random() * unitList.length)];
-
-        let unit = selectRandomUnit(canDoUnits);
-        if (!unit) {
-          if (agent.canAfford(unitTypeId) && techRequirement !== undefined) {
-            const idleUnits = units.getById(canDoTypes).filter(unit => abilityId && unit.isIdle() && unit.buildProgress === 1);
-            unit = selectRandomUnit(idleUnits); if (!unit) return;
-            const { pos } = unit; if (pos === undefined) return;
-
-            // Find a TECHLAB that's currently in use
-            const matchingAddOnTypes = techLabTypes.includes(techRequirement) ? techLabTypes : reactorTypes.includes(techRequirement) ? reactorTypes : [techRequirement];
-            const techLabUnits = units.getById(matchingAddOnTypes).filter(unit => unit.unitType !== techRequirement);
-
-            if (techLabUnits.length > 0) {
-              // Choose a closest TECHLAB
-              const techLab = techLabUnits.reduce((closestTechLab, techLab) => {
-                const { pos: techLabPos } = techLab; if (techLabPos === undefined) return closestTechLab;
-                const { pos: closestTechLabPos } = closestTechLab; if (closestTechLabPos === undefined) return closestTechLab;
-                return getDistance(techLabPos, pos) < getDistance(closestTechLabPos, pos) ? techLab : closestTechLab;
-              }, techLabUnits[0]);
-
-              if (techLab) {
-                // Get the position of the TECHLAB
-                const techLabPosition = techLab.pos;
-                // Get the building the TECHLAB is currently attached to
-                const [currentBuilding] = units.getClosest(getAddOnBuildingPosition(techLabPosition), units.getStructures().filter(structure => structure.addOnTag === techLab.tag && structure.buildProgress === 1));
-
-                if (currentBuilding) {
-                  unit.labels.set('reposition', getAddOnBuildingPosition(techLabPosition));
-                  console.log('reposition', getAddOnBuildingPosition(techLabPosition));
-                  const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(techLabPosition), units.getStructures().filter(structure => structure.addOnTag === techLab.tag));
-                  if (addOnBuilding) {
-                    addOnBuilding.labels.set('reposition', 'lift');
-                    console.log('reposition', 'lift')
-                  }
-                }
-              }
+          if (!unit && agent.canAfford(unitTypeId)) {
+            if (typeof techRequirement === 'number') {
+              handleTechRequirements(unit, techRequirement);
+            } else {
+              // Handle the case where techRequirement is undefined.
+              return; // or provide some default logic
             }
-          } else {
-            // If you can't afford the unit or tech requirement is undefined
-            // Find an idle unit to set the pending order
-            const idleUnits = units.getById(canDoTypes).filter(unit => abilityId && unit.isIdle() && unit.buildProgress === 1);
+          } else if (!unit) {
+            const idleUnits = units.getById(canDoTypes).filter(unit => unit.isIdle() && unit.buildProgress === 1);
             const unitToReserve = selectRandomUnit(idleUnits);
             if (unitToReserve) {
               const unitCommand = createUnitCommand(abilityId, [unitToReserve]);
               setPendingOrders(unitToReserve, unitCommand);
             }
+          } else {
+            handleUnitBuilding(unit);
           }
-        } else {
-          const { addOnTag } = unit; if (addOnTag === undefined) return;
-          if (requireAttached && parseInt(addOnTag) === 0) {
-            // find add on that matches tech requirement, includes those that are already attached
-            const matchingAddOnTypes = techLabTypes.includes(techRequirement) ? techLabTypes : reactorTypes.includes(techRequirement) ? reactorTypes : [techRequirement];
-            // filter, starport lifts instead of building tech lab
-            const requiredAddOns = units.getById(matchingAddOnTypes).filter(addOn => {
-              const { pos } = addOn; if (pos === undefined) return;
-              // get building that add on is attached to
-              const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(pos), units.getStructures().filter(structure => structure.addOnTag === addOn.tag));
-              if (!addOnBuilding) return;
-              // check if building is idle
-              return addOnBuilding.noQueue && getPendingOrders(addOnBuilding).length === 0;
-            });
-            const addOn = selectRandomUnit(requiredAddOns);
-            if (addOn) {
-              unit.labels.set('reposition', getAddOnBuildingPosition(addOn.pos));
-              const [addOnBuilding] = units.getClosest(getAddOnBuildingPosition(addOn.pos), units.getStructures().filter(structure => structure.addOnTag === addOn.tag));
-              if (addOnBuilding) {
-                addOnBuilding.labels.set('reposition', 'lift');
-              }
-            }
-          }
-          const unitCommand = createUnitCommand(abilityId, [unit]);
-          setPendingOrders(unit, unitCommand);
         }
         earmarkNeeded = earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
       }
     }
-
     earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
-
   },
   /**
    * @param {World} world 
