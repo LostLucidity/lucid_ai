@@ -1,9 +1,9 @@
 //@ts-check
 "use strict"
 
-const { WARPGATE, OVERLORD, MINERALFIELD, BARRACKS, GATEWAY, PHOTONCANNON } = require("@node-sc2/core/constants/unit-type");
+const { WARPGATE, OVERLORD, MINERALFIELD, BARRACKS, GATEWAY, PHOTONCANNON, EGG } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { Alliance, Race } = require('@node-sc2/core/constants/enums');
+const { Alliance, Race, Attribute } = require('@node-sc2/core/constants/enums');
 const rallyUnits = require("./rally-units");
 const { WarpUnitAbility, UnitType, Upgrade } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
@@ -47,6 +47,7 @@ const { createUnitCommand } = require("../services/actions-service");
 const { setPendingOrders } = require("../services/unit-service");
 const MapResourceService = require("../systems/map-resource-system/map-resource-service");
 const { requiresPylon } = require("../services/agent-service");
+const { CANCEL_QUEUE5, CANCEL_QUEUE1 } = require("@node-sc2/core/constants/ability");
 
 let ATTACKFOOD = 194;
 
@@ -549,11 +550,27 @@ class AssemblePlan {
   async runPlan(world) {
     const { addEarmark, buildSupplyOrTrain, setFoodUsed, swapBuildings, train } = worldService;
     const { agent, data, resources } = world;
-    const { units } = resources.get();
+    const { actions, units } = resources.get();
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
     if (planService.currentStep > -1) return;
     planService.continueBuild = true;
     planService.pendingFood = 0;
+    // Determine the race
+    const race = agent.race;  // This is assuming your agent object contains the race information.
+
+    // New Logic: Cancel training if stronger enemy is near.
+    const trainers = getTrainingUnits(world, race);
+
+    for (const trainer of trainers) {
+      if (trainer.pos && !worldService.isStrongerAtPosition(world, trainer.pos)) {
+        const cancelCommand = createCancelMorphOrTrainCommand(trainer);
+        if (cancelCommand) {
+          await actions.sendAction(cancelCommand);
+        }
+        continue;  // Skip training command for this trainer
+      }
+    }
+    
     const { legacyPlan } = planService;
     for (let step = 0; step < legacyPlan.length; step++) {
       planService.currentStep = step;
@@ -614,10 +631,12 @@ class AssemblePlan {
             this.scout(world, foodTarget, unitType, targetLocation, conditions);
             break;
           }
-          case 'train':
+          case 'train': {
             unitType = planStep[2];
             await train(world, unitType, targetCount);
             break;
+          }
+
           case 'swapBuildings':
             conditions = planStep[2];
             if (foodUsed >= foodTarget) { await swapBuildings(this.world, conditions); }
@@ -653,7 +672,6 @@ class AssemblePlan {
       planService.pausePlan = false;
     }
   }
-  
 }
 
 module.exports = AssemblePlan;
@@ -723,3 +741,163 @@ function getLegacyPlanTrainingTypes() {
   }, []);
 }
 
+/**
+ * Creates a command to cancel the morphing/training of a unit.
+ * 
+ * @param {SC2APIProtocol.Unit} unit - The unit that is being trained/morphed.
+ * @return {SC2APIProtocol.ActionRawUnitCommand | null} - The command to cancel training/morphing, or null if tag is undefined.
+ */
+function createCancelMorphOrTrainCommand(unit) {
+  if (!unit.tag) {
+    return null;
+  }
+
+  // The ability to cancel might be different based on unit types.
+  // For this example, I'm assuming CANCEL_QUEUE5 is the generic ability ID.
+  let abilityIdToCancel = CANCEL_QUEUE5;
+
+  // Check if the unit is an Egg (morphing Zerg unit). Adjust based on your game API.
+  if (isEgg(unit)) {
+    abilityIdToCancel = CANCEL_QUEUE1; // Adjust this to the appropriate ID in your API.
+  }
+
+  return {
+    abilityId: abilityIdToCancel,
+    unitTags: [unit.tag],
+    queueCommand: false
+  };
+}
+
+/**
+ * Determines if a unit is a morphing Zerg unit.
+ * 
+ * @param {SC2APIProtocol.Unit} unit - The unit to check.
+ * @return {boolean} - True if the unit is a morphing Zerg unit, false otherwise.
+ */
+function isEgg(unit) {
+  return unit.unitType === EGG;
+}
+
+
+/**
+ * Returns units that are Eggs.
+ * @param {World} world - The world state.
+ * @return {Unit[]} An array of Egg units.
+ */
+function getEggUnits(world) {
+  const { resources } = world;
+  const { units } = resources.get();
+  // 1. Fetch all units from the world state.
+  const allUnits = units.getAlive(Alliance.SELF);
+
+  // 2. Filter the units to only get the Eggs.
+  return allUnits.filter(unit => unit.unitType === EGG);
+}
+/**
+ * Retrieves training units based on the given race.
+ * @param {World} world - The game world instance.
+ * @param {SC2APIProtocol.Race | undefined} race - The race of the units.
+ * @returns {Unit[]} - An array of training units.
+ */
+function getTrainingUnits(world, race) {
+  switch (race) {
+    case Race.ZERG:
+      return [...getEggUnits(world), ...getProducingUnits(world)]
+    case Race.PROTOSS:
+      return [...getWarpingUnits(world), ...getProducingUnits(world)];
+    case Race.TERRAN:
+      return getProducingUnits(world);
+    default:
+      throw new Error(`Unsupported race: ${race}`);
+  }
+}
+/**
+ * @param {World} world
+ */
+function getWarpingUnits(world) {
+  const { resources } = world;
+  const { units } = resources.get();
+
+  const warpingUnits = [];
+
+  const allUnits = units.getAlive(Alliance.SELF);
+
+  // Assuming you have a list or a method to check if a unit type is warpable
+  const warpableUnitTypes = [ /* List of unit types that can be warped in, e.g., Zealot, Stalker */];
+
+  for (const unit of allUnits) {
+    if (unit.buildProgress && unit.buildProgress < 1 && warpableUnitTypes.includes(unit.unitType)) {
+      warpingUnits.push(unit);
+    }
+  }
+
+  return warpingUnits;
+}
+/**
+ * Retrieves potential producing structures based on the given race.
+ * @param {World} world - The game world instance.
+ * @param {SC2APIProtocol.Race | undefined} race - The race of the structures.
+ * @returns {Unit[]} - An array of potential producing structures.
+ */
+function getProducingStructures(world, race) {
+  const allAbilityIDs = getAbilityIDsFromActiveOrders(world);
+  const potentialProducingStructures = new Set();
+
+  allAbilityIDs.forEach(abilityId => {
+    const unitTypesWithAbility = world.data.findUnitTypesWithAbility(abilityId);
+    unitTypesWithAbility.forEach(unitTypeId => {
+      const unitData = world.data.getUnitTypeData(unitTypeId);
+      if (unitData.race === race && isProducingStructure(unitData)) {
+        potentialProducingStructures.add(unitTypeId);
+      }
+    });
+  });
+
+  return Array.from(potentialProducingStructures);
+}
+/**
+ * Fetches all unique ability IDs from active orders in the game world.
+ * @param {World} world - The game world instance.
+ * @return {number[]} - An array of ability IDs.
+ */
+function getAbilityIDsFromActiveOrders(world) {
+  const { resources } = world;
+  const { units } = resources.get();
+  const abilitySet = new Set();
+
+  const allUnits = units.getAlive(Alliance.SELF);
+  allUnits.forEach(unit => {
+    (unit.orders || []).forEach(order => {
+      if (order.abilityId !== undefined) {
+        abilitySet.add(order.abilityId);
+      }
+    });
+  });
+
+  return Array.from(abilitySet);
+}
+/**
+ * Retrieves producing units based on the given race.
+ * @param {World} world - The game world instance.
+ * @param {SC2APIProtocol.Race | undefined} race - The race of the units.
+ * @returns {Unit[]} - An array of producing units.
+ */
+function getProducingUnits(world, race) {
+  const producingStructures = getProducingStructures(world, race);
+  const allUnits = world.resources.get().units.getAlive(Alliance.SELF);
+  const producingStructureTypesSet = new Set(producingStructures.map(unit => unit.unitType));
+
+  return allUnits.filter(unit =>
+    unit.unitType && producingStructureTypesSet.has(unit.unitType)
+  );
+}
+/**
+ * Determines if the given unit data corresponds to a producing structure.
+ * @param {SC2APIProtocol.UnitTypeData} unitData - Data about the unit.
+ * @returns {boolean} - True if it's a producing structure, false otherwise.
+ */
+function isProducingStructure(unitData) {
+  return unitData.attributes
+    ? unitData.attributes.includes(Attribute.STRUCTURE)
+    : false;
+}
