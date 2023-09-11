@@ -1956,7 +1956,6 @@ const worldService = {
     const { map, units } = resources.get();
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
-    const randomUnit = getRandom(selfUnits);
     const selfUnitsAttackingInRange = getUnitsAttackingInRange(world, selfUnits);
     selfUnits.forEach(selfUnit => {
       const { pos, radius, tag } = selfUnit; if (pos === undefined || radius === undefined || tag === undefined) return;
@@ -1968,11 +1967,19 @@ const worldService = {
         const attackablePosition = closestAttackableEnemyUnit ? closestAttackableEnemyUnit.pos : null;
         if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
           const { pos: closestAttackableEnemyUnitPos, radius: closestAttackableEnemyUnitRadius, unitType: closestAttackableEnemyUnitType } = closestAttackableEnemyUnit; if (closestAttackableEnemyUnitPos === undefined || closestAttackableEnemyUnitRadius === undefined || closestAttackableEnemyUnitType === undefined) return;
-          const selfDPSHealth = getSelfDPSHealth(world, selfUnit) > closestAttackableEnemyUnit['enemyDPSHealth'] ? getSelfDPSHealth(world, selfUnit) : closestAttackableEnemyUnit['enemyDPSHealth'];
-          if (tag === randomUnit.tag) {
-            logBattleFieldSituation(world, selfUnit, closestAttackableEnemyUnit, selfDPSHealth);
-          }
-          if (getSelfDPSHealth(world, closestAttackableEnemyUnit) > selfDPSHealth) {
+          const engagementDistanceThreshold = 16; // Or whatever distance you choose
+          const relevantSelfUnits = selfUnits.filter(unit => {
+            if (!selfUnit.pos || !unit.pos) return false;
+            return getDistance(unit.pos, selfUnit.pos) <= engagementDistanceThreshold;
+          });
+          const relevantEnemyUnits = enemyUnits.filter(unit => {
+            if (unit.pos && selfUnit.pos) {
+              return getDistance(unit.pos, selfUnit.pos) <= engagementDistanceThreshold;
+            }
+            return false;
+          });
+          const shouldEngageGroup = shouldEngage(world, relevantSelfUnits, relevantEnemyUnits);
+          if (!shouldEngageGroup) {
             if (getMovementSpeed(map, selfUnit) < getMovementSpeed(map, closestAttackableEnemyUnit) && closestAttackableEnemyUnit.unitType !== ADEPTPHASESHIFT) {
               if (selfUnit.isMelee()) {
                 collectedActions.push(...microB(world, selfUnit, closestAttackableEnemyUnit, enemyUnits));
@@ -6780,7 +6787,135 @@ function calculateThreatRange(data, enemyUnit) {
 
   return baseAttackRange + anticipatedMovement;
 }
+/**
+ * Calculates the total DPS of a group of units based on enemy composition.
+ * 
+ * @param {World} world - The game world.
+ * @param {Unit[]} unitsGroup - Array of units whose total DPS needs to be calculated.
+ * @param {Unit[]} enemyUnits - Array of enemy units.
+ * @returns {number} - Total DPS of the group against the provided enemy units.
+ */
+function calculateGroupDPS(world, unitsGroup, enemyUnits) {
+  let totalDPS = 0;
 
+  for (let unit of unitsGroup) {
+    // Check if unitType is defined before proceeding
+    if (unit.unitType !== undefined) {
+      // Fetch the DPS values for each weapon of the unit type
+      const unitDPSArray = getUnitDPS(world, unit.unitType);
 
+      // If the unit has multiple weapons, choose the best one based on enemy composition
+      const bestWeaponDPS = chooseBestWeaponDPS(unitDPSArray, enemyUnits);
 
+      totalDPS += bestWeaponDPS;
+    }
+  }
 
+  return totalDPS;
+}
+/**
+ * Chooses the average of the best weapon's DPS against each enemy unit.
+ * 
+ * @param {import('../interfaces/weapon-dps').WeaponDPS[]} dpsArray - DPS values for each weapon of a unit.
+ * @param {Unit[]} enemyUnits - Array of enemy units.
+ * @returns {number} - Average of the best DPS values against each of the provided enemy units.
+ */
+function chooseBestWeaponDPS(dpsArray, enemyUnits) {
+  let totalBestDPS = 0;
+
+  for (let enemy of enemyUnits) {
+    let bestDPSForEnemy = 0;
+    let targetPreference = enemy.isFlying ? WeaponTargetType.AIR : WeaponTargetType.GROUND;
+
+    for (let dps of dpsArray) {
+      switch (targetPreference) {
+        case WeaponTargetType.AIR:
+          if (dps.type === WeaponTargetType.AIR && dps.dps > bestDPSForEnemy) {
+            bestDPSForEnemy = dps.dps;
+          }
+          break;
+        case WeaponTargetType.GROUND:
+          if (dps.type === WeaponTargetType.GROUND && dps.dps > bestDPSForEnemy) {
+            bestDPSForEnemy = dps.dps;
+          }
+          break;
+        default:
+          if (dps.dps > bestDPSForEnemy) {
+            bestDPSForEnemy = dps.dps;
+          }
+          break;
+      }
+    }
+
+    totalBestDPS += bestDPSForEnemy;
+  }
+
+  return enemyUnits.length > 0 ? totalBestDPS / enemyUnits.length : 0;
+}
+/**
+ * Calculates the Damage Per Second (DPS) for each weapon of a given unit type.
+ * 
+ * @param {World} world - The game world.
+ * @param {number} unitType - The type ID of the unit.
+ * @returns {import('../interfaces/weapon-dps').WeaponDPS[]} - An array of DPS values for each weapon of the unit.
+ */
+function getUnitDPS(world, unitType) {
+  // Fetch unit data
+  const unitData = world.data.getUnitTypeData(unitType);
+
+  // If the unit doesn't exist or doesn't have weapons, return an empty array
+  if (!unitData?.weapons?.length) {
+    return [];
+  }
+
+  // Map each weapon to its DPS
+  const dpsArray = unitData.weapons.map(weapon => {
+    // Using optional chaining to safely access properties
+    const damage = weapon?.damage ?? 0;  // Default to 0 if undefined
+    const speed = weapon?.speed ?? 1;    // Default to 1 if undefined to prevent division by zero
+    const attacks = weapon?.attacks ?? 1; // Default to 1 if undefined
+
+    // Compute DPS considering multiple attacks
+    const dps = speed > 0 ? (damage * attacks) / speed : 0;
+
+    // Generate a descriptor for the weapon
+    const descriptor = `Type: ${weapon.type}, Damage: ${damage}, Range: ${weapon.range}, Speed: ${speed}, Attacks: ${attacks}`;
+
+    return {
+      name: descriptor,
+      dps: dps,
+      type: weapon?.type ?? WeaponTargetType.ANY, // default to ANY if type is undefined
+    };
+  });
+
+  return dpsArray;
+}
+/**
+ * Determines if a group of selfUnits should engage against a group of enemyUnits.
+ * @param {World} world
+ * @param {Unit[]} selfUnits
+ * @param {Unit[]} enemyUnits
+ * @returns {boolean}
+ */
+function shouldEngage(world, selfUnits, enemyUnits) {
+  const selfGroupDPS = calculateGroupDPS(world, selfUnits, enemyUnits);
+  const enemyGroupDPS = calculateGroupDPS(world, enemyUnits, selfUnits);
+  const selfGroupHealthAndShields = calculateGroupHealthAndShields(selfUnits);
+  const enemyGroupHealthAndShields = calculateGroupHealthAndShields(enemyUnits);
+
+  const dpsRatio = selfGroupDPS / enemyGroupDPS;
+  const healthRatio = selfGroupHealthAndShields / enemyGroupHealthAndShields;
+
+  const dpsThreshold = 1.0;
+  const healthThreshold = 1.0;
+
+  return dpsRatio >= dpsThreshold && healthRatio >= healthThreshold;
+}
+/**
+ * Calculate the combined health and shields of a group of units.
+ * @param {Unit[]} units
+ * @returns {number}
+ */
+function calculateGroupHealthAndShields(units) {
+  return units.reduce((total, unit) => total + (unit.health || 0) + (unit.shield || 0), 0);
+}

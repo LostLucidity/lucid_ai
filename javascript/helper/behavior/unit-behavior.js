@@ -643,17 +643,10 @@ function generateWaypoints(map, pos, numWaypoints, bypassDistance, angleToDestin
  * @param {Point2D[]} waypoints
  * @param {Point2D} enemyPos
  * @returns {Point2D | undefined}
- * @throws {Error} When no waypoints are provided
  */
 function selectBestWaypoint(waypoints, enemyPos) {
-  if (waypoints.length === 0) {
-    throw new Error("No waypoints provided");
-  }
-
   return waypoints.sort((a, b) => getDistance(a, enemyPos) - getDistance(b, enemyPos)).pop();
 }
-
-
 /**
  * @param {Unit[]} unitsToExtract
  * @returns {number[]}
