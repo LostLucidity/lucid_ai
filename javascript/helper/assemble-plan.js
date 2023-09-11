@@ -47,7 +47,8 @@ const { createUnitCommand } = require("../services/actions-service");
 const { setPendingOrders } = require("../services/unit-service");
 const MapResourceService = require("../systems/map-resource-system/map-resource-service");
 const { requiresPylon } = require("../services/agent-service");
-const { CANCEL_QUEUE5, CANCEL_QUEUE1 } = require("@node-sc2/core/constants/ability");
+const { CANCEL_QUEUE5, CANCEL_QUEUE1, CANCEL_QUEUECANCELTOSELECTION } = require("@node-sc2/core/constants/ability");
+const dataService = require("../services/data-service");
 
 let ATTACKFOOD = 194;
 
@@ -740,32 +741,31 @@ function getLegacyPlanTrainingTypes() {
     return acc;
   }, []);
 }
-
 /**
  * Creates a command to cancel the morphing/training of a unit.
  * 
- * @param {SC2APIProtocol.Unit} unit - The unit that is being trained/morphed.
+ * @param {Unit} unit - The unit that is being trained/morphed.
  * @return {SC2APIProtocol.ActionRawUnitCommand | null} - The command to cancel training/morphing, or null if tag is undefined.
  */
 function createCancelMorphOrTrainCommand(unit) {
-  if (!unit.tag) {
+  if (!unit.tag || !unit.orders || unit.orders.length === 0) {
     return null;
   }
 
-  // The ability to cancel might be different based on unit types.
-  // For this example, I'm assuming CANCEL_QUEUE5 is the generic ability ID.
-  let abilityIdToCancel = CANCEL_QUEUE5;
+  let potentialCancelAbilities = [CANCEL_QUEUE5, CANCEL_QUEUE1, CANCEL_QUEUECANCELTOSELECTION];
 
-  // Check if the unit is an Egg (morphing Zerg unit). Adjust based on your game API.
-  if (isEgg(unit)) {
-    abilityIdToCancel = CANCEL_QUEUE1; // Adjust this to the appropriate ID in your API.
+  for (let abilityId of potentialCancelAbilities) {
+    if (unit.abilityAvailable(abilityId)) {
+      return {
+        abilityId: abilityId,
+        unitTags: [unit.tag],
+        queueCommand: false
+      };
+    }
   }
 
-  return {
-    abilityId: abilityIdToCancel,
-    unitTags: [unit.tag],
-    queueCommand: false
-  };
+  // If none of the cancel abilities were available for the unit, return null.
+  return null;
 }
 
 /**
@@ -777,8 +777,6 @@ function createCancelMorphOrTrainCommand(unit) {
 function isEgg(unit) {
   return unit.unitType === EGG;
 }
-
-
 /**
  * Returns units that are Eggs.
  * @param {World} world - The world state.
@@ -802,11 +800,11 @@ function getEggUnits(world) {
 function getTrainingUnits(world, race) {
   switch (race) {
     case Race.ZERG:
-      return [...getEggUnits(world), ...getProducingUnits(world)]
+      return [...getEggUnits(world), ...getProducingUnits(world, race)]
     case Race.PROTOSS:
-      return [...getWarpingUnits(world), ...getProducingUnits(world)];
+      return [...getWarpingUnits(world), ...getProducingUnits(world, race)];
     case Race.TERRAN:
-      return getProducingUnits(world);
+      return getProducingUnits(world, race);
     default:
       throw new Error(`Unsupported race: ${race}`);
   }
@@ -840,20 +838,18 @@ function getWarpingUnits(world) {
  * @returns {Unit[]} - An array of potential producing structures.
  */
 function getProducingStructures(world, race) {
-  const allAbilityIDs = getAbilityIDsFromActiveOrders(world);
-  const potentialProducingStructures = new Set();
+  const potentialProducingUnitTypeIds = new Set(
+    getAbilityIDsFromActiveOrders(world)
+      .filter(abilityId => isUnitProducingAbility(abilityId))
+      .flatMap(abilityId => world.data.findUnitTypesWithAbility(abilityId))
+      .filter(unitTypeId => {
+        const unitData = world.data.getUnitTypeData(unitTypeId);
+        return unitData.race === race && isProducingStructure(unitData);
+      })
+  );
 
-  allAbilityIDs.forEach(abilityId => {
-    const unitTypesWithAbility = world.data.findUnitTypesWithAbility(abilityId);
-    unitTypesWithAbility.forEach(unitTypeId => {
-      const unitData = world.data.getUnitTypeData(unitTypeId);
-      if (unitData.race === race && isProducingStructure(unitData)) {
-        potentialProducingStructures.add(unitTypeId);
-      }
-    });
-  });
-
-  return Array.from(potentialProducingStructures);
+  return world.resources.get().units.getAlive(Alliance.SELF)
+    .filter(unit => unit.unitType !== undefined && potentialProducingUnitTypeIds.has(unit.unitType));
 }
 /**
  * Fetches all unique ability IDs from active orders in the game world.
@@ -861,43 +857,43 @@ function getProducingStructures(world, race) {
  * @return {number[]} - An array of ability IDs.
  */
 function getAbilityIDsFromActiveOrders(world) {
-  const { resources } = world;
-  const { units } = resources.get();
   const abilitySet = new Set();
-
-  const allUnits = units.getAlive(Alliance.SELF);
-  allUnits.forEach(unit => {
-    (unit.orders || []).forEach(order => {
-      if (order.abilityId !== undefined) {
-        abilitySet.add(order.abilityId);
-      }
-    });
-  });
-
+  for (const unit of world.resources.get().units.getAlive(Alliance.SELF)) {
+    (unit.orders || []).forEach(order => order.abilityId && abilitySet.add(order.abilityId));
+  }
   return Array.from(abilitySet);
 }
 /**
- * Retrieves producing units based on the given race.
+ * Retrieves units that are currently producing based on the given race.
  * @param {World} world - The game world instance.
- * @param {SC2APIProtocol.Race | undefined} race - The race of the units.
- * @returns {Unit[]} - An array of producing units.
+ * @param {SC2APIProtocol.Race | undefined} race - The race of the structures.
+ * @returns {Unit[]} - An array of units that are currently producing.
  */
 function getProducingUnits(world, race) {
-  const producingStructures = getProducingStructures(world, race);
-  const allUnits = world.resources.get().units.getAlive(Alliance.SELF);
-  const producingStructureTypesSet = new Set(producingStructures.map(unit => unit.unitType));
+  const unitProductionAbilities = getAbilityIDsFromActiveOrders(world)
+    .filter(abilityId => isUnitProducingAbility(abilityId));
 
-  return allUnits.filter(unit =>
-    unit.unitType && producingStructureTypesSet.has(unit.unitType)
-  );
+  return world.resources.get().units.getAlive(Alliance.SELF)
+    .filter(unit =>
+      unit.orders &&
+      unit.orders.some(order => order.abilityId !== undefined && unitProductionAbilities.includes(order.abilityId)) &&
+      unit.data().race === race
+    );
 }
+
 /**
  * Determines if the given unit data corresponds to a producing structure.
  * @param {SC2APIProtocol.UnitTypeData} unitData - Data about the unit.
  * @returns {boolean} - True if it's a producing structure, false otherwise.
  */
 function isProducingStructure(unitData) {
-  return unitData.attributes
-    ? unitData.attributes.includes(Attribute.STRUCTURE)
-    : false;
+  return Boolean(unitData.attributes?.includes(Attribute.STRUCTURE));
+}
+/**
+ * Determines if a given abilityId corresponds to unit production.
+ * @param {number} abilityId - The ability ID to check.
+ * @returns {boolean} - Returns true if the ability is for unit production, false otherwise.
+ */
+function isUnitProducingAbility(abilityId) {
+  return dataService.unitTypeTrainingAbilities.has(abilityId);
 }
