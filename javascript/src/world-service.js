@@ -6212,11 +6212,6 @@ const determineBestRetreatPoint = (world, unit, targetUnit, travelDistancePerSte
   // Return early if positions are undefined.
   if (!pos || !targetPos) return undefined;
 
-  const closestSafePosition = worldService.findClosestSafePosition(world, unit, targetUnit);
-  if (closestSafePosition && distance(pos, closestSafePosition) < travelDistancePerStep) {
-    return closestSafePosition;
-  }
-
   const retreatCandidatePoint = getBestRetreatCandidatePoint(world, unit, targetUnit);
   if (retreatCandidatePoint) return retreatCandidatePoint;
 
@@ -6528,8 +6523,6 @@ function getActionsForMicro(world, unit, targetUnit) {
 
   return [unitCommand];
 }
-
-
 /**
  * @param {World} world
  * @param {Unit} unit
