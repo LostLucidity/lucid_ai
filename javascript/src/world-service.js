@@ -6540,18 +6540,17 @@ function getActionsForNotMicro(world, unit, targetUnit) {
 
   let optimalTarget = null;
   let smallestRemainingHealth = Infinity;  // Initializing to a high value for comparison.
-
   let immediateThreat = null;
 
   for (const enemyUnit of weaponResults.targetableEnemyUnits) {
-    if (isActivelyAttacking(data, enemyUnit, unit)) {  // This is a new method you'd have to implement.
+    if (isActivelyAttacking(data, enemyUnit, unit)) {
       immediateThreat = enemyUnit;
-      break;  // Exit the loop once you've found an active threat.
+      break;  // Exit the loop immediately upon finding an active threat.
     }
     if (!unit.pos || !enemyUnit.pos) continue;
 
     const distance = getDistance(unit.pos, enemyUnit.pos);
-    if (distance >= 16) continue;
+    if (distance >= 16) continue;  // This hardcoded value might need to be adjusted based on weapon range.
 
     const computation = computeTimeToKillWithMovement(world, unit, enemyUnit);
     if (!computation?.tag) continue;
@@ -6562,18 +6561,17 @@ function getActionsForNotMicro(world, unit, targetUnit) {
     // Calculate the amount of health the enemyUnit would have left after the attack.
     const remainingHealthAfterAttack = (enemyUnit.health ?? 0) - potentialDamage;
 
-    // If this remaining health is lower than our previously calculated smallest health and is greater than or equal to 0 (to avoid overkilling), then update our optimal target.
+    // Update the optimal target.
     if (remainingHealthAfterAttack < smallestRemainingHealth && remainingHealthAfterAttack >= 0) {
       smallestRemainingHealth = remainingHealthAfterAttack;
       optimalTarget = enemyUnit;
     }
   }
 
-  if (immediateThreat) {
-    // Prioritize the immediate threat.
-    optimalTarget = immediateThreat;
-  }
+  // Prioritize the immediate threat.
+  if (immediateThreat) optimalTarget = immediateThreat;
 
+  // Ensure optimalTarget has valid unitType.
   if (!optimalTarget || typeof optimalTarget.unitType !== 'number') return [];
 
   if (typeof unit.unitType === 'number' && unit.alliance) {
@@ -6583,13 +6581,10 @@ function getActionsForNotMicro(world, unit, targetUnit) {
       unitCommand.targetUnitTag = optimalTarget.tag;
       return [unitCommand];
     }
-  } else {
-    console.warn('unit.unitType, unit.alliance, or optimalTarget.unitType is undefined or not a number.');
   }
 
   return [];
 }
-
 /**
  * Checks if the provided unit has all necessary data properties.
  * 
