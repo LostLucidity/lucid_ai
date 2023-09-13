@@ -227,12 +227,12 @@ const worldService = {
     dataService.earmarks.push(earmark);
   },
   /**
- * @param {World} world 
- * @param {UnitTypeId} unitType 
- * @param {Point2D} position
- * @param {Boolean} getMiddle
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
+   * @param {World} world 
+   * @param {UnitTypeId} unitType 
+   * @param {Point2D} position
+   * @param {Boolean} getMiddle
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   */
   assignAndSendWorkerToBuild: (world, unitType, position, getMiddle = true) => {
     const { setPendingOrders } = unitService;
     const { agent, data, resources } = world;
@@ -1852,6 +1852,16 @@ const worldService = {
         }
       }
     }
+  },
+  /**
+  * Halts the current task of the worker.
+  * @param {World} world - The current state of the world.
+  * @param {Unit} worker - The worker unit whose current task needs to be halted.
+  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+  */
+  haltWorker: (world, worker) => {
+    // Assuming stop function returns an array of commands, directly return it.
+    return worldService.stop([worker]);
   },
   /**
    * @param {World} world 

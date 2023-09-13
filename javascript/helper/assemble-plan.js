@@ -49,6 +49,7 @@ const MapResourceService = require("../systems/map-resource-system/map-resource-
 const { requiresPylon } = require("../services/agent-service");
 const { CANCEL_QUEUE5, CANCEL_QUEUE1, CANCEL_QUEUECANCELTOSELECTION } = require("@node-sc2/core/constants/ability");
 const dataService = require("../services/data-service");
+const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 
 let ATTACKFOOD = 194;
 
@@ -571,6 +572,15 @@ class AssemblePlan {
         continue;  // Skip training command for this trainer
       }
     }
+
+    // Before processing the plan, optimize worker assignments for all workers with build orders:
+    const optimizationCommands = [];
+
+    const workersWithBuildOrders = units.getWorkers().filter(worker => worker.isConstructing());
+    workersWithBuildOrders.forEach(worker => {
+      const commandsFromOptimization = optimizeWorkerAssignments(world, worker);
+      optimizationCommands.push(...commandsFromOptimization);
+    });
     
     const { legacyPlan } = planService;
     for (let step = 0; step < legacyPlan.length; step++) {
@@ -671,6 +681,11 @@ class AssemblePlan {
     planService.currentStep = -1;
     if (!planService.pausedThisRound) {
       planService.pausePlan = false;
+    }
+
+    // At the end of your runPlan logic:
+    if (optimizationCommands.length) {
+      await actions.sendAction(optimizationCommands);
     }
   }
 }
@@ -896,4 +911,83 @@ function isProducingStructure(unitData) {
  */
 function isUnitProducingAbility(abilityId) {
   return dataService.unitTypeTrainingAbilities.has(abilityId);
+}
+/**
+ * Optimizes the assignment of workers to their respective building tasks.
+ * @param {World} world - The current state of the world.
+ * @param {Unit} constructingWorker - The worker unit whose assignment is to be optimized.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The commands to be sent to the game engine.
+ */
+function optimizeWorkerAssignments(world, constructingWorker) {
+  const { units } = world.resources.get();
+  const position = constructingWorker.orders?.[0]?.targetWorldSpacePos;
+
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+  const commands = [];
+
+  if (!position) return commands;
+
+  const workersAssignedToPosition = units.getWorkers().filter(worker =>
+    worker.isConstructing() && worker.orders && worker.orders[0]?.targetWorldSpacePos === position
+  );
+
+  workersAssignedToPosition.forEach(worker => {
+    const { orders, pos } = worker;
+    const abilityId = orders?.[0]?.abilityId;
+
+    if (!orders?.length || !pos || !abilityId) return;
+
+    const buildPosition = orders[0].targetWorldSpacePos;
+    if (!buildPosition) return;
+
+    const workerDistance = resourceManagerService.getDistanceByPath(world.resources, pos, buildPosition);
+    const allAvailableWorkers = units.getWorkers().filter(worker => {
+      return !worker.isConstructing() &&
+        !worker.isReturning() &&
+        !unitResourceService.isMining(units, worker);
+    });
+
+    const closerWorker = allAvailableWorkers.find(availableWorker => {
+      if (!availableWorker.pos) return false;
+      const distance = resourceManagerService.getDistanceByPath(world.resources, availableWorker.pos, buildPosition);
+      return distance < workerDistance;
+    });
+
+    const unitType = dataService.unitTypeTrainingAbilities.get(abilityId);
+    if (!unitType) return;
+
+    if (closerWorker) {
+      if (!isWorkerMovingToCorrectPosition(worker, buildPosition)) {
+        worldService.premoveBuilderToPosition(world, buildPosition, unitType);
+
+        // Halt the original worker's build task and store the command
+        commands.push(...worldService.haltWorker(world, worker));
+      }
+    } else if (!isWorkerMovingToCorrectPosition(worker, buildPosition)) {
+      worldService.premoveBuilderToPosition(world, buildPosition, unitType);
+    }
+  });
+
+  return commands;  // Ensure that an array is always returned
+}
+/**
+ * Checks if a worker is already moving to the correct build position.
+ *
+ * @param {Unit} worker - The worker unit being checked.
+ * @param {SC2APIProtocol.Point} buildPosition - The target build position to check against.
+ * @returns {boolean} - True if the worker is moving to the correct position, false otherwise.
+ */
+function isWorkerMovingToCorrectPosition(worker, buildPosition) {
+  // Check if worker has orders and if any of those orders have the target build position.
+  return !!(worker.orders && worker.orders.some(order => order.targetWorldSpacePos && areEqual(order.targetWorldSpacePos, buildPosition)));
+}
+/**
+ * Compares two positions for equality.
+ *
+ * @param {SC2APIProtocol.Point} pos1 - The first position.
+ * @param {SC2APIProtocol.Point} pos2 - The second position.
+ * @returns {boolean} - True if the positions are equal, false otherwise.
+ */
+function areEqual(pos1, pos2) {
+  return pos1.x === pos2.x && pos1.y === pos2.y;
 }
