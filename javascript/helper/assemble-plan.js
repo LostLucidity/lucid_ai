@@ -47,7 +47,7 @@ const { createUnitCommand } = require("../services/actions-service");
 const { setPendingOrders } = require("../services/unit-service");
 const MapResourceService = require("../systems/map-resource-system/map-resource-service");
 const { requiresPylon } = require("../services/agent-service");
-const { CANCEL_QUEUE5, CANCEL_QUEUE1, CANCEL_QUEUECANCELTOSELECTION } = require("@node-sc2/core/constants/ability");
+const { CANCEL_QUEUE5, CANCEL_QUEUE1, CANCEL_QUEUECANCELTOSELECTION, CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
 const dataService = require("../services/data-service");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 
@@ -108,6 +108,24 @@ class AssemblePlan {
       const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
       if (!worldService.outpowered || selfCombatSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
     }
+    // Check structures that are almost done. 
+    const structuresAlmostDone = this.units.getStructures().filter(structure =>
+      structure.buildProgress && structure.buildProgress > 0.9 && structure.buildProgress < 1
+    );
+
+    for (let structure of structuresAlmostDone) {
+      if (structure.pos && !worldService.isStrongerAtPosition(world, structure.pos)) {
+        if (structure.availableAbilities().includes(CANCEL_BUILDINPROGRESS)) {
+          /** @type {SC2APIProtocol.ActionRawUnitCommand} */
+          const cancelAction = {
+            abilityId: CANCEL_BUILDINPROGRESS,
+            targetUnitTag: structure.tag,
+          };
+          this.collectedActions.push(cancelAction);
+        }
+      }
+    }
+
     if (getFoodUsed() >= 132 && !shortOnWorkers(world)) { this.collectedActions.push(...await expand(world)); }
     this.checkEnemyBuild();
     let completedBases = this.units.getBases().filter(base => base.buildProgress >= 1);
