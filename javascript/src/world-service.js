@@ -3224,19 +3224,34 @@ const worldService = {
   trainSync: (world, unitTypeId, targetCount = null) => {
     const { warpInSync } = resourceManagerService;
     const { setPendingOrders } = unitService;
-    const { addEarmark, canBuild, checkUnitCount, getTrainer, unpauseAndLog } = worldService;
+    const { addEarmark, canBuild, checkUnitCount, getTrainer, unpauseAndLog, isStrongerAtPosition } = worldService;
     const { WARPGATE } = UnitType;
     const { data } = world;
     const collectedActions = [];
-    let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return collectedActions;
+
+    let { abilityId } = data.getUnitTypeData(unitTypeId);
+    if (abilityId === undefined) return collectedActions;
+
     if (checkUnitCount(world, unitTypeId, targetCount) || targetCount === null) {
-      const randomTrainer = getRandom(getTrainer(world, unitTypeId));
-      if (randomTrainer) {
-        if (canBuild(world, unitTypeId) && randomTrainer) {
-          if (randomTrainer.unitType !== WARPGATE) {
-            const unitCommand = createUnitCommand(abilityId, [randomTrainer]);
+      const trainers = getTrainer(world, unitTypeId);
+
+      // Filter trainers based on strength at their position.
+      const safeTrainers = trainers.filter(trainer => {
+        if (trainer.pos) {
+          return isStrongerAtPosition(world, trainer.pos);
+        }
+        return false;
+      });
+
+      // Use a random safe trainer instead of any random trainer.
+      const randomSafeTrainer = getRandom(safeTrainers);
+
+      if (randomSafeTrainer) {
+        if (canBuild(world, unitTypeId) && randomSafeTrainer) {
+          if (randomSafeTrainer.unitType !== WARPGATE) {
+            const unitCommand = createUnitCommand(abilityId, [randomSafeTrainer]);
             collectedActions.push(unitCommand);
-            setPendingOrders(randomTrainer, unitCommand);
+            setPendingOrders(randomSafeTrainer, unitCommand);
             unpauseAndLog(world, UnitTypeId[unitTypeId]);
           } else {
             collectedActions.push(...warpInSync(world, unitTypeId));
