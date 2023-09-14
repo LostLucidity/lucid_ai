@@ -17,8 +17,9 @@ const { getFileName } = require("../helper/get-races");
 const { larvaOrEgg } = require("../helper/groups");
 const { readFromMatchup, writeToCurrent } = require("../filesystem");
 const { getCombatPoint} = require("../services/resources-service");
-const { retreat, getClosestUnitByPath, getCombatRally } = require("../services/resource-manager-service");
+const { getClosestUnitByPath, getCombatRally } = require("../services/resource-manager-service");
 const { moveAwayPosition } = require("../services/position-service");
+const { retreat } = require("../src/world-service");
 
 module.exports = createSystem({
   name: 'BattleManagerSystem',
@@ -96,7 +97,7 @@ module.exports = createSystem({
                     if (isFlying) {
                       targetWorldSpacePos = moveAwayPosition(map, closestEnemyUnit.pos, selfUnit.pos);
                     } else {
-                      targetWorldSpacePos = retreat(world, selfUnit, closestEnemyUnit);
+                      targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyUnit]);
                     }
                     if (targetWorldSpacePos) {
                       const unitCommand = {

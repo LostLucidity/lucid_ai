@@ -41,7 +41,7 @@ module.exports = createSystem({
     if (damagedUnit.labels.get('scoutEnemyMain') || damagedUnit.labels.get('scoutEnemyNatural')) {
       const [closestEnemyUnit] = units.getClosest(pos, enemyTrackingService.enemyUnits);
       const unitCommand = createUnitCommand(MOVE, [damagedUnit]);
-      unitCommand.targetWorldSpacePos = retreat(world, damagedUnit, closestEnemyUnit, false);
+      unitCommand.targetWorldSpacePos = retreat(world, damagedUnit, [closestEnemyUnit], false);
       collectedActions.push(unitCommand);
     }
     collectedActions.length && actions.sendAction(collectedActions);
