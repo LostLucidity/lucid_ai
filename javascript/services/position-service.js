@@ -9,6 +9,24 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const positionService = {
   /**
+   * Clamps a point to be within specified bounds.
+   * @param {Point2D} point The point to clamp.
+   * @param {number} minX The minimum allowable x value.
+   * @param {number} maxX The maximum allowable x value.
+   * @param {number} minY The minimum allowable y value.
+   * @param {number} maxY The maximum allowable y value.
+   * @returns {Point2D} The clamped point.
+   */
+  clampPointToBounds(point, minX, maxX, minY, maxY) {
+    const x = point.x ?? 0;  // Using the nullish coalescing operator to provide a default value
+    const y = point.y ?? 0;
+
+    return {
+      x: Math.min(Math.max(x, minX), maxX),
+      y: Math.min(Math.max(y, minY), maxY)
+    };
+  },
+  /**
    * @param {Point2D[]} points
    * @param {number} eps
    * @param {number} minPts
@@ -132,6 +150,49 @@ const positionService = {
     return clusters;
   },
   /**
+ * Find a nearby pathable point by adjusting the angle.
+ * @param {MapResource} map
+ * @param {Point2D} position
+ * @param {number} oppositeAngle
+ * @param {number} distance
+ * @returns {Point2D | undefined}
+ */
+  findPathablePointByAngleAdjustment(map, position, oppositeAngle, distance) {
+    const MAX_ADJUSTMENT_ANGLE = 90;  // Limit to how much we adjust the angle
+    const ANGLE_INCREMENT = 10;       // Angle step
+
+    // Handle the potential for undefined x and y values by providing defaults
+    const x = position.x ?? 0;
+    const y = position.y ?? 0;
+
+    for (let i = ANGLE_INCREMENT; i <= MAX_ADJUSTMENT_ANGLE; i += ANGLE_INCREMENT) {
+      // Check counter-clockwise
+      let adjustedAngle1 = (oppositeAngle - i + 360) % 360;
+      let point1 = {
+        x: Math.cos(adjustedAngle1 * Math.PI / 180) * distance + x,
+        y: Math.sin(adjustedAngle1 * Math.PI / 180) * distance + y
+      };
+
+      if (map.isPathable(point1)) {
+        return point1;
+      }
+
+      // Check clockwise
+      let adjustedAngle2 = (oppositeAngle + i) % 360;
+      let point2 = {
+        x: Math.cos(adjustedAngle2 * Math.PI / 180) * distance + x,
+        y: Math.sin(adjustedAngle2 * Math.PI / 180) * distance + y
+      };
+
+      if (map.isPathable(point2)) {
+        return point2;
+      }
+    }
+
+    // No pathable point found within max adjustments
+    return undefined;
+  },
+  /**
    * @param {Point2D} pos
    * @param {Number} radius
    * @returns {Point2D[]}
@@ -244,79 +305,15 @@ const positionService = {
       return;  // or throw an exception, or handle in another way that fits your logic
     }
 
-    const clampedPoint = clampPointToBounds(awayPoint, 0, mapWidth, 0, mapHeight);
+    const clampedPoint = positionService.clampPointToBounds(awayPoint, 0, mapWidth, 0, mapHeight);
 
     // Skip pathability check for flying units
     if (isFlyingUnit) {
       return clampedPoint;
     }
 
-    return map.isPathable(clampedPoint) ? clampedPoint : findPathablePointByAngleAdjustment(map, position, oppositeAngle, distance);
+    return map.isPathable(clampedPoint) ? clampedPoint : positionService.findPathablePointByAngleAdjustment(map, position, oppositeAngle, distance);
   }
 }
 
 module.exports = positionService;
-
-/**
- * Clamps a point to be within specified bounds.
- * @param {Point2D} point The point to clamp.
- * @param {number} minX The minimum allowable x value.
- * @param {number} maxX The maximum allowable x value.
- * @param {number} minY The minimum allowable y value.
- * @param {number} maxY The maximum allowable y value.
- * @returns {Point2D} The clamped point.
- */
-function clampPointToBounds(point, minX, maxX, minY, maxY) {
-  const x = point.x ?? 0;  // Using the nullish coalescing operator to provide a default value
-  const y = point.y ?? 0;
-
-  return {
-    x: Math.min(Math.max(x, minX), maxX),
-    y: Math.min(Math.max(y, minY), maxY)
-  };
-}
-
-/**
- * Find a nearby pathable point by adjusting the angle.
- * @param {MapResource} map
- * @param {Point2D} position
- * @param {number} oppositeAngle
- * @param {number} distance
- * @returns {Point2D | undefined}
- */
-function findPathablePointByAngleAdjustment(map, position, oppositeAngle, distance) {
-  const MAX_ADJUSTMENT_ANGLE = 90;  // Limit to how much we adjust the angle
-  const ANGLE_INCREMENT = 10;       // Angle step
-
-  // Handle the potential for undefined x and y values by providing defaults
-  const x = position.x ?? 0;
-  const y = position.y ?? 0;
-
-  for (let i = ANGLE_INCREMENT; i <= MAX_ADJUSTMENT_ANGLE; i += ANGLE_INCREMENT) {
-    // Check counter-clockwise
-    let adjustedAngle1 = (oppositeAngle - i + 360) % 360;
-    let point1 = {
-      x: Math.cos(adjustedAngle1 * Math.PI / 180) * distance + x,
-      y: Math.sin(adjustedAngle1 * Math.PI / 180) * distance + y
-    };
-
-    if (map.isPathable(point1)) {
-      return point1;
-    }
-
-    // Check clockwise
-    let adjustedAngle2 = (oppositeAngle + i) % 360;
-    let point2 = {
-      x: Math.cos(adjustedAngle2 * Math.PI / 180) * distance + x,
-      y: Math.sin(adjustedAngle2 * Math.PI / 180) * distance + y
-    };
-
-    if (map.isPathable(point2)) {
-      return point2;
-    }
-  }
-
-  // No pathable point found within max adjustments
-  return null;
-}
-

@@ -58,6 +58,7 @@ const resourcesService = require('../services/resources-service');
 const groupTypes = require('@node-sc2/core/constants/groups');
 const unitService = require('../services/unit-service');
 const { getDamageForTag } = require('../modules/damageManager');
+const positionService = require('../services/position-service');
 
 const worldService = {
   availableProductionUnits: new Map(),
@@ -1999,7 +2000,7 @@ const worldService = {
                   collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
                 } else {
                   const unitCommand = createUnitCommand(MOVE, [selfUnit]);
-                  unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestAttackableEnemyUnit);
+                  unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestAttackableEnemyUnit]);
                   collectedActions.push(unitCommand);
                 }
               }
@@ -2054,7 +2055,7 @@ const worldService = {
                             collectedActions.push(...microRangedUnit(world, selfUnit, closestEnemyRange));
                           } else {
                             // If ally units are in the path, set the target world space position to retreat
-                            unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestEnemyRange || closestAttackableEnemyUnit);
+                            unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange] || [closestAttackableEnemyUnit]);
                             unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
                               setPendingOrders(unit, unitCommand);
                               return unit.tag;
@@ -2065,7 +2066,7 @@ const worldService = {
                         return;
                       } else {
                         // retreat if buffer distance is greater than actual distance
-                        unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestEnemyRange || closestAttackableEnemyUnit);
+                        unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange] || [closestAttackableEnemyUnit]);
                         unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
                           setPendingOrders(unit, unitCommand);
                           return unit.tag;
@@ -2078,7 +2079,7 @@ const worldService = {
                     }
                   } else {
                     // retreat if melee
-                    unitCommand.targetWorldSpacePos = retreat(world, selfUnit, closestEnemyRange || closestAttackableEnemyUnit);
+                    unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange] || [closestAttackableEnemyUnit]);
                   }
                 } else {
                   // skip action if pending orders
@@ -2737,26 +2738,40 @@ const worldService = {
   /**
    * @param {World} world 
    * @param {Unit} unit 
-   * @param {Unit} targetUnit 
+   * @param {Unit[]} targetUnits 
    * @returns {Point2D|undefined}
    */
-  retreat: (world, unit, targetUnit, toCombatRally = true) => {
+  retreat: (world, unit, targetUnits = [], toCombatRally = true) => {
     const { data, resources } = world;
     const { map } = resources.get();
     const { pos } = unit;
-    const { pos: targetPos, unitType: targetUnitType } = targetUnit;
 
     // Early return conditions
-    if (!pos || !targetPos || !targetUnitType) return;
+    if (!pos || targetUnits.length === 0) return;
+
+    const threats = targetUnits.reduce((/** @type {{ unit: Unit, weapon: SC2APIProtocol.Weapon | undefined, attackRange: number | undefined }[]} */ acc, target) => {
+      if (target.unitType !== undefined) {
+        const weapon = unitService.getWeaponThatCanAttack(data, target.unitType, unit);
+        const attackRange = weapon?.range;
+        acc.push({
+          unit: target,
+          weapon,
+          attackRange
+        });
+      }
+      return acc;
+    }, []);
 
     const travelDistancePerStep = 2 * getTravelDistancePerStep(map, unit);
-    const weapon = unitService.getWeaponThatCanAttack(data, targetUnitType, unit);
-    const attackRange = weapon?.range;
+    // Sort threats based on a certain criteria, for this example, based on attack range, descending.
+    const sortedThreats = threats.sort((a, b) => (b.attackRange || 0) - (a.attackRange || 0));
 
-    if (weapon === undefined || attackRange === undefined) return;
+    const primaryThreat = sortedThreats[0];
 
-    if (shouldRetreatToCombatRally(world, unit, targetUnit, toCombatRally, travelDistancePerStep)) {
-        return resourceManagerService.getCombatRally(resources);
+    if (primaryThreat.weapon === undefined || primaryThreat.attackRange === undefined) return;
+
+    if (shouldRetreatToCombatRally(world, unit, primaryThreat.unit, toCombatRally, travelDistancePerStep)) {
+      return resourceManagerService.getCombatRally(resources);
     }
 
     if (shouldRetreatToBunker(resources, pos)) {
@@ -2764,7 +2779,17 @@ const worldService = {
       return bunkerPosition !== null ? bunkerPosition : undefined;
     }
 
-    return determineBestRetreatPoint(world, unit, targetUnit, travelDistancePerStep);
+    if (targetUnits.length > 1) {
+      const targetPositions = targetUnits.reduce((/** @type {Point2D[]} */ acc, t) => {
+        if (t.pos) {
+          acc.push(t.pos);
+        }
+        return acc;
+      }, []);
+      return moveAwayFromMultiplePositions(map, targetPositions, pos);
+    } else if (targetUnits.length === 1) {
+      return determineBestRetreatPoint(world, unit, targetUnits[0], travelDistancePerStep);
+    }
   },
   /**
    * @param {World} world 
@@ -6936,4 +6961,51 @@ function shouldEngage(world, selfUnits, enemyUnits) {
  */
 function calculateGroupHealthAndShields(units) {
   return units.reduce((total, unit) => total + (unit.health || 0) + (unit.shield || 0), 0);
+}
+
+/**
+ * Return position away from multiple target positions.
+ * @param {MapResource} map
+ * @param {Point2D[]} targetPositions 
+ * @param {Point2D} position 
+ * @param {number} distance 
+ * @param {boolean} isFlyingUnit 
+ * @returns {Point2D | undefined}
+ */
+function moveAwayFromMultiplePositions(map, targetPositions, position, distance = 2, isFlyingUnit = false) {
+  if (targetPositions.length === 0 || position.x === undefined || position.y === undefined) return;
+
+  // Calculate the average threat direction
+  let avgDX = 0;
+  let avgDY = 0;
+  for (const target of targetPositions) {
+    if (target.x !== undefined && target.y !== undefined) {
+      avgDX += target.x - position.x;
+      avgDY += target.y - position.y;
+    }
+  }
+  avgDX /= targetPositions.length;
+  avgDY /= targetPositions.length;
+
+  // Compute the point moving away from the threat direction
+  const awayPoint = {
+    x: position.x - avgDX * distance,
+    y: position.y - avgDY * distance
+  };
+
+  const { x: mapWidth, y: mapHeight } = map.getSize();
+
+  if (typeof mapWidth === 'undefined' || typeof mapHeight === 'undefined') {
+    console.error("Map dimensions are undefined");
+    return;
+  }
+
+  const clampedPoint = positionService.clampPointToBounds(awayPoint, 0, mapWidth, 0, mapHeight);
+
+  // Skip pathability check for flying units
+  if (isFlyingUnit) {
+    return clampedPoint;
+  }
+
+  return map.isPathable(clampedPoint) ? clampedPoint : positionService.findPathablePointByAngleAdjustment(map, position, avgDX, avgDY, distance);
 }

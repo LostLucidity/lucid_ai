@@ -694,7 +694,7 @@ function handleCloseProximityActions(world, worker, enemyUnits, workers, collect
   const inRangeCombatUnitsOfEnemyDPSHealth = calculateNearDPSHealth(world, inRangeUnitsOfClosestEnemy, selfCombatRallyUnitTypes);
 
   const shouldRallyToCombatRally = selfCombatRallyDPSHealth > inRangeCombatUnitsOfEnemyDPSHealth;
-  const targetPosition = retreat(world, worker, closestEnemies[0], shouldRallyToCombatRally);
+  const targetPosition = retreat(world, worker, closestEnemies, shouldRallyToCombatRally);
 
   /** @type {SC2APIProtocol.ActionRawUnitCommand} */
   const unitCommand = {

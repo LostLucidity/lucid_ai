@@ -62,62 +62,37 @@ module.exports = {
     return collectedActions;
   },
   /**
-   * 
-   * @param {World} world 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   * Directs a unit to clear from enemies, making sure it doesn't run into other threats.
+   *
+   * @param {World} world - The game world containing all data and resources.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - Array of actions for units to execute.
    */
   clearFromEnemyBehavior: (world) => {
     const { resources } = world;
-    const { map, units } = resources.get();
+    const { units } = resources.get();
     const label = 'clearFromEnemy';
     const collectedActions = [];
     const combatRallyPosition = getCombatRally(resources);
+
+    // Find the unit with the specified label
     const [unit] = units.withLabel(label);
-    if (unit) {
-      const { pos } = unit;
-      if (pos === undefined) return [];
-      let [closestEnemyUnit] = units.getClosest(unit.pos, getThreateningUnits(world, unit));
-      if (
-        !closestEnemyUnit ||
-        distance(unit.pos, combatRallyPosition) < 2
-      ) {
-        unit.labels.clear();
-        console.log('clear!');
-        collectedActions.push(...gatherOrMine(resources, unit));
-      } else {
-        const [closestSelfUnit] = units.getClosest(combatRallyPosition, units.getAlive(Alliance.SELF).filter(unit => distance(unit.pos, combatRallyPosition) <= 16));
-        if (closestSelfUnit && (closestSelfUnit['selfDPSHealth'] > closestEnemyUnit['selfDPSHealth'])) {
-          collectedActions.push({
-            abilityId: MOVE,
-            targetWorldSpacePos: combatRallyPosition,
-            unitTags: [unit.tag],
-          });
-        } else {
-          const unitCommand = createUnitCommand(MOVE, [unit]);
-          const distanceEnemyToRally = getDistanceByPath(resources, closestEnemyUnit.pos, combatRallyPosition);
-          const distanceToRally = getDistanceByPath(resources, pos, combatRallyPosition);
-          const enemyOutOfRangeButCloserToRally = (
-            distanceEnemyToRally > 16 &&
-            distanceToRally >= distanceEnemyToRally
-          );
-          if (enemyOutOfRangeButCloserToRally) {
-            unitCommand.targetWorldSpacePos = retreat(world, unit, closestEnemyUnit, false);
-            const [closestPathablePosition] = getClosestPositionByPath(resources, pos, getPathablePositions(map, unitCommand.targetWorldSpacePos));
-            console.log('retreat!', unitCommand.targetWorldSpacePos, getDistanceByPath(resources, pos, closestPathablePosition));
-          } else {
-            const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, getCombatRally(resources));
-            // @ts-ignore
-            closestEnemyUnit['inRangeUnits'] = closestEnemyUnit['inRangeUnits'] || getUnitsInRangeOfPosition(world, closestEnemyUnit.pos);
-            const selfCombatRallyDPSHealth = calculateNearDPSHealth(world, selfCombatRallyUnits, closestEnemyUnit['inRangeUnits'].map((/** @type {{ Unit: any }} */ unit) => unit.unitType));
-            // @ts-ignore
-            const inRangeCombatUnitsOfEnemyDPSHealth = calculateNearDPSHealth(world, closestEnemyUnit['inRangeUnits'], selfCombatRallyUnits.map(unit => unit.unitType));
-            const shouldRallyToCombatRally = selfCombatRallyDPSHealth > inRangeCombatUnitsOfEnemyDPSHealth; 
-            unitCommand.targetWorldSpacePos = retreat(world, unit, closestEnemyUnit, shouldRallyToCombatRally);
-            const [closestPathablePosition] = getClosestPositionByPath(resources, pos, getPathablePositions(map, unitCommand.targetWorldSpacePos));
-            console.log('rally!', shouldRallyToCombatRally, unitCommand.targetWorldSpacePos, getDistanceByPath(resources, pos, closestPathablePosition));
-          }
-          collectedActions.push(unitCommand);
-        }
+
+    if (!unit || !unit.pos) return [];
+
+    const threateningUnits = getThreateningUnits(world, unit);
+    const [closestEnemyUnit] = units.getClosest(unit.pos, threateningUnits);
+
+    if (!closestEnemyUnit || distance(unit.pos, combatRallyPosition) < 2) {
+      unit.labels.clear();
+      console.log('clear!');
+      collectedActions.push(...gatherOrMine(resources, unit));
+    } else {
+      const retreatPosition = retreat(world, unit, threateningUnits, true);
+
+      if (retreatPosition) {
+        const action = createUnitCommand(MOVE, [unit]);
+        action.targetWorldSpacePos = retreatPosition;
+        collectedActions.push(action);
       }
     }
     return collectedActions;
@@ -432,7 +407,7 @@ function handleThreateningUnits(world, scoutUnit, threateningUnits, closestThrea
     collectedActions.push({
       abilityId: MOVE,
       unitTags: [tag],
-      targetWorldSpacePos: farthestEmptyExpansionCloserToUnit ? farthestEmptyExpansionCloserToUnit.centroid : retreat(world, scoutUnit, closestThreateningUnit, false),
+      targetWorldSpacePos: farthestEmptyExpansionCloserToUnit ? farthestEmptyExpansionCloserToUnit.centroid : retreat(world, scoutUnit, [closestThreateningUnit], false),
     });
   }
 

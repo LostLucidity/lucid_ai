@@ -99,7 +99,7 @@ const armyManagementService = {
             if (isFlying) {
               targetWorldSpacePos = moveAwayPosition(map, closestEnemyUnit, selfUnit);
             } else {
-              targetWorldSpacePos = retreat(world, selfUnit, closestEnemyUnit);
+              targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyUnit]);
             }
             if (targetWorldSpacePos) {
               const unitCommand = {
