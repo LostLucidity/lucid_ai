@@ -31,6 +31,7 @@ const { CREEPTUMOR } = require("@node-sc2/core/constants/unit-type");
 const InfoRetrievalService = require('../../src/services/info-retrieval-service');
 const { mappedEnemyUnits } = require("../../systems/enemy-tracking/enemy-tracking-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
+const worldService = require("../../src/world-service");
 
 module.exports = {
   /**
@@ -573,6 +574,20 @@ function handleRetreatOrDefend(world, worker, enemyUnits, allWorkers) {
 
   if (!closestEnemyUnitPos) return actions;
 
+  const closestEnemyUnit = getUnitByPosition(enemyUnits, closestEnemyUnitPos);
+
+  if (!closestEnemyUnit) {
+    // Handle this situation appropriately, maybe return or do some other action
+    return actions;
+  }
+
+  // Check for retreat options
+  const retreatPoint = worldService.retreat(world, worker, closestEnemyUnit);
+  if (retreatPoint) {
+    actions.push(createFinalMoveCommand(worker, retreatPoint, false));
+    return actions;
+  }
+
   const workerPathDistance = getDistanceByPath(resources, pos, workerDestination);
   const enemyPathDistance = getDistanceByPath(resources, closestEnemyUnitPos, workerDestination);
 
@@ -722,11 +737,11 @@ function handleCloseProximityActions(world, worker, enemyUnits, workers, collect
  * @param {Point2D} workerDestination The destination position for the worker.
  * @returns {SC2APIProtocol.ActionRawUnitCommand} The generated move command.
  */
-function createFinalMoveCommand(worker, workerDestination) {
+function createFinalMoveCommand(worker, workerDestination, queue = true) {
   return {
     ...createUnitCommand(Ability.SMART, [worker]),
     targetWorldSpacePos: workerDestination,
-    queueCommand: true
+    queueCommand: queue
   };
 }
 
@@ -928,3 +943,24 @@ function collectMovementActions(worker, pathCoordinates, workerDestination, coll
   finalMoveCommand.targetWorldSpacePos = workerDestination;
   collectedActions.push(finalMoveCommand);
 }
+
+/**
+ * Retrieve a unit by its position.
+ * 
+ * @param {Unit[]} units - Array of units to search.
+ * @param {Point2D} targetPos - The position to match against.
+ * @param {number} [threshold=0.5] - How close a unit must be to be considered a match.
+ * @returns {Unit|undefined} - Returns the found unit or undefined if not found.
+ */
+function getUnitByPosition(units, targetPos, threshold = 0.5) {
+  return units.find(unit => {
+    if (!unit.pos || unit.pos.x === undefined || unit.pos.y === undefined) return false;
+
+    if (targetPos.x === undefined || targetPos.y === undefined) return false;
+
+    const distance = Math.sqrt(Math.pow(unit.pos.x - targetPos.x, 2) + Math.pow(unit.pos.y - targetPos.y, 2));
+
+    return distance <= threshold;
+  });
+}
+
