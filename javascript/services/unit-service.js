@@ -196,16 +196,18 @@ const unitService = {
     return unit['pendingOrders'] || [];
   },
   /**
-   * Get weapon that can attack target
-   * @param {DataStorage} data
-   * @param {UnitTypeId} unitTypeId
-   * @param {Unit} target
-   * @returns {SC2APIProtocol.Weapon | undefined}
-   */
+ * Get weapon that can attack target
+ * @param {DataStorage} data
+ * @param {UnitTypeId} unitTypeId
+ * @param {Unit} target
+ * @returns {SC2APIProtocol.Weapon | undefined}
+ */
   getWeaponThatCanAttack: (data, unitTypeId, target) => {
     const { weapons } = data.getUnitTypeData(unitTypeId);
-    // find weapon that can attack target
+
+    // Find weapon that can attack target.
     if (!weapons) return undefined;
+
     const weapon = weapons.find(weapon => {
       const { type } = weapon;
       if (type === WeaponTargetType.GROUND && target.isFlying) {
@@ -216,6 +218,7 @@ const unitService = {
       }
       return true;
     });
+
     return weapon;
   },
   /**
