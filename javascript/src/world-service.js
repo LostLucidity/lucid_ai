@@ -6377,20 +6377,28 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
     return;
   }
 
-  const { pos: rangedUnitAllyPos, radius: rangedUnitAllyRadius } = rangedUnitAlly;
+  if (!targetUnit.pos) return;
 
+  const nearbyAllies = getUnitsInRadius(pos, 16, units.getAlive(Alliance.SELF));
+  const nearbyEnemies = getUnitsInRadius(targetUnit.pos, 16, units.getAlive(Alliance.ENEMY));
+
+  const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));  // Filtering out ranged units
+
+  // First, check if melee units alone can handle the enemies
+  if (shouldEngage(world, [...meleeNearbyAllies], [...nearbyEnemies])) {
+    createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
+    return;
+  }
+
+  const { pos: rangedUnitAllyPos, radius: rangedUnitAllyRadius } = rangedUnitAlly;
   if (!rangedUnitAllyPos || !rangedUnitAllyRadius) return;
 
   const actionOutcome = checkPositionValidityForAttack(world, selfUnit, rangedUnitAlly, targetUnit);
 
   if (actionOutcome === 'fallback') {
-    const { pos: targetUnitPos } = targetUnit;
-    if (!targetUnitPos) return;
-
-    const fallbackDirection = getDirection(rangedUnitAllyPos, targetUnitPos);
+    const fallbackDirection = getDirection(rangedUnitAllyPos, targetUnit.pos);
     const fallbackDistance = (rangedUnitAllyRadius + radius) * FALLBACK_MULTIPLIER;
     const fallbackPosition = moveInDirection(rangedUnitAllyPos, fallbackDirection, fallbackDistance);
-
     createAndAddUnitCommand(MOVE, selfUnit, fallbackPosition, collectedActions);
   } else if (attackablePosition) {
     createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
@@ -7003,4 +7011,19 @@ function moveAwayFromMultiplePositions(map, targetPositions, position, distance 
   }
 
   return map.isPathable(clampedPoint) ? clampedPoint : positionService.findPathablePointByAngleAdjustment(map, position, avgDX, avgDY, distance);
+}
+
+/**
+ * Helper function to get units within a given radius around a position.
+ * @param {Point2D | SC2APIProtocol.Point} pos - The center position.
+ * @param {number} radius - The search radius.
+ * @param {Unit[]} units - The list of units to search from.
+ * @returns {Unit[]} - Units within the given radius.
+ */
+function getUnitsInRadius(pos, radius, units) {
+  return units.filter(unit => {
+    if (!unit.pos) return false;  // Skip units without a position
+    const distance = getDistance(pos, unit.pos);
+    return distance <= radius;
+  });
 }
