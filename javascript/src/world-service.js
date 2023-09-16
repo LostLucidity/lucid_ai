@@ -480,22 +480,35 @@ const worldService = {
    * @param {boolean} checkCanBuild
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
-  buildWorkers: (world, limit=1, checkCanBuild=false) => {
+  buildWorkers: (world, limit = 1, checkCanBuild = false) => {
     const { agent, data, resources } = world;
     const { race } = agent;
     const { units } = resources.get();
     const { setPendingOrders } = unitService;
-    const { canBuild, getIdleOrAlmostIdleUnits } = worldService;
+    const { canBuild, getIdleOrAlmostIdleUnits, isStrongerAtPosition } = worldService;
     const collectedActions = [];
     const workerTypeId = WorkerRace[agent.race];
+
     if (canBuild(world, workerTypeId) || checkCanBuild) {
-      const { abilityId, foodRequired } = data.getUnitTypeData(workerTypeId); if (abilityId === undefined || foodRequired === undefined) return collectedActions;
+      const { abilityId, foodRequired } = data.getUnitTypeData(workerTypeId);
+      if (abilityId === undefined || foodRequired === undefined) return collectedActions;
+
       let trainers = [];
       if (agent.race === Race.ZERG) {
         trainers = units.getById(UnitType.LARVA).filter(larva => !larva['pendingOrders'] || larva['pendingOrders'].length === 0);
       } else {
         trainers = getIdleOrAlmostIdleUnits(world, WorkerRace[race]);
       }
+
+      trainers = trainers.reduce((/** @type {Unit[]} */acc, trainer) => {
+        if (trainer.pos) { // Ensure trainer has a position
+          const point2D = { x: trainer.pos.x, y: trainer.pos.y }; // Convert to Point2D or use type assertion
+          if (isStrongerAtPosition(world, point2D)) {
+            acc.push(trainer);
+          }
+        }
+        return acc;
+      }, []);
       if (trainers.length > 0) {
         trainers = shuffle(trainers);
         trainers = trainers.slice(0, limit);
@@ -508,6 +521,7 @@ const worldService = {
         return collectedActions;
       }
     }
+
     return collectedActions;
   },
   /**
