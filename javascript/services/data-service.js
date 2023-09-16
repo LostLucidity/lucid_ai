@@ -62,21 +62,25 @@ const dataService = {
   /**
    * @param {DataStorage} data
    * @param {Unit} unit
+   * @param {Unit} targetType
    * @returns {number}
    * @description Returns the attack range of the given unit.
    * If the unit data or weapons data is not available, an attack range of 0 is assumed.
-   * Otherwise, the maximum range among the unit's weapons is returned.
+   * Otherwise, the range of the weapon that can attack the targetType is returned.
    */
-  getAttackRange: (data, unit) => {
-    const unitTypeData = unit.unitType && data.getUnitTypeData(unit.unitType);
-
-    if (!unitTypeData || !unitTypeData.weapons) {
+  getAttackRange: (data, unit, targetType) => {
+    if (typeof unit.unitType === 'undefined') {
       return 0;
     }
 
-    return unitTypeData.weapons.reduce((max, weapon) => {
-      return weapon.range ? Math.max(max, weapon.range) : max;
-    }, 0);
+    const weapon = getWeaponThatCanAttack(data, unit.unitType, targetType);
+
+    if (!weapon) {
+      return 0;
+    }
+
+    // Return the range of the weapon if available, else 0.
+    return weapon.range || 0;
   },
   /**
    * @param {DataStorage} data

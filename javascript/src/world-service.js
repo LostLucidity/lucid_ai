@@ -2093,7 +2093,7 @@ const worldService = {
                     }
                   } else {
                     // retreat if melee
-                    unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange] || [closestAttackableEnemyUnit]);
+                    unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange || closestAttackableEnemyUnit]);
                   }
                 } else {
                   // skip action if pending orders
@@ -6571,10 +6571,12 @@ function getActionsForMicro(world, unit, targetUnit) {
   return [unitCommand];
 }
 /**
- * @param {World} world
- * @param {Unit} unit
- * @param {Unit} targetUnit
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ * Computes and returns the actions for a given unit when not micro-managing.
+ *
+ * @param {World} world - The game state or environment.
+ * @param {Unit} unit - The unit we're calculating actions for.
+ * @param {Unit} targetUnit - A specific target unit.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of commands or actions for the unit.
  */
 function getActionsForNotMicro(world, unit, targetUnit) {
   const { data, resources } = world;
@@ -6586,40 +6588,49 @@ function getActionsForNotMicro(world, unit, targetUnit) {
   if (!weaponResults) return [];
 
   let optimalTarget = null;
-  let smallestRemainingHealth = Infinity;  // Initializing to a high value for comparison.
+  let smallestRemainingHealth = Infinity;
   let immediateThreat = null;
 
   for (const enemyUnit of weaponResults.targetableEnemyUnits) {
     if (isActivelyAttacking(data, enemyUnit, unit)) {
       immediateThreat = enemyUnit;
-      break;  // Exit the loop immediately upon finding an active threat.
+      break;
     }
-    if (!unit.pos || !enemyUnit.pos) continue;
+    if (!unit.pos || !enemyUnit.pos || !unit.unitType) continue;
+
+    const weaponThatCanAttack = unitService.getWeaponThatCanAttack(data, unit.unitType, enemyUnit);
+    if (!weaponThatCanAttack || weaponThatCanAttack.range === undefined) continue;
 
     const distance = getDistance(unit.pos, enemyUnit.pos);
-    if (distance >= 16) continue;  // This hardcoded value might need to be adjusted based on weapon range.
+
+    if (distance > 16) continue; 
 
     const computation = computeTimeToKillWithMovement(world, unit, enemyUnit);
     if (!computation?.tag) continue;
 
     const currentDamage = getDamageForTag(computation.tag, currentStep) || 0;
     const potentialDamage = currentDamage + computation.damagePotential;
-
-    // Calculate the amount of health the enemyUnit would have left after the attack.
     const remainingHealthAfterAttack = (enemyUnit.health ?? 0) - potentialDamage;
 
-    // Update the optimal target.
     if (remainingHealthAfterAttack < smallestRemainingHealth && remainingHealthAfterAttack >= 0) {
       smallestRemainingHealth = remainingHealthAfterAttack;
       optimalTarget = enemyUnit;
     }
   }
 
-  // Prioritize the immediate threat.
   if (immediateThreat) optimalTarget = immediateThreat;
 
-  // Ensure optimalTarget has valid unitType.
-  if (!optimalTarget || typeof optimalTarget.unitType !== 'number') return [];
+  if (!optimalTarget || typeof optimalTarget.unitType !== 'number') {
+    // If no optimal target is found but there are enemy units within 16 distance, default to attacking the first enemy.
+    if (weaponResults.targetableEnemyUnits.length > 0) {
+      const closestEnemy = weaponResults.targetableEnemyUnits[0];
+      const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
+      unitCommand.targetUnitTag = closestEnemy.tag;
+      return [unitCommand];
+    } else {
+      return [];
+    }
+  }
 
   if (typeof unit.unitType === 'number' && unit.alliance) {
     const unitDamagePotential = worldService.getWeaponDPS(world, unit.unitType, unit.alliance, [optimalTarget.unitType]);
@@ -6807,22 +6818,22 @@ function isActivelyAttacking(data, enemyUnit, targetUnit) {
   }
 
   // Determine the dynamic threat range.
-  const threatRange = calculateThreatRange(data, enemyUnit);
+  const threatRange = calculateThreatRange(data, enemyUnit, targetUnit);
 
   // Check proximity based on the dynamic threat range.
   const distance = getDistance(enemyUnit.pos, targetUnit.pos);
 
   return distance <= threatRange;
 }
-
 /**
  * Calculate a dynamic threat range based on the enemy unit's characteristics.
  * @param {DataStorage} data - The data required to get the attack range.
  * @param {Unit} enemyUnit
+ * @param {Unit} targetUnit
  * @returns {number} - The calculated threat range.
  */
-function calculateThreatRange(data, enemyUnit) {
-  const baseAttackRange = dataService.getAttackRange(data, enemyUnit);
+function calculateThreatRange(data, enemyUnit, targetUnit) {
+  const baseAttackRange = dataService.getAttackRange(data, enemyUnit, targetUnit);
 
   // Get the projected position for the enemy unit.
   const targetPositions = enemyUnit.tag ? enemyTrackingService.enemyUnitsPositions.get(enemyUnit.tag) : null;
@@ -6845,7 +6856,13 @@ function calculateThreatRange(data, enemyUnit) {
     anticipatedMovement = getDistance(enemyUnit.pos, currentPosition);
   }
 
-  return baseAttackRange + anticipatedMovement;
+  let enemyUnitRadius = enemyUnit.radius || 0;
+  let targetUnitRadius = targetUnit.radius || 0;
+
+  // Adjust the threat range to account for unit radii.
+  let totalUnitRadius = enemyUnitRadius + targetUnitRadius;
+
+  return baseAttackRange + anticipatedMovement + totalUnitRadius;
 }
 /**
  * Calculates the total DPS of a group of units based on enemy composition.
