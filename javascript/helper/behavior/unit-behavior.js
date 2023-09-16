@@ -582,7 +582,7 @@ function handleRetreatOrDefend(world, worker, enemyUnits, allWorkers) {
   }
 
   // Check for retreat options
-  const retreatPoint = worldService.retreat(world, worker, closestEnemyUnit);
+  const retreatPoint = worldService.retreat(world, worker, [closestEnemyUnit]);
   if (retreatPoint) {
     actions.push(createFinalMoveCommand(worker, retreatPoint, false));
     return actions;
