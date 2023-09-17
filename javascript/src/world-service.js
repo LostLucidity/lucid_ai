@@ -1555,31 +1555,39 @@ const worldService = {
     );
   },
   /**
-   * @param {World} world
-   * @param {Point2D} position
-   * @returns {boolean}
+   * Checks if the player's units are stronger at a specific position compared to enemy units.
+   *
+   * @param {World} world - The current game world state.
+   * @param {Point2D} position - The position to check.
+   * @returns {boolean} - Returns true if the player's units are stronger at the given position, otherwise false.
    */
   isStrongerAtPosition: (world, position) => {
     const { workerTypes } = groupTypes;
     const { calculateNearDPSHealth } = worldService;
     const { resources } = world;
     const { units } = resources.get();
-    let enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => unit.pos && distance(unit.pos, position) < 16);
-    enemyUnits = enemyUnits.length === 1 && enemyUnits[0].unitType && workerTypes.includes(enemyUnits[0].unitType) ? [] : enemyUnits;
+
+    const getUnitsInRadius = (unitArray, rad) =>
+      unitArray.filter(unit => unit.pos && distance(unit.pos, position) < rad);
+
+    let enemyUnits = getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, 16);
+
+    // Exclude lone worker units
+    if (enemyUnits.length === 1 && enemyUnits[0].unitType && workerTypes.includes(enemyUnits[0].unitType)) {
+      enemyUnits = [];
+    }
+
     if (enemyUnits.length === 0) return true;
-    const selfUnits = units.getAlive(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) < 16);
-    const enemyUnitTypes = enemyUnits.reduce((/** @type {UnitTypeId[]} */ accumulator, unit) => {
-      const { unitType } = unit;
-      if (unitType === undefined) { return accumulator }
-      return [...accumulator, unitType];
-    }, []);
-    const selfDPSHealth = calculateNearDPSHealth(world, selfUnits, enemyUnitTypes);
-    const selfUnitTypes = selfUnits.reduce((/** @type {UnitTypeId[]} */ accumulator, unit) => {
-      const { unitType } = unit;
-      if (unitType === undefined) { return accumulator }
-      return [...accumulator, unitType];
-    }, []);
-    const enemyDPSHealth = calculateNearDPSHealth(world, enemyUnits, selfUnitTypes);
+
+    const selfUnits = getUnitsInRadius(units.getAlive(Alliance.SELF), 16);
+
+    const extractUnitTypes = (/** @type {Unit[]} */ unitArray) =>
+      unitArray.reduce((/** @type {UnitTypeId[]} */ accumulator, unit) =>
+        unit.unitType ? [...accumulator, unit.unitType] : accumulator, []);
+
+    const selfDPSHealth = calculateNearDPSHealth(world, selfUnits, extractUnitTypes(enemyUnits));
+    const enemyDPSHealth = calculateNearDPSHealth(world, enemyUnits, extractUnitTypes(selfUnits));
+
     return selfDPSHealth >= enemyDPSHealth;
   }, 
   /**
@@ -6053,6 +6061,9 @@ const shouldRetreatToCombatRally = (world, unit, targetUnit, toCombatRally, trav
   const { resources } = world;
   const { map, units } = resources.get();
   const combatRally = resourceManagerService.getCombatRally(resources);
+
+  // Check if we're stronger at the combatRally position
+  if (!worldService.isStrongerAtPosition(world, combatRally)) return false;
 
   const unitToCombatRallyDistance = getDistanceByPath(resources, unit.pos, combatRally);
   if (unitToCombatRallyDistance <= travelDistancePerStep || unitToCombatRallyDistance === Infinity) return false;
