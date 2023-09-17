@@ -1562,34 +1562,56 @@ const worldService = {
    * @returns {boolean} - Returns true if the player's units are stronger at the given position, otherwise false.
    */
   isStrongerAtPosition: (world, position) => {
-    const { workerTypes } = groupTypes;
     const { calculateNearDPSHealth } = worldService;
-    const { resources } = world;
-    const { units } = resources.get();
+    const { units } = world.resources.get();
 
+    /**
+     * Retrieves units within a specified radius from a position.
+     * @param {Unit[]} unitArray - Array of units.
+     * @param {number} rad - Radius to filter units by.
+     * @returns {Unit[]} - Units within the specified radius.
+     */
     const getUnitsInRadius = (unitArray, rad) =>
       unitArray.filter(unit => unit.pos && distance(unit.pos, position) < rad);
 
-    let enemyUnits = getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, 16);
+    /**
+     * Determines if a unit is potentially a combatant.
+     * @param {Unit} unit - Unit to check.
+     * @returns {boolean} - True if unit has potential for combat, otherwise false.
+     */
+    const potentialCombatants = (unit) =>
+      unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && !unit.isHarvesting());
 
-    // Exclude lone worker units
-    if (enemyUnits.length === 1 && enemyUnits[0].unitType && workerTypes.includes(enemyUnits[0].unitType)) {
+    let enemyUnits = getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, 16).filter(potentialCombatants);
+
+    // If there's only one enemy and it's a non-combatant worker, disregard it
+    if (enemyUnits.length === 1 && !potentialCombatants(enemyUnits[0])) {
       enemyUnits = [];
     }
 
-    if (enemyUnits.length === 0) return true;
+    // If no potential enemy combatants, player is stronger by default
+    if (!enemyUnits.length) return true;
 
-    const selfUnits = getUnitsInRadius(units.getAlive(Alliance.SELF), 16);
+    const selfUnits = getUnitsInRadius(units.getAlive(Alliance.SELF), 16).filter(potentialCombatants);
 
-    const extractUnitTypes = (/** @type {Unit[]} */ unitArray) =>
-      unitArray.reduce((/** @type {UnitTypeId[]} */ accumulator, unit) =>
-        unit.unitType ? [...accumulator, unit.unitType] : accumulator, []);
+    /**
+     * Extracts the unit types from an array of units.
+     * @param {Unit[]} unitArray - Array of units.
+     * @returns {UnitTypeId[]} - Array of unit types.
+     */
+    const extractUnitTypes = (unitArray) =>
+      unitArray.reduce((/** @type {UnitTypeId[]} */ acc, unit) => {
+        if (unit.unitType) {
+          acc.push(unit.unitType);
+        }
+        return acc;
+      }, []);
 
     const selfDPSHealth = calculateNearDPSHealth(world, selfUnits, extractUnitTypes(enemyUnits));
     const enemyDPSHealth = calculateNearDPSHealth(world, enemyUnits, extractUnitTypes(selfUnits));
 
     return selfDPSHealth >= enemyDPSHealth;
-  }, 
+  },
   /**
    * @param {DataStorage} data 
    * @returns {AbilityId[]}
@@ -6890,7 +6912,7 @@ function getUnitDPS(world, unitType) {
  */
 function shouldEngage(world, selfUnits, enemyUnits) {
   // Include QUEENs and non-mining workers in addition to combatant units
-  const potentialCombatants = (/** @type {Unit} */ unit) => unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && unit.isHarvesting());
+  const potentialCombatants = (/** @type {Unit} */ unit) => unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && !unit.isHarvesting());
 
   const combatantSelfUnits = selfUnits.filter(potentialCombatants);
   const combatantEnemyUnits = enemyUnits.filter(potentialCombatants);
