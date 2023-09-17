@@ -6330,7 +6330,7 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
   if (!targetUnit.pos) return;
 
   const nearbyAllies = getUnitsInRadius(pos, 16, units.getAlive(Alliance.SELF));
-  const nearbyEnemies = getUnitsInRadius(targetUnit.pos, 16, units.getAlive(Alliance.ENEMY));
+  const nearbyEnemies = getUnitsInRadius(targetUnit.pos, 16, enemyTrackingService.mappedEnemyUnits);
 
   const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));  // Filtering out ranged units
 
