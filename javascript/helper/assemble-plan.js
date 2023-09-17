@@ -115,11 +115,10 @@ class AssemblePlan {
 
     for (let structure of structuresAlmostDone) {
       if (structure.pos && !worldService.isStrongerAtPosition(world, structure.pos)) {
-        if (structure.availableAbilities().includes(CANCEL_BUILDINPROGRESS)) {
-          /** @type {SC2APIProtocol.ActionRawUnitCommand} */
+        if (structure.tag) {
           const cancelAction = {
             abilityId: CANCEL_BUILDINPROGRESS,
-            targetUnitTag: structure.tag,
+            unitTags: [structure.tag],
           };
           this.collectedActions.push(cancelAction);
         }
