@@ -4,26 +4,26 @@
 const Buff = require("@node-sc2/core/constants/buff");
 const { HARVEST_GATHER, MOVE, STOP } = require("@node-sc2/core/constants/ability");
 const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
-const { ZEALOT, ZERGLING, ROACH, QUEEN, LOCUSTMP, SPORECRAWLERUPROOTED, SPINECRAWLERUPROOTED, DRONE, BROODLING, CHANGELING } = require("@node-sc2/core/constants/unit-type");
 const { add } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("./actions-service");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { CHRONOBOOSTENERGYCOST: CHRONOBOOSTED } = require("@node-sc2/core/constants/buff");
 const { filterLabels } = require("../helper/unit-selection");
 const { getDistance } = require("./position-service");
+const { UnitType } = require("@node-sc2/core/constants");
 
 const unitService = {
-  SPEED_MODIFIERS: {
-    ROACH: (/** @type {Unit} */ unit) => (unit.alliance === Alliance.SELF && unitService.selfGlialReconstitution) ? 0.75 : 0,
-    ZEALOT: (/** @type {Unit} */ unit) => (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) ? 0.5 : 0,
-    ZERGLING: (/** @type {Unit} */ unit) => (unit.alliance === Alliance.ENEMY && unitService.enemyMetabolicBoost) ? 0.6 : 0,
-  },
-  ZERG_UNITS_ON_CREEP_BONUS: {
-    QUEEN: 1.67,
-    LOCUST: 1.4,
-    SPORE_CRAWLER: 1.5,
-    SPINE_CRAWLER: 1.5,
-  },
+  SPEED_MODIFIERS: new Map([
+    [UnitType.ROACH, (/** @type {Unit} */ unit) => (unit.alliance === Alliance.SELF && unitService.selfGlialReconstitution) ? 0.75 : 0],
+    [UnitType.ZEALOT, (/** @type {Unit} */ unit) => (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) ? 0.5 : 0],
+    [UnitType.ZERGLING, (/** @type {Unit} */ unit) => (unit.alliance === Alliance.ENEMY && unitService.enemyMetabolicBoost) ? (4.69921875 / 2.9351) - 1: 0]
+  ]),
+  ZERG_UNITS_ON_CREEP_BONUS: new Map([
+    [UnitType.QUEEN, 2.67],
+    [UnitType.LOCUSTMP, 1.4],
+    [UnitType.SPORECRAWLER, 1.5],
+    [UnitType.SPINECRAWLER, 1.5],
+  ]),
   /**
    * @type boolean
    */
@@ -148,33 +148,39 @@ const unitService = {
     return add(unit.pos, unit.radius);
   },
   /**
-     * @param {MapResource} map
-     * @param {Unit} unit 
-     * @param {boolean} adjustForRealSeconds
-     * @returns {number}
-     */
+   * @param {MapResource} map
+   * @param {Unit} unit 
+   * @param {boolean} adjustForRealSeconds
+   * @returns {number}
+   */
   getMovementSpeed: function (map, unit, adjustForRealSeconds = false) {
     const { pos, unitType } = unit;
     if (!pos || !unitType) return 0;
 
     let movementSpeed = unitService.getMovementSpeedByType(unit);
     if (!movementSpeed) return 0;
+
     const { SPEED_MODIFIERS, ZERG_UNITS_ON_CREEP_BONUS } = unitService;
-    const speedModifier = SPEED_MODIFIERS[unitType];
-    if (speedModifier) {
-      movementSpeed += speedModifier(unit);
+
+    // Apply speed modifier specific to the unit type, if any.
+    const speedModifierFunc = SPEED_MODIFIERS.get(unitType);
+    if (speedModifierFunc) {
+      movementSpeed += speedModifierFunc(unit);
     }
 
-    if (unit.buffIds.includes(Buff.STIMPACK)) {
-      movementSpeed *= 1.5;
+    let multiplier = adjustForRealSeconds ? 1.4 : 1;
+
+    // Apply stimpack buff speed multiplier.
+    if (unit.buffIds?.includes(Buff.STIMPACK)) {
+      multiplier *= 1.5;
     }
 
-    if (unit.alliance === Alliance.SELF && map.hasCreep(pos)) {
-      const creepBonus = ZERG_UNITS_ON_CREEP_BONUS[unitType] || 1.3;
-      movementSpeed *= creepBonus;
+    // Apply speed bonus for Zerg units on creep.
+    if (map.hasCreep(pos)) {
+      multiplier *= ZERG_UNITS_ON_CREEP_BONUS.get(unitType) || 1.3;
     }
 
-    return movementSpeed * (adjustForRealSeconds ? 1.4 : 1);
+    return movementSpeed * multiplier;
   },
   /**
    * @param {Unit} unit

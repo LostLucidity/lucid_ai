@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { WARPGATE, OVERLORD, MINERALFIELD, BARRACKS, GATEWAY, PHOTONCANNON, EGG } = require("@node-sc2/core/constants/unit-type");
+const { WARPGATE, OVERLORD, MINERALFIELD, BARRACKS, GATEWAY, PHOTONCANNON, EGG, CREEPTUMOR, CREEPTUMORQUEEN } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { Alliance, Race, Attribute } = require('@node-sc2/core/constants/enums');
 const rallyUnits = require("./rally-units");
@@ -89,9 +89,10 @@ class AssemblePlan {
     }
     this.foodUsed = this.world.agent.foodUsed;
     this.resources = world.resources;
+    const { units } = this.resources.get();
     this.frame = this.resources.get().frame;
     this.map = this.resources.get().map;
-    this.units = this.resources.get().units;
+    this.units = units;
     this.resourceTrigger = this.agent.minerals > 512 && this.agent.vespene > 256;
     this.threats = threats(this.resources, this.state);
     const { defend, getFoodUsed, shortOnWorkers } = worldService;
@@ -108,12 +109,17 @@ class AssemblePlan {
       const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
       if (!worldService.outpowered || selfCombatSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
     }
-    // Check structures that are almost done. 
-    const structuresAlmostDone = this.units.getStructures().filter(structure =>
+
+    const structuresAlmostDone = units.getStructures().filter(structure =>
       structure.buildProgress && structure.buildProgress > 0.9 && structure.buildProgress < 1
     );
 
     for (let structure of structuresAlmostDone) {
+      // Check if the structure is a 'CREEPTUMORQUEEN' or 'CREEPTUMOR', if it is, skip the loop iteration
+      if (structure.is(CREEPTUMORQUEEN) || structure.is(CREEPTUMOR)) {
+        continue;
+      }
+
       if (structure.pos && !worldService.isStrongerAtPosition(world, structure.pos)) {
         if (structure.tag) {
           const cancelAction = {
@@ -124,6 +130,7 @@ class AssemblePlan {
         }
       }
     }
+
 
     if (getFoodUsed() >= 132 && !shortOnWorkers(world)) { this.collectedActions.push(...await expand(world)); }
     this.checkEnemyBuild();
