@@ -5410,19 +5410,19 @@ function calculateClosestConstructingWorker(world, constructingWorkers, position
     return closestWorker;
   }, undefined);
 }
-
 /**
  * @param {AbilityId} abilityId
  * @param {Unit} selfUnit
  * @param {Point2D} targetPosition
  * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions
+ * @returns {SC2APIProtocol.ActionRawUnitCommand}
  */
 function createAndAddUnitCommand(abilityId, selfUnit, targetPosition, collectedActions) {
   const unitCommand = createUnitCommand(abilityId, [selfUnit]);
   unitCommand.targetWorldSpacePos = targetPosition;
   collectedActions.push(unitCommand);
+  return unitCommand;  // Return the created unitCommand
 }
-
 /**
  * @param {SC2APIProtocol.Point2D} point1
  * @param {SC2APIProtocol.Point2D} point2
@@ -6303,8 +6303,8 @@ const deriveSafetyRadius = (world, unit, potentialThreats) => {
   baseSafetyRadius += maxThreatRange + radius + getTravelDistancePerStep(map, unit);
   return baseSafetyRadius;
 }
-
 /**
+ * Handle logic for melee units in combat scenarios.
  * @param {World} world 
  * @param {Unit} selfUnit
  * @param {Unit} targetUnit
@@ -6312,7 +6312,7 @@ const deriveSafetyRadius = (world, unit, potentialThreats) => {
  * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions
  */
 function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, collectedActions) {
-  const FALLBACK_MULTIPLIER = -1; // A negative value to indicate moving behind
+  const FALLBACK_MULTIPLIER = -1;
   const { data, resources: { get } } = world;
   const { units } = get();
   const { pos, radius } = selfUnit;
@@ -6331,30 +6331,45 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
 
   const nearbyAllies = getUnitsInRadius(pos, 16, units.getAlive(Alliance.SELF));
   const nearbyEnemies = getUnitsInRadius(targetUnit.pos, 16, enemyTrackingService.mappedEnemyUnits);
+  const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));
 
-  const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));  // Filtering out ranged units
-
-  // First, check if melee units alone can handle the enemies
   if (shouldEngage(world, [...meleeNearbyAllies], [...nearbyEnemies])) {
     createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
     return;
   }
 
-  const { pos: rangedUnitAllyPos, radius: rangedUnitAllyRadius } = rangedUnitAlly;
-  if (!rangedUnitAllyPos || !rangedUnitAllyRadius) return;
+  const targetUnitRadius = targetUnit.radius || 0;
+  const attackRadius = targetUnitRadius + radius;
+  const borderPositions = getBorderPositions(targetUnit.pos, attackRadius);
 
-  const actionOutcome = checkPositionValidityForAttack(world, selfUnit, rangedUnitAlly, targetUnit);
+  const fitablePositions = borderPositions.filter(borderPosition => nearbyAllies.every(ally => {
+    const { pos: allyPos, radius: allyRadius } = ally;
+    if (!allyPos || !allyRadius) return false;
+    return getDistance(borderPosition, allyPos) > allyRadius + radius;
+  })).sort((a, b) => getDistance(a, pos) - getDistance(b, pos));
 
-  if (actionOutcome === 'fallback') {
-    const fallbackDirection = getDirection(rangedUnitAllyPos, targetUnit.pos);
+  let queueCommand = false; // This flag will help us determine if a command is queued or not.
+
+  if (fitablePositions.length > 0) {
+    createAndAddUnitCommand(MOVE, selfUnit, fitablePositions[0], collectedActions);
+    queueCommand = true;
+  }
+
+  if (shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
+    if (!rangedUnitAlly.pos || !targetUnit.pos) return;
+
+    const rangedUnitAllyRadius = rangedUnitAlly.radius || 0; // Provide fallback value
+    const fallbackDirection = getDirection(rangedUnitAlly.pos, targetUnit.pos);
     const fallbackDistance = (rangedUnitAllyRadius + radius) * FALLBACK_MULTIPLIER;
-    const fallbackPosition = moveInDirection(rangedUnitAllyPos, fallbackDirection, fallbackDistance);
-    createAndAddUnitCommand(MOVE, selfUnit, fallbackPosition, collectedActions);
+    createAndAddUnitCommand(MOVE, selfUnit, moveInDirection(rangedUnitAlly.pos, fallbackDirection, fallbackDistance), collectedActions);
   } else if (attackablePosition) {
-    createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
+    const attackCommand = createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
+    if (queueCommand) {
+      attackCommand.queueCommand = true;
+    }
+    collectedActions.push(attackCommand);
   }
 }
-
 /**
  * @param {DataStorage} data
  * @param {Unit} targetUnit
@@ -7001,4 +7016,17 @@ function getUnitsInRadius(pos, radius, units) {
     const distance = getDistance(pos, unit.pos);
     return distance <= radius;
   });
+}
+/**
+ * Determine if the unit should fallback to a defensive position.
+ * @param {World} world 
+ * @param {Unit} selfUnit
+ * @param {Unit} rangedUnitAlly
+ * @param {Unit} targetUnit
+ * @returns {boolean} - True if the unit should fallback, false otherwise.
+ */
+function shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit) {
+  const { pos: rangedUnitAllyPos, radius: rangedUnitAllyRadius } = rangedUnitAlly;
+  if (!rangedUnitAllyPos || !rangedUnitAllyRadius) return false;
+  return checkPositionValidityForAttack(world, selfUnit, rangedUnitAlly, targetUnit) === 'fallback';
 }
