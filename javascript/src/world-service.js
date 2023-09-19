@@ -1562,7 +1562,6 @@ const worldService = {
    * @returns {boolean} - Returns true if the player's units are stronger at the given position, otherwise false.
    */
   isStrongerAtPosition: (world, position) => {
-    const { calculateNearDPSHealth } = worldService;
     const { units } = world.resources.get();
 
     /**
@@ -1573,14 +1572,6 @@ const worldService = {
      */
     const getUnitsInRadius = (unitArray, rad) =>
       unitArray.filter(unit => unit.pos && distance(unit.pos, position) < rad);
-
-    /**
-     * Determines if a unit is potentially a combatant.
-     * @param {Unit} unit - Unit to check.
-     * @returns {boolean} - True if unit has potential for combat, otherwise false.
-     */
-    const potentialCombatants = (unit) =>
-      unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && !unit.isHarvesting());
 
     let enemyUnits = getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, 16).filter(potentialCombatants);
 
@@ -1594,23 +1585,7 @@ const worldService = {
 
     const selfUnits = getUnitsInRadius(units.getAlive(Alliance.SELF), 16).filter(potentialCombatants);
 
-    /**
-     * Extracts the unit types from an array of units.
-     * @param {Unit[]} unitArray - Array of units.
-     * @returns {UnitTypeId[]} - Array of unit types.
-     */
-    const extractUnitTypes = (unitArray) =>
-      unitArray.reduce((/** @type {UnitTypeId[]} */ acc, unit) => {
-        if (unit.unitType) {
-          acc.push(unit.unitType);
-        }
-        return acc;
-      }, []);
-
-    const selfDPSHealth = calculateNearDPSHealth(world, selfUnits, extractUnitTypes(enemyUnits));
-    const enemyDPSHealth = calculateNearDPSHealth(world, enemyUnits, extractUnitTypes(selfUnits));
-
-    return selfDPSHealth >= enemyDPSHealth;
+    return shouldUnitsEngage(world, selfUnits, enemyUnits);
   },
   /**
    * @param {DataStorage} data 
@@ -6938,6 +6913,39 @@ function shouldEngage(world, selfUnits, enemyUnits) {
   const enemyGroupHealthAndShields = calculateGroupHealthAndShields(combatantEnemyUnits);
 
   // Defensive measures against division by zero
+  const dpsRatio = (enemyGroupDPS !== 0) ? selfGroupDPS / enemyGroupDPS : (selfGroupDPS > 0 ? Infinity : 1);
+  const healthRatio = (enemyGroupHealthAndShields !== 0) ? selfGroupHealthAndShields / enemyGroupHealthAndShields : (selfGroupHealthAndShields > 0 ? Infinity : 1);
+
+  const dpsThreshold = 1.0;
+  const healthThreshold = 1.0;
+
+  return dpsRatio >= dpsThreshold && healthRatio >= healthThreshold;
+}
+
+/**
+ * Determines if a unit is potentially a combatant.
+ * @param {Unit} unit - Unit to check.
+ * @returns {boolean} - True if unit has potential for combat, otherwise false.
+ */
+const potentialCombatants = (unit) =>
+  unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && !unit.isHarvesting());
+
+/**
+ * Determines if a group of units should engage against another group based on DPS and Health/Shield ratios.
+ * @param {World} world
+ * @param {Unit[]} selfUnits
+ * @param {Unit[]} enemyUnits
+ * @returns {boolean}
+ */
+function shouldUnitsEngage(world, selfUnits, enemyUnits) {
+  const combatantSelfUnits = selfUnits.filter(potentialCombatants);
+  const combatantEnemyUnits = enemyUnits.filter(potentialCombatants);
+
+  const selfGroupDPS = calculateGroupDPS(world, combatantSelfUnits, combatantEnemyUnits);
+  const enemyGroupDPS = calculateGroupDPS(world, combatantEnemyUnits, combatantSelfUnits);
+  const selfGroupHealthAndShields = calculateGroupHealthAndShields(combatantSelfUnits);
+  const enemyGroupHealthAndShields = calculateGroupHealthAndShields(combatantEnemyUnits);
+
   const dpsRatio = (enemyGroupDPS !== 0) ? selfGroupDPS / enemyGroupDPS : (selfGroupDPS > 0 ? Infinity : 1);
   const healthRatio = (enemyGroupHealthAndShields !== 0) ? selfGroupHealthAndShields / enemyGroupHealthAndShields : (selfGroupHealthAndShields > 0 ? Infinity : 1);
 
