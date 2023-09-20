@@ -1970,14 +1970,15 @@ const worldService = {
     return fighters.some(fighter => fighter.tag === worker.tag);
   },
   /**
-   * Returns an array of unitCommands to give to selfUnits to engage or retreat.
-   * @param {World} world 
-   * @param {Unit[]} selfUnits 
-   * @param {Unit[]} enemyUnits 
-   * @param {Point2D} position 
-   * @param {boolean} clearRocks 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
-  */
+   * Generates unit commands to direct given units to either engage in battle or retreat.
+   * 
+   * @param {World} world - The game world.
+   * @param {Unit[]} selfUnits - Array of player's units.
+   * @param {Unit[]} enemyUnits - Array of enemy units.
+   * @param {Point2D} position - Point to either move towards or retreat from.
+   * @param {boolean} clearRocks - Indicates if destructible rocks should be targeted.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} Array of commands.
+   */
   engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
     const { workerTypes } = groupTypes;
     const { getInRangeDestructables, getMovementSpeed, getWeaponThatCanAttack, setPendingOrders } = unitService;
@@ -1987,6 +1988,16 @@ const worldService = {
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
     const selfUnitsAttackingInRange = getUnitsAttackingInRange(world, selfUnits);
+    // First, separate out injector QUEENs from other units
+    // Extract QUEEN related logic
+    const injectorQueens = selfUnits.filter(unit => unit.unitType === QUEEN && unit.labels.has('injector'));
+    const nonInjectorUnits = selfUnits.filter(unit => unit.unitType !== QUEEN || !unit.labels.has('injector'));
+
+    if (!shouldEngage(world, nonInjectorUnits, enemyUnits)) {
+      selfUnits = [...nonInjectorUnits, ...getNecessaryQueens(world, injectorQueens, nonInjectorUnits, enemyUnits)];
+    }
+
+    // Now, process the selfUnits with the correct set of QUEENs
     selfUnits.forEach(selfUnit => {
       const { pos, radius, tag } = selfUnit; if (pos === undefined || radius === undefined || tag === undefined) return;
       let targetPosition = position;
@@ -7037,4 +7048,27 @@ function shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit) {
   const { pos: rangedUnitAllyPos, radius: rangedUnitAllyRadius } = rangedUnitAlly;
   if (!rangedUnitAllyPos || !rangedUnitAllyRadius) return false;
   return checkPositionValidityForAttack(world, selfUnit, rangedUnitAlly, targetUnit) === 'fallback';
+}
+
+/**
+ * Returns necessary queens to engage in battle.
+ * 
+ * @param {World} world - The game world context.
+ * @param {Unit[]} injectorQueens - Injector Queens.
+ * @param {Unit[]} nonInjectorUnits - Units excluding Injector Queens.
+ * @param {Unit[]} enemyUnits - Enemy units.
+ * @returns {Unit[]} - Necessary queens required to engage.
+ */
+function getNecessaryQueens(world, injectorQueens, nonInjectorUnits, enemyUnits) {
+  let necessaryQueens = [];
+  for (const queen of injectorQueens) {
+    const combinedUnits = [...nonInjectorUnits, ...necessaryQueens, queen];
+    if (!shouldEngage(world, combinedUnits, enemyUnits)) {
+      necessaryQueens.push(queen);
+    } else {
+      necessaryQueens.push(queen);
+      break;
+    }
+  }
+  return necessaryQueens;
 }
