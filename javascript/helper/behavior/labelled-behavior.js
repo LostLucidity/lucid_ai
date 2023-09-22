@@ -8,19 +8,18 @@ const { PHOTONCANNON, LARVA, CREEPTUMORBURROWED } = require("@node-sc2/core/cons
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
-const { getPathablePositions, isCreepEdge, isInMineralLine, getMapPath } = require("../../systems/map-resource-system/map-resource-service");
+const { isCreepEdge, isInMineralLine } = require("../../systems/map-resource-system/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
 const { getDistance, getClusters, getDistanceSquared } = require("../../services/position-service");
-const resourceManagerService = require("../../services/resource-manager-service");
 const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
 const { canAttack } = require("../../services/resources-service");
-const { getWeaponThatCanAttack, getPendingOrders } = require("../../services/unit-service");
-const { retreat, getUnitsInRangeOfPosition, calculateNearDPSHealth, getUnitTypeCount, getDPSHealth, engageOrRetreat } = require("../../src/world-service");
+const { retreat, getUnitTypeCount, getDPSHealth, engageOrRetreat } = require("../../src/world-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const stateOfGameService = require("../../systems/state-of-game-system/state-of-game-service");
 const { calculateTotalHealthRatio, isByItselfAndNotAttacking, isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
+const unitService = require("../../services/unit-service");
 
 module.exports = {
   /**
@@ -226,7 +225,7 @@ function getThreateningUnits(world, unit) {
     const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit;
     if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
     if (enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(units, enemyUnit))) return false;
-    const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, unit);
+    const weaponThatCanAttack = unitService.getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
       const distanceToEnemy = getDistance(pos, enemyPos);
       const { range } = weaponThatCanAttack; if (range === undefined) return false;
@@ -257,7 +256,7 @@ function getClosestByWeaponRange(world, unit, threateningUnits) {
   const closestThreateningUnit = threateningUnits.reduce((/** @type {{distance: number; unit: Unit;} | undefined} */ closest, threateningUnit) => {
     const { pos: threateningUnitPos, radius: threateningUnitRadius, unitType } = threateningUnit; if (threateningUnitPos === undefined || threateningUnitRadius === undefined || unitType === undefined) return closest;
    const distanceToThreateningUnit = getDistance(pos, threateningUnitPos);
-    const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, unit);
+    const weaponThatCanAttack = unitService.getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
       const { range } = weaponThatCanAttack; if (range === undefined) return closest;
       const weaponRangeOfThreateningUnit = range + radius + threateningUnitRadius + getTravelDistancePerStep(map, threateningUnit) + getTravelDistancePerStep(map, unit);

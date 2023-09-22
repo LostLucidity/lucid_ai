@@ -14,7 +14,6 @@ const { UnitType } = require("@node-sc2/core/constants");
 
 const unitService = {
   SPEED_MODIFIERS: new Map([
-    [UnitType.ROACH, (/** @type {Unit} */ unit) => (unit.alliance === Alliance.SELF && unitService.selfGlialReconstitution) ? 0.75 : 0],
     [UnitType.ZEALOT, (/** @type {Unit} */ unit) => (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) ? 0.5 : 0],
     [UnitType.ZERGLING, (/** @type {Unit} */ unit) => (unit.alliance === Alliance.ENEMY && unitService.enemyMetabolicBoost) ? (4.69921875 / 2.9351) - 1: 0]
   ]),
@@ -202,12 +201,12 @@ const unitService = {
     return unit['pendingOrders'] || [];
   },
   /**
- * Get weapon that can attack target
- * @param {DataStorage} data
- * @param {UnitTypeId} unitTypeId
- * @param {Unit} target
- * @returns {SC2APIProtocol.Weapon | undefined}
- */
+   * Get weapon that can attack target
+   * @param {DataStorage} data
+   * @param {UnitTypeId} unitTypeId
+   * @param {Unit} target
+   * @returns {SC2APIProtocol.Weapon | undefined}
+   */
   getWeaponThatCanAttack: (data, unitTypeId, target) => {
     const { weapons } = data.getUnitTypeData(unitTypeId);
 

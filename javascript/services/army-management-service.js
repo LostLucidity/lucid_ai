@@ -9,9 +9,9 @@ const { getInRangeUnits, getInRangeDestructables } = require("../helper/battle-a
 const { createUnitCommand } = require("./actions-service");
 const { calculateNearSupply } = require("./data-service");
 const { moveAwayPosition, getDistance, getBorderPositions } = require("./position-service");
-const { getWeaponThatCanAttack } = require("./unit-service");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
 const { retreat } = require("../src/world-service");
+const unitService = require("./unit-service");
 
 const armyManagementService = {
   /** @type {Unit[]} */
@@ -74,7 +74,7 @@ const armyManagementService = {
         const { targetUnitTag } = attackingOrder; if (targetUnitTag === undefined) { return false; }
         const targetUnit = units.getByTag(targetUnitTag); if (targetUnit === undefined) { return false; }
         const { pos: targetPos, radius: targetRadius } = targetUnit; if (targetPos === undefined || targetRadius === undefined) { return false; }
-        const weapon = getWeaponThatCanAttack(data, unitType, targetUnit); if (weapon === undefined) { return false; }
+        const weapon = unitService.getWeaponThatCanAttack(data, unitType, targetUnit); if (weapon === undefined) { return false; }
         const { range } = weapon; if (range === undefined) { return false; }
         const shootingRange = range + radius + targetRadius;
         return distance(pos, targetPos) < shootingRange;
@@ -127,7 +127,7 @@ const armyManagementService = {
             if (destructable && clearRocks) {
               const { pos, radius } = destructable; if (pos === undefined || radius === undefined) { return; }
               const { pos: selfPos, radius: selfRadius, unitType: selfUnitType } = selfUnit; if (selfPos === undefined || selfRadius === undefined || selfUnitType === undefined) { return; }
-              const weapon = getWeaponThatCanAttack(data, selfUnitType, destructable); if (weapon === undefined) { return; }
+              const weapon = unitService.getWeaponThatCanAttack(data, selfUnitType, destructable); if (weapon === undefined) { return; }
               const { range } = weapon; if (range === undefined) { return; }
               const attackRadius = radius + selfRadius + range;
               const destructableBorderPositions = getBorderPositions(pos, attackRadius);

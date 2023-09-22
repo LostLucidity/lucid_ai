@@ -12,9 +12,9 @@ const { getClosestUnitByPath, getCombatRally, getDistanceByPath } = require("../
 const { canAttack } = require("../../services/resources-service");
 const { micro, getWorkerDefenseCommands } = require("../../src/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
-const { getWeaponThatCanAttack } = require("../../services/unit-service");
 const { getMapPath } = require("../map-resource-system/map-resource-service");
 const Ability = require("@node-sc2/core/constants/ability");
+const unitService = require("../../services/unit-service");
 
 module.exports = createSystem({
   name: 'AttackSystem',
@@ -195,7 +195,7 @@ const wouldWinFight = (data, myUnits, enemyUnits) => {
 const getDPS = (data, unit, target) => {
   // Ensure unitType is defined
   if (unit.unitType !== undefined) {
-    const weapon = getWeaponThatCanAttack(data, unit.unitType, target);
+    const weapon = unitService.getWeaponThatCanAttack(data, unit.unitType, target);
     if (weapon && weapon.damage !== undefined && weapon.speed !== undefined && weapon.speed > 0) {
       let totalDamage = weapon.damage;
 
@@ -458,7 +458,7 @@ function isUnreachable(world, enemyUnit, myUnits) {
   const canAttack = myUnits.some(unit => {
     // Ensure the unitType is defined
     if (unit.unitType === undefined) return false;
-    const weapon = getWeaponThatCanAttack(data, unit.unitType, enemyUnit);
+    const weapon = unitService.getWeaponThatCanAttack(data, unit.unitType, enemyUnit);
     return weapon !== undefined;
   });
   if (canAttack) return false;

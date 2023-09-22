@@ -7,16 +7,24 @@ let damageByTag = {};
 let lastUpdatedStep = -1;  // A value that indicates it hasn't been updated yet.
 
 /**
- * @param {string | number} tag
- * @param {any} damage
- * @param {number} currentStep
+ * Sets the cumulative damage for a given unit tag and game step.
+ *
+ * @param {string | number} tag - The tag identifier of the unit.
+ * @param {number} damage - The damage dealt to the unit.
+ * @param {number} currentStep - The current game step.
  */
 function setDamageForTag(tag, damage, currentStep) {
   if (lastUpdatedStep !== currentStep) {
     resetDamageByTag();
     lastUpdatedStep = currentStep;
   }
-  damageByTag[tag] = damage;
+
+  // Accumulate damage for the tag
+  if (Object.prototype.hasOwnProperty.call(damageByTag, tag)) {
+    damageByTag[tag] += damage;
+  } else {
+    damageByTag[tag] = damage;
+  }
 }
 
 /**

@@ -10,11 +10,11 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { readUnitTypeData } = require("../../filesystem");
 const { supplyDepotBehavior } = require("../../helper/behavior/unit-behavior");
 const { getDistance } = require("../../services/position-service");
-const { getWeaponThatCanAttack } = require("../../services/unit-service");
 const unitResourceService = require("./unit-resource-service");
 const { landingAbilities } = require("@node-sc2/core/constants/groups");
 const { flyingTypesMapping } = require("../../helper/groups");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
+const unitService = require("../../services/unit-service");
 
 module.exports = createSystem({
   name: 'UnitResourceSystem',
@@ -51,7 +51,7 @@ module.exports = createSystem({
     const enemy = units.getAlive({ alliance: Alliance.ENEMY }).filter(enemy => {
       const { pos: enemyPos, radius: enemyRadius, unitType } = enemy; if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) { return false; }
       const distance = getDistance(pos, enemyPos);
-      const weapon = getWeaponThatCanAttack(data, unitType, unit); if (weapon === undefined) { return false; }
+      const weapon = unitService.getWeaponThatCanAttack(data, unitType, unit); if (weapon === undefined) { return false; }
       const { range } = weapon; if (range === undefined) { return false; }
       return distance <= range + radius + enemyRadius;
     });

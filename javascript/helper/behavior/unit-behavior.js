@@ -5,7 +5,6 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { getInRangeUnits, calculateHealthAdjustedSupply } = require("../battle-analysis");
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
@@ -13,8 +12,7 @@ const { isRepairing, isMining, getOrderTargetPosition, getSelfUnits } = require(
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { getDistance } = require("../../services/position-service");
-const { retreat, pullWorkersToDefend, calculateNearDPSHealth, getUnitsInRangeOfPosition, getWeaponDPS, findPosition, isStrongerAtPosition, getDPSHealth } = require("../../src/world-service");
-const { canAttack } = require("../../services/resources-service");
+const { retreat, pullWorkersToDefend, calculateNearDPSHealth, getUnitsInRangeOfPosition, getWeaponDPS, findPosition, isStrongerAtPosition } = require("../../src/world-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
 const { getCombatRally, isPeacefulWorker, getDistanceByPath, getClosestPathablePositionsBetweenPositions } = require("../../services/resource-manager-service");
@@ -32,6 +30,7 @@ const InfoRetrievalService = require('../../src/services/info-retrieval-service'
 const { mappedEnemyUnits } = require("../../systems/enemy-tracking/enemy-tracking-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const worldService = require("../../src/world-service");
+const unitService = require("../../services/unit-service");
 
 module.exports = {
   /**
@@ -360,7 +359,7 @@ function calculateTimeToKill(world, bunker, enemyUnit) {
     if (passenger === undefined || passenger === '') return timeToKill;
     const { unitType: passengerUnitType } = passenger; if (passengerUnitType === undefined) return timeToKill;
     const { weapons } = passenger.data(); if (weapons === undefined) return timeToKill;
-    const weapon = getWeaponThatCanAttack(data, passengerUnitType, enemyUnit); if (weapon === undefined) return timeToKill;
+    const weapon = unitService.getWeaponThatCanAttack(data, passengerUnitType, enemyUnit); if (weapon === undefined) return timeToKill;
     const { range, damage } = weapon; if (range === undefined || damage === undefined) return timeToKill;
     const inRange = bunkerDistanceToEnemyUnit <= (range + 1 + radius + enemyUnitRadius);
     if (!inRange) return timeToKill;

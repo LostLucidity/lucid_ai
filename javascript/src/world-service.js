@@ -57,7 +57,7 @@ const { checkTechFor } = require('../services/agent-service');
 const resourcesService = require('../services/resources-service');
 const groupTypes = require('@node-sc2/core/constants/groups');
 const unitService = require('../services/unit-service');
-const { getDamageForTag } = require('../modules/damageManager');
+const { getDamageForTag, setDamageForTag } = require('../modules/damageManager');
 const positionService = require('../services/position-service');
 
 const worldService = {
@@ -1715,6 +1715,48 @@ const worldService = {
     // return max of weaponsDPS, if no value found in weaponsDPS, return 0
     if (weaponsDPS.length === 0) return 0;
     return Math.max.apply(Math, weaponsDPS);
+  },
+  /**
+   * Get the raw damage value for a single attack from one type of unit against another.
+   *
+   * @param {World} world - The game state or environment.
+   * @param {number} attackingUnitType - The unit type ID of the attacking unit.
+   * @param {number} targetUnitType - The unit type ID of the target unit.
+   * @param {Alliance} targetAlliance - The alliance of the target unit.
+   * @returns {number} - The damage per hit, accounting for multiple attacks, damage bonuses, and armor if applicable. Returns 0 if no valid weapon can attack the target unit types.
+   */
+  getWeaponDamage: (world, attackingUnitType, targetUnitType, targetAlliance) => {
+    const { data } = world;
+
+    /** @type {SC2APIProtocol.Weapon | undefined} */
+    const weaponThatCanAttack = unitService.getWeaponThatCanAttack(data, attackingUnitType, targetUnitType);
+
+    if (weaponThatCanAttack) {
+      let rawDamage = weaponThatCanAttack.damage || 0;
+      const numberOfAttacks = weaponThatCanAttack.attacks || 1;
+
+      // Account for any damage bonuses
+      if (weaponThatCanAttack.damageBonus) {
+        const targetAttributes = data.getUnitTypeData(targetUnitType).attributes || [];
+        for (const damageBonus of weaponThatCanAttack.damageBonus) {
+          if (damageBonus.attribute && targetAttributes.includes(damageBonus.attribute)) {
+            rawDamage += (damageBonus.bonus || 0);
+            break;
+          }
+        }
+      }
+
+      // Account for enemy armor
+      const armorUpgradeLevel = unitService.getArmorUpgradeLevel(targetAlliance);
+      const armor = data.getUnitTypeData(targetUnitType).armor || 0;
+      const effectiveArmor = armor + armorUpgradeLevel;
+      rawDamage = Math.max(0, rawDamage - effectiveArmor);
+
+      // Calculate total damage accounting for the number of attacks
+      return rawDamage * numberOfAttacks;
+    }
+
+    return 0; // Return 0 if no valid weapon can attack the target unit types
   },
   /**
    * @param {UnitResource} units
@@ -6513,9 +6555,11 @@ function getActionsForMicro(world, unit, targetUnit) {
  * @param {World} world - The game state or environment.
  * @param {Unit} unit - The unit we're calculating actions for.
  * @param {Unit} targetUnit - A specific target unit.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of commands or actions for the unit.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of commands or actions for the unit.
  */
 function getActionsForNotMicro(world, unit, targetUnit) {
+  const MAX_DISTANCE = 16; // Maximum distance to consider for engagement
+
   const { data, resources } = world;
   const currentStep = resources.get().frame.getGameLoop();
 
@@ -6524,61 +6568,37 @@ function getActionsForNotMicro(world, unit, targetUnit) {
   const weaponResults = computeWeaponsResults(unit, targetUnit);
   if (!weaponResults) return [];
 
-  let optimalTarget = null;
-  let smallestRemainingHealth = Infinity;
-  let immediateThreat = null;
+  let immediateThreat = findImmediateThreat(data, unit, weaponResults.targetableEnemyUnits);
+  if (immediateThreat) return [createAttackCommand(unit, immediateThreat)];
 
-  for (const enemyUnit of weaponResults.targetableEnemyUnits) {
-    if (isActivelyAttacking(data, enemyUnit, unit)) {
-      immediateThreat = enemyUnit;
-      break;
-    }
-    if (!unit.pos || !enemyUnit.pos || !unit.unitType) continue;
+  let optimalTarget = findOptimalTarget(world, unit, weaponResults.targetableEnemyUnits, currentStep, MAX_DISTANCE);
 
-    const weaponThatCanAttack = unitService.getWeaponThatCanAttack(data, unit.unitType, enemyUnit);
-    if (!weaponThatCanAttack || weaponThatCanAttack.range === undefined) continue;
-
-    const distance = getDistance(unit.pos, enemyUnit.pos);
-
-    if (distance > 16) continue; 
-
-    const computation = computeTimeToKillWithMovement(world, unit, enemyUnit);
-    if (!computation?.tag) continue;
-
-    const currentDamage = getDamageForTag(computation.tag, currentStep) || 0;
-    const potentialDamage = currentDamage + computation.damagePotential;
-    const remainingHealthAfterAttack = (enemyUnit.health ?? 0) - potentialDamage;
-
-    if (remainingHealthAfterAttack < smallestRemainingHealth && remainingHealthAfterAttack >= 0) {
-      smallestRemainingHealth = remainingHealthAfterAttack;
-      optimalTarget = enemyUnit;
+  if (optimalTarget && optimalTarget.tag && typeof optimalTarget.unitType === 'number' && typeof unit.unitType === 'number' && unit.alliance !== undefined) {
+    const unitDamagePerHit = worldService.getWeaponDamage(world, unit.unitType, unit.alliance, optimalTarget.unitType);
+    if (unitDamagePerHit > 0) {
+      setDamageForTag(optimalTarget.tag, unitDamagePerHit, currentStep);
+      return [createAttackCommand(unit, optimalTarget)];
     }
   }
 
-  if (immediateThreat) optimalTarget = immediateThreat;
-
-  if (!optimalTarget || typeof optimalTarget.unitType !== 'number') {
-    // If no optimal target is found but there are enemy units within 16 distance, default to attacking the first enemy.
-    if (weaponResults.targetableEnemyUnits.length > 0) {
-      const closestEnemy = weaponResults.targetableEnemyUnits[0];
-      const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
-      unitCommand.targetUnitTag = closestEnemy.tag;
-      return [unitCommand];
-    } else {
-      return [];
-    }
-  }
-
-  if (typeof unit.unitType === 'number' && unit.alliance) {
-    const unitDamagePotential = worldService.getWeaponDPS(world, unit.unitType, unit.alliance, [optimalTarget.unitType]);
-    if (unitDamagePotential > 0 && smallestRemainingHealth > 0) {
-      const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
-      unitCommand.targetUnitTag = optimalTarget.tag;
-      return [unitCommand];
-    }
+  // Default action: Attack the first enemy unit in range
+  if (weaponResults.targetableEnemyUnits.length > 0) {
+    return [createAttackCommand(unit, weaponResults.targetableEnemyUnits[0])];
   }
 
   return [];
+}
+/**
+ * Creates an attack command for the given unit targeting another unit.
+ *
+ * @param {Unit} sourceUnit - The attacking unit.
+ * @param {Unit} targetUnit - The target unit.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand} The created attack command.
+ */
+function createAttackCommand(sourceUnit, targetUnit) {
+  const unitCommand = createUnitCommand(ATTACK_ATTACK, [sourceUnit]);
+  unitCommand.targetUnitTag = targetUnit.tag;
+  return unitCommand;
 }
 /**
  * Checks if the provided unit has all necessary data properties.
@@ -6667,53 +6687,51 @@ function getTargetableEnemyUnits(weaponType) {
       return [];
   }
 }
-
 /**
- * @param {World} world
- * @param {Unit} unit
- * @param {Unit} targetableEnemyUnit
+ * Compute Time to Kill a Target with Movement
+ *
+ * @param {World} world - The game world state.
+ * @param {Unit} unit - The player's unit.
+ * @param {Unit} target - The enemy unit to be targeted.
+ * @param {number} currentDamage - The current cumulative damage on the enemy unit.
  * @returns {{ tag: string; timeToKillWithMovement: number; damagePotential: number } | null}
  */
-function computeTimeToKillWithMovement(world, unit, targetableEnemyUnit) {
+function computeTimeToKillWithMovement(world, unit, target, currentDamage) {
   const { data, resources } = world;
-  const { map } = resources.get();
+  const map = resources.get().map;
   const { unitType, alliance, pos, radius } = unit;
+
+  // Early exit if mandatory fields are missing
   if (!unitType || !alliance || !pos || !radius) return null;
-  const { health, shield, pos: enemyPos, radius: unitRadius, unitType: enemyUnitType, tag } = targetableEnemyUnit;
-  if (!health || !shield || !enemyPos || !unitRadius || !enemyUnitType || !tag) return null;
 
-  const weapon = getWeapon(data, unit, targetableEnemyUnit);
-  if (!weapon) return null;
+  const { health, shield, pos: enemyPos, radius: enemyRadius, unitType: enemyType, tag } = target;
+  const totalHealth = (health ?? 0) + (shield ?? 0) - currentDamage;
 
-  const { range } = weapon;
-  if (range === undefined) return null;
+  // Early exit if target information is incomplete
+  if (!totalHealth || !enemyPos || !enemyRadius || !enemyType || !tag) return null;
 
-  const { armor } = targetableEnemyUnit.data();
-  if (armor === undefined) return null;
+  const weapon = getWeapon(data, unit, target);
+  if (!weapon || weapon.range === undefined || weapon.damage === undefined) return null;
 
-  const weaponsDPS = worldService.getWeaponDPS(world, unitType, alliance, [enemyUnitType]);
-  const damagePotential = weaponsDPS;  // Over a 1-second period
-  const totalUnitHealth = health + shield;
   const positions = enemyTrackingService.enemyUnitsPositions.get(tag);
-  if (!positions) return null;
+  if (!positions?.current || !positions.previous) return null;
 
-  const { current, previous } = positions;
-  if (!current || !previous) return null;
+  const speed = unitService.getMovementSpeed(map, unit, true);
+  if (!speed) return null;
 
-  const { distance: distanceByPath } = resourceManagerService.getClosestPathablePositionsBetweenPositions(resources, pos, enemyPos);
-  const distanceByPathToInRange = distanceByPath - radius - unitRadius - range;
-  const distanceToTargetableEnemyUnit = distanceByPathToInRange > 0 ? distanceByPathToInRange : 0;
-  const timeToKillValue = totalUnitHealth / weaponsDPS;
-  const movementSpeed = unitService.getMovementSpeed(map, unit, true);
-  if (!movementSpeed) return null;
+  const distanceToTarget = getDistance(pos, enemyPos);
+  const distanceToEngage = distanceToTarget - radius - enemyRadius - weapon.range;
+  const requiredDistance = Math.max(0, distanceToEngage);
 
-  const distanceTravelledAwayFromUnit = getDistance(pos, current.pos) - getDistance(pos, previous.pos);
-  const timeElapsed = (current.lastSeen - previous.lastSeen) > 0 ? (current.lastSeen - previous.lastSeen) / 22.4 : 0;
-  const speedOfTargetableEnemyUnit = distanceTravelledAwayFromUnit / timeElapsed;
-  const timeToReach = distanceToTargetableEnemyUnit === 0 ? 0 : distanceToTargetableEnemyUnit / (movementSpeed - speedOfTargetableEnemyUnit);
-  const timeToKillWithMovement = timeToKillValue + (timeToReach >= 0 ? timeToReach : Infinity);
+  const elapsedFrames = positions.current.lastSeen - positions.previous.lastSeen;
+  const enemySpeed = elapsedFrames ? (getDistance(pos, positions.current.pos) - getDistance(pos, positions.previous.pos)) / elapsedFrames : 0;
 
-  return { tag, timeToKillWithMovement, damagePotential };
+  const timeToReach = requiredDistance / Math.max(1e-6, speed - enemySpeed);
+  const weaponsDPS = worldService.getWeaponDPS(world, unitType, alliance, [enemyType]);
+  const timeToKill = totalHealth / weaponsDPS;  // Time to kill using DPS
+  const totalTime = timeToKill + timeToReach;
+
+  return { tag, timeToKillWithMovement: totalTime, damagePotential: weapon.damage };
 }
 
 /**
@@ -6754,6 +6772,12 @@ function isActivelyAttacking(data, enemyUnit, targetUnit) {
     return false; // If position is undefined for either unit, they can't be actively attacking.
   }
 
+  // Check if the enemy unit has weapons capable of attacking the target unit.
+  const weaponThatCanAttack = unitService.getWeaponThatCanAttack(data, enemyUnit.unitType, targetUnit);
+  if (!weaponThatCanAttack) {
+    return false; // If enemy unit can't attack the target unit, then it's not a threat.
+  }
+
   // Determine the dynamic threat range.
   const threatRange = calculateThreatRange(data, enemyUnit, targetUnit);
 
@@ -6770,7 +6794,7 @@ function isActivelyAttacking(data, enemyUnit, targetUnit) {
  * @returns {number} - The calculated threat range.
  */
 function calculateThreatRange(data, enemyUnit, targetUnit) {
-  const baseAttackRange = dataService.getAttackRange(data, enemyUnit, targetUnit);
+  const attackRange = dataService.getAttackRange(data, enemyUnit, targetUnit);
 
   // Get the projected position for the enemy unit.
   const targetPositions = enemyUnit.tag ? enemyTrackingService.enemyUnitsPositions.get(enemyUnit.tag) : null;
@@ -6785,7 +6809,6 @@ function calculateThreatRange(data, enemyUnit, targetUnit) {
   // If we can't determine a projected position, we'll stick to the current position
   const currentPosition = projectedTargetPosition || enemyUnit.pos;
 
-  // Calculate anticipated movement as the distance between current position and projected position.
   // This might overestimate the actual threat range a bit, but it's safer to be cautious.
   // Calculate anticipated movement as the distance between current position and projected position.
   let anticipatedMovement = 0;
@@ -6793,13 +6816,7 @@ function calculateThreatRange(data, enemyUnit, targetUnit) {
     anticipatedMovement = getDistance(enemyUnit.pos, currentPosition);
   }
 
-  let enemyUnitRadius = enemyUnit.radius || 0;
-  let targetUnitRadius = targetUnit.radius || 0;
-
-  // Adjust the threat range to account for unit radii.
-  let totalUnitRadius = enemyUnitRadius + targetUnitRadius;
-
-  return baseAttackRange + anticipatedMovement + totalUnitRadius;
+  return attackRange + anticipatedMovement;
 }
 /**
  * Calculates the total DPS of a group of units based on enemy composition.
@@ -7071,4 +7088,70 @@ function getNecessaryQueens(world, injectorQueens, nonInjectorUnits, enemyUnits)
     }
   }
   return necessaryQueens;
+}
+/**
+ * Finds an immediate threat among enemy units.
+ * 
+ * @param {DataStorage} data - Game data.
+ * @param {Unit} unit - The player's unit.
+ * @param {Unit[]} enemyUnits - Array of enemy units that can be targeted.
+ * @returns {Unit|null} The immediate threat unit or null if not found.
+ */
+function findImmediateThreat(data, unit, enemyUnits) {
+  for (const enemy of enemyUnits) {
+    if (!enemy.pos || !unit.pos) continue; // Skip if either position is undefined
+    const unitAttackRange = dataService.getAttackRange(data, unit, enemy);
+    if (isActivelyAttacking(data, enemy, unit) && getDistance(unit.pos, enemy.pos) <= unitAttackRange) {
+      return enemy;
+    }
+  }
+  return null;
+}
+/**
+ * Finds the optimal target based on the potential damage, health after the attack, and time to kill.
+ *
+ * @param {World} world - The game world state.
+ * @param {Unit} unit - The player's unit.
+ * @param {Unit[]} enemyUnits - Array of enemy units that can be targeted.
+ * @param {number} currentStep - The current game step.
+ * @param {number} maxDistance - The maximum distance to consider for engagement.
+ * @returns {Unit|null} - The optimal target unit or null if not found.
+ */
+function findOptimalTarget(world, unit, enemyUnits, currentStep, maxDistance) {
+  if (!unit.pos) return null;
+
+  let optimalTarget = null;
+  let smallestRemainingHealth = Infinity;
+  let quickestTimeToKill = Infinity;  // Initialize to a high value for comparison
+
+  const isValidEnemy = (/** @type {Unit} */ enemy) => enemy.pos && enemy.tag !== undefined;
+
+  for (const enemy of enemyUnits) {
+    if (!isValidEnemy(enemy)) continue;
+
+    // Only calculate the distance if both unit.pos and enemy.pos are defined
+    if (!unit.pos || !enemy.pos) continue;
+
+    const distance = getDistance(unit.pos, enemy.pos);
+    if (distance > maxDistance) continue;
+
+    const enemyTag = /** @type {string} */ (enemy.tag);  // Type assertion
+    const currentDamage = getDamageForTag(enemyTag, currentStep) || 0;
+    const computation = computeTimeToKillWithMovement(world, unit, enemy, currentDamage);
+
+    if (!computation?.tag) continue;
+
+    const { timeToKillWithMovement, damagePotential } = computation;
+    const potentialDamage = currentDamage + damagePotential;
+    const remainingHealthAfterAttack = (enemy.health ?? 0) + (enemy.shield ?? 0) - potentialDamage;
+
+    if (remainingHealthAfterAttack >= 0 &&
+      (remainingHealthAfterAttack < smallestRemainingHealth || timeToKillWithMovement < quickestTimeToKill)) {
+      smallestRemainingHealth = remainingHealthAfterAttack;
+      quickestTimeToKill = timeToKillWithMovement;
+      optimalTarget = enemy;
+    }
+  }
+
+  return optimalTarget;
 }

@@ -8,8 +8,8 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const curatedAbilities = require("../constants/curated-abilities");
 const { getTimeInSeconds } = require("./frames-service");
 const { getDistance } = require("./position-service");
-const { getWeaponThatCanAttack } = require("./unit-service");
 const { requiresPylon } = require("./agent-service");
+const unitService = require("./unit-service");
 
 const dataService = {
   /** @type number[] */
@@ -60,27 +60,32 @@ const dataService = {
     return allActions;
   },
   /**
-   * @param {DataStorage} data
-   * @param {Unit} unit
-   * @param {Unit} targetType
-   * @returns {number}
-   * @description Returns the attack range of the given unit.
-   * If the unit data or weapons data is not available, an attack range of 0 is assumed.
-   * Otherwise, the range of the weapon that can attack the targetType is returned.
+   * Returns the effective attack range of the given unit considering the unit's and target's radii.
+   *
+   * @param {DataStorage} data - The game data storage object.
+   * @param {Unit} unit - The unit for which to get the attack range.
+   * @param {Unit} targetType - The type of unit that is being targeted.
+   * @returns {number} - The effective attack range. If data is not available, returns 0.
+   * @description If the unit data or weapons data is not available, an attack range of 0 is assumed.
+   * Otherwise, the range of the weapon that can attack the targetType plus unit's and target's radii is returned.
    */
   getAttackRange: (data, unit, targetType) => {
-    if (typeof unit.unitType === 'undefined') {
+    const { unitType, radius: unitRadius = 0 } = unit;
+    const { radius: targetRadius = 0 } = targetType;
+
+    if (typeof unitType === 'undefined') {
       return 0;
     }
 
-    const weapon = getWeaponThatCanAttack(data, unit.unitType, targetType);
+    const weapon = unitService.getWeaponThatCanAttack(data, unitType, targetType);
 
     if (!weapon) {
       return 0;
     }
 
-    // Return the range of the weapon if available, else 0.
-    return weapon.range || 0;
+    const { range: weaponRange = 0 } = weapon;
+
+    return weaponRange + unitRadius + targetRadius;
   },
   /**
    * @param {DataStorage} data
@@ -169,7 +174,7 @@ const dataService = {
     const { radius, unitType } = unit; if (radius === undefined || unitType === undefined) return Infinity;
     return targetUnits.reduce((/** @type {number} */ acc, targetUnit) => {
       const { pos, radius: targetRadius } = targetUnit; if (pos === undefined || targetRadius === undefined) return acc;
-      const weapon = getWeaponThatCanAttack(data, unitType, targetUnit); if (weapon === undefined) return acc;
+      const weapon = unitService.getWeaponThatCanAttack(data, unitType, targetUnit); if (weapon === undefined) return acc;
       const { range } = weapon; if (range === undefined) return acc;
       const distanceToEnemyUnit = getDistance(position, pos) - range - radius - targetRadius;
       return Math.min(acc, distanceToEnemyUnit);
