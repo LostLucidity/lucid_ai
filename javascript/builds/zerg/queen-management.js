@@ -14,14 +14,22 @@ const { getMapPath } = require("../../systems/map-resource-system/map-resource-s
 const { getClosestUnitByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("../../services/resource-manager-service");
 
 module.exports = {
+  /**
+   * Update labels for queens based on certain conditions.
+   *
+   * @param {UnitResource} units - The units data object.
+   */
   labelQueens: (units) => {
-    let label = 'injector';
-    if (units.withLabel(label).length < units.getBases().filter(base => base.buildProgress >= 1).length) {
-      // get not injector queens
-      setLabel(units, label);
-      // label as injector
+    const INJECTOR_LABEL = 'injector';
+    const CREEPER_LABEL = 'creeper';
+
+    const injectorCount = units.withLabel(INJECTOR_LABEL).length;
+    const completedBaseCount = units.getBases().filter(base => base.buildProgress !== undefined && base.buildProgress >= 1).length;
+
+    if (injectorCount < completedBaseCount) {
+      setLabel(units, INJECTOR_LABEL);
     } else if (units.getById(QUEEN).length > units.getBases().length) {
-      setLabel(units, 'creeper');
+      setLabel(units, CREEPER_LABEL);
     }
   },
   /**
@@ -186,15 +194,24 @@ function getRandomWithLimit(array, limit) {
   }
   return result;
 }
-
+/**
+ * Set or adjust the given label on a queen. If a queen has an 'injector' or 'creeper' label, 
+ * it will be replaced by the new label. Other labels remain unaffected.
+ *
+ * @param {UnitResource} units - The units data object.
+ * @param {string} label - The label to be set.
+ */
 function setLabel(units, label) {
-  const foundQueen = units.getById(QUEEN).find(queen => !queen.labels.get('injector'));
+  const foundQueen = units.getById(QUEEN).find(queen => !queen.labels.get('injector') && !queen.labels.get('creeper'));
   if (foundQueen) {
-    foundQueen.labels.clear();
+    // Remove 'injector' and 'creeper' labels, if they exist
+    foundQueen.labels.delete('injector');
+    foundQueen.labels.delete('creeper');
+
+    // Set the new label
     foundQueen.labels.set(label, true);
   }
 }
-
 /**
  * @param {UnitResource} units 
  * @param {Unit} queen 
