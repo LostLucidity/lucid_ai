@@ -20,6 +20,7 @@ const stateOfGameService = require("../../systems/state-of-game-system/state-of-
 const { calculateTotalHealthRatio, isByItselfAndNotAttacking, isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
 const unitService = require("../../services/unit-service");
+const resourceManagerService = require("../../services/resource-manager-service");
 
 module.exports = {
   /**
@@ -452,26 +453,29 @@ function handleNonThreateningUnits(world, scoutUnit) {
   }
   return collectedActions;
 }
-
 /**
- * @param {World} world
- * @param {Unit} unit
- * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions
- * @returns {boolean}
+ * Determines if there are any threats to the provided unit and handles them. 
+ * Engages or retreats based on the closest threat.
+ *
+ * @param {World} world - The current state of the world.
+ * @param {Unit} unit - The unit to check for nearby threats.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - An array to collect the actions taken.
+ * @returns {boolean} - Returns true if a threat was handled, otherwise false.
  */
 function handleThreats(world, unit, collectedActions) {
   const { resources } = world;
-  const { units } = resources.get();
-  const { pos } = unit; if (pos === undefined) return false;
-  const nearbyEnemyUnits = units.getClosest(pos, units.getAlive(Alliance.ENEMY)
-    .filter((/** @type {Unit} */ e) => e.pos && getDistanceSquared(pos, e.pos) <= 16 * 16));
-  if (nearbyEnemyUnits.length > 0) {
-    collectedActions.push(...engageOrRetreat(world, [unit], nearbyEnemyUnits, getCombatRally(resources)));
-    return true; // Threat handled, skip rest of behavior for this unit
-  }
-  return false; // No threats
-}
+  const unitPosition = unit.pos;
+  if (!unitPosition) return false;
 
+  const nearbyEnemyUnits = getNearbyEnemyUnits(unitPosition);
+  if (nearbyEnemyUnits.length === 0) return false;
+
+  const closestEnemyUnit = resourceManagerService.getClosestEnemyByPath(resources, unitPosition, nearbyEnemyUnits);
+  if (!closestEnemyUnit) return false;
+
+  handleEngageOrRetreat(world, unit, closestEnemyUnit, nearbyEnemyUnits, collectedActions);
+  return true;
+}
 /**
  * @param {World} world
  * @param {Unit} unit
@@ -559,5 +563,32 @@ function issueCreepCommand(unit, selectedCreepEdge, collectedActions) {
     });
   }
 }
-
-
+/**
+ * Filters and returns nearby enemy units based on a position.
+ *
+ * @param {Point2D} position - The position to check nearby enemies for.
+ * @returns {Unit[]} - Returns array of nearby enemy units.
+ */
+function getNearbyEnemyUnits(position) {
+  return enemyTrackingService.mappedEnemyUnits
+    .filter((/** @type {Unit} */ e) => e.pos && getDistanceSquared(position, e.pos) <= 16 * 16);
+}
+/**
+ * Handles the engage or retreat logic for a unit based on a threat.
+ *
+ * @param {World} world - The current state of the world.
+ * @param {Unit} unit - The unit to engage or retreat.
+ * @param {Unit} enemyUnit - The closest enemy unit.
+ * @param {Unit[]} nearbyEnemyUnits - List of nearby enemy units.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - An array to collect the actions taken.
+ */
+function handleEngageOrRetreat(world, unit, enemyUnit, nearbyEnemyUnits, collectedActions) {
+  if (!enemyUnit.pos) return; // Make sure the enemy unit's position is defined
+  
+  const { units } = world.resources.get();
+  
+  const otherCombatUnits = filterCombatUnits(units, unit, units.getCombatUnits());
+  const combatUnits = [unit, ...otherCombatUnits]; // Include the QUEEN in the combatUnits array
+  
+  collectedActions.push(...engageOrRetreat(world, combatUnits, nearbyEnemyUnits, enemyUnit.pos, false));
+}

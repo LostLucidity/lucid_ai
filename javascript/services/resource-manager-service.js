@@ -107,6 +107,19 @@ const resourceManagerService = {
     }
   },
   /**
+   * Get the closest enemy to a given point by path distance.
+   *
+   * @param {ResourceManager} resources - The resources object.
+   * @param {Point2D} point - The reference point.
+   * @param {Unit[]} unitsFromClustering - The units to search for the closest enemy.
+   * @returns {Unit | undefined} - The closest enemy unit or undefined if none found.
+   */
+  getClosestEnemyByPath: (resources, point, unitsFromClustering) => {
+    const { getClosestUnitByPath } = resourceManagerService;
+    const [closestEnemy] = getClosestUnitByPath(resources, point, unitsFromClustering);
+    return closestEnemy;
+  },
+  /**
    * @param {ResourceManager} resources
    * @param {Point2D} position
    * @param {Point2D} targetPosition

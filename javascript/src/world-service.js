@@ -3815,7 +3815,7 @@ function getRetreatCandidates(world, unit, targetUnit) {
   const unitsFromClustering = getUnitsFromClustering(damageDealingEnemies);
 
   return expansionLocations.flatMap(point => {
-    const closestEnemy = getClosestEnemyByPath(resources, point, unitsFromClustering);
+    const closestEnemy = resourceManagerService.getClosestEnemyByPath(resources, point, unitsFromClustering);
     if (!closestEnemy || !closestEnemy.unitType) return [];
 
     const { pos: enemyPos, radius: enemyRadius = 0, unitType } = closestEnemy;
@@ -5805,21 +5805,6 @@ function getClosestPositionByPathSorted(resources, pos, mapPoints) {
     };
   }).sort((a, b) => a.distanceByPath - b.distanceByPath);
 }
-
-/**
- * Get the closest enemy to a given point by path distance.
- *
- * @param {ResourceManager} resources - The resources object.
- * @param {Point2D} point - The reference point.
- * @param {Unit[]} unitsFromClustering - The units to search for the closest enemy.
- * @returns {Unit | undefined} - The closest enemy unit or undefined if none found.
- */
-function getClosestEnemyByPath(resources, point, unitsFromClustering) {
-  const { getClosestUnitByPath } = resourceManagerService;
-  const [closestEnemy] = getClosestUnitByPath(resources, point, unitsFromClustering);
-  return closestEnemy;
-}
-
 /**
  * @param {MapResource} map
  * @param {Point2D} unitPos
