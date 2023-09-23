@@ -2013,219 +2013,46 @@ const worldService = {
   },
   /**
    * Generates unit commands to direct given units to either engage in battle or retreat.
-   * 
+   *
    * @param {World} world - The game world.
    * @param {Unit[]} selfUnits - Array of player's units.
    * @param {Unit[]} enemyUnits - Array of enemy units.
    * @param {Point2D} position - Point to either move towards or retreat from.
-   * @param {boolean} clearRocks - Indicates if destructible rocks should be targeted.
+   * @param {boolean} [clearRocks=true] - Indicates if destructible rocks should be targeted.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} Array of commands.
    */
   engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
-    const { workerTypes } = groupTypes;
-    const { getInRangeDestructables, getMovementSpeed, getWeaponThatCanAttack, setPendingOrders } = unitService;
-    const { microB, microRangedUnit, retreat } = worldService;
-    const { data, resources } = world;
-    const { map, units } = resources.get();
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
-    const selfUnitsAttackingInRange = getUnitsAttackingInRange(world, selfUnits);
     // First, separate out injector QUEENs from other units
     // Extract QUEEN related logic
     const injectorQueens = selfUnits.filter(unit => unit.unitType === QUEEN && unit.labels.has('injector'));
     const nonInjectorUnits = selfUnits.filter(unit => unit.unitType !== QUEEN || !unit.labels.has('injector'));
 
     if (!shouldEngage(world, nonInjectorUnits, enemyUnits)) {
+      // Non-injector units and necessary queens will form the new selfUnits
       selfUnits = [...nonInjectorUnits, ...getNecessaryQueens(world, injectorQueens, nonInjectorUnits, enemyUnits)];
+
+      // Get all queens that were previously in the selfUnits but not included in the new selfUnits
+      const excludedQueens = selfUnits.filter(unit => unit.unitType === QUEEN && !selfUnits.includes(unit));
+
+      // Issue a STOP command for all excluded queens
+      excludedQueens.forEach(queen => {
+        if (queen.isAttacking() && queen.tag) {  // Add an additional check to ensure queen.tag is defined.
+          const stopCommand = {
+            abilityId: STOP,
+            unitTags: [queen.tag]
+          };
+          collectedActions.push(stopCommand);
+        }
+      });
     }
 
-    // Now, process the selfUnits with the correct set of QUEENs
+    // Process self units with the appropriate logic
     selfUnits.forEach(selfUnit => {
-      const { pos, radius, tag } = selfUnit; if (pos === undefined || radius === undefined || tag === undefined) return;
-      let targetPosition = position;
-      // log condition if time is 215 to 245 seconds
-      const logCondition = world.resources.get().frame.timeInSeconds() > 215 && world.resources.get().frame.timeInSeconds() < 245;
-      if (!workerTypes.includes(selfUnit.unitType) || selfUnit.labels.has('defending')) {
-        const [closestAttackableEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => canAttack(selfUnit, enemyUnit, false)));
-        const attackablePosition = closestAttackableEnemyUnit ? closestAttackableEnemyUnit.pos : null;
-        if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
-          const { pos: closestAttackableEnemyUnitPos, radius: closestAttackableEnemyUnitRadius, unitType: closestAttackableEnemyUnitType } = closestAttackableEnemyUnit; if (closestAttackableEnemyUnitPos === undefined || closestAttackableEnemyUnitRadius === undefined || closestAttackableEnemyUnitType === undefined) return;
-          const engagementDistanceThreshold = 16; // Or whatever distance you choose
-          const relevantSelfUnits = selfUnits.filter(unit => {
-            if (!selfUnit.pos || !unit.pos) return false;
-            return getDistance(unit.pos, selfUnit.pos) <= engagementDistanceThreshold;
-          });
-          const relevantEnemyUnits = enemyUnits.filter(unit => {
-            if (unit.pos && selfUnit.pos) {
-              return getDistance(unit.pos, selfUnit.pos) <= engagementDistanceThreshold;
-            }
-            return false;
-          });
-          const shouldEngageGroup = shouldEngage(world, relevantSelfUnits, relevantEnemyUnits);
-          if (!shouldEngageGroup) {
-            if (getMovementSpeed(map, selfUnit) < getMovementSpeed(map, closestAttackableEnemyUnit) && closestAttackableEnemyUnit.unitType !== ADEPTPHASESHIFT) {
-              if (selfUnit.isMelee()) {
-                collectedActions.push(...microB(world, selfUnit, closestAttackableEnemyUnit, enemyUnits));
-              } else {
-                const enemyInAttackRange = isEnemyInAttackRange(data, selfUnit, closestAttackableEnemyUnit);
-                if (enemyInAttackRange) {
-                  collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
-                } else {
-                  const unitCommand = createUnitCommand(MOVE, [selfUnit]);
-                  unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestAttackableEnemyUnit]);
-                  collectedActions.push(unitCommand);
-                }
-              }
-            } else {
-              const unitCommand = createUnitCommand(MOVE, [selfUnit]);
-              if (selfUnit.isFlying) {
-                if (attackablePosition) {
-                  createAndAddUnitCommand(MOVE, selfUnit, moveAwayPosition(map, attackablePosition, pos), collectedActions);
-                }
-              } else {
-                if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
-                  const closestEnemyRange = getClosestEnemyByRange(world, selfUnit, enemyUnits); if (closestEnemyRange === null) return;
-                  const { pos: closestEnemyRangePos } = closestEnemyRange; if (closestEnemyRangePos === undefined) return;
-                  if (!selfUnit.isMelee()) {
-                    const foundEnemyWeapon = getWeaponThatCanAttack(data, closestEnemyRange.unitType, selfUnit);
-                    if (foundEnemyWeapon) {
-                      const bufferDistance = (foundEnemyWeapon.range + radius + closestEnemyRange.radius + getTravelDistancePerStep(map, closestEnemyRange) + getTravelDistancePerStep(map, selfUnit) * 1.1);
-                      if ((bufferDistance) < getDistance(pos, closestEnemyRangePos)) {
-                        // Check for ally units in the path
-                        const pathToEnemy = MapResourceService.getMapPath(map, pos, closestEnemyRangePos);
-                        if (pos && pos.x !== undefined && pos.y !== undefined) {
-                          const offset = {
-                            x: pos.x - Math.floor(pos.x),
-                            y: pos.y - Math.floor(pos.y),
-                          };
-
-                          /**
-                           * @param {Unit} unit 
-                           * @returns {boolean}
-                           */
-                          const isNotAttackingNorHasAttackOrder = (unit) => {
-                            // Replace this with your own function to check if the unit is not attacking and does not have a pending attack order
-                            return !unit.isAttacking() && !unitService.getPendingOrders(unit).some(order => order.abilityId === ATTACK_ATTACK);
-                          }
-
-                          const allyUnitsInPath = selfUnits.filter(unit => {
-                            return getPathCoordinates(pathToEnemy).some(pathPos => {
-                              if (pathPos.x !== undefined && pathPos.y !== undefined) {
-                                const adjustedPathPos = {
-                                  x: pathPos.x + offset.x,
-                                  y: pathPos.y + offset.y,
-                                };
-
-                                return unit.pos && getDistance(adjustedPathPos, unit.pos) <= (unit.radius !== undefined ? unit.radius : 0.5);
-                              }
-                              return false;
-                            });
-                          }).filter(isNotAttackingNorHasAttackOrder);
-
-                          if (allyUnitsInPath.length === 0) {
-                            // If no ally units are in the path, proceed with micro
-                            collectedActions.push(...microRangedUnit(world, selfUnit, closestEnemyRange));
-                          } else {
-                            // If ally units are in the path, set the target world space position to retreat
-                            unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange] || [closestAttackableEnemyUnit]);
-                            unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
-                              setPendingOrders(unit, unitCommand);
-                              return unit.tag;
-                            });
-                          }
-                        }
-
-                        return;
-                      } else {
-                        // retreat if buffer distance is greater than actual distance
-                        unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange] || [closestAttackableEnemyUnit]);
-                        unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
-                          setPendingOrders(unit, unitCommand);
-                          return unit.tag;
-                        });
-                      }
-                    } else {
-                      // no weapon found, micro ranged unit
-                      collectedActions.push(...microRangedUnit(world, selfUnit, closestEnemyRange || closestAttackableEnemyUnit));
-                      return;
-                    }
-                  } else {
-                    // retreat if melee
-                    unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange || closestAttackableEnemyUnit]);
-                  }
-                } else {
-                  // skip action if pending orders
-                  return;
-                }
-              }
-              collectedActions.push(unitCommand);
-            }
-          } else {
-            setRecruitToBattleLabel(selfUnit, attackablePosition);
-            if (canAttack(selfUnit, closestAttackableEnemyUnit, false)) {
-              if (!selfUnit.isMelee()) {
-                collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
-              } else {
-                handleMeleeUnitLogic(world, selfUnit, closestAttackableEnemyUnit, attackablePosition, collectedActions);
-              }
-            } else {
-              collectedActions.push({
-                abilityId: ATTACK_ATTACK,
-                targetWorldSpacePos: attackablePosition,
-                unitTags: [tag],
-              });
-            }
-          }
-        } else {
-          if (selfUnit.unitType !== QUEEN) {
-            const unitCommand = {
-              abilityId: ATTACK_ATTACK,
-              unitTags: [tag],
-            }
-            const destructableTag = getInRangeDestructables(units, selfUnit);
-            if (destructableTag && clearRocks && !worldService.outpowered) {
-              const destructable = units.getByTag(destructableTag);
-              const { pos, radius } = destructable; if (pos === undefined || radius === undefined) { return; }
-              const { pos: selfPos, radius: selfRadius, unitType: selfUnitType } = selfUnit; if (selfPos === undefined || selfRadius === undefined || selfUnitType === undefined) { return; }
-              const weapon = getWeaponThatCanAttack(data, selfUnitType, destructable); if (weapon === undefined) { return; }
-              const { range } = weapon; if (range === undefined) { return; }
-              const attackRadius = radius + selfRadius + range;
-              const destructableBorderPositions = getBorderPositions(pos, attackRadius);
-              const fitablePositions = destructableBorderPositions.filter(borderPosition => {
-                return selfUnitsAttackingInRange.every(attackingInRangeUnit => {
-                  const { pos: attackingInRangePos, radius: attackingInRangeRadius } = attackingInRangeUnit; if (attackingInRangePos === undefined || attackingInRangeRadius === undefined) { return false; }
-                  const distanceFromAttackingInRangeUnit = getDistance(borderPosition, attackingInRangePos);
-                  return distanceFromAttackingInRangeUnit > attackingInRangeRadius + selfRadius;
-                });
-              }).sort((a, b) => getDistance(a, selfPos) - getDistance(b, selfPos));
-              if (fitablePositions.length > 0 && getDistance(pos, selfPos) > attackRadius + 1) {
-                targetPosition = fitablePositions[0];
-                const moveUnitCommand = createUnitCommand(MOVE, [selfUnit]);
-                moveUnitCommand.targetWorldSpacePos = targetPosition;
-                collectedActions.push(moveUnitCommand);
-                unitCommand.queueCommand = true;
-              }
-              unitCommand.targetUnitTag = destructable.tag;
-            }
-            else {
-              const [closestCompletedBunker] = units.getClosest(selfUnit.pos, units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1));
-              if (closestCompletedBunker && closestCompletedBunker.abilityAvailable(LOAD_BUNKER)) {
-                unitCommand.abilityId = SMART;
-                unitCommand.targetUnitTag = closestCompletedBunker.tag;
-              } else {
-                unitCommand.targetWorldSpacePos = targetPosition;
-              }
-            }
-            collectedActions.push(unitCommand);
-          }
-        }
-      }
-      // if selfUnit is a QUEEN and logCondition is true, log its collectedActions
-      if (selfUnit.unitType === QUEEN && logCondition) {
-        const queenActions = collectedActions.filter(action => action.unitTags && action.unitTags.includes(tag));
-        console.log(`Queen ${tag} collectedActions: ${JSON.stringify(queenActions)}`);
-      }
+      processSelfUnitLogic(world, selfUnits, selfUnit, position, enemyUnits, collectedActions, clearRocks);
     });
+
     return collectedActions;
   },
   /**
@@ -7154,4 +6981,207 @@ function findOptimalTarget(world, unit, enemyUnits, currentStep, maxDistance) {
   }
 
   return optimalTarget;
+}
+/**
+ * Process the logic for a single unit of the player.
+ *
+ * @param {World} world - The game world.
+ * @param {Unit[]} selfUnits - Array of player units.
+ * @param {Unit} selfUnit - The player's unit.
+ * @param {Point2D} position - Point to either move towards or retreat from.
+ * @param {Unit[]} enemyUnits - Array of enemy units.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - Array of collected actions.
+ * @param {boolean} clearRocks - Indicates if destructible rocks should be targeted.
+ */
+function processSelfUnitLogic(world, selfUnits, selfUnit, position, enemyUnits, collectedActions, clearRocks) {
+  const { workerTypes } = groupTypes;
+  const { getInRangeDestructables, getMovementSpeed, getWeaponThatCanAttack, setPendingOrders } = unitService;
+  const { microB, microRangedUnit, retreat } = worldService;
+  const { data, resources } = world;
+  const { map, units } = resources.get();
+  const selfUnitsAttackingInRange = getUnitsAttackingInRange(world, selfUnits);
+  const { pos, radius, tag } = selfUnit; if (pos === undefined || radius === undefined || tag === undefined) return;
+  let targetPosition = position;
+  // log condition if time is 215 to 245 seconds
+  const logCondition = world.resources.get().frame.timeInSeconds() > 215 && world.resources.get().frame.timeInSeconds() < 245;
+  if (!workerTypes.includes(selfUnit.unitType) || selfUnit.labels.has('defending')) {
+    const [closestAttackableEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => canAttack(selfUnit, enemyUnit, false)));
+    const attackablePosition = closestAttackableEnemyUnit ? closestAttackableEnemyUnit.pos : null;
+    if (closestAttackableEnemyUnit && distance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
+      const { pos: closestAttackableEnemyUnitPos, radius: closestAttackableEnemyUnitRadius, unitType: closestAttackableEnemyUnitType } = closestAttackableEnemyUnit; if (closestAttackableEnemyUnitPos === undefined || closestAttackableEnemyUnitRadius === undefined || closestAttackableEnemyUnitType === undefined) return;
+      const engagementDistanceThreshold = 16; // Or whatever distance you choose
+      const relevantSelfUnits = selfUnits.filter(unit => {
+        if (!selfUnit.pos || !unit.pos) return false;
+        return getDistance(unit.pos, selfUnit.pos) <= engagementDistanceThreshold;
+      });
+      const relevantEnemyUnits = enemyUnits.filter(unit => {
+        if (unit.pos && selfUnit.pos) {
+          return getDistance(unit.pos, selfUnit.pos) <= engagementDistanceThreshold;
+        }
+        return false;
+      });
+      const shouldEngageGroup = shouldEngage(world, relevantSelfUnits, relevantEnemyUnits);
+      if (!shouldEngageGroup) {
+        if (getMovementSpeed(map, selfUnit) < getMovementSpeed(map, closestAttackableEnemyUnit) && closestAttackableEnemyUnit.unitType !== ADEPTPHASESHIFT) {
+          if (selfUnit.isMelee()) {
+            collectedActions.push(...microB(world, selfUnit, closestAttackableEnemyUnit, enemyUnits));
+          } else {
+            const enemyInAttackRange = isEnemyInAttackRange(data, selfUnit, closestAttackableEnemyUnit);
+            if (enemyInAttackRange) {
+              collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
+            } else {
+              const unitCommand = createUnitCommand(MOVE, [selfUnit]);
+              unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestAttackableEnemyUnit]);
+              collectedActions.push(unitCommand);
+            }
+          }
+        } else {
+          const unitCommand = createUnitCommand(MOVE, [selfUnit]);
+          if (selfUnit.isFlying) {
+            if (attackablePosition) {
+              createAndAddUnitCommand(MOVE, selfUnit, moveAwayPosition(map, attackablePosition, pos), collectedActions);
+            }
+          } else {
+            if (selfUnit['pendingOrders'] === undefined || selfUnit['pendingOrders'].length === 0) {
+              const closestEnemyRange = getClosestEnemyByRange(world, selfUnit, enemyUnits); if (closestEnemyRange === null) return;
+              const { pos: closestEnemyRangePos } = closestEnemyRange; if (closestEnemyRangePos === undefined) return;
+              if (!selfUnit.isMelee()) {
+                const foundEnemyWeapon = getWeaponThatCanAttack(data, closestEnemyRange.unitType, selfUnit);
+                if (foundEnemyWeapon) {
+                  const bufferDistance = (foundEnemyWeapon.range + radius + closestEnemyRange.radius + getTravelDistancePerStep(map, closestEnemyRange) + getTravelDistancePerStep(map, selfUnit) * 1.1);
+                  if ((bufferDistance) < getDistance(pos, closestEnemyRangePos)) {
+                    // Check for ally units in the path
+                    const pathToEnemy = MapResourceService.getMapPath(map, pos, closestEnemyRangePos);
+                    if (pos && pos.x !== undefined && pos.y !== undefined) {
+                      const offset = {
+                        x: pos.x - Math.floor(pos.x),
+                        y: pos.y - Math.floor(pos.y),
+                      };
+
+                      /**
+                       * @param {Unit} unit 
+                       * @returns {boolean}
+                       */
+                      const isNotAttackingNorHasAttackOrder = (unit) => {
+                        // Replace this with your own function to check if the unit is not attacking and does not have a pending attack order
+                        return !unit.isAttacking() && !unitService.getPendingOrders(unit).some(order => order.abilityId === ATTACK_ATTACK);
+                      }
+
+                      const allyUnitsInPath = selfUnits.filter(unit => {
+                        return getPathCoordinates(pathToEnemy).some(pathPos => {
+                          if (pathPos.x !== undefined && pathPos.y !== undefined) {
+                            const adjustedPathPos = {
+                              x: pathPos.x + offset.x,
+                              y: pathPos.y + offset.y,
+                            };
+
+                            return unit.pos && getDistance(adjustedPathPos, unit.pos) <= (unit.radius !== undefined ? unit.radius : 0.5);
+                          }
+                          return false;
+                        });
+                      }).filter(isNotAttackingNorHasAttackOrder);
+
+                      if (allyUnitsInPath.length === 0) {
+                        // If no ally units are in the path, proceed with micro
+                        collectedActions.push(...microRangedUnit(world, selfUnit, closestEnemyRange));
+                      } else {
+                        // If ally units are in the path, set the target world space position to retreat
+                        unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange] || [closestAttackableEnemyUnit]);
+                        unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
+                          setPendingOrders(unit, unitCommand);
+                          return unit.tag;
+                        });
+                      }
+                    }
+
+                    return;
+                  } else {
+                    // retreat if buffer distance is greater than actual distance
+                    unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange] || [closestAttackableEnemyUnit]);
+                    unitCommand.unitTags = selfUnits.filter(unit => distance(unit.pos, selfUnit.pos) <= 1).map(unit => {
+                      setPendingOrders(unit, unitCommand);
+                      return unit.tag;
+                    });
+                  }
+                } else {
+                  // no weapon found, micro ranged unit
+                  collectedActions.push(...microRangedUnit(world, selfUnit, closestEnemyRange || closestAttackableEnemyUnit));
+                  return;
+                }
+              } else {
+                // retreat if melee
+                unitCommand.targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyRange || closestAttackableEnemyUnit]);
+              }
+            } else {
+              // skip action if pending orders
+              return;
+            }
+          }
+          collectedActions.push(unitCommand);
+        }
+      } else {
+        setRecruitToBattleLabel(selfUnit, attackablePosition);
+        if (canAttack(selfUnit, closestAttackableEnemyUnit, false)) {
+          if (!selfUnit.isMelee()) {
+            collectedActions.push(...microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
+          } else {
+            handleMeleeUnitLogic(world, selfUnit, closestAttackableEnemyUnit, attackablePosition, collectedActions);
+          }
+        } else {
+          collectedActions.push({
+            abilityId: ATTACK_ATTACK,
+            targetWorldSpacePos: attackablePosition,
+            unitTags: [tag],
+          });
+        }
+      }
+    } else {
+      if (selfUnit.unitType !== QUEEN) {
+        const unitCommand = {
+          abilityId: ATTACK_ATTACK,
+          unitTags: [tag],
+        }
+        const destructableTag = getInRangeDestructables(units, selfUnit);
+        if (destructableTag && clearRocks && !worldService.outpowered) {
+          const destructable = units.getByTag(destructableTag);
+          const { pos, radius } = destructable; if (pos === undefined || radius === undefined) { return; }
+          const { pos: selfPos, radius: selfRadius, unitType: selfUnitType } = selfUnit; if (selfPos === undefined || selfRadius === undefined || selfUnitType === undefined) { return; }
+          const weapon = getWeaponThatCanAttack(data, selfUnitType, destructable); if (weapon === undefined) { return; }
+          const { range } = weapon; if (range === undefined) { return; }
+          const attackRadius = radius + selfRadius + range;
+          const destructableBorderPositions = getBorderPositions(pos, attackRadius);
+          const fitablePositions = destructableBorderPositions.filter(borderPosition => {
+            return selfUnitsAttackingInRange.every(attackingInRangeUnit => {
+              const { pos: attackingInRangePos, radius: attackingInRangeRadius } = attackingInRangeUnit; if (attackingInRangePos === undefined || attackingInRangeRadius === undefined) { return false; }
+              const distanceFromAttackingInRangeUnit = getDistance(borderPosition, attackingInRangePos);
+              return distanceFromAttackingInRangeUnit > attackingInRangeRadius + selfRadius;
+            });
+          }).sort((a, b) => getDistance(a, selfPos) - getDistance(b, selfPos));
+          if (fitablePositions.length > 0 && getDistance(pos, selfPos) > attackRadius + 1) {
+            targetPosition = fitablePositions[0];
+            const moveUnitCommand = createUnitCommand(MOVE, [selfUnit]);
+            moveUnitCommand.targetWorldSpacePos = targetPosition;
+            collectedActions.push(moveUnitCommand);
+            unitCommand.queueCommand = true;
+          }
+          unitCommand.targetUnitTag = destructable.tag;
+        }
+        else {
+          const [closestCompletedBunker] = units.getClosest(selfUnit.pos, units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1));
+          if (closestCompletedBunker && closestCompletedBunker.abilityAvailable(LOAD_BUNKER)) {
+            unitCommand.abilityId = SMART;
+            unitCommand.targetUnitTag = closestCompletedBunker.tag;
+          } else {
+            unitCommand.targetWorldSpacePos = targetPosition;
+          }
+        }
+        collectedActions.push(unitCommand);
+      }
+    }
+  }
+  // if selfUnit is a QUEEN and logCondition is true, log its collectedActions
+  if (selfUnit.unitType === QUEEN && logCondition) {
+    const queenActions = collectedActions.filter(action => action.unitTags && action.unitTags.includes(tag));
+    console.log(`Queen ${tag} collectedActions: ${JSON.stringify(queenActions)}`);
+  }
 }
