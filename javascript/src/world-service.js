@@ -6145,69 +6145,72 @@ const deriveSafetyRadius = (world, unit, potentialThreats) => {
 }
 /**
  * Handle logic for melee units in combat scenarios.
- * @param {World} world 
- * @param {Unit} selfUnit
- * @param {Unit} targetUnit
- * @param {Point2D} attackablePosition
- * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions
+ * @param {World} world - The world context.
+ * @param {Unit} selfUnit - The melee unit.
+ * @param {Unit} targetUnit - The target unit.
+ * @param {Point2D} attackablePosition - The position where the unit can attack.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - A collection of actions to execute.
  */
 function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, collectedActions) {
   const FALLBACK_MULTIPLIER = -1;
   const { data, resources: { get } } = world;
   const { units } = get();
-  const { pos, radius } = selfUnit;
 
-  if (!pos || !radius) return;
+  const unitPosition = selfUnit.pos;
+  const targetPosition = targetUnit.pos;
+
+  if (!unitPosition || !selfUnit.radius || !targetPosition) return;
 
   const isValidUnit = createIsValidUnitFilter(data, targetUnit);
-  const [rangedUnitAlly] = units.getClosest(pos, selfUnit['selfUnits'].filter(isValidUnit));
+  const [rangedUnitAlly] = units.getClosest(unitPosition, selfUnit['selfUnits'].filter(isValidUnit));
 
   if (!rangedUnitAlly) {
-    createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
+    const attackRadius = (targetUnit.radius || 0) + selfUnit.radius;
+    const surroundPosition = getBorderPositions(targetPosition, attackRadius).sort((a, b) =>
+      getDistance(b, unitPosition) - getDistance(a, unitPosition)
+    )[0];
+
+    if (surroundPosition) {
+      createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
+    } else {
+      createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
+    }
     return;
   }
 
   if (!targetUnit.pos) return;
 
-  const nearbyAllies = getUnitsInRadius(pos, 16, units.getAlive(Alliance.SELF));
+  const nearbyAllies = getUnitsInRadius(unitPosition, 16, units.getAlive(Alliance.SELF));
   const nearbyEnemies = getUnitsInRadius(targetUnit.pos, 16, enemyTrackingService.mappedEnemyUnits);
   const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));
 
-  if (shouldEngage(world, [...meleeNearbyAllies], [...nearbyEnemies])) {
-    createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
-    return;
+  if (shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
+    const attackRadius = (targetUnit.radius || 0) + selfUnit.radius;
+    const surroundPosition = getBorderPositions(targetUnit.pos, attackRadius).sort((a, b) =>
+      getDistance(b, unitPosition) - getDistance(a, unitPosition)
+    )[0];
+
+    if (surroundPosition) {
+      createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
+      return;
+    }
   }
 
-  const targetUnitRadius = targetUnit.radius || 0;
-  const attackRadius = targetUnitRadius + radius;
-  const borderPositions = getBorderPositions(targetUnit.pos, attackRadius);
-
-  const fitablePositions = borderPositions.filter(borderPosition => nearbyAllies.every(ally => {
-    const { pos: allyPos, radius: allyRadius } = ally;
-    if (!allyPos || !allyRadius) return false;
-    return getDistance(borderPosition, allyPos) > allyRadius + radius;
-  })).sort((a, b) => getDistance(a, pos) - getDistance(b, pos));
-
-  let queueCommand = false; // This flag will help us determine if a command is queued or not.
+  const fitablePositions = getBorderPositions(targetUnit.pos, (targetUnit.radius || 0) + selfUnit.radius).filter(borderPosition =>
+    nearbyAllies.every(ally => ally.pos && ally.radius && getDistance(borderPosition, ally.pos) > (ally.radius || 0) + (selfUnit.radius || 0))
+  ).sort((a, b) => getDistance(a, unitPosition) - getDistance(b, unitPosition));
 
   if (fitablePositions.length > 0) {
     createAndAddUnitCommand(MOVE, selfUnit, fitablePositions[0], collectedActions);
-    queueCommand = true;
+    return;
   }
 
-  if (shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
-    if (!rangedUnitAlly.pos || !targetUnit.pos) return;
-
-    const rangedUnitAllyRadius = rangedUnitAlly.radius || 0; // Provide fallback value
+  if (rangedUnitAlly.pos && targetUnit.pos && shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
     const fallbackDirection = getDirection(rangedUnitAlly.pos, targetUnit.pos);
-    const fallbackDistance = (rangedUnitAllyRadius + radius) * FALLBACK_MULTIPLIER;
+    const fallbackDistance = (rangedUnitAlly.radius || 0 + selfUnit.radius) * FALLBACK_MULTIPLIER;
     createAndAddUnitCommand(MOVE, selfUnit, moveInDirection(rangedUnitAlly.pos, fallbackDirection, fallbackDistance), collectedActions);
   } else if (attackablePosition) {
-    const attackCommand = createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
-    if (queueCommand) {
-      attackCommand.queueCommand = true;
-    }
-    collectedActions.push(attackCommand);
+    collectedActions.push(createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions));
   }
 }
 /**
