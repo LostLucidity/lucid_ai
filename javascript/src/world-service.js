@@ -3830,7 +3830,17 @@ function getRetreatCandidates(world, unit, targetUnit) {
     const distanceToRetreat = calculateDistances(resources, pos, getPathablePositions(map, point)).distance;
 
     const expansionsInPath = getExpansionsInPath(map, pos, point);
-    const safeToRetreat = isSafeToRetreat(world, point, expansionsInPath);
+    const pathToRetreat = expansionsInPath.reduce((/** @type {Point2D[]} */ acc, expansion) => {
+      if (map.isPathable(expansion.townhallPosition)) {
+        acc.push(expansion.townhallPosition);
+      } else {
+        const nearbyPathable = findNearbyPathablePosition(world, expansion.townhallPosition);
+        if (nearbyPathable) acc.push(nearbyPathable); // Only push if a pathable position was found
+      }
+      return acc;
+    }, []);
+
+    const safeToRetreat = isSafeToRetreat(world, unit, pathToRetreat, point);
 
     if (distanceToRetreat !== Infinity && distanceToRetreat < adjustedDistanceToEnemy && safeToRetreat) {
       return mapToRetreatCandidates(resources, [point], pos);
@@ -3838,7 +3848,6 @@ function getRetreatCandidates(world, unit, targetUnit) {
     return [];
   });
 }
-
 /**
  * @param {ResourceManager} resources
  * @param {Point2D[]} expansionLocations
@@ -5835,7 +5844,6 @@ function getExpansionsInPath(map, unitPos, point) {
 
   return expansionsInPath;
 }
-
 /**
  * Checks whether the retreat path and point are safe based on the allies and enemies near the path and point.
  *
@@ -6010,13 +6018,14 @@ const getClosestBunkerPosition = (resources, pos) => {
   return bunkerPosition ? bunkerPosition : null;
 
 }
-
 /**
- * @param {World} world
- * @param {Unit} unit
- * @param {Unit} targetUnit
- * @param {number} travelDistancePerStep
- * @returns {Point2D | undefined}
+ * Determines the best pathable retreat point for the unit.
+ * 
+ * @param {World} world - The game world.
+ * @param {Unit} unit - The unit to retreat.
+ * @param {Unit} targetUnit - The unit to retreat from.
+ * @param {number} travelDistancePerStep - Distance traveled per step.
+ * @returns {Point2D | undefined} - The best pathable retreat point, or undefined.
  */
 const determineBestRetreatPoint = (world, unit, targetUnit, travelDistancePerStep) => {
   const { resources } = world;
@@ -6027,15 +6036,17 @@ const determineBestRetreatPoint = (world, unit, targetUnit, travelDistancePerSte
   // Return early if positions are undefined.
   if (!pos || !targetPos) return undefined;
 
-  const retreatCandidatePoint = getBestRetreatCandidatePoint(world, unit, targetUnit);
-  if (retreatCandidatePoint) return retreatCandidatePoint;
+  let retreatPoint = getBestRetreatCandidatePoint(world, unit, targetUnit);
+  if (retreatPoint) return retreatPoint;
 
-  const pathRetreatPoint = getPathRetreatPoint(world.resources, unit, getRetreatCandidates(world, unit, targetUnit));
-  if (pathRetreatPoint) return pathRetreatPoint;
+  retreatPoint = getPathRetreatPoint(world.resources, unit, getRetreatCandidates(world, unit, targetUnit));
+  if (retreatPoint) return retreatPoint;
 
-  return worldService.findClosestSafePosition(world, unit, targetUnit, travelDistancePerStep) || moveAwayPosition(map, targetPos, pos, travelDistancePerStep);
+  retreatPoint = worldService.findClosestSafePosition(world, unit, targetUnit, travelDistancePerStep);
+  if (retreatPoint) return retreatPoint;
+
+  return moveAwayPosition(map, targetPos, pos, travelDistancePerStep);
 }
-
 /**
  * @param {World} world
  * @param {Unit} unit
@@ -7172,4 +7183,36 @@ function processSelfUnitLogic(world, selfUnits, selfUnit, position, enemyUnits, 
     const queenActions = collectedActions.filter(action => action.unitTags && action.unitTags.includes(tag));
     console.log(`Queen ${tag} collectedActions: ${JSON.stringify(queenActions)}`);
   }
+}
+/**
+ * Returns a nearby pathable position given an unpathable position.
+ *
+ * @param {World} world - The game world data.
+ * @param {Point2D} unpathablePoint - The unpathable position.
+ * @param {number} maxSearchRadius - The maximum radius to search for a pathable point.
+ * @returns {Point2D | undefined} - A nearby pathable position or undefined if none found.
+ */
+function findNearbyPathablePosition(world, unpathablePoint, maxSearchRadius = 5) {
+  if (unpathablePoint.x === undefined || unpathablePoint.y === undefined) {
+    return undefined; // Or throw an error, depending on your use case
+  }
+
+  const { map } = world.resources.get();
+  for (let r = 1; r <= maxSearchRadius; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r) {
+          continue; // Only consider points on the outer perimeter of the search area
+        }
+        const testPoint = {
+          x: unpathablePoint.x + dx,
+          y: unpathablePoint.y + dy
+        };
+        if (map.isPathable(testPoint)) {
+          return testPoint;
+        }
+      }
+    }
+  }
+  return undefined;
 }
