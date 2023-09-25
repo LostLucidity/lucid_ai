@@ -454,23 +454,21 @@ function handleNonThreateningUnits(world, scoutUnit) {
   return collectedActions;
 }
 /**
- * Determines if there are any threats to the provided unit and handles them. 
- * Engages or retreats based on the closest threat.
- *
- * @param {World} world - The current state of the world.
- * @param {Unit} unit - The unit to check for nearby threats.
- * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - An array to collect the actions taken.
- * @returns {boolean} - Returns true if a threat was handled, otherwise false.
+ * Determines if there are any threats to the provided unit and takes appropriate actions.
+ * Engages or retreats based on the proximity of the threat.
+ * 
+ * @param {World} world - The current game world state.
+ * @param {Unit} unit - The unit under consideration for threats.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - Actions determined to be taken by the unit.
+ * @returns {boolean} - True if a threat was identified and handled; otherwise, false.
  */
 function handleThreats(world, unit, collectedActions) {
-  const { resources } = world;
-  const unitPosition = unit.pos;
-  if (!unitPosition) return false;
-
-  const nearbyEnemyUnits = getNearbyEnemyUnits(unitPosition);
-  if (nearbyEnemyUnits.length === 0) return false;
-
-  const closestEnemyUnit = resourceManagerService.getClosestEnemyByPath(resources, unitPosition, nearbyEnemyUnits);
+  if (!unit.pos) return false;
+  
+  const nearbyEnemyUnits = getNearbyEnemyUnits(unit.pos, unit);
+  if (!nearbyEnemyUnits.length) return false;
+  
+  const closestEnemyUnit = resourceManagerService.getClosestEnemyByPath(world.resources, unit.pos, nearbyEnemyUnits);
   if (!closestEnemyUnit) return false;
 
   handleEngageOrRetreat(world, unit, closestEnemyUnit, nearbyEnemyUnits, collectedActions);
@@ -564,14 +562,19 @@ function issueCreepCommand(unit, selectedCreepEdge, collectedActions) {
   }
 }
 /**
- * Filters and returns nearby enemy units based on a position.
- *
- * @param {Point2D} position - The position to check nearby enemies for.
- * @returns {Unit[]} - Returns array of nearby enemy units.
+ * Filters and returns nearby enemy units that can attack the specified unit based on its position.
+ * 
+ * @param {Point2D} position - The position from which to gauge proximity of enemies.
+ * @param {Unit} ourUnit - The unit for which threats are being assessed.
+ * @returns {Unit[]} - An array of enemy units that pose a threat to our unit.
  */
-function getNearbyEnemyUnits(position) {
+function getNearbyEnemyUnits(position, ourUnit) {
   return enemyTrackingService.mappedEnemyUnits
-    .filter((/** @type {Unit} */ e) => e.pos && getDistanceSquared(position, e.pos) <= 16 * 16);
+    .filter((/** @type {Unit} */ enemy) =>
+      enemy.pos &&
+      getDistanceSquared(position, enemy.pos) <= 16 * 16 &&
+      canAttack(enemy, ourUnit)
+    );
 }
 /**
  * Handles the engage or retreat logic for a unit based on a threat.
