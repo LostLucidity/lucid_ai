@@ -12,11 +12,19 @@ const { filterLabels } = require("../helper/unit-selection");
 const { getDistance } = require("./position-service");
 const { UnitType } = require("@node-sc2/core/constants");
 
+/** @type {(unit: Unit) => number} */
+const zealotModifier = unit => (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) ? 0.5 : 0;
+
+/** @type {(unit: Unit) => number} */
+const zerglingModifier = unit => (unit.alliance === Alliance.ENEMY && unitService.enemyMetabolicBoost) ? (4.69921875 / 2.9351) - 1 : 0;
+
 const unitService = {
+  /** @type Map<UnitTypeId, (unit: Unit) => number> */
   SPEED_MODIFIERS: new Map([
-    [UnitType.ZEALOT, (/** @type {Unit} */ unit) => (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) ? 0.5 : 0],
-    [UnitType.ZERGLING, (/** @type {Unit} */ unit) => (unit.alliance === Alliance.ENEMY && unitService.enemyMetabolicBoost) ? (4.69921875 / 2.9351) - 1: 0]
+    [UnitType.ZEALOT, zealotModifier],
+    [UnitType.ZERGLING, zerglingModifier],
   ]),
+  /** @type Map<UnitTypeId, number> */
   ZERG_UNITS_ON_CREEP_BONUS: new Map([
     [UnitType.QUEEN, 2.67],
     [UnitType.LOCUSTMP, 1.4],

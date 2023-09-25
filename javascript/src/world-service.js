@@ -5300,15 +5300,23 @@ function calculateClosestConstructingWorker(world, constructingWorkers, position
   }, undefined);
 }
 /**
- * @param {AbilityId} abilityId
- * @param {Unit} selfUnit
- * @param {Point2D} targetPosition
- * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions
+ * Create a command and add it to the collected actions.
+ * @param {AbilityId} abilityId - The ability or command ID.
+ * @param {Unit} selfUnit - The unit issuing the command.
+ * @param {Point2D} targetPosition - The target position for the command.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - A collection of actions to execute.
+ * @param {boolean} [queue=false] - Whether to queue this command or not.
  * @returns {SC2APIProtocol.ActionRawUnitCommand}
  */
-function createAndAddUnitCommand(abilityId, selfUnit, targetPosition, collectedActions) {
+function createAndAddUnitCommand(abilityId, selfUnit, targetPosition, collectedActions, queue = false) {
   const unitCommand = createUnitCommand(abilityId, [selfUnit]);
   unitCommand.targetWorldSpacePos = targetPosition;
+
+  if (queue) {
+    // Assuming your SC2APIProtocol.ActionRawUnitCommand has a queue attribute, if not, adjust accordingly.
+    unitCommand.queue = true;
+  }
+
   collectedActions.push(unitCommand);
   return unitCommand;  // Return the created unitCommand
 }
@@ -6197,58 +6205,73 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
 
   if (!unitPosition || !selfUnit.radius || !targetPosition) return;
 
+  const attackRadius = (targetUnit.radius || 0) + selfUnit.radius;
   const isValidUnit = createIsValidUnitFilter(data, targetUnit);
   const [rangedUnitAlly] = units.getClosest(unitPosition, selfUnit['selfUnits'].filter(isValidUnit));
 
-  if (!rangedUnitAlly) {
-    const attackRadius = (targetUnit.radius || 0) + selfUnit.radius;
-    const surroundPosition = getBorderPositions(targetPosition, attackRadius).sort((a, b) =>
-      getDistance(b, unitPosition) - getDistance(a, unitPosition)
-    )[0];
+  let queueCommand = false;
 
-    if (surroundPosition) {
-      createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
-    } else {
-      createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
-    }
+  if (!rangedUnitAlly) {
+    moveToSurroundOrAttack();
     return;
   }
 
-  if (!targetUnit.pos) return;
-
   const nearbyAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), unitPosition, 16);
-  const nearbyEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, targetUnit.pos, 16);
+  const nearbyEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, targetPosition, 16);
   const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));
 
   if (worldService.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
-    const attackRadius = (targetUnit.radius || 0) + selfUnit.radius;
-    const surroundPosition = getBorderPositions(targetUnit.pos, attackRadius).sort((a, b) =>
-      getDistance(b, unitPosition) - getDistance(a, unitPosition)
-    )[0];
+    moveToSurroundPosition();
+  }
 
+  if (rangedUnitAlly.pos && shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
+    moveToFallbackPosition();
+  }
+
+  attackIfApplicable();
+
+  // Utility functions to organize logic
+  function moveToSurroundOrAttack() {
+    const surroundPosition = getOptimalSurroundPosition(targetPosition, attackRadius, unitPosition);
     if (surroundPosition) {
-      createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
-      return;
+      createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions, queueCommand);
+      queueCommand = true;
+    } else {
+      createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
     }
   }
 
-  const fitablePositions = getBorderPositions(targetUnit.pos, (targetUnit.radius || 0) + selfUnit.radius).filter(borderPosition =>
-    nearbyAllies.every(ally => ally.pos && ally.radius && getDistance(borderPosition, ally.pos) > (ally.radius || 0) + (selfUnit.radius || 0))
-  ).sort((a, b) => getDistance(a, unitPosition) - getDistance(b, unitPosition));
-
-  if (fitablePositions.length > 0) {
-    createAndAddUnitCommand(MOVE, selfUnit, fitablePositions[0], collectedActions);
-    return;
+  function moveToSurroundPosition() {
+    const surroundPosition = getOptimalSurroundPosition(targetPosition, attackRadius, unitPosition);
+    if (surroundPosition) {
+      createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
+      queueCommand = true;
+    }
   }
 
-  if (rangedUnitAlly.pos && targetUnit.pos && shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
-    const fallbackDirection = getDirection(rangedUnitAlly.pos, targetUnit.pos);
+  function moveToFallbackPosition() {
+    const fallbackDirection = getDirection(rangedUnitAlly.pos, targetPosition);
     const fallbackDistance = (rangedUnitAlly.radius || 0 + selfUnit.radius) * FALLBACK_MULTIPLIER;
     createAndAddUnitCommand(MOVE, selfUnit, moveInDirection(rangedUnitAlly.pos, fallbackDirection, fallbackDistance), collectedActions);
-  } else if (attackablePosition) {
-    collectedActions.push(createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions));
+    queueCommand = true;
+  }
+
+  function attackIfApplicable() {
+    if (attackablePosition) {
+      const attackCommand = createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
+      if (queueCommand) {
+        attackCommand.queueCommand = true;
+      }
+      collectedActions.push(attackCommand);
+    }
+  }
+
+  function getOptimalSurroundPosition(targetPos, attackRad, myUnitPosition) {
+    return getBorderPositions(targetPos, attackRad)
+      .sort((a, b) => getDistance(b, myUnitPosition) - getDistance(a, myUnitPosition))[0];
   }
 }
+
 /**
  * @param {DataStorage} data
  * @param {Unit} targetUnit
