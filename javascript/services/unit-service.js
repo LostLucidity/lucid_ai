@@ -147,6 +147,20 @@ const unitService = {
     return add(unit.pos, unit.radius);
   },
   /**
+   * Helper function to get units within a given radius around a position.
+   * @param {Unit[]} units - The list of units to search from.
+   * @param {Point2D | SC2APIProtocol.Point} pos - The center position.
+   * @param {number} radius - The search radius.
+   * @returns {Unit[]} - Units within the given radius.
+   */
+  getUnitsInRadius: (units, pos, radius) => {
+    return units.filter(unit => {
+      if (!unit.pos) return false;  // Skip units without a position
+      const distance = getDistance(pos, unit.pos);
+      return distance <= radius;
+    });
+  },
+  /**
    * @param {MapResource} map
    * @param {Unit} unit 
    * @param {boolean} adjustForRealSeconds
@@ -283,6 +297,13 @@ const unitService = {
     unitService.setPendingOrders(worker, unitCommand);
     return unitCommand;
   },
+  /**
+   * Determines if a unit is potentially a combatant.
+   * @param {Unit} unit - Unit to check.
+   * @returns {boolean} - True if unit has potential for combat, otherwise false.
+   */
+  potentialCombatants: (unit) =>
+    unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && !unit.isHarvesting()),
   /**
    * @param {Unit[]} units 
    * @returns {void}

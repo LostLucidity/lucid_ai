@@ -1573,19 +1573,19 @@ const worldService = {
     const getUnitsInRadius = (unitArray, rad) =>
       unitArray.filter(unit => unit.pos && distance(unit.pos, position) < rad);
 
-    let enemyUnits = getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, 16).filter(potentialCombatants);
+    let enemyUnits = getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, 16).filter(unitService.potentialCombatants);
 
     // If there's only one enemy and it's a non-combatant worker, disregard it
-    if (enemyUnits.length === 1 && !potentialCombatants(enemyUnits[0])) {
+    if (enemyUnits.length === 1 && !unitService.potentialCombatants(enemyUnits[0])) {
       enemyUnits = [];
     }
 
     // If no potential enemy combatants, player is stronger by default
     if (!enemyUnits.length) return true;
 
-    const selfUnits = getUnitsInRadius(units.getAlive(Alliance.SELF), 16).filter(potentialCombatants);
+    const selfUnits = getUnitsInRadius(units.getAlive(Alliance.SELF), 16).filter(unitService.potentialCombatants);
 
-    return shouldUnitsEngage(world, selfUnits, enemyUnits);
+    return worldService.shouldEngage(world, selfUnits, enemyUnits);
   },
   /**
    * @param {DataStorage} data 
@@ -2029,7 +2029,7 @@ const worldService = {
     const injectorQueens = selfUnits.filter(unit => unit.unitType === QUEEN && unit.labels.has('injector'));
     const nonInjectorUnits = selfUnits.filter(unit => unit.unitType !== QUEEN || !unit.labels.has('injector'));
 
-    if (!shouldEngage(world, nonInjectorUnits, enemyUnits)) {
+    if (!worldService.shouldEngage(world, nonInjectorUnits, enemyUnits)) {
       // Non-injector units and necessary queens will form the new selfUnits
       selfUnits = [...nonInjectorUnits, ...getNecessaryQueens(world, injectorQueens, nonInjectorUnits, enemyUnits)];
 
@@ -2825,6 +2825,31 @@ const worldService = {
       return totalDPSHealth + worldService.calculateDPSHealthOfTrainingUnits(world, [unitType], Alliance.SELF, enemyCombatUnits);
     }, 0);
   },
+  /**
+   * Determines if a group of selfUnits should engage against a group of enemyUnits.
+   * @param {World} world
+   * @param {Unit[]} selfUnits
+   * @param {Unit[]} enemyUnits
+   * @returns {boolean}
+   */
+  shouldEngage: (world, selfUnits, enemyUnits) => {
+    const combatantSelfUnits = selfUnits.filter(unitService.potentialCombatants);
+    const combatantEnemyUnits = enemyUnits.filter(unitService.potentialCombatants);
+
+    const selfGroupDPS = calculateGroupDPS(world, combatantSelfUnits, combatantEnemyUnits);
+    const enemyGroupDPS = calculateGroupDPS(world, combatantEnemyUnits, combatantSelfUnits);
+    const selfGroupHealthAndShields = calculateGroupHealthAndShields(combatantSelfUnits);
+    const enemyGroupHealthAndShields = calculateGroupHealthAndShields(combatantEnemyUnits);
+
+    // Defensive measures against division by zero
+    const dpsRatio = (enemyGroupDPS !== 0) ? selfGroupDPS / enemyGroupDPS : (selfGroupDPS > 0 ? Infinity : 1);
+    const healthRatio = (enemyGroupHealthAndShields !== 0) ? selfGroupHealthAndShields / enemyGroupHealthAndShields : (selfGroupHealthAndShields > 0 ? Infinity : 1);
+
+    const dpsThreshold = 1.0;
+    const healthThreshold = 1.0;
+
+    return dpsRatio >= dpsThreshold && healthRatio >= healthThreshold;
+  },    
   /**
    * @param {World} world 
    * @param {[]} conditions 
@@ -6191,11 +6216,11 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
 
   if (!targetUnit.pos) return;
 
-  const nearbyAllies = getUnitsInRadius(unitPosition, 16, units.getAlive(Alliance.SELF));
-  const nearbyEnemies = getUnitsInRadius(targetUnit.pos, 16, enemyTrackingService.mappedEnemyUnits);
+  const nearbyAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), unitPosition, 16);
+  const nearbyEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, targetUnit.pos, 16);
   const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));
 
-  if (shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
+  if (worldService.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
     const attackRadius = (targetUnit.radius || 0) + selfUnit.radius;
     const surroundPosition = getBorderPositions(targetUnit.pos, attackRadius).sort((a, b) =>
       getDistance(b, unitPosition) - getDistance(a, unitPosition)
@@ -6748,68 +6773,6 @@ function getUnitDPS(world, unitType) {
   return dpsArray;
 }
 /**
- * Determines if a group of selfUnits should engage against a group of enemyUnits.
- * @param {World} world
- * @param {Unit[]} selfUnits
- * @param {Unit[]} enemyUnits
- * @returns {boolean}
- */
-function shouldEngage(world, selfUnits, enemyUnits) {
-  // Include QUEENs and non-mining workers in addition to combatant units
-  const potentialCombatants = (/** @type {Unit} */ unit) => unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && !unit.isHarvesting());
-
-  const combatantSelfUnits = selfUnits.filter(potentialCombatants);
-  const combatantEnemyUnits = enemyUnits.filter(potentialCombatants);
-
-  const selfGroupDPS = calculateGroupDPS(world, combatantSelfUnits, combatantEnemyUnits);
-  const enemyGroupDPS = calculateGroupDPS(world, combatantEnemyUnits, combatantSelfUnits);
-  const selfGroupHealthAndShields = calculateGroupHealthAndShields(combatantSelfUnits);
-  const enemyGroupHealthAndShields = calculateGroupHealthAndShields(combatantEnemyUnits);
-
-  // Defensive measures against division by zero
-  const dpsRatio = (enemyGroupDPS !== 0) ? selfGroupDPS / enemyGroupDPS : (selfGroupDPS > 0 ? Infinity : 1);
-  const healthRatio = (enemyGroupHealthAndShields !== 0) ? selfGroupHealthAndShields / enemyGroupHealthAndShields : (selfGroupHealthAndShields > 0 ? Infinity : 1);
-
-  const dpsThreshold = 1.0;
-  const healthThreshold = 1.0;
-
-  return dpsRatio >= dpsThreshold && healthRatio >= healthThreshold;
-}
-
-/**
- * Determines if a unit is potentially a combatant.
- * @param {Unit} unit - Unit to check.
- * @returns {boolean} - True if unit has potential for combat, otherwise false.
- */
-const potentialCombatants = (unit) =>
-  unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && !unit.isHarvesting());
-
-/**
- * Determines if a group of units should engage against another group based on DPS and Health/Shield ratios.
- * @param {World} world
- * @param {Unit[]} selfUnits
- * @param {Unit[]} enemyUnits
- * @returns {boolean}
- */
-function shouldUnitsEngage(world, selfUnits, enemyUnits) {
-  const combatantSelfUnits = selfUnits.filter(potentialCombatants);
-  const combatantEnemyUnits = enemyUnits.filter(potentialCombatants);
-
-  const selfGroupDPS = calculateGroupDPS(world, combatantSelfUnits, combatantEnemyUnits);
-  const enemyGroupDPS = calculateGroupDPS(world, combatantEnemyUnits, combatantSelfUnits);
-  const selfGroupHealthAndShields = calculateGroupHealthAndShields(combatantSelfUnits);
-  const enemyGroupHealthAndShields = calculateGroupHealthAndShields(combatantEnemyUnits);
-
-  const dpsRatio = (enemyGroupDPS !== 0) ? selfGroupDPS / enemyGroupDPS : (selfGroupDPS > 0 ? Infinity : 1);
-  const healthRatio = (enemyGroupHealthAndShields !== 0) ? selfGroupHealthAndShields / enemyGroupHealthAndShields : (selfGroupHealthAndShields > 0 ? Infinity : 1);
-
-  const dpsThreshold = 1.0;
-  const healthThreshold = 1.0;
-
-  return dpsRatio >= dpsThreshold && healthRatio >= healthThreshold;
-}
-
-/**
  * Calculate the combined health and shields of a group of units.
  * @param {Unit[]} units
  * @returns {number}
@@ -6864,21 +6827,6 @@ function moveAwayFromMultiplePositions(map, targetPositions, position, distance 
 
   return map.isPathable(clampedPoint) ? clampedPoint : positionService.findPathablePointByAngleAdjustment(map, position, avgDX, avgDY, distance);
 }
-
-/**
- * Helper function to get units within a given radius around a position.
- * @param {Point2D | SC2APIProtocol.Point} pos - The center position.
- * @param {number} radius - The search radius.
- * @param {Unit[]} units - The list of units to search from.
- * @returns {Unit[]} - Units within the given radius.
- */
-function getUnitsInRadius(pos, radius, units) {
-  return units.filter(unit => {
-    if (!unit.pos) return false;  // Skip units without a position
-    const distance = getDistance(pos, unit.pos);
-    return distance <= radius;
-  });
-}
 /**
  * Determine if the unit should fallback to a defensive position.
  * @param {World} world 
@@ -6906,7 +6854,7 @@ function getNecessaryQueens(world, injectorQueens, nonInjectorUnits, enemyUnits)
   let necessaryQueens = [];
   for (const queen of injectorQueens) {
     const combinedUnits = [...nonInjectorUnits, ...necessaryQueens, queen];
-    if (!shouldEngage(world, combinedUnits, enemyUnits)) {
+    if (!worldService.shouldEngage(world, combinedUnits, enemyUnits)) {
       necessaryQueens.push(queen);
     } else {
       necessaryQueens.push(queen);
@@ -7019,7 +6967,7 @@ function processSelfUnitLogic(world, selfUnits, selfUnit, position, enemyUnits, 
         }
         return false;
       });
-      const shouldEngageGroup = shouldEngage(world, relevantSelfUnits, relevantEnemyUnits);
+      const shouldEngageGroup = worldService.shouldEngage(world, relevantSelfUnits, relevantEnemyUnits);
       if (!shouldEngageGroup) {
         if (getMovementSpeed(map, selfUnit) < getMovementSpeed(map, closestAttackableEnemyUnit) && closestAttackableEnemyUnit.unitType !== ADEPTPHASESHIFT) {
           if (selfUnit.isMelee()) {

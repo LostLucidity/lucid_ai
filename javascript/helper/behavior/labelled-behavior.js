@@ -584,11 +584,24 @@ function getNearbyEnemyUnits(position) {
  */
 function handleEngageOrRetreat(world, unit, enemyUnit, nearbyEnemyUnits, collectedActions) {
   if (!enemyUnit.pos) return; // Make sure the enemy unit's position is defined
-  
-  const { units } = world.resources.get();
-  
-  const otherCombatUnits = filterCombatUnits(units, unit, units.getCombatUnits());
-  const combatUnits = [unit, ...otherCombatUnits]; // Include the QUEEN in the combatUnits array
-  
+
+  const potentialCombatUnits = getPotentialCombatantsInRadius(world, unit, 16);
+  const combatUnits = [unit, ...potentialCombatUnits];
+
   collectedActions.push(...engageOrRetreat(world, combatUnits, nearbyEnemyUnits, enemyUnit.pos, false));
 }
+
+/**
+ * Gets potential combatant units within a certain radius.
+ * 
+ * @param {World} world - The current state of the world.
+ * @param {Unit} unit - The reference unit to check radius around.
+ * @param {number} radius - The radius to check for units.
+ * @returns {Unit[]} - Array of potential combatant units.
+ */
+function getPotentialCombatantsInRadius(world, unit, radius) {
+  const { units } = world.resources.get();
+  const unitsInRadius = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), radius);
+  return unitsInRadius.filter(unitService.potentialCombatants);
+}
+

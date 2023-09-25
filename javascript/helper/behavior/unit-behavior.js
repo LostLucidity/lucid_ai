@@ -27,7 +27,6 @@ const { existsInMap } = require("../location");
 const { getClosestPosition } = require("../get-closest");
 const { CREEPTUMOR } = require("@node-sc2/core/constants/unit-type");
 const InfoRetrievalService = require('../../src/services/info-retrieval-service');
-const { mappedEnemyUnits } = require("../../systems/enemy-tracking/enemy-tracking-service");
 const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const worldService = require("../../src/world-service");
 const unitService = require("../../services/unit-service");
