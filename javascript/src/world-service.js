@@ -6932,6 +6932,11 @@ function findOptimalTarget(world, unit, enemyUnits, currentStep, maxDistance) {
   for (const enemy of enemyUnits) {
     if (!isValidEnemy(enemy)) continue;
 
+    // Compute unitDamagePerHit for the current enemy in the loop
+    const unitDamagePerHit = worldService.getWeaponDamage(world, unit.unitType, unit.alliance, enemy.unitType);
+
+    const KILLING_BLOW_THRESHOLD = unitDamagePerHit;
+
     // Only calculate the distance if both unit.pos and enemy.pos are defined
     if (!unit.pos || !enemy.pos) continue;
 
@@ -6948,8 +6953,9 @@ function findOptimalTarget(world, unit, enemyUnits, currentStep, maxDistance) {
     const potentialDamage = currentDamage + damagePotential;
     const remainingHealthAfterAttack = (enemy.health ?? 0) + (enemy.shield ?? 0) - potentialDamage;
 
-    if (remainingHealthAfterAttack >= 0 &&
-      (remainingHealthAfterAttack < smallestRemainingHealth || timeToKillWithMovement < quickestTimeToKill)) {
+    if (remainingHealthAfterAttack >= (0 - KILLING_BLOW_THRESHOLD) && remainingHealthAfterAttack <= 0
+      || (remainingHealthAfterAttack < smallestRemainingHealth
+        || timeToKillWithMovement < quickestTimeToKill)) {
       smallestRemainingHealth = remainingHealthAfterAttack;
       quickestTimeToKill = timeToKillWithMovement;
       optimalTarget = enemy;
