@@ -12,6 +12,10 @@ const { createUnitCommand } = require("../../services/actions-service");
 const { getPathCoordinates } = require("../../services/path-service");
 const { getMapPath } = require("../../systems/map-resource-system/map-resource-service");
 const { getClosestUnitByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("../../services/resource-manager-service");
+const worldService = require("../../src/world-service");
+const { getDistance } = require("../../services/position-service");
+const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
+const unitService = require("../../services/unit-service");
 
 module.exports = {
   /**
@@ -33,28 +37,49 @@ module.exports = {
     }
   },
   /**
-   * @param {World} world 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   * Determines which injector queens should perform an inject action and which ones should engage in battle.
+   *
+   * @param {World} world - The current state of the world.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - Array of actions that the queens should take.
    */
   inject: (world) => {
     const { units } = world.resources.get();
     const collectedActions = [];
-    // get injector queens, with injector ability
-    const injectorQueens = units.withLabel('injector').filter(queen => queen.availableAbilities().includes(EFFECT_INJECTLARVA));
-    // inject larva only if QUEEN leaving battle doesn't make the army weaker.
+
+    /**
+     * Determines if the given queen is required in the battle.
+     *
+     * @param {Unit} queen - The queen to check.
+     * @param {Unit[]} allAllies - All allied units.
+     * @param {Unit[]} allEnemies - All enemy units.
+     * @returns {boolean} - Whether the queen is required in the battle.
+     */
+    const isQueenRequired = (queen, allAllies, allEnemies) => {
+      const potentialAlliesWithoutQueen = allAllies.filter(unit => unit.tag !== queen.tag);
+      return worldService.shouldEngage(world, potentialAlliesWithoutQueen, allEnemies);
+    };
+
+    const injectorQueens = units.withLabel('injector')
+      .filter(queen => queen.availableAbilities().includes(EFFECT_INJECTLARVA) && queen.pos);
+
     injectorQueens.forEach(queen => {
-      // subtract own DPSHealth from selfDPSHealth and compare to enemy selfDPSHealth
-      const [closestEnemy] = units.getClosest(queen.pos, queen['enemyUnits']);
-      if (closestEnemy) {
-        const queenDPSHealth = getDPSHealth(world, queen, queen['enemyUnits'].map((/** @type {Unit} */ unit) => unit.unitType));
-        const leftOverDPSHealth = queen['selfDPSHealth'] - queenDPSHealth;
-        if (leftOverDPSHealth > closestEnemy['selfDPSHealth']) {
+      if (queen.pos) {  // Ensure the queen's position is defined before proceeding
+        const allAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), queen.pos, 16);
+        const allEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, queen.pos, 16);
+
+        if (!allEnemies.length) {  // If no enemies are near the queen
           collectedActions.push(...findTargetBaseAndInject(units, queen));
+        } else {
+          // Check if this queen is required in the battle.
+          const queensRequired = injectorQueens.some(currentQueen => currentQueen.tag !== queen.tag && isQueenRequired(currentQueen, allAllies, allEnemies));
+
+          if (!queensRequired) {
+            collectedActions.push(...findTargetBaseAndInject(units, queen));
+          }
         }
-      } else {
-        collectedActions.push(...findTargetBaseAndInject(units, queen));
       }
     });
+
     return collectedActions;
   },
   /**

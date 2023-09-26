@@ -593,7 +593,6 @@ function handleEngageOrRetreat(world, unit, enemyUnit, nearbyEnemyUnits, collect
 
   collectedActions.push(...engageOrRetreat(world, combatUnits, nearbyEnemyUnits, enemyUnit.pos, false));
 }
-
 /**
  * Gets potential combatant units within a certain radius.
  * 
