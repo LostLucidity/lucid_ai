@@ -6562,7 +6562,7 @@ function getTargetableEnemyUnits(weaponType) {
   }
 }
 /**
- * Compute Time to Kill a Target with Movement
+ * Compute the time required to kill a target with movement factored in.
  *
  * @param {World} world - The game world state.
  * @param {Unit} unit - The player's unit.
@@ -6571,41 +6571,47 @@ function getTargetableEnemyUnits(weaponType) {
  * @returns {{ tag: string; timeToKillWithMovement: number; damagePotential: number } | null}
  */
 function computeTimeToKillWithMovement(world, unit, target, currentDamage) {
-  const { data, resources } = world;
-  const map = resources.get().map;
+  // Destructure required fields from unit and target for better readability
   const { unitType, alliance, pos, radius } = unit;
-
-  // Early exit if mandatory fields are missing
-  if (!unitType || !alliance || !pos || !radius) return null;
-
   const { health, shield, pos: enemyPos, radius: enemyRadius, unitType: enemyType, tag } = target;
-  const totalHealth = (health ?? 0) + (shield ?? 0) - currentDamage;
 
-  // Early exit if target information is incomplete
-  if (!totalHealth || !enemyPos || !enemyRadius || !enemyType || !tag) return null;
+  // Check for mandatory fields
+  if (!unitType || !alliance || !pos || !radius || !health || !enemyPos || !enemyRadius || !enemyType || !tag) {
+    return null;
+  }
 
-  const weapon = getWeapon(data, unit, target);
+  const totalHealth = health + (shield ?? 0) - currentDamage;
+
+  // Fetch weapon data
+  const weapon = getWeapon(world.data, unit, target);
   if (!weapon || weapon.range === undefined || weapon.damage === undefined) return null;
 
+  // Calculate enemy armor-adjusted damage
+  const enemyArmor = (world.data.getUnitTypeData(enemyType)?.armor) || 0;
+  const adjustedDamage = Math.max(1, weapon.damage - enemyArmor);
+
+  // Fetch positions and speed for unit movement calculations
   const positions = enemyTrackingService.enemyUnitsPositions.get(tag);
   if (!positions?.current || !positions.previous) return null;
 
-  const speed = unitService.getMovementSpeed(map, unit, true);
+  const speed = unitService.getMovementSpeed(world.resources.get().map, unit, true);
   if (!speed) return null;
 
+  // Compute movement related values
   const distanceToTarget = getDistance(pos, enemyPos);
   const distanceToEngage = distanceToTarget - radius - enemyRadius - weapon.range;
   const requiredDistance = Math.max(0, distanceToEngage);
 
   const elapsedFrames = positions.current.lastSeen - positions.previous.lastSeen;
   const enemySpeed = elapsedFrames ? (getDistance(pos, positions.current.pos) - getDistance(pos, positions.previous.pos)) / elapsedFrames : 0;
-
   const timeToReach = requiredDistance / Math.max(1e-6, speed - enemySpeed);
-  const weaponsDPS = worldService.getWeaponDPS(world, unitType, alliance, [enemyType]);
-  const timeToKill = totalHealth / weaponsDPS;  // Time to kill using DPS
-  const totalTime = timeToKill + timeToReach;
 
-  return { tag, timeToKillWithMovement: totalTime, damagePotential: weapon.damage };
+  // Compute adjusted DPS and time to kill
+  const weaponsDPS = worldService.getWeaponDPS(world, unitType, alliance, [enemyType]);
+  const adjustedDPS = weaponsDPS - enemyArmor * weaponsDPS / weapon.damage;
+  const timeToKill = totalHealth / adjustedDPS;
+
+  return { tag, timeToKillWithMovement: timeToKill + timeToReach, damagePotential: adjustedDamage };
 }
 
 /**
