@@ -6189,6 +6189,7 @@ const deriveSafetyRadius = (world, unit, potentialThreats) => {
 }
 /**
  * Handle logic for melee units in combat scenarios.
+ * 
  * @param {World} world - The world context.
  * @param {Unit} selfUnit - The melee unit.
  * @param {Unit} targetUnit - The target unit.
@@ -6230,34 +6231,68 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
 
   attackIfApplicable();
 
-  // Utility functions to organize logic
+  /**
+   * Determines if the melee unit can attack the target unit.
+   *
+   * @returns {boolean} - True if the melee unit can attack, false otherwise.
+   */
+  function isAttackAvailable() {
+    const distance = getDistance(unitPosition, targetPosition);
+    const weapon = unitService.getWeaponThatCanAttack(data, selfUnit.unitType, targetUnit);
+    const attackRange = weapon ? weapon.range || 0 : 0;
+
+    // Check if the unit is on cooldown
+    if (selfUnit.weaponCooldown > 8) {
+      return false;
+    }
+
+    return distance <= attackRange + targetUnit.radius + selfUnit.radius;
+  }
+
+  /**
+   * Handles the unit's movement or attack logic.
+   */
   function moveToSurroundOrAttack() {
-    const surroundPosition = getOptimalSurroundPosition(targetPosition, attackRadius, unitPosition);
-    if (surroundPosition) {
-      createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions, queueCommand);
-      queueCommand = true;
-    } else {
+    if (isAttackAvailable()) {
       createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
+    } else {
+      const surroundPosition = getOptimalSurroundPosition();
+      if (surroundPosition) {
+        createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions, queueCommand);
+        queueCommand = true;
+      } else {
+        createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
+      }
     }
   }
 
+  /**
+   * Directs the unit to move to an optimal surround position.
+   */
   function moveToSurroundPosition() {
-    const surroundPosition = getOptimalSurroundPosition(targetPosition, attackRadius, unitPosition);
+    const surroundPosition = getOptimalSurroundPosition();
     if (surroundPosition) {
       createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
       queueCommand = true;
     }
   }
 
+  /**
+   * Directs the unit to move to a fallback position.
+   */
   function moveToFallbackPosition() {
     const fallbackDirection = getDirection(rangedUnitAlly.pos, targetPosition);
     const fallbackDistance = (rangedUnitAlly.radius || 0 + selfUnit.radius) * FALLBACK_MULTIPLIER;
-    createAndAddUnitCommand(MOVE, selfUnit, moveInDirection(rangedUnitAlly.pos, fallbackDirection, fallbackDistance), collectedActions);
+    const position = moveInDirection(rangedUnitAlly.pos, fallbackDirection, fallbackDistance);
+    createAndAddUnitCommand(MOVE, selfUnit, position, collectedActions);
     queueCommand = true;
   }
 
+  /**
+   * Directs the unit to attack if applicable.
+   */
   function attackIfApplicable() {
-    if (attackablePosition) {
+    if (attackablePosition && selfUnit.weaponCooldown <= 8) {
       const attackCommand = createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
       if (queueCommand) {
         attackCommand.queueCommand = true;
@@ -6266,12 +6301,16 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
     }
   }
 
-  function getOptimalSurroundPosition(targetPos, attackRad, myUnitPosition) {
-    return getBorderPositions(targetPos, attackRad)
-      .sort((a, b) => getDistance(b, myUnitPosition) - getDistance(a, myUnitPosition))[0];
+  /**
+   * Retrieves the optimal surround position for the unit to attack the target.
+   *
+   * @returns {Point2D} - The optimal position for surrounding the target.
+   */
+  function getOptimalSurroundPosition() {
+    return getBorderPositions(targetPosition, attackRadius)
+      .sort((a, b) => getDistance(b, unitPosition) - getDistance(a, unitPosition))[0];
   }
 }
-
 /**
  * @param {DataStorage} data
  * @param {Unit} targetUnit
@@ -6380,49 +6419,51 @@ function shouldReturnEarly(unit) {
   const properties = ['alliance', 'pos', 'radius', 'tag', 'unitType'];
   return properties.some(prop => unit[prop] === undefined);
 }
-
 /**
- * @param {World} world
- * @param {Unit} unit
- * @param {Unit} targetUnit
+ * @param {World} world 
+ * @param {Unit} unit 
+ * @param {Unit} targetUnit 
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function getActionsForMicro(world, unit, targetUnit) {
   const { resources } = world;
   const { map } = resources.get();
-  const positions = findPositionsInRangeOfEnemyUnits(world, unit, [targetUnit]);
-  const targetTag = targetUnit.tag;
 
-  if (typeof targetTag === "undefined") {
-    return []; // return an empty array or fallback action
-  }
+  // Identify other potential threats close to the main targetUnit
+  const nearbyThreats = findNearbyThreats(world, unit, targetUnit);
+  const allThreats = [targetUnit, ...nearbyThreats];
 
-  const targetPositions = enemyTrackingService.enemyUnitsPositions.get(targetTag);
-  const projectedTargetPosition = targetPositions ?
-    getProjectedPosition(
-      targetPositions.current.pos,
-      targetPositions.previous.pos,
-      targetPositions.current.lastSeen,
-      targetPositions.previous.lastSeen
-    ) : targetUnit.pos;
+  // Now handle like before
+  const threatPositions = allThreats.flatMap(target => findPositionsInRangeOfEnemyUnits(world, unit, [target]));
 
-  if (!unit.pos || !projectedTargetPosition || !targetUnit.pos) {
-    return [];
-  }
+  const projectedTargetPositions = allThreats.map(targetUnit => {
+    const targetTag = targetUnit.tag;
+    const targetPositions = enemyTrackingService.enemyUnitsPositions.get(targetTag);
+    return targetPositions ?
+      getProjectedPosition(
+        targetPositions.current.pos,
+        targetPositions.previous.pos,
+        targetPositions.current.lastSeen,
+        targetPositions.previous.lastSeen
+      ) : targetUnit.pos;
+  });
 
-  const addPosition = add(unit.pos, subtract(projectedTargetPosition, targetUnit.pos));
+  const combinedThreatPosition = avgPoints(projectedTargetPositions);
 
-  const [closestPosition] = positions.sort((a, b) =>
+  const addPosition = add(unit.pos, subtract(combinedThreatPosition, unit.pos));
+
+  const [closestSafePosition] = threatPositions.sort((a, b) =>
     getDistanceByPath(resources, addPosition, a) - getDistanceByPath(resources, addPosition, b)
   );
 
-  let targetWorldSpacePos = closestPosition || moveAwayPosition(map, targetUnit.pos, unit.pos);
+  let targetWorldSpacePos = closestSafePosition || moveAwayPosition(map, combinedThreatPosition, unit.pos);
 
   const unitCommand = createUnitCommand(MOVE, [unit]);
   unitCommand.targetWorldSpacePos = targetWorldSpacePos;
 
   return [unitCommand];
 }
+
 /**
  * Computes and returns the actions for a given unit when not micro-managing.
  *
@@ -7198,4 +7239,44 @@ function findNearbyPathablePosition(world, unpathablePoint, maxSearchRadius = 5)
     }
   }
   return undefined;
+}
+/**
+ * Identify enemy units in proximity to a primary target.
+ *
+ * @param {World} _world The current game state.
+ * @param {Unit} _unit The unit we're focusing on.
+ * @param {Unit} targetUnit The primary enemy unit we're concerned about.
+ * @returns {Unit[]} Array of enemy units near the target.
+ */
+function findNearbyThreats(_world, _unit, targetUnit) {
+  const NEARBY_THRESHOLD = 16; // Define the threshold value based on the game's logic
+
+  // Use the enemy tracking service to get all enemy units
+  const allEnemyUnits = enemyTrackingService.mappedEnemyUnits;
+
+  return allEnemyUnits.filter((enemy) => {
+    const { tag, pos } = enemy;
+
+    // Use early returns to filter out non-threatening or irrelevant units
+    if (tag === targetUnit.tag || isNonThreateningUnit(enemy)) {
+      return false;
+    }
+
+    // Check proximity to target unit
+    return getDistance(pos, targetUnit.pos) <= NEARBY_THRESHOLD;
+  });
+}
+/**
+ * Determine if the provided unit is considered non-threatening, such as workers.
+ *
+ * @param {Unit} unit - The unit to evaluate.
+ * @returns {boolean} - True if the unit is non-threatening; otherwise, false.
+ */
+function isNonThreateningUnit(unit) {
+  return groupTypes.workerTypes.includes(unit.unitType);
+}
+
+function isAttackAvailable(self, target) {
+  const distance = getDistance(self.pos, target.pos);
+  return distance <= self.attackRange + target.radius;
 }
