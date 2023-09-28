@@ -6456,9 +6456,18 @@ function getActionsForMicro(world, unit, targetUnit) {
 
   const addPosition = add(unit.pos, subtract(combinedThreatPosition, unit.pos));
 
-  const [closestSafePosition] = threatPositions.sort((a, b) =>
+  let [closestSafePosition] = threatPositions.sort((a, b) =>
     getDistanceByPath(resources, addPosition, a) - getDistanceByPath(resources, addPosition, b)
   );
+
+  // Check the optimal distance and update the closest safe position accordingly
+  /**
+   * @type {number} - The optimal distance the unit should maintain from the enemies to effectively utilize its ranged attack.
+   */
+  const optimalDistance = getOptimalAttackDistance(world, unit, allThreats);
+  if (closestSafePosition && getDistance(closestSafePosition, combinedThreatPosition) < optimalDistance) {
+    closestSafePosition = null; // Discarding the closest safe position if it's too close
+  }
 
   let targetWorldSpacePos = closestSafePosition || moveAwayPosition(map, combinedThreatPosition, unit.pos);
 
@@ -7335,3 +7344,32 @@ const isPathSafe = (world, unit, location) => {
     return false;
   });
 };
+
+/**
+ * Calculates the optimal distance a unit should maintain from enemies to effectively utilize its attack range.
+ *
+ * @param {World} world - The current state of the game world.
+ * @param {Unit} unit - The unit being controlled.
+ * @param {Unit[]} enemies - Array of enemy units that pose a threat.
+ * @returns {number} - The calculated optimal distance from the enemies.
+ */
+function getOptimalAttackDistance(world, unit, enemies) {
+  const { data } = world;
+  const unitWeapon = unitService.getWeaponThatCanAttack(data, unit.unitType, enemies[0]); // Assuming enemies[0] as the reference enemy for simplicity
+
+  if (!unitWeapon || !unitWeapon.range) {
+    return 0; // Handle the case where the weapon or range is undefined
+  }
+
+  const unitAttackRange = unitWeapon.range;
+
+  // Calculate the minimal attack range among the enemies
+  const enemyAttackRanges = enemies.map(enemy => {
+    const enemyWeapon = unitService.getWeaponThatCanAttack(data, enemy.unitType, unit); // Getting the weapon that can attack our unit
+    return enemyWeapon ? enemyWeapon.range : 0;
+  });
+
+  const minEnemyAttackRange = Math.min(...enemyAttackRanges);
+
+  return unitAttackRange + minEnemyAttackRange; // This is a basic example, adapt as needed
+}
