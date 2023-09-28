@@ -6193,7 +6193,7 @@ const deriveSafetyRadius = (world, unit, potentialThreats) => {
 }
 /**
  * Handle logic for melee units in combat scenarios.
- * 
+ *
  * @param {World} world - The world context.
  * @param {Unit} selfUnit - The melee unit.
  * @param {Unit} targetUnit - The target unit.
@@ -6203,18 +6203,16 @@ const deriveSafetyRadius = (world, unit, potentialThreats) => {
 function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, collectedActions) {
   const FALLBACK_MULTIPLIER = -1;
   const { data, resources: { get } } = world;
-  const { units } = get();
+  const { map, units } = get();
 
   const unitPosition = selfUnit.pos;
   const targetPosition = targetUnit.pos;
 
   if (!unitPosition || !selfUnit.radius || !targetPosition) return;
 
-  const attackRadius = (targetUnit.radius || 0) + selfUnit.radius;
+  const attackRadius = targetUnit.radius + selfUnit.radius;
   const isValidUnit = createIsValidUnitFilter(data, targetUnit);
-  const [rangedUnitAlly] = units.getClosest(unitPosition, selfUnit['selfUnits'].filter(isValidUnit));
-
-  let queueCommand = false;
+  const rangedUnitAlly = units.getClosest(unitPosition, selfUnit['selfUnits'].filter(isValidUnit))[0];
 
   if (!rangedUnitAlly) {
     moveToSurroundOrAttack();
@@ -6225,94 +6223,72 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
   const nearbyEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, targetPosition, 16);
   const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));
 
+  let queueCommand = false;
+
   if (worldService.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
     moveToSurroundPosition();
-  }
-
-  if (rangedUnitAlly.pos && shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
+  } else if (rangedUnitAlly.pos && shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
     moveToFallbackPosition();
   }
 
   attackIfApplicable();
 
   /**
-   * Determines if the melee unit can attack the target unit.
-   *
-   * @returns {boolean} - True if the melee unit can attack, false otherwise.
+   * @returns {boolean} Indicates if the melee unit can attack the target unit.
    */
   function isAttackAvailable() {
     const distance = getDistance(unitPosition, targetPosition);
     const weapon = unitService.getWeaponThatCanAttack(data, selfUnit.unitType, targetUnit);
-    const attackRange = weapon ? weapon.range || 0 : 0;
-
-    // Check if the unit is on cooldown
-    if (selfUnit.weaponCooldown > 8) {
-      return false;
-    }
-
-    return distance <= attackRange + targetUnit.radius + selfUnit.radius;
+    return selfUnit.weaponCooldown <= 8 && distance <= (weapon?.range || 0) + attackRadius;
   }
 
-  /**
-   * Handles the unit's movement or attack logic.
-   */
+  /** Handles the unit's movement or attack logic. */
   function moveToSurroundOrAttack() {
-    if (isAttackAvailable()) {
-      createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
-    } else {
-      const surroundPosition = getOptimalSurroundPosition();
-      if (surroundPosition) {
-        createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions, queueCommand);
-        queueCommand = true;
-      } else {
-        createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
-      }
-    }
+    const surroundPosition = getOptimalSurroundPosition();
+    const command = isAttackAvailable() || !surroundPosition
+      ? ATTACK_ATTACK
+      : MOVE;
+
+    createAndAddUnitCommand(command, selfUnit, surroundPosition || attackablePosition, collectedActions, queueCommand);
+    queueCommand = !isAttackAvailable() && !!surroundPosition;
   }
 
-  /**
-   * Directs the unit to move to an optimal surround position.
-   */
+  /** Directs the unit to move to an optimal surround position if available. */
   function moveToSurroundPosition() {
     const surroundPosition = getOptimalSurroundPosition();
-    if (surroundPosition) {
-      createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
-      queueCommand = true;
-    }
+    if (!surroundPosition) return;
+
+    createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
+    queueCommand = true;
   }
 
-  /**
-   * Directs the unit to move to a fallback position.
-   */
+  /** Directs the unit to move to a fallback position if necessary. */
   function moveToFallbackPosition() {
     const fallbackDirection = getDirection(rangedUnitAlly.pos, targetPosition);
-    const fallbackDistance = (rangedUnitAlly.radius || 0 + selfUnit.radius) * FALLBACK_MULTIPLIER;
+    const fallbackDistance = (rangedUnitAlly.radius + selfUnit.radius) * FALLBACK_MULTIPLIER;
     const position = moveInDirection(rangedUnitAlly.pos, fallbackDirection, fallbackDistance);
+
     createAndAddUnitCommand(MOVE, selfUnit, position, collectedActions);
     queueCommand = true;
   }
 
-  /**
-   * Directs the unit to attack if applicable.
-   */
+  /** Directs the unit to attack if applicable. */
   function attackIfApplicable() {
-    if (attackablePosition && selfUnit.weaponCooldown <= 8) {
-      const attackCommand = createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions);
-      if (queueCommand) {
-        attackCommand.queueCommand = true;
-      }
-      collectedActions.push(attackCommand);
-    }
+    if (!attackablePosition || selfUnit.weaponCooldown > 8) return;
+
+    const attackCommand = createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
+    collectedActions.push(attackCommand);
   }
 
   /**
-   * Retrieves the optimal surround position for the unit to attack the target.
-   *
-   * @returns {Point2D} - The optimal position for surrounding the target.
+   * @returns {Point2D|null} Retrieves the optimal pathable surround position to attack the target or null if none.
    */
   function getOptimalSurroundPosition() {
-    return getBorderPositions(targetPosition, attackRadius)
-      .sort((a, b) => getDistance(b, unitPosition) - getDistance(a, unitPosition))[0];
+    const pathablePositions = getBorderPositions(targetPosition, attackRadius).filter(pos => map.isPathable(pos));
+
+    if (pathablePositions.length === 0) return null;
+
+    return pathablePositions.sort((a, b) => getDistance(b, unitPosition) - getDistance(a, unitPosition))[0];
   }
 }
 /**
@@ -7344,7 +7320,6 @@ const isPathSafe = (world, unit, location) => {
     return false;
   });
 };
-
 /**
  * Calculates the optimal distance a unit should maintain from enemies to effectively utilize its attack range.
  *
