@@ -6416,6 +6416,16 @@ function getActionsForMicro(world, unit, targetUnit) {
   // Now handle like before
   const threatPositions = allThreats.flatMap(target => findPositionsInRangeOfEnemyUnits(world, unit, [target]));
 
+  // Calculate the optimal distance from threats
+  const optimalDistance = getOptimalAttackDistance(world, unit, allThreats);
+
+  // Filter out positions that are too close to the threats
+  const safePositions = threatPositions.filter(position =>
+    allThreats.every(threat =>
+      getDistance(position, threat.pos) >= optimalDistance
+    )
+  );
+
   const projectedTargetPositions = allThreats.map(targetUnit => {
     const targetTag = targetUnit.tag;
     const targetPositions = enemyTrackingService.enemyUnitsPositions.get(targetTag);
@@ -6429,30 +6439,24 @@ function getActionsForMicro(world, unit, targetUnit) {
   });
 
   const combinedThreatPosition = avgPoints(projectedTargetPositions);
-
   const addPosition = add(unit.pos, subtract(combinedThreatPosition, unit.pos));
 
-  let [closestSafePosition] = threatPositions.sort((a, b) =>
-    getDistanceByPath(resources, addPosition, a) - getDistanceByPath(resources, addPosition, b)
-  );
-
-  // Check the optimal distance and update the closest safe position accordingly
-  /**
-   * @type {number} - The optimal distance the unit should maintain from the enemies to effectively utilize its ranged attack.
-   */
-  const optimalDistance = getOptimalAttackDistance(world, unit, allThreats);
-  if (closestSafePosition && getDistance(closestSafePosition, combinedThreatPosition) < optimalDistance) {
-    closestSafePosition = null; // Discarding the closest safe position if it's too close
+  // If there are safe positions, find the closest one
+  let closestSafePosition;
+  if (safePositions.length > 0) {
+    [closestSafePosition] = safePositions.sort((a, b) =>
+      getDistanceByPath(resources, addPosition, a) - getDistanceByPath(resources, addPosition, b)
+    );
+  } else {
+    // Fallback logic if no safe positions are found
+    closestSafePosition = moveAwayPosition(map, combinedThreatPosition, unit.pos);
   }
 
-  let targetWorldSpacePos = closestSafePosition || moveAwayPosition(map, combinedThreatPosition, unit.pos);
-
   const unitCommand = createUnitCommand(MOVE, [unit]);
-  unitCommand.targetWorldSpacePos = targetWorldSpacePos;
+  unitCommand.targetWorldSpacePos = closestSafePosition;
 
   return [unitCommand];
 }
-
 /**
  * Computes and returns the actions for a given unit when not micro-managing.
  *
