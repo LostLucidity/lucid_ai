@@ -3833,8 +3833,12 @@ function getRetreatCandidates(world, unit, targetUnit) {
     targetUnit['selfUnits'] || getEnemyUnits(targetUnit)
   );
 
-  if (damageDealingEnemies.length === 0) {
-    return mapToRetreatCandidates(resources, expansionLocations, pos);
+  const safeExpansionLocations = expansionLocations.filter(location => {
+    return isPathSafe(world, unit, location);
+  });
+
+  if (damageDealingEnemies.length === 0 && safeExpansionLocations.length > 0) {
+    return mapToRetreatCandidates(resources, safeExpansionLocations, pos);
   }
 
   const unitsFromClustering = getUnitsFromClustering(damageDealingEnemies);
@@ -7275,8 +7279,59 @@ function findNearbyThreats(_world, _unit, targetUnit) {
 function isNonThreateningUnit(unit) {
   return groupTypes.workerTypes.includes(unit.unitType);
 }
+/**
+ * Check if the path to a given location is safe.
+ * 
+ * @param {World} world - The game world containing various game state information.
+ * @param {Unit} unit - The unit that we're considering moving.
+ * @param {Point2D} location - The destination point that we're evaluating the safety of reaching.
+ * @returns {boolean} - Returns true if the path is deemed safe, and false otherwise.
+ */
+const isPathSafe = (world, unit, location) => {
+  const { resources } = world;
+  const { map } = resources.get();
+  const { pos: unitPos } = unit;
 
-function isAttackAvailable(self, target) {
-  const distance = getDistance(self.pos, target.pos);
-  return distance <= self.attackRange + target.radius;
-}
+  if (!unitPos) return false;
+
+  // Obtain the path using your existing getMapPath function
+  const path = MapResourceService.getMapPath(map, unitPos, location);
+
+  // Convert path to an array of Point2D for easier handling
+  const pathPoints = path.map(coord => ({ x: coord[0], y: coord[1] }));
+
+  const aliveEnemies = resources.get().units.getAlive(Alliance.ENEMY).filter(e => e.pos);
+
+  if (!aliveEnemies.length) return true; // Return early if there are no live enemies
+
+  return !pathPoints.some(point => {
+    const closestEnemies = resources.get().units.getClosest(point, aliveEnemies);
+
+    if (!closestEnemies.length) return false;
+
+    const closestEnemy = closestEnemies[0];
+    const { unitType, pos: enemyPos } = closestEnemy;
+
+    if (!enemyPos || typeof unitType !== 'number') return false;
+
+    // Projected position logic can be added here if needed
+    // const projectedEnemyPos = getProjectedPosition(...);
+
+    const weapon = unitService.getWeaponThatCanAttack(world.data, unitType, unit);
+    const attackRange = weapon?.range;
+
+    if (!attackRange) return false;
+
+    const effectiveAttackRange = attackRange + (unit.radius || 0) + (closestEnemy.radius || 0);
+    const distance = getDistance(point, enemyPos);
+
+    if (distance <= effectiveAttackRange) {
+      const directionToEnemy = subtractVectors(enemyPos, unitPos);
+      const directionOfMovement = subtractVectors(point, unitPos);
+
+      return dotVectors(directionToEnemy, directionOfMovement) < 0;
+    }
+
+    return false;
+  });
+};
