@@ -7166,13 +7166,24 @@ function processSelfUnitLogic(world, selfUnits, selfUnit, position, enemyUnits, 
           const { range } = weapon; if (range === undefined) { return; }
           const attackRadius = radius + selfRadius + range;
           const destructableBorderPositions = getBorderPositions(pos, attackRadius);
-          const fitablePositions = destructableBorderPositions.filter(borderPosition => {
-            return selfUnitsAttackingInRange.every(attackingInRangeUnit => {
-              const { pos: attackingInRangePos, radius: attackingInRangeRadius } = attackingInRangeUnit; if (attackingInRangePos === undefined || attackingInRangeRadius === undefined) { return false; }
-              const distanceFromAttackingInRangeUnit = getDistance(borderPosition, attackingInRangePos);
-              return distanceFromAttackingInRangeUnit > attackingInRangeRadius + selfRadius;
-            });
-          }).sort((a, b) => getDistance(a, selfPos) - getDistance(b, selfPos));
+          const fitablePositions = destructableBorderPositions
+            .filter(borderPosition => {
+              // Adding a check for pathability
+              if (!map.isPathable(borderPosition)) {
+                return false;
+              }
+
+              return selfUnitsAttackingInRange.every(attackingInRangeUnit => {
+                const { pos: attackingInRangePos, radius: attackingInRangeRadius } = attackingInRangeUnit;
+                if (attackingInRangePos === undefined || attackingInRangeRadius === undefined) {
+                  return false;
+                }
+
+                const distanceFromAttackingInRangeUnit = getDistance(borderPosition, attackingInRangePos);
+                return distanceFromAttackingInRangeUnit > attackingInRangeRadius + selfRadius;
+              });
+            })
+            .sort((a, b) => getDistance(a, selfPos) - getDistance(b, selfPos));
           if (fitablePositions.length > 0 && getDistance(pos, selfPos) > attackRadius + 1) {
             targetPosition = fitablePositions[0];
             const moveUnitCommand = createUnitCommand(MOVE, [selfUnit]);
