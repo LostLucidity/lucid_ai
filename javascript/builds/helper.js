@@ -133,7 +133,7 @@ function moveAwayFromTarget(world, unit, targetUnits) {
   let position;
 
   if (isFlying) {
-    position = getFlyingUnitPosition(world, unit, targetUnits) ||
+    position = getFlyingUnitPosition(world, unit) ||
       moveAwayPosition(map, avgPoints(targetUnits.map(u => u.pos)), pos, 2, true);
 
     if (position) {
@@ -193,14 +193,13 @@ function checkIfShouldShadow(resources, unit, shadowingUnits, targetUnit) {
  * Returns position for flying unit
  * @param {World} world
  * @param {Unit} unit 
- * @param {Unit[]} targetUnits 
  * @returns {Point2D | undefined}
  */
-function getFlyingUnitPosition(world, unit, targetUnits) {
+function getFlyingUnitPosition(world, unit) {
   const { resources } = world;
   const { map } = resources.get();
   const { health, shield, pos } = unit; if (health === undefined || shield === undefined || pos === undefined) return;
-  const elevatedPositions = getHiddenElevatedPositions(map, unit, targetUnits);
+  const elevatedPositions = getHiddenElevatedPositions(map, unit);
 
   const [closestHighPoint] = getClosestPosition(pos, elevatedPositions);
 
@@ -215,57 +214,40 @@ function getFlyingUnitPosition(world, unit, targetUnits) {
     }
   }
 }
-
 /**
- * Returns a list of high point grid positions that the flying unit could move to.
- * @param {MapResource} map
- * @param {Unit} unit 
- * @param {Unit[]} targetUnits 
- * @returns {Point2D[]}
+ * Returns a list of high point grid positions that are hidden and safe for the flying unit to move to.
+ *
+ * @param {MapResource} map - The map resource containing information about the terrain and positions.
+ * @param {Unit} unit - The flying unit looking for hidden elevated positions.
+ * @returns {Point2D[]} - An array of hidden elevated positions.
  */
-function getHiddenElevatedPositions(map, unit, targetUnits) {
+function getHiddenElevatedPositions(map, unit) {
   const { pos, radius } = unit;
-  if (pos === undefined || radius === undefined) return [];
-  const { sightRange } = unit.data();
-  if (sightRange === undefined) return [];
+  const unitData = unit.data();
+  const { sightRange } = unitData;
 
-  // Get the highest height among all target units
-  const highestTargetHeight = Math.max(...targetUnits.map(targetUnit => {
-    const { pos: targetPos } = targetUnit; if (targetPos === undefined) return 0;
-    const { z } = targetPos; return z !== undefined ? Math.round(z) : 0;
-  }));
+  if (!pos || !radius || !sightRange || !unitData) return [];
 
-  return gridsInCircle(pos, Math.round(sightRange * 1.2)).filter(grid => {
-    if (existsInMap(map, grid)) {
-      const gridHeight = map.getHeight(grid);
+  const targetUnits = enemyTrackingService.mappedEnemyUnits.filter(enemy => {
+    const enemyData = enemy.data();
+    return enemy.pos &&
+      enemyData &&
+      enemyData.sightRange &&
+      getDistance(enemy.pos, pos) < enemyData.sightRange + sightRange;
+  });
 
-      // Check if gridHeight is significantly higher than the highest target unit height
-      if (gridHeight < highestTargetHeight + 2) return false;
+  const highestTargetHeight = Math.max(0, ...targetUnits.map(target => target.pos?.z || 0));
 
-      const circleCandidates = gridsInCircle(grid, radius).filter(candidate =>
-        existsInMap(map, candidate) && distance(candidate, grid) <= radius);
+  return gridsInCircle(pos, Math.ceil(sightRange * 1.2)).filter(grid => {
+    if (!existsInMap(map, grid)) return false;
 
-      const isVisibleToAnyTargetUnit = targetUnits.some(targetUnit => {
-        const { pos: targetPos, radius: targetRadius } = targetUnit;
-        if (targetPos === undefined || targetRadius === undefined) return true;
-        const { sightRange: targetSightRange } = targetUnit.data();
-        if (targetSightRange === undefined) return true;
-        const { z } = targetPos;
-        if (z === undefined) return true;
+    const gridHeight = map.getHeight(grid);
+    if (gridHeight <= highestTargetHeight + 2) return false;
 
-        const unitInSightRange = getDistance(targetPos, grid) <
-          targetSightRange + radius + targetRadius;
-
-        return unitInSightRange &&
-          (targetUnit.isFlying || targetUnit.unitType === COLOSSUS || Math.round(z) + 2 > gridHeight);
-      });
-
-      return !isVisibleToAnyTargetUnit &&
-        circleCandidates.every(adjacentGrid => map.getHeight(adjacentGrid) >= gridHeight);
-    }
+    return !isPositionVisibleToAnyUnit(grid, targetUnits, radius, gridHeight) &&
+      areAllAdjacentGridsHigher(map, grid, radius, gridHeight);
   });
 }
-
 /**
  * @param {DataStorage} data
  * @param {UnitTypeId} unitType
@@ -365,5 +347,40 @@ function calculatePositionByDirection(start, end, maxDistance) {
     y: start.y + normalizedDirection.y * maxDistance
   };
 }
+/**
+ * Checks if the given position is visible to any of the provided units.
+ *
+ * @param {Point2D} position - The position to check for visibility.
+ * @param {Unit[]} units - The units to check for visibility against.
+ * @param {number} radius - The radius of the flying unit.
+ * @param {number} height - The height of the grid position.
+ * @returns {boolean} - True if the position is visible to any unit, false otherwise.
+ */
+function isPositionVisibleToAnyUnit(position, units, radius, height) {
+  return units.some(unit => {
+    const { pos: unitPos, radius: unitRadius } = unit;
+    const unitData = unit.data();
+    const { sightRange } = unitData;
+    const unitHeight = unitPos?.z;
 
+    if (!unitPos || !unitRadius || !sightRange || unitHeight === undefined || !unitData) return false;
 
+    const inSightRange = getDistance(unitPos, position) < sightRange + radius + unitRadius;
+    const canSeeUp = unit.isFlying || unit.unitType === COLOSSUS || Math.round(unitHeight) + 2 > height;
+
+    return inSightRange && canSeeUp;
+  });
+}
+/**
+ * Checks if all adjacent grids are higher or equal in height.
+ *
+ * @param {MapResource} map - The map resource containing information about the terrain and positions.
+ * @param {Point2D} position - The central position around which to check the adjacent grids.
+ * @param {number} radius - The radius around the position to check.
+ * @param {number} height - The height to compare against.
+ * @returns {boolean} - True if all adjacent grids are higher or equal in height, false otherwise.
+ */
+function areAllAdjacentGridsHigher(map, position, radius, height) {
+  return gridsInCircle(position, radius).every(candidate =>
+    existsInMap(map, candidate) && map.getHeight(candidate) >= height);
+}
