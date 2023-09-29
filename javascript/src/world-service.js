@@ -6212,6 +6212,9 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
 
   const attackRadius = targetUnit.radius + selfUnit.radius;
   const isValidUnit = createIsValidUnitFilter(data, targetUnit);
+
+  let queueCommand = false;  // Initialized before use
+
   const rangedUnitAlly = units.getClosest(unitPosition, selfUnit['selfUnits'].filter(isValidUnit))[0];
 
   if (!rangedUnitAlly) {
@@ -6222,8 +6225,6 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
   const nearbyAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), unitPosition, 16);
   const nearbyEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, targetPosition, 16);
   const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));
-
-  let queueCommand = false;
 
   if (worldService.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
     moveToSurroundPosition();
@@ -6276,8 +6277,7 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
   function attackIfApplicable() {
     if (!attackablePosition || selfUnit.weaponCooldown > 8) return;
 
-    const attackCommand = createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
-    collectedActions.push(attackCommand);
+    createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
   }
 
   /**
