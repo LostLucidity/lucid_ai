@@ -5318,7 +5318,7 @@ function createAndAddUnitCommand(abilityId, selfUnit, targetPosition, collectedA
 
   if (queue) {
     // Assuming your SC2APIProtocol.ActionRawUnitCommand has a queue attribute, if not, adjust accordingly.
-    unitCommand.queue = true;
+    unitCommand.queueCommand = true;
   }
 
   collectedActions.push(unitCommand);
@@ -6201,96 +6201,82 @@ const deriveSafetyRadius = (world, unit, potentialThreats) => {
  * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - A collection of actions to execute.
  */
 function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, collectedActions) {
-  const FALLBACK_MULTIPLIER = -1;
+  if (!selfUnit.pos || !selfUnit.radius || !targetUnit.pos) return;
+
   const { data, resources: { get } } = world;
   const { map, units } = get();
 
-  const unitPosition = selfUnit.pos;
-  const targetPosition = targetUnit.pos;
-
-  if (!unitPosition || !selfUnit.radius || !targetPosition) return;
-
+  const FALLBACK_MULTIPLIER = -1;
   const attackRadius = targetUnit.radius + selfUnit.radius;
   const isValidUnit = createIsValidUnitFilter(data, targetUnit);
 
-  let queueCommand = false;  // Initialized before use
-
-  const rangedUnitAlly = units.getClosest(unitPosition, selfUnit['selfUnits'].filter(isValidUnit))[0];
+  let queueCommand = false;
+  const rangedUnitAlly = units.getClosest(selfUnit.pos, selfUnit['selfUnits'].filter(isValidUnit))[0];
 
   if (!rangedUnitAlly) {
     moveToSurroundOrAttack();
     return;
   }
 
-  const nearbyAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), unitPosition, 16);
-  const nearbyEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, targetPosition, 16);
+  const nearbyAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), selfUnit.pos, 16);
   const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));
+  const nearbyEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, targetUnit.pos, 16);
 
   if (worldService.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
     moveToSurroundPosition();
+    attackIfApplicable();
   } else if (rangedUnitAlly.pos && shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
     moveToFallbackPosition();
   }
 
-  attackIfApplicable();
-
   /**
-   * @returns {boolean} Indicates if the melee unit can attack the target unit.
+   * @returns {boolean} - Indicates if the melee unit can attack the target unit.
    */
   function isAttackAvailable() {
-    const distance = getDistance(unitPosition, targetPosition);
+    const distance = getDistance(selfUnit.pos, targetUnit.pos);
     const weapon = unitService.getWeaponThatCanAttack(data, selfUnit.unitType, targetUnit);
     return selfUnit.weaponCooldown <= 8 && distance <= (weapon?.range || 0) + attackRadius;
   }
 
-  /** Handles the unit's movement or attack logic. */
   function moveToSurroundOrAttack() {
     const surroundPosition = getOptimalSurroundPosition();
-    const command = isAttackAvailable() || !surroundPosition
-      ? ATTACK_ATTACK
-      : MOVE;
-
+    const command = isAttackAvailable() || !surroundPosition ? ATTACK_ATTACK : MOVE;
     createAndAddUnitCommand(command, selfUnit, surroundPosition || attackablePosition, collectedActions, queueCommand);
     queueCommand = !isAttackAvailable() && !!surroundPosition;
   }
 
-  /** Directs the unit to move to an optimal surround position if available. */
   function moveToSurroundPosition() {
     const surroundPosition = getOptimalSurroundPosition();
-    if (!surroundPosition) return;
-
-    createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
-    queueCommand = true;
+    if (surroundPosition) {
+      createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
+      queueCommand = true;
+    }
   }
 
-  /** Directs the unit to move to a fallback position if necessary. */
   function moveToFallbackPosition() {
-    const fallbackDirection = getDirection(rangedUnitAlly.pos, targetPosition);
+    const fallbackDirection = getDirection(rangedUnitAlly.pos, targetUnit.pos);
     const fallbackDistance = (rangedUnitAlly.radius + selfUnit.radius) * FALLBACK_MULTIPLIER;
     const position = moveInDirection(rangedUnitAlly.pos, fallbackDirection, fallbackDistance);
-
     createAndAddUnitCommand(MOVE, selfUnit, position, collectedActions);
     queueCommand = true;
   }
 
-  /** Directs the unit to attack if applicable. */
   function attackIfApplicable() {
-    if (!attackablePosition || selfUnit.weaponCooldown > 8) return;
-
-    createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
+    if (attackablePosition && selfUnit.weaponCooldown <= 8) {
+      createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
+    }
   }
 
   /**
-   * @returns {Point2D|null} Retrieves the optimal pathable surround position to attack the target or null if none.
+   * @returns {Point2D|null} - The optimal pathable surround position, or null if none is found.
    */
   function getOptimalSurroundPosition() {
-    const pathablePositions = getBorderPositions(targetPosition, attackRadius).filter(pos => map.isPathable(pos));
-
+    const pathablePositions = getBorderPositions(targetUnit.pos, attackRadius).filter(pos => map.isPathable(pos));
     if (pathablePositions.length === 0) return null;
-
-    return pathablePositions.sort((a, b) => getDistance(b, unitPosition) - getDistance(a, unitPosition))[0];
+    return pathablePositions.sort((a, b) => getDistance(b, selfUnit.pos) - getDistance(a, selfUnit.pos))[0];
   }
 }
+
 /**
  * @param {DataStorage} data
  * @param {Unit} targetUnit
