@@ -188,46 +188,62 @@ function checkIfShouldShadow(resources, unit, shadowingUnits, targetUnit) {
   );
   return shouldClosestToEnemyNaturalShadow;
 }
-
 /**
- * Returns position for flying unit
- * @param {World} world
- * @param {Unit} unit 
- * @returns {Point2D | undefined}
+ * Returns the best position for the flying unit to move to, considering the unit's health, shield,
+ * and position as well as the positions of enemies and terrain. If no suitable position is found,
+ * it returns undefined.
+ *
+ * @param {World} world - The current state of the world, including all units and terrain.
+ * @param {Unit} unit - The flying unit that is looking for the best position to move to.
+ * @returns {Point2D | undefined} - The best position for the flying unit to move to, or undefined if no suitable position is found.
  */
 function getFlyingUnitPosition(world, unit) {
   const { resources } = world;
   const { map } = resources.get();
-  const { health, shield, pos } = unit; if (health === undefined || shield === undefined || pos === undefined) return;
-  const elevatedPositions = getHiddenElevatedPositions(map, unit);
+  const { health, shield, pos } = unit;
+
+  // Corrected the condition to check for undefined explicitly
+  if (health === undefined || shield === undefined || pos === undefined) return;
+
+  const elevatedPositions = getHiddenElevatedPositions(world, unit);
+
+  if (elevatedPositions.length === 0) return;
 
   const [closestHighPoint] = getClosestPosition(pos, elevatedPositions);
+  if (!closestHighPoint) return;
 
-  if (closestHighPoint) {
-    const dPSOfInRangeUnits = getDPSOfInRangeAntiAirUnits(world, unit);
-    const timeToBeKilled = (health + shield) / dPSOfInRangeUnits;
-    const distanceToHighPoint = distance(pos, closestHighPoint);
-    const speed = getMovementSpeed(map, unit); if (speed === undefined) return;
-    const timeToTarget = distanceToHighPoint / speed;
-    if (timeToBeKilled > timeToTarget) {
-      return closestHighPoint;
-    }
-  }
+  const distanceToHighPoint = getDistance(pos, closestHighPoint);
+  const speed = getMovementSpeed(map, unit, true);
+  if (!speed) return;
+
+  const timeToTarget = distanceToHighPoint / speed;
+  const dPSOfInRangeUnits = getDPSOfInRangeAntiAirUnits(world, unit);
+  const timeToBeKilled = (health + shield) / dPSOfInRangeUnits;
+
+  return timeToBeKilled > timeToTarget ? closestHighPoint : undefined;
 }
 /**
  * Returns a list of high point grid positions that are hidden and safe for the flying unit to move to.
+ * The function first filters out enemy units based on their sight range and distance from the flying unit.
+ * Then, it identifies the highest enemy unit and filters out grid positions based on their height, visibility, 
+ * and whether adjacent grids are higher or not.
  *
- * @param {MapResource} map - The map resource containing information about the terrain and positions.
+ * @param {World} world - The world containing information about the terrain and positions.
  * @param {Unit} unit - The flying unit looking for hidden elevated positions.
  * @returns {Point2D[]} - An array of hidden elevated positions.
  */
-function getHiddenElevatedPositions(map, unit) {
+function getHiddenElevatedPositions(world, unit) {
+  const { resources } = world;
+  const { map } = resources.get();
+
   const { pos, radius } = unit;
   const unitData = unit.data();
   const { sightRange } = unitData;
 
+  // Validate essential parameters
   if (!pos || !radius || !sightRange || !unitData) return [];
 
+  // Filter target units based on their sight range and distance to the flying unit
   const targetUnits = enemyTrackingService.mappedEnemyUnits.filter(enemy => {
     const enemyData = enemy.data();
     return enemy.pos &&
@@ -236,13 +252,19 @@ function getHiddenElevatedPositions(map, unit) {
       getDistance(enemy.pos, pos) < enemyData.sightRange + sightRange;
   });
 
-  const highestTargetHeight = Math.max(0, ...targetUnits.map(target => target.pos?.z || 0));
+  // Calculate the highest height among all target units
+  const highestTargetHeight = Math.max(...targetUnits.map(targetUnit => {
+    const { pos: targetPos } = targetUnit;
+    if (!targetPos) return 0;
+    return targetPos.z !== undefined ? Math.round(targetPos.z) : 0;
+  }));
 
+  // Filter potential hidden elevated positions based on criteria
   return gridsInCircle(pos, Math.ceil(sightRange * 1.2)).filter(grid => {
     if (!existsInMap(map, grid)) return false;
 
     const gridHeight = map.getHeight(grid);
-    if (gridHeight <= highestTargetHeight + 2) return false;
+    if (gridHeight < highestTargetHeight + 2) return false;
 
     return !isPositionVisibleToAnyUnit(grid, targetUnits, radius, gridHeight) &&
       areAllAdjacentGridsHigher(map, grid, radius, gridHeight);

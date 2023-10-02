@@ -1388,9 +1388,8 @@ const worldService = {
    */
   getDPSOfInRangeAntiAirUnits: (world, unit) => {
     const { getWeaponThatCanAttack } = unitService;
-    const { data, resources } = world;
-    const { units } = resources.get();
-    const enemyUnits = units.getAlive(Alliance.ENEMY);
+    const { data } = world;
+    const enemyUnits = enemyTrackingService.mappedEnemyUnits;
     const { pos, radius, unitType } = unit;
     if (pos === undefined || radius === undefined || unitType === undefined) { return 0 }
     return enemyUnits.reduce((accumulator, enemyUnit) => {
@@ -1401,7 +1400,7 @@ const worldService = {
       if (weaponThatCanAttack === undefined) { return accumulator }
       const { range } = weaponThatCanAttack;
       if (range === undefined) { return accumulator }
-      if (distance(pos, enemyPos) <= range + radius + enemyRadius) {
+      if (getDistance(pos, enemyPos) <= range + radius + enemyRadius) {
         dPS = worldService.getWeaponDPS(world, enemyUnitType, alliance, [unitType]);
       }
       return accumulator + dPS;
