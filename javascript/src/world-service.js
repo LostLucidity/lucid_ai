@@ -6223,10 +6223,11 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
 
   if (worldService.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
     moveToSurroundPosition();
-    attackIfApplicable();
   } else if (rangedUnitAlly.pos && shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
     moveToFallbackPosition();
   }
+
+  attackIfApplicable();
 
   /**
    * @returns {boolean} - Indicates if the melee unit can attack the target unit.
@@ -6275,7 +6276,6 @@ function handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, c
     return pathablePositions.sort((a, b) => getDistance(b, selfUnit.pos) - getDistance(a, selfUnit.pos))[0];
   }
 }
-
 /**
  * @param {DataStorage} data
  * @param {Unit} targetUnit
@@ -6330,7 +6330,6 @@ function checkPositionValidityForAttack(world, selfUnit, rangedUnitAlly, targetU
 
     return 'engage';
 }
-
 /**
  * Calculates the directional vector from one position to another.
  * @param {Point2D} startPos - The starting position with x and y properties.
