@@ -59,6 +59,7 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const unitService = require('../services/unit-service');
 const { getDamageForTag, setDamageForTag } = require('../modules/damageManager');
 const positionService = require('../services/position-service');
+const { getActionsForMicro } = require('./services/army-management/army-management-service');
 
 const worldService = {
   availableProductionUnits: new Map(),
@@ -4490,20 +4491,6 @@ function getHealthAndShield(targetUnits) {
   return healthAndShield;
 }
 
-/**
- * @param {World} world
- * @param {Unit} selfUnit
- * @param {Unit} targetUnit
- * @param {number} selfDPSHealth
- * @returns {void}
- */
-function logBattleFieldSituation(world, selfUnit, targetUnit, selfDPSHealth) {
-  const selfOverEnemyDPSHealth = `${Math.round(selfDPSHealth)}/${Math.round(getSelfDPSHealth(world, targetUnit))}`;
-  if (selfUnit.pos === undefined || targetUnit.pos === undefined) return;
-  const distanceFromEnemy = distance(selfUnit.pos, targetUnit.pos);
-  const selfOverEnemyUnitType = `${selfUnit.unitType}/${targetUnit.unitType}`;
-  console.log('selfOverEnemyDPSHealth', selfOverEnemyDPSHealth, 'distanceFromEnemy', distanceFromEnemy, 'selfOverEnemyUnitType', selfOverEnemyUnitType)
-}
 
 /**
  * @param {DataStorage} data
@@ -6384,72 +6371,6 @@ function shouldReturnEarly(unit) {
   return properties.some(prop => unit[prop] === undefined);
 }
 /**
- * @param {World} world 
- * @param {Unit} unit 
- * @param {Unit} targetUnit 
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
-function getActionsForMicro(world, unit, targetUnit) {
-  const { resources } = world;
-  const { map } = resources.get();
-
-  // Identify other potential threats close to the main targetUnit
-  const nearbyThreats = findNearbyThreats(world, unit, targetUnit);
-  const allThreats = [targetUnit, ...nearbyThreats];
-
-  // Calculate the optimal distance from threats
-  const optimalDistance = getOptimalAttackDistance(world, unit, allThreats);
-
-  // Filter out threats that are within the optimal distance
-  const relevantThreats = allThreats.filter(threat =>
-    getDistance(unit.pos, threat.pos) < optimalDistance
-  );
-
-  // Handle the threats that are too close
-  const threatPositions = relevantThreats.flatMap(target =>
-    findPositionsInRangeOfEnemyUnits(world, unit, [target])
-  );
-
-  // Filter out positions that are too close to the relevant threats
-  const safePositions = threatPositions.filter(position =>
-    relevantThreats.every(threat =>
-      getDistance(position, threat.pos) >= optimalDistance
-    )
-  );
-
-  const projectedTargetPositions = relevantThreats.map(targetUnit => {
-    const targetTag = targetUnit.tag;
-    const targetPositions = enemyTrackingService.enemyUnitsPositions.get(targetTag);
-    return targetPositions ?
-      getProjectedPosition(
-        targetPositions.current.pos,
-        targetPositions.previous.pos,
-        targetPositions.current.lastSeen,
-        targetPositions.previous.lastSeen
-      ) : targetUnit.pos;
-  });
-
-  const combinedThreatPosition = avgPoints(projectedTargetPositions);
-
-  // If there are safe positions, find the closest one
-  let closestSafePosition;
-  if (safePositions.length > 0) {
-    [closestSafePosition] = safePositions.sort((a, b) =>
-      getDistanceByPath(resources, combinedThreatPosition, a) -
-      getDistanceByPath(resources, combinedThreatPosition, b)
-    );
-  } else {
-    // Fallback logic if no safe positions are found
-    closestSafePosition = moveAwayPosition(map, combinedThreatPosition, unit.pos);
-  }
-
-  const unitCommand = createUnitCommand(MOVE, [unit]);
-  unitCommand.targetWorldSpacePos = closestSafePosition;
-
-  return [unitCommand];
-}
-
-/**
  * Computes and returns the actions for a given unit when not micro-managing.
  *
  * @param {World} world - The game state or environment.
@@ -7054,41 +6975,6 @@ function findNearbyPathablePosition(world, unpathablePoint, maxSearchRadius = 5)
   return undefined;
 }
 /**
- * Identify enemy units in proximity to a primary target.
- *
- * @param {World} _world The current game state.
- * @param {Unit} _unit The unit we're focusing on.
- * @param {Unit} targetUnit The primary enemy unit we're concerned about.
- * @returns {Unit[]} Array of enemy units near the target.
- */
-function findNearbyThreats(_world, _unit, targetUnit) {
-  const NEARBY_THRESHOLD = 16; // Define the threshold value based on the game's logic
-
-  // Use the enemy tracking service to get all enemy units
-  const allEnemyUnits = enemyTrackingService.mappedEnemyUnits;
-
-  return allEnemyUnits.filter((enemy) => {
-    const { tag, pos } = enemy;
-
-    // Use early returns to filter out non-threatening or irrelevant units
-    if (tag === targetUnit.tag || isNonThreateningUnit(enemy)) {
-      return false;
-    }
-
-    // Check proximity to target unit
-    return getDistance(pos, targetUnit.pos) <= NEARBY_THRESHOLD;
-  });
-}
-/**
- * Determine if the provided unit is considered non-threatening, such as workers.
- *
- * @param {Unit} unit - The unit to evaluate.
- * @returns {boolean} - True if the unit is non-threatening; otherwise, false.
- */
-function isNonThreateningUnit(unit) {
-  return groupTypes.workerTypes.includes(unit.unitType);
-}
-/**
  * Check if the path to a given location is safe.
  * 
  * @param {World} world - The game world containing various game state information.
@@ -7144,34 +7030,6 @@ const isPathSafe = (world, unit, location) => {
     return false;
   });
 };
-/**
- * Calculates the optimal distance a unit should maintain from enemies to effectively utilize its attack range.
- *
- * @param {World} world - The current state of the game world.
- * @param {Unit} unit - The unit being controlled.
- * @param {Unit[]} enemies - Array of enemy units that pose a threat.
- * @returns {number} - The calculated optimal distance from the enemies.
- */
-function getOptimalAttackDistance(world, unit, enemies) {
-  const { data } = world;
-  const unitWeapon = unitService.getWeaponThatCanAttack(data, unit.unitType, enemies[0]); // Assuming enemies[0] as the reference enemy for simplicity
-
-  if (!unitWeapon || !unitWeapon.range) {
-    return 0; // Handle the case where the weapon or range is undefined
-  }
-
-  const unitAttackRange = unitWeapon.range;
-
-  // Calculate the minimal attack range among the enemies
-  const enemyAttackRanges = enemies.map(enemy => {
-    const enemyWeapon = unitService.getWeaponThatCanAttack(data, enemy.unitType, unit); // Getting the weapon that can attack our unit
-    return enemyWeapon ? enemyWeapon.range : 0;
-  });
-
-  const minEnemyAttackRange = Math.min(...enemyAttackRanges);
-
-  return unitAttackRange + minEnemyAttackRange; // This is a basic example, adapt as needed
-}
 /**
  * Processes the actions for non-worker units.
  *
