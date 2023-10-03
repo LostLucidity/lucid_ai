@@ -6397,20 +6397,27 @@ function getActionsForMicro(world, unit, targetUnit) {
   const nearbyThreats = findNearbyThreats(world, unit, targetUnit);
   const allThreats = [targetUnit, ...nearbyThreats];
 
-  // Now handle like before
-  const threatPositions = allThreats.flatMap(target => findPositionsInRangeOfEnemyUnits(world, unit, [target]));
-
   // Calculate the optimal distance from threats
   const optimalDistance = getOptimalAttackDistance(world, unit, allThreats);
 
-  // Filter out positions that are too close to the threats
+  // Filter out threats that are within the optimal distance
+  const relevantThreats = allThreats.filter(threat =>
+    getDistance(unit.pos, threat.pos) < optimalDistance
+  );
+
+  // Handle the threats that are too close
+  const threatPositions = relevantThreats.flatMap(target =>
+    findPositionsInRangeOfEnemyUnits(world, unit, [target])
+  );
+
+  // Filter out positions that are too close to the relevant threats
   const safePositions = threatPositions.filter(position =>
-    allThreats.every(threat =>
+    relevantThreats.every(threat =>
       getDistance(position, threat.pos) >= optimalDistance
     )
   );
 
-  const projectedTargetPositions = allThreats.map(targetUnit => {
+  const projectedTargetPositions = relevantThreats.map(targetUnit => {
     const targetTag = targetUnit.tag;
     const targetPositions = enemyTrackingService.enemyUnitsPositions.get(targetTag);
     return targetPositions ?
@@ -6423,13 +6430,13 @@ function getActionsForMicro(world, unit, targetUnit) {
   });
 
   const combinedThreatPosition = avgPoints(projectedTargetPositions);
-  const addPosition = add(unit.pos, subtract(combinedThreatPosition, unit.pos));
 
   // If there are safe positions, find the closest one
   let closestSafePosition;
   if (safePositions.length > 0) {
     [closestSafePosition] = safePositions.sort((a, b) =>
-      getDistanceByPath(resources, addPosition, a) - getDistanceByPath(resources, addPosition, b)
+      getDistanceByPath(resources, combinedThreatPosition, a) -
+      getDistanceByPath(resources, combinedThreatPosition, b)
     );
   } else {
     // Fallback logic if no safe positions are found
@@ -6441,6 +6448,7 @@ function getActionsForMicro(world, unit, targetUnit) {
 
   return [unitCommand];
 }
+
 /**
  * Computes and returns the actions for a given unit when not micro-managing.
  *
