@@ -15,33 +15,32 @@ class ArmyManagementService {
   }
 
   /**
-   * @param {World} world 
-   * @param {Unit} unit 
-   * @param {Unit} targetUnit 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   * Determines the actions for micro-management of a unit in response to a target unit and other nearby threats.
+   * 
+   * @param {World} world - The current game world state.
+   * @param {Unit} unit - The unit to be micro-managed.
+   * @param {Unit} targetUnit - The primary target unit to engage or evade.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of raw unit commands for the micro-management actions.
    */
   getActionsForMicro(world, unit, targetUnit) {
     const { resources } = world;
     const { map } = resources.get();
 
-    // Identify other potential threats close to the main targetUnit
     const nearbyThreats = findNearbyThreats(world, unit, targetUnit);
     const allThreats = [targetUnit, ...nearbyThreats];
 
-    // Calculate the optimal distance from threats
     const optimalDistance = getOptimalAttackDistance(world, unit, allThreats);
 
-    // Filter out threats that are within the optimal distance
     const relevantThreats = allThreats.filter(threat =>
       getDistance(unit.pos, threat.pos) < optimalDistance
     );
 
-    // Handle the threats that are too close
+    if (!relevantThreats.length) return [];
+
     const threatPositions = relevantThreats.flatMap(target =>
       findPositionsInRangeOfEnemyUnits(world, unit, [target])
     );
 
-    // Filter out positions that are too close to the relevant threats
     const safePositions = threatPositions.filter(position =>
       relevantThreats.every(threat =>
         getDistance(position, threat.pos) >= optimalDistance
@@ -49,36 +48,29 @@ class ArmyManagementService {
     );
 
     const projectedTargetPositions = relevantThreats.map(targetUnit => {
-      const targetTag = targetUnit.tag;
-      const targetPositions = enemyTrackingService.enemyUnitsPositions.get(targetTag);
-      return targetPositions ?
-        getProjectedPosition(
-          targetPositions.current.pos,
-          targetPositions.previous.pos,
-          targetPositions.current.lastSeen,
-          targetPositions.previous.lastSeen
-        ) : targetUnit.pos;
+      const targetPositions = enemyTrackingService.enemyUnitsPositions.get(targetUnit.tag);
+      return targetPositions ? getProjectedPosition(
+        targetPositions.current.pos,
+        targetPositions.previous.pos,
+        targetPositions.current.lastSeen,
+        targetPositions.previous.lastSeen
+      ) : targetUnit.pos;
     });
 
     const combinedThreatPosition = avgPoints(projectedTargetPositions);
 
-    // If there are safe positions, find the closest one
-    let closestSafePosition;
-    if (safePositions.length > 0) {
-      [closestSafePosition] = safePositions.sort((a, b) =>
-        getDistanceByPath(resources, combinedThreatPosition, a) -
-        getDistanceByPath(resources, combinedThreatPosition, b)
-      );
-    } else {
-      // Fallback logic if no safe positions are found
-      closestSafePosition = moveAwayPosition(map, combinedThreatPosition, unit.pos);
-    }
+    const closestSafePosition = safePositions.length > 0 ?
+      safePositions.reduce((closest, position) =>
+        getDistanceByPath(resources, combinedThreatPosition, position) <
+          getDistanceByPath(resources, combinedThreatPosition, closest) ? position : closest
+      ) : moveAwayPosition(map, combinedThreatPosition, unit.pos);
 
     const unitCommand = createUnitCommand(MOVE, [unit]);
     unitCommand.targetWorldSpacePos = closestSafePosition;
 
     return [unitCommand];
   }
+
 }
 
 module.exports = new ArmyManagementService();
@@ -118,34 +110,43 @@ function findNearbyThreats(_world, _unit, targetUnit) {
 function isNonThreateningUnit(unit) {
   return groupTypes.workerTypes.includes(unit.unitType);
 }
+
 /**
- * Calculates the optimal distance a unit should maintain from enemies to effectively utilize its attack range.
+ * Calculates the optimal distance a unit should maintain from enemies to effectively utilize its attack range and their sizes.
  *
  * @param {World} world - The current state of the game world.
  * @param {Unit} unit - The unit being controlled.
  * @param {Unit[]} enemies - Array of enemy units that pose a threat.
- * @returns {number} - The calculated optimal distance from the enemies.
+ * @returns {number} - The calculated optimal distance from the enemies, considering both attack range and unit sizes.
+ * @throws {Error} When there is no weapon data available for the given unit.
  */
 function getOptimalAttackDistance(world, unit, enemies) {
-  const { data } = world;
-  const unitWeapon = unitService.getWeaponThatCanAttack(data, unit.unitType, enemies[0]); // Assuming enemies[0] as the reference enemy for simplicity
+  if (!enemies.length) {
+    throw new Error('No enemies provided');
+  }
 
-  if (!unitWeapon || !unitWeapon.range) {
-    return 0; // Handle the case where the weapon or range is undefined
+  const { data } = world;
+
+  // Handle the case where weapon or range data is not available
+  const unitWeapon = unitService.getWeaponThatCanAttack(data, unit.unitType, enemies[0]);
+  if (!unitWeapon || typeof unitWeapon.range !== 'number') {
+    throw new Error('Weapon data unavailable for the specified unit');
   }
 
   const unitAttackRange = unitWeapon.range;
-
-  // Calculate the minimal attack range among the enemies
   const enemyAttackRanges = enemies.map(enemy => {
-    const enemyWeapon = unitService.getWeaponThatCanAttack(data, enemy.unitType, unit); // Getting the weapon that can attack our unit
-    return enemyWeapon ? enemyWeapon.range : 0;
+    const enemyWeapon = unitService.getWeaponThatCanAttack(data, enemy.unitType, unit);
+    return enemyWeapon && typeof enemyWeapon.range === 'number' ? enemyWeapon.range : 0;
   });
 
+  // Calculate the minimum attack range among enemies and include unit/threat sizes
   const minEnemyAttackRange = Math.min(...enemyAttackRanges);
+  const unitRadius = unit.radius || 0; // Assume default unit radius property; replace as needed
+  const threatRadius = enemies[0].radius || 0; // Assume default threat radius property; replace as needed
 
-  return unitAttackRange + minEnemyAttackRange; // This is a basic example, adapt as needed
+  return unitAttackRange + minEnemyAttackRange + unitRadius + threatRadius;
 }
+
 /**
  * @description Returns positions that are in range of the unit's weapons from enemy units.
  * @param {World} world
