@@ -4504,7 +4504,6 @@ function getHealthAndShield(targetUnits) {
   return healthAndShield;
 }
 
-
 /**
  * @param {DataStorage} data
  * @param {Unit} unit 
