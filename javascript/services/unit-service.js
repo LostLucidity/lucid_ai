@@ -77,17 +77,18 @@ const unitService = {
     return !buffIds.includes(CHRONOBOOSTED) && !unit.isIdle();
   },
   /**
-   * @param {Alliance} alliance 
-   * @returns 
+   * Retrieves the armor upgrade level based on the alliance of the unit.
+   * 
+   * @param {Alliance} alliance - The alliance of the unit (SELF, NEUTRAL, ENEMY).
+   * @returns {number} - The armor upgrade level of the unit.
    */
   getArmorUpgradeLevel: (alliance) => {
-    let armorUpgradeLevel = 0;
-    if (alliance === Alliance.SELF) {
-      armorUpgradeLevel = unitService.selfArmorUpgradeLevel;
-    } else if (alliance === Alliance.ENEMY) {
-      armorUpgradeLevel = unitService.enemyArmorUpgradeLevel;
+    if (alliance === Alliance.ENEMY) {
+      return unitService.enemyArmorUpgradeLevel;
     }
-    return armorUpgradeLevel;
+
+    // Default to 0 if the alliance is not ENEMY.
+    return 0;
   },
   /**
    * @param {Alliance} alliance 

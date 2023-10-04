@@ -2011,6 +2011,7 @@ const worldService = {
     }
     return fighters.some(fighter => fighter.tag === worker.tag);
   },
+
   /**
    * Generates unit commands to direct given units to either engage in battle or retreat.
    *
@@ -2022,39 +2023,51 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} Array of commands.
    */
   engageOrRetreat: (world, selfUnits, enemyUnits, position, clearRocks = true) => {
-    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const collectedActions = [];
-    // First, separate out injector QUEENs from other units
-    // Extract QUEEN related logic
-    const injectorQueens = selfUnits.filter(unit => unit.unitType === QUEEN && unit.labels.has('injector'));
-    const nonInjectorUnits = selfUnits.filter(unit => unit.unitType !== QUEEN || !unit.labels.has('injector'));
 
-    if (!worldService.shouldEngage(world, nonInjectorUnits, enemyUnits)) {
-      // Non-injector units and necessary queens will form the new selfUnits
-      selfUnits = [...nonInjectorUnits, ...getNecessaryQueens(world, injectorQueens, nonInjectorUnits, enemyUnits)];
+    // Separate out the injector queens and melee units
+    const injectorQueens = selfUnits.filter(unit => unit.is(QUEEN) && unit.labels.has('injector'));
+    const meleeUnits = selfUnits.filter(unit => unit.isMelee());
+    const otherUnits = selfUnits.filter(unit => !unit.is(QUEEN) && !unit.isMelee());
 
-      // Get all queens that were previously in the selfUnits but not included in the new selfUnits
-      const excludedQueens = selfUnits.filter(unit => unit.unitType === QUEEN && !selfUnits.includes(unit));
+    // Determine which units are needed for battle
+    otherUnits.push(...getNecessaryUnits(world, injectorQueens, otherUnits, enemyUnits));
+    otherUnits.push(...getNecessaryUnits(world, meleeUnits, otherUnits, enemyUnits)); // This is a new function to implement
 
-      // Issue a STOP command for all excluded queens
-      excludedQueens.forEach(queen => {
-        if (queen.isAttacking() && queen.tag) {  // Add an additional check to ensure queen.tag is defined.
-          const stopCommand = {
-            abilityId: STOP,
-            unitTags: [queen.tag]
-          };
-          collectedActions.push(stopCommand);
-        }
-      });
-    }
+    // Issue a stop command to queens that aren't needed
+    injectorQueens.forEach(queen => {
+      if (!otherUnits.includes(queen) && queen.isAttacking() && queen.tag) {
+        const stopCommand = {
+          abilityId: STOP,
+          unitTags: [queen.tag]
+        };
+        collectedActions.push(stopCommand);
+      }
+    });
 
-    // Process self units with the appropriate logic
-    selfUnits.forEach(selfUnit => {
-      processSelfUnitLogic(world, selfUnits, selfUnit, position, enemyUnits, collectedActions, clearRocks);
+    // Check the conditions for melee units, similar to queens
+    meleeUnits.forEach(melee => {
+      const SAFETY_BUFFER = calculateSafetyBuffer(world, melee, enemyUnits);
+      const totalHealthShield = (melee.health || 0) + (melee.shield || 0); // Considering shield along with health
+
+      if (!otherUnits.includes(melee) && totalHealthShield <= SAFETY_BUFFER && melee.tag) {
+        const retreatCommand = createRetreatCommand(world, melee, enemyUnits);
+        collectedActions.push(retreatCommand);
+      } else if (otherUnits.includes(melee)) {
+        processSelfUnitLogic(world, otherUnits, melee, position, enemyUnits, collectedActions, clearRocks);
+      }
+    });
+
+    // Process all other units
+    otherUnits.forEach(unit => {
+      if (!unit.isMelee() && !unit.is(QUEEN)) {
+        processSelfUnitLogic(world, otherUnits, unit, position, enemyUnits, collectedActions, clearRocks);
+      }
     });
 
     return collectedActions;
   },
+
   /**
    * @param {World} world
    * @param {Unit[]} workers
@@ -6818,27 +6831,29 @@ function shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit) {
 }
 
 /**
- * Returns necessary queens to engage in battle.
+ * Returns necessary units to engage in battle.
  * 
  * @param {World} world - The game world context.
- * @param {Unit[]} injectorQueens - Injector Queens.
- * @param {Unit[]} nonInjectorUnits - Units excluding Injector Queens.
+ * @param {Unit[]} candidateUnits - Units to consider adding to the battle.
+ * @param {Unit[]} currentUnits - Current units excluding candidate units.
  * @param {Unit[]} enemyUnits - Enemy units.
- * @returns {Unit[]} - Necessary queens required to engage.
+ * @returns {Unit[]} - Necessary units required to engage.
  */
-function getNecessaryQueens(world, injectorQueens, nonInjectorUnits, enemyUnits) {
-  let necessaryQueens = [];
-  for (const queen of injectorQueens) {
-    const combinedUnits = [...nonInjectorUnits, ...necessaryQueens, queen];
-    if (!worldService.shouldEngage(world, combinedUnits, enemyUnits)) {
-      necessaryQueens.push(queen);
-    } else {
-      necessaryQueens.push(queen);
+function getNecessaryUnits(world, candidateUnits, currentUnits, enemyUnits) {
+  const necessaryUnits = [];
+
+  for (const unit of candidateUnits) {
+    necessaryUnits.push(unit);
+    const combinedUnits = [...currentUnits, ...necessaryUnits];
+
+    if (worldService.shouldEngage(world, combinedUnits, enemyUnits)) {
       break;
     }
   }
-  return necessaryQueens;
+
+  return necessaryUnits;
 }
+
 /**
  * Finds an immediate threat among enemy units.
  * 
@@ -7239,4 +7254,55 @@ function processNonWorkerUnit(world, selfUnits, selfUnit, position, enemyUnits, 
       collectedActions.push(unitCommand);
     }
   }
+}
+
+/**
+ * Calculates the potential damage a unit can receive from the most dangerous enemy
+ * and estimates a safety buffer for retreat. This safety buffer is calculated based
+ * on the maximum damage that any single nearby enemy unit can inflict on the given
+ * unit, considering unit types and alliances.
+ * 
+ * @param {World} world - An object representing the game state or environment, 
+ *                        containing data and resources needed for calculations.
+ * @param {Unit} unit - The player’s unit for which the potential damage and safety 
+ *                      buffer is to be calculated.
+ * @param {Unit[]} enemyUnits - An array of nearby enemy units that may pose a threat
+ *                              to the player’s unit.
+ * @returns {number} - The safety buffer, representing the maximum potential damage 
+ *                     that the given unit can receive from any single enemy unit.
+ */
+function calculateSafetyBuffer(world, unit, enemyUnits) {
+  const maxPotentialDamage = enemyUnits.reduce((maxDamage, enemy) => {
+    if (enemy.unitType !== undefined) {
+      const damage = worldService.getWeaponDamage(world, enemy.unitType, unit.unitType, unit.alliance);
+      return Math.max(maxDamage, damage);
+    }
+    return maxDamage;
+  }, 0);
+
+  return maxPotentialDamage;
+}
+
+/**
+ * Creates a retreat command for a given unit.
+ *
+ * @param {World} world - The game world.
+ * @param {Unit} unit - The unit that needs to retreat.
+ * @param {Unit[]} enemyUnits - The enemy units that the unit is retreating from.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand | undefined} - The retreat command.
+ */
+function createRetreatCommand(world, unit, enemyUnits) {
+  const retreatPosition = worldService.retreat(world, unit, enemyUnits);
+
+  // If a valid retreat position is found, create and return the retreat command
+  if (retreatPosition) {
+    return {
+      abilityId: MOVE, // Replace with the actual ability ID for moving or retreating
+      unitTags: [unit.tag],
+      targetWorldSpacePos: retreatPosition,
+    };
+  }
+
+  // If no valid retreat position is found, return undefined or handle accordingly
+  return undefined;
 }
