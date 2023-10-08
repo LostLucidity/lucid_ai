@@ -2,12 +2,11 @@
 "use strict"
 
 const { BUNKER, LARVA } = require("@node-sc2/core/constants/unit-type");
-const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { createUnitCommand } = require("../services/actions-service");
 const { STOP } = require("@node-sc2/core/constants/ability");
-const { getCombatRally } = require("../services/resource-manager-service");
-const { engageOrRetreat } = require("../src/world-service");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
+const armyManagementService = require("../src/services/army-management/army-management-service");
+const { mappedEnemyUnits } = require("../src/services/enemy-tracking/enemy-tracking-service");
 
 /**
  * 
@@ -29,7 +28,7 @@ function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
     unit.labels.delete(label) && collectedActions.push(createUnitCommand(STOP, [unit]));
   });
   if (!rallyPoint) {
-    rallyPoint = getCombatRally(resources);
+    rallyPoint = armyManagementService.getCombatRally(resources);
   }
   if (combatUnits.length > 0) {
     const supportUnits = [];
@@ -41,8 +40,8 @@ function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
       rallyPoint = bunker.pos;
     }
     const selfUnits = [...combatUnits, ...supportUnits];
-    const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA));
-    collectedActions.push(...engageOrRetreat(world, selfUnits, enemyUnits, rallyPoint));
+    const enemyUnits = mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA));
+    collectedActions.push(...armyManagementService.engageOrRetreat(world, selfUnits, enemyUnits, rallyPoint));
   }
   collectedActions.push(...tankBehavior(units));
   return collectedActions;

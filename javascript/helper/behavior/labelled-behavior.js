@@ -11,16 +11,20 @@ const { getTravelDistancePerStep } = require("../../services/frames-service");
 const { isCreepEdge, isInMineralLine } = require("../../systems/map-resource-system/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
 const { getDistance, getClusters, getDistanceSquared } = require("../../services/position-service");
-const { getClosestUnitByPath, getDistanceByPath, getClosestPositionByPath, getCombatRally, getClosestPathablePositionsBetweenPositions, getCreepEdges } = require("../../services/resource-manager-service");
 const { canAttack } = require("../../services/resources-service");
-const { retreat, getUnitTypeCount, getDPSHealth, engageOrRetreat } = require("../../src/world-service");
-const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
+const { getUnitTypeCount } = require("../../src/world-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
-const stateOfGameService = require("../../systems/state-of-game-system/state-of-game-service");
-const { calculateTotalHealthRatio, isByItselfAndNotAttacking, isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
 const unitService = require("../../services/unit-service");
-const resourceManagerService = require("../../services/resource-manager-service");
+const armyManagementService = require("../../src/services/army-management/army-management-service");
+const { getEnemyUnits, mappedEnemyUnits, getClosestEnemyByPath } = require("../../src/services/enemy-tracking/enemy-tracking-service");
+const { calculateTotalHealthRatio, getDPSHealth } = require("../../src/services/combat-statistics");
+const { isMining } = require("../../systems/unit-resource/unit-resource-service");
+const { getClosestPathWithGasGeysers } = require("../../src/services/utility-service");
+const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
+const { getGasGeysers } = require("../../src/services/unit-retrieval");
+const { getCreepEdges } = require("../../services/resource-manager-service");
+const { isByItselfAndNotAttacking } = require("../../src/services/unit-analysis");
 
 module.exports = {
   /**
@@ -39,19 +43,19 @@ module.exports = {
     const { pos } = unit;
     if (!pos) return [];
 
-    const enemyUnits = filterEnemyUnits(unit, enemyTrackingService.mappedEnemyUnits);
+    const enemyUnits = filterEnemyUnits(unit, mappedEnemyUnits);
     const combatUnits = filterCombatUnits(units, unit, units.getCombatUnits());
 
     const collectedActions = [];
 
     // If an enemy unit within distance of 16, use engageOrRetreat logic
     if (enemyUnits.length > 0) {
-      const [closestEnemyUnit] = getClosestUnitByPath(resources, pos, enemyUnits);
+      const [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(resources, pos, enemyUnits, getGasGeysers(units), 1);
 
       const { pos: enemyPos } = closestEnemyUnit;
       if (!enemyPos) return [];
 
-      collectedActions.push(...engageOrRetreat(world, combatUnits, enemyUnits, enemyPos, false));
+      collectedActions.push(...armyManagementService.engageOrRetreat(world, combatUnits, enemyUnits, enemyPos, false));
     } else {
       // If no enemy units close, move ATTACK_ATTACK across the map
       const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
@@ -72,7 +76,7 @@ module.exports = {
     const { units } = resources.get();
     const label = 'clearFromEnemy';
     const collectedActions = [];
-    const combatRallyPosition = getCombatRally(resources);
+    const combatRallyPosition = armyManagementService.getCombatRally(resources);
 
     // Find the unit with the specified label
     const [unit] = units.withLabel(label);
@@ -87,7 +91,7 @@ module.exports = {
       console.log('clear!');
       collectedActions.push(...gatherOrMine(resources, unit));
     } else {
-      const retreatPosition = retreat(world, unit, threateningUnits, true);
+      const retreatPosition = armyManagementService.retreat(world, unit, threateningUnits, true);
 
       if (retreatPosition) {
         const action = createUnitCommand(MOVE, [unit]);
@@ -191,7 +195,7 @@ module.exports = {
         const unitCommand = {
           abilityId: MOVE,
           unitTags: [unit.tag],
-          targetWorldSpacePos: getCombatRally(resources),
+          targetWorldSpacePos: armyManagementService.getCombatRally(resources),
         };
         collectedActions.push(unitCommand);
       }
@@ -221,11 +225,11 @@ function getThreateningUnits(world, unit) {
   const { data, resources } = world;
   const { map, units } = resources.get();
   const { pos, radius } = unit; if (pos === undefined || radius === undefined) return [];
-  const enemyUnits = unit['enemyUnits'] || stateOfGameService.getEnemyUnits(unit);
+  const enemyUnits = unit['enemyUnits'] || getEnemyUnits(unit);
   const threateningUnits = enemyUnits && enemyUnits.filter((/** @type {Unit} */ enemyUnit) => {
     const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit;
     if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
-    if (enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(units, enemyUnit))) return false;
+    if (enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(units, enemyUnit, mappedEnemyUnits))) return false;
     const weaponThatCanAttack = unitService.getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
       const distanceToEnemy = getDistance(pos, enemyPos);
@@ -276,7 +280,7 @@ function getClosestByWeaponRange(world, unit, threateningUnits) {
  * @returns {boolean}
  */
 function isGathering(units, unit, type=undefined) {
-  const pendingOrders = getPendingOrders(unit);
+  const pendingOrders = unitService.getPendingOrders(unit);
   if (pendingOrders.length > 0) {
     return pendingOrders.some(order => {
       const { abilityId } = order; if (abilityId === undefined) return false;
@@ -397,8 +401,8 @@ function handleThreateningUnits(world, scoutUnit, threateningUnits, closestThrea
       if (!expansion.centroid) {
         return false;
       }
-      const scoutDistance = getDistanceByPath(world.resources, pos, expansion.centroid);
-      const enemyDistance = getDistanceByPath(world.resources, enemyPos, expansion.centroid);
+      const scoutDistance = pathFindingService.getDistanceByPath(world.resources, pos, expansion.centroid);
+      const enemyDistance = pathFindingService.getDistanceByPath(world.resources, enemyPos, expansion.centroid);
 
       // Check if the scout's distance to the expansion (plus the buffer) is less than the enemy's distance
       return scoutDistance + BUFFER_DISTANCE < enemyDistance;
@@ -407,7 +411,7 @@ function handleThreateningUnits(world, scoutUnit, threateningUnits, closestThrea
     collectedActions.push({
       abilityId: MOVE,
       unitTags: [tag],
-      targetWorldSpacePos: farthestEmptyExpansionCloserToUnit ? farthestEmptyExpansionCloserToUnit.centroid : retreat(world, scoutUnit, [closestThreateningUnit], false),
+      targetWorldSpacePos: farthestEmptyExpansionCloserToUnit ? farthestEmptyExpansionCloserToUnit.centroid : armyManagementService.retreat(world, scoutUnit, [closestThreateningUnit], false),
     });
   }
 
@@ -468,7 +472,7 @@ function handleThreats(world, unit, collectedActions) {
   const nearbyEnemyUnits = getNearbyEnemyUnits(unit.pos, unit);
   if (!nearbyEnemyUnits.length) return false;
   
-  const closestEnemyUnit = resourceManagerService.getClosestEnemyByPath(world.resources, unit.pos, nearbyEnemyUnits);
+  const closestEnemyUnit = getClosestEnemyByPath(world.resources, unit.pos, nearbyEnemyUnits);
   if (!closestEnemyUnit) return false;
 
   handleEngageOrRetreat(world, unit, closestEnemyUnit, nearbyEnemyUnits, collectedActions);
@@ -511,15 +515,14 @@ function getCreepEdgeCloseToEnemy(resources, pos=undefined) {
     const closestTownhallPositionToEnemy = occupiedTownhalls.reduce((/** @type {{ distance: number, pos: Point2D, pathCoordinates: Point2D[] }} */ closest, townhall) => {
       const pos = townhall.pos;
       if (!pos) return closest;
-  
-      const pathData = getClosestPathablePositionsBetweenPositions(resources, pos, townhallPosition);
+      const pathData = getClosestPathWithGasGeysers(resources, pos, townhallPosition);
       const { distance, pathCoordinates } = pathData;
       return distance < closest.distance ? { distance, pos, pathCoordinates } : closest;
     }, { distance: Infinity, pos: { x: 0, y: 0 }, pathCoordinates: [] });
   
     const creepEdgeAndPath = closestTownhallPositionToEnemy.pathCoordinates.filter(path => isCreepEdge(map, path));
     if (creepEdgeAndPath.length > 0) {
-      return getClosestPositionByPath(resources, closestTownhallPositionToEnemy.pos, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
+      return pathFindingService.getClosestPositionByPath(resources, closestTownhallPositionToEnemy.pos, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
     }
   } else {
     let clusteredCreepEdges = getClusters(getCreepEdges(resources, pos));
@@ -527,7 +530,7 @@ function getCreepEdgeCloseToEnemy(resources, pos=undefined) {
     if (creepEdgeAndPathWithinRange.length > 0) {
       clusteredCreepEdges = creepEdgeAndPathWithinRange;
     }
-    return getClosestPositionByPath(resources, pos, clusteredCreepEdges)[0];
+    return pathFindingService.getClosestPositionByPath(resources, pos, clusteredCreepEdges)[0];
   }
 }
 
@@ -569,7 +572,7 @@ function issueCreepCommand(unit, selectedCreepEdge, collectedActions) {
  * @returns {Unit[]} - An array of enemy units that pose a threat to our unit.
  */
 function getNearbyEnemyUnits(position, ourUnit) {
-  return enemyTrackingService.mappedEnemyUnits
+  return mappedEnemyUnits
     .filter((/** @type {Unit} */ enemy) =>
       enemy.pos &&
       getDistanceSquared(position, enemy.pos) <= 16 * 16 &&
@@ -591,7 +594,7 @@ function handleEngageOrRetreat(world, unit, enemyUnit, nearbyEnemyUnits, collect
   const potentialCombatUnits = getPotentialCombatantsInRadius(world, unit, 16);
   const combatUnits = [unit, ...potentialCombatUnits];
 
-  collectedActions.push(...engageOrRetreat(world, combatUnits, nearbyEnemyUnits, enemyUnit.pos, false));
+  collectedActions.push(...armyManagementService.engageOrRetreat(world, combatUnits, nearbyEnemyUnits, enemyUnit.pos, false));
 }
 /**
  * Gets potential combatant units within a certain radius.

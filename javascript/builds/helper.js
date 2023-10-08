@@ -15,7 +15,7 @@ const { getMovementSpeed } = require("../services/unit-service");
 const { getDPSOfInRangeAntiAirUnits } = require("../src/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 const worldService = require("../src/world-service");
-const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
+const { mappedEnemyUnits } = require("../src/services/enemy-tracking");
 
 const helper = {
   /**
@@ -56,7 +56,7 @@ const helper = {
     const { data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
-    const enemyUnits = enemyTrackingService.mappedEnemyUnits;
+    const enemyUnits = mappedEnemyUnits;
 
     shadowingUnits.forEach(unit => {
       const { pos } = unit;
@@ -244,7 +244,7 @@ function getHiddenElevatedPositions(world, unit) {
   if (!pos || !radius || !sightRange || !unitData) return [];
 
   // Filter target units based on their sight range and distance to the flying unit
-  const targetUnits = enemyTrackingService.mappedEnemyUnits.filter(enemy => {
+  const targetUnits = mappedEnemyUnits.filter(enemy => {
     const enemyData = enemy.data();
     return enemy.pos &&
       enemyData &&

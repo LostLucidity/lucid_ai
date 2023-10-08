@@ -7,15 +7,16 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { intersectionOfPoints } = require("../../helper/utilities");
 const { creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
-const { canBuild, getDPSHealth } = require("../../src/world-service");
+const { canBuild } = require("../../src/world-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getPathCoordinates } = require("../../services/path-service");
 const { getMapPath } = require("../../systems/map-resource-system/map-resource-service");
-const { getClosestUnitByPath, getClosestPositionByPath, getClosestPathablePositionsBetweenPositions } = require("../../services/resource-manager-service");
-const worldService = require("../../src/world-service");
-const { getDistance } = require("../../services/position-service");
-const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
 const unitService = require("../../services/unit-service");
+const { shouldEngage } = require("../../src/services/army-management/army-management-service");
+const { mappedEnemyUnits } = require("../../src/services/enemy-tracking/enemy-tracking-service");
+const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
+const { getClosestPathWithGasGeysers } = require("../../src/services/utility-service");
+const { getGasGeysers } = require("../../src/services/unit-retrieval");
 
 module.exports = {
   /**
@@ -56,7 +57,7 @@ module.exports = {
      */
     const isQueenRequired = (queen, allAllies, allEnemies) => {
       const potentialAlliesWithoutQueen = allAllies.filter(unit => unit.tag !== queen.tag);
-      return worldService.shouldEngage(world, potentialAlliesWithoutQueen, allEnemies);
+      return shouldEngage(world, potentialAlliesWithoutQueen, allEnemies);
     };
 
     const injectorQueens = units.withLabel('injector')
@@ -65,7 +66,7 @@ module.exports = {
     injectorQueens.forEach(queen => {
       if (queen.pos) {  // Ensure the queen's position is defined before proceeding
         const allAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), queen.pos, 16);
-        const allEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, queen.pos, 16);
+        const allEnemies = unitService.getUnitsInRadius(mappedEnemyUnits, queen.pos, 16);
 
         if (!allEnemies.length) {  // If no enemies are near the queen
           collectedActions.push(...findTargetBaseAndInject(units, queen));
@@ -123,15 +124,15 @@ module.exports = {
         // get closest creep edges on path to enemy
         const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
         const { townhallPosition } = map.getEnemyNatural();
-        const [closestTownhallPositionToEnemy] = getClosestUnitByPath(resources, townhallPosition, occupiedTownhalls).map(unit => unit.pos);
+        const [closestTownhallPositionToEnemy] = pathFindingService.getClosestUnitByPath(resources, townhallPosition, occupiedTownhalls, getGasGeysers(units)).map(unit => unit.pos);
         if (closestTownhallPositionToEnemy === undefined) return collectedActions;
-        const closestPathablePositionsBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, closestTownhallPositionToEnemy, townhallPosition);
+        const closestPathablePositionsBetweenPositions = getClosestPathWithGasGeysers(resources, closestTownhallPositionToEnemy, townhallPosition);
         const { pathablePosition, pathableTargetPosition } = closestPathablePositionsBetweenPositions;
         const pathToEnemyNatural = getMapPath(map, pathablePosition, pathableTargetPosition);
         const pathCoordinates = getPathCoordinates(pathToEnemyNatural);
         const creepEdgeAndPath = intersectionOfPoints(pathCoordinates, ownCreepEdges);
         if (creepEdgeAndPath.length > 0) {
-          const outEdgeCandidate = getClosestPositionByPath(resources, closestTownhallPositionToEnemy, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
+          const outEdgeCandidate = pathFindingService.getClosestPositionByPath(resources, closestTownhallPositionToEnemy, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
           const [closestSpreader] = units.getClosest(outEdgeCandidate, idleCreeperQueens);
           const unitCommand = {
             abilityId: BUILD_CREEPTUMOR_QUEEN,

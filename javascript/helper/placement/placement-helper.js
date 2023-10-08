@@ -25,9 +25,9 @@ const placementHelper = {
    * @param {ResourceManager} resources
    * @param {Point2D[]|string} positions
    * @param {UnitTypeId | null} unitType
-   * @returns {Promise<Point2D[]>}
+   * @returns {Point2D[]}
    */
-  getCandidatePositions: async (resources, positions, unitType = null) => {
+  getCandidatePositions: (resources, positions, unitType = null) => {
     if (typeof positions === 'string') {
       const functionName = `get${positions}`;
       if (typeof placementHelper[functionName] === 'function') {

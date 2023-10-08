@@ -1,12 +1,9 @@
 //@ts-check
 "use strict"
 
-const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes } = require("@node-sc2/core/constants/groups");
-const { morphMapping } = require("../../helper/groups");
 const { getSupply } = require("../../services/data-service");
 const { getTrainingSupply } = require("../../services/shared-service");
-const resourceManagerService = require("../../services/resource-manager-service");
 
 const trackUnitsService = {
   /** @type {Unit[]} */

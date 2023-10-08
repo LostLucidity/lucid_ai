@@ -6,28 +6,26 @@ const { SMART, MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes, creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { distance, areEqual, avgPoints, nClosestPoint } = require("@node-sc2/core/utils/geometry/point");
-const { getClosestPosition } = require("../helper/get-closest");
+const { distance, nClosestPoint } = require("@node-sc2/core/utils/geometry/point");
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
-const { getTargetedByWorkers, getGasGeysers, isByItselfAndNotAttacking } = require("../systems/unit-resource/unit-resource-service");
+const { getTargetedByWorkers } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
-const { getPathablePositions, getPathablePositionsForStructure, getMapPath, getClosestPathablePositions, isCreepEdge, isInMineralLine } = require("../systems/map-resource-system/map-resource-service");
-const { getPathCoordinates } = require("./path-service");
-const { getDistance, getClusters, getStructureCells } = require("./position-service");
+const { getPathablePositions, getPathablePositionsForStructure, isCreepEdge, isInMineralLine } = require("../systems/map-resource-system/map-resource-service");
+const { getDistance, getClusters } = require("./position-service");
 const { setPendingOrders } = require("./unit-service");
 const { shuffle } = require("../helper/utilities");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { getOccupiedExpansions } = require("../helper/expansions");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
+const pathFindingService = require("../src/services/pathfinding/pathfinding-service");
+const { getGasGeysers } = require("../src/services/unit-retrieval");
 
 const resourceManagerService = {
   /** @type {Expansion[]} */
   availableExpansions: [],
   creepEdges: [],
-  /** @type {Point2D} */
-  combatRally: null,
   /**
    * @param {ResourceManager} resources
    * @param {Unit} unit 
@@ -94,194 +92,6 @@ const resourceManagerService = {
     }, []);
   },
   /**
-   * @param {ResourceManager} resources 
-   * @returns {Point2D}
-   */
-  getCombatRally: (resources) => {
-    const { map, units } = resources.get();
-    const { combatRally } = resourceManagerService;
-    if (combatRally) {
-      return combatRally;
-    } else {
-      return map.getCombatRally() || location.getRallyPointByBases(map, units);
-    }
-  },
-  /**
-   * Get the closest enemy to a given point by path distance.
-   *
-   * @param {ResourceManager} resources - The resources object.
-   * @param {Point2D} point - The reference point.
-   * @param {Unit[]} unitsFromClustering - The units to search for the closest enemy.
-   * @returns {Unit | undefined} - The closest enemy unit or undefined if none found.
-   */
-  getClosestEnemyByPath: (resources, point, unitsFromClustering) => {
-    const { getClosestUnitByPath } = resourceManagerService;
-    const [closestEnemy] = getClosestUnitByPath(resources, point, unitsFromClustering);
-    return closestEnemy;
-  },
-  /**
-   * @param {ResourceManager} resources
-   * @param {Point2D} position
-   * @param {Point2D} targetPosition
-   * @returns {{distance: number, pathCoordinates: Point2D[], pathablePosition: Point2D, pathableTargetPosition: Point2D}}
-   */
-  getClosestPathablePositionsBetweenPositions: (resources, position, targetPosition) => {
-    const { map, units } = resources.get();
-    const mapFixturesToCheck = [
-      ...units.getStructures({ alliance: Alliance.SELF }),
-      ...units.getStructures({ alliance: Alliance.ENEMY }),
-      ...getGasGeysers(units),
-    ];
-
-    const structureAtPositionCells = getStructureCells(position, mapFixturesToCheck);
-    const structureAtTargetPositionCells = getStructureCells(targetPosition, mapFixturesToCheck);
-
-    // Store the original state of each cell
-    const originalCellStates = new Map();
-    [...structureAtPositionCells, ...structureAtTargetPositionCells].forEach(cell => {
-      originalCellStates.set(cell, map.isPathable(cell));
-      map.setPathable(cell, true);
-    });
-
-    const pathablePositions = getPathablePositions(map, position);
-    const isAnyPositionCorner = checkIfPositionIsCorner(pathablePositions, position);
-    const filteredPathablePositions = isAnyPositionCorner && pathablePositions.length === 4
-      ? pathablePositions.filter(pos => {
-        const { x, y } = pos;
-        if (x === undefined || y === undefined) return false;
-        const { x: centerX, y: centerY } = position;
-        if (centerX === undefined || centerY === undefined) return false;
-        return (x > centerX && y > centerY) || (x < centerX && y < centerY);
-      })
-      : pathablePositions;
-    const pathableTargetPositions = getPathablePositions(map, targetPosition);
-    const isAnyTargetPositionCorner = checkIfPositionIsCorner(pathableTargetPositions, targetPosition);
-    const filteredPathableTargetPositions = isAnyTargetPositionCorner && pathableTargetPositions.length === 4
-      ? pathableTargetPositions.filter(pos => {
-        const { x, y } = pos;
-        if (x === undefined || y === undefined) return false;
-        const { x: centerX, y: centerY } = targetPosition;
-        if (centerX === undefined || centerY === undefined) return false;
-        return (x > centerX && y > centerY) || (x < centerX && y < centerY);
-      })
-      : pathableTargetPositions;
-    const distancesAndPositions = filteredPathablePositions.map(pathablePosition => {
-      const distancesToTargetPositions = filteredPathableTargetPositions.map(pathableTargetPosition => {
-        return {
-          pathablePosition,
-          pathableTargetPosition,
-          pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, pathableTargetPosition)),
-          distance: resourceManagerService.getDistanceByPath(resources, pathablePosition, pathableTargetPosition)
-        };
-      });
-      if (isAnyPositionCorner || isAnyTargetPositionCorner) {
-        const averageDistance = distancesToTargetPositions.reduce((acc, { distance }) => acc + distance, 0) / distancesToTargetPositions.length;
-        return {
-          pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, targetPosition)),
-          pathablePosition,
-          pathableTargetPosition: targetPosition,
-          distance: averageDistance
-        };
-      } else {
-        return distancesToTargetPositions.reduce((acc, curr) => acc.distance < curr.distance ? acc : curr);
-      }
-    }).sort((a, b) => a.distance - b.distance);
-    let result;
-    if (isAnyPositionCorner || isAnyTargetPositionCorner) {
-      const averageDistance = distancesAndPositions.reduce((acc, curr) => {
-        return acc + curr.distance;
-      }, 0) / distancesAndPositions.length;
-      const pathablePosition = isAnyPositionCorner ? avgPoints(filteredPathablePositions) : getClosestPosition(position, filteredPathablePositions)[0];
-      const pathableTargetPosition = isAnyTargetPositionCorner ? avgPoints(filteredPathableTargetPositions) : getClosestPosition(targetPosition, filteredPathableTargetPositions)[0];
-      result = {
-        pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, pathableTargetPosition)),
-        pathablePosition,
-        pathableTargetPosition,
-        distance: averageDistance
-      };
-    } else {
-      result = distancesAndPositions[0];
-    }
-
-    // Restore each cell to its original state
-    [...structureAtPositionCells, ...structureAtTargetPositionCells].forEach(cell => {
-      const originalState = originalCellStates.get(cell);
-      map.setPathable(cell, originalState);
-    });
-
-    // return the result after restoring unpathable cells
-    return result;
-  },
-  /**
-   * 
-   * @param {ResourceManager} resources 
-   * @param {Point2D} position 
-   * @param {Point2D[]} points
-   * @param {number} n
-   * @returns {Point2D[]}
-   */
-  getClosestPositionByPath: (resources, position, points, n = 1) => {
-    return points.map(point => ({ point, distance: resourceManagerService.getDistanceByPath(resources, position, point) }))
-      .sort((a, b) => a.distance - b.distance)
-      .map(pointObject => pointObject.point)
-      .slice(0, n);
-  },
-  /**
-   *
-   * @param {ResourceManager} resources
-   * @param {Point2D|SC2APIProtocol.Point} position
-   * @param {Unit[]} units
-   * @param {number} n
-   * @returns {Unit[]}
-   */
-  getClosestUnitByPath: (resources, position, units, n = 1) => {
-    const { map } = resources.get();
-    const { getClosestPathablePositionsBetweenPositions, getDistanceByPath } = resourceManagerService;
-
-    const splitUnits = units.reduce((/** @type {{within16: Unit[], outside16: Unit[]}} */acc, unit) => {
-      const { pos } = unit; if (pos === undefined) return acc;
-      const distanceToUnit = getDistance(pos, position);
-      const pathablePosData = getClosestPathablePositionsBetweenPositions(resources, pos, position);
-      const distanceByPath = getDistanceByPath(resources, pathablePosData.pathablePosition, pathablePosData.pathableTargetPosition);
-      const isWithin16 = distanceToUnit <= 16 && distanceByPath <= 16;
-      return {
-        within16: isWithin16 ? [...acc.within16, unit] : acc.within16,
-        outside16: isWithin16 ? acc.outside16 : [...acc.outside16, unit]
-      };
-    }, { within16: [], outside16: [] });
-
-    let closestUnits = splitUnits.within16.sort((a, b) => {
-      const { pos } = a; if (pos === undefined) return 1;
-      const { pos: bPos } = b; if (bPos === undefined) return -1;
-      const aData = getClosestPathablePositionsBetweenPositions(resources, pos, position);
-      const bData = getClosestPathablePositionsBetweenPositions(resources, bPos, position);
-      return getDistanceByPath(resources, aData.pathablePosition, aData.pathableTargetPosition) - getDistanceByPath(resources, bData.pathablePosition, bData.pathableTargetPosition);
-    });
-
-    if (n === 1 && closestUnits.length > 0) return closestUnits;
-
-    const unitsByDistance = [...closestUnits, ...splitUnits.outside16].reduce((/** @type {{unit: Unit, distance: number}[]} */acc, unit) => {
-      const { pos } = unit;
-      if (pos === undefined) return acc;
-
-      const expansionWithin16 = map.getExpansions().find(expansion => {
-        const { centroid: expansionPos } = expansion;
-        if (expansionPos === undefined) return;
-        return getDistance(expansionPos, pos) <= 16 && getClosestPathablePositionsBetweenPositions(resources, expansionPos, pos).distance <= 16;
-      });
-
-      const targetPosition = expansionWithin16 ? expansionWithin16.centroid : pos; if (targetPosition === undefined) return acc;
-      const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, targetPosition, position);
-      return [...acc, { unit, distance: closestPathablePositionBetweenPositions.distance }];
-    }, []).sort((a, b) => {
-      if (a === undefined) return 1;
-      if (b === undefined) return -1;
-      return a.distance - b.distance;
-    });
-
-    return unitsByDistance.slice(0, n).map(u => u.unit);
-  },
-  /**
    * @param {ResourceManager} resources
    * @param {Point2D} unitPosition
    * @param {Point2D} position
@@ -290,7 +100,7 @@ const resourceManagerService = {
   getClosestUnitPositionByPath: (resources, unitPosition, position) => {
     const { map } = resources.get();
     const pathablePositions = getPathablePositions(map, unitPosition);
-    const [closestPositionByPath] = resourceManagerService.getClosestPositionByPath(resources, position, pathablePositions);
+    const [closestPositionByPath] = pathFindingService.getClosestPositionByPath(resources, position, pathablePositions);
     return closestPositionByPath;
   },
   /**
@@ -301,7 +111,7 @@ const resourceManagerService = {
    * @returns {Unit | undefined}
    */
   getClosestUnitFromUnit(resources, unit, units) {
-    const { map } = resources.get();
+    const { map, units: unitResource } = resources.get();
     const { pos } = unit;
     if (pos === undefined) return undefined;
     const pathablePositions = getPathablePositionsForStructure(map, unit);
@@ -309,14 +119,14 @@ const resourceManagerService = {
     const distances = pathablePositions.map(pathablePosition => {
       const distancesToUnits = pathablePositionsForUnits.map(pathablePositionsForUnit => {
         const distancesToUnit = pathablePositionsForUnit.map(pathablePositionForUnit => {
-          return resourceManagerService.getDistanceByPath(resources, pathablePosition, pathablePositionForUnit);
+          return pathFindingService.getDistanceByPath(resources, pathablePosition, pathablePositionForUnit);
         });
         return Math.min(...distancesToUnit);
       });
       return Math.min(...distancesToUnits);
     });
     const closestPathablePosition = pathablePositions[distances.indexOf(Math.min(...distances))];
-    return resourceManagerService.getClosestUnitByPath(resources, closestPathablePosition, units, 1)[0];
+    return pathFindingService.getClosestUnitByPath(resources, closestPathablePosition, units, getGasGeysers(unitResource), 1)[0];
   },
   /**
  * @param {ResourceManager} resources
@@ -355,65 +165,6 @@ const resourceManagerService = {
     return [];
   },
   /**
-  * @param {ResourceManager} resources
-  * @param {Point2D} position
-  * @param {Point2D|SC2APIProtocol.Point} targetPosition
-  * @returns {number}
-  */
-  getDistanceByPath: (resources, position, targetPosition) => {
-    const { map } = resources.get();
-    try {
-      const line = getLine(position, targetPosition);
-      let distance = 0;
-      const everyLineIsPathable = line.every((point, index) => {
-        if (index > 0) {
-          const previousPoint = line[index - 1];
-          const heightDifference = map.getHeight(point) - map.getHeight(previousPoint);
-          return Math.abs(heightDifference) <= 1;
-        }
-        const [closestPathablePosition] = getClosestPathablePositions(map, point);
-        return closestPathablePosition !== undefined && map.isPathable(closestPathablePosition);
-      });
-      if (everyLineIsPathable) {
-        return getDistance(position, targetPosition);
-      } else {
-        let path = getMapPath(map, position, targetPosition);
-        const pathCoordinates = getPathCoordinates(path);
-
-        let straightLineSegments = [];
-        let currentSegmentStart = pathCoordinates[0];
-
-        for (let i = 1; i < pathCoordinates.length; i++) {
-          const point = pathCoordinates[i];
-          const segment = [currentSegmentStart, point];
-
-          // If the segment is not a straight line that the unit can traverse,
-          // add the previous straight line segment to the list and start a new one
-          if (!isLineTraversable(map, segment)) {
-            straightLineSegments.push([currentSegmentStart, pathCoordinates[i - 1]]);
-            currentSegmentStart = pathCoordinates[i - 1];
-          }
-        }
-
-        // Add the last straight line segment
-        straightLineSegments.push([currentSegmentStart, pathCoordinates[pathCoordinates.length - 1]]);
-
-        // Now calculate the sum of distances of the straight line segments
-        distance = straightLineSegments.reduce((acc, segment) => {
-          return acc + getDistance(segment[0], segment[1]);
-        }, 0);
-        
-        const calculatedZeroPath = path.length === 0;
-        const isZeroPathDistance = calculatedZeroPath && getDistance(position, targetPosition) <= 2 ? true : false;
-        const isNotPathable = calculatedZeroPath && !isZeroPathDistance ? true : false;
-        const pathLength = isZeroPathDistance ? 0 : isNotPathable ? Infinity : distance;
-        return pathLength;
-      }
-    } catch (error) {
-      return Infinity;
-    }
-  },
-  /**
    * @param {ResourceManager} resources
    * @returns {UnitTypeId[]}
    */
@@ -442,7 +193,6 @@ const resourceManagerService = {
    * @description Returns warp in locations for all warp gate units
    */
   getWarpInLocations: (resources) => {
-    const { getCombatRally } = resourceManagerService;
     const { units } = resources.get();
     const pylonsNearProduction = units.getById(PYLON)
       .filter(pylon => pylon.buildProgress >= 1)
@@ -460,7 +210,7 @@ const resourceManagerService = {
       });
     let closestPylon;
     if (pylonsNearProduction.length > 0) {
-      [closestPylon] = units.getClosest(getCombatRally(resources), pylonsNearProduction);
+      [closestPylon] = units.getClosest(armyManagementService.getCombatRally(resources), pylonsNearProduction);
       return closestPylon.pos;
     } else {
       const pylons = units.getById(PYLON)
@@ -472,24 +222,12 @@ const resourceManagerService = {
           }
         });
       if (pylons) {
-        [closestPylon] = units.getClosest(getCombatRally(resources), pylons);
+        [closestPylon] = units.getClosest(armyManagementService.getCombatRally(resources), pylons);
         if (closestPylon) {
           return closestPylon.pos;
         }
       }
     }
-  },
-  /**
-   * @param {ResourceManager} resources
-   * @param {Unit} enemyUnit
-   * @returns {boolean}
-   * @description Returns true if enemy unit is a worker and is in mineral line or is by itself and not attacking
-   */
-  isPeacefulWorker: (resources, enemyUnit) => {
-    const { map, units } = resources.get();
-    const { pos: enemyPos } = enemyUnit;
-    if (enemyPos === undefined) return false;
-    return enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(units, enemyUnit));
   },
   /**
    * @param {ResourceManager} resources
@@ -540,12 +278,12 @@ const resourceManagerService = {
    */
   warpIn: async (resources, assemblePlan, unitType) => {
     const { actions } = resources.get();
-    const { getCombatRally, getWarpInLocations } = resourceManagerService;
+    const { getWarpInLocations } = resourceManagerService;
     let nearPosition;
     if (assemblePlan && assemblePlan.state && assemblePlan.state.defenseMode && scoutService.outsupplied) {
       nearPosition = getWarpInLocations(resources);
     } else {
-      nearPosition = getCombatRally(resources);
+      nearPosition = armyManagementService.getCombatRally(resources);
       console.log('nearPosition', nearPosition);
     }
     try { await actions.warpIn(unitType, { nearPosition: nearPosition }) } catch (error) { console.log(error); }
@@ -558,8 +296,7 @@ const resourceManagerService = {
   warpInSync: (world, unitType) => {
     const { resources } = world;
     const collectedActions = []
-    const { getCombatRally } = resourceManagerService;
-    const nearPosition = getCombatRally(resources);
+    const nearPosition = armyManagementService.getCombatRally(resources);
     console.log('nearPosition', nearPosition);
     collectedActions.push(...warpInCommands(world, unitType, { nearPosition }));
     return collectedActions;
@@ -583,42 +320,6 @@ function getUnitsWithinDistance(pos, units, maxDistance) {
 }
 
 /**
- * @param {Point2D} start 
- * @param {Point2D} end 
- * @param {Number} steps
- * @returns  {Point2D[]}
- */
-function getLine(start, end, steps=0) {
-  const points = [];
-  if (areEqual(start, end)) return [start];
-  const { x: startX, y: startY } = start;
-  const { x: endX, y: endY } = end;
-  if (startX === undefined || startY === undefined || endX === undefined || endY === undefined) return [start];
-  const dx = endX - startX;
-  const dy = endY - startY;
-  steps = steps === 0 ? Math.max(Math.abs(dx), Math.abs(dy)) : steps;
-  for (let i = 0; i < steps; i++) {
-    const x = startX + (dx / steps) * i;
-    const y = startY + (dy / steps) * i;
-    points.push({ x, y });
-  }
-  return points;
-}
-/**
- * @param {Point2D[]} positions 
- * @param {Point2D} position 
- * @returns {Boolean}
- */
-function checkIfPositionIsCorner(positions, position) {
-  return positions.some(pos => {
-    const { x, y } = position;
-    const { x: pathableX, y: pathableY } = pos;
-    if (x === undefined || y === undefined || pathableX === undefined || pathableY === undefined) { return false; }
-    const halfway = Math.abs(x - pathableX) === 0.5 || Math.abs(y - pathableY) === 0.5;
-    return halfway && getDistance(position, pos) <= 1;
-  });
-}
-/**
  * @param {ResourceManager} resources
  * @param {Point2D} position
  * @param {Number} maxRange
@@ -626,7 +327,6 @@ function checkIfPositionIsCorner(positions, position) {
  */
 function getCreepEdgesWithinRanges(resources, position, maxRange) {
   const { map } = resources.get();
-  const { getDistanceByPath } = resourceManagerService;
   const grids = gridsInCircle(position, maxRange);
   
   const clusters = getClusters(grids);
@@ -636,7 +336,7 @@ function getCreepEdgesWithinRanges(resources, position, maxRange) {
 
   clusters.forEach(grid => {
     if (isCreepEdge(map, grid)) {
-      const distance = getDistanceByPath(resources, position, grid);
+      const distance = pathFindingService.getDistanceByPath(resources, position, grid);
       if (distance <= maxRange) {
         // Ensure that index is at least 0 to avoid undefined array element
         const index = Math.floor(distance) > 0 ? Math.floor(distance) - 1 : 0;
@@ -688,38 +388,3 @@ function warpInCommands(world, unitType, opts = {}) {
   });
 }
 
-/**
- * @param {MapResource} map
- * @param {Point2D[]} line - An array containing two points that define a straight line segment.
- * @returns {boolean}
- */
-function isLineTraversable(map, line) {
-  const [start, end] = line;
-  const { x: startX, y: startY } = start; if (startX === undefined || startY === undefined) return false;
-  const { x: endX, y: endY } = end; if (endX === undefined || endY === undefined) return false;
-  const distance = getDistance(start, end);
-
-  // Assume the unit width is 1
-  const unitWidth = 1;
-
-  // Calculate the number of points to check along the line, spaced at unit-width intervals
-  const numPoints = Math.ceil(distance / unitWidth);
-
-  // For each point along the line segment
-  for (let i = 0; i <= numPoints; i++) {
-    const t = i / numPoints;  // The fraction of the way from the start point to the end point
-
-    // Calculate the coordinates of the point
-    const x = startX + t * (endX - startX);
-    const y = startY + t * (endY - startY);
-    const point = { x, y };
-
-    // If the point is not on walkable terrain, return false
-    if (!map.isPathable(point)) {
-      return false;
-    }
-  }
-
-  // If all points along the line are on walkable terrain, return true
-  return true;
-}

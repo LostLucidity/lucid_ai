@@ -18,8 +18,8 @@ module.exports = createSystem({
   type: 'agent',
   async onGameStart({ resources }) {
   // async onStep({ resources }) {
-    const { debug, map } = resources.get();
-    debug.setDrawCells('rmps', map._ramps.map(r => ({ pos: r })), { size: 1, cube: true });
+    const { map } = resources.get();
+    // resources.get().debug.setDrawCells('rmps', map._ramps.map(r => ({ pos: r })), { size: 1, cube: true });
     const main = map.getMain(); if (main === undefined) return;
     const { areas } = main;
     const { pathFromMain } = map.getNatural();
@@ -31,7 +31,7 @@ module.exports = createSystem({
       const isOnPath = pathFromMainToNatural.some(pathGrid => distance(pathGrid, grid) <= 4);
       return isAdjacent && isOnPath;
     });
-    debug.setDrawCells('adToRamp', wallOffRampService.adjacentToRampGrids.map(r => ({ pos: r })), { size: 1, cube: true });
+    // resources.get().debug.setDrawCells('adToRamp', wallOffRampService.adjacentToRampGrids.map(r => ({ pos: r })), { size: 1, cube: true });
     setWallOffRampPlacements(map);
   },
 });

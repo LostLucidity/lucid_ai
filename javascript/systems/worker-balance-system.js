@@ -14,11 +14,12 @@ const { pointsOverlap } = require('../helper/utilities');
 const { createUnitCommand } = require('../services/actions-service');
 const { getTimeInSeconds } = require('../services/frames-service');
 const { getClosestExpansion } = require('./map-resource-system/map-resource-service');
-const { gather, getClosestPathablePositionsBetweenPositions } = require('../services/resource-manager-service');
+const { gather } = require('../services/resource-manager-service');
 const { getPendingOrders, getBuildTimeLeft, getMovementSpeed, setPendingOrders } = require('../services/unit-service');
 const { gatherOrMine } = require('./manage-resources');
 const { getMineralFieldAssignments, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
 const { getDistance } = require('../services/position-service');
+const { getClosestPathWithGasGeysers } = require('../src/services/utility-service');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',
@@ -360,8 +361,7 @@ function getUnitTimeToPosition(resources, donatingWorker, targetUnit) {
   const { pos: targetPosition, radius: targetRadius } = targetUnit; // assuming targetUnit has radius property
 
   if (pos === undefined || targetPosition === undefined || workerRadius === undefined || targetRadius === undefined) { return }
-
-  const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, pos, targetPosition);
+  const closestPathablePositionBetweenPositions = getClosestPathWithGasGeysers(resources, pos, targetPosition);
   let { distance } = closestPathablePositionBetweenPositions;
 
   distance = distance - targetRadius - workerRadius; // adjust distance

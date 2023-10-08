@@ -3,21 +3,8 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { calculateTotalHealthRatio } = require("../systems/unit-resource/unit-resource-service");
 
 module.exports = {
-  /**
-   * @param {World} world 
-   * @param {Unit[]} units 
-   * @returns 
-   */
-  calculateHealthAdjustedSupply: (world, units) => {
-    const { data, resources } = world;
-    return units.reduce((accumulator, currentValue) => {
-      const halfFood = data.getUnitTypeData(currentValue.unitType).foodRequired / 2;
-      return accumulator + (halfFood) + (halfFood * calculateTotalHealthRatio(resources.get().units, currentValue));
-    }, 0);
-  },
   /**
    * @param {Unit} unit 
    * @param {Unit[]} targetUnits 

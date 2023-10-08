@@ -13,9 +13,10 @@ const { createUnitCommand } = require("../services/actions-service");
 const { getTimeInSeconds } = require("../services/frames-service");
 const planService = require("../services/plan-service");
 const { getDistance } = require("../services/position-service");
-const { getClosestUnitByPath, getDistanceByPath, getClosestUnitPositionByPath } = require("../services/resource-manager-service");
+const { getClosestUnitPositionByPath } = require("../services/resource-manager-service");
 const { getMovementSpeed, getPendingOrders, setPendingOrders } = require("../services/unit-service");
 const { getUnitCount } = require("../src/world-service");
+const pathFindingService = require("../src/services/pathfinding/pathfinding-service");
 
 module.exports = createSystem({
   name: "InjectorSystem",
@@ -48,7 +49,7 @@ function injectLarva(resources) {
     const { energy, orders, pos, radius } = queen;
     if (energy === undefined || orders === undefined || pos === undefined || radius === undefined) return;
     const timeTo25Energy = (25 - energy) > 0 ? (25 - energy) / getEnergyRegenRate() : 0;
-    const [closestBaseByPath] = getClosestUnitByPath(resources, pos, baseAndQueenSpawnTimerLeft.filter(base => {
+    const [closestBaseByPath] = pathFindingService.getClosestUnitByPath(resources, pos, baseAndQueenSpawnTimerLeft.filter(base => {
       const { base: { pos: basePos }, timeLeft } = base;
       if (basePos === undefined) return false;
       const closestUnitPositionByPath = getClosestUnitPositionByPath(resources, basePos, pos);
@@ -130,7 +131,7 @@ function getTimeToDistance(resources, unit, target) {
   const { map } = resources.get();
   const { pos } = unit;
   if (pos === undefined) return Infinity
-  const distanceByPath = getDistanceByPath(resources, pos, target);
+  const distanceByPath = pathFindingService.getDistanceByPath(resources, pos, target);
   const movementSpeed = getMovementSpeed(map, unit);
   if (movementSpeed === undefined) return Infinity;
   return distanceByPath / movementSpeed;

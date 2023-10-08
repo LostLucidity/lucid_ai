@@ -10,11 +10,10 @@ const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
 const { createPoint2D, getNeighbors, distance, avgPoints, closestPoint, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const bresenham = require('bresenham');
-const enemyTrackingService = require("./enemy-tracking/enemy-tracking-service");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { LARVA } = require("@node-sc2/core/constants/unit-type");
 const { getBuildingFootprintOfOrphanAddons } = require("../services/placement-service");
-const pathingService = require("../services/pathing-service");
+const enemyTrackingService = require("../src/services/enemy-tracking/enemy-tracking-service");
 const debugDrawWalls = require('debug')('sc2:DrawDebugWalls');
 
 let setDebug = false;
@@ -24,13 +23,27 @@ module.exports = createSystem({
   type: 'agent',
   async onGameStart(world) {
     // debugPositions(world);
+    debugMapHeights(world);
   },
   async onStep(world) {
     // paintMapFromArrayOfPositions(world, 'bunkerCandidates', pathingService.pathCandidates);
     // debugPositions(world);
+    // debugMapHeights(world);
     // debugVisibilityMap(world);
-    // debugPathable(world);
+    const debug = false;
+    if (debug) {
+      // debugPathable(world);
+    }
+    // debugPlaceable(world);
     // debugTest(world);
+  },
+  async onUnitCreated(world) {
+    // debugPositions(world);
+    // debugPathable(world);
+  },
+  async onUnitDestroyed(world) {
+    // debugPositions(world);
+    // debugPathable(world);
   },
 });
 /**
@@ -115,11 +128,60 @@ function debugVisibilityMap(world) {
  * @description Draws the pathable map
  */
 function debugPathable(world) {
-  const { debug, map } = world.resources.get();
-  if (debug === undefined) return;
-  debug.setDrawCells('pathable', map._grids.placement.reduce((cells, row, y) => {
+  const { debug, map } = world.resources.get(); if (debug === undefined) return;
+  const { placement } = map._grids; if (placement === undefined) return;
+  // debug.setDrawCells('pathable', placement.reduce((/** @type {WPoint[]} */ cells, row, y) => {
+  //   row.forEach((_node, x) => {
+  //     if (!map.isPathable({ x, y })) {
+  //       cells.push({
+  //         pos: { x, y },
+  //         text: `${x},${y}`,
+  //         color: Color.RED,
+  //       });
+  //     }
+  //   });
+  //   return cells;
+  // }, []), { size: 1, color: Color.RED, cube: true, persistText: true });
+  debug.setDrawCells('debugWeights', map.getGraph().nodes.reduce((/** @type {WPoint[]} */ cells, row, y) => {
+    row.forEach((node, x) => {
+      // set color based on weight and walkable
+      const color = node.weight <= 1 ? Color.LIME_GREEN : node.weight <= 5 ? Color.YELLOW : node.weight <= 20 ? Color.ORANGE_RED : Color.RED;
+      if (!node.walkable) {
+        cells.push({
+          pos: { x, y },
+          text: `W: ${node.walkable}`,
+          color: node.weight > 1 ? Color.RED : Color.PURPLE,
+        });
+      } else
+        if (node.weight > 1) {
+        //   cells.push({
+        //     pos: { x, y },
+        //     text: `W: ${node.weight}`,
+        //     color,
+        //   });
+        // } else {
+        //   cells.push({
+        //     pos: { x, y },
+        //     text: `W: ${node.walkable}`,
+        //     color,
+        //   });
+        }
+    });
+    return cells;
+  }, []));
+}
+
+/**
+ * @param {World} world
+ * @returns {void}
+ * @description Draws the placeable map
+ */
+function debugPlaceable(world) {
+  const { debug, map } = world.resources.get(); if (debug === undefined) return;
+  const { placement } = map._grids; if (placement === undefined) return;
+  debug.setDrawCells('placeable', placement.reduce((/** @type {WPoint[]} */ cells, row, y) => {
     row.forEach((_node, x) => {
-      if (!map.isPathable({ x, y })) {
+      if (!map.isPlaceable({ x, y })) {
         cells.push({
           pos: { x, y },
           text: `${x},${y}`,

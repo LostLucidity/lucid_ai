@@ -8,10 +8,11 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const planService = require("../../services/plan-service");
-const { getCombatRally, getDistanceByPath } = require("../../services/resource-manager-service");
-const { microRangedUnit } = require("../../src/world-service");
 const scoutingService = require("../scouting/scouting-service");
 const harassService = require("./harass-service");
+const armyManagementService = require("../../src/services/army-management/army-management-service");
+const { pathFindingService } = require("../../src/services/pathfinding");
+const { microRangedUnit } = require("../../src/services/army-management/army-management-service");
 
 module.exports = createSystem({
   name: "HarassSystem",
@@ -50,7 +51,7 @@ module.exports = createSystem({
         let [closestEnemyWorker] = units.getClosest(averagePoints, enemyWorkers);
         const closestEnemyUnit = closestEnemyWorker ? closestEnemyWorker : units.getClosest(averagePoints, enemyUnits)[0];
         if (units.withLabel(label).filter(harasser => harasser.labels.get(label)).length === 4) {
-          if (closestEnemyUnit && getDistanceByPath(resources, closestEnemyUnit.pos, averagePoints) <= 16) {
+          if (closestEnemyUnit && pathFindingService.getDistanceByPath(resources, closestEnemyUnit.pos, averagePoints) <= 16) {
             const harasserActions = [];
             harassers.forEach(harasser => harasserActions.push(...microRangedUnit(world, harasser, closestEnemyUnit)));
             collectedActions.push(...harasserActions);
@@ -77,7 +78,7 @@ module.exports = createSystem({
             console.log('harass finished');
           }
           const unitCommand = createUnitCommand(MOVE, harassers);
-          unitCommand.targetWorldSpacePos = getCombatRally(resources);
+          unitCommand.targetWorldSpacePos = armyManagementService.getCombatRally(resources);
           collectedActions.push(unitCommand);
           console.log('harassers moving');
         }

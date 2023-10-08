@@ -52,7 +52,7 @@ const performanceTrackingSystem = require('./systems/performance-tracking/perfor
 const mapResourceSystem = require('./systems/map-resource-system/map-resource-system');
 
 // const aiBuild = AIBuild.Rush;
-agentService.difficulty = Difficulty.CHEATVISION;
+agentService.difficulty = Difficulty.CHEATMONEY;
 const engine = createEngine();
 // const engine1 = createEngine(
 //   { port: 5555 }
@@ -136,11 +136,11 @@ async function runGame() {
   const aiBuild = AIBuild.RandomBuild;
   const settings = {
     type: PlayerType.PARTICIPANT,
-    race: Race.PROTOSS,
+    race: Race.ZERG,
   }
   const opponentRace = Race.PROTOSS;
   // const map = Object.values(maps)[Math.floor(Math.random() * Object.values(maps).length)];
-  const map = maps.MAP_INSIDE_AND_OUT_AIE;
+  const map = maps.MAP_ANCIENT_CISTERN_AIE;
   console.log('map', map);
   const startTime = new Date();
   console.log('startTime', startTime);
@@ -157,12 +157,12 @@ async function runGame() {
   }
   console.log('blueprint', blueprint);
   const bot1 = createAgent(blueprint);
-  const randomSeed = 2;
+  const randomSeed = null;
   const baseSystems = [
     cleanUpSystem,
     loggingSystem,
     workerBalanceSystem,   
-    debugSystem,
+    // debugSystem,
     delayedStepSystem,
     wallOffRampSystem,
     wallOffNaturalSystem,
@@ -219,13 +219,14 @@ async function runGame() {
     stateOfGameSystem,
     creepSpreadSystem,
   ];
-  // bot1.use(legacySystems);
+  bot1.use(legacySystems);
   // bot1.use(updatedSystems);
   // bot1.use(bogSystems);
-  bot1.use([
-    workerBalanceSystem,
-    wallOffNaturalSystem,
-  ]);
+  // bot1.use(QTableSystems);
+  // bot1.use([
+  //   workerBalanceSystem,
+  //   wallOffNaturalSystem,
+  // ]);
   const playerOne = createPlayer({ race: settings.race }, bot1);
   const playerTwo = createPlayer({ race: opponentRace, difficulty: agentService.difficulty, aiBuild: aiBuild });
   const players = [playerOne, playerTwo];

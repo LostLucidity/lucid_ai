@@ -5,8 +5,8 @@ const { createSystem } = require("@node-sc2/core");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { getCandidatePositions } = require("../helper/placement/placement-helper");
 const planService = require("../services/plan-service");
-const resourceManagerService = require("../services/resource-manager-service");
 const { getFoodUsed } = require("../src/world-service");
+const armyManagementService = require("../src/services/army-management/army-management-service");
 
 module.exports = createSystem({
   name: 'SetRallySystem',
@@ -16,9 +16,9 @@ module.exports = createSystem({
     // get random getRally point if no rally is found
     const rally = await getRally(world);
     if (rally.length > 0) {
-      resourceManagerService.combatRally = getRandom(await getRally(world));
+      armyManagementService.combatRally = getRandom(await getRally(world));
     } else {
-      resourceManagerService.combatRally = null;
+      armyManagementService.combatRally = null;
     }
   },
 });

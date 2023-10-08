@@ -14,12 +14,13 @@ const { cancelEarlyScout } = require("../../builds/scouting");
 const placementHelper = require("../../helper/placement/placement-helper");
 const { createUnitCommand } = require("../../services/actions-service");
 const planService = require("../../services/plan-service");
-const { getZergEarlyBuild, retreat } = require("../../src/world-service");
+const { getZergEarlyBuild } = require("../../src/world-service");
 const worldService = require("../../src/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const scoutingService = require("./scouting-service");
 const scoutService = require("./scouting-service");
 const { setOutsupplied, setEnemyCombatSupply } = require("./scouting-service");
+const armyManagementService = require("../../src/services/army-management/army-management-service");
 
 module.exports = createSystem({
   name: 'ScoutingSystem',
@@ -41,7 +42,7 @@ module.exports = createSystem({
     if (damagedUnit.labels.get('scoutEnemyMain') || damagedUnit.labels.get('scoutEnemyNatural')) {
       const [closestEnemyUnit] = units.getClosest(pos, enemyTrackingService.enemyUnits);
       const unitCommand = createUnitCommand(MOVE, [damagedUnit]);
-      unitCommand.targetWorldSpacePos = retreat(world, damagedUnit, [closestEnemyUnit], false);
+      unitCommand.targetWorldSpacePos = armyManagementService.retreat(world, damagedUnit, [closestEnemyUnit], false);
       collectedActions.push(unitCommand);
     }
     collectedActions.length && actions.sendAction(collectedActions);

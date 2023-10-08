@@ -1,7 +1,7 @@
-// /src/services/army-management/index.js
+// Existing import of the armyManagementService
+const armyManagementService = require('./army-management-service');
 
-const ArmyManagementService = require('./army-management-service');
-
-const armyManagementService = new ArmyManagementService();
-
-module.exports = armyManagementService;
+// Export both the armyManagementService and the instantiated infoRetrievalService
+module.exports = {
+  armyManagementService,
+};

@@ -1,10 +1,7 @@
 //@ts-check
 "use strict"
 
-const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
-const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { Alliance } = require("@node-sc2/core/constants/enums");
-
+const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
 module.exports = {
   defenseSetup: async (data, resources, state, defenseType) => {

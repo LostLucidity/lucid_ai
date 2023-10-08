@@ -7,19 +7,16 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const threats = require("../helper/base-threats");
 const { getInRangeUnits, assessBattleField, decideEngagement } = require("../helper/battle-analysis");
-const { attackWithArmy, getInRangeDestructables } = require("../helper/behavior/army-behavior");
 const { scanCloakedEnemy } = require("../helper/terran");
-const fs = require('fs');
-const path = require("path");
 const { workerTypes, creepTumorTypes } = require("@node-sc2/core/constants/groups");
 const { OVERLORD } = require("@node-sc2/core/constants/unit-type");
-const { getFileName } = require("../helper/get-races");
 const { larvaOrEgg } = require("../helper/groups");
 const { readFromMatchup, writeToCurrent } = require("../filesystem");
-const { getCombatPoint} = require("../services/resources-service");
-const { getClosestUnitByPath, getCombatRally } = require("../services/resource-manager-service");
 const { moveAwayPosition } = require("../services/position-service");
-const { retreat } = require("../src/world-service");
+const { attackWithArmy } = require("../src/world-service");
+const { getInRangeDestructables } = require("../services/unit-service");
+const pathFindingService = require("../src/services/pathfinding/pathfinding-service");
+const armyManagementService = require("../src/services/army-management/army-management-service");
 
 module.exports = createSystem({
   name: 'BattleManagerSystem',
@@ -51,22 +48,22 @@ module.exports = createSystem({
     this.threats = threats(resources, this.state);
     this.foodUsed = agent.foodUsed;
     if (this.foodUsed < 194 && this.state.defenseMode) {
-      const rallyPoint = getCombatRally(resources);
+      const rallyPoint = armyManagementService.getCombatRally(resources);
       if (rallyPoint) {
-        let [ closestEnemyUnit ] = getClosestUnitByPath(resources, rallyPoint, this.threats);
+        let [ closestEnemyUnit ] = pathFindingService.getClosestUnitByPath(resources, rallyPoint, this.threats);
         if (closestEnemyUnit) {
           const filterList = [...creepTumorTypes, ...larvaOrEgg];
           const selfFilterList = [...filterList, ...workerTypes, OVERLORD];
           const selfUnits = units.getAlive(Alliance.SELF).filter(unit => !selfFilterList.includes(unit.unitType));
           collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, selfUnits));
-          const [ combatPoint ] = getClosestUnitByPath(resources, closestEnemyUnit.pos, selfUnits, 1);
+          const [ combatPoint ] = pathFindingService.getClosestUnitByPath(resources, closestEnemyUnit.pos, selfUnits);
           if (combatPoint) {
-            const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !filterList.includes(unit.unitType));;
+            const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !filterList.includes(unit.unitType));
             const totalMapComposition = assessBattleField(selfUnits, enemyUnits);
             const attack = decideEngagement(this.state.compositions, totalMapComposition);
             if (attack) {
               console.log(frame.timeInSeconds(), 'Defend', totalMapComposition.differential);
-              const combatPoint = getCombatPoint(resources, selfUnits, closestEnemyUnit);
+              const combatPoint = armyManagementService.getCombatPoint(resources, selfUnits, closestEnemyUnit);
               if (combatPoint) {
                 const combatUnits = selfUnits;
                 const army = { combatPoint, combatUnits, supportUnits: [], enemyTarget: closestEnemyUnit}
@@ -97,7 +94,7 @@ module.exports = createSystem({
                     if (isFlying) {
                       targetWorldSpacePos = moveAwayPosition(map, closestEnemyUnit.pos, selfUnit.pos);
                     } else {
-                      targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyUnit]);
+                      targetWorldSpacePos = armyManagementService.retreat(world, selfUnit, [closestEnemyUnit]);
                     }
                     if (targetWorldSpacePos) {
                       const unitCommand = {

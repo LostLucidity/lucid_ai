@@ -8,6 +8,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { morphMapping } = require("../../helper/groups");
 const { existsInMap } = require("../../helper/location");
 const { getSupply } = require("../../services/data-service");
+const enemyTrackingServiceV2 = require("../../src/services/enemy-tracking/enemy-tracking-service");
 
 const enemyTrackingService = {
   /** @type {Unit[]} */
@@ -15,14 +16,12 @@ const enemyTrackingService = {
   /** @type {Map<string, {current: { pos: Point2D, lastSeen: number }, previous: { pos: Point2D, lastSeen: number }}>} */
   enemyUnitsPositions: new Map(),
   enemySupply: null,
-  /** @type {Unit[]} */
-  mappedEnemyUnits: [],
   get movedEnemyUnits() {
     const movedEnemyUnits = [];
     if (enemyTrackingService.enemyUnitsPositions.size === 0) {
       enemyTrackingService.setEnemyUnitPositions();
     }
-    enemyTrackingService.mappedEnemyUnits.forEach(unit => {
+    enemyTrackingServiceV2.mappedEnemyUnits.forEach(unit => {
       const { tag, pos } = unit; if (tag === undefined || pos === undefined) { return; }
       const lastPosition = enemyTrackingService.enemyUnitsPositions.get(tag); if (lastPosition === undefined) { return; }
       if (lastPosition && distance(lastPosition.previous.pos, pos) > 0.5) {
@@ -52,11 +51,11 @@ const enemyTrackingService = {
    * * @returns {void}
    */
   addUnmappedUnit: (units) => {
-    enemyTrackingService.mappedEnemyUnits.push(...units.getAlive(Alliance.ENEMY).filter(unit => !enemyTrackingService.mappedEnemyUnits.some(mappedUnit => unit.tag === mappedUnit.tag)));
+    enemyTrackingServiceV2.mappedEnemyUnits.push(...units.getAlive(Alliance.ENEMY).filter(unit => !enemyTrackingServiceV2.mappedEnemyUnits.some(mappedUnit => unit.tag === mappedUnit.tag)));
   },
   clearOutdatedMappedUnits: (resources) => {
     const { map, units } = resources.get();
-    enemyTrackingService.mappedEnemyUnits.forEach(unit => {
+    enemyTrackingServiceV2.mappedEnemyUnits.forEach(unit => {
       const visibleCandidates = gridsInCircle(unit.pos, 1, { normalize: true }).filter(grid => {
         if (existsInMap(map, grid)) {
           if (!unit.isFlying) { return map.isPathable(unit.pos); } else { return true; }
@@ -72,7 +71,7 @@ const enemyTrackingService = {
     enemyTrackingService.removedMappedUnit(enemyUnit);
   },
   removedMappedUnit: (enemyUnit) => {
-    enemyTrackingService.mappedEnemyUnits = [...enemyTrackingService.mappedEnemyUnits.filter(unit => unit.tag !== enemyUnit.tag)];
+    enemyTrackingServiceV2.mappedEnemyUnits = [...enemyTrackingServiceV2.mappedEnemyUnits.filter(unit => unit.tag !== enemyUnit.tag)];
   },
   getEnemyCombatSupply: (data) => {
     const {enemyCombatUnits} = enemyTrackingService;
@@ -99,7 +98,7 @@ const enemyTrackingService = {
   },
   setEnemyUnitPositions() {
     const { enemyUnitsPositions } = enemyTrackingService;
-    enemyTrackingService.mappedEnemyUnits.forEach(unit => {
+    enemyTrackingServiceV2.mappedEnemyUnits.forEach(unit => {
       const { lastSeen, tag, pos } = unit; if (lastSeen === undefined || tag === undefined || pos === undefined) { return; }
       if (enemyUnitsPositions.has(tag)) {
         enemyUnitsPositions.set(

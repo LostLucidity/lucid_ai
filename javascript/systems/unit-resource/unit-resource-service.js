@@ -12,12 +12,9 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { countTypes, larvaOrEgg } = require("../../helper/groups");
 const { createUnitCommand } = require("../../services/actions-service");
-const { getDistance } = require("../../services/position-service");
 const { isPendingContructing } = require("../../services/shared-service");
 const { canBeChronoBoosted, triggerAbilityByDistance } = require("../../services/unit-service");
 const unitService = require("../../services/unit-service");
-const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
-const trackUnitsService = require("../track-units/track-units-service");
 const Ability = require("@node-sc2/core/constants/ability");
 const { UnitType } = require("@node-sc2/core/constants");
 
@@ -62,20 +59,6 @@ const unitResourceService = {
     }
     return 1;
   },
-  /**
-   * @param {UnitResource} units 
-   * @param {Unit} unit 
-   * @returns {number}
-   */
-  calculateTotalHealthRatio: (units, unit) => {
-    if (unitResourceService.getUnitTypeData(units, unit.unitType)) {
-      const { healthMax, shieldMax } = unitResourceService.getUnitTypeData(units, unit.unitType)
-      const totalHealthShield = unit.health + unit.shield;
-      const maxHealthShield = healthMax + shieldMax;
-      return maxHealthShield > 0 ? totalHealthShield / maxHealthShield : 0;
-    }
-    return 0;
-  },
   deleteLabel(units, label) {
     units.withLabel(label).forEach(pusher => pusher.labels.delete(label));
   },
@@ -117,58 +100,16 @@ const unitResourceService = {
     return gatheringWorkers;
   },
   /**
-   * @param {UnitResource} units
-   * @returns {Unit[]}
-   */
-  getGasGeysers(units) {
-    return unitResourceService.gasGeysers || (unitResourceService.gasGeysers = units.getGasGeysers());
-  },
-  /**
    * Returns whether target unit is in sightRange of unit.
    * @param {Unit[]} units
    * @param {Unit} targetUnit
    * @return {boolean}
    */
-
-  /**
-   * @param {UnitResource} units
-   * @param {Unit} unit
-   * @param {number} withinRange
-   * @returns {Unit[]}
-   */
-  getSelfUnits: (units, unit, withinRange=16) => {
-    const { pos, tag } = unit; if (pos === undefined || tag === undefined) return [];
-    let hasSelfUnits = unitService.selfUnits.has(tag);
-    if (!hasSelfUnits) {
-      let unitsByAlliance = [];
-      if (unit.alliance === Alliance.SELF) {
-        unitsByAlliance = trackUnitsService.selfUnits.length > 0 ? trackUnitsService.selfUnits : units.getAlive(Alliance.SELF);
-      } else if (unit.alliance === Alliance.ENEMY) {
-        unitsByAlliance = enemyTrackingService.mappedEnemyUnits.length > 0 ? enemyTrackingService.mappedEnemyUnits : units.getAlive(Alliance.ENEMY);
-      }
-      const selfUnits = unitsByAlliance.filter(allyUnit => {
-        const { pos: allyPos } = allyUnit; if (allyPos === undefined) return false;
-        return getDistance(pos, allyPos) < withinRange;
-      });
-      unitService.selfUnits.set(tag, selfUnits);
-    }
-    return unitService.selfUnits.get(tag) || [];
-  },
   inSightRange(units, targetUnit) {
     return units.some(unit => {
       const targetUnitDistanceToItsEdge = distance(unit.pos, targetUnit.pos) - targetUnit.radius;
       return unit.data().sightRange >= targetUnitDistanceToItsEdge;
     });
-  },
-  /**
-   * @param {UnitResource} units
-   * @param {Unit} unit
-   * @returns {boolean}
-   */
-  isByItselfAndNotAttacking: (units, unit) => {
-    const isByItself = unitResourceService.getSelfUnits(units, unit, 8).length === 1;
-    const isAttacking = unit.labels.get('hasAttacked');
-    return isByItself && !isAttacking;
   },
   /**
    * @param {UnitResource} units
@@ -518,13 +459,13 @@ const unitResourceService = {
       units.getByType(SIEGETANK).filter(tank => {
         let [closestEnemyUnit] = units.getClosest(tank.pos, enemyUnits, 1);
         if (closestEnemyUnit) {
-          collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit.pos, '<', 13, MORPH_SIEGEMODE));
+          collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit, '<', 13, MORPH_SIEGEMODE));
         }
       });
       units.getById(SIEGETANKSIEGED).filter(tank => {
         let [closestEnemyUnit] = units.getClosest(tank.pos, enemyUnits, 1);
         if (closestEnemyUnit) {
-          collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit.pos, '>', 13, MORPH_UNSIEGE));
+          collectedActions.push(...triggerAbilityByDistance(tank, closestEnemyUnit, '>', 13, MORPH_UNSIEGE));
         }
       });
     }

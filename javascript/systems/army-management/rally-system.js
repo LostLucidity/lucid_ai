@@ -6,14 +6,14 @@ const { LOAD_BUNKER, SMART, MOVE } = require("@node-sc2/core/constants/ability")
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { BUNKER, QUEEN, LARVA } = require("@node-sc2/core/constants/unit-type");
 const armyManagementService = require("../../services/army-management-service");
-const { engageOrRetreat } = require("../../services/army-management-service");
-const { getCombatRally } = require("../../services/resource-manager-service");
 const { tankBehavior } = require("../unit-resource/unit-resource-service");
+const armyManagementServiceV2 = require("../../src/services/army-management/army-management-service");
 
 module.exports = createSystem({
   name: 'RallySystem',
   type: 'agent',
-  async onStep({ data, resources }) {
+  async onStep(world) {
+    const { resources } = world;
     const { actions } = resources.get();
     if (!armyManagementService.defenseMode) {
       const { units } = resources.get();
@@ -24,7 +24,7 @@ module.exports = createSystem({
           ![...unit.labels.keys()].some(key => key.includes('scout'))
         )
       });
-      let rallyPoint = getCombatRally(resources);
+      let rallyPoint = armyManagementServiceV2.getCombatRally(resources);
       if (combatUnits.length > 0) {
         if (units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1).length > 0) {
           const [bunker] = units.getById(BUNKER);
@@ -48,7 +48,7 @@ module.exports = createSystem({
         } else {
           const selfUnits = [...combatUnits, ...units.getById(QUEEN)];
           const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
-          collectedActions.push(...engageOrRetreat({ data, resources }, selfUnits, enemyUnits, rallyPoint));
+          collectedActions.push(...armyManagementService.engageOrRetreat(world, selfUnits, enemyUnits, rallyPoint));
         }
       }
       collectedActions.push(...tankBehavior(units));

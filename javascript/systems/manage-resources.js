@@ -7,13 +7,14 @@ const { COMMANDCENTER, MULE } = require("@node-sc2/core/constants/unit-type");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const { upgradeTypes } = require("../helper/groups");
-const { gather, getClosestPathablePositionsBetweenPositions } = require("../services/resource-manager-service");
+const { gather } = require("../services/resource-manager-service");
 const { mine, getPendingOrders, setPendingOrders } = require("../services/unit-service");
 const { getGatheringWorkers, isMining } = require("./unit-resource/unit-resource-service");
 const { shuffle } = require("../helper/utilities");
 const { getDistance } = require("../services/position-service");
-const enemyTrackingService = require("./enemy-tracking/enemy-tracking-service");
 const { canAttack } = require("../services/resources-service");
+const enemyTrackingService = require("../src/services/enemy-tracking/enemy-tracking-service");
+const { getClosestPathWithGasGeysers } = require("../src/services/utility-service");
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
@@ -191,7 +192,7 @@ function chooseNeedyGasMine(resources, unit, needyGasMines) {
   const shuffledGasMines = shuffle(needyGasMines);
   for (const gasMine of shuffledGasMines) {
     const { pos: gasMinePos } = gasMine; if (gasMinePos === undefined) continue;
-    const pathablePositions = getClosestPathablePositionsBetweenPositions(resources, unitPos, gasMinePos);
+    const pathablePositions = getClosestPathWithGasGeysers(resources, unitPos, gasMinePos);
     const { pathCoordinates } = pathablePositions;
     const enemyUnits = getEnemyUnitsCloseToPath(unit, pathCoordinates);
     if (enemyUnits.length === 0) return gasMine;
@@ -205,9 +206,8 @@ function chooseNeedyGasMine(resources, unit, needyGasMines) {
  * @returns {Unit[]}
  */
 function getEnemyUnitsCloseToPath(unit, pathCoordinates) {
-  const { mappedEnemyUnits } = enemyTrackingService;
   const enemyUnits = [];
-  for (const enemyUnit of mappedEnemyUnits) {
+  for (const enemyUnit of enemyTrackingService.mappedEnemyUnits) {
     const { pos: enemyUnitPos } = enemyUnit; if (enemyUnitPos === undefined) continue;
     const enemyUnitCloseToPath = pathCoordinates.some(pathCoordinate => {
       if (!canAttack(enemyUnit, unit)) return false;

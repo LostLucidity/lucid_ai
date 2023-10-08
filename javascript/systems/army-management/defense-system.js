@@ -7,12 +7,12 @@ const { QUEEN, BUNKER } = require("@node-sc2/core/constants/unit-type");
 const { salvageBunker } = require("../../builds/terran/salvage-bunker");
 const { getMiddleOfNaturalWall } = require("../../helper/placement/placement-helper");
 const armyManagementService = require("../../services/army-management-service");
-const { attackWithArmy, engageOrRetreat } = require("../../services/army-management-service");
-const { getClosestUnitByPath, getCombatRally } = require("../../services/resource-manager-service");
-const { getCombatPoint } = require("../../services/resources-service");
+const { attackWithArmy } = require("../../services/army-management-service");
 const { canBuild } = require("../../src/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const scoutService = require("../scouting/scouting-service");
+const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
+const armyManagementServiceV2 = require("../../src/services/army-management/army-management-service");
 
 module.exports = createSystem({
   name: 'DefenseSystem',
@@ -21,7 +21,7 @@ module.exports = createSystem({
     const { resources } = world;
     const { actions, units } = resources.get();
     const collectedActions = []
-    const rallyPoint = getCombatRally(resources);
+    const rallyPoint = armyManagementServiceV2.getCombatRally(resources);
     if (rallyPoint) {
       collectedActions.push(...decideDefendingActions(world, rallyPoint));
     }
@@ -39,10 +39,10 @@ function decideDefendingActions(world, rallyPoint) {
   const { data, resources } = world;
   const { units } = resources.get();
   const collectedActions = []
-  let [closestEnemyUnit] = getClosestUnitByPath(resources, rallyPoint, enemyTrackingService.threats);
+  let [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(resources, rallyPoint, enemyTrackingService.threats);
   if (closestEnemyUnit) {
     let selfCombatUnits = units.getCombatUnits();
-    const [combatPoint] = getClosestUnitByPath(resources, closestEnemyUnit.pos, units.getCombatUnits());
+    const [combatPoint] = pathFindingService.getClosestUnitByPath(resources, closestEnemyUnit.pos, units.getCombatUnits());
     if (combatPoint) {
       const enemyCombatUnits = units.getCombatUnits(Alliance.ENEMY);
       const enemySupply = enemyCombatUnits.map(unit => data.getUnitTypeData(unit.unitType).foodRequired).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
@@ -56,7 +56,7 @@ function decideDefendingActions(world, rallyPoint) {
             selfCombatUnits.push(...units.getById(QUEEN));
           }
         }
-        const combatPoint = getCombatPoint(resources, selfCombatUnits, closestEnemyUnit);
+        const combatPoint = armyManagementServiceV2.getCombatPoint(resources, selfCombatUnits, closestEnemyUnit);
         if (combatPoint) {
           const army = { combatPoint, selfCombatUnits, enemyTarget: closestEnemyUnit }
           collectedActions.push(...attackWithArmy(data, units, army));
@@ -65,7 +65,7 @@ function decideDefendingActions(world, rallyPoint) {
         if (selfSupply < enemySupply) {
           console.log('engageOrRetreat', selfSupply, enemySupply);
           selfCombatUnits = [...selfCombatUnits, ...units.getById(QUEEN)];
-          collectedActions.push(...engageOrRetreat(world, selfCombatUnits, enemyCombatUnits, rallyPoint));
+          collectedActions.push(...armyManagementService.engageOrRetreat(world, selfCombatUnits, enemyCombatUnits, rallyPoint));
         }
       }
       armyManagementService.defenseMode = true;

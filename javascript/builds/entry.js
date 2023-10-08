@@ -39,7 +39,7 @@ const entry = createSystem({
     const { race, opponent } = agent;
     const { map, frame } = resources.get();
     console.log('frame.getGameInfo().playerInfo', frame.getGameInfo().playerInfo);
-    console.log('Natural Wall:', !!map.getNatural().getWall());
+    console.log('Natural Wall:', map.getNatural() ? !!map.getNatural().getWall() : 'Natural is undefined');
     console.log('Backup Wall', wallOffNaturalService.wall.length > 0);
     // get build
     // const plan = plans[race]['economicStalkerColossi'];
@@ -86,10 +86,9 @@ const entry = createSystem({
     }
   },
   /**
-   * 
-   * @param {World} param0 
-   * @param {Unit} idleUnit 
-   * @returns {Promise<SC2APIProtocol.ResponseAction|void>}
+   * @param {World} world
+   * @param {Unit} idleUnit
+   * @returns {Promise<SC2APIProtocol.ResponseAction | void>}
    */
   async onUnitIdle(world, idleUnit) {
     const { resources } = world;

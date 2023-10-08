@@ -10,7 +10,6 @@ const { createUnitCommand } = require("./actions-service");
 const { calculateNearSupply } = require("./data-service");
 const { moveAwayPosition, getDistance, getBorderPositions } = require("./position-service");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
-const { retreat } = require("../src/world-service");
 const unitService = require("./unit-service");
 
 const armyManagementService = {
@@ -85,21 +84,21 @@ const armyManagementService = {
       if (!workerTypes.includes(selfUnit.unitType)) {
         const [closestEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => distance(selfUnit.pos, enemyUnit.pos) < 16));
         if (closestEnemyUnit) {
-          closestEnemyUnit.inRangeUnits = getInRangeUnits(closestEnemyUnit, enemyUnits);
-          const enemySupply = calculateNearSupply(data, closestEnemyUnit.inRangeUnits);
-          closestEnemyUnit.inRangeSelfUnits = getInRangeUnits(closestEnemyUnit, selfUnits);
-          closestEnemyUnit.inRangeSelfSupply = calculateNearSupply(data, closestEnemyUnit.inRangeSelfUnits);
+          closestEnemyUnit['inRangeUnits'] = getInRangeUnits(closestEnemyUnit, enemyUnits);
+          const enemySupply = calculateNearSupply(data, closestEnemyUnit['inRangeUnits']);
+          closestEnemyUnit['inRangeSelfUnits'] = getInRangeUnits(closestEnemyUnit, selfUnits);
+          closestEnemyUnit['inRangeSelfSupply'] = calculateNearSupply(data, closestEnemyUnit['inRangeSelfUnits']);
           const inRangeSelfUnits = getInRangeUnits(selfUnit, selfUnits);
-          selfUnit.selfSupply = calculateNearSupply(data, inRangeSelfUnits);
-          const selfSupply = selfUnit.selfSupply > closestEnemyUnit.inRangeSelfSupply ? selfUnit.selfSupply : closestEnemyUnit.inRangeSelfSupply;
+          selfUnit['selfSupply'] = calculateNearSupply(data, inRangeSelfUnits);
+          const selfSupply = selfUnit['selfSupply'] > closestEnemyUnit['inRangeSelfSupply'] ? selfUnit['selfSupply'] : closestEnemyUnit['inRangeSelfSupply'];
           const noBunker = units.getById(BUNKER).length === 0;
           if (enemySupply > selfSupply && noBunker) {
             let targetWorldSpacePos;
             const isFlying = selfUnit.isFlying;
             if (isFlying) {
-              targetWorldSpacePos = moveAwayPosition(map, closestEnemyUnit, selfUnit);
+              targetWorldSpacePos = moveAwayPosition(map, closestEnemyUnit.pos, selfUnit.pos);
             } else {
-              targetWorldSpacePos = retreat(world, selfUnit, [closestEnemyUnit]);
+              targetWorldSpacePos = armyManagementService.retreat(world, selfUnit, [closestEnemyUnit]);
             }
             if (targetWorldSpacePos) {
               const unitCommand = {

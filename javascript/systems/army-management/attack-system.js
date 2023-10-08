@@ -8,13 +8,14 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getRandomPoint } = require("../../helper/location");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getDistance, getStructureCells } = require("../../services/position-service");
-const { getClosestUnitByPath, getCombatRally, getDistanceByPath } = require("../../services/resource-manager-service");
 const { canAttack } = require("../../services/resources-service");
 const { micro, getWorkerDefenseCommands } = require("../../src/world-service");
-const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const { getMapPath } = require("../map-resource-system/map-resource-service");
 const Ability = require("@node-sc2/core/constants/ability");
 const unitService = require("../../services/unit-service");
+const enemyTrackingService = require("../../src/services/enemy-tracking/enemy-tracking-service");
+const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
+const armyManagementService = require("../../src/services/army-management/army-management-service");
 
 module.exports = createSystem({
   name: 'AttackSystem',
@@ -36,7 +37,7 @@ module.exports = createSystem({
 
       if (enemyUnits.length > 0) {
         if (isWorkerDefending) {
-          const [nearestEnemy] = getClosestUnitByPath(resources, getCombatRally(resources), enemyUnits);
+          const [nearestEnemy] = pathFindingService.getClosestUnitByPath(resources, armyManagementService.getCombatRally(resources), enemyUnits);
           actionQueue.push(...getWorkerDefenseCommands(world, unitsReadyForAttack.flat(), nearestEnemy));
         } else {
           let attackableUnitGroups = unitsReadyForAttack.filter(myUnitGroup => {
@@ -95,7 +96,7 @@ function attackTargets(world, unitsToAttackWith, enemyTargets) {
         attackableTargets.push(target);
       }
     }
-    const [closestEnemyUnit] = getClosestUnitByPath(resources, pos, attackableTargets);
+    const [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(resources, pos, attackableTargets);
     if (closestEnemyUnit) {
       const { pos: closestEnemyUnitPos } = closestEnemyUnit; if (closestEnemyUnitPos === undefined) { return; }
       if (getDistance(pos, closestEnemyUnitPos) > 16) {
@@ -318,8 +319,8 @@ const getClosestEnemyGroupWithSafePath = (world, myUnitGroup, enemyGroups) => {
     const centerA = getCenterPosition(groupA);
     const centerB = getCenterPosition(groupB);
 
-    const distanceToA = centerA ? getDistanceByPath(resources, centerA, groupCenter) : Infinity;
-    const distanceToB = centerB ? getDistanceByPath(resources, centerB, groupCenter) : Infinity;
+    const distanceToA = centerA ? pathFindingService.getDistanceByPath(resources, centerA, groupCenter) : Infinity;
+    const distanceToB = centerB ? pathFindingService.getDistanceByPath(resources, centerB, groupCenter) : Infinity;
 
     return distanceToA - distanceToB;
   });
@@ -412,7 +413,7 @@ function pathIncludesPoint(point, path) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function goToRallyPoint(resources, units) {
-  const rallyPoint = getCombatRally(resources);
+  const rallyPoint = armyManagementService.getCombatRally(resources);
   const collectedActions = [];
 
   for (const unit of units) {
@@ -597,7 +598,7 @@ function handleFallbackStrategy(resources, unitsReadyForAttack, enemyUnits) {
   const groupCenter = getCenterPosition(unitsReadyForAttack.flat());
 
   if (groupCenter !== undefined) {
-    const rallyPoint = getCombatRally(resources);
+    const rallyPoint = armyManagementService.getCombatRally(resources);
     const pathToRallyPoint = getMapPath(map, groupCenter, rallyPoint);
     const enemiesAlongPath = enemyUnits.filter(enemy => enemy.pos && pathIncludesPoint(toPointArray(enemy.pos), pathToRallyPoint));
 

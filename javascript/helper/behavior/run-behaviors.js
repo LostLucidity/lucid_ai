@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { setCombatBuildingsRallies } = require("../../services/resources-service");
+const { setCombatBuildingsRallies } = require("../../src/services/army-management/army-management-service");
 const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior, acrossTheMapBehavior, recruitToBattleBehavior } = require("./labelled-behavior");
 const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior, bunkerBehavior, creepTumorBurrowedBehavior } = require("./unit-behavior");
 

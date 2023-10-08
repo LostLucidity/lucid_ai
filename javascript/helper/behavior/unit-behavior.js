@@ -8,15 +8,14 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
-const { isRepairing, isMining, getOrderTargetPosition, getSelfUnits } = require("../../systems/unit-resource/unit-resource-service");
+const { isRepairing, isMining, getOrderTargetPosition } = require("../../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("../../services/actions-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { getDistance } = require("../../services/position-service");
-const { retreat, pullWorkersToDefend, calculateNearDPSHealth, getUnitsInRangeOfPosition, getWeaponDPS, findPosition, isStrongerAtPosition } = require("../../src/world-service");
+const { pullWorkersToDefend, getUnitsInRangeOfPosition, findPosition } = require("../../src/world-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
-const { getCombatRally, isPeacefulWorker, getDistanceByPath, getClosestPathablePositionsBetweenPositions } = require("../../services/resource-manager-service");
-const { getPendingOrders, setPendingOrders, getWeaponThatCanAttack, triggerAbilityByDistance } = require("../../services/unit-service");
+const { getPendingOrders, setPendingOrders, triggerAbilityByDistance } = require("../../services/unit-service");
 const { getMapPath } = require("../../systems/map-resource-system/map-resource-service");
 const { getPathCoordinates } = require("../../services/path-service");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -27,9 +26,15 @@ const { existsInMap } = require("../location");
 const { getClosestPosition } = require("../get-closest");
 const { CREEPTUMOR } = require("@node-sc2/core/constants/unit-type");
 const InfoRetrievalService = require('../../src/services/info-retrieval-service');
-const enemyTrackingService = require("../../systems/enemy-tracking/enemy-tracking-service");
-const worldService = require("../../src/world-service");
 const unitService = require("../../services/unit-service");
+const { calculateNearDPSHealth } = require("../../src/services/combat-statistics");
+const { mappedEnemyUnits } = require("../../src/services/enemy-tracking/enemy-tracking-service");
+const { getClosestPathWithGasGeysers } = require("../../src/services/utility-service");
+const { getWeaponDPS } = require("../../src/services/shared-utilities/combat-utilities");
+const armyManagementService = require("../../src/services/army-management/army-management-service");
+const { getDistanceByPath } = require("../../src/services/pathfinding/pathfinding-service");
+const { getSelfUnits } = require("../../src/services/unit-retrieval/unit-retrieval-service");
+const enemyTrackingService = require("../../src/services/enemy-tracking");
 
 module.exports = {
   /**
@@ -278,7 +283,7 @@ module.exports = {
     const { agent, resources } = world;
     const { units } = resources.get();
 
-    const enemyUnits = enemyTrackingService.mappedEnemyUnits
+    const enemyUnits = mappedEnemyUnits
       .filter(unit => unit.unitType && !larvaOrEgg.includes(unit.unitType));
 
     const workers = units.getById(WorkerRace[agent.race])
@@ -301,7 +306,7 @@ module.exports = {
       }
 
       // Skip if the closest enemy unit is a peaceful worker
-      if (isPeacefulWorker(resources, closestEnemyUnit)) continue;
+      if (enemyTrackingService.isPeacefulWorker(resources, closestEnemyUnit)) continue;
 
       actions.push(...handleThreatenedWorker(world, worker, closestEnemyUnit, workers, enemyUnits));
     }
@@ -385,8 +390,7 @@ function handleTumor(world, tumor, creepTumorsBurrowed, enemyNaturalTownhallPosi
     if (creepTumorsBurrowed.length <= 3) {
       const { pos } = tumor;
       if (pos === undefined) { return; }
-
-      const pathablePositions = getClosestPathablePositionsBetweenPositions(resources, pos, enemyNaturalTownhallPosition);
+      const pathablePositions = getClosestPathWithGasGeysers(resources, pos, enemyNaturalTownhallPosition);
       const { pathablePosition, pathCoordinates } = pathablePositions;
       if (!pathablePosition) { return; }
       const [farthestPosition] = pathCoordinates.filter(position => distance(position, pos) <= 10 && map.hasCreep(position)).sort((a, b) => distance(b, pos) - distance(a, pos));
@@ -417,7 +421,7 @@ function handleTumor(world, tumor, creepTumorsBurrowed, enemyNaturalTownhallPosi
           const { pos: closestCreepGeneratorPos } = closestCreepGenerator;
           if (closestCreepGeneratorPos === undefined) return false;
           const [closestTownhallPosition] = getClosestPosition(position, map.getExpansions().map(expansion => expansion.townhallPosition));
-          const isSafePosition = isStrongerAtPosition(world, position);
+          const isSafePosition = armyManagementService.isStrongerAtPosition(world, position);
   
           return [
             closestCreepGenerator,
@@ -580,7 +584,7 @@ function handleRetreatOrDefend(world, worker, enemyUnits, allWorkers) {
   }
 
   // Check for retreat options
-  const retreatPoint = worldService.retreat(world, worker, [closestEnemyUnit]);
+  const retreatPoint = armyManagementService.retreat(world, worker, [closestEnemyUnit]);
   if (retreatPoint) {
     actions.push(createFinalMoveCommand(worker, retreatPoint, false));
     return actions;
@@ -698,16 +702,16 @@ function handleCloseProximityActions(world, worker, enemyUnits, workers, collect
 
   if (closestEnemies.length === 0) return;
 
-  const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, getCombatRally(world.resources));
+  const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, armyManagementService.getCombatRally(world.resources));
   const selfCombatRallyUnitTypes = extractUnitTypes(selfCombatRallyUnits);
-  const inRangeUnitsOfClosestEnemy = getSelfUnits(units, closestEnemies[0]);
+  const inRangeUnitsOfClosestEnemy = getSelfUnits(units, closestEnemies[0], mappedEnemyUnits);
 
   const inRangeUnitTypesOfClosestEnemy = extractUnitTypes(inRangeUnitsOfClosestEnemy);
   const selfCombatRallyDPSHealth = calculateNearDPSHealth(world, selfCombatRallyUnits, inRangeUnitTypesOfClosestEnemy);
   const inRangeCombatUnitsOfEnemyDPSHealth = calculateNearDPSHealth(world, inRangeUnitsOfClosestEnemy, selfCombatRallyUnitTypes);
 
   const shouldRallyToCombatRally = selfCombatRallyDPSHealth > inRangeCombatUnitsOfEnemyDPSHealth;
-  const targetPosition = retreat(world, worker, closestEnemies, shouldRallyToCombatRally);
+  const targetPosition = armyManagementService.retreat(world, worker, closestEnemies, shouldRallyToCombatRally);
 
   /** @type {SC2APIProtocol.ActionRawUnitCommand} */
   const unitCommand = {
@@ -791,21 +795,6 @@ function calculateAngles(workerDestination, pos, closestEnemyUnitPos) {
     angleToEnemy,
     angleToDestination
   };
-}
-
-/**
- * Adjusts the angle difference to be between -180 and 180.
- * 
- * @param {number} angleToDestination - The angle to the worker's destination.
- * @param {number} angleToEnemy - The angle to the closest enemy unit.
- * @returns {number} - The adjusted angle difference.
- */
-function adjustAngleDifference(angleToDestination, angleToEnemy) {
-  let angleDifference = (angleToDestination - angleToEnemy) * (180 / Math.PI);
-  if (angleDifference > 180) angleDifference -= 360;
-  if (angleDifference < -180) angleDifference += 360;
-
-  return angleDifference;
 }
 
 /**

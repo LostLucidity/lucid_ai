@@ -15,7 +15,7 @@ const { v4: uuidv4 } = require('uuid');
 const dataService = require("../services/data-service");
 const { setUnitTypeTrainingAbilityMapping, getAllAvailableAbilities, setUpgradeAbilities } = require("../services/data-service");
 const { supplyTypes } = require("../helper/groups");
-const { getDistanceByPath } = require("../services/resource-manager-service");
+const pathFindingService = require("../services/resource-manager-service");
 const { setScout, setOpponentRace } = require("./scouting/scouting-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { getTargetLocation } = require("./map-resource-system/map-resource-service");
@@ -217,7 +217,7 @@ function optimizeBuildCommands(world) {
     if (closestWorker === null) return;
     const { pos: closestWorkerPos } = closestWorker;
     if (closestWorkerPos === undefined || unitType === undefined) return;
-    if (closestWorker.tag === worker.tag || (getDistanceByPath(resources, pos, targetWorldSpacePos) <= getDistanceByPath(resources, closestWorkerPos, targetWorldSpacePos))) return;
+    if (closestWorker.tag === worker.tag || (pathFindingService.getDistanceByPath(resources, pos, targetWorldSpacePos) <= pathFindingService.getDistanceByPath(resources, closestWorkerPos, targetWorldSpacePos))) return;
     if (agent.canAfford(unitType)) {
       collectedActions.push(...assignAndSendWorkerToBuild(world, unitType, targetWorldSpacePos, false));
     }

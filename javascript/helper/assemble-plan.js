@@ -3,7 +3,7 @@
 
 const { WARPGATE, OVERLORD, MINERALFIELD, BARRACKS, GATEWAY, PHOTONCANNON, EGG, CREEPTUMOR, CREEPTUMORQUEEN } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { Alliance, Race, Attribute } = require('@node-sc2/core/constants/enums');
+const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const rallyUnits = require("./rally-units");
 const { WarpUnitAbility, UnitType, Upgrade } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
@@ -50,6 +50,9 @@ const { requiresPylon } = require("../services/agent-service");
 const { CANCEL_QUEUE5, CANCEL_QUEUE1, CANCEL_QUEUECANCELTOSELECTION, CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
 const dataService = require("../services/data-service");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
+const { pathFindingService } = require("../src/services/pathfinding");
+const armyManagementService = require("../src/services/army-management/army-management-service");
+
 
 let ATTACKFOOD = 194;
 
@@ -120,7 +123,7 @@ class AssemblePlan {
         continue;
       }
 
-      if (structure.pos && !worldService.isStrongerAtPosition(world, structure.pos)) {
+      if (structure.pos && !armyManagementService.isStrongerAtPosition(world, structure.pos)) {
         if (structure.tag) {
           const cancelAction = {
             abilityId: CANCEL_BUILDINPROGRESS,
@@ -520,8 +523,7 @@ class AssemblePlan {
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
           addEarmark(data, unitTypeData);
         } else {
-          if (isSupplyNeeded(this.world) && unitType !== OVERLORD) {
-          } else if (!this.agent.canAfford(unitType)) {
+          if (isSupplyNeeded(this.world) && unitType !== OVERLORD) { /* empty */ } else if (!this.agent.canAfford(unitType)) {
             addEarmark(data, unitTypeData);
             console.log(`Cannot afford ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`, planService.isPlanPaused);
           }
@@ -588,7 +590,7 @@ class AssemblePlan {
     const trainers = getTrainingUnits(world, race);
 
     for (const trainer of trainers) {
-      if (trainer.pos && !worldService.isStrongerAtPosition(world, trainer.pos)) {
+      if (trainer.pos && !armyManagementService.isStrongerAtPosition(world, trainer.pos)) {
         const cancelCommand = createCancelMorphOrTrainCommand(trainer);
         if (cancelCommand) {
           await actions.sendAction(cancelCommand);
@@ -723,7 +725,7 @@ module.exports = AssemblePlan;
  * @returns {Promise<Point2D | false>}
  */
 async function getBuildingPosition(world, unitType, candidatePositions) {
-  const { findPosition, isStrongerAtPosition } = worldService;
+  const { findPosition } = worldService;
   const { agent, resources } = world;
   const { race } = agent;
   let position = planService.buildingPosition;
@@ -731,7 +733,7 @@ async function getBuildingPosition(world, unitType, candidatePositions) {
     const { map, units } = resources.get();
     const areEnemyUnitsInWay = checkIfEnemyUnitsInWay(units, unitType, position);
     const enemyBlockingExpansion = areEnemyUnitsInWay && TownhallRace[race][0] === unitType;
-    const strongerAtFoundPosition = isStrongerAtPosition(world, position);
+    const strongerAtFoundPosition = armyManagementService.isStrongerAtPosition(world, position);
     if (
       (gasMineTypes.includes(unitType) ? MapResourceService.isGeyserFree(map, position) : map.isPlaceableAt(unitType, position))
       && !enemyBlockingExpansion
@@ -740,7 +742,7 @@ async function getBuildingPosition(world, unitType, candidatePositions) {
       return position;
     }
   }
-  return findPosition(world, unitType, candidatePositions.filter(pos => isStrongerAtPosition(world, pos)));
+  return findPosition(world, unitType, candidatePositions.filter(pos => armyManagementService.isStrongerAtPosition(world, pos)));
 }
 
 /**
@@ -808,15 +810,6 @@ function createCancelMorphOrTrainCommand(unit) {
 }
 
 /**
- * Determines if a unit is a morphing Zerg unit.
- * 
- * @param {SC2APIProtocol.Unit} unit - The unit to check.
- * @return {boolean} - True if the unit is a morphing Zerg unit, false otherwise.
- */
-function isEgg(unit) {
-  return unit.unitType === EGG;
-}
-/**
  * Returns units that are Eggs.
  * @param {World} world - The world state.
  * @return {Unit[]} An array of Egg units.
@@ -871,26 +864,6 @@ function getWarpingUnits(world) {
   return warpingUnits;
 }
 /**
- * Retrieves potential producing structures based on the given race.
- * @param {World} world - The game world instance.
- * @param {SC2APIProtocol.Race | undefined} race - The race of the structures.
- * @returns {Unit[]} - An array of potential producing structures.
- */
-function getProducingStructures(world, race) {
-  const potentialProducingUnitTypeIds = new Set(
-    getAbilityIDsFromActiveOrders(world)
-      .filter(abilityId => isUnitProducingAbility(abilityId))
-      .flatMap(abilityId => world.data.findUnitTypesWithAbility(abilityId))
-      .filter(unitTypeId => {
-        const unitData = world.data.getUnitTypeData(unitTypeId);
-        return unitData.race === race && isProducingStructure(unitData);
-      })
-  );
-
-  return world.resources.get().units.getAlive(Alliance.SELF)
-    .filter(unit => unit.unitType !== undefined && potentialProducingUnitTypeIds.has(unit.unitType));
-}
-/**
  * Fetches all unique ability IDs from active orders in the game world.
  * @param {World} world - The game world instance.
  * @return {number[]} - An array of ability IDs.
@@ -920,14 +893,6 @@ function getProducingUnits(world, race) {
     );
 }
 
-/**
- * Determines if the given unit data corresponds to a producing structure.
- * @param {SC2APIProtocol.UnitTypeData} unitData - Data about the unit.
- * @returns {boolean} - True if it's a producing structure, false otherwise.
- */
-function isProducingStructure(unitData) {
-  return Boolean(unitData.attributes?.includes(Attribute.STRUCTURE));
-}
 /**
  * Determines if a given abilityId corresponds to unit production.
  * @param {number} abilityId - The ability ID to check.
@@ -964,7 +929,7 @@ function optimizeWorkerAssignments(world, constructingWorker) {
     const buildPosition = orders[0].targetWorldSpacePos;
     if (!buildPosition) return;
 
-    const workerDistance = resourceManagerService.getDistanceByPath(world.resources, pos, buildPosition);
+    const workerDistance = pathFindingService.getDistanceByPath(world.resources, pos, buildPosition);
     const allAvailableWorkers = units.getWorkers().filter(worker => {
       return !worker.isConstructing() &&
         !worker.isReturning() &&
@@ -973,7 +938,7 @@ function optimizeWorkerAssignments(world, constructingWorker) {
 
     const closerWorker = allAvailableWorkers.find(availableWorker => {
       if (!availableWorker.pos) return false;
-      const distance = resourceManagerService.getDistanceByPath(world.resources, availableWorker.pos, buildPosition);
+      const distance = pathFindingService.getDistanceByPath(world.resources, availableWorker.pos, buildPosition);
       return distance < workerDistance;
     });
 
