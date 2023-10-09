@@ -44,7 +44,7 @@ module.exports = {
     if (!pos) return [];
 
     const enemyUnits = filterEnemyUnits(unit, mappedEnemyUnits);
-    const combatUnits = filterCombatUnits(units, unit, units.getCombatUnits());
+    const potentialCombatUnits = getPotentialCombatantsInRadius(world, unit, 16);
 
     const collectedActions = [];
 
@@ -55,7 +55,7 @@ module.exports = {
       const { pos: enemyPos } = closestEnemyUnit;
       if (!enemyPos) return [];
 
-      collectedActions.push(...armyManagementService.engageOrRetreat(world, combatUnits, enemyUnits, enemyPos, false));
+      collectedActions.push(...armyManagementService.engageOrRetreat(world, potentialCombatUnits, enemyUnits, enemyPos, false));
     } else {
       // If no enemy units close, move ATTACK_ATTACK across the map
       const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
@@ -592,9 +592,8 @@ function handleEngageOrRetreat(world, unit, enemyUnit, nearbyEnemyUnits, collect
   if (!enemyUnit.pos) return; // Make sure the enemy unit's position is defined
 
   const potentialCombatUnits = getPotentialCombatantsInRadius(world, unit, 16);
-  const combatUnits = [unit, ...potentialCombatUnits];
 
-  collectedActions.push(...armyManagementService.engageOrRetreat(world, combatUnits, nearbyEnemyUnits, enemyUnit.pos, false));
+  collectedActions.push(...armyManagementService.engageOrRetreat(world, potentialCombatUnits, nearbyEnemyUnits, enemyUnit.pos, false));
 }
 /**
  * Gets potential combatant units within a certain radius.
