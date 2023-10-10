@@ -1,10 +1,12 @@
+//@ts-check
+"use strict";
+
 // /src/services/army-management/army-management-service.js
 
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { getDistance, moveAwayPosition, getBorderPositions, getDistanceSquared, dbscan } = require("../../../services/position-service");
 const enemyTrackingService = require("../../../systems/enemy-tracking/enemy-tracking-service");
 const unitService = require("../../../services/unit-service");
-const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../../services/actions-service");
 const { MOVE, STOP, ATTACK_ATTACK, LOAD_BUNKER, SMART, HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { QUEEN, ADEPTPHASESHIFT, BUNKER, BARRACKS, FACTORY, STARPORT } = require("@node-sc2/core/constants/unit-type");
@@ -183,50 +185,60 @@ class ArmyManagementService {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of raw unit commands for the micro-management actions.
    */
   getActionsForMicro(world, unit, targetUnit) {
-    const { resources } = world;
-    const { map } = resources.get();
-
     const nearbyThreats = findNearbyThreats(world, unit, targetUnit);
     const allThreats = [targetUnit, ...nearbyThreats];
 
     const optimalDistance = getOptimalAttackDistance(world, unit, allThreats);
 
-    const relevantThreats = allThreats.filter(threat =>
-      getDistance(unit.pos, threat.pos) < optimalDistance
-    );
+    // Projected positions of all threats
+    const projectedPositions = allThreats.reduce((/** @type {Point2D[]} */acc, threat) => {
+      if (threat.tag) {
+        const positions = enemyTrackingService.enemyUnitsPositions.get(threat.tag);
+        const projectedPosition = positions ? getProjectedPosition(
+          positions.current.pos,
+          positions.previous.pos,
+          positions.current.lastSeen,
+          positions.previous.lastSeen
+        ) : threat.pos;
 
-    if (!relevantThreats.length) return [];
+        if (projectedPosition) {  // Ensure projectedPosition is defined before pushing
+          acc.push(projectedPosition);
+        }
+      }
+      return acc;
+    }, []);
 
-    const threatPositions = relevantThreats.flatMap(target =>
-      findPositionsInRangeOfEnemyUnits(world, unit, [target])
-    );
-
-    const safePositions = threatPositions.filter(position =>
-      relevantThreats.every(threat =>
-        getDistance(position, threat.pos) >= optimalDistance
-      )
-    );
-
-    const projectedTargetPositions = relevantThreats.map(targetUnit => {
-      const targetPositions = enemyTrackingService.enemyUnitsPositions.get(targetUnit.tag);
-      return targetPositions ? getProjectedPosition(
-        targetPositions.current.pos,
-        targetPositions.previous.pos,
-        targetPositions.current.lastSeen,
-        targetPositions.previous.lastSeen
-      ) : targetUnit.pos;
+    // Finding positions that are in optimal range for attack for each projected position
+    const attackPositions = projectedPositions.flatMap(projPos =>
+      findOptimalAttackPositions(world, projPos, optimalDistance, unit)
+    ).filter(position => {
+      // Ensure that the position is at the optimal distance from all threats
+      return allThreats.every(threat => {
+        const distance = getDistance(position, threat.pos);
+        return distance >= optimalDistance;
+      });
     });
 
-    const combinedThreatPosition = avgPoints(projectedTargetPositions);
+    if (!attackPositions.length) return [];
 
-    const closestSafePosition = safePositions.length > 0 ?
-      safePositions.reduce((closest, position) =>
-        pathFindingService.getDistanceByPath(resources, combinedThreatPosition, position) <
-          pathFindingService.getDistanceByPath(resources, combinedThreatPosition, closest) ? position : closest
-      ) : moveAwayPosition(map, combinedThreatPosition, unit.pos);
+    // Select the attack position that is closest to the unit and is in optimal attack range
+    const selectedPosition = attackPositions.reduce((/** @type {Point2D|undefined} */closest, position) => {
+      if (!closest) return position;  // If closest is undefined, return the current position
+
+      // Ensure unit.pos is defined before calculating the distance
+      if (unit.pos) {
+        return getDistance(unit.pos, position) < getDistance(unit.pos, closest) ? position : closest;
+      }
+      return closest;
+    }, undefined);
+
+    if (!selectedPosition) {
+      // Handle the scenario when selectedPosition is undefined, return an empty array or a default action
+      return [];
+    }
 
     const unitCommand = createUnitCommand(MOVE, [unit]);
-    unitCommand.targetWorldSpacePos = closestSafePosition;
+    unitCommand.targetWorldSpacePos = selectedPosition;
 
     return [unitCommand];
   }
@@ -1132,70 +1144,14 @@ function getOptimalAttackDistance(world, unit, enemies) {
   }
 
   const unitAttackRange = unitWeapon.range;
-  const enemyAttackRanges = enemies.map(enemy => {
-    const enemyWeapon = unitService.getWeaponThatCanAttack(data, enemy.unitType, unit);
-    return enemyWeapon && typeof enemyWeapon.range === 'number' ? enemyWeapon.range : 0;
-  });
 
-  // Calculate the minimum attack range among enemies and include unit/threat sizes
-  const minEnemyAttackRange = Math.min(...enemyAttackRanges);
   const unitRadius = unit.radius || 0; // Assume default unit radius property; replace as needed
   const threatRadius = enemies[0].radius || 0; // Assume default threat radius property; replace as needed
 
-  return unitAttackRange + minEnemyAttackRange + unitRadius + threatRadius;
+  return unitAttackRange + unitRadius + threatRadius;
 }
 
-/**
- * @description Returns positions that are in range of the unit's weapons from enemy units.
- * @param {World} world
- * @param {Unit} unit
- * @param {Unit[]} enemyUnits
- * @returns {Point2D[]}
- */
-function findPositionsInRangeOfEnemyUnits(world, unit, enemyUnits) {
-  const { data, resources } = world;
-  const { map } = resources.get();
-  const { enemyUnitsPositions } = enemyTrackingService;
-  const { getWeaponThatCanAttack } = unitService;
-  const { pos, radius, unitType } = unit; if (pos === undefined || radius === undefined || unitType === undefined) return [];
-  return enemyUnits.reduce((/** @type {Point2D[]} */ acc, enemyUnit) => {
-    const { pos: enemyUnitPos, radius: enemyUnitRadius, tag, unitType: enemyUnitType } = enemyUnit;
-    if (enemyUnitPos === undefined || enemyUnitRadius === undefined || tag === undefined || enemyUnitType === undefined) { return acc; }
-    const weaponThatCanAttack = getWeaponThatCanAttack(data, unitType, enemyUnit); if (weaponThatCanAttack === undefined) { return acc; }
-    const { range } = weaponThatCanAttack; if (range === undefined) { return acc; }
-    const targetPositions = enemyUnitsPositions.get(tag);
-    if (targetPositions === undefined) {
-      const pointsInRange = getPointsInRange(enemyUnitPos, range + radius + enemyUnitRadius);
-      acc.push(...pointsInRange);
-      return acc;
-    }
-    const projectedEnemyUnitPos = getProjectedPosition(targetPositions.current.pos, targetPositions.previous.pos, targetPositions.current.lastSeen, targetPositions.previous.lastSeen);
-    const pointsInRange = getPointsInRange(projectedEnemyUnitPos, range + radius + enemyUnitRadius);
-    const pathablePointsInRange = pointsInRange.filter(point => map.isPathable(point));
-    acc.push(...pathablePointsInRange);
-    return acc;
-  }, []);
-}
-/**
- * @description Returns boolean if the unit is in range of the enemy unit's weapons.
- * @param {Point2D} position
- * @param {number} range
- * @returns {Point2D[]}
- */
-function getPointsInRange(position, range) {
-  const { x, y } = position; if (x === undefined || y === undefined) return [];
-  // get points around enemy unit that are in range of the unit's weapons, at least 16 points
-  const pointsInRange = [];
-  for (let i = 0; i < 16; i++) {
-    const angle = i * 2 * Math.PI / 16;
-    const point = {
-      x: x + range * Math.cos(angle),
-      y: y + range * Math.sin(angle),
-    };
-    pointsInRange.push(point);
-  }
-  return pointsInRange;
-}
+
 /**
  * @description Returns projected position of unit.
  * @param {Point2D} pos
@@ -2654,5 +2610,97 @@ function isSafePositionFromTargets(map, unit, targetUnits, point) {
     const distanceToTarget = getDistance(point, pos);
     const safeDistance = (weaponRange + radius + targetUnit.radius + getTravelDistancePerStep(map, targetUnit) + getTravelDistancePerStep(map, unit));
     return distanceToTarget > safeDistance;
+  });
+}
+
+/**
+ * Finds optimal positions around an enemy's projected position where the unit can attack effectively.
+ *
+ * @param {World} world - The current game world state.
+ * @param {Point2D} enemyProjectedPosition - The projected position of the enemy unit.
+ * @param {number} optimalDistance - The optimal distance to maintain from the enemy for effective attack.
+ * @param {Unit} unit - The unit to be positioned for attack.
+ * @returns {Point2D[]} - An array of optimal positions for attack.
+ */
+function findOptimalAttackPositions(world, enemyProjectedPosition, optimalDistance, unit) {
+  const attackPositions = [];
+
+  // Iterate around the enemy's projected position to find spots at the optimal attack distance
+  const angles = Array.from({ length: 360 }, (_, index) => index); // One degree increments, adjust as needed
+
+  angles.forEach(angle => {
+    const xOffset = optimalDistance * Math.cos(angle * (Math.PI / 180));
+    const yOffset = optimalDistance * Math.sin(angle * (Math.PI / 180));
+
+    const potentialPosition = {
+      x: (enemyProjectedPosition.x ?? 0) + xOffset,
+      y: (enemyProjectedPosition.y ?? 0) + yOffset
+    };
+
+    if (isValidPosition(world, potentialPosition, unit)) {
+      attackPositions.push(potentialPosition);
+    }
+  });
+
+  return attackPositions;
+}
+
+/**
+ * Check if a position is valid for the unit to move to and attack from.
+ *
+ * @param {World} world - The current game world state.
+ * @param {Point2D} position - The position to check.
+ * @param {Unit} unit - The unit to check.
+ * @returns {boolean} - Returns true if the position is valid, otherwise false.
+ */
+function isValidPosition(world, position, unit) {
+  const { map } = world.resources.get();
+
+  // Check if x or y is undefined
+  if (position.x === undefined || position.y === undefined) {
+    return false;
+  }
+
+  const mapSize = map.getSize();
+
+  // Check if mapSize x or y is undefined
+  if (mapSize.x === undefined || mapSize.y === undefined) {
+    return false;
+  }
+
+  // Check if the position is out of bounds
+  if (position.x < 0 || position.x >= mapSize.x || position.y < 0 || position.y >= mapSize.y) {
+    return false;
+  }
+
+  // Check if the position is on an untraversable terrain using isPathable, if the unit is not flying
+  if (!unit.isFlying && !map.isPathable(position)) {
+    return false;
+  }
+
+  // Check if there are other units at the position
+  // Assuming there is a method world.isOccupied(position) that returns a boolean
+  if (isPositionOccupied(world, position)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * @param {World} world
+ * @param {Point2D} position
+ * @returns {boolean}
+ */
+function isPositionOccupied(world, position) {
+  return world.resources.get().units.getAlive().some(unit => {
+    if (!unit.pos || unit.pos.x === undefined || unit.pos.y === undefined
+      || position.x === undefined || position.y === undefined
+      || unit.radius === undefined || unit.isBurrowed) {  // Check if the unit is burrowed
+      return false; // Skip if undefined positions or radius are encountered, or if the unit is burrowed
+    }
+
+    const distance = Math.sqrt(Math.pow(unit.pos.x - position.x, 2) + Math.pow(unit.pos.y - position.y, 2));
+    return distance < unit.radius;
   });
 }
