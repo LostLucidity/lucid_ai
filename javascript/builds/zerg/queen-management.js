@@ -13,10 +13,10 @@ const { getPathCoordinates } = require("../../services/path-service");
 const { getMapPath } = require("../../systems/map-resource-system/map-resource-service");
 const unitService = require("../../services/unit-service");
 const { shouldEngage } = require("../../src/services/army-management/army-management-service");
-const { mappedEnemyUnits } = require("../../src/services/enemy-tracking/enemy-tracking-service");
 const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
 const { getClosestPathWithGasGeysers } = require("../../src/services/utility-service");
 const { getGasGeysers } = require("../../src/services/unit-retrieval");
+const enemyTrackingService = require("../../src/services/enemy-tracking");
 
 module.exports = {
   /**
@@ -66,7 +66,7 @@ module.exports = {
     injectorQueens.forEach(queen => {
       if (queen.pos) {  // Ensure the queen's position is defined before proceeding
         const allAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), queen.pos, 16);
-        const allEnemies = unitService.getUnitsInRadius(mappedEnemyUnits, queen.pos, 16);
+        const allEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, queen.pos, 16);
 
         if (!allEnemies.length) {  // If no enemies are near the queen
           collectedActions.push(...findTargetBaseAndInject(units, queen));

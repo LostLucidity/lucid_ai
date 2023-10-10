@@ -19,7 +19,7 @@ const resourceManagerService = require("../../../services/resource-manager-servi
 const dataService = require("../../../services/data-service");
 const { getClosestPosition } = require("../../../helper/get-closest");
 const unitResourceService = require("../../../systems/unit-resource/unit-resource-service");
-const { getEnemyUnits, mappedEnemyUnits, getClosestEnemyByPath } = require("../enemy-tracking/enemy-tracking-service");
+const { getEnemyUnits, getClosestEnemyByPath } = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("../../../systems/track-units/track-units-service");
 const { pointsOverlap } = require("../../../helper/utilities");
 const positionService = require("../../../services/position-service");
@@ -449,7 +449,7 @@ class ArmyManagementService {
 
     const nearbyAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), selfUnit.pos, 16);
     const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));
-    const nearbyEnemies = unitService.getUnitsInRadius(mappedEnemyUnits, targetUnit.pos, 16);
+    const nearbyEnemies = unitService.getUnitsInRadius(enemyTrackingServiceV2.mappedEnemyUnits, targetUnit.pos, 16);
 
     if (this.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
       moveToSurroundPosition();
@@ -526,7 +526,7 @@ class ArmyManagementService {
     const getUnitsInRadius = (unitArray, rad) =>
       unitArray.filter(unit => unit.pos && getDistance(unit.pos, position) < rad);
 
-    let enemyUnits = getUnitsInRadius(mappedEnemyUnits, 16).filter(unitService.potentialCombatants);
+    let enemyUnits = getUnitsInRadius(enemyTrackingServiceV2.mappedEnemyUnits, 16).filter(unitService.potentialCombatants);
 
     // If there's only one enemy and it's a non-combatant worker, disregard it
     if (enemyUnits.length === 1 && !unitService.potentialCombatants(enemyUnits[0])) {
@@ -1085,7 +1085,7 @@ function findNearbyThreats(_world, _unit, targetUnit) {
   const NEARBY_THRESHOLD = 16; // Define the threshold value based on the game's logic
 
   // Use the enemy tracking service to get all enemy units
-  const allEnemyUnits = mappedEnemyUnits;
+  const allEnemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
 
   return allEnemyUnits.filter((enemy) => {
     const { tag, pos } = enemy;
@@ -1707,11 +1707,11 @@ function computeWeaponsResults(unit, targetUnit) {
 function getTargetableEnemyUnits(weaponType) {
   switch (weaponType) {
     case WeaponTargetType.ANY:
-      return mappedEnemyUnits;
+      return enemyTrackingServiceV2.mappedEnemyUnits;
     case WeaponTargetType.GROUND:
-      return mappedEnemyUnits.filter(unit => !unit.isFlying);
+      return enemyTrackingServiceV2.mappedEnemyUnits.filter(unit => !unit.isFlying);
     case WeaponTargetType.AIR:
-      return mappedEnemyUnits.filter(unit => unit.isFlying);
+      return enemyTrackingServiceV2.mappedEnemyUnits.filter(unit => unit.isFlying);
     default:
       return [];
   }
@@ -1930,7 +1930,7 @@ function isPointSafe(world, unit, point) {
   const directionOfMovement = subtractVectors(point, unit.pos);
   const unitRadius = unit.radius || 0;
 
-  for (const enemy of mappedEnemyUnits) {
+  for (const enemy of enemyTrackingServiceV2.mappedEnemyUnits) {
     const { radius = 0, tag: enemyTag, unitType, pos: enemyPos } = enemy; // Default to 0 if radius is undefined
 
     if (!enemyPos || typeof unitType !== 'number') continue;
@@ -1958,7 +1958,7 @@ function isPointSafe(world, unit, point) {
   }
 
   const alliesAtPoint = getUnitsInRangeOfPosition(trackUnitsService.selfUnits, point, 16).filter(ally => !ally.isWorker());
-  const enemiesNearUnit = getUnitsInRangeOfPosition(mappedEnemyUnits, point, 16);
+  const enemiesNearUnit = getUnitsInRangeOfPosition(enemyTrackingServiceV2.mappedEnemyUnits, point, 16);
 
   const { timeToKill, timeToBeKilled } = calculateTimeToKill(world, alliesAtPoint, enemiesNearUnit);
 
@@ -2521,7 +2521,7 @@ function getSafePositions(world, unit, targetUnit, radius = 0.5) {
   const { x, y } = pos; if (x === undefined || y === undefined) return safePositions;
   const { pos: targetPos } = targetUnit; if (targetPos === undefined) return safePositions;
   const { x: targetX, y: targetY } = targetPos; if (targetX === undefined || targetY === undefined) return safePositions;
-  const enemyUnits = mappedEnemyUnits.filter(enemyUnit => {
+  const enemyUnits = enemyTrackingServiceV2.mappedEnemyUnits.filter(enemyUnit => {
     // Check if the unit has a position and is not a peaceful worker
     if (!enemyUnit.pos || enemyTrackingServiceV2.isPeacefulWorker(resources, enemyUnit)) {
       return false;

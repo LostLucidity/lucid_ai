@@ -6,7 +6,7 @@ const { createUnitCommand } = require("../services/actions-service");
 const { STOP } = require("@node-sc2/core/constants/ability");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
 const armyManagementService = require("../src/services/army-management/army-management-service");
-const { mappedEnemyUnits } = require("../src/services/enemy-tracking/enemy-tracking-service");
+const enemyTrackingService = require("../src/services/enemy-tracking");
 
 /**
  * 
@@ -40,7 +40,7 @@ function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
       rallyPoint = bunker.pos;
     }
     const selfUnits = [...combatUnits, ...supportUnits];
-    const enemyUnits = mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA));
+    const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA));
     collectedActions.push(...armyManagementService.engageOrRetreat(world, selfUnits, enemyUnits, rallyPoint));
   }
   collectedActions.push(...tankBehavior(units));

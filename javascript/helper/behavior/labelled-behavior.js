@@ -17,7 +17,7 @@ const { gatherOrMine } = require("../../systems/manage-resources");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
 const unitService = require("../../services/unit-service");
 const armyManagementService = require("../../src/services/army-management/army-management-service");
-const { getEnemyUnits, mappedEnemyUnits, getClosestEnemyByPath } = require("../../src/services/enemy-tracking/enemy-tracking-service");
+const { getEnemyUnits, getClosestEnemyByPath } = require("../../src/services/enemy-tracking/enemy-tracking-service");
 const { calculateTotalHealthRatio, getDPSHealth } = require("../../src/services/combat-statistics");
 const { isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { getClosestPathWithGasGeysers } = require("../../src/services/utility-service");
@@ -25,6 +25,7 @@ const pathFindingService = require("../../src/services/pathfinding/pathfinding-s
 const { getGasGeysers } = require("../../src/services/unit-retrieval");
 const { getCreepEdges } = require("../../services/resource-manager-service");
 const { isByItselfAndNotAttacking } = require("../../src/services/unit-analysis");
+const enemyTrackingService = require("../../src/services/enemy-tracking/enemy-tracking-service");
 
 module.exports = {
   /**
@@ -43,7 +44,7 @@ module.exports = {
     const { pos } = unit;
     if (!pos) return [];
 
-    const enemyUnits = filterEnemyUnits(unit, mappedEnemyUnits);
+    const enemyUnits = filterEnemyUnits(unit, enemyTrackingService.mappedEnemyUnits);
     const potentialCombatUnits = getPotentialCombatantsInRadius(world, unit, 16);
 
     const collectedActions = [];
@@ -229,7 +230,7 @@ function getThreateningUnits(world, unit) {
   const threateningUnits = enemyUnits && enemyUnits.filter((/** @type {Unit} */ enemyUnit) => {
     const { pos: enemyPos, radius: enemyRadius, unitType } = enemyUnit;
     if (enemyPos === undefined || enemyRadius === undefined || unitType === undefined) return false;
-    if (enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(units, enemyUnit, mappedEnemyUnits))) return false;
+    if (enemyUnit.isWorker() && (isInMineralLine(map, enemyPos) || isByItselfAndNotAttacking(units, enemyUnit, enemyTrackingService.mappedEnemyUnits))) return false;
     const weaponThatCanAttack = unitService.getWeaponThatCanAttack(data, unitType, unit);
     if (weaponThatCanAttack) {
       const distanceToEnemy = getDistance(pos, enemyPos);
@@ -572,7 +573,7 @@ function issueCreepCommand(unit, selectedCreepEdge, collectedActions) {
  * @returns {Unit[]} - An array of enemy units that pose a threat to our unit.
  */
 function getNearbyEnemyUnits(position, ourUnit) {
-  return mappedEnemyUnits
+  return enemyTrackingService.mappedEnemyUnits
     .filter((/** @type {Unit} */ enemy) =>
       enemy.pos &&
       getDistanceSquared(position, enemy.pos) <= 16 * 16 &&

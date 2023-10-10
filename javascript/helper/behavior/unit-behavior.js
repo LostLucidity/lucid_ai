@@ -28,7 +28,6 @@ const { CREEPTUMOR } = require("@node-sc2/core/constants/unit-type");
 const InfoRetrievalService = require('../../src/services/info-retrieval-service');
 const unitService = require("../../services/unit-service");
 const { calculateNearDPSHealth } = require("../../src/services/combat-statistics");
-const { mappedEnemyUnits } = require("../../src/services/enemy-tracking/enemy-tracking-service");
 const { getClosestPathWithGasGeysers } = require("../../src/services/utility-service");
 const { getWeaponDPS } = require("../../src/services/shared-utilities/combat-utilities");
 const armyManagementService = require("../../src/services/army-management/army-management-service");
@@ -283,7 +282,7 @@ module.exports = {
     const { agent, resources } = world;
     const { units } = resources.get();
 
-    const enemyUnits = mappedEnemyUnits
+    const enemyUnits = enemyTrackingService.mappedEnemyUnits
       .filter(unit => unit.unitType && !larvaOrEgg.includes(unit.unitType));
 
     const workers = units.getById(WorkerRace[agent.race])
@@ -704,7 +703,7 @@ function handleCloseProximityActions(world, worker, enemyUnits, workers, collect
 
   const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, armyManagementService.getCombatRally(world.resources));
   const selfCombatRallyUnitTypes = extractUnitTypes(selfCombatRallyUnits);
-  const inRangeUnitsOfClosestEnemy = getSelfUnits(units, closestEnemies[0], mappedEnemyUnits);
+  const inRangeUnitsOfClosestEnemy = getSelfUnits(units, closestEnemies[0], enemyTrackingService.mappedEnemyUnits);
 
   const inRangeUnitTypesOfClosestEnemy = extractUnitTypes(inRangeUnitsOfClosestEnemy);
   const selfCombatRallyDPSHealth = calculateNearDPSHealth(world, selfCombatRallyUnits, inRangeUnitTypesOfClosestEnemy);

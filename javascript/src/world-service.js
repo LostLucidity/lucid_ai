@@ -56,7 +56,6 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const unitService = require('../services/unit-service');
 const { shouldMicro, getUnitsFromClustering } = require('./services/army-management/army-management-service');
 const { getDPSHealth, calculateHealthAdjustedSupply, calculateNearDPSHealth } = require('./services/combat-statistics');
-const { mappedEnemyUnits } = require('./services/enemy-tracking/enemy-tracking-service');
 const { getClosestSafeMineralField } = require('./services/shared-functions');
 const { getClosestPathWithGasGeysers } = require('./services/utility-service');
 const pathFindingService = require('./services/pathfinding/pathfinding-service');
@@ -64,7 +63,8 @@ const { getWeaponDPS } = require('./services/shared-utilities/combat-utilities')
 const { getClosestUnitPositionByPath } = require('../services/resource-manager-service');
 const armyManagementService = require('./services/army-management/army-management-service');
 const { getGasGeysers } = require('./services/unit-retrieval');
-
+const enemyTrackingServiceV2 = require('./services/enemy-tracking');
+  
 const worldService = {
   availableProductionUnits: new Map(),
   /** @type {number} */
@@ -319,7 +319,7 @@ const worldService = {
       const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
       [...pointTypeUnits, ...nonPointTypeUnits].forEach(unit => {
         const [closestUnit] = units.getClosest(unit.pos, enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < 16));
-        if (!unit.isMelee() && closestUnit) { collectedActions.push(...worldService.microRangedUnit(world, unit, closestUnit)); }
+        if (!unit.isMelee() && closestUnit) { collectedActions.push(...armyManagementService.microRangedUnit(world, unit, closestUnit)); }
         else {
           const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
           if (unit.labels.get('combatPoint')) {
@@ -685,7 +685,7 @@ const worldService = {
     const { agent, data, resources } = world;
     const { map, units } = resources.get();
     const collectedActions = [];
-    const enemyUnits = mappedEnemyUnits;
+    const enemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
     const rallyPoint = armyManagementService.getCombatRally(resources);
     if (rallyPoint) {
       let [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(resources, rallyPoint, threats);
@@ -1269,7 +1269,7 @@ const worldService = {
   getDPSOfInRangeAntiAirUnits: (world, unit) => {
     const { getWeaponThatCanAttack } = unitService;
     const { data } = world;
-    const enemyUnits = mappedEnemyUnits;
+    const enemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
     const { pos, radius, unitType } = unit;
     if (pos === undefined || radius === undefined || unitType === undefined) { return 0 }
     return enemyUnits.reduce((accumulator, enemyUnit) => {
@@ -1643,7 +1643,7 @@ const worldService = {
     const { data, resources } = world;
     const { frame, map, units } = resources.get();
     const { ZERGLING } = UnitType;
-    const zerglings = mappedEnemyUnits.filter(unit => unit.unitType === ZERGLING);
+    const zerglings = enemyTrackingServiceV2.mappedEnemyUnits.filter(unit => unit.unitType === ZERGLING);
     const spawningPool = units.getById(UnitType.SPAWNINGPOOL, { alliance: Alliance.ENEMY }).sort((a, b) => b.buildProgress - a.buildProgress)[0];
     const spawningPoolExists = spawningPool || zerglings.length > 0;
     const spawningPoolStartTime = spawningPool ? frame.timeInSeconds() - dataService.getBuildTimeElapsed(data, spawningPool) : null;
@@ -1767,7 +1767,7 @@ const worldService = {
       return groups;
     }, [[], []]);
     const sortedPotentialFightersByDistance = potentialFightersGroupedByHealth[0].concat(potentialFightersGroupedByHealth[1]);
-    const targetUnits = getInRangeUnits(targetUnit, mappedEnemyUnits, 16);
+    const targetUnits = getInRangeUnits(targetUnit, enemyTrackingServiceV2.mappedEnemyUnits, 16);
     const fighters = [];
     let timeToKill = 0;
     let timeToDie = 0;
@@ -1856,7 +1856,7 @@ const worldService = {
     const { data, resources } = world;
     const collectedActions = [];
     const { pos, radius } = unit; if (pos === undefined || radius === undefined) { return collectedActions; }
-    const enemyUnits = mappedEnemyUnits;
+    const enemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
     const closestEnemyThatCanAttackUnitByWeaponRange = getClosestThatCanAttackUnitByWeaponRange(data, unit, enemyUnits);
     const { enemyUnit } = closestEnemyThatCanAttackUnitByWeaponRange; if (enemyUnit === undefined) { return collectedActions; }
     if (shouldMicro(data, unit, enemyUnit)) {
@@ -2059,7 +2059,7 @@ const worldService = {
     const { agent, data, resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
-    const inRangeEnemySupply = calculateHealthAdjustedSupply(world, getInRangeUnits(targetUnit, [...mappedEnemyUnits]));
+    const inRangeEnemySupply = calculateHealthAdjustedSupply(world, getInRangeUnits(targetUnit, [...enemyTrackingServiceV2.mappedEnemyUnits]));
     const amountToFightWith = Math.ceil(inRangeEnemySupply / data.getUnitTypeData(WorkerRace[agent.race]).foodRequired);
     const workers = units.getById(WorkerRace[agent.race]).filter(worker => {
       return (
@@ -2095,16 +2095,16 @@ const worldService = {
     let [closestEnemyBase] = pathFindingService.getClosestUnitByPath(resources, armyManagementService.getCombatRally(resources), units.getBases(Alliance.ENEMY));
     const [combatUnits, supportUnits] = groupUnits(units, [mainCombatTypes], [supportUnitTypes]);
     const avgCombatUnitsPoint = avgPoints(combatUnits.map(unit => unit.pos));
-    const closestEnemyTarget = closestEnemyBase || pathFindingService.getClosestUnitByPath(resources, avgCombatUnitsPoint, mappedEnemyUnits)[0];
+    const closestEnemyTarget = closestEnemyBase || pathFindingService.getClosestUnitByPath(resources, avgCombatUnitsPoint, enemyTrackingServiceV2.mappedEnemyUnits)[0];
     if (closestEnemyTarget) {
       const { pos } = closestEnemyTarget; if (pos === undefined) { return []; }
       const [combatUnits, supportUnits] = groupUnits(units, [mainCombatTypes], [supportUnitTypes]);
       collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
       if (combatUnits.length > 0) {
         let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
-        let selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, mappedEnemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
+        let selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, enemyTrackingServiceV2.mappedEnemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
         console.log('Push', selfDPSHealth, closestEnemyTarget['selfDPSHealth']);
-        collectedActions.push(...armyManagementService.engageOrRetreat(world, allyUnits, mappedEnemyUnits, pos, false));
+        collectedActions.push(...armyManagementService.engageOrRetreat(world, allyUnits, enemyTrackingServiceV2.mappedEnemyUnits, pos, false));
       }
       collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
     } else {
