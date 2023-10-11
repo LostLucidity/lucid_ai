@@ -442,51 +442,87 @@ class ArmyManagementService {
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - A collection of actions to execute.
    */
   handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, collectedActions) {
+    // Validations for necessary properties
     if (!selfUnit.pos || !selfUnit.radius || !targetUnit.pos) return;
 
     const { data, resources: { get } } = world;
     const { map, units } = get();
-
+    
     const FALLBACK_MULTIPLIER = -1;
-    const attackRadius = targetUnit.radius + selfUnit.radius;
+    const attackRadius = (targetUnit.radius ?? 0) + (selfUnit.radius ?? 0); 
     const isValidUnit = createIsValidUnitFilter(data, targetUnit);
-
     let queueCommand = false;
+
     const rangedUnitAlly = units.getClosest(selfUnit.pos, selfUnit['selfUnits'].filter(isValidUnit))[0];
-
-    if (!rangedUnitAlly) {
-      moveToSurroundOrAttack();
-      return;
-    }
-
     const nearbyAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), selfUnit.pos, 16);
     const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));
     const nearbyEnemies = unitService.getUnitsInRadius(enemyTrackingServiceV2.mappedEnemyUnits, targetUnit.pos, 16);
 
-    if (this.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
-      moveToSurroundPosition();
-    } else if (rangedUnitAlly.pos && shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
-      moveToFallbackPosition();
+    // Handling the melee unit's actions based on the surrounding context
+    if (!rangedUnitAlly || this.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
+      moveToSurroundOrAttack();
+    } else {
+
+      if (rangedUnitAlly.pos && shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
+        moveToFallbackPosition();
+      } else {
+        moveToSurroundPosition();
+      }
     }
 
     attackIfApplicable();
 
     /**
-     * @returns {boolean} - Indicates if the melee unit can attack the target unit.
+     * Determines if the melee unit can attack the target unit.
+     *
+     * @returns {boolean} True if the attack is available, otherwise false.
      */
     function isAttackAvailable() {
+      if (!selfUnit.pos || !targetUnit.pos || selfUnit.unitType === undefined || selfUnit.weaponCooldown === undefined) {
+        return false;  // Handle undefined properties
+      }
+
       const distance = getDistance(selfUnit.pos, targetUnit.pos);
       const weapon = unitService.getWeaponThatCanAttack(data, selfUnit.unitType, targetUnit);
       return selfUnit.weaponCooldown <= 8 && distance <= (weapon?.range || 0) + attackRadius;
     }
 
-    function moveToSurroundOrAttack() {
-      const surroundPosition = getOptimalSurroundPosition();
-      const command = isAttackAvailable() || !surroundPosition ? ATTACK_ATTACK : MOVE;
-      createAndAddUnitCommand(command, selfUnit, surroundPosition || attackablePosition, collectedActions, queueCommand);
-      queueCommand = !isAttackAvailable() && !!surroundPosition;
+    /**
+     * Determines if the melee unit is in an optimal surround position.
+     *
+     * @returns {boolean} True if in optimal position, false otherwise.
+     */
+    function isInOptimalSurroundPosition() {
+      if (!selfUnit.pos || !targetUnit.pos) return false;  // Handling potential undefined values
+
+      return getDistance(selfUnit.pos, targetUnit.pos) <= attackRadius + getOptimalBuffer();
     }
 
+    /**
+     * Calculates the optimal buffer based on the units' attributes and types.
+     *
+     * @returns {number} The calculated optimal buffer.
+     */
+    function getOptimalBuffer() {
+      return ((selfUnit.radius ?? 0) + (targetUnit.radius ?? 0));  // Adjust as needed
+    }
+
+    /**
+     * Directs the melee unit to a position to surround or attack the enemy.
+     */
+    function moveToSurroundOrAttack() {
+      const surroundPosition = getOptimalSurroundPosition();
+      if (isInOptimalSurroundPosition() || isAttackAvailable()) {
+        attackIfApplicable();
+      } else if (surroundPosition) {
+        createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions, queueCommand);
+        queueCommand = true;
+      }
+    }
+
+    /**
+     * Directs the melee unit to the optimal position to surround the enemy.
+     */
     function moveToSurroundPosition() {
       const surroundPosition = getOptimalSurroundPosition();
       if (surroundPosition) {
@@ -495,27 +531,77 @@ class ArmyManagementService {
       }
     }
 
+    /**
+     * Directs the melee unit to a fallback position when needed.
+     */
     function moveToFallbackPosition() {
-      const fallbackDirection = getDirection(rangedUnitAlly.pos, targetUnit.pos);
-      const fallbackDistance = (rangedUnitAlly.radius + selfUnit.radius) * FALLBACK_MULTIPLIER;
-      const position = moveInDirection(rangedUnitAlly.pos, fallbackDirection, fallbackDistance);
-      createAndAddUnitCommand(MOVE, selfUnit, position, collectedActions);
-      queueCommand = true;
+      if (rangedUnitAlly.pos && targetUnit.pos) {
+        const rangedAllyRadius = rangedUnitAlly.radius ?? 0;
+        const selfUnitRadius = selfUnit.radius ?? 0;
+
+        const fallbackDirection = getDirection(rangedUnitAlly.pos, targetUnit.pos);
+        const fallbackDistance = (rangedAllyRadius + selfUnitRadius) * FALLBACK_MULTIPLIER;
+        const position = moveInDirection(rangedUnitAlly.pos, fallbackDirection, fallbackDistance);
+
+        createAndAddUnitCommand(MOVE, selfUnit, position, collectedActions);
+        queueCommand = true;
+      }
     }
 
+    /**
+     * Initiates an attack if applicable conditions are met.
+     */
     function attackIfApplicable() {
-      if (attackablePosition && selfUnit.weaponCooldown <= 8) {
+      if (attackablePosition && selfUnit.weaponCooldown !== undefined && selfUnit.weaponCooldown <= 8) {
+        // Added a check for undefined
         createAndAddUnitCommand(ATTACK_ATTACK, selfUnit, attackablePosition, collectedActions, queueCommand);
       }
     }
 
     /**
-     * @returns {Point2D|null} - The optimal pathable surround position, or null if none is found.
+     * Determines the optimal surround position for the melee unit.
+     *
+     * @returns {Point2D|null} The optimal pathable surround position, or null if none is found.
      */
     function getOptimalSurroundPosition() {
-      const pathablePositions = getBorderPositions(targetUnit.pos, attackRadius).filter(pos => map.isPathable(pos));
-      if (pathablePositions.length === 0) return null;
-      return pathablePositions.sort((a, b) => getDistance(b, selfUnit.pos) - getDistance(a, selfUnit.pos))[0];
+      const optimalBuffer = getOptimalBuffer();
+
+      if (!targetUnit.pos) return null;
+
+      const pathablePositions = getBorderPositions(targetUnit.pos, attackRadius + optimalBuffer).filter(pos => map.isPathable(pos));
+
+      if (pathablePositions.length === 0 || !selfUnit.pos) return null;
+
+      const optimalPositions = pathablePositions.filter(pos => !isOccupiedByAlly(pos, meleeNearbyAllies, collectedActions));
+
+      if (optimalPositions.length === 0) return null;
+
+      return optimalPositions
+        .sort((a, b) => {
+          if (selfUnit.pos) { // ensure selfUnit.pos is not undefined
+            return getDistance(b, selfUnit.pos) - getDistance(a, selfUnit.pos);
+          } else {
+            return 0; // or handle appropriately if selfUnit.pos can be undefined
+          }
+        })[0];
+    }
+
+    /**
+     * Determines whether a specific position is occupied by an ally or has an impending order.
+     *
+     * @param {Point2D} position - The location to be checked.
+     * @param {Unit[]} allies - A list of allied units to evaluate for occupation.
+     * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - Pending actions to be evaluated.
+     * @returns {boolean} - Indicates if the position is either occupied or has a pending order.
+     */
+    function isOccupiedByAlly(position, allies, collectedActions) {
+      const isOccupied = allies.some(ally =>
+        ally.pos && getDistance(ally.pos, position) <= (ally.radius ?? 0) + getOptimalBuffer());
+
+      const hasOrderToPosition = collectedActions.some(action =>
+        action.targetWorldSpacePos && getDistance(action.targetWorldSpacePos, position) < getOptimalBuffer());
+
+      return isOccupied || hasOrderToPosition;
     }
   }
 
