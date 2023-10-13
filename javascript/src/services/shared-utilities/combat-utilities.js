@@ -6,9 +6,25 @@ const unitService = require("../../../services/unit-service");
 const unitResourceService = require("../../../systems/unit-resource/unit-resource-service");
 const dataService = require("../../../services/data-service");
 const { UnitType } = require("@node-sc2/core/constants");
+const { getDistance } = require("../../../services/position-service");
+const { canAttack } = require("../../../services/resources-service");
 
 let damageByTag = {};
 let lastUpdatedStep = -1;  // A value that indicates it hasn't been updated yet.
+
+/**
+ * @param {Unit} unit
+ * @param {Unit[]} enemyUnits
+ * @returns {Unit[]}
+ */
+const filterEnemyUnits = (unit, enemyUnits) => {
+  const { pos } = unit; if (pos === undefined) return [];
+  return enemyUnits.filter(enemyUnit => {
+    const { pos: enemyPos } = enemyUnit;
+    if (enemyPos === undefined) return false;
+    return !(enemyUnit.unitType === UnitType.LARVA) && getDistance(enemyPos, pos) < 16 && canAttack(unit, enemyUnit, false);
+  });
+}
 
 /**
  * @param {World} world
@@ -151,6 +167,7 @@ const getWeaponDamage = (world, attackingUnitType, target) => {
 
 // Exporting the functions using module.exports
 module.exports = {
+  filterEnemyUnits,
   getWeaponDPS,
   getWeapon,
   setDamageForTag,

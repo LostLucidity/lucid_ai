@@ -26,6 +26,7 @@ const { getGasGeysers } = require("../../src/services/unit-retrieval");
 const { getCreepEdges } = require("../../services/resource-manager-service");
 const { isByItselfAndNotAttacking } = require("../../src/services/unit-analysis");
 const enemyTrackingService = require("../../src/services/enemy-tracking/enemy-tracking-service");
+const { filterEnemyUnits } = require("../../src/services/shared-utilities/combat-utilities");
 
 module.exports = {
   /**
@@ -298,49 +299,6 @@ function isGathering(units, unit, type=undefined) {
   } else {
     return unit.isGathering(type);
   } 
-}
-
-/**
- * @param {Unit} unit
- * @param {Unit[]} enemyUnits
- * @returns {Unit[]}
- */
-function filterEnemyUnits(unit, enemyUnits) {
-  const { pos } = unit; if (pos === undefined) return [];
-  return enemyUnits.filter(enemyUnit => {
-    const { pos: enemyPos } = enemyUnit;
-    if (enemyPos === undefined) return false;
-    return !(enemyUnit.unitType === LARVA) && getDistance(enemyPos, pos) < 16 && canAttack(unit, enemyUnit, false);
-  });
-}
-
-/**
- * @param {UnitResource} units
- * @param {Unit} unit
- * @param {Unit[]} combatUnits
- * @returns {Unit[]}
- */
-function filterCombatUnits(units, unit, combatUnits) {
-  const { pos } = unit; if (pos === undefined) return [];
-  return combatUnits.filter(combatUnit => {
-    if (combatUnit.tag === unit.tag) return true;
-    else if (combatUnit.isAttacking()) {
-      const { orders } = combatUnit; if (orders === undefined) return false;
-      const foundOrder = orders.find(order =>
-        order.abilityId === ATTACK_ATTACK &&
-        order.targetUnitTag !== undefined &&
-        units.getByTag(order.targetUnitTag)
-      );
-      let targetPosition;
-      if (foundOrder && foundOrder.targetUnitTag) {
-        const targetUnit = units.getByTag(foundOrder.targetUnitTag);
-        targetPosition = targetUnit ? targetUnit.pos : undefined;
-      } else {
-        targetPosition = combatUnit.orders ? combatUnit.orders.find(order => order.abilityId === ATTACK_ATTACK)?.targetWorldSpacePos : undefined;
-      }
-      return targetPosition && distance(targetPosition, pos) < 16;
-    }
-  });
 }
 
 /**

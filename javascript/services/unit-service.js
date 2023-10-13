@@ -257,16 +257,17 @@ const unitService = {
    * @returns 
    */
   groupUnits: (units, mainCombatTypes, supportUnitTypes) => {
-    const combatUnits = [];
-    mainCombatTypes.forEach(type => {
-      combatUnits.push(...units.getById(type).filter(unit => filterLabels(unit, ['scout', 'harasser'])));
-    });
-    const supportUnits = [];
-    supportUnitTypes.forEach(type => {
-      supportUnits.push(...units.getById(type).filter(unit => !unit.labels.get('scout') && !unit.labels.get('creeper') && !unit.labels.get('injector')));
-    });
+    const combatUnits = mainCombatTypes.flatMap(type =>
+      units.getById(type).filter(unit => filterLabels(unit, ['scout', 'harasser']))
+    );
+
+    const supportUnits = supportUnitTypes.flatMap(type =>
+      units.getById(type).filter(unit => !unit.labels.get('scout'))
+    );
+
     return [combatUnits, supportUnits];
-  },
+  }
+,
   /**
    * @param {Unit} unit
    * @param {boolean} pending

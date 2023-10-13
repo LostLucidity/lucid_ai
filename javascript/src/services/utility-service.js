@@ -29,6 +29,26 @@ const utilityService = {
     const { units: unitResource } = resources.get();
     const gasGeysers = getGasGeysers(unitResource);
     return pathFindingService.getClosestUnitByPath(resources, position, units, gasGeysers, n);
+  },
+  /**
+   * Calculate Euclidean distance between two points
+   * @param {Point2D} pos1
+   * @param {Point2D} pos2
+   * @returns {number}
+   */
+  getDistanceBetween: (pos1, pos2) => {
+    if (!pos1 || !pos2) return Infinity;
+
+    const { x: x1, y: y1 } = pos1;
+    const { x: x2, y: y2 } = pos2;
+
+    if (x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined) {
+      return Infinity;
+    }
+
+    const dx = x1 - x2;
+    const dy = y1 - y2;
+    return Math.sqrt(dx * dx + dy * dy);
   }
 };
 

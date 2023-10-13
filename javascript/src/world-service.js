@@ -679,6 +679,7 @@ const worldService = {
    * @returns 
    */
   defend: async (world, mainCombatTypes, supportUnitTypes, threats) => {
+    console.log('defend');
     const { groupUnits } = unitService;
     const { getWorkerDefenseCommands } = worldService;
     const { QUEEN } = UnitType;
@@ -688,17 +689,20 @@ const worldService = {
     const enemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
     const rallyPoint = armyManagementService.getCombatRally(resources);
     if (rallyPoint) {
+      // Getting the combat and support units
+      const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
+      const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !unitResourceService.isRepairing(unit));
+      // Existing code: Finding the closest enemy unit and combat point
       let [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(resources, rallyPoint, threats);
-      if (closestEnemyUnit) {
-        const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
-        collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
+      if (closestEnemyUnit && closestEnemyUnit.pos) {
         const [combatPoint] = pathFindingService.getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits);
-        const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !unitResourceService.isRepairing(unit));
+        collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
+
         if (combatPoint) {
           let allyUnits = [...combatUnits, ...supportUnits];
-          let selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, enemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
-          if (selfDPSHealth > closestEnemyUnit['selfDPSHealth']) {
-            console.log('Defend', selfDPSHealth, closestEnemyUnit['selfDPSHealth']);
+          let shouldEngage = armyManagementService.shouldEngage(world, allyUnits, enemyUnits);  // Added this line
+          // Modified the condition here to use the shouldEngage function
+          if (shouldEngage) {
             if (closestEnemyUnit.isFlying) {
               const findAntiAir = combatUnits.find(unit => unit.canShootUp());
               if (!findAntiAir) {
@@ -711,16 +715,24 @@ const worldService = {
             }
           } else {
             let workersToDefend = [];
-            const inRangeSortedWorkers = units.getClosest(closestEnemyUnit.pos, workers, workers.length).filter(worker => distance(worker.pos, closestEnemyUnit.pos) <= 16);
+            const inRangeSortedWorkers = units.getClosest(closestEnemyUnit.pos, workers, workers.length)
+              .filter(worker =>
+                worker.pos && closestEnemyUnit.pos &&
+                distance(worker.pos, closestEnemyUnit.pos) <= 16
+              );
+
+            // Collect workers until we should engage according to the shouldEngage function
             for (const worker of inRangeSortedWorkers) {
               workersToDefend.push(worker);
-              selfDPSHealth += getDPSHealth(world, worker, enemyUnits.map(enemyUnit => enemyUnit.unitType));
-              if (selfDPSHealth > closestEnemyUnit['selfDPSHealth']) {
-                workersToDefend.forEach(worker => worker.labels.set('defending'));
+              const allyUnitsWithWorkers = [...allyUnits, ...workersToDefend];
+
+              if (armyManagementService.shouldEngage(world, allyUnitsWithWorkers, enemyUnits)) {
+                workersToDefend.forEach(worker => worker.labels.set('defending', true));
                 break;
               }
             }
-            workersToDefend = selfDPSHealth > closestEnemyUnit['selfDPSHealth'] ? workersToDefend : [];
+
+            // If workersToDefend is not empty, it means we've decided to engage
             allyUnits = [...allyUnits, ...units.getById(QUEEN), ...workersToDefend];
             collectedActions.push(...armyManagementService.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
           }

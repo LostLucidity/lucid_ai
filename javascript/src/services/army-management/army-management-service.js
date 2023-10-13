@@ -30,6 +30,7 @@ const { getClosestSafeMineralField } = require("../shared-functions");
 const pathFindingService = require("../pathfinding/pathfinding-service");
 const { getWeaponDPS, getWeapon, getWeaponDamage, setDamageForTag, getDamageForTag } = require("../shared-utilities/combat-utilities");
 const enemyTrackingServiceV2 = require("../enemy-tracking/enemy-tracking-service");
+const { getDistanceBetween } = require("../utility-service");
 
 class ArmyManagementService {
   constructor() {
@@ -995,9 +996,11 @@ class ArmyManagementService {
   }
 
   /**
+   * 
    * @param {World} world 
    * @param {Unit} unit 
    * @param {Unit[]} targetUnits 
+   * @param {boolean} [toCombatRally=true]
    * @returns {Point2D|undefined}
    */
   retreat(world, unit, targetUnits = [], toCombatRally = true) {
@@ -1008,7 +1011,20 @@ class ArmyManagementService {
     // Early return conditions
     if (!pos || targetUnits.length === 0) return;
 
-    const threats = targetUnits.reduce((/** @type {{ unit: Unit, weapon: SC2APIProtocol.Weapon | undefined, attackRange: number | undefined }[]} */ acc, target) => {
+    // Filter targetUnits based on a suitable radius
+    const filterRadius = 16;
+    targetUnits = targetUnits.filter(targetUnit => {
+      if (!targetUnit.pos) {
+        return false;
+      }
+
+      const distance = getDistanceBetween(pos, targetUnit.pos);
+      return distance <= filterRadius;
+    });
+
+    if (targetUnits.length === 0) return;
+
+    const threats = targetUnits.reduce((/** @type {{unit: Unit, weapon?: SC2APIProtocol.Weapon, attackRange?: number}[]} */acc, target) => {
       if (target.unitType !== undefined) {
         const weapon = unitService.getWeaponThatCanAttack(data, target.unitType, unit);
         const attackRange = weapon?.range;
@@ -1022,7 +1038,6 @@ class ArmyManagementService {
     }, []);
 
     const travelDistancePerStep = 2 * getTravelDistancePerStep(map, unit);
-    // Sort threats based on a certain criteria, for this example, based on attack range, descending.
     const sortedThreats = threats.sort((a, b) => (b.attackRange || 0) - (a.attackRange || 0));
 
     const primaryThreat = sortedThreats[0];
@@ -1039,7 +1054,7 @@ class ArmyManagementService {
     }
 
     if (targetUnits.length > 1) {
-      const targetPositions = targetUnits.reduce((/** @type {Point2D[]} */ acc, t) => {
+      const targetPositions = targetUnits.reduce((/** @type {Point2D[]} */acc, t) => {
         if (t.pos) {
           acc.push(t.pos);
         }
