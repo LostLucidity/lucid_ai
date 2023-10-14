@@ -465,7 +465,13 @@ class ArmyManagementService {
     const { map, units } = get();
     
     const FALLBACK_MULTIPLIER = -1;
-    const attackRadius = (targetUnit.radius ?? 0) + (selfUnit.radius ?? 0); 
+    const weapon = selfUnit.unitType !== undefined
+      ? unitService.getWeaponThatCanAttack(data, selfUnit.unitType, targetUnit)
+      : undefined;
+
+    const weaponRange = weapon && weapon.range !== undefined ? +weapon.range : 0;
+    const attackRadius = weaponRange + Number(selfUnit.radius ?? 0) + Number(targetUnit.radius ?? 0);
+
     const isValidUnit = createIsValidUnitFilter(data, targetUnit);
     let queueCommand = false;
 
@@ -499,8 +505,7 @@ class ArmyManagementService {
       }
 
       const distance = getDistance(selfUnit.pos, targetUnit.pos);
-      const weapon = unitService.getWeaponThatCanAttack(data, selfUnit.unitType, targetUnit);
-      return selfUnit.weaponCooldown <= 8 && distance <= (weapon?.range || 0) + attackRadius;
+      return selfUnit.weaponCooldown <= 8 && distance <= attackRadius;
     }
 
     /**
@@ -510,17 +515,7 @@ class ArmyManagementService {
      */
     function isInOptimalSurroundPosition() {
       if (!selfUnit.pos || !targetUnit.pos) return false;  // Handling potential undefined values
-
-      return getDistance(selfUnit.pos, targetUnit.pos) <= attackRadius + getOptimalBuffer();
-    }
-
-    /**
-     * Calculates the optimal buffer based on the units' attributes and types.
-     *
-     * @returns {number} The calculated optimal buffer.
-     */
-    function getOptimalBuffer() {
-      return ((selfUnit.radius ?? 0) + (targetUnit.radius ?? 0));  // Adjust as needed
+      return getDistance(selfUnit.pos, targetUnit.pos) <= attackRadius;
     }
 
     /**
@@ -580,15 +575,13 @@ class ArmyManagementService {
      * @returns {Point2D|null} The optimal pathable surround position, or null if none is found.
      */
     function getOptimalSurroundPosition() {
-      const optimalBuffer = getOptimalBuffer();
-
       if (!targetUnit.pos) return null;
 
-      const pathablePositions = getBorderPositions(targetUnit.pos, attackRadius + optimalBuffer).filter(pos => map.isPathable(pos));
+      const pathablePositions = getBorderPositions(targetUnit.pos, attackRadius).filter(pos => map.isPathable(pos));
 
       if (pathablePositions.length === 0 || !selfUnit.pos) return null;
 
-      const optimalPositions = pathablePositions.filter(pos => !isOccupiedByAlly(pos, meleeNearbyAllies, collectedActions));
+      const optimalPositions = pathablePositions.filter(pos => !isOccupiedByAlly(units, pos, meleeNearbyAllies, collectedActions));
 
       if (optimalPositions.length === 0) return null;
 
@@ -605,17 +598,31 @@ class ArmyManagementService {
     /**
      * Determines whether a specific position is occupied by an ally or has an impending order.
      *
+     * @param {UnitResource} units - The unit resource.
      * @param {Point2D} position - The location to be checked.
      * @param {Unit[]} allies - A list of allied units to evaluate for occupation.
      * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - Pending actions to be evaluated.
      * @returns {boolean} - Indicates if the position is either occupied or has a pending order.
      */
-    function isOccupiedByAlly(position, allies, collectedActions) {
+    function isOccupiedByAlly(units, position, allies, collectedActions) {
       const isOccupied = allies.some(ally =>
-        ally.pos && getDistance(ally.pos, position) <= (ally.radius ?? 0) + getOptimalBuffer());
+        ally.pos && getDistance(ally.pos, position) < (ally.radius ?? 0) + (selfUnit.radius ?? 0));
 
-      const hasOrderToPosition = collectedActions.some(action =>
-        action.targetWorldSpacePos && getDistance(action.targetWorldSpacePos, position) < getOptimalBuffer());
+      const hasOrderToPosition = collectedActions.some(action => {
+        if (action.targetWorldSpacePos) {
+          const orderDistance = getDistance(action.targetWorldSpacePos, position);
+
+          // If specific units associated with the order are available, consider their radius
+          if (action.unitTags && action.unitTags.length > 0) {
+            const orderedUnits = action.unitTags.map(tag => units.getByTag(tag)).filter(unit => unit != null); // Assuming a getByTag function or similar to get unit by tag
+            return orderedUnits.some(unit => orderDistance < (unit.radius ?? 0) + (selfUnit.radius ?? 0));
+          } else {
+            // If not, just consider the self unit's radius or another default value
+            return orderDistance < (selfUnit.radius ?? 0);
+          }
+        }
+        return false;
+      });
 
       return isOccupied || hasOrderToPosition;
     }
