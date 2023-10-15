@@ -12,11 +12,7 @@ const resourcesService = {
    * @return {boolean}
    */
   canAttack(unit, targetUnit, requireVisible = true) {
-    const { cloak, isFlying, pos } = targetUnit;
-
-    if (!pos) {
-      return false;
-    }
+    const { cloak, isFlying } = targetUnit;
 
     const canShootAtTarget = isFlying ? unit.canShootUp() : unit.canShootGround();
     const targetDetected = cloak !== CloakState.CLOAKED;

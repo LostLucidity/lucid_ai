@@ -515,7 +515,29 @@ class ArmyManagementService {
      */
     function isInOptimalSurroundPosition() {
       if (!selfUnit.pos || !targetUnit.pos) return false;  // Handling potential undefined values
-      return getDistance(selfUnit.pos, targetUnit.pos) <= attackRadius;
+
+      let projectedPosition;
+
+      if (targetUnit.tag) {
+        const enemyUnitInfo = enemyTrackingService.enemyUnitsPositions.get(targetUnit.tag);
+
+        if (enemyUnitInfo) {
+          // Predict the target unit's position
+          projectedPosition = getProjectedPosition(
+            enemyUnitInfo.current.pos,
+            enemyUnitInfo.previous.pos,
+            enemyUnitInfo.current.lastSeen,
+            enemyUnitInfo.previous.lastSeen
+          );
+        }
+      }
+
+      // Use current position if projectedPosition is not calculated
+      if (!projectedPosition) {
+        projectedPosition = targetUnit.pos;
+      }
+
+      return getDistance(selfUnit.pos, projectedPosition) <= attackRadius;
     }
 
     /**
@@ -577,7 +599,28 @@ class ArmyManagementService {
     function getOptimalSurroundPosition() {
       if (!targetUnit.pos) return null;
 
-      const pathablePositions = getBorderPositions(targetUnit.pos, attackRadius).filter(pos => map.isPathable(pos));
+      let projectedPosition;
+
+      if (targetUnit.tag) {
+        const enemyUnitInfo = enemyTrackingService.enemyUnitsPositions.get(targetUnit.tag);
+
+        if (enemyUnitInfo) {
+          // Predict the target unit's position
+          projectedPosition = getProjectedPosition(
+            enemyUnitInfo.current.pos,
+            enemyUnitInfo.previous.pos,
+            enemyUnitInfo.current.lastSeen,
+            enemyUnitInfo.previous.lastSeen
+          );
+        }
+      }
+
+      // Use current position if projectedPosition is not calculated
+      if (!projectedPosition) {
+        projectedPosition = targetUnit.pos;
+      }
+
+      const pathablePositions = getBorderPositions(projectedPosition, attackRadius).filter(pos => map.isPathable(pos));
 
       if (pathablePositions.length === 0 || !selfUnit.pos) return null;
 
@@ -1273,7 +1316,6 @@ function getOptimalAttackDistance(world, unit, enemies) {
 
   return unitAttackRange + unitRadius + threatRadius;
 }
-
 
 /**
  * @description Returns projected position of unit.
