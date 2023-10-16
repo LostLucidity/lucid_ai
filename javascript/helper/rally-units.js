@@ -16,6 +16,7 @@ const enemyTrackingService = require("../src/services/enemy-tracking");
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
+  console.log('rallyUnits')
   const { resources } = world
   const { units } = resources.get();
   const collectedActions = [];

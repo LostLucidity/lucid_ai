@@ -110,8 +110,11 @@ class ArmyManagementService {
   engageOrRetreat(world, selfUnits, enemyUnits, position, clearRocks = true) {
     const collectedActions = [];
 
+    /** @type {Unit[]} */
     const injectorQueens = [];
+    /** @type {Unit[]} */
     const allMeleeUnits = [];
+    /** @type {Unit[]} */
     const otherUnits = [];
 
     // Combine filtering operations to loop through selfUnits only once
@@ -140,7 +143,9 @@ class ArmyManagementService {
       return totalHealthShield <= safetyBuffer;
     };
 
+    /** @type {Unit[]} */
     const lowHealthMeleeUnits = [];
+    /** @type {Unit[]} */
     const healthyMeleeUnits = [];
 
     allMeleeUnits.forEach(unit => {
@@ -170,7 +175,7 @@ class ArmyManagementService {
 
     // Processing all units needed for battle
     battleUnits.forEach(unit => {
-      this.processSelfUnitLogic(world, otherUnits, unit, position, enemyUnits, collectedActions, clearRocks);
+      this.processSelfUnitLogic(world, battleUnits, unit, position, enemyUnits, collectedActions, clearRocks);
     });
 
     return collectedActions;
