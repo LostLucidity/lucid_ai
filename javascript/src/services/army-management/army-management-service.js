@@ -31,6 +31,7 @@ const pathFindingService = require("../pathfinding/pathfinding-service");
 const { getWeaponDPS, getWeapon, getWeaponDamage, setDamageForTag, getDamageForTag } = require("../shared-utilities/combat-utilities");
 const enemyTrackingServiceV2 = require("../enemy-tracking/enemy-tracking-service");
 const { getDistanceBetween } = require("../utility-service");
+const { getCachedAlive } = require("../cache-service");
 
 class ArmyManagementService {
   constructor() {
@@ -81,10 +82,13 @@ class ArmyManagementService {
     // Return early if positions are undefined.
     if (!pos || !targetPos) return undefined;
 
-    let retreatPoint = this.getBestRetreatCandidatePoint(world, unit, targetUnit);
+    let retreatPoint;
+
+    retreatPoint = this.getBestRetreatCandidatePoint(world, unit, targetUnit);
     if (retreatPoint) return retreatPoint;
 
-    retreatPoint = getPathRetreatPoint(world.resources, unit, this.getRetreatCandidates(world, unit, targetUnit));
+    const retreatCandidates = this.getRetreatCandidates(world, unit, targetUnit);
+    retreatPoint = getPathRetreatPoint(resources, unit, retreatCandidates);
     if (retreatPoint) return retreatPoint;
 
     retreatPoint = this.findClosestSafePosition(world, unit, targetUnit, travelDistancePerStep);
@@ -106,6 +110,24 @@ class ArmyManagementService {
   engageOrRetreat(world, selfUnits, enemyUnits, position, clearRocks = true) {
     const collectedActions = [];
 
+    const injectorQueens = [];
+    const allMeleeUnits = [];
+    const otherUnits = [];
+
+    // Combine filtering operations to loop through selfUnits only once
+    selfUnits.forEach(unit => {
+      const isInjectorQueen = unit.is(QUEEN) && unit.labels.has('injector');
+      const isMelee = unit.isMelee();
+
+      if (isInjectorQueen) {
+        injectorQueens.push(unit);
+      } else if (isMelee) {
+        allMeleeUnits.push(unit);
+      } else {
+        otherUnits.push(unit);
+      }
+    });
+
     /**
      * Checks if the unit has low health based on the safety buffer.
      *
@@ -118,14 +140,16 @@ class ArmyManagementService {
       return totalHealthShield <= safetyBuffer;
     };
 
-    // Filtering units
-    const injectorQueens = selfUnits.filter(unit => unit.is(QUEEN) && unit.labels.has('injector'));
-    const allMeleeUnits = selfUnits.filter(unit => unit.isMelee());
-    const otherUnits = selfUnits.filter(unit => !injectorQueens.includes(unit) && !allMeleeUnits.includes(unit));
+    const lowHealthMeleeUnits = [];
+    const healthyMeleeUnits = [];
 
-    // Separating melee units by health
-    const lowHealthMeleeUnits = allMeleeUnits.filter(isLowHealth);
-    const healthyMeleeUnits = allMeleeUnits.filter(unit => !isLowHealth(unit));
+    allMeleeUnits.forEach(unit => {
+      if (isLowHealth(unit)) {
+        lowHealthMeleeUnits.push(unit);
+      } else {
+        healthyMeleeUnits.push(unit);
+      }
+    });
 
     // Evaluating units for battle
     const necessaryInjectorQueens = this.getNecessaryUnits(world, injectorQueens, otherUnits, enemyUnits);
@@ -269,8 +293,7 @@ class ArmyManagementService {
     const retreatCandidates = this.getRetreatCandidates(world, unit, targetUnit);
     if (!retreatCandidates || retreatCandidates.length === 0) return;
 
-    const bestRetreatCandidate = retreatCandidates.find(candidate => candidate.safeToRetreat);
-    return bestRetreatCandidate ? bestRetreatCandidate.point : undefined;
+    return retreatCandidates.find(candidate => candidate.safeToRetreat)?.point;
   }
 
   /**
@@ -369,49 +392,31 @@ class ArmyManagementService {
       targetUnit['selfUnits'] || getEnemyUnits(targetUnit)
     );
 
-    const safeExpansionLocations = expansionLocations.filter(location => {
-      return isPathSafe(world, unit, location);
-    });
-
-    if (damageDealingEnemies.length === 0 && safeExpansionLocations.length > 0) {
-      return mapToRetreatCandidates(resources, safeExpansionLocations, pos);
+    if (damageDealingEnemies.length === 0) {
+      const safeExpansionLocations = expansionLocations.filter(location => isPathSafe(world, unit, location));
+      return safeExpansionLocations.length > 0 ? mapToRetreatCandidates(resources, safeExpansionLocations, pos) : [];
     }
 
     const unitsFromClustering = this.getUnitsFromClustering(damageDealingEnemies);
 
-    return expansionLocations.flatMap(point => {
+    const retreatCandidates = expansionLocations.flatMap(point => {
       const closestEnemy = getClosestEnemyByPath(resources, point, unitsFromClustering);
-      if (!closestEnemy || !closestEnemy.unitType) return [];
+      if (!closestEnemy?.unitType || !closestEnemy.pos) return [];
 
-      const { pos: enemyPos, radius: enemyRadius = 0, unitType } = closestEnemy;
+      const weapon = unitService.getWeaponThatCanAttack(data, closestEnemy.unitType, unit);
+      const attackRange = (weapon?.range || 0) + unitRadius + (closestEnemy.radius || 0);
 
-      if (!enemyPos || typeof enemyPos.x !== 'number' || typeof enemyPos.y !== 'number') return [];
+      const adjustedDistanceToEnemy = calculateAdjustedDistance(resources, point, closestEnemy.pos, attackRange);
+      const distanceToRetreat = calculateDistanceToRetreat(resources, pos, point);
 
-      const weapon = unitService.getWeaponThatCanAttack(data, unitType, unit);
-      const attackRange = (weapon?.range || 0) + unitRadius + enemyRadius;
-
-      const point2D = { x: enemyPos.x, y: enemyPos.y };
-      const adjustedDistanceToEnemy = calculateDistances(resources, point2D, MapResourceService.getPathablePositions(map, point)).distance - attackRange;
-      const distanceToRetreat = calculateDistances(resources, pos, MapResourceService.getPathablePositions(map, point)).distance;
-
-      const expansionsInPath = getExpansionsInPath(map, pos, point);
-      const pathToRetreat = expansionsInPath.reduce((/** @type {Point2D[]} */ acc, expansion) => {
-        if (map.isPathable(expansion.townhallPosition)) {
-          acc.push(expansion.townhallPosition);
-        } else {
-          const nearbyPathable = findNearbyPathablePosition(world, expansion.townhallPosition);
-          if (nearbyPathable) acc.push(nearbyPathable); // Only push if a pathable position was found
-        }
-        return acc;
-      }, []);
-
-      const safeToRetreat = isSafeToRetreat(world, unit, pathToRetreat, point);
-
-      if (distanceToRetreat !== Infinity && distanceToRetreat < adjustedDistanceToEnemy && safeToRetreat) {
+      if (distanceToRetreat !== Infinity && distanceToRetreat < adjustedDistanceToEnemy &&
+        isSafeToRetreat(world, unit, getRetreatPath(world, map, pos, point), point)) {
         return mapToRetreatCandidates(resources, [point], pos);
       }
       return [];
     });
+
+    return retreatCandidates;
   }
 
   /**
@@ -1025,25 +1030,24 @@ class ArmyManagementService {
    * @param {boolean} clearRocks - Indicates if destructible rocks should be targeted.
    */
   processSelfUnitLogic(world, selfUnits, selfUnit, position, enemyUnits, collectedActions, clearRocks) {
-    // Your specific implementations and constants, such as groupTypes, need to be defined elsewhere in your code
     const { workerTypes } = groupTypes;
+    const workerTypesSet = new Set(workerTypes);  // Convert to a set for faster lookup
     const { pos, radius, tag } = selfUnit;
-    if (pos === undefined || radius === undefined || tag === undefined) return;
 
-    // Log condition based on game world time
-    const logCondition = world.resources.get().frame.timeInSeconds() > 215 && world.resources.get().frame.timeInSeconds() < 245;
+    if (!pos || !radius || !tag) return;
 
-    // Process logic for non-worker units
-    if (!workerTypes.includes(selfUnit.unitType) || selfUnit.labels.has('defending')) {
+    const worldTimeInSeconds = world.resources.get().frame.timeInSeconds();
+
+    if (!workerTypesSet.has(selfUnit.unitType) || selfUnit.labels.has('defending')) {
       this.processNonWorkerUnit(world, selfUnits, selfUnit, position, enemyUnits, collectedActions, clearRocks);
     }
 
-    // Log actions if specific conditions are met (for debugging or analysis)
-    if (selfUnit.unitType === QUEEN && logCondition) {
-      const queenActions = collectedActions.filter(action => action.unitTags && action.unitTags.includes(tag));
+    if (selfUnit.unitType === QUEEN && worldTimeInSeconds > 215 && worldTimeInSeconds < 245) {
+      const queenActions = collectedActions.filter(action => action.unitTags?.includes(tag));  // Optional chaining
       console.log(`Queen ${tag} collectedActions: ${JSON.stringify(queenActions)}`);
     }
   }
+
 
   /**
    * 
@@ -1058,62 +1062,47 @@ class ArmyManagementService {
     const { map } = resources.get();
     const { pos } = unit;
 
-    // Early return conditions
     if (!pos || targetUnits.length === 0) return;
 
-    // Filter targetUnits based on a suitable radius
     const filterRadius = 16;
-    targetUnits = targetUnits.filter(targetUnit => {
-      if (!targetUnit.pos) {
-        return false;
+    const threats = [];
+    for (const target of targetUnits) {
+      if (!target.pos || target.unitType === undefined) continue;  // Added the undefined check here
+      const distance = getDistanceBetween(pos, target.pos);
+      if (distance > filterRadius) continue;
+
+      const weapon = unitService.getWeaponThatCanAttack(data, target.unitType, unit);  // Safe to call now
+      if (weapon && weapon.range) {
+        threats.push({ unit: target, weapon, attackRange: weapon.range });
       }
+    }
 
-      const distance = getDistanceBetween(pos, targetUnit.pos);
-      return distance <= filterRadius;
-    });
+    if (threats.length === 0) return;
 
-    if (targetUnits.length === 0) return;
+    threats.sort((a, b) => (b.attackRange || 0) - (a.attackRange || 0));
+    const primaryThreat = threats[0];
 
-    const threats = targetUnits.reduce((/** @type {{unit: Unit, weapon?: SC2APIProtocol.Weapon, attackRange?: number}[]} */acc, target) => {
-      if (target.unitType !== undefined) {
-        const weapon = unitService.getWeaponThatCanAttack(data, target.unitType, unit);
-        const attackRange = weapon?.range;
-        acc.push({
-          unit: target,
-          weapon,
-          attackRange
-        });
-      }
-      return acc;
-    }, []);
+    if (!primaryThreat.weapon || primaryThreat.attackRange === undefined) return;
 
     const travelDistancePerStep = 2 * getTravelDistancePerStep(map, unit);
-    const sortedThreats = threats.sort((a, b) => (b.attackRange || 0) - (a.attackRange || 0));
-
-    const primaryThreat = sortedThreats[0];
-
-    if (primaryThreat.weapon === undefined || primaryThreat.attackRange === undefined) return;
-
     if (this.shouldRetreatToCombatRally(world, unit, primaryThreat.unit, toCombatRally, travelDistancePerStep)) {
       return this.getCombatRally(resources);
     }
 
     if (shouldRetreatToBunker(resources, pos)) {
-      const bunkerPosition = getClosestBunkerPosition(resources, pos);
-      return bunkerPosition !== null ? bunkerPosition : undefined;
+      return getClosestBunkerPosition(resources, pos) || undefined;
     }
 
-    if (targetUnits.length > 1) {
-      const targetPositions = targetUnits.reduce((/** @type {Point2D[]} */acc, t) => {
-        if (t.pos) {
-          acc.push(t.pos);
-        }
-        return acc;
-      }, []);
-      return moveAwayFromMultiplePositions(map, targetPositions, pos);
-    } else if (targetUnits.length === 1) {
-      return this.determineBestRetreatPoint(world, unit, targetUnits[0], travelDistancePerStep);
-    }
+    const targetPositions = threats.reduce((/** @type {Point2D[]} */ acc, t) => {
+      if (t.unit.pos) {
+        acc.push(t.unit.pos);
+      }
+      return acc;
+    }, []);
+
+    return targetPositions.length > 1
+      ? moveAwayFromMultiplePositions(map, targetPositions, pos)
+      : this.determineBestRetreatPoint(world, unit, primaryThreat.unit, travelDistancePerStep);
   }
 
   /**
@@ -2212,8 +2201,11 @@ function calculateTimeToKill(world, selfUnits, enemyUnits) {
  */
 function mapToRetreatCandidates(resources, expansionLocations, pos) {
   const { map } = resources.get();
+
   return expansionLocations.map(point => {
-    const { distance } = calculateDistances(resources, pos, MapResourceService.getPathablePositions(map, point));
+    const pathablePositions = MapResourceService.getPathablePositions(map, point);
+    const { distance } = calculateDistances(resources, pos, pathablePositions);
+
     return {
       point,
       safeToRetreat: true,
@@ -2233,24 +2225,28 @@ function mapToRetreatCandidates(resources, expansionLocations, pos) {
  */
 function getExpansionsInPath(map, unitPos, point) {
   const pathCoordinates = getPathCoordinates(MapResourceService.getMapPath(map, unitPos, point));
+  const expansions = map.getExpansions();
+
+  if (expansions.length === 0) return [];
+
   const pathCoordinatesBoundingBox = getBoundingBox(pathCoordinates);
 
-  const expansionsInPath = map.getExpansions().filter(expansion => {
-    const areaFill = expansion?.areas?.areaFill;
-    const centroid = expansion?.centroid;
+  const expansionsInPath = expansions.filter(expansion => {
+    if (!expansion.areas || !expansion.centroid) return false;
 
-    if (!areaFill || !centroid) return false;  // If either is undefined, filter out
+    const areaFill = expansion.areas.areaFill;
+    const centroid = expansion.centroid;
 
-    // Filter out the expansion where the point is where the centroid is.
-    if (getDistance(point, centroid) < 1) return false;
+    const distanceToPoint = getDistance(point, centroid);
+    const distanceToUnitPos = getDistance(unitPos, centroid);
 
-    // Filter out expansions where the centroid is within a distance of 16 from unitPos.
-    if (getDistance(unitPos, centroid) <= 16) return false;
+    if (distanceToPoint < 1 || distanceToUnitPos <= 16) return false;
 
     const areaFillBoundingBox = getBoundingBox(areaFill);
 
-    return boundingBoxesOverlap(pathCoordinatesBoundingBox, areaFillBoundingBox)
-      && pointsOverlap(pathCoordinates, areaFill);
+    if (!boundingBoxesOverlap(pathCoordinatesBoundingBox, areaFillBoundingBox)) return false;
+
+    return pointsOverlap(pathCoordinates, areaFill);
   });
 
   return expansionsInPath;
@@ -2790,22 +2786,29 @@ function isSafePositionFromTargets(map, unit, targetUnits, point) {
 function findOptimalAttackPositions(world, enemyProjectedPosition, optimalDistance, unit) {
   const attackPositions = [];
 
-  // Iterate around the enemy's projected position to find spots at the optimal attack distance
-  const angles = Array.from({ length: 360 }, (_, index) => index); // One degree increments, adjust as needed
+  const xBase = enemyProjectedPosition.x ?? 0;
+  const yBase = enemyProjectedPosition.y ?? 0;
 
-  angles.forEach(angle => {
+  const DEFAULT_RADIUS = 1; // Adjust as needed
+
+  const unitRadius = unit.radius ?? DEFAULT_RADIUS;
+  const circumference = 2 * Math.PI * optimalDistance;
+  const numberOfPositions = Math.max(1, Math.floor(circumference / (2 * unitRadius)));
+  const angleIncrement = 360 / numberOfPositions;
+
+  for (let angle = 0; angle < 360; angle += angleIncrement) {
     const xOffset = optimalDistance * Math.cos(angle * (Math.PI / 180));
     const yOffset = optimalDistance * Math.sin(angle * (Math.PI / 180));
 
     const potentialPosition = {
-      x: (enemyProjectedPosition.x ?? 0) + xOffset,
-      y: (enemyProjectedPosition.y ?? 0) + yOffset
+      x: xBase + xOffset,
+      y: yBase + yOffset
     };
 
     if (isValidPosition(world, potentialPosition, unit)) {
       attackPositions.push(potentialPosition);
     }
-  });
+  }
 
   return attackPositions;
 }
@@ -2858,7 +2861,7 @@ function isValidPosition(world, position, unit) {
  * @returns {boolean}
  */
 function isPositionOccupied(world, position) {
-  return world.resources.get().units.getAlive().some(unit => {
+  return getCachedAlive(world.resources.get().units).some(unit => {
     if (!unit.pos || unit.pos.x === undefined || unit.pos.y === undefined
       || position.x === undefined || position.y === undefined
       || unit.radius === undefined || unit.isBurrowed) {  // Check if the unit is burrowed
@@ -2868,4 +2871,52 @@ function isPositionOccupied(world, position) {
     const distance = Math.sqrt(Math.pow(unit.pos.x - position.x, 2) + Math.pow(unit.pos.y - position.y, 2));
     return distance < unit.radius;
   });
+}
+
+/**
+ * Calculates the adjusted distance to the enemy.
+ * 
+ * @param {any} resources - The resources object from the world.
+ * @param {Point2D} point - The point to which the unit might retreat.
+ * @param {Point2D} enemyPos - The position of the closest enemy.
+ * @param {number} attackRange - The attack range considering both enemy and unit's radius.
+ * @returns {number} - The adjusted distance to the enemy.
+ */
+function calculateAdjustedDistance(resources, point, enemyPos, attackRange) {
+  const { map } = resources.get();
+  const point2D = { x: enemyPos.x, y: enemyPos.y };
+  return calculateDistances(resources, point2D, MapResourceService.getPathablePositions(map, point)).distance - attackRange;
+}
+
+/**
+ * Calculates the distance to the retreat point.
+ * 
+ * @param {any} resources - The resources object from the world.
+ * @param {Point2D} pos - The current position of the unit.
+ * @param {Point2D} point - The point to which the unit might retreat.
+ * @returns {number} - The distance to the retreat point.
+ */
+function calculateDistanceToRetreat(resources, pos, point) {
+  const { map } = resources.get();
+  return calculateDistances(resources, pos, MapResourceService.getPathablePositions(map, point)).distance;
+}
+
+/**
+ * Retrieves the path to the retreat point, considering pathable positions.
+ * 
+ * @param {any} world - The world object containing data and resources.
+ * @param {any} map - The map object from the resources.
+ * @param {Point2D} pos - The current position of the unit.
+ * @param {Point2D} point - The point to which the unit might retreat.
+ * @returns {Point2D[]} - The array of pathable positions leading to the retreat point.
+ */
+function getRetreatPath(world, map, pos, point) {
+  const expansionsInPath = getExpansionsInPath(map, pos, point);
+  return expansionsInPath.reduce((/** @type {Point2D[]} */acc, expansion) => {
+    const position = map.isPathable(expansion.townhallPosition)
+      ? expansion.townhallPosition
+      : findNearbyPathablePosition(world, expansion.townhallPosition);
+    if (position) acc.push(position);
+    return acc;
+  }, []);
 }

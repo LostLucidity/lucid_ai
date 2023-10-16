@@ -12,22 +12,32 @@ const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, 
 async function runBehaviors(world) {
   const { resources } = world;
   const { units } = resources.get();
-  const collectedActions = []
-  collectedActions.push(...acrossTheMapBehavior(world));
-  collectedActions.push(...bunkerBehavior(world));
-  collectedActions.push(...creepTumorBurrowedBehavior(world));
-  collectedActions.push(...clearFromEnemyBehavior(world));
-  collectedActions.push(...liberatorBehavior(resources));
-  collectedActions.push(...marineBehavior(resources));
-  collectedActions.push(...observerBehavior(world));
-  collectedActions.push(...overlordBehavior(world));
-  collectedActions.push(...scoutEnemyMainBehavior(world));
-  await scoutEnemyNaturalBehavior(resources);
-  collectedActions.push(...setCombatBuildingsRallies(resources));
-  collectedActions.push(...supplyDepotBehavior(resources));
-  collectedActions.push(...await workerBehavior(world));
-  collectedActions.push(...recruitToBattleBehavior(units));
+
+  // Parallelize the execution of asynchronous behavior functions
+  const behaviors = await Promise.all([
+    scoutEnemyNaturalBehavior(resources),
+    workerBehavior(world)
+  ]);
+
+  // Combine the results of asynchronous and synchronous behavior functions
+  const collectedActions = [
+    ...acrossTheMapBehavior(world),
+    ...bunkerBehavior(world),
+    ...creepTumorBurrowedBehavior(world),
+    ...clearFromEnemyBehavior(world),
+    ...liberatorBehavior(resources),
+    ...marineBehavior(resources),
+    ...observerBehavior(world),
+    ...overlordBehavior(world),
+    ...scoutEnemyMainBehavior(world),
+    ...setCombatBuildingsRallies(resources),
+    ...supplyDepotBehavior(resources),
+    ...recruitToBattleBehavior(units),
+    ...behaviors.flat()  // Flatten the array of arrays into a single array
+  ];
+
   return collectedActions;
 }
+
 
 module.exports = runBehaviors;

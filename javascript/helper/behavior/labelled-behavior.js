@@ -36,36 +36,25 @@ module.exports = {
   acrossTheMapBehavior: (world) => {
     const { resources } = world;
     const { map, units } = resources.get();
-    const label = 'scoutAcrossTheMap';
-    const [unit] = units.withLabel(label);
+    const [unit] = units.withLabel('scoutAcrossTheMap');
 
-    // If no unit with the given label, return early
-    if (!unit) return [];
-
-    const { pos } = unit;
-    if (!pos) return [];
+    if (!unit || !unit.pos) return [];
 
     const enemyUnits = filterEnemyUnits(unit, enemyTrackingService.mappedEnemyUnits);
-    const potentialCombatUnits = getPotentialCombatantsInRadius(world, unit, 16);
 
-    const collectedActions = [];
-
-    // If an enemy unit within distance of 16, use engageOrRetreat logic
-    if (enemyUnits.length > 0) {
-      const [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(resources, pos, enemyUnits, getGasGeysers(units), 1);
-
-      const { pos: enemyPos } = closestEnemyUnit;
-      if (!enemyPos) return [];
-
-      collectedActions.push(...armyManagementService.engageOrRetreat(world, potentialCombatUnits, enemyUnits, enemyPos, false));
-    } else {
-      // If no enemy units close, move ATTACK_ATTACK across the map
+    // Use enemyUnits.length directly without additional condition
+    if (enemyUnits.length === 0) {
       const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
       unitCommand.targetWorldSpacePos = getAcrossTheMap(map);
-      collectedActions.push(unitCommand);
+      return [unitCommand];
     }
 
-    return collectedActions;
+    const potentialCombatUnits = getPotentialCombatantsInRadius(world, unit, 16);
+    const [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(resources, unit.pos, enemyUnits, getGasGeysers(units), 1);
+
+    if (!closestEnemyUnit || !closestEnemyUnit.pos) return [];
+
+    return armyManagementService.engageOrRetreat(world, potentialCombatUnits, enemyUnits, closestEnemyUnit.pos, false);
   },
   /**
    * Directs a unit to clear from enemies, making sure it doesn't run into other threats.

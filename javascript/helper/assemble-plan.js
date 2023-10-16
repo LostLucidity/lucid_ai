@@ -79,7 +79,8 @@ class AssemblePlan {
    */
   async onStep(world, state) {
     const { data, resources } = world;
-    const { actions } = resources.get();
+    const resourceData = resources.get();
+    const { actions, units, frame, map } = resourceData;
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     this.collectedActions = [];
     this.state = state;
@@ -87,53 +88,59 @@ class AssemblePlan {
     this.world = world;
     this.agent = world.agent;
     this.data = world.data;
+    this.foodUsed = this.world.agent.foodUsed;
+    this.resources = world.resources;
+    this.units = units;
+    this.frame = frame;
+    this.map = map;
+
     if (this.foodUsed > this.world.agent.foodUsed) {
       planService.pausePlan = false;
     }
-    this.foodUsed = this.world.agent.foodUsed;
-    this.resources = world.resources;
-    const { units } = this.resources.get();
-    this.frame = this.resources.get().frame;
-    this.map = this.resources.get().map;
-    this.units = units;
+
     this.resourceTrigger = this.agent.minerals > 512 && this.agent.vespene > 256;
     this.threats = threats(this.resources, this.state);
     const { defend, getFoodUsed, shortOnWorkers } = worldService;
+
     await this.runPlan(world);
-    if (this.foodUsed < ATTACKFOOD) {
-      if (!this.state.pushMode) {
-        if (this.state.defenseMode) {
-          this.collectedActions.push(...await defend(world, this.mainCombatTypes, this.supportUnitTypes, this.threats));
-        } else {
-          this.collectedActions.push(...rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation));
-        }
-      }
-    } else {
-      const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
-      if (!worldService.outpowered || selfCombatSupply === inFieldSelfSupply) { this.collectedActions.push(...attack(this.world, this.mainCombatTypes, this.supportUnitTypes)); }
+
+    const actionsToCollect = [];
+
+    if (this.foodUsed < ATTACKFOOD && !this.state.pushMode) {
+      actionsToCollect.push(
+        this.state.defenseMode
+          ? defend(world, this.mainCombatTypes, this.supportUnitTypes, this.threats)
+          : rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation)
+      );
     }
+
+    if (getFoodUsed() >= 132 && !shortOnWorkers(world)) {
+      actionsToCollect.push(expand(world));
+    }
+
+    actionsToCollect.push(runBehaviors(world));
+
+    const results = await Promise.all(actionsToCollect);
+
+    results.forEach(action => {
+      if (Array.isArray(action)) {
+        this.collectedActions.push(...action);
+      }
+    });
 
     const structuresAlmostDone = units.getStructures().filter(structure =>
-      structure.buildProgress && structure.buildProgress > 0.9 && structure.buildProgress < 1
+      structure.buildProgress > 0.9 && structure.buildProgress < 1 &&
+      !(structure.is(CREEPTUMORQUEEN) || structure.is(CREEPTUMOR)) &&
+      structure.pos && !armyManagementService.isStrongerAtPosition(world, structure.pos) &&
+      structure.tag
     );
 
-    for (let structure of structuresAlmostDone) {
-      // Check if the structure is a 'CREEPTUMORQUEEN' or 'CREEPTUMOR', if it is, skip the loop iteration
-      if (structure.is(CREEPTUMORQUEEN) || structure.is(CREEPTUMOR)) {
-        continue;
-      }
-
-      if (structure.pos && !armyManagementService.isStrongerAtPosition(world, structure.pos)) {
-        if (structure.tag) {
-          const cancelAction = {
-            abilityId: CANCEL_BUILDINPROGRESS,
-            unitTags: [structure.tag],
-          };
-          this.collectedActions.push(cancelAction);
-        }
-      }
-    }
-
+    structuresAlmostDone.forEach(structure => {
+      this.collectedActions.push({
+        abilityId: CANCEL_BUILDINPROGRESS,
+        unitTags: [structure.tag],
+      });
+    });
 
     if (getFoodUsed() >= 132 && !shortOnWorkers(world)) { this.collectedActions.push(...await expand(world)); }
     this.checkEnemyBuild();
@@ -146,7 +153,32 @@ class AssemblePlan {
       this.state.defendNatural = true;
     }
     await this.raceSpecificManagement(world);
+
+    // Log condition based on game world time
+    const logCondition = world.resources.get().frame.timeInSeconds() > 215 && world.resources.get().frame.timeInSeconds() < 245;
+
     this.collectedActions.push(...await runBehaviors(world));
+
+    // Add logging for QUEEN actions here, if the logCondition is met
+    if (logCondition) {
+      // Get all QUEEN units
+      const queens = this.units.getAlive().filter(unit => unit.unitType === UnitType.QUEEN);
+
+      const queensActions = queens.reduce((acc, queen) => {
+        const { tag } = queen;
+        if (tag) {
+          acc[tag] = this.collectedActions.filter(action =>
+            action && action.unitTags && action.unitTags.includes(tag)  // Ensure action is defined before accessing its properties
+          );
+        }
+        return acc;
+      }, {});
+
+      if (Object.keys(queensActions).length > 0) { // Log only if there are actions collected
+        console.log(`Queens collectedActions in onStep: ${JSON.stringify(queensActions)}`);
+      }
+    }
+
     const label = 'pendingOrders';
     this.units.withLabel(label).forEach(unit => unit.labels.delete(label));
     clearEarmarks(data);
