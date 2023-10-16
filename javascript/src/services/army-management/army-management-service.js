@@ -1899,7 +1899,7 @@ function isSafePathToRally(world, unit, pathToRally) {
   const { data, resources } = world;
   const { units } = resources.get();
 
-  const aliveEnemies = units.getAlive(Alliance.ENEMY).filter(e => e.pos);
+  const aliveEnemies = enemyTrackingServiceV2.mappedEnemyUnits;
   if (!aliveEnemies.length) return true;
 
   return !getPathCoordinates(pathToRally).some(point => {
@@ -1930,8 +1930,14 @@ function isSafePathToRally(world, unit, pathToRally) {
     const distanceSquared = getDistanceSquared(point, projectedTargetPosition);
 
     if (distanceSquared <= effectiveAttackRange * effectiveAttackRange) {
+      
       const directionToEnemy = subtractVectors(projectedTargetPosition, unitPos);
       const directionOfMovement = subtractVectors(point, unitPos);
+      const currentTime = world.resources.get().frame.timeInSeconds();
+
+      if (currentTime >= 194 && currentTime <= 201) {
+        console.log(`Time: ${currentTime}, UnitPos: ${JSON.stringify(unit.pos)}, PathLength: ${pathToRally.length}, ClosestEnemyPos: ${JSON.stringify(closestEnemy.pos)}, AliveEnemies: ${aliveEnemies.length}, ProjectedEnemyPos: ${JSON.stringify(projectedTargetPosition)}, EffectiveAttackRange: ${effectiveAttackRange}, DistanceSquared: ${distanceSquared}, Weapon: ${JSON.stringify(weapon)}, DotVectorsResult: ${dotVectors(directionToEnemy, directionOfMovement)}`);
+      }
       return dotVectors(directionToEnemy, directionOfMovement) < 0;
     }
 
