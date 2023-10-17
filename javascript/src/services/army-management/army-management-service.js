@@ -1716,7 +1716,7 @@ function shouldReturnEarly(unit) {
 function getActionsForNotMicro(world, unit, targetUnit) {
   const MAX_DISTANCE = 16; // Maximum distance to consider for engagement
 
-  const { data, resources } = world;
+  const { resources } = world;
   const currentStep = resources.get().frame.getGameLoop();
 
   if (!isUnitDataComplete(unit) || !unit.pos) return [];
@@ -1724,7 +1724,7 @@ function getActionsForNotMicro(world, unit, targetUnit) {
   const weaponResults = computeWeaponsResults(unit, targetUnit);
   if (!weaponResults) return [];
 
-  let immediateThreat = findImmediateThreat(data, unit, weaponResults.targetableEnemyUnits);
+  let immediateThreat = findImmediateThreat(world, unit, weaponResults.targetableEnemyUnits);
   if (immediateThreat) return [createAttackCommand(unit, immediateThreat)];
 
   let optimalTarget = findOptimalTarget(world, unit, weaponResults.targetableEnemyUnits, currentStep, MAX_DISTANCE);
@@ -1835,20 +1835,59 @@ function getTargetableEnemyUnits(weaponType) {
 /**
  * Finds an immediate threat among enemy units.
  * 
- * @param {DataStorage} data - Game data.
+ * @param {World} world - The game world.
  * @param {Unit} unit - The player's unit.
  * @param {Unit[]} enemyUnits - Array of enemy units that can be targeted.
  * @returns {Unit|null} The immediate threat unit or null if not found.
  */
-function findImmediateThreat(data, unit, enemyUnits) {
+function findImmediateThreat(world, unit, enemyUnits) {
+  const { data, resources } = world;
+  const currentStep = resources.get().frame.getGameLoop();
+  const currentTime = resources.get().frame.timeInSeconds();
+
+  if (!unit.pos) return null;
+
+  const immediateThreats = [];
+
+  // Collecting all immediate threats
   for (const enemy of enemyUnits) {
     if (!enemy.pos || !unit.pos) continue; // Skip if either position is undefined
     const unitAttackRange = dataService.getAttackRange(data, unit, enemy);
     if (isActivelyAttacking(data, enemy, unit) && getDistance(unit.pos, enemy.pos) <= unitAttackRange) {
-      return enemy;
+      immediateThreats.push(enemy);
     }
   }
-  return null;
+
+  if (immediateThreats.length === 0) return null;
+
+  // Selecting the immediate threat with the lowest total health
+  let optimalThreat = null;
+  let lowestHealth = Infinity;
+  const logData = []; // Added to store the logs
+
+  for (const threat of immediateThreats) {
+    if (threat.tag !== undefined) {
+      const currentDamage = getDamageForTag(threat.tag, currentStep) || 0;
+      const totalHealthAfterAttack = (threat.health ?? 0) + (threat.shield ?? 0) - currentDamage;
+
+      if (totalHealthAfterAttack < lowestHealth) {
+        lowestHealth = totalHealthAfterAttack;
+        optimalThreat = threat;
+      }
+
+      // Collecting log data if the current time is between 233 and 239 seconds
+      if (currentTime >= 233 && currentTime <= 239) {
+        logData.push(`Threat ID: ${threat.tag}, Health After Attack: ${totalHealthAfterAttack}`);
+      }
+    }
+  }
+
+  // Logging all at once to avoid clogging the logs
+  if (logData.length > 0) {
+    console.log(logData.join('\n'));
+  }
+
+  return optimalThreat;
 }
 
 /**
