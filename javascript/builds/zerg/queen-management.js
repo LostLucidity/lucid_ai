@@ -17,6 +17,7 @@ const pathFindingService = require("../../src/services/pathfinding/pathfinding-s
 const { getClosestPathWithGasGeysers } = require("../../src/services/utility-service");
 const { getGasGeysers } = require("../../src/services/unit-retrieval");
 const enemyTrackingService = require("../../src/services/enemy-tracking");
+const armyManagementService = require("../../src/services/army-management/army-management-service");
 
 module.exports = {
   /**
@@ -47,36 +48,23 @@ module.exports = {
     const { units } = world.resources.get();
     const collectedActions = [];
 
-    /**
-     * Determines if the given queen is required in the battle.
-     *
-     * @param {Unit} queen - The queen to check.
-     * @param {Unit[]} allAllies - All allied units.
-     * @param {Unit[]} allEnemies - All enemy units.
-     * @returns {boolean} - Whether the queen is required in the battle.
-     */
-    const isQueenRequired = (queen, allAllies, allEnemies) => {
-      const potentialAlliesWithoutQueen = allAllies.filter(unit => unit.tag !== queen.tag);
-      return shouldEngage(world, potentialAlliesWithoutQueen, allEnemies);
-    };
-
     const injectorQueens = units.withLabel('injector')
       .filter(queen => queen.availableAbilities().includes(EFFECT_INJECTLARVA) && queen.pos);
 
     injectorQueens.forEach(queen => {
-      if (queen.pos) {  // Ensure the queen's position is defined before proceeding
-        const allAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), queen.pos, 16);
-        const allEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, queen.pos, 16);
+      if (queen.pos) {
+        const closeAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), queen.pos, 16);
+        const closeEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, queen.pos, 16);
 
-        if (!allEnemies.length) {  // If no enemies are near the queen
-          collectedActions.push(...findTargetBaseAndInject(units, queen));
+        const nearbyQueens = closeAllies.filter(unit => injectorQueens.some(queen => queen.tag === unit.tag));
+        const necessaryInjectorQueens = armyManagementService.getNecessaryUnits(world, nearbyQueens, closeAllies, closeEnemies);
+
+        const isQueenNecessary = necessaryInjectorQueens.some(necessaryQueen => necessaryQueen.tag === queen.tag);
+
+        if (isQueenNecessary) {
+          // Handle the queen engaging in battle if needed
         } else {
-          // Check if this queen is required in the battle.
-          const queensRequired = injectorQueens.some(currentQueen => currentQueen.tag !== queen.tag && isQueenRequired(currentQueen, allAllies, allEnemies));
-
-          if (!queensRequired) {
-            collectedActions.push(...findTargetBaseAndInject(units, queen));
-          }
+          collectedActions.push(...findTargetBaseAndInject(units, queen));
         }
       }
     });

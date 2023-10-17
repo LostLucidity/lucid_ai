@@ -364,11 +364,17 @@ class ArmyManagementService {
   getNecessaryUnits(world, candidateUnits, currentUnits, enemyUnits) {
     const necessaryUnits = [];
 
+    if (enemyUnits.length === 0 || this.shouldEngage(world, currentUnits, enemyUnits)) {
+      // If there are no enemy units nearby or the current units are already sufficient to engage
+      return necessaryUnits;
+    }
+
     for (const unit of candidateUnits) {
-      necessaryUnits.push(unit);
+      necessaryUnits.push(unit); // Add the candidate unit
       const combinedUnits = [...currentUnits, ...necessaryUnits];
 
       if (this.shouldEngage(world, combinedUnits, enemyUnits)) {
+        // If adding the unit makes engagement favorable, stop adding more units
         break;
       }
     }
