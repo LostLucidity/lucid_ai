@@ -471,6 +471,7 @@ class ArmyManagementService {
     // Validations for necessary properties
     if (!selfUnit.pos || !selfUnit.radius || !targetUnit.pos) return;
 
+    const self = this;  // Store 'this' reference in a variable for use in nested functions
     const { data, resources: { get } } = world;
     const { map, units } = get();
     
@@ -634,7 +635,8 @@ class ArmyManagementService {
 
       if (pathablePositions.length === 0 || !selfUnit.pos) return null;
 
-      const optimalPositions = pathablePositions.filter(pos => !isOccupiedByAlly(units, pos, meleeNearbyAllies, collectedActions));
+      const optimalPositions = pathablePositions.filter(pos =>
+        !self.isOccupiedByAlly(units, selfUnit, pos, meleeNearbyAllies, collectedActions));
 
       if (optimalPositions.length === 0) return null;
 
@@ -647,38 +649,39 @@ class ArmyManagementService {
           }
         })[0];
     }
+  }
 
-    /**
-     * Determines whether a specific position is occupied by an ally or has an impending order.
-     *
-     * @param {UnitResource} units - The unit resource.
-     * @param {Point2D} position - The location to be checked.
-     * @param {Unit[]} allies - A list of allied units to evaluate for occupation.
-     * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - Pending actions to be evaluated.
-     * @returns {boolean} - Indicates if the position is either occupied or has a pending order.
-     */
-    function isOccupiedByAlly(units, position, allies, collectedActions) {
-      const isOccupied = allies.some(ally =>
-        ally.pos && getDistance(ally.pos, position) < (ally.radius ?? 0) + (selfUnit.radius ?? 0));
+  /**
+   * Determines whether a specific position is occupied by an ally or has an impending order.
+   *
+   * @param {UnitResource} units - The unit resource.
+   * @param {Unit} selfUnit - The unit to check against occupation and orders.
+   * @param {Point2D} position - The location to be checked.
+   * @param {Unit[]} allies - A list of allied units to evaluate for occupation.
+   * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - Pending actions to be evaluated.
+   * @returns {boolean} - Indicates if the position is either occupied or has a pending order.
+   */
+  isOccupiedByAlly(units, selfUnit, position, allies, collectedActions) {
+    const isOccupied = allies.some(ally =>
+      ally.pos && getDistance(ally.pos, position) < (ally.radius ?? 0) + (selfUnit.radius ?? 0));
 
-      const hasOrderToPosition = collectedActions.some(action => {
-        if (action.targetWorldSpacePos) {
-          const orderDistance = getDistance(action.targetWorldSpacePos, position);
+    const hasOrderToPosition = collectedActions.some(action => {
+      if (action.targetWorldSpacePos) {
+        const orderDistance = getDistance(action.targetWorldSpacePos, position);
 
-          // If specific units associated with the order are available, consider their radius
-          if (action.unitTags && action.unitTags.length > 0) {
-            const orderedUnits = action.unitTags.map(tag => units.getByTag(tag)).filter(unit => unit != null); // Assuming a getByTag function or similar to get unit by tag
-            return orderedUnits.some(unit => orderDistance < (unit.radius ?? 0) + (selfUnit.radius ?? 0));
-          } else {
-            // If not, just consider the self unit's radius or another default value
-            return orderDistance < (selfUnit.radius ?? 0);
-          }
+        // If specific units associated with the order are available, consider their radius
+        if (action.unitTags && action.unitTags.length > 0) {
+          const orderedUnits = action.unitTags.map(tag => units.getByTag(tag)).filter(unit => unit != null); // Assuming a getByTag function or similar to get unit by tag
+          return orderedUnits.some(unit => orderDistance < (unit.radius ?? 0) + (selfUnit.radius ?? 0));
+        } else {
+          // If not, just consider the self unit's radius or another default value
+          return orderDistance < (selfUnit.radius ?? 0);
         }
-        return false;
-      });
+      }
+      return false;
+    });
 
-      return isOccupied || hasOrderToPosition;
-    }
+    return isOccupied || hasOrderToPosition;
   }
 
   /**
@@ -839,13 +842,13 @@ class ArmyManagementService {
     let targetPosition = position;
     const [closestAttackableEnemyUnit] = units.getClosest(selfUnit.pos, enemyUnits.filter(enemyUnit => canAttack(selfUnit, enemyUnit, false)));
     const attackablePosition = closestAttackableEnemyUnit ? closestAttackableEnemyUnit.pos : null;
+    const engagementDistanceThreshold = 16; // Or whatever distance you choose
+    const relevantSelfUnits = selfUnits.filter(unit => {
+      if (!selfUnit.pos || !unit.pos) return false;
+      return getDistance(unit.pos, selfUnit.pos) <= engagementDistanceThreshold;
+    });
     if (closestAttackableEnemyUnit && getDistance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
       const { pos: closestAttackableEnemyUnitPos, radius: closestAttackableEnemyUnitRadius, unitType: closestAttackableEnemyUnitType } = closestAttackableEnemyUnit; if (closestAttackableEnemyUnitPos === undefined || closestAttackableEnemyUnitRadius === undefined || closestAttackableEnemyUnitType === undefined) return;
-      const engagementDistanceThreshold = 16; // Or whatever distance you choose
-      const relevantSelfUnits = selfUnits.filter(unit => {
-        if (!selfUnit.pos || !unit.pos) return false;
-        return getDistance(unit.pos, selfUnit.pos) <= engagementDistanceThreshold;
-      });
       const relevantEnemyUnits = enemyUnits.filter(unit => {
         if (unit.pos && selfUnit.pos) {
           return getDistance(unit.pos, selfUnit.pos) <= engagementDistanceThreshold;
@@ -982,7 +985,7 @@ class ArmyManagementService {
           const { range } = weapon; if (range === undefined) { return; }
           const attackRadius = radius + selfRadius + range;
           const destructableBorderPositions = getBorderPositions(pos, attackRadius);
-          const fitablePositions = destructableBorderPositions
+          let fitablePositions = destructableBorderPositions
             .filter(borderPosition => {
               // Adding a check for pathability
               if (!map.isPathable(borderPosition)) {
@@ -1001,6 +1004,16 @@ class ArmyManagementService {
             })
             .sort((a, b) => getDistance(a, selfPos) - getDistance(b, selfPos));
           if (fitablePositions.length > 0 && getDistance(pos, selfPos) > attackRadius + 1) {
+
+            // Filter out positions that are occupied by an ally or have a pending order
+            fitablePositions = fitablePositions.filter(position =>
+              !this.isOccupiedByAlly(units, selfUnit, position, relevantSelfUnits, collectedActions)
+            );
+
+            if (fitablePositions.length === 0) {
+              return; // All fitable positions are already assigned or occupied, so no action to take
+            }
+
             targetPosition = fitablePositions[0];
             const moveUnitCommand = createUnitCommand(MOVE, [selfUnit]);
             moveUnitCommand.targetWorldSpacePos = targetPosition;
