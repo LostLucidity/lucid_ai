@@ -636,7 +636,8 @@ class ArmyManagementService {
       if (pathablePositions.length === 0 || !selfUnit.pos) return null;
 
       const optimalPositions = pathablePositions.filter(pos =>
-        !self.isOccupiedByAlly(units, selfUnit, pos, meleeNearbyAllies, collectedActions));
+        !self.isOccupiedByAlly(units, selfUnit, pos, meleeNearbyAllies, collectedActions) &&
+        !isOccupiedByEnemy(selfUnit, pos, nearbyEnemies));  // Added this condition
 
       if (optimalPositions.length === 0) return null;
 
@@ -649,6 +650,20 @@ class ArmyManagementService {
           }
         })[0];
     }
+
+    /**
+     * Determines whether a specific position is occupied by an enemy unit.
+     *
+     * @param {Unit} selfUnit - The unit to check against occupation.
+     * @param {Point2D} position - The location to be checked.
+     * @param {Unit[]} enemies - A list of enemy units to evaluate for occupation.
+     * @returns {boolean} - Indicates if the position is occupied by an enemy unit.
+     */
+    function isOccupiedByEnemy(selfUnit, position, enemies) {
+      return enemies.some(enemy =>
+        enemy.pos && getDistance(enemy.pos, position) < (enemy.radius ?? 0) + (selfUnit.radius ?? 0));
+    }
+
   }
 
   /**
@@ -1065,7 +1080,6 @@ class ArmyManagementService {
       console.log(`Queen ${tag} collectedActions: ${JSON.stringify(queenActions)}`);
     }
   }
-
 
   /**
    * 
@@ -2970,4 +2984,18 @@ function getRetreatPath(world, map, pos, point) {
     if (position) acc.push(position);
     return acc;
   }, []);
+}
+
+/**
+ * Determines whether a specific position is occupied by an enemy unit.
+ *
+ * @param {UnitResource} units - The unit resource.
+ * @param {Unit} selfUnit - The unit to check against occupation.
+ * @param {Point2D} position - The location to be checked.
+ * @param {Unit[]} enemies - A list of enemy units to evaluate for occupation.
+ * @returns {boolean} - Indicates if the position is occupied by an enemy unit.
+ */
+function isOccupiedByEnemy(units, selfUnit, position, enemies) {
+  return enemies.some(enemy =>
+    enemy.pos && getDistance(enemy.pos, position) < (enemy.radius ?? 0) + (selfUnit.radius ?? 0));
 }
