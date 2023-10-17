@@ -1175,22 +1175,10 @@ class ArmyManagementService {
    * @returns {boolean}
    */
   shouldEngage(world, selfUnits, enemyUnits) {
-    const combatantSelfUnits = selfUnits.filter(unitService.potentialCombatants);
-    const combatantEnemyUnits = enemyUnits.filter(unitService.potentialCombatants);
+    const { timeToKill, timeToBeKilled } = calculateTimeToKill(world, selfUnits, enemyUnits);
 
-    const selfGroupDPS = calculateGroupDPS(world, combatantSelfUnits, combatantEnemyUnits);
-    const enemyGroupDPS = calculateGroupDPS(world, combatantEnemyUnits, combatantSelfUnits);
-    const selfGroupHealthAndShields = calculateGroupHealthAndShields(combatantSelfUnits);
-    const enemyGroupHealthAndShields = calculateGroupHealthAndShields(combatantEnemyUnits);
-
-    // Defensive measures against division by zero
-    const dpsRatio = (enemyGroupDPS !== 0) ? selfGroupDPS / enemyGroupDPS : (selfGroupDPS > 0 ? Infinity : 1);
-    const healthRatio = (enemyGroupHealthAndShields !== 0) ? selfGroupHealthAndShields / enemyGroupHealthAndShields : (selfGroupHealthAndShields > 0 ? Infinity : 1);
-
-    const dpsThreshold = 1.0;
-    const healthThreshold = 1.0;
-
-    return dpsRatio >= dpsThreshold && healthRatio >= healthThreshold;
+    // Engage if self units can eliminate enemy units faster than they can be eliminated
+    return timeToKill <= timeToBeKilled;
   }
 
   /**
