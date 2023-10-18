@@ -12,12 +12,14 @@ const { createUnitCommand } = require("../../services/actions-service");
 const { getPathCoordinates } = require("../../services/path-service");
 const { getMapPath } = require("../../systems/map-resource-system/map-resource-service");
 const unitService = require("../../services/unit-service");
-const { shouldEngage } = require("../../src/services/army-management/army-management-service");
 const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
-const { getClosestPathWithGasGeysers } = require("../../src/services/utility-service");
+const { getClosestPathWithGasGeysers, getDistanceBetween } = require("../../src/services/utility-service");
 const { getGasGeysers } = require("../../src/services/unit-retrieval");
 const enemyTrackingService = require("../../src/services/enemy-tracking");
 const armyManagementService = require("../../src/services/army-management/army-management-service");
+const MapResourceService = require("../../systems/map-resource-system/map-resource-service");
+const { createMoveCommand } = require("../../src/services/command-service");
+const { isOnCreep } = require("../../src/services/shared-functions");
 
 module.exports = {
   /**
@@ -39,7 +41,8 @@ module.exports = {
     }
   },
   /**
-   * Determines which injector queens should perform an inject action and which ones should engage in battle.
+   * Determines which injector queens should perform an inject action, which ones should engage in battle, 
+   * and which ones should move to the nearest creep when not needed in battle.
    *
    * @param {World} world - The current state of the world.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - Array of actions that the queens should take.
@@ -48,22 +51,27 @@ module.exports = {
     const { units } = world.resources.get();
     const collectedActions = [];
 
-    const injectorQueens = units.withLabel('injector')
-      .filter(queen => queen.availableAbilities().includes(EFFECT_INJECTLARVA) && queen.pos);
+    const allInjectorQueens = units.withLabel('injector').filter(queen => queen.pos);
+    const injectableQueens = allInjectorQueens.filter(queen => queen.availableAbilities().includes(EFFECT_INJECTLARVA));
 
-    injectorQueens.forEach(queen => {
+    allInjectorQueens.forEach(queen => {
       if (queen.pos) {
         const closeAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), queen.pos, 16);
         const closeEnemies = unitService.getUnitsInRadius(enemyTrackingService.mappedEnemyUnits, queen.pos, 16);
 
-        const nearbyQueens = closeAllies.filter(unit => injectorQueens.some(queen => queen.tag === unit.tag));
+        const nearbyQueens = closeAllies.filter(unit => allInjectorQueens.some(queen => queen.tag === unit.tag));
         const necessaryInjectorQueens = armyManagementService.getNecessaryUnits(world, nearbyQueens, closeAllies, closeEnemies);
 
         const isQueenNecessary = necessaryInjectorQueens.some(necessaryQueen => necessaryQueen.tag === queen.tag);
+        const isInCombat = closeEnemies.length > 0;
 
-        if (isQueenNecessary) {
+        if (isQueenNecessary && isInCombat) {
           // Handle the queen engaging in battle if needed
-        } else {
+        } else if (!isInCombat) {
+          // The queen is not in combat and not needed in battle, move it to the nearest creep
+          collectedActions.push(...moveToNearestCreep(world, queen)); // Adjusted this line
+        } else if (injectableQueens.includes(queen)) {
+          // The queen can inject and is not needed in battle, proceed to inject
           collectedActions.push(...findTargetBaseAndInject(units, queen));
         }
       }
@@ -241,4 +249,54 @@ function findTargetBaseAndInject(units, queen) {
     collectedActions.push(unitCommand);
   }
   return collectedActions;
+}
+
+/**
+ * Moves the specified queen to the nearest creep if not already on creep.
+ * @param {World} world - The current state of the world.
+ * @param {Unit} queen - The queen that should be moved.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - Array of actions to move the queen to the nearest creep.
+ */
+function moveToNearestCreep(world, queen) {
+  if (!queen.pos || isOnCreep(queen.pos)) { // Revised this line to use your existing isCreep function
+    return []; // Return an empty array if queen.pos is undefined or queen is already on creep
+  }
+
+  const creep = findNearestCreep(world, queen.pos);
+  if (!creep) return []; // If no creep is found, return an empty action array
+
+  const moveCommand = createMoveCommand(queen, creep);
+  return moveCommand ? [moveCommand] : [];
+}
+
+/**
+ * Finds the nearest creep to the given position.
+ * @param {World} world - The current state of the world.
+ * @param {Point2D} position - The position of the unit.
+ * @returns {Point2D} - The position of the nearest creep or a default position if no creep is found.
+ */
+function findNearestCreep(world, position) {
+  // Get all tiles/positions from the world where creep exists
+  const creeps = Array.from(MapResourceService.creepPositionsSet).map(grid => {
+    const [x, y] = grid.split(':').map(Number);
+    return { x, y };
+  });
+
+  // If there are no creeps, return a default position
+  if (!creeps || creeps.length === 0) return { x: -1, y: -1 }; // Adjust this as needed
+
+  // Calculate the distance between the unit and each creep position, and find the nearest one
+  let nearestCreep = creeps[0]; // Initialize with the first creep position to avoid null
+  let minimumDistance = Infinity;
+
+  creeps.forEach(creep => {
+    const distance = getDistanceBetween(position, creep);
+
+    if (distance < minimumDistance) {
+      minimumDistance = distance;
+      nearestCreep = creep;
+    }
+  });
+
+  return nearestCreep;
 }

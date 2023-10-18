@@ -4,11 +4,11 @@
 const { MOVE, ATTACK_ATTACK, BUILD_CREEPTUMOR_QUEEN, SMART } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { mineralFieldTypes, vespeneGeyserTypes } = require("@node-sc2/core/constants/groups");
-const { PHOTONCANNON, LARVA, CREEPTUMORBURROWED } = require("@node-sc2/core/constants/unit-type");
+const { PHOTONCANNON, CREEPTUMORBURROWED } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { createUnitCommand } = require("../../services/actions-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
-const { isCreepEdge, isInMineralLine } = require("../../systems/map-resource-system/map-resource-service");
+const { isInMineralLine } = require("../../systems/map-resource-system/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
 const { getDistance, getClusters, getDistanceSquared } = require("../../services/position-service");
 const { canAttack } = require("../../services/resources-service");
@@ -468,7 +468,7 @@ function getCreepEdgeCloseToEnemy(resources, pos=undefined) {
       return distance < closest.distance ? { distance, pos, pathCoordinates } : closest;
     }, { distance: Infinity, pos: { x: 0, y: 0 }, pathCoordinates: [] });
   
-    const creepEdgeAndPath = closestTownhallPositionToEnemy.pathCoordinates.filter(path => isCreepEdge(map, path));
+    const creepEdgeAndPath = closestTownhallPositionToEnemy.pathCoordinates.filter(path => pathFindingService.isCreepEdge(map, path));
     if (creepEdgeAndPath.length > 0) {
       return pathFindingService.getClosestPositionByPath(resources, closestTownhallPositionToEnemy.pos, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
     }

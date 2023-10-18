@@ -16,6 +16,7 @@ const unitService = require("../../services/unit-service");
 const enemyTrackingService = require("../../src/services/enemy-tracking/enemy-tracking-service");
 const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
 const armyManagementService = require("../../src/services/army-management/army-management-service");
+const { createMoveCommand } = require("../../src/services/command-service");
 
 module.exports = createSystem({
   name: 'AttackSystem',
@@ -566,24 +567,6 @@ function goToFallbackPosition(units, fallbackPosition) {
     return acc;
   }, []);
   return commands.length > 0 ? commands : null;
-}
-
-/**
- * This function creates a command to move a unit to a certain position
- * @param {Unit} unit - The unit that should move
- * @param {Point2D} position - The position to move to
- * @returns {SC2APIProtocol.ActionRawUnitCommand | null} The command to move the unit
- */
-function createMoveCommand(unit, position) {
-  if (unit.tag) {
-    return {
-      abilityId: MOVE, // The ability ID for "Move" (you'll need to replace this with the actual ID)
-      targetWorldSpacePos: position,
-      unitTags: [unit.tag],
-    };
-  } else {
-    return null;
-  }
 }
 
 /**

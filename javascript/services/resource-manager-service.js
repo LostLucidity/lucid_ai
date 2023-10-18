@@ -12,7 +12,7 @@ const scoutService = require("../systems/scouting/scouting-service");
 const { getTargetedByWorkers } = require("../systems/unit-resource/unit-resource-service");
 const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
-const { getPathablePositions, getPathablePositionsForStructure, isCreepEdge, isInMineralLine } = require("../systems/map-resource-system/map-resource-service");
+const { getPathablePositions, getPathablePositionsForStructure } = require("../systems/map-resource-system/map-resource-service");
 const { getDistance, getClusters } = require("./position-service");
 const { setPendingOrders } = require("./unit-service");
 const { shuffle } = require("../helper/utilities");
@@ -156,7 +156,7 @@ const resourceManagerService = {
           const { pos } = closestCreepGenerator; if (pos === undefined) return false;
           const distanceToCreepGenerator = getDistance(position, pos);
           // check if position is adjacent to non-creep position and is pathable
-          const creepEdge = isCreepEdge(map, position);
+          const creepEdge = pathFindingService.isCreepEdge(map, position);
           return distanceToCreepGenerator < 12.75 && creepEdge;
         }
       });
@@ -335,7 +335,7 @@ function getCreepEdgesWithinRanges(resources, position, maxRange) {
   const creepEdgesByRange = Array.from({ length: maxRange }, () => []);
 
   clusters.forEach(grid => {
-    if (isCreepEdge(map, grid)) {
+    if (pathFindingService.isCreepEdge(map, grid)) {
       const distance = pathFindingService.getDistanceByPath(resources, position, grid);
       if (distance <= maxRange) {
         // Ensure that index is at least 0 to avoid undefined array element

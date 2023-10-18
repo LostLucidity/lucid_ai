@@ -7,6 +7,7 @@ const { getPathablePositions, getMapPath, getClosestPathablePositions } = requir
 const { getPathCoordinates } = require("../../../services/path-service");
 const { avgPoints, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../../../helper/get-closest");
+const { isOnCreep } = require("../shared-functions");
 
 /**
  * Service for handling pathfinding and movement related logic.
@@ -14,6 +15,62 @@ const { getClosestPosition } = require("../../../helper/get-closest");
 class PathfindingService {
   constructor() {
     // No need to inject dependency in constructor
+  }
+
+  /** 
+  * 
+  * @param {MapResource} map 
+  * @param {Point2D} pos 
+  * @returns {Boolean}
+  */
+  isCreepEdge(map, pos) {
+    const { x, y } = pos;
+
+    if (x === undefined || y === undefined) return false;
+
+    /** 
+     * @param {number} x 
+     * @param {number} y 
+     * @param {SC2APIProtocol.Size2DI} mapSize 
+     */
+    const isWithinMap = (x, y, mapSize) =>
+      mapSize.x !== undefined && mapSize.y !== undefined &&
+      x >= 0 && x < mapSize.x && y >= 0 && y < mapSize.y;
+
+    const mapSize = map.getSize();
+
+    // Verify position is valid and within map
+    if (!isWithinMap(x, y, mapSize)) return false;
+
+    /**
+     * @param {number} x
+     * @param {number} y
+     * @returns {boolean}
+     */
+    const checkNeighbors = (x, y) => {
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          // Skip the center point
+          if (dx === 0 && dy === 0) continue;
+
+          const neighborX = x + dx;
+          const neighborY = y + dy;
+
+          // Check if the neighbor is within map boundaries
+          if (!isWithinMap(neighborX, neighborY, mapSize)) continue;
+
+          const neighbor = { x: neighborX, y: neighborY };
+
+          // Check the condition and return early if satisfied
+          if (!map.hasCreep(neighbor) && map.isPathable(neighbor)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    return isOnCreep(pos) && checkNeighbors(x, y);
   }
 
   /**
