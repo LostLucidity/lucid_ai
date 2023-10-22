@@ -487,6 +487,7 @@ class ArmyManagementService {
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - A collection of actions to execute.
    */
   handleMeleeUnitLogic(world, selfUnit, targetUnit, attackablePosition, collectedActions) {
+    const logMessages = [];  // Create an array to store log messages
     // Validations for necessary properties
     if (!selfUnit.pos || !selfUnit.radius || !targetUnit.pos) return;
 
@@ -512,17 +513,27 @@ class ArmyManagementService {
 
     // Handling the melee unit's actions based on the surrounding context
     if (!rangedUnitAlly || this.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
+      logMessages.push(`rangedUnitAlly exists: ${Boolean(rangedUnitAlly)}`); // Check if rangedUnitAlly is undefined or null
+      logMessages.push(`shouldEngage result: ${this.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)}`); // Log the result of shouldEngage
+
+      logMessages.push('Decision: Engaging - shouldEngage returned true or no rangedUnitAlly found');
       moveToSurroundOrAttack();
     } else {
-
+      logMessages.push('Decision: Not engaging immediately - checking if need to fallback');
       if (rangedUnitAlly.pos && shouldFallback(world, selfUnit, rangedUnitAlly, targetUnit)) {
+        logMessages.push('Decision: Fallback - shouldFallback returned true');
         moveToFallbackPosition();
       } else {
+        logMessages.push('Decision: Surround - will try to surround the enemy');
         moveToSurroundPosition();
       }
     }
 
     attackIfApplicable();
+
+    if (world.resources.get().frame.timeInSeconds() >= 201 && world.resources.get().frame.timeInSeconds() <= 216) {
+      console.log(logMessages.join('; '));  // Print all log messages as a single string
+    }
 
     /**
      * Determines if the melee unit can attack the target unit.
@@ -866,6 +877,7 @@ class ArmyManagementService {
    * @param {boolean} clearRocks - Indicates if destructible rocks should be targeted.
    */
   processNonWorkerUnit(world, selfUnits, selfUnit, position, enemyUnits, collectedActions, clearRocks) {
+    const logMessages = [];  // Initialize an array to collect log messages
     const { getInRangeDestructables, getMovementSpeed, getWeaponThatCanAttack, setPendingOrders } = unitService;
     const { data, resources } = world;
     const { map, units } = resources.get();
@@ -882,6 +894,7 @@ class ArmyManagementService {
       return getDistance(unit.pos, selfUnit.pos) <= engagementDistanceThreshold;
     });
     if (closestAttackableEnemyUnit && getDistance(selfUnit.pos, closestAttackableEnemyUnit.pos) < 16) {
+      logMessages.push('Closest attackable enemy unit found within distance < 16');
       const { pos: closestAttackableEnemyUnitPos, radius: closestAttackableEnemyUnitRadius, unitType: closestAttackableEnemyUnitType } = closestAttackableEnemyUnit; if (closestAttackableEnemyUnitPos === undefined || closestAttackableEnemyUnitRadius === undefined || closestAttackableEnemyUnitType === undefined) return;
       const relevantEnemyUnits = enemyUnits.filter(unit => {
         if (unit.pos && selfUnit.pos) {
@@ -890,21 +903,29 @@ class ArmyManagementService {
         return false;
       });
       const shouldEngageGroup = this.shouldEngage(world, relevantSelfUnits, relevantEnemyUnits);
+      logMessages.push(`shouldEngageGroup: ${shouldEngageGroup}`);
       if (!shouldEngageGroup) {
         if (getMovementSpeed(map, selfUnit) < getMovementSpeed(map, closestAttackableEnemyUnit) && closestAttackableEnemyUnit.unitType !== ADEPTPHASESHIFT) {
+          logMessages.push('selfUnit is slower than closestAttackableEnemyUnit and enemy unit is not ADEPTPHASESHIFT');
+
           if (selfUnit.isMelee()) {
+            logMessages.push('selfUnit is melee');
             collectedActions.push(...this.microB(world, selfUnit, closestAttackableEnemyUnit, enemyUnits));
           } else {
             const enemyInAttackRange = isEnemyInAttackRange(data, selfUnit, closestAttackableEnemyUnit);
+
             if (enemyInAttackRange) {
+              logMessages.push('enemy is in attack range');
               collectedActions.push(...this.microRangedUnit(world, selfUnit, closestAttackableEnemyUnit));
             } else {
+              logMessages.push('enemy is not in attack range');
               const unitCommand = createUnitCommand(MOVE, [selfUnit]);
               unitCommand.targetWorldSpacePos = this.retreat(world, selfUnit, [closestAttackableEnemyUnit]);
               collectedActions.push(unitCommand);
             }
           }
         } else {
+          logMessages.push('selfUnit is faster than closestAttackableEnemyUnit or enemy unit is ADEPTPHASESHIFT');
           const unitCommand = createUnitCommand(MOVE, [selfUnit]);
           if (selfUnit.isFlying) {
             if (attackablePosition) {
@@ -989,6 +1010,7 @@ class ArmyManagementService {
           collectedActions.push(unitCommand);
         }
       } else {
+        logMessages.push('shouldEngageGroup is true');
         setRecruitToBattleLabel(selfUnit, attackablePosition);
         if (canAttack(selfUnit, closestAttackableEnemyUnit, false)) {
           if (!selfUnit.isMelee()) {
@@ -1005,6 +1027,7 @@ class ArmyManagementService {
         }
       }
     } else {
+      logMessages.push('No closest attackable enemy unit found within distance < 16 or closestAttackableEnemyUnit is undefined');
       if (selfUnit.unitType !== QUEEN) {
         const unitCommand = {
           abilityId: ATTACK_ATTACK,
@@ -1067,6 +1090,10 @@ class ArmyManagementService {
         }
         collectedActions.push(unitCommand);
       }
+    }
+
+    if (world.resources.get().frame.timeInSeconds() >= 201 && world.resources.get().frame.timeInSeconds() <= 216) {
+      console.log(logMessages.join('; '));  // Print all log messages as a single string
     }
   }
 
