@@ -358,6 +358,9 @@ class AssemblePlan {
      */
     const threats = this.threats || [];
 
+    // Collect additional behaviors to be executed in the game world
+    actionsToCollect.push(runBehaviors(world));
+
     // Condition to check if the units should defend or rally
     if (this.foodUsed !== undefined && this.foodUsed < ATTACKFOOD && !this.state.pushMode) {
       const action = this.state.defenseMode
@@ -370,9 +373,6 @@ class AssemblePlan {
     if (worldService.getFoodUsed() >= 132 && !worldService.shortOnWorkers(world)) {
       actionsToCollect.push(expand(world));
     }
-
-    // Collect additional behaviors to be executed in the game world
-    actionsToCollect.push(runBehaviors(world));
 
     // Wait for all actions to be resolved and flatten the results into the collectedActions array
     const results = await Promise.all(actionsToCollect);
