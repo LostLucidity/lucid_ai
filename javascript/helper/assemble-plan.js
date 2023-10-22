@@ -8,7 +8,6 @@ const rallyUnits = require("./rally-units");
 const { WarpUnitAbility, UnitType, Upgrade } = require("@node-sc2/core/constants");
 const continuouslyBuild = require("./continuously-build");
 const { TownhallRace, GasMineRace, WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { attack } = require("./behavior/army-behavior");
 const threats = require("./base-threats");
 const { generalScouting, cancelEarlyScout } = require("../builds/scouting");
 const { labelQueens, inject, maintainQueens } = require("../builds/zerg/queen-management");
@@ -28,7 +27,6 @@ const { keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers, deleteLabel, getMineralFieldTarget } = require("../systems/unit-resource/unit-resource-service");
 const planService = require("../services/plan-service");
 const scoutingService = require("../systems/scouting/scouting-service");
-const trackUnitsService = require("../systems/track-units/track-units-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const { getAvailableExpansions, getNextSafeExpansions } = require("./expansions");
 const { getSupply, hasEarmarks, clearEarmarks } = require("../services/data-service");
@@ -79,110 +77,28 @@ class AssemblePlan {
    */
   async onStep(world, state) {
     const { data, resources } = world;
-    const resourceData = resources.get();
-    const { actions, units, frame, map } = resourceData;
-    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-    this.collectedActions = [];
-    this.state = state;
-    this.state.defenseStructures = this.defenseStructures;
-    this.world = world;
-    this.agent = world.agent;
-    this.data = world.data;
-    this.foodUsed = this.world.agent.foodUsed;
-    this.resources = world.resources;
-    this.units = units;
-    this.frame = frame;
-    this.map = map;
+    const { units } = resources.get();
+    this.initializeStep(world, state);
 
-    if (this.foodUsed > this.world.agent.foodUsed) {
+    if (this.shouldUnpausePlan()) {
       planService.pausePlan = false;
     }
 
-    this.resourceTrigger = this.agent.minerals > 512 && this.agent.vespene > 256;
-    this.threats = threats(this.resources, this.state);
-    const { defend, getFoodUsed, shortOnWorkers } = worldService;
-
     await this.runPlan(world);
+    await this.collectActions(world);
+    this.handleStructures(world);
 
-    const actionsToCollect = [];
-
-    if (this.foodUsed < ATTACKFOOD && !this.state.pushMode) {
-      actionsToCollect.push(
-        this.state.defenseMode
-          ? defend(world, this.mainCombatTypes, this.supportUnitTypes, this.threats)
-          : rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation)
-      );
+    if (this.shouldExpand(world)) {
+      await this.expandWorld(world);
     }
 
-    if (getFoodUsed() >= 132 && !shortOnWorkers(world)) {
-      actionsToCollect.push(expand(world));
-    }
+    this.manageBases();
 
-    actionsToCollect.push(runBehaviors(world));
-
-    const results = await Promise.all(actionsToCollect);
-
-    results.forEach(action => {
-      if (Array.isArray(action)) {
-        this.collectedActions.push(...action);
-      }
-    });
-
-    const structuresAlmostDone = units.getStructures().filter(structure =>
-      structure.buildProgress > 0.9 && structure.buildProgress < 1 &&
-      !(structure.is(CREEPTUMORQUEEN) || structure.is(CREEPTUMOR)) &&
-      structure.pos && !armyManagementService.isStrongerAtPosition(world, structure.pos) &&
-      structure.tag
-    );
-
-    structuresAlmostDone.forEach(structure => {
-      this.collectedActions.push({
-        abilityId: CANCEL_BUILDINPROGRESS,
-        unitTags: [structure.tag],
-      });
-    });
-
-    if (getFoodUsed() >= 132 && !shortOnWorkers(world)) { this.collectedActions.push(...await expand(world)); }
-    this.checkEnemyBuild();
-    let completedBases = this.units.getBases().filter(base => base.buildProgress >= 1);
-    if (completedBases.length >= 3) {
-      this.collectedActions.push(...salvageBunker(this.units));
-      this.state.defendNatural = false;
-      scoutingService.enemyBuildType = 'midgame';
-    } else {
-      this.state.defendNatural = true;
-    }
     await this.raceSpecificManagement(world);
+    await this.runAndLogBehaviors(world);
 
-    // Log condition based on game world time
-    const logCondition = world.resources.get().frame.timeInSeconds() > 215 && world.resources.get().frame.timeInSeconds() < 245;
-
-    this.collectedActions.push(...await runBehaviors(world));
-
-    // Add logging for QUEEN actions here, if the logCondition is met
-    if (logCondition) {
-      // Get all QUEEN units
-      const queens = this.units.getAlive().filter(unit => unit.unitType === UnitType.QUEEN);
-
-      const queensActions = queens.reduce((acc, queen) => {
-        const { tag } = queen;
-        if (tag) {
-          acc[tag] = this.collectedActions.filter(action =>
-            action && action.unitTags && action.unitTags.includes(tag)  // Ensure action is defined before accessing its properties
-          );
-        }
-        return acc;
-      }, {});
-
-      if (Object.keys(queensActions).length > 0) { // Log only if there are actions collected
-        console.log(`Queens collectedActions in onStep: ${JSON.stringify(queensActions)}`);
-      }
-    }
-
-    const label = 'pendingOrders';
-    this.units.withLabel(label).forEach(unit => unit.labels.delete(label));
-    clearEarmarks(data);
-    await actions.sendAction(this.collectedActions);
+    this.clearPendingOrders(data, units);
+    await this.sendCollectedActions(world);
   }
 
   /**
@@ -405,8 +321,166 @@ class AssemblePlan {
     }
   }
 
+  /**
+   * Clears the pending orders of all units with a specific label and removes earmarks.
+   * It iterates over each unit with a "pendingOrders" label and deletes that label.
+   * It also clears earmarks from the provided data object.
+   *
+   * @param {DataStorage} data - The data object containing various game state information.
+   * @param {UnitResource} units - An array of unit objects, each containing details and labels of a unit.
+   */
+  clearPendingOrders(data, units) {
+    const label = 'pendingOrders';
+
+    units.withLabel(label).forEach(unit => {
+      // Deletes the 'pendingOrders' label from the unit
+      unit.labels.delete(label);
+    });
+
+    // Clears earmarks from the data object
+    clearEarmarks(data);
+  }  
+
+  /**
+   * Collects actions to be executed based on the current state of the world and game conditions.
+   * Actions can include defense maneuvers, unit rallies, expansions, and other behaviors.
+   * 
+   * @async
+   * @param {World} world - The current game world containing state, data, and resources.
+   * @returns {Promise<void>} - Resolves when all actions are collected.
+   */
+  async collectActions(world) {
+    const actionsToCollect = [];
+
+    // Ensure threats is defined, or use an empty array as a default
+    /**
+     * @type {Unit[]}
+     */
+    const threats = this.threats || [];
+
+    // Condition to check if the units should defend or rally
+    if (this.foodUsed !== undefined && this.foodUsed < ATTACKFOOD && !this.state.pushMode) {
+      const action = this.state.defenseMode
+        ? worldService.defend(world, this.mainCombatTypes, this.supportUnitTypes, threats)
+        : rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation);
+      actionsToCollect.push(action);
+    }
+
+    // Condition to check if it's time to expand the world
+    if (worldService.getFoodUsed() >= 132 && !worldService.shortOnWorkers(world)) {
+      actionsToCollect.push(expand(world));
+    }
+
+    // Collect additional behaviors to be executed in the game world
+    actionsToCollect.push(runBehaviors(world));
+
+    // Wait for all actions to be resolved and flatten the results into the collectedActions array
+    const results = await Promise.all(actionsToCollect);
+    this.collectedActions.push(...results.flat());
+  }
+
+  /**
+   * Expands the game world based on certain conditions or states.
+   * This could involve adding more units, structures, or capturing more territories.
+   *
+   * @param {World} world - The game world object containing the state and methods to manipulate the world.
+   * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>} - Returns a promise that resolves with an array of actions to be performed for expansion.
+   */
+  async expandWorld(world) {
+    // Assuming expand is a function that returns a promise which resolves with an array of actions
+    // to be performed for expanding the world.
+    const actions = await expand(world);
+
+    // Add any additional logic or conditions for expansion if needed
+
+    return actions;
+  }  
+
+  /**
+   * Handles the structures that are almost done building. It checks each structure's build progress 
+   * and other conditions, and if the conditions are met, it cancels the building progress.
+   * 
+   * @param {World} world - The game world object containing the state and methods to interact with the game world.
+   */
+  handleStructures(world) {
+    // Ensure this.units is defined and get structures that are almost done building but not yet complete
+    const structuresAlmostDone = this.units?.getStructures().filter(structure => {
+      // Adding a check for undefined buildProgress
+      if (typeof structure.buildProgress === 'undefined') {
+        return false;
+      }
+
+      return structure.buildProgress > 0.9 && structure.buildProgress < 1 &&
+        !(structure.is(CREEPTUMORQUEEN) || structure.is(CREEPTUMOR)) &&
+        structure.pos && !armyManagementService.isStrongerAtPosition(world, structure.pos) &&
+        structure.tag;
+    }) || [];  // Provide a default empty array if this.units is undefined
+
+    // Iterating over each structure and cancelling the build progress if the conditions are met
+    structuresAlmostDone.forEach(structure => {
+      this.collectedActions.push({
+        abilityId: CANCEL_BUILDINPROGRESS,
+        unitTags: [structure.tag],
+      });
+    });
+  }
+
   async getMiddleOfNaturalWall(unitType) {
     return await getMiddleOfNaturalWall(this.resources, unitType);
+  }
+
+  /**
+   * Logs the actions of QUEEN units based on the collected actions. This method filters 
+   * out QUEEN units from the current game state, identifies their actions from the 
+   * collected actions array, and logs them if any actions are found.
+   */
+  logQueenActions() {
+    if (!this.units) {
+      return;
+    }
+
+    // Get all QUEEN units
+    const queens = this.units.getAlive().filter(unit => unit.unitType === UnitType.QUEEN);
+
+    const queensActions = queens.reduce((acc, queen) => {
+      const { tag } = queen;
+      if (tag) {
+        acc[tag] = this.collectedActions.filter(action =>
+          action && action.unitTags && action.unitTags.includes(tag)
+        );
+      }
+      return acc;
+    }, {});
+
+    if (Object.keys(queensActions).length > 0) { // Log only if there are actions collected
+      console.log(`Queens collectedActions in onStep: ${JSON.stringify(queensActions)}`);
+    }
+  }
+
+  /**
+   * Manages the bases by updating the state and scouting service 
+   * depending on the number of completed bases.
+   * 
+   * If there are 3 or more completed bases, salvage bunkers,
+   * set `defendNatural` to false and update the enemy build type to 'midgame'.
+   * Otherwise, set `defendNatural` to true.
+   * 
+   * @private
+   */
+  manageBases() {
+    let completedBases;
+
+    if (this.units) {
+      completedBases = this.units.getBases().filter(base => base.buildProgress !== undefined && base.buildProgress >= 1);
+    }
+
+    if (completedBases && completedBases.length >= 3) {
+      this.collectedActions.push(...salvageBunker(this.units));
+      this.state.defendNatural = false;
+      scoutingService.enemyBuildType = 'midgame';
+    } else {
+      this.state.defendNatural = true;
+    }
   }
 
   /**
@@ -417,63 +491,201 @@ class AssemblePlan {
     await generalScouting(world, createdUnit);
     await world.resources.get().actions.sendAction(this.collectedActions);
   }
+
+  /**
+   * Sends the collected actions to be executed in the game world.
+   * @async
+   * @param {World} world - The world object containing the current state of the game world.
+   * @returns {Promise<void>} A promise that resolves when the actions have been successfully sent.
+   * @throws {Error} Throws an error if the action sending fails.
+   */
+  async sendCollectedActions(world) {
+    try {
+      if (this.collectedActions.length > 0) {
+        // Assume actions is a service that sends actions to be executed in the game world
+        await world.resources.get().actions.sendAction(this.collectedActions);
+        this.collectedActions = [];  // Clear the collected actions after sending
+      }
+    } catch (error) {
+      console.error('Failed to send collected actions:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Determines if the actions of QUEEN units should be logged based on the current time in the game world.
+   * QUEEN actions are logged if the current time is between a specified range.
+   *
+   * @returns {boolean} - Returns true if the current time is within the specified range for logging QUEEN actions, otherwise returns false.
+   */
+  shouldLogQueenActions() {
+    const currentTime = this.world?.resources?.get()?.frame?.timeInSeconds();
+    if (!currentTime) {
+      return false; // or handle this case in another appropriate manner
+    }
+    return currentTime > 215 && currentTime < 245;
+  }
+
   /**
    * @param {World} world
    */
   async raceSpecificManagement(world) {
     const { agent, resources } = world;
+    const { units } = resources.get();
     const { race } = agent;
+
+    let actions = [];
+
     switch (race) {
-      case Race.ZERG:
-        labelQueens(this.units);
-        this.collectedActions.push(...inject(this.world));
-        this.collectedActions.push(...overlordCoverage(resources));
-        this.collectedActions.push(...creeperBehavior(world));
+      case Race.ZERG: {
+        labelQueens(units);
+        actions = [
+          ...inject(world),
+          ...overlordCoverage(resources),
+          ...creeperBehavior(world),
+        ];
         break;
-      case Race.TERRAN:
-        this.collectedActions.push(...repairBurningStructures(this.resources));
-        this.collectedActions.push(...repairDamagedMechUnits(this.resources));
-        this.collectedActions.push(...repairBunker(this.resources));
-        this.collectedActions.push(...finishAbandonedStructures(this.resources));
+      }
+
+      case Race.TERRAN: {
+        // Example of parallel execution for asynchronous tasks
+        const [
+          burningStructures,
+          damagedMechUnits,
+          bunkerRepairs,
+          abandonedStructures
+        ] = await Promise.all([
+          repairBurningStructures(resources),
+          repairDamagedMechUnits(resources),
+          repairBunker(resources),
+          finishAbandonedStructures(resources)
+        ]);
+
+        actions = [
+          ...burningStructures,
+          ...damagedMechUnits,
+          ...bunkerRepairs,
+          ...abandonedStructures
+        ];
         break;
-      case Race.PROTOSS:
-        this.collectedActions.push(...await restorePower(this.world));
+      }
+
+      case Race.PROTOSS: {
+        actions = await restorePower(world);
         break;
+      }
     }
+
+    this.collectedActions.push(...actions);
+  }
+
+  /**
+   * Runs behaviors and logs QUEEN actions if the specified logging condition is met.
+   *
+   * @param {World} world - The world object containing the current state of the game world.
+   * @returns {Promise<void>} - A promise that resolves when behaviors have been run and actions are logged if needed.
+   */
+  async runAndLogBehaviors(world) {
+    this.collectedActions.push(...await runBehaviors(world));
+
+    if (this.shouldLogQueenActions()) {
+      this.logQueenActions();
+    }
+  }  
+
+  /**
+   * Determines if the world should expand based on the current food used and the number of workers.
+   * 
+   * @param {World} world - The world context containing the state and resources.
+   * @returns {boolean} - Returns true if the conditions for expansion are met, otherwise false.
+   */
+  shouldExpand(world) {
+    const { getFoodUsed, shortOnWorkers } = worldService;
+    return getFoodUsed() >= 132 && !shortOnWorkers(world);
+  }
+
+  /**
+   * Initializes the state and properties for the current step of the simulation.
+   *
+   * @param {World} world - The current world state including data and resources.
+   * @param {any} state - The state object containing various dynamic properties and flags.
+   */
+  initializeStep(world, state) {
+    const { resources } = world;
+    const resourceData = resources.get();
+    const { units, frame, map } = resourceData;
+
+    // Initializing properties
+    this.collectedActions = [];
+    this.state = state;
+    this.state.defenseStructures = this.defenseStructures;
+    this.world = world;
+    this.agent = world.agent;
+    this.data = world.data;
+    this.foodUsed = this.world.agent.foodUsed;
+    this.resources = world.resources;
+    this.units = units;
+    this.frame = frame;
+    this.map = map;
+
+    // Update resource trigger based on agent's minerals and vespene
+    this.resourceTrigger = this.agent.minerals && this.agent.vespene
+      ? this.agent.minerals > 512 && this.agent.vespene > 256
+      : false;
+
+    // Update threats based on resources and state
+    this.threats = threats(this.resources, this.state);
   }
   
   /**
-   * @param {UnitResource} units
-   * @param {number[]} foodRanges
-   * @returns {Promise<void>}
+   * Handles the activation and deactivation of the "push mode" for units based on the food used, and
+   * the current state of the world. The function adds or removes a label to/from units to indicate if they should
+   * be in "push mode" and performs actions based on this mode.
+   *
+   * @param {World} world - The world object containing the current state of the game world.
+   * @param {number[]} foodRanges - The ranges of food used to determine whether to activate push mode.
+   * @returns {Promise<void>} A promise that resolves when the push actions are completed.
    */
-  async push(units, foodRanges) {
+  async push(world, foodRanges) {
+    if (!world || !foodRanges || !this.state) return;
+
+    const { agent, resources } = world;
+    const { foodUsed } = agent;
+    const { units } = resources.get();
     const { push } = worldService;
     const label = 'pusher';
-    if (foodRanges.indexOf(this.foodUsed) > -1) {
-      if (this.state.pushMode === false && !this.state.cancelPush) {
-        [...this.mainCombatTypes, ...this.supportUnitTypes].forEach(type => {
-          this.units.getById(type).filter(unit => !unit.labels.get('scout') && !unit.labels.get('creeper') && !unit.labels.get('injector')).forEach(unit => unit.labels.set(label, true));
+
+    // Activate push mode
+    if (foodUsed !== undefined && foodRanges.includes(foodUsed) && !this.state.pushMode && !this.state.cancelPush) {
+      const unitsToLabel = units.getById([...this.mainCombatTypes, ...this.supportUnitTypes])
+        .filter(unit => {
+          const labels = unit.labels;
+          return !(labels.get('scout') || labels.get('creeper') || labels.get('injector'));
         });
-        console.log('getSupply(this.units.withLabel(label), this.data)', getSupply(this.data, this.units.withLabel(label)));
-        this.state.pushMode = true;
-      }
+
+      unitsToLabel.forEach(unit => unit.labels.set(label, true));
+      this.state.pushMode = true;
     }
+
+    // Execute push actions
     if (units.withLabel(label).length > 0 && !this.state.cancelPush) {
       if (worldService.outpowered) {
         this.state.cancelPush = true;
         deleteLabel(this.units, label);
-        console.log('cancelPush');
       } else {
-        this.collectedActions.push(...await push(this.world, this.mainCombatTypes, this.supportUnitTypes));
+        const actions = push(world, this.mainCombatTypes, this.supportUnitTypes);
+        this.collectedActions.push(...actions);
       }
-    } else if (this.state && this.state.pushMode === true) {
+    }
+
+    // Deactivate push mode
+    else if (this.state.pushMode) {
       this.state.pushMode = false;
       this.state.cancelPush = true;
       deleteLabel(this.units, label);
-      console.log('cancelPush');
     }
   }
+
   /**
    * @param {World} world
    * @param {number[]} foodRanges 
@@ -506,6 +718,21 @@ class AssemblePlan {
       }
     }
   }
+
+  /**
+   * Determines if the plan should be unpaused based on the current and previous food used.
+   * @returns {boolean} Returns true if the plan should be unpaused, otherwise false.
+   */
+  shouldUnpausePlan() {
+    if (typeof this.foodUsed === 'number' &&
+      this.world &&
+      this.world.agent &&
+      typeof this.world.agent.foodUsed === 'number') {
+      return this.foodUsed > this.world.agent.foodUsed;
+    }
+    return false;
+  }
+
   /**
    * @param {World} world
    * @param {number} food
@@ -689,7 +916,7 @@ class AssemblePlan {
             if (this.resourceTrigger && foodRanges.indexOf(this.foodUsed) > -1) { await continuouslyBuild(this.world, this, planStep[2], planStep[3]); } break;
           case 'liftToThird': if (foodUsed >= foodTarget) { await liftToThird(this.resources); } break;
           case 'maintainQueens': if (foodUsed >= foodTarget) { await maintainQueens(this.world); } break;
-          case 'push': this.push(units, foodTarget); break;
+          case 'push': this.push(world, foodTarget); break;
           case 'scout': {
             unitType = planStep[2];
             const targetLocation = planStep[3];

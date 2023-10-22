@@ -67,18 +67,19 @@ module.exports = {
 
         if (isQueenNecessary && isInCombat) {
           // Handle the queen engaging in battle if needed
-        } else if (!isInCombat) {
-          // The queen is not in combat and not needed in battle, move it to the nearest creep
-          collectedActions.push(...moveToNearestCreep(world, queen)); // Adjusted this line
         } else if (injectableQueens.includes(queen)) {
           // The queen can inject and is not needed in battle, proceed to inject
           collectedActions.push(...findTargetBaseAndInject(units, queen));
+        } else if (!isInCombat) {
+          // The queen is not in combat and not needed in battle, move it to the nearest creep
+          collectedActions.push(...moveToNearestCreep(world, queen));
         }
       }
     });
 
     return collectedActions;
-  },
+  }
+,
   /**
    * @param {World} world 
    */

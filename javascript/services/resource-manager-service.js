@@ -129,40 +129,37 @@ const resourceManagerService = {
     return pathFindingService.getClosestUnitByPath(resources, closestPathablePosition, units, getGasGeysers(unitResource), 1)[0];
   },
   /**
- * @param {ResourceManager} resources
- * @param {Point2D} position
- * @returns {Point2D[]}
- */
+   * Gets the edges of the "creep" area based on the provided resources and position.
+   * If the edges are already calculated and stored, it retrieves them from the cache.
+   * Otherwise, it calculates the creep edges based on the resource and position.
+   *
+   * @param {ResourceManager} resources - The resource manager containing map and unit data.
+   * @param {Point2D} position - The position to calculate creep edges from.
+   * @returns {Point2D[]} - An array of points representing the creep edges.
+   */
   getCreepEdges: (resources, position) => {
     const { creepEdges } = resourceManagerService;
-    if (creepEdges.length > 0) return creepEdges;
-    const { map, units } = resources.get();
-    // get Creep Edges within range with increasing range
 
+    // Return cached edges if available
+    if (creepEdges.length > 0) return creepEdges;
+
+    const { map, units } = resources.get();
     const maxRange = 10;
     const creepEdgesByRange = getCreepEdgesWithinRanges(resources, position, maxRange);
 
+    // Find edges within the range, return early if found
     for (let range = 0; range < maxRange; range++) {
       if (creepEdgesByRange[range].length > 0) {
         return creepEdgesByRange[range];
       }
     }
 
-    if (creepEdgesByRange.every(rangeEdges => rangeEdges.length === 0)) {
-      const creepGenerators = units.getById(creepGeneratorsTypes);
-      return map.getCreep().filter(position => {
-        const [closestCreepGenerator] = units.getClosest(position, creepGenerators);
-        if (closestCreepGenerator) {
-          const { pos } = closestCreepGenerator; if (pos === undefined) return false;
-          const distanceToCreepGenerator = getDistance(position, pos);
-          // check if position is adjacent to non-creep position and is pathable
-          const creepEdge = pathFindingService.isCreepEdge(map, position);
-          return distanceToCreepGenerator < 12.75 && creepEdge;
-        }
-      });
-    }
-    // Default return statement to handle scenarios where no condition is met
-    return [];
+    const creepGenerators = units.getById(creepGeneratorsTypes);
+
+    // Filter positions that are close to generators and are on the creep edge
+    return map.getCreep().filter(pos =>
+      isEdgeCloseToGenerator(resources, pos, creepGenerators)
+    );
   },
   /**
    * @param {ResourceManager} resources
@@ -320,31 +317,35 @@ function getUnitsWithinDistance(pos, units, maxDistance) {
 }
 
 /**
- * @param {ResourceManager} resources
- * @param {Point2D} position
- * @param {Number} maxRange
- * @returns {Point2D[][]}
+ * Retrieves the creep edges within specified ranges. The function filters out 
+ * grids that are not creep edges, and calculates the distance from the position 
+ * to each creep edge. It then classifies these creep edges based on their 
+ * distance, storing them in separate arrays according to the distance range.
+ *
+ * @param {ResourceManager} resources - Provides access to the resource map.
+ * @param {Point2D} position - The central position from where the ranges are calculated.
+ * @param {number} maxRange - The maximum range within which to find creep edges.
+ * @returns {Point2D[][]} - A 2D array where each sub-array contains creep edges within a specific range.
  */
 function getCreepEdgesWithinRanges(resources, position, maxRange) {
   const { map } = resources.get();
   const grids = gridsInCircle(position, maxRange);
-  
-  const clusters = getClusters(grids);
-  // Create an array to hold creep edges for each range
+
+  // Filter out grids that are not creep edges to minimize the calculations and iterations needed.
+  const clusters = getClusters(grids).filter(grid => pathFindingService.isCreepEdge(map, grid));
+
   /** @type {Point2D[][]} */
   const creepEdgesByRange = Array.from({ length: maxRange }, () => []);
 
   clusters.forEach(grid => {
-    if (pathFindingService.isCreepEdge(map, grid)) {
-      const distance = pathFindingService.getDistanceByPath(resources, position, grid);
-      if (distance <= maxRange) {
-        // Ensure that index is at least 0 to avoid undefined array element
-        const index = Math.floor(distance) > 0 ? Math.floor(distance) - 1 : 0;
-        creepEdgesByRange[index].push(grid);
-      }
+    const distance = pathFindingService.getDistanceByPath(resources, position, grid);
+
+    if (distance <= maxRange) {
+      // Ensure the index is within the bounds of the array.
+      const index = Math.max(0, Math.floor(distance) - 1);
+      creepEdgesByRange[index].push(grid);
     }
   });
-
 
   return creepEdgesByRange;
 }
@@ -388,3 +389,22 @@ function warpInCommands(world, unitType, opts = {}) {
   });
 }
 
+/**
+ * Determines if a position is a creep edge close to a generator.
+ *
+ * @param {ResourceManager} resources - The resource manager containing map and unit data.
+ * @param {Point2D} position - The position to be checked.
+ * @param {Unit[]} creepGenerators - An array of creep generator units.
+ * @returns {boolean} - Returns true if the position is a creep edge and close to a generator, otherwise false.
+ */
+function isEdgeCloseToGenerator(resources, position, creepGenerators) {
+  const { map, units } = resources.get();
+  const [closestCreepGenerator] = units.getClosest(position, creepGenerators);
+
+  if (!closestCreepGenerator || !closestCreepGenerator.pos) return false;
+
+  const distanceToCreepGenerator = getDistance(position, closestCreepGenerator.pos);
+  const isCreepEdge = pathFindingService.isCreepEdge(map, position);
+
+  return distanceToCreepGenerator < 12.75 && isCreepEdge;
+}

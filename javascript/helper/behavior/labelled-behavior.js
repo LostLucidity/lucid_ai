@@ -24,14 +24,16 @@ const { getClosestPathWithGasGeysers } = require("../../src/services/utility-ser
 const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
 const { getGasGeysers } = require("../../src/services/unit-retrieval");
 const { getCreepEdges } = require("../../services/resource-manager-service");
-const { isByItselfAndNotAttacking } = require("../../src/services/unit-analysis");
+const { isByItselfAndNotAttacking, getPotentialCombatantsInRadius } = require("../../src/services/unit-analysis");
 const enemyTrackingService = require("../../src/services/enemy-tracking/enemy-tracking-service");
 const { filterEnemyUnits } = require("../../src/services/shared-utilities/combat-utilities");
 
 module.exports = {
   /**
-   * @param {World} world 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   * Handles the behavior for units moving across the map.
+   *
+   * @param {World} world - The current state of the world including resources and units.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of raw unit commands.
    */
   acrossTheMapBehavior: (world) => {
     const { resources } = world;
@@ -42,19 +44,32 @@ module.exports = {
 
     const enemyUnits = filterEnemyUnits(unit, enemyTrackingService.mappedEnemyUnits);
 
-    // Use enemyUnits.length directly without additional condition
     if (enemyUnits.length === 0) {
       const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
       unitCommand.targetWorldSpacePos = getAcrossTheMap(map);
       return [unitCommand];
     }
 
-    const potentialCombatUnits = getPotentialCombatantsInRadius(world, unit, 16);
-    const [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(resources, unit.pos, enemyUnits, getGasGeysers(units), 1);
+    // Directly use getUnitsForEngagement here
+    const unitsForEngagement = armyManagementService.getUnitsForEngagement(world, unit, 16);
+
+    const [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(
+      resources,
+      unit.pos,
+      enemyUnits,
+      getGasGeysers(units),
+      1
+    );
 
     if (!closestEnemyUnit || !closestEnemyUnit.pos) return [];
 
-    return armyManagementService.engageOrRetreat(world, potentialCombatUnits, enemyUnits, closestEnemyUnit.pos, false);
+    return armyManagementService.engageOrRetreat(
+      world,
+      unitsForEngagement,
+      enemyUnits,
+      closestEnemyUnit.pos,
+      false
+    );
   },
   /**
    * Directs a unit to clear from enemies, making sure it doesn't run into other threats.
@@ -103,15 +118,17 @@ module.exports = {
 
     const creeperQueens = units.withLabel('creeper');
 
-    creeperQueens.forEach(unit => {
-      const pos = unit.pos;
-      if (!pos) return;
+    for (const unit of creeperQueens) {
+      if (!unit.pos) continue;
 
-      if (handleThreats(world, unit, collectedActions)) return;
-      if (!unit.isIdle()) return;
-
-      handleCreepSpread(world, unit, collectedActions);
-    });
+      // Always check for threats regardless of whether the unit is idle
+      if (!handleThreats(world, unit, collectedActions)) {
+        // If no threats and unit is idle, then handle creep spread
+        if (unit.isIdle()) {
+          handleCreepSpread(world, unit, collectedActions);
+        }
+      }
+    }
 
     return collectedActions;
   },
@@ -434,16 +451,13 @@ function handleThreats(world, unit, collectedActions) {
  */
 function handleCreepSpread(world, unit, collectedActions) {
   const { resources } = world;
-  const { pos } = unit; if (pos === undefined) return;
-  /** @type Point2D | undefined */
-  let selectedCreepEdge;
+  const { pos } = unit;
+  if (!pos) return;
 
-
-  if (getUnitTypeCount(world, CREEPTUMORBURROWED) <= 3) {
-    selectedCreepEdge = getCreepEdgeCloseToEnemy(resources);
-  } else {
-    selectedCreepEdge = getCreepEdgeCloseToEnemy(resources, pos);
-  }
+  const isFewCreepTumors = getUnitTypeCount(world, CREEPTUMORBURROWED) <= 3;
+  const selectedCreepEdge = isFewCreepTumors
+    ? getCreepEdgeCloseToEnemy(resources)
+    : getCreepEdgeCloseToEnemy(resources, pos);
 
   if (selectedCreepEdge) {
     issueCreepCommand(unit, selectedCreepEdge, collectedActions);
@@ -451,34 +465,19 @@ function handleCreepSpread(world, unit, collectedActions) {
 }
 
 /**
- * @param {ResourceManager} resources
- * @param {Point2D | undefined} pos
- * @returns {Point2D | undefined}
+ * Finds the closest creep edge to an enemy based on the provided position or, if no position is provided, based on townhall positions.
+ *
+ * @param {ResourceManager} resources - The resource manager containing map and other data.
+ * @param {Point2D} [pos] - The position to use as a reference for finding the closest creep edge. If not provided, the function will use the townhall positions.
+ * @returns {Point2D | undefined} The coordinates of the closest creep edge to the enemy or undefined if none found.
  */
-function getCreepEdgeCloseToEnemy(resources, pos=undefined) {
+function getCreepEdgeCloseToEnemy(resources, pos = undefined) {
   const { map } = resources.get();
+
   if (!pos) {
-    const occupiedTownhalls = map.getOccupiedExpansions().map(expansion => expansion.getBase());
-    const { townhallPosition } = map.getEnemyNatural();
-    const closestTownhallPositionToEnemy = occupiedTownhalls.reduce((/** @type {{ distance: number, pos: Point2D, pathCoordinates: Point2D[] }} */ closest, townhall) => {
-      const pos = townhall.pos;
-      if (!pos) return closest;
-      const pathData = getClosestPathWithGasGeysers(resources, pos, townhallPosition);
-      const { distance, pathCoordinates } = pathData;
-      return distance < closest.distance ? { distance, pos, pathCoordinates } : closest;
-    }, { distance: Infinity, pos: { x: 0, y: 0 }, pathCoordinates: [] });
-  
-    const creepEdgeAndPath = closestTownhallPositionToEnemy.pathCoordinates.filter(path => pathFindingService.isCreepEdge(map, path));
-    if (creepEdgeAndPath.length > 0) {
-      return pathFindingService.getClosestPositionByPath(resources, closestTownhallPositionToEnemy.pos, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
-    }
+    return getCreepEdgeClosestToEnemyTownhall(resources, map);
   } else {
-    let clusteredCreepEdges = getClusters(getCreepEdges(resources, pos));
-    const creepEdgeAndPathWithinRange = clusteredCreepEdges.filter(position => getDistanceSquared(pos, position) <= 100); // using square distance
-    if (creepEdgeAndPathWithinRange.length > 0) {
-      clusteredCreepEdges = creepEdgeAndPathWithinRange;
-    }
-    return pathFindingService.getClosestPositionByPath(resources, pos, clusteredCreepEdges)[0];
+    return getCreepEdgeCloseToGivenPosition(resources, pos);
   }
 }
 
@@ -543,28 +542,45 @@ function handleEngageOrRetreat(world, unit, enemyUnit, nearbyEnemyUnits, collect
 
   collectedActions.push(...armyManagementService.engageOrRetreat(world, potentialCombatUnits, nearbyEnemyUnits, enemyUnit.pos, false));
 }
+
 /**
- * Gets potential combatant units within a certain radius.
- * 
- * @param {World} world - The current state of the world.
- * @param {Unit} unit - The reference unit to check radius around.
- * @param {number} radius - The radius to check for units.
- * @returns {Unit[]} - Array of potential combatant units.
+ * Finds the closest creep edge to the enemy townhall from the positions of occupied townhalls.
+ *
+ * @param {ResourceManager} resources - The resource manager containing map and other data.
+ * @param {MapResource} map - The game map.
+ * @returns {Point2D | undefined} The coordinates of the closest creep edge or undefined if none found.
  */
-function getPotentialCombatantsInRadius(world, unit, radius) {
-  // Destructure to get the units directly
-  const units = world.resources.get().units;
+function getCreepEdgeClosestToEnemyTownhall(resources, map) {
+  const occupiedTownhalls = map.getOccupiedExpansions().map(e => e.getBase());
+  const { townhallPosition } = map.getEnemyNatural();
 
-  // Use a single filtering operation to get potential combatants in the given radius.
-  return units.getAlive(Alliance.SELF).filter(targetUnit => {
-    // Check if both units have valid positions
-    if (!unit.pos || !targetUnit.pos) return false;
+  for (const townhall of occupiedTownhalls) {
+    const pos = townhall.pos;
+    if (!pos) continue;
 
-    // Check if the target unit is within the radius
-    const isWithinRadius = getDistance(unit.pos, targetUnit.pos) <= radius;
-    // Check if the target unit is a potential combatant
-    const isPotentialCombatant = unitService.potentialCombatants(targetUnit);
-    return isWithinRadius && isPotentialCombatant;
-  });
+    const pathData = getClosestPathWithGasGeysers(resources, pos, townhallPosition);
+    const creepEdgeAndPath = pathData.pathCoordinates.filter(path => pathFindingService.isCreepEdge(map, path));
+
+    if (creepEdgeAndPath.length > 0) {
+      return pathFindingService.getClosestPositionByPath(resources, pos, creepEdgeAndPath, creepEdgeAndPath.length)[creepEdgeAndPath.length - 1];
+    }
+  }
 }
 
+/**
+ * Finds the closest creep edge to the provided position.
+ *
+ * @param {ResourceManager} resources - The resource manager containing map and other data.
+ * @param {Point2D} pos - The position to use as a reference for finding the closest creep edge.
+ * @returns {Point2D | undefined} The coordinates of the closest creep edge or undefined if none found.
+ */
+function getCreepEdgeCloseToGivenPosition(resources, pos) {
+  let clusteredCreepEdges = getClusters(getCreepEdges(resources, pos));
+  const creepEdgeAndPathWithinRange = clusteredCreepEdges.filter(position => getDistanceSquared(pos, position) <= 100); // using square distance
+
+  if (creepEdgeAndPathWithinRange.length > 0) {
+    clusteredCreepEdges = creepEdgeAndPathWithinRange;
+  }
+
+  return pathFindingService.getClosestPositionByPath(resources, pos, clusteredCreepEdges)[0];
+}

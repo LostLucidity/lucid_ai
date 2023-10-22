@@ -9,43 +9,62 @@ const armyManagementService = require("../src/services/army-management/army-mana
 const enemyTrackingService = require("../src/services/enemy-tracking");
 
 /**
+ * Rallies units to a specified point or a default location.
  * 
- * @param {World} world 
- * @param {UnitTypeId[]} supportUnitTypes 
- * @param {Point2D} rallyPoint 
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ * @param {World} world - The world context containing resources and units.
+ * @param {UnitTypeId[]} supportUnitTypes - Array of support unit types IDs.
+ * @param {Point2D} [rallyPoint=null] - The rally point for units; uses a default location if not provided.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - Array of unit commands.
  */
 function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
-  console.log('rallyUnits')
-  const { resources } = world
+  console.log('rallyUnits');
+  const { resources } = world;
   const { units } = resources.get();
   const collectedActions = [];
+
   const combatUnits = units.getCombatUnits().filter(unit => {
     // Check if a unit does not have any labels or only has the 'combatPoint' label
     return unit.labels.size === 0 || (unit.labels.size === 1 && unit.labels.has('combatPoint'));
   });
+
   const label = 'defending';
   units.withLabel(label).forEach(unit => {
     unit.labels.delete(label) && collectedActions.push(createUnitCommand(STOP, [unit]));
   });
+
   if (!rallyPoint) {
     rallyPoint = armyManagementService.getCombatRally(resources);
   }
-  if (combatUnits.length > 0) {
-    const supportUnits = [];
-    supportUnitTypes.forEach(type => {
-      supportUnits.concat(units.getById(type).filter(unit => unit.labels.size === 0));
-    });
-    if (units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1).length > 0) {
-      const [bunker] = units.getById(BUNKER);
-      rallyPoint = bunker.pos;
+
+  const processedUnits = new Set();
+  const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA));
+
+  combatUnits.forEach(referenceUnit => {
+    if (!processedUnits.has(referenceUnit)) {
+      const unitsForEngagement = armyManagementService.getUnitsForEngagement(world, referenceUnit, 16);
+
+      // Mark units as processed
+      unitsForEngagement.forEach(unit => processedUnits.add(unit));
+
+      // Use the selected units for engagement or retreat
+      collectedActions.push(...armyManagementService.engageOrRetreat(world, unitsForEngagement, enemyUnits, rallyPoint));
     }
-    const selfUnits = [...combatUnits, ...supportUnits];
-    const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA));
-    collectedActions.push(...armyManagementService.engageOrRetreat(world, selfUnits, enemyUnits, rallyPoint));
+  });
+
+  // Include the logic for support units and bunkers as before
+  const supportUnits = [];
+  supportUnitTypes.forEach(type => {
+    supportUnits.concat(units.getById(type).filter(unit => unit.labels.size === 0));
+  });
+
+  if (units.getById(BUNKER).filter(bunker => bunker.buildProgress >= 1).length > 0) {
+    const [bunker] = units.getById(BUNKER);
+    rallyPoint = bunker.pos;
   }
+
   collectedActions.push(...tankBehavior(units));
   return collectedActions;
 }
+
 
 module.exports = rallyUnits;

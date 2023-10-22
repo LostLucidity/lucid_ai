@@ -39,7 +39,7 @@ const foodUsedService = require('../services/food-used-service');
 const { keepPosition, getBuildingFootprintOfOrphanAddons } = require('../services/placement-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
 const { canAttack } = require('../services/resources-service');
-const { getMiddleOfStructure, moveAwayPosition, getDistance, dbscan, dbscanWithUnits, getStructureCells } = require('../services/position-service');
+const { getMiddleOfStructure, moveAwayPosition, getDistance, dbscan, dbscanWithUnits, getStructureCells, dbscanb, dbscanc } = require('../services/position-service');
 const MapResourceService = require('../systems/map-resource-system/map-resource-service');
 const { getPathCoordinates } = require('../services/path-service');
 const resourceManagerService = require('../services/resource-manager-service');
@@ -2093,10 +2093,13 @@ const worldService = {
     return collectedActions;
   },
   /**
-   * @param {World} world 
-   * @param {UnitTypeId} mainCombatTypes 
-   * @param {UnitTypeId} supportUnitTypes 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   * Directs combat and support units to engage or retreat based on the closest enemy target. 
+   * Also handles scanning cloaked enemies.
+   *
+   * @param {World} world - The game world.
+   * @param {UnitTypeId} mainCombatTypes - The types of main combat units.
+   * @param {UnitTypeId} supportUnitTypes - The types of support units.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The collected actions for units.
    */
   push: (world, mainCombatTypes, supportUnitTypes) => {
     const { searchAndDestroy } = resourceManagerService;
@@ -2104,24 +2107,53 @@ const worldService = {
     const { resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
-    let [closestEnemyBase] = pathFindingService.getClosestUnitByPath(resources, armyManagementService.getCombatRally(resources), units.getBases(Alliance.ENEMY));
+
+    let [closestEnemyBase] = pathFindingService.getClosestUnitByPath(
+      resources,
+      armyManagementService.getCombatRally(resources),
+      units.getBases(Alliance.ENEMY)
+    );
+
     const [combatUnits, supportUnits] = groupUnits(units, [mainCombatTypes], [supportUnitTypes]);
+
+    // No need to re-group units, use the previously grouped units
+    if (!combatUnits.length) {
+      return [];
+    }
+
     const avgCombatUnitsPoint = avgPoints(combatUnits.map(unit => unit.pos));
-    const closestEnemyTarget = closestEnemyBase || pathFindingService.getClosestUnitByPath(resources, avgCombatUnitsPoint, enemyTrackingServiceV2.mappedEnemyUnits)[0];
-    if (closestEnemyTarget) {
-      const { pos } = closestEnemyTarget; if (pos === undefined) { return []; }
-      const [combatUnits, supportUnits] = groupUnits(units, [mainCombatTypes], [supportUnitTypes]);
+    const closestEnemyTarget = closestEnemyBase
+      || pathFindingService.getClosestUnitByPath(resources, avgCombatUnitsPoint, enemyTrackingServiceV2.mappedEnemyUnits)[0];
+
+    if (closestEnemyTarget && closestEnemyTarget.pos) {
       collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
-      if (combatUnits.length > 0) {
-        let allyUnits = [...combatUnits, ...supportUnits, ...units.getWorkers().filter(worker => worker.isAttacking())];
-        let selfDPSHealth = allyUnits.reduce((accumulator, unit) => accumulator + getDPSHealth(world, unit, enemyTrackingServiceV2.mappedEnemyUnits.map(enemyUnit => enemyUnit.unitType)), 0)
-        console.log('Push', selfDPSHealth, closestEnemyTarget['selfDPSHealth']);
-        collectedActions.push(...armyManagementService.engageOrRetreat(world, allyUnits, enemyTrackingServiceV2.mappedEnemyUnits, pos, false));
-      }
+
+      const allyUnits = [
+        ...combatUnits,
+        ...supportUnits,
+        ...units.getWorkers().filter(worker => worker.isAttacking())
+      ];
+
+      const selfDPSHealth = allyUnits.reduce((accumulator, unit) => {
+        const enemyTypes = enemyTrackingServiceV2.mappedEnemyUnits.reduce((typesAccumulator, enemyUnit) => {
+          typesAccumulator.add(enemyUnit.unitType);
+          return typesAccumulator;
+        }, new Set());
+
+        return accumulator + getDPSHealth(world, unit, Array.from(enemyTypes));
+      }, 0);
+
+      console.log('Push', selfDPSHealth, closestEnemyTarget['selfDPSHealth']);
+
+      collectedActions.push(
+        ...armyManagementService.engageOrRetreat(world, allyUnits, enemyTrackingServiceV2.mappedEnemyUnits, closestEnemyTarget.pos, false)
+      );
+
       collectedActions.push(...scanCloakedEnemy(units, closestEnemyTarget, combatUnits));
     } else {
       collectedActions.push(...searchAndDestroy(resources, combatUnits, supportUnits));
     }
+
     return collectedActions;
   },
   /**

@@ -32,6 +32,7 @@ const { getWeaponDPS, getWeapon, getWeaponDamage, setDamageForTag, getDamageForT
 const enemyTrackingServiceV2 = require("../enemy-tracking/enemy-tracking-service");
 const { getDistanceBetween } = require("../utility-service");
 const { getCachedAlive } = require("../cache-service");
+const { getPotentialCombatantsInRadius } = require("../unit-analysis");
 
 class ArmyManagementService {
   constructor() {
@@ -110,75 +111,75 @@ class ArmyManagementService {
   engageOrRetreat(world, selfUnits, enemyUnits, position, clearRocks = true) {
     const collectedActions = [];
 
-    /** @type {Unit[]} */
-    const injectorQueens = [];
-    /** @type {Unit[]} */
-    const allMeleeUnits = [];
-    /** @type {Unit[]} */
-    const otherUnits = [];
+    const classifications = classifyUnits(selfUnits);
+    const { injectorQueens, allMeleeUnits, otherUnits } = classifications;
 
-    // Combine filtering operations to loop through selfUnits only once
-    selfUnits.forEach(unit => {
-      const isInjectorQueen = unit.is(QUEEN) && unit.labels.has('injector');
-      const isMelee = unit.isMelee();
+    const healthStatus = evaluateUnitHealth(allMeleeUnits, world, enemyUnits);
+    const { lowHealthMeleeUnits, healthyMeleeUnits } = healthStatus; // Assume healthyMeleeUnits is also returned by evaluateUnitHealth
 
-      if (isInjectorQueen) {
-        injectorQueens.push(unit);
-      } else if (isMelee) {
-        allMeleeUnits.push(unit);
-      } else {
-        otherUnits.push(unit);
-      }
-    });
+    const necessaryUnits = this.evaluateNecessaryUnits(world, injectorQueens, lowHealthMeleeUnits, otherUnits, enemyUnits);
+    const { necessaryInjectorQueens, necessaryLowHealthMeleeUnits, battleUnits } = necessaryUnits;
 
-    /**
-     * Checks if the unit has low health based on the safety buffer.
-     *
-     * @param {Unit} unit - The unit to check.
-     * @returns {boolean} - Returns true if the unit's health is below the safety buffer, false otherwise.
-     */
-    const isLowHealth = (unit) => {
-      const safetyBuffer = calculateSafetyBuffer(world, unit, enemyUnits);
-      const totalHealthShield = (unit.health || 0) + (unit.shield || 0);
-      return totalHealthShield <= safetyBuffer;
-    };
+    issueStopOrders(injectorQueens, necessaryInjectorQueens, collectedActions);
+    this.issueRetreatOrders(world, lowHealthMeleeUnits, necessaryLowHealthMeleeUnits, enemyUnits, collectedActions);
 
-    /** @type {Unit[]} */
-    const lowHealthMeleeUnits = [];
-    /** @type {Unit[]} */
-    const healthyMeleeUnits = [];
+    // Including healthyMeleeUnits in the units to be processed
+    const allUnitsToProcess = battleUnits.concat(healthyMeleeUnits);
 
-    allMeleeUnits.forEach(unit => {
-      if (isLowHealth(unit)) {
-        lowHealthMeleeUnits.push(unit);
-      } else {
-        healthyMeleeUnits.push(unit);
-      }
-    });
-
-    // Evaluating units for battle
-    const necessaryInjectorQueens = this.getNecessaryUnits(world, injectorQueens, otherUnits, enemyUnits);
-    const necessaryLowHealthMeleeUnits = this.getNecessaryUnits(world, lowHealthMeleeUnits, otherUnits, enemyUnits);
-
-    // Combining all units needed for the battle
-    const battleUnits = [...necessaryInjectorQueens, ...healthyMeleeUnits, ...necessaryLowHealthMeleeUnits, ...otherUnits];
-
-    // Issuing stop orders to unnecessary injector queens
-    injectorQueens
-      .filter(queen => !necessaryInjectorQueens.includes(queen) && queen.isAttacking() && queen.tag)
-      .forEach(queen => collectedActions.push({ abilityId: STOP, unitTags: [queen.tag] }));
-
-    // Issuing retreat orders to unnecessary low-health melee units
-    lowHealthMeleeUnits
-      .filter(unit => !necessaryLowHealthMeleeUnits.includes(unit) && unit.tag)
-      .forEach(unit => collectedActions.push(this.createRetreatCommand(world, unit, enemyUnits)));
-
-    // Processing all units needed for battle
-    battleUnits.forEach(unit => {
-      this.processSelfUnitLogic(world, battleUnits, unit, position, enemyUnits, collectedActions, clearRocks);
+    allUnitsToProcess.forEach(unit => {
+      this.processSelfUnitLogic(world, allUnitsToProcess, unit, position, enemyUnits, collectedActions, clearRocks);
     });
 
     return collectedActions;
+  }
+
+  /**
+   * Evaluates and classifies the necessary units for battle including injector queens and low health melee units.
+   *
+   * @param {World} world - The game world containing all the game information.
+   * @param {Unit[]} injectorQueens - The array of injector queens.
+   * @param {Unit[]} lowHealthMeleeUnits - The array of low health melee units.
+   * @param {Unit[]} otherUnits - The array of other types of units.
+   * @param {Unit[]} enemyUnits - The array of enemy units.
+   * @returns {{necessaryInjectorQueens: Unit[], necessaryLowHealthMeleeUnits: Unit[], battleUnits: Unit[]}} - The necessary units for battle.
+   */
+  evaluateNecessaryUnits(world, injectorQueens, lowHealthMeleeUnits, otherUnits, enemyUnits) {
+    /** @type {Unit[]} */
+    const necessaryInjectorQueens = this.getNecessaryUnits(world, injectorQueens, otherUnits, enemyUnits);
+
+    /** @type {Unit[]} */
+    const necessaryLowHealthMeleeUnits = this.getNecessaryUnits(world, lowHealthMeleeUnits, otherUnits, enemyUnits);
+
+    // Combining all units needed for the battle
+    const battleUnits = [...necessaryInjectorQueens, ...necessaryLowHealthMeleeUnits, ...otherUnits];
+
+    return {
+      necessaryInjectorQueens,
+      necessaryLowHealthMeleeUnits,
+      battleUnits
+    };
+  }  
+
+  /**
+   * Issues retreat orders to low-health melee units that are not deemed necessary for the battle.
+   * Unnecessary units are identified and assigned a retreat command to move away from the battle.
+   *
+   * @param {World} world - The game world containing all the game information.
+   * @param {Unit[]} lowHealthMeleeUnits - The array of low-health melee units.
+   * @param {Unit[]} necessaryLowHealthMeleeUnits - The array of necessary low-health melee units for the battle.
+   * @param {Unit[]} enemyUnits - The array of enemy units.
+   * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - The collection of unit commands to be executed.
+   */
+  issueRetreatOrders(world, lowHealthMeleeUnits, necessaryLowHealthMeleeUnits, enemyUnits, collectedActions) {
+    lowHealthMeleeUnits
+      .filter(unit => !necessaryLowHealthMeleeUnits.includes(unit) && unit.tag)
+      .forEach(unit => {
+        const retreatCommand = this.createRetreatCommand(world, unit, enemyUnits);
+
+        if (retreatCommand) {
+          collectedActions.push(retreatCommand);
+        }
+      });
   }
 
   /**
@@ -428,6 +429,18 @@ class ArmyManagementService {
     });
 
     return retreatCandidates;
+  }
+
+  /**
+   * Retrieves units that are suitable for engagement.
+   *
+   * @param {World} world - The current state of the world.
+   * @param {Unit} unit - The reference unit.
+   * @param {number} radius - The radius to check for units.
+   * @returns {Unit[]} - Array of units selected for engagement.
+   */
+  getUnitsForEngagement(world, unit, radius) {
+    return getPotentialCombatantsInRadius(world, unit, radius);
   }
 
   /**
@@ -1088,12 +1101,14 @@ class ArmyManagementService {
   }
 
   /**
+   * Determines the retreat point for a given unit based on the surrounding threats and conditions.
    * 
-   * @param {World} world 
-   * @param {Unit} unit 
-   * @param {Unit[]} targetUnits 
-   * @param {boolean} [toCombatRally=true]
-   * @returns {Point2D|undefined}
+   * @param {World} world - The world context containing data and resources.
+   * @param {Unit} unit - The unit that is considering retreating.
+   * @param {Unit[]} targetUnits - The potential threat units.
+   * @param {boolean} [toCombatRally=true] - Flag indicating whether to retreat to a combat rally point.
+   * 
+   * @returns {Point2D|undefined} The point to which the unit should retreat, or undefined if no retreat is needed.
    */
   retreat(world, unit, targetUnits = [], toCombatRally = true) {
     const { data, resources } = world;
@@ -1103,24 +1118,31 @@ class ArmyManagementService {
     if (!pos || targetUnits.length === 0) return;
 
     const filterRadius = 16;
-    const threats = [];
-    for (const target of targetUnits) {
-      if (!target.pos || target.unitType === undefined) continue;  // Added the undefined check here
-      const distance = getDistanceBetween(pos, target.pos);
-      if (distance > filterRadius) continue;
+    const threats = targetUnits
+      .filter(target =>
+        target.pos &&
+        target.unitType !== undefined &&
+        getDistanceBetween(pos, target.pos) <= filterRadius)
+      .map(target => {
+        const weapon = typeof target.unitType === 'number' ?
+          unitService.getWeaponThatCanAttack(data, target.unitType, unit) : null;
 
-      const weapon = unitService.getWeaponThatCanAttack(data, target.unitType, unit);  // Safe to call now
-      if (weapon && weapon.range) {
-        threats.push({ unit: target, weapon, attackRange: weapon.range });
-      }
-    }
+        return weapon && weapon.range ? { unit: target, weapon, attackRange: weapon.range } : null;
+      })
+      .filter(Boolean);
 
     if (threats.length === 0) return;
 
-    threats.sort((a, b) => (b.attackRange || 0) - (a.attackRange || 0));
+    threats.sort((a, b) => {
+      if (a && b) {
+        return b.attackRange - a.attackRange;
+      }
+      return 0;
+    });
+
     const primaryThreat = threats[0];
 
-    if (!primaryThreat.weapon || primaryThreat.attackRange === undefined) return;
+    if (!primaryThreat) return;
 
     const travelDistancePerStep = 2 * getTravelDistancePerStep(map, unit);
     if (this.shouldRetreatToCombatRally(world, unit, primaryThreat.unit, toCombatRally, travelDistancePerStep)) {
@@ -1128,15 +1150,11 @@ class ArmyManagementService {
     }
 
     if (shouldRetreatToBunker(resources, pos)) {
+      // Convert null to undefined if getClosestBunkerPosition returns null
       return getClosestBunkerPosition(resources, pos) || undefined;
     }
 
-    const targetPositions = threats.reduce((/** @type {Point2D[]} */ acc, t) => {
-      if (t.unit.pos) {
-        acc.push(t.unit.pos);
-      }
-      return acc;
-    }, []);
+    const targetPositions = threats.map(t => t.unit.pos);
 
     return targetPositions.length > 1
       ? moveAwayFromMultiplePositions(map, targetPositions, pos)
@@ -2993,15 +3011,85 @@ function getRetreatPath(world, map, pos, point) {
 }
 
 /**
- * Determines whether a specific position is occupied by an enemy unit.
+ * Classifies units into different categories based on their types and labels.
  *
- * @param {UnitResource} units - The unit resource.
- * @param {Unit} selfUnit - The unit to check against occupation.
- * @param {Point2D} position - The location to be checked.
- * @param {Unit[]} enemies - A list of enemy units to evaluate for occupation.
- * @returns {boolean} - Indicates if the position is occupied by an enemy unit.
+ * @param {Unit[]} selfUnits - The array of the player's units to classify.
+ * @returns {{ injectorQueens: Unit[]; allMeleeUnits: Unit[]; otherUnits: Unit[] }} - The classified units.
  */
-function isOccupiedByEnemy(units, selfUnit, position, enemies) {
-  return enemies.some(enemy =>
-    enemy.pos && getDistance(enemy.pos, position) < (enemy.radius ?? 0) + (selfUnit.radius ?? 0));
+function classifyUnits(selfUnits) {
+  /** @type {Unit[]} */
+  const injectorQueens = [];
+  /** @type {Unit[]} */
+  const allMeleeUnits = [];
+  /** @type {Unit[]} */
+  const otherUnits = [];
+
+  selfUnits.forEach(unit => {
+    const isInjectorQueen = unit.is(QUEEN) && unit.labels.has('injector');
+    const isMelee = unit.isMelee();
+
+    if (isInjectorQueen) {
+      injectorQueens.push(unit);
+    } else if (isMelee) {
+      allMeleeUnits.push(unit);
+    } else {
+      otherUnits.push(unit);
+    }
+  });
+
+  return {
+    injectorQueens,
+    allMeleeUnits,
+    otherUnits
+  };
 }
+
+/**
+ * Evaluates the health status of each melee unit and classifies them into
+ * low health and healthy categories. The classification is based on the
+ * comparison of each unit's total health (health + shield) with a safety buffer
+ * calculated considering the current game world and enemy units.
+ *
+ * @param {Unit[]} allMeleeUnits - An array of all melee units to be evaluated.
+ * @param {World} world - The current state of the game world.
+ * @param {Unit[]} enemyUnits - An array of all current enemy units.
+ * @returns {Object} - An object containing two arrays: lowHealthMeleeUnits and healthyMeleeUnits.
+ */
+function evaluateUnitHealth(allMeleeUnits, world, enemyUnits) {
+  /** @type {Unit[]} */
+  const lowHealthMeleeUnits = [];
+  /** @type {Unit[]} */
+  const healthyMeleeUnits = [];
+
+  allMeleeUnits.forEach(unit => {
+    const safetyBuffer = calculateSafetyBuffer(world, unit, enemyUnits);
+    const totalHealthShield = (unit.health || 0) + (unit.shield || 0);
+
+    if (totalHealthShield <= safetyBuffer) {
+      lowHealthMeleeUnits.push(unit);
+    } else {
+      healthyMeleeUnits.push(unit);
+    }
+  });
+
+  return { lowHealthMeleeUnits, healthyMeleeUnits };
+}
+
+/**
+ * Issue stop orders to unnecessary injector queens that are currently attacking.
+ * 
+ * @param {Unit[]} injectorQueens - The array of all injector queens.
+ * @param {Unit[]} necessaryInjectorQueens - The array of injector queens that are necessary for the battle.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - The array where the stop action commands will be collected.
+ */
+function issueStopOrders(injectorQueens, necessaryInjectorQueens, collectedActions) {
+  injectorQueens
+    .filter(queen => !necessaryInjectorQueens.includes(queen) && queen.isAttacking() && queen.tag)
+    .forEach(queen => {
+      if (queen.tag) {
+        collectedActions.push({ abilityId: STOP, unitTags: [queen.tag] });
+      }
+    });
+}
+
+

@@ -26,71 +26,78 @@ const positionService = {
       y: Math.min(Math.max(y, minY), maxY)
     };
   },
+
   /**
-   * @param {Point2D[]} points
-   * @param {number} eps
-   * @param {number} minPts
-   * @returns {Point2D[]}
+   * Performs DBSCAN (Density-Based Spatial Clustering of Applications with Noise) clustering
+   * on a given set of points. This clustering algorithm groups together points that are close 
+   * to each other based on a distance measurement (eps) and a minimum number of points. 
+   * It also marks as noise the points that are in low-density regions.
+   *
+   * @param {Point2D[]} points - The set of points to be clustered.
+   * @param {number} [eps=1.5] - The maximum distance between two points for one to be considered as in the neighborhood of the other.
+   * @param {number} [minPts=1] - The minimum number of points to form a dense region.
+   * 
+   * @returns {Point2D[]} - The center points of each detected cluster.
    */
   dbscan(points, eps = 1.5, minPts = 1) {
-  let clusters = [];
-  let visited = new Set();
-  let noise = new Set();
+    let clusters = [];
+    let visited = new Set();
 
-  function rangeQuery(p) {
-    return points.filter((point) => {
-      const distance = positionService.getDistance(p, point); // Assume getDistance is defined
-      return distance <= eps;
-    });
-  }
+    /**
+     * Returns the neighbors of a given point within the 'eps' distance.
+     *
+     * @param {Point2D} p - The point for which to find the neighbors.
+     * @returns {Point2D[]} - The neighboring points within the 'eps' distance.
+     */
+    function rangeQuery(p) {
+      return points.filter(point => {
+        const distance = positionService.getDistance(p, point);
+        return distance <= eps;
+      });
+    }
 
-  points.forEach((point) => {
-    if (!visited.has(point)) {
+    points.forEach(point => {
+      if (visited.has(point)) {
+        return;
+      }
+
       visited.add(point);
-
-      let neighbors = rangeQuery(point);
+      const neighbors = rangeQuery(point);
 
       if (neighbors.length < minPts) {
-        noise.add(point);
-      } else {
-        let cluster = new Set([point]);
+        return;
+      }
 
-        for (let point2 of neighbors) {
-          if (!visited.has(point2)) {
-            visited.add(point2);
+      let cluster = new Set();
+      clusters.push(cluster);
 
-            let neighbors2 = rangeQuery(point2);
-
-            if (neighbors2.length >= minPts) {
-              neighbors = neighbors.concat(neighbors2);
-            }
-          }
-
-          if (!Array.from(cluster).includes(point2)) {
-            cluster.add(point2);
+      neighbors.forEach(neighbor => {
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          const neighbors2 = rangeQuery(neighbor);
+          if (neighbors2.length >= minPts) {
+            neighbors2.forEach(neighbor2 => neighbors.push(neighbor2));
           }
         }
+        cluster.add(neighbor);
+      });
+    });
 
-        clusters.push(cluster);
-      }
-    }
-  });
-
-  // Return center of each cluster
-    return clusters.map((cluster) => {
-      let x = 0;
-      let y = 0;
-      for (let point of cluster) {
+    /**
+     * Calculates the centroid for each cluster.
+     *
+     * @returns {Point2D[]} - An array containing the centroids of the clusters.
+     */
+    return clusters.map(cluster => {
+      let x = 0, y = 0;
+      cluster.forEach(point => {
         x += point.x;
         y += point.y;
-      }
-
-      return {
-        x: x / cluster.size,
-        y: y / cluster.size
-      };
+      });
+      return { x: x / cluster.size, y: y / cluster.size };
     });
   },
+  
   /**
    * @param {{point: Point2D, unit: Unit}[]} pointsWithUnits
    * @param {number} eps
