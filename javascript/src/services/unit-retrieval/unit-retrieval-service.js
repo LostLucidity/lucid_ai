@@ -1,8 +1,9 @@
-const { Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const unitService = require("../../../services/unit-service");
 const trackUnitsService = require("../../../systems/track-units/track-units-service");
 const { getDistance } = require("../../../services/position-service");
 const unitResourceService = require("../../../systems/unit-resource/unit-resource-service");
+const dataService = require("../../../services/data-service");
 
 class UnitRetrievalService {
 
@@ -44,6 +45,34 @@ class UnitRetrievalService {
     }
     return unitService.selfUnits.get(tag) || [];
   }
+
+  /**
+   * @param {World} world
+   * @returns {{unitType: number, timeLeft: number}[]}
+   * @description returns unit types that are training, with time left to train
+   */
+  getUnitsTraining(world) {
+    const { getBuildTimeLeft } = unitService;
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const unitsWithOrders = units.getAlive(Alliance.SELF).filter(unit => unit.orders !== undefined && unit.orders.length > 0);
+    return unitsWithOrders.reduce((/** @type {{unitType: number, timeLeft: number}[]} */ acc, unit) => {
+      const { orders } = unit; if (orders === undefined) return acc;
+      /** @type {{abilityId: number | undefined, progress: number | undefined}[]} */
+      const mappedOrders = orders.map(order => ({ abilityId: order.abilityId, progress: order.progress }));
+      mappedOrders.forEach(({ abilityId, progress }) => {
+        if (abilityId === undefined || progress === undefined) return acc;
+        const unitType = dataService.unitTypeTrainingAbilities.get(abilityId);
+        if (unitType !== undefined) {
+          const { attributes, buildTime } = data.getUnitTypeData(unitType); if (attributes === undefined || buildTime === undefined) return acc;
+          if (attributes.includes(Attribute.STRUCTURE)) return acc;
+          const timeLeft = getBuildTimeLeft(unit, buildTime, progress);
+          acc.push({ unitType, timeLeft });
+        }
+      });
+      return acc;
+    }, []);
+  }  
 }
 
 // Export as a singleton, or export the class if you prefer to instantiate it elsewhere

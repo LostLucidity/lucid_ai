@@ -62,7 +62,7 @@ const pathFindingService = require('./services/pathfinding/pathfinding-service')
 const { getWeaponDPS } = require('./services/shared-utilities/combat-utilities');
 const { getClosestUnitPositionByPath } = require('../services/resource-manager-service');
 const armyManagementService = require('./services/army-management/army-management-service');
-const { getGasGeysers } = require('./services/unit-retrieval');
+const { getGasGeysers, getUnitsTraining } = require('./services/unit-retrieval');
 const enemyTrackingServiceV2 = require('./services/enemy-tracking');
   
 const worldService = {
@@ -3826,34 +3826,6 @@ function getHealthAndShield(targetUnits) {
     return acc + health + shield;
   }, 0);
   return healthAndShield;
-}
-
-/**
- * @param {World} world
- * @returns {{unitType: number, timeLeft: number}[]}
- * @description returns unit types that are training, with time left to train
- */
-function getUnitsTraining(world) {
-  const { getBuildTimeLeft } = unitService;
-  const { data, resources } = world;
-  const { units } = resources.get();
-  const unitsWithOrders = units.getAlive(Alliance.SELF).filter(unit => unit.orders !== undefined && unit.orders.length > 0);
-  return unitsWithOrders.reduce((/** @type {{unitType: number, timeLeft: number}[]} */ acc, unit) => {
-    const { orders } = unit; if (orders === undefined) return acc;
-    /** @type {{abilityId: number | undefined, progress: number | undefined}[]} */
-    const mappedOrders = orders.map(order => ({ abilityId: order.abilityId, progress: order.progress }));
-    mappedOrders.forEach(({ abilityId, progress }) => {
-      if (abilityId === undefined || progress === undefined) return acc;
-      const unitType = dataService.unitTypeTrainingAbilities.get(abilityId);
-      if (unitType !== undefined) {
-        const { attributes, buildTime } = data.getUnitTypeData(unitType); if (attributes === undefined || buildTime === undefined) return acc;
-        if (attributes.includes(Attribute.STRUCTURE)) return acc;
-        const timeLeft = getBuildTimeLeft(unit, buildTime, progress);
-        acc.push({ unitType, timeLeft });
-      }
-    });
-    return acc;
-  }, []);
 }
 
 /**

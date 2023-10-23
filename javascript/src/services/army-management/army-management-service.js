@@ -33,6 +33,7 @@ const enemyTrackingServiceV2 = require("../enemy-tracking/enemy-tracking-service
 const { getDistanceBetween } = require("../utility-service");
 const { getCachedAlive } = require("../cache-service");
 const { getPotentialCombatantsInRadius } = require("../unit-analysis");
+const { calculateTimeToKillUnits } = require("../combat-statistics");
 
 class ArmyManagementService {
   constructor() {
@@ -531,7 +532,7 @@ class ArmyManagementService {
 
     attackIfApplicable();
 
-    if (world.resources.get().frame.timeInSeconds() >= 201 && world.resources.get().frame.timeInSeconds() <= 216) {
+    if (world.resources.get().frame.timeInSeconds() >= 198 && world.resources.get().frame.timeInSeconds() <= 216) {
       console.log(logMessages.join('; '));  // Print all log messages as a single string
     }
 
@@ -585,12 +586,18 @@ class ArmyManagementService {
      * Directs the melee unit to a position to surround or attack the enemy.
      */
     function moveToSurroundOrAttack() {
-      const surroundPosition = getOptimalSurroundPosition();
-      if (isInOptimalSurroundPosition() || isAttackAvailable()) {
+      if (isAttackAvailable()) {
+        logMessages.push('Decision: Attacking - attack is available');
         attackIfApplicable();
-      } else if (surroundPosition) {
-        createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions, queueCommand);
-        queueCommand = true;
+      } else if (isInOptimalSurroundPosition()) {
+        logMessages.push('Decision: In optimal surround position - ready to attack when possible');
+      } else {
+        const surroundPosition = getOptimalSurroundPosition();
+        if (surroundPosition) {
+          logMessages.push('Decision: Moving to optimal surround position');
+          createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions, queueCommand);
+          queueCommand = true;
+        }
       }
     }
 
@@ -1092,7 +1099,7 @@ class ArmyManagementService {
       }
     }
 
-    if (world.resources.get().frame.timeInSeconds() >= 201 && world.resources.get().frame.timeInSeconds() <= 216) {
+    if (world.resources.get().frame.timeInSeconds() >= 198 && world.resources.get().frame.timeInSeconds() <= 216) {
       console.log(logMessages.join('; '));  // Print all log messages as a single string
     }
   }
@@ -1240,7 +1247,12 @@ class ArmyManagementService {
    * @returns {boolean}
    */
   shouldEngage(world, selfUnits, enemyUnits) {
-    const { timeToKill, timeToBeKilled } = calculateTimeToKill(world, selfUnits, enemyUnits);
+    if (selfUnits.length === 0 && enemyUnits.length === 0) {
+      // Modify this return value or add logic as per your game's requirements
+      return true; // or false, or any other handling you find appropriate
+    }
+
+    const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, selfUnits, enemyUnits);
 
     // Engage if self units can eliminate enemy units faster than they can be eliminated
     return timeToKill <= timeToBeKilled;
@@ -2045,7 +2057,7 @@ function isSafePathToRally(world, unit, pathToRally) {
       const directionOfMovement = subtractVectors(point, unitPos);
       const currentTime = world.resources.get().frame.timeInSeconds();
 
-      if (currentTime >= 194 && currentTime <= 201) {
+      if (currentTime >= 194 && currentTime <= 198) {
         console.log(`Time: ${currentTime}, UnitPos: ${JSON.stringify(unit.pos)}, PathLength: ${pathToRally.length}, ClosestEnemyPos: ${JSON.stringify(closestEnemy.pos)}, AliveEnemies: ${aliveEnemies.length}, ProjectedEnemyPos: ${JSON.stringify(projectedTargetPosition)}, EffectiveAttackRange: ${effectiveAttackRange}, DistanceSquared: ${distanceSquared}, Weapon: ${JSON.stringify(weapon)}, DotVectorsResult: ${dotVectors(directionToEnemy, directionOfMovement)}`);
       }
       return dotVectors(directionToEnemy, directionOfMovement) < 0;
@@ -2186,7 +2198,7 @@ function isPointSafe(world, unit, point) {
   const alliesAtPoint = getUnitsInRangeOfPosition(trackUnitsService.selfUnits, point, 16).filter(ally => !ally.isWorker());
   const enemiesNearUnit = getUnitsInRangeOfPosition(enemyTrackingServiceV2.mappedEnemyUnits, point, 16);
 
-  const { timeToKill, timeToBeKilled } = calculateTimeToKill(world, alliesAtPoint, enemiesNearUnit);
+  const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, alliesAtPoint, enemiesNearUnit);
 
   return timeToKill < timeToBeKilled;
 }
@@ -2267,46 +2279,6 @@ function getUnitsInRangeOfPosition(units, position, range) {
     const { pos } = unit; if (pos === undefined) return false;
     return getDistance(pos, position) <= range;
   });
-}
-
-/**
- * @param {World} world
- * @param {Unit[]} selfUnits
- * @param {Unit[]} enemyUnits
- * @returns {{timeToKill: number, timeToBeKilled: number}}
- */
-function calculateTimeToKill(world, selfUnits, enemyUnits) {
-  if (selfUnits.length === 0) {
-    return { timeToKill: Infinity, timeToBeKilled: 0 };
-  }
-
-  if (enemyUnits.length === 0) {
-    return { timeToKill: 0, timeToBeKilled: Infinity };
-  }
-
-  const timeToKill = enemyUnits.reduce((timeToKill, threat) => {
-    const { health, shield, unitType } = threat; if (health === undefined || shield === undefined || unitType === undefined) return timeToKill;
-    const totalHealth = health + shield;
-    const totalWeaponDPS = selfUnits.reduce((totalWeaponDPS, unit) => {
-      const { unitType } = unit; if (unitType === undefined) return totalWeaponDPS;
-      const weaponDPS = getWeaponDPS(world, unitType, Alliance.SELF, enemyUnits.map(threat => threat.unitType));
-      return totalWeaponDPS + weaponDPS;
-    }, 0);
-    const timeToKillCurrent = totalHealth / (totalWeaponDPS === 0 ? 1 : totalWeaponDPS);
-    return (timeToKill === Infinity) ? timeToKillCurrent : timeToKill + timeToKillCurrent;
-  }, Infinity);
-  const timeToBeKilled = selfUnits.reduce((timeToBeKilled, unit) => {
-    const { health, shield, unitType } = unit; if (health === undefined || shield === undefined || unitType === undefined) return timeToBeKilled;
-    const totalHealth = health + shield;
-    const totalWeaponDPS = enemyUnits.reduce((totalWeaponDPS, threat) => {
-      const { unitType } = threat; if (unitType === undefined) return totalWeaponDPS;
-      const weaponDPS = getWeaponDPS(world, unitType, Alliance.ENEMY, selfUnits.map(unit => unit.unitType));
-      return totalWeaponDPS + weaponDPS;
-    }, 0);
-    const timeToBeKilledCurrent = totalHealth / (totalWeaponDPS === 0 ? 1 : totalWeaponDPS);
-    return (timeToBeKilled === Infinity) ? timeToBeKilledCurrent : timeToBeKilled + timeToBeKilledCurrent;
-  }, Infinity);
-  return { timeToKill, timeToBeKilled };
 }
 
 /**

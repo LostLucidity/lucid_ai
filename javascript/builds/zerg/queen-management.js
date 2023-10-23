@@ -19,7 +19,7 @@ const enemyTrackingService = require("../../src/services/enemy-tracking");
 const armyManagementService = require("../../src/services/army-management/army-management-service");
 const MapResourceService = require("../../systems/map-resource-system/map-resource-service");
 const { createMoveCommand } = require("../../src/services/command-service");
-const { isOnCreep } = require("../../src/services/shared-functions");
+const { isOnCreep } = require("../../src/services/shared-utilities/common-utilities");
 
 module.exports = {
   /**

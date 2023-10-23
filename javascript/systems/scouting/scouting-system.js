@@ -21,6 +21,11 @@ const scoutingService = require("./scouting-service");
 const scoutService = require("./scouting-service");
 const { setOutsupplied, setEnemyCombatSupply } = require("./scouting-service");
 const armyManagementService = require("../../src/services/army-management/army-management-service");
+const unitService = require("../../services/unit-service");
+const { calculateTimeToKillUnits } = require("../../src/services/combat-statistics");
+const enemyTrackingServiceV2 = require("../../src/services/enemy-tracking/enemy-tracking-service");
+const { getUnitsTraining } = require("../../src/services/unit-retrieval");
+const { getUnitTypeData } = require("../unit-resource/unit-resource-service");
 
 module.exports = createSystem({
   name: 'ScoutingSystem',
@@ -32,7 +37,7 @@ module.exports = createSystem({
     setEnemyCombatSupply(data);
     setPositionLastSeen(resources, TownhallRace[agent.race][0]);
     setOutsupplied();
-    setOutpowered();
+    setOutpowered(world);
   },
   async onUnitDamaged(world, damagedUnit) {
     const { resources } = world;
@@ -177,10 +182,121 @@ function setPositionLastSeen(resources, unitType) {
     scoutingService.lastSeen['enemyNaturalTownhallFootprint'] = frame.timeInSeconds();
   }
 }
-function setOutpowered() {
-  worldService.outpowered = worldService.totalEnemyDPSHealth > worldService.totalSelfDPSHealth;
-  if (!planService.dirtyBasePlan && worldService.outpowered) {
-    planService.dirtyBasePlan = true;
-    console.log('dirtyBasePlan'.toUpperCase());
+
+/**
+ * @param {World} world
+ */
+function setOutpowered(world) {
+  const { units } = world.resources.get();
+  const allSelfUnits = units.getAlive(Alliance.SELF);
+  const allEnemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
+  const unitTypesTraining = getUnitTypesInTraining(world);  // Retrieve unit types in training
+
+  const currentSelfUnits = allSelfUnits.filter(unit => unitService.potentialCombatants(unit));
+  const enemyUnits = allEnemyUnits.filter(unit => unitService.potentialCombatants(unit));
+
+  // Create a unit object from types for units in training
+  const trainingUnits = unitTypesTraining.map(type => createMockUnitFromTypeID(world, type));
+
+  // Combine current units and units in training for total self units
+  const totalSelfUnits = currentSelfUnits.concat(trainingUnits);
+
+  // Calculate combined engagement metrics
+  const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, totalSelfUnits, enemyUnits);
+
+  // Determine outpowered status
+  worldService.outpowered = timeToKill > timeToBeKilled;
+
+  // Log details including the metrics leading to shouldEngage decision
+  const logDetails = {
+    selfUnitsCount: totalSelfUnits.length, // corrected from selfUnits to totalSelfUnits
+    enemyUnitsCount: enemyUnits.length,
+    totalEnemyDPSHealth: worldService.totalEnemyDPSHealth,
+    totalSelfDPSHealth: worldService.totalSelfDPSHealth,
+    outpowered: worldService.outpowered,
+    shouldEngage: worldService.shouldEngage,
+    timeToKill,
+    timeToBeKilled
+  };
+
+  console.log(JSON.stringify(logDetails));
+
+  if (worldService.outpowered) {
+    console.log('Outpowered! Consider training more units or improving defenses.');
   }
+}
+
+/**
+ * Create a mock unit object from a unit type ID.
+ * @param {World} world - The world context
+ * @param {number} unitTypeID - The ID of the unit type to create.
+ * @returns {Unit} - The created mock unit object.
+ */
+function createMockUnitFromTypeID(world, unitTypeID) {
+  const { units } = world.resources.get();
+  const { healthMax, isFlying, radius, shieldMax }
+    = getUnitTypeData(units, unitTypeID);
+
+  return {
+    unitType: unitTypeID,
+    health: healthMax,
+    shield: shieldMax,
+    _availableAbilities: [],
+    labels: new Map(),
+    isFlying: isFlying,
+    radius: radius,
+    abilityAvailable: () => false,
+    availableAbilities: () => [],
+    data: () => ({}),
+    is: (type) => type === unitTypeID,
+    isAttacking: () => false,
+    isCloaked: () => false,
+    isConstructing: () => false,
+    isCombatUnit: () => true,
+    isMelee: () => false,
+    isEnemy: () => false,
+    isFinished: () => true,
+    isWorker: () => false,
+    isTownhall: () => false,
+    isGasMine: () => false,
+    isMineralField: () => false,
+    isStructure: () => false,
+    isIdle: () => true,
+    isCurrent: () => true,
+    isHolding: () => false,
+    isGathering: () => false,
+    isReturning: () => false,
+    isHarvesting: () => false,
+    hasReactor: () => false,
+    hasTechLab: () => false,
+    hasNoLabels: () => true,
+    canInject: () => false,
+    canBlink: () => false,
+    canMove: () => true,
+    canShootGround: () => true,
+    canShootUp: () => true,
+    update: () => { },
+    inject: () => Promise.resolve({}),
+    blink: () => Promise.resolve({}),
+    toggle: () => Promise.resolve({}),
+    burrow: () => Promise.resolve({}),
+    addLabel: (name, value) => new Map().set(name, value),
+    hasLabel: () => false,
+    getLife: () => 100,
+    getLabel: () => null,
+    removeLabel: () => true
+  };
+}
+
+/**
+ * @param {World} world
+ * @returns {number[]} - Array of unit types that are currently in training
+ */
+function getUnitTypesInTraining(world) {
+  const unitsTraining = getUnitsTraining(world);
+
+  // Extract just the unit types from the array of objects
+  const unitTypesInTraining = unitsTraining.map(unit => unit.unitType);
+
+  return unitTypesInTraining;
 }

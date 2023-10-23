@@ -1,12 +1,13 @@
 //@ts-check
 "use strict"
 
-const { BUNKER, LARVA } = require("@node-sc2/core/constants/unit-type");
+const { BUNKER } = require("@node-sc2/core/constants/unit-type");
 const { createUnitCommand } = require("../services/actions-service");
 const { STOP } = require("@node-sc2/core/constants/ability");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
 const armyManagementService = require("../src/services/army-management/army-management-service");
 const enemyTrackingService = require("../src/services/enemy-tracking");
+const { filterEnemyUnits } = require("../src/services/shared-utilities/combat-utilities");
 
 /**
  * Rallies units to a specified point or a default location.
@@ -37,11 +38,12 @@ function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
   }
 
   const processedUnits = new Set();
-  const enemyUnits = enemyTrackingService.mappedEnemyUnits.filter(unit => !(unit.unitType === LARVA));
 
   combatUnits.forEach(referenceUnit => {
     if (!processedUnits.has(referenceUnit)) {
       const unitsForEngagement = armyManagementService.getUnitsForEngagement(world, referenceUnit, 16);
+
+      const enemyUnits = filterEnemyUnits(referenceUnit, enemyTrackingService.mappedEnemyUnits);
 
       // Mark units as processed
       unitsForEngagement.forEach(unit => processedUnits.add(unit));
