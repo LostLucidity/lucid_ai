@@ -1096,6 +1096,15 @@ class ArmyManagementService {
           }
         }
         collectedActions.push(unitCommand);
+      } else {
+        if (selfUnit.tag) {
+          const stopCommand = {
+            abilityId: STOP,
+            unitTags: [selfUnit.tag],
+          };
+          collectedActions.push(stopCommand);
+          logMessages.push('Issued STOP command to QUEEN to allow other behaviors');
+        }
       }
     }
 
