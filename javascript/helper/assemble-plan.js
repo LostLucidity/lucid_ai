@@ -50,6 +50,8 @@ const dataService = require("../services/data-service");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const { pathFindingService } = require("../src/services/pathfinding");
 const armyManagementService = require("../src/services/army-management/army-management-service");
+const trackUnitsService = require("../systems/track-units/track-units-service");
+const { attack } = require("./behavior/army-behavior");
 
 
 let ATTACKFOOD = 194;
@@ -342,13 +344,13 @@ class AssemblePlan {
   }  
 
   /**
-   * Collects actions to be executed based on the current state of the world and game conditions.
-   * Actions can include defense maneuvers, unit rallies, expansions, and other behaviors.
-   * 
-   * @async
-   * @param {World} world - The current game world containing state, data, and resources.
-   * @returns {Promise<void>} - Resolves when all actions are collected.
-   */
+ * Collects actions to be executed based on the current state of the world and game conditions.
+ * Actions can include defense maneuvers, unit rallies, expansions, and other behaviors.
+ * 
+ * @async
+ * @param {World} world - The current game world containing state, data, and resources.
+ * @returns {Promise<void>} - Resolves when all actions are collected.
+ */
   async collectActions(world) {
     const actionsToCollect = [];
 
@@ -361,12 +363,20 @@ class AssemblePlan {
     // Collect additional behaviors to be executed in the game world
     actionsToCollect.push(runBehaviors(world));
 
-    // Condition to check if the units should defend or rally
-    if (this.foodUsed !== undefined && this.foodUsed < ATTACKFOOD && !this.state.pushMode) {
-      const action = this.state.defenseMode
-        ? worldService.defend(world, this.mainCombatTypes, this.supportUnitTypes, threats)
-        : rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation);
-      actionsToCollect.push(action);
+    if (this.foodUsed !== undefined) {
+      if (this.foodUsed < ATTACKFOOD) {
+        if (!this.state.pushMode) {
+          const action = this.state.defenseMode
+            ? await worldService.defend(world, this.mainCombatTypes, this.supportUnitTypes, threats)
+            : rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation);
+          actionsToCollect.push(action);
+        }
+      } else {
+        const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
+        if (!worldService.outpowered || selfCombatSupply === inFieldSelfSupply) {
+          actionsToCollect.push(attack(world, this.mainCombatTypes, this.supportUnitTypes));
+        }
+      }
     }
 
     // Condition to check if it's time to expand the world
