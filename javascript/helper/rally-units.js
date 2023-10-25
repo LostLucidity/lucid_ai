@@ -2,12 +2,12 @@
 "use strict"
 
 const { BUNKER } = require("@node-sc2/core/constants/unit-type");
-const { createUnitCommand } = require("../services/actions-service");
 const { STOP } = require("@node-sc2/core/constants/ability");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
 const armyManagementService = require("../src/services/army-management/army-management-service");
 const enemyTrackingService = require("../src/services/enemy-tracking");
 const { filterEnemyUnits } = require("../src/services/shared-utilities/combat-utilities");
+const { createUnitCommand } = require("../src/services/command-service");
 
 /**
  * Rallies units to a specified point or a default location.

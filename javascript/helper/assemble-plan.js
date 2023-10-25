@@ -29,7 +29,7 @@ const planService = require("../services/plan-service");
 const scoutingService = require("../systems/scouting/scouting-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const { getAvailableExpansions, getNextSafeExpansions } = require("./expansions");
-const { getSupply, hasEarmarks, clearEarmarks } = require("../services/data-service");
+const { hasEarmarks, clearEarmarks } = require("../services/data-service");
 const worldService = require("../src/world-service");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -41,7 +41,6 @@ const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
 const { convertLegacyStep, convertLegacyPlan, setPlan } = require("../services/plan-service");
 const { warpIn } = require("../services/resource-manager-service");
-const { createUnitCommand } = require("../services/actions-service");
 const { setPendingOrders } = require("../services/unit-service");
 const MapResourceService = require("../systems/map-resource-system/map-resource-service");
 const { requiresPylon } = require("../services/agent-service");
@@ -52,6 +51,7 @@ const { pathFindingService } = require("../src/services/pathfinding");
 const armyManagementService = require("../src/services/army-management/army-management-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const { attack } = require("./behavior/army-behavior");
+const { createUnitCommand } = require("../src/services/command-service");
 
 
 let ATTACKFOOD = 194;
@@ -73,31 +73,33 @@ class AssemblePlan {
     this.defenseStructures = plan.unitTypes.defenseStructures;
     this.supportUnitTypes = plan.unitTypes.supportUnitTypes;
   }
+
   /**
-   * @param {World} world
-   * @param {any} state
+   * The `onStep` function coordinates various aspects of the world's state 
+   * in each iteration or "step" of the game/simulation.
+   *
+   * @async
+   * @param {World} world - The current state of the world.
+   * @param {any} state - Additional state data.
+   * @returns {Promise<void>}
    */
   async onStep(world, state) {
     const { data, resources } = world;
     const { units } = resources.get();
+
     this.initializeStep(world, state);
+    this.managePauseState();
 
-    if (this.shouldUnpausePlan()) {
-      planService.pausePlan = false;
-    }
-
-    await this.runPlan(world);
-    await this.collectActions(world);
+    await this.executeMainPlan(world);
     this.handleStructures(world);
 
-    if (this.shouldExpand(world)) {
-      await this.expandWorld(world);
-    }
-
+    await this.handleExpansion(world);
     this.manageBases();
 
-    await this.raceSpecificManagement(world);
-    await this.runAndLogBehaviors(world);
+    await this.performRaceSpecificManagement(world);
+    if (this.shouldLogQueenActions()) {
+      this.logQueenActions();
+    }
 
     this.clearPendingOrders(data, units);
     await this.sendCollectedActions(world);
@@ -344,49 +346,50 @@ class AssemblePlan {
   }  
 
   /**
- * Collects actions to be executed based on the current state of the world and game conditions.
- * Actions can include defense maneuvers, unit rallies, expansions, and other behaviors.
- * 
- * @async
- * @param {World} world - The current game world containing state, data, and resources.
- * @returns {Promise<void>} - Resolves when all actions are collected.
- */
+   * Collects actions based on the game world's current state.
+   * Determines actions like defense maneuvers, unit rallies, expansions, and more.
+   * 
+   * @async
+   * @param {World} world - Current game world state, data, and resources.
+   * @returns {Promise<void>} Resolves when all actions are collected.
+   */
   async collectActions(world) {
-    const actionsToCollect = [];
-
-    // Ensure threats is defined, or use an empty array as a default
-    /**
-     * @type {Unit[]}
-     */
+    /** @type {Unit[]} */
     const threats = this.threats || [];
-
-    // Collect additional behaviors to be executed in the game world
-    actionsToCollect.push(runBehaviors(world));
+    const actionsToCollect = [Promise.resolve(runBehaviors(world))];
 
     if (this.foodUsed !== undefined) {
-      if (this.foodUsed < ATTACKFOOD) {
-        if (!this.state.pushMode) {
-          const action = this.state.defenseMode
-            ? await worldService.defend(world, this.mainCombatTypes, this.supportUnitTypes, threats)
-            : rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation);
-          actionsToCollect.push(action);
-        }
-      } else {
-        const { selfCombatSupply, inFieldSelfSupply } = trackUnitsService;
-        if (!worldService.outpowered || selfCombatSupply === inFieldSelfSupply) {
-          actionsToCollect.push(attack(world, this.mainCombatTypes, this.supportUnitTypes));
-        }
+      const shouldDefend = this.foodUsed < ATTACKFOOD && !this.state.pushMode;
+      const shouldAttack = this.foodUsed >= ATTACKFOOD &&
+        (!worldService.outpowered || trackUnitsService.selfCombatSupply === trackUnitsService.inFieldSelfSupply);
+
+      if (shouldDefend) {
+        const action = this.state.defenseMode
+          ? Promise.resolve(worldService.defend(world, this.mainCombatTypes, this.supportUnitTypes, threats))
+          : Promise.resolve(rallyUnits(world, this.supportUnitTypes, this.state.defenseLocation));
+        actionsToCollect.push(action);
+      } else if (shouldAttack) {
+        actionsToCollect.push(Promise.resolve(attack(world, this.mainCombatTypes, this.supportUnitTypes)));
       }
     }
 
-    // Condition to check if it's time to expand the world
-    if (worldService.getFoodUsed() >= 132 && !worldService.shortOnWorkers(world)) {
-      actionsToCollect.push(expand(world));
+    const shouldExpand = worldService.getFoodUsed() >= 132 && !worldService.shortOnWorkers(world);
+    if (shouldExpand) {
+      actionsToCollect.push(Promise.resolve(expand(world))); // Assuming expand is synchronous
     }
 
-    // Wait for all actions to be resolved and flatten the results into the collectedActions array
     const results = await Promise.all(actionsToCollect);
     this.collectedActions.push(...results.flat());
+  }
+
+  /**
+   * Executes the main plan and collects actions.
+   * 
+   * @param {World} world - The current state of the world.
+   * @returns {Promise<void>}
+   */
+  async executeMainPlan(world) {
+    await Promise.all([this.runPlan(world), this.collectActions(world)]);
   }
 
   /**
@@ -404,7 +407,19 @@ class AssemblePlan {
     // Add any additional logic or conditions for expansion if needed
 
     return actions;
-  }  
+  }
+
+  /**
+   * Handles potential world expansion.
+   * 
+   * @param {World} world - The current state of the world.
+   * @returns {Promise<void>}
+   */
+  async handleExpansion(world) {
+    if (this.shouldExpand(world)) {
+      await this.expandWorld(world);
+    }
+  }
 
   /**
    * Handles the structures that are almost done building. It checks each structure's build progress 
@@ -491,6 +506,25 @@ class AssemblePlan {
     } else {
       this.state.defendNatural = true;
     }
+  }
+
+  /**
+   * Checks and manages the pause state of the plan.
+   */
+  managePauseState() {
+    if (this.shouldUnpausePlan()) {
+      planService.pausePlan = false;
+    }
+  }
+
+  /**
+   * Executes race-specific management.
+   * 
+   * @param {World} world - The current state of the world.
+   * @returns {Promise<void>}
+   */
+  async performRaceSpecificManagement(world) {
+    await this.raceSpecificManagement(world);
   }
 
   /**
@@ -588,20 +622,6 @@ class AssemblePlan {
 
     this.collectedActions.push(...actions);
   }
-
-  /**
-   * Runs behaviors and logs QUEEN actions if the specified logging condition is met.
-   *
-   * @param {World} world - The world object containing the current state of the game world.
-   * @returns {Promise<void>} - A promise that resolves when behaviors have been run and actions are logged if needed.
-   */
-  async runAndLogBehaviors(world) {
-    this.collectedActions.push(...await runBehaviors(world));
-
-    if (this.shouldLogQueenActions()) {
-      this.logQueenActions();
-    }
-  }  
 
   /**
    * Determines if the world should expand based on the current food used and the number of workers.

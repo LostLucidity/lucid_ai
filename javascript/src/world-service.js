@@ -12,7 +12,6 @@ const { countTypes, morphMapping, addOnTypesMapping, flyingTypesMapping, upgrade
 const { getCandidatePositions, getInTheMain } = require("../helper/placement/placement-helper");
 const enemyTrackingService = require("../systems/enemy-tracking/enemy-tracking-service");
 const { gatherOrMine, balanceResources } = require("../systems/manage-resources");
-const { createUnitCommand } = require("../services/actions-service");
 const dataService = require("../services/data-service");
 const { formatToMinutesAndSeconds, getStringNameOfConstant } = require("../services/logging-service");
 const loggingService = require("../services/logging-service");
@@ -64,6 +63,7 @@ const { getClosestUnitPositionByPath } = require('../services/resource-manager-s
 const armyManagementService = require('./services/army-management/army-management-service');
 const { getGasGeysers, getUnitsTraining } = require('./services/unit-retrieval');
 const enemyTrackingServiceV2 = require('./services/enemy-tracking');
+const { createUnitCommand } = require('./services/command-service');
   
 const worldService = {
   availableProductionUnits: new Map(),
@@ -670,106 +670,42 @@ const worldService = {
       buildingPositions.delete(step);
     });
   },
+
   /**
-   * 
-   * @param {World} world 
-   * @param {UnitTypeId[]} mainCombatTypes 
-   * @param {UnitTypeId[]} supportUnitTypes 
-   * @param {Unit[]} threats 
-   * @returns 
+   * Main defense function which determines the defense strategy and actions.
+   * @param {World} world - The game world object.
+   * @param {UnitTypeId[]} mainCombatTypes - Main combat unit types.
+   * @param {UnitTypeId[]} supportUnitTypes - Support unit types.
+   * @param {Unit[]} threats - Array of threat units.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - Array of collected actions to execute.
    */
-  defend: async (world, mainCombatTypes, supportUnitTypes, threats) => {
+  defend: function (world, mainCombatTypes, supportUnitTypes, threats) {
     console.log('defend');
-    const { groupUnits } = unitService;
-    const { getWorkerDefenseCommands } = worldService;
-    const { QUEEN } = UnitType;
-    const { agent, data, resources } = world;
-    const { map, units } = resources.get();
-    const collectedActions = [];
+
+    const { units } = world.resources.get();
+    const rallyPoint = armyManagementService.getCombatRally(world.resources);
     const enemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
-    const rallyPoint = armyManagementService.getCombatRally(resources);
-    if (rallyPoint) {
-      // Getting the combat and support units
-      const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
-      const workers = units.getById(WorkerRace[agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !unitResourceService.isRepairing(unit));
-      // Existing code: Finding the closest enemy unit and combat point
-      let [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(resources, rallyPoint, threats);
-      if (closestEnemyUnit && closestEnemyUnit.pos) {
-        const [combatPoint] = pathFindingService.getClosestUnitByPath(resources, closestEnemyUnit.pos, combatUnits);
-        collectedActions.push(...scanCloakedEnemy(units, closestEnemyUnit, combatUnits));
 
-        if (combatPoint) {
-          let allyUnits = [...combatUnits, ...supportUnits];
-          let shouldEngage = armyManagementService.shouldEngage(world, allyUnits, enemyUnits);  // Added this line
-          // Modified the condition here to use the shouldEngage function
-          if (shouldEngage) {
-            if (closestEnemyUnit.isFlying) {
-              const findAntiAir = combatUnits.find(unit => unit.canShootUp());
-              if (!findAntiAir) {
-                combatUnits.push(...units.getById(QUEEN));
-              }
-            }
-            const combatPoint = armyManagementService.getCombatPoint(resources, combatUnits, closestEnemyUnit);
-            if (combatPoint) {
-              collectedActions.push(...armyManagementService.engageOrRetreat(world, combatUnits, enemyUnits, rallyPoint));
-            }
-          } else {
-            let workersToDefend = [];
-            const inRangeSortedWorkers = units.getClosest(closestEnemyUnit.pos, workers, workers.length)
-              .filter(worker =>
-                worker.pos && closestEnemyUnit.pos &&
-                distance(worker.pos, closestEnemyUnit.pos) <= 16
-              );
+    if (!rallyPoint) return [];
 
-            // Collect workers until we should engage according to the shouldEngage function
-            for (const worker of inRangeSortedWorkers) {
-              workersToDefend.push(worker);
-              const allyUnitsWithWorkers = [...allyUnits, ...workersToDefend];
+    const [combatUnits, supportUnits] = unitService.groupUnits(units, mainCombatTypes, supportUnitTypes);
+    let [closestEnemyUnit] = pathFindingService.getClosestUnitByPath(world.resources, rallyPoint, threats);
 
-              if (armyManagementService.shouldEngage(world, allyUnitsWithWorkers, enemyUnits)) {
-                workersToDefend.forEach(worker => worker.labels.set('defending', true));
-                break;
-              }
-            }
+    if (!closestEnemyUnit || !closestEnemyUnit.pos) return [];
 
-            // If workersToDefend is not empty, it means we've decided to engage
-            allyUnits = [...allyUnits, ...units.getById(QUEEN), ...workersToDefend];
-            collectedActions.push(...armyManagementService.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
-          }
-        } else {
-          // check if any non workers are training
-          const unitsTraining = getUnitsTraining(world).filter(unitTraining => unitTraining.unitType !== WorkerRace[agent.race]);
-          // if not, pull workers to defend
-          if (unitsTraining.length === 0 || !canTrainingUnitsKillBeforeKilled(world, unitsTraining.map(unitTraining => unitTraining.unitType), threats)) {
-            const workerDefenseCommands = getWorkerDefenseCommands(world, workers, closestEnemyUnit)
-            console.log(`Pulling ${workerDefenseCommands.length} to defend with.`);
-            collectedActions.push(...workerDefenseCommands);
-          } else {
-            // this condition is when workers are not needed to defend
-            // grab any defending workers and send them back to work
-            units.withLabel('defending').forEach(worker => {
-              worker.labels.delete('defending');
-              const { pos } = worker; if (pos === undefined) return;
-              const closestEnemyThatCanAttackUnitByWeaponRange = getClosestThatCanAttackUnitByWeaponRange(data, worker, enemyUnits);
-              const { enemyUnit } = closestEnemyThatCanAttackUnitByWeaponRange; if (enemyUnit === undefined) return;
-              const { pos: targetPos } = enemyUnit; if (targetPos === undefined) return;
-              const unitCommand = createUnitCommand(MOVE, [worker]);
-              let closestCandidateMineralField = getClosestSafeMineralField(resources, pos, targetPos);
-              if (closestCandidateMineralField !== undefined) {
-                unitCommand.abilityId = HARVEST_GATHER;
-                unitCommand.targetUnitTag = closestCandidateMineralField.tag;
-              } else {
-                const movePosition = moveAwayPosition(map, targetPos, pos);
-                unitCommand.targetWorldSpacePos = movePosition !== null ? movePosition : undefined;
-              }
-              collectedActions.push(unitCommand);
-            });
-          }
-        }
-      }
-    }
-    return collectedActions;
+    const workers = units.getById(WorkerRace[world.agent.race]).filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !unitResourceService.isRepairing(unit));
+
+    const [combatPoint] = pathFindingService.getClosestUnitByPath(world.resources, closestEnemyUnit.pos, combatUnits);
+    if (!combatPoint) return this.handleNonCombatScenarios(world, closestEnemyUnit, threats);
+
+    let allyUnits = [...combatUnits, ...supportUnits];
+    let shouldEngage = armyManagementService.shouldEngage(world, allyUnits, enemyUnits);
+
+    return shouldEngage
+      ? handleCombatScenarios(world, allyUnits, closestEnemyUnit, enemyUnits, rallyPoint)
+      : this.handleWorkerDefense(world, allyUnits, closestEnemyUnit, workers, threats, rallyPoint);
   },
+
   /**
    * @param {World} world
    * @param {number} unitType
@@ -1424,6 +1360,103 @@ const worldService = {
       );
     });
   },
+
+  /**
+   * Handle defense scenarios when no combat point is found.
+   * @param {World} world - The game world object.
+   * @param {Unit} closestEnemyUnit - The closest enemy unit.
+   * @param {Unit[]} threats - Array of threatening enemy units.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - Array of actions to execute.
+   */
+  handleNonCombatScenarios: (world, closestEnemyUnit, threats) => {
+    const collectedActions = [];
+    const { data, resources } = world;
+    const { map, units } = resources.get();
+
+    // Fetching enemy units from the enemyTrackingService
+    const enemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
+
+    // check if any non workers are training
+    const unitsTraining = getUnitsTraining(world).filter(unitTraining => unitTraining.unitType !== WorkerRace[world.agent.race]);
+
+    // if not, pull workers to defend
+    if (unitsTraining.length === 0 || !canTrainingUnitsKillBeforeKilled(world, unitsTraining.map(unitTraining => unitTraining.unitType), threats)) {
+      const workers = units.getById(WorkerRace[world.agent.race])
+        .filter(unit => filterLabels(unit, ['scoutEnemyMain', 'scoutEnemyNatural', 'clearFromEnemy']) && !unitResourceService.isRepairing(unit));
+      const workerDefenseCommands = this.getWorkerDefenseCommands(world, workers, closestEnemyUnit);
+      console.log(`Pulling ${workerDefenseCommands.length} workers to defend with.`);
+      collectedActions.push(...workerDefenseCommands);
+    } else {
+      // this condition is when workers are not needed to defend
+      // grab any defending workers and send them back to work
+      units.withLabel('defending').forEach(worker => {
+        worker.labels.delete('defending');
+        const { pos } = worker;
+        if (!pos) return;
+
+        const closestEnemyThatCanAttackUnitByWeaponRange = getClosestThatCanAttackUnitByWeaponRange(data, worker, enemyUnits);
+        const { enemyUnit } = closestEnemyThatCanAttackUnitByWeaponRange;
+        if (!enemyUnit || !enemyUnit.pos) return;
+
+        const unitCommand = createUnitCommand(MOVE, [worker]);
+        const closestCandidateMineralField = getClosestSafeMineralField(resources, pos, enemyUnit.pos);
+        if (closestCandidateMineralField) {
+          unitCommand.abilityId = HARVEST_GATHER;
+          unitCommand.targetUnitTag = closestCandidateMineralField.tag;
+        } else {
+          const movePosition = moveAwayPosition(map, enemyUnit.pos, pos);
+          unitCommand.targetWorldSpacePos = movePosition || undefined;
+        }
+        collectedActions.push(unitCommand);
+      });
+    }
+
+    return collectedActions;
+  },
+
+  /**
+   * Handles the defense strategy using workers when primary and support units are not engaging.
+   * 
+   * @param {World} world - The game world object containing information about the game state.
+   * @param {Unit[]} allyUnits - Array of ally combat and support units.
+   * @param {Unit} closestEnemyUnit - The closest detected enemy unit.
+   * @param {Unit[]} workers - Array of available worker units for defense.
+   * @param {Unit[]} threats - Array of potential threat units.
+   * @param {Point2D} rallyPoint - The central rallying point for the units.
+   * 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - Array of commands for the units to execute for defense.
+   */
+  handleWorkerDefense: function (world, allyUnits, closestEnemyUnit, workers, threats, rallyPoint) {
+    const collectedActions = [];
+    const { resources } = world;
+    const { units } = resources.get();
+    const enemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
+
+    const inRangeSortedWorkers = closestEnemyUnit.pos
+      ? units.getClosest(closestEnemyUnit.pos, workers, workers.length)
+        .filter(worker =>
+          worker.pos && closestEnemyUnit.pos &&
+          distance(worker.pos, closestEnemyUnit.pos) <= 16
+        )
+      : [];
+
+    let workersToDefend = [];
+
+    for (const worker of inRangeSortedWorkers) {
+      workersToDefend.push(worker);
+      const allyUnitsWithWorkers = [...allyUnits, ...workersToDefend];
+      if (armyManagementService.shouldEngage(world, allyUnitsWithWorkers, threats)) {
+        workersToDefend.forEach(worker => worker.labels.set('defending', true));
+        break;
+      }
+    }
+
+    allyUnits = [...allyUnits, ...units.getById(UnitType.QUEEN), ...workersToDefend];
+    collectedActions.push(...armyManagementService.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
+
+    return collectedActions;
+  },
+
   /**
    * Check if unitType has prerequisites to build when minerals are available.
    * @param {World} world 
@@ -1801,24 +1834,33 @@ const worldService = {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
   getWorkerDefenseCommands: (world, workers, closestEnemyUnit) => {
-    const { resources } = world;
+    const resources = world.resources;
     const { units } = resources.get();
-    const { stop } = unitService;
-    const { getWorkersToDefend, microB } = worldService;
+    const stopFunction = unitService.stop;
+    const getWorkersToDefendFunction = worldService.getWorkersToDefend;
+    const microBFunction = worldService.microB;
+
     const enemyUnits = units.getAlive(Alliance.ENEMY);
-    const collectedActions = [];
-    const workersToDefend = getWorkersToDefend(world, workers, closestEnemyUnit);
-    workers.forEach(worker => {
-      if (worker.labels.get('defending') === false) {
+
+    // Stopping workers that are not defending
+    const stopActions = workers
+      .filter(worker => worker.labels.get('defending') === false)
+      .map(worker => {
         worker.labels.delete('defending');
-        collectedActions.push(...stop([worker]));
-      }
-    });
+        return stopFunction([worker]);
+      })
+      .flat();
+
+    const workersToDefend = getWorkersToDefendFunction(world, workers, closestEnemyUnit);
+
     console.log(`Pulling ${workersToDefend.length} to defend with.`);
-    workersToDefend.forEach(worker => {
-      collectedActions.push(...microB(world, worker, closestEnemyUnit, enemyUnits));
-    });
-    return collectedActions;
+
+    // Generating defense commands for workers that should defend
+    const defendActions = workersToDefend
+      .map(worker => microBFunction(world, worker, closestEnemyUnit, enemyUnits))
+      .flat();
+
+    return [...stopActions, ...defendActions];
   },
   /**
    * @param {World} world
@@ -4794,4 +4836,34 @@ function canStructureLiftOff(unit) {
  */
 function isStructureLifted(unit) {
   return unit.availableAbilities().some(ability => groupTypes.landingAbilities.includes(ability));
+}
+
+/**
+ * Handle combat scenarios where the ally units are in a position to engage the enemy.
+ * 
+ * @param {World} world - The game world object.
+ * @param {Unit[]} allyUnits - Array of ally units.
+ * @param {Unit} closestEnemyUnit - The closest enemy unit.
+ * @param {Unit[]} enemyUnits - Array of enemy units.
+ * @param {Point2D} rallyPoint - The rally point for the units.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - Array of combat actions to execute.
+ */
+function handleCombatScenarios(world, allyUnits, closestEnemyUnit, enemyUnits, rallyPoint) {
+  const { units } = world.resources.get();
+  const collectedActions = [];
+
+  // Use the QUEEN units in case the closest enemy is flying and we don't have anti-air
+  if (closestEnemyUnit.isFlying) {
+    const findAntiAir = allyUnits.find(unit => unit.canShootUp());
+    if (!findAntiAir) {
+      allyUnits.push(...units.getById(UnitType.QUEEN));
+    }
+  }
+
+  const combatPoint = armyManagementService.getCombatPoint(world.resources, allyUnits, closestEnemyUnit);
+  if (combatPoint) {
+    collectedActions.push(...armyManagementService.engageOrRetreat(world, allyUnits, enemyUnits, rallyPoint));
+  }
+
+  return collectedActions;
 }

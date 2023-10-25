@@ -7,7 +7,6 @@ const { gridsInCircle, toDegrees } = require("@node-sc2/core/utils/geometry/angl
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
-const { createUnitCommand } = require("../services/actions-service");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("../services/frames-service");
 const { moveAwayPosition, getDistance } = require("../services/position-service");
 const { canAttack } = require("../services/resources-service");
@@ -16,6 +15,7 @@ const { getDPSOfInRangeAntiAirUnits } = require("../src/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 const worldService = require("../src/world-service");
 const enemyTrackingService = require("../src/services/enemy-tracking/enemy-tracking-service");
+const { createUnitCommand } = require("../src/services/command-service");
 
 const helper = {
   /**

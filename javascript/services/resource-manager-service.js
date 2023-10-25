@@ -10,7 +10,6 @@ const { distance, nClosestPoint } = require("@node-sc2/core/utils/geometry/point
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
 const { getTargetedByWorkers } = require("../systems/unit-resource/unit-resource-service");
-const { createUnitCommand } = require("./actions-service");
 const dataService = require("./data-service");
 const { getPathablePositions, getPathablePositionsForStructure } = require("../systems/map-resource-system/map-resource-service");
 const { getDistance, getClusters } = require("./position-service");
@@ -21,6 +20,7 @@ const { getOccupiedExpansions } = require("../helper/expansions");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const pathFindingService = require("../src/services/pathfinding/pathfinding-service");
 const { getGasGeysers } = require("../src/services/unit-retrieval");
+const { createUnitCommand } = require("../src/services/command-service");
 
 const resourceManagerService = {
   /** @type {Expansion[]} */

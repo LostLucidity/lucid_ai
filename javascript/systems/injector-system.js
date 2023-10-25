@@ -9,7 +9,6 @@ const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { QUEEN } = require("@node-sc2/core/constants/unit-type");
 const { areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { shuffle } = require("../helper/utilities");
-const { createUnitCommand } = require("../services/actions-service");
 const { getTimeInSeconds } = require("../services/frames-service");
 const planService = require("../services/plan-service");
 const { getDistance } = require("../services/position-service");
@@ -17,6 +16,7 @@ const { getClosestUnitPositionByPath } = require("../services/resource-manager-s
 const { getMovementSpeed, getPendingOrders, setPendingOrders } = require("../services/unit-service");
 const { getUnitCount } = require("../src/world-service");
 const pathFindingService = require("../src/services/pathfinding/pathfinding-service");
+const { createUnitCommand } = require("../src/services/command-service");
 
 module.exports = createSystem({
   name: "InjectorSystem",

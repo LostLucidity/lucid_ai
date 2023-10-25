@@ -5,12 +5,12 @@ const Buff = require("@node-sc2/core/constants/buff");
 const { HARVEST_GATHER, MOVE, STOP } = require("@node-sc2/core/constants/ability");
 const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { add } = require("@node-sc2/core/utils/geometry/point");
-const { createUnitCommand } = require("./actions-service");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { CHRONOBOOSTENERGYCOST: CHRONOBOOSTED } = require("@node-sc2/core/constants/buff");
 const { filterLabels } = require("../helper/unit-selection");
 const { getDistance } = require("./position-service");
 const { UnitType } = require("@node-sc2/core/constants");
+const { createUnitCommand } = require("../src/services/command-service");
 
 /** @type {(unit: Unit) => number} */
 const zealotModifier = unit => (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) ? 0.5 : 0;

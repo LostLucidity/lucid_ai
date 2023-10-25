@@ -11,7 +11,6 @@ const { gatheringAbilities, rallyWorkersAbilities } = require('@node-sc2/core/co
 const { ASSIMILATOR } = require('@node-sc2/core/constants/unit-type');
 const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { pointsOverlap } = require('../helper/utilities');
-const { createUnitCommand } = require('../services/actions-service');
 const { getTimeInSeconds } = require('../services/frames-service');
 const { getClosestExpansion } = require('./map-resource-system/map-resource-service');
 const { gather } = require('../services/resource-manager-service');
@@ -20,6 +19,7 @@ const { gatherOrMine } = require('./manage-resources');
 const { getMineralFieldAssignments, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
 const { getDistance } = require('../services/position-service');
 const { getClosestPathWithGasGeysers } = require('../src/services/utility-service');
+const { createUnitCommand } = require('../src/services/command-service');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',

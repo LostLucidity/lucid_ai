@@ -7,7 +7,6 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { getDistance, moveAwayPosition, getBorderPositions, getDistanceSquared, dbscan } = require("../../../services/position-service");
 const enemyTrackingService = require("../../../systems/enemy-tracking/enemy-tracking-service");
 const unitService = require("../../../services/unit-service");
-const { createUnitCommand } = require("../../../services/actions-service");
 const { MOVE, STOP, ATTACK_ATTACK, LOAD_BUNKER, SMART, HARVEST_GATHER } = require("@node-sc2/core/constants/ability");
 const { QUEEN, ADEPTPHASESHIFT, BUNKER, BARRACKS, FACTORY, STARPORT } = require("@node-sc2/core/constants/unit-type");
 const { canAttack } = require("../../../services/resources-service");
@@ -34,6 +33,7 @@ const { getDistanceBetween } = require("../utility-service");
 const { getCachedAlive } = require("../cache-service");
 const { getPotentialCombatantsInRadius } = require("../unit-analysis");
 const { calculateTimeToKillUnits } = require("../combat-statistics");
+const { createUnitCommand } = require("../command-service");
 
 class ArmyManagementService {
   constructor() {
@@ -514,8 +514,10 @@ class ArmyManagementService {
 
     // Handling the melee unit's actions based on the surrounding context
     if (!rangedUnitAlly || this.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)) {
-      logMessages.push(`rangedUnitAlly exists: ${Boolean(rangedUnitAlly)}`); // Check if rangedUnitAlly is undefined or null
-      logMessages.push(`shouldEngage result: ${this.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)}`); // Log the result of shouldEngage
+      logMessages.push(`rangedUnitAlly exists: ${Boolean(rangedUnitAlly)}`);
+      logMessages.push(`shouldEngage result: ${this.shouldEngage(world, meleeNearbyAllies, nearbyEnemies)}`);
+      logMessages.push(`meleeNearbyAllies count: ${meleeNearbyAllies.length}`);
+      logMessages.push(`nearbyEnemies count: ${nearbyEnemies.length}`);
 
       logMessages.push('Decision: Engaging - shouldEngage returned true or no rangedUnitAlly found');
       moveToSurroundOrAttack();
