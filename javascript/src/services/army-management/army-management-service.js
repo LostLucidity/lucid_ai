@@ -534,7 +534,7 @@ class ArmyManagementService {
 
     attackIfApplicable();
 
-    if (world.resources.get().frame.timeInSeconds() >= 198 && world.resources.get().frame.timeInSeconds() <= 216) {
+    if (world.resources.get().frame.timeInSeconds() >= 198 && world.resources.get().frame.timeInSeconds() <= 223) {
       console.log(logMessages.join('; '));  // Print all log messages as a single string
     }
 
@@ -549,7 +549,9 @@ class ArmyManagementService {
       }
 
       const distance = getDistance(selfUnit.pos, targetUnit.pos);
-      return selfUnit.weaponCooldown <= 8 && distance <= attackRadius;
+      const dynamicAttackRadius = attackRadius + getTravelDistancePerStep(map, selfUnit);
+
+      return selfUnit.weaponCooldown <= 8 && distance <= dynamicAttackRadius;
     }
 
     /**
@@ -1110,7 +1112,7 @@ class ArmyManagementService {
       }
     }
 
-    if (world.resources.get().frame.timeInSeconds() >= 198 && world.resources.get().frame.timeInSeconds() <= 216) {
+    if (world.resources.get().frame.timeInSeconds() >= 198 && world.resources.get().frame.timeInSeconds() <= 223) {
       console.log(logMessages.join('; '));  // Print all log messages as a single string
     }
   }
