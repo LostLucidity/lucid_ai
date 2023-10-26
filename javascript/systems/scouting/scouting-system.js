@@ -196,12 +196,13 @@ function setOutpowered(world) {
   // Filter out unit types in training that are not of combat type or QUEEN
   const validTrainingTypes = unitTypesTraining.filter(type => combatTypes.includes(type) || type === UnitType.QUEEN);
 
-  const currentSelfUnits = allSelfUnits.filter(unit => unitService.potentialCombatants(unit));
-  const enemyUnits = allEnemyUnits.filter(unit => unitService.potentialCombatants(unit));
+  // Filter out worker units
+  const currentSelfUnits = allSelfUnits.filter(unit => unitService.potentialCombatants(unit) && !unit.isWorker());
+  const enemyUnits = allEnemyUnits.filter(unit => unitService.potentialCombatants(unit) && !unit.isWorker());
 
   // Create a unit object from types for valid training units
   const trainingUnits = validTrainingTypes.map(type => createMockUnitFromTypeID(world, type))
-    .filter(unit => unitService.potentialCombatants(unit)); // Filter out undesired units after creation
+    .filter(unit => unitService.potentialCombatants(unit) && !unit.isWorker()); // Filter out undesired units including workers after creation
 
   // Combine current units and units in training for total self units
   const totalSelfUnits = currentSelfUnits.concat(trainingUnits);
