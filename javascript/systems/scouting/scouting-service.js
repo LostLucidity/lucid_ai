@@ -47,7 +47,7 @@ const scoutingService = {
         const gatheringAndNotMining = unit.isGathering() && !unitResourceService.isMining(units, unit);
         return (
           noQueue ||
-          orders && orders.some(order => order.abilityId === MOVE) ||
+          orders.some(order => order.abilityId === MOVE || unit.isAttacking()) ||
           unit.isConstructing() && unitType === PROBE ||
           gatheringAndNotMining
         )

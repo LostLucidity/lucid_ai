@@ -2458,7 +2458,7 @@ const worldService = {
     }
     const foodUsed = worldService.getFoodUsed();
     const foodCount = (isStructure && agent.race === Race.ZERG) ? foodUsed + 1 : foodUsed;
-    const buildStepExecuted = [foodCount, formatToMinutesAndSeconds(time), name, planService.currentStep, worldService.outpowered, `${minerals}/${vespene}`];
+    const buildStepExecuted = [foodCount, formatToMinutesAndSeconds(time), name, planService.currentStep, armyManagementService.outpowered, `${minerals}/${vespene}`];
     const count = UnitType[name] ? worldService.getUnitCount(world, UnitType[name]) : 0;
     if (count) buildStepExecuted.push(count);
     if (notes) buildStepExecuted.push(notes);
@@ -2896,7 +2896,7 @@ const worldService = {
     const collectedActions = [];
     const { planMin, trainingTypes, unitMax } = planService;
     const { getExistingTrainingTypes } = unitResourceService;
-    const { outpowered, getFoodUsed, getUnitTypeCount, selectTypeToBuild, trainSync } = worldService;
+    const { getFoodUsed, getUnitTypeCount, selectTypeToBuild, trainSync } = worldService;
     const { currentStep, plan, legacyPlan } = planService;
     const plannedTrainingTypes = trainingTypes.length > 0 ? trainingTypes : getExistingTrainingTypes(units);
     const candidateTypesToBuild = plannedTrainingTypes.filter(type => {
@@ -2906,7 +2906,7 @@ const worldService = {
         (!attributes.includes(Attribute.STRUCTURE) && type !== OVERLORD) &&
         foodRequired <= food - getFoodUsed() &&
         (
-          outpowered ? outpowered : planMin[UnitTypeId[type]] <= getFoodUsed()
+          armyManagementService.outpowered ? armyManagementService.outpowered : planMin[UnitTypeId[type]] <= getFoodUsed()
         ) &&
         (
           !unitMax[UnitTypeId[type]] || (getUnitTypeCount(world, type) < unitMax[UnitTypeId[type]])
@@ -2921,7 +2921,7 @@ const worldService = {
       let { selectedTypeToBuild } = unitTrainingService;
       selectedTypeToBuild = selectedTypeToBuild ? selectedTypeToBuild : selectTypeToBuild(world, candidateTypesToBuild);
       if (selectedTypeToBuild !== undefined && selectedTypeToBuild !== null) {
-        if (outpowered || agent.canAfford(selectedTypeToBuild)) {
+        if (armyManagementService.outpowered || agent.canAfford(selectedTypeToBuild)) {
           collectedActions.push(...trainSync(world, selectedTypeToBuild));
         }
       }
@@ -2936,7 +2936,7 @@ const worldService = {
    */
   trainWorkers: (world) => {
     const { getById } = resourceManagerService;
-    const { getFoodDifference, haveAvailableProductionUnitsFor, outpowered, unitProductionAvailable, shortOnWorkers } = worldService;
+    const { getFoodDifference, haveAvailableProductionUnitsFor, unitProductionAvailable, shortOnWorkers } = worldService;
     const { agent: { minerals, race }, resources } = world;
 
     // Early exit if essential properties are not defined.
@@ -2949,7 +2949,7 @@ const worldService = {
     const foodDifference = getFoodDifference(world);
     const sufficientMinerals = minerals < 512 || minimumWorkerCount <= 36;
     const productionPossible = race ? haveAvailableProductionUnitsFor(world, WorkerRace[race]) : false;
-    const notOutpoweredOrNoUnits = !outpowered || (outpowered && !unitProductionAvailable);
+    const notOutpoweredOrNoUnits = !armyManagementService.outpowered || (armyManagementService.outpowered && !unitProductionAvailable);
 
     let shouldTrainWorkers;
 

@@ -16,6 +16,7 @@ const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 const worldService = require("../src/world-service");
 const enemyTrackingService = require("../src/services/enemy-tracking/enemy-tracking-service");
 const { createUnitCommand } = require("../src/services/command-service");
+const armyManagementService = require("../src/services/army-management/army-management-service");
 
 const helper = {
   /**
@@ -62,7 +63,7 @@ const helper = {
       const { pos } = unit;
       if (pos === undefined) return;
 
-      const extraRangeFactor = worldService.outpowered ? 0.1 : 0; // increase by 10% if outpowered
+      const extraRangeFactor = armyManagementService.outpowered ? 0.1 : 0; // increase by 10% if outpowered
       const inRangeUnits = calculateInRangeUnits(unit, enemyUnits, extraRangeFactor);
 
       const [closestInRangeUnit] = units.getClosest(pos, inRangeUnits.map(u => u.unit));

@@ -354,14 +354,23 @@ class AssemblePlan {
    * @returns {Promise<void>} Resolves when all actions are collected.
    */
   async collectActions(world) {
-    /** @type {Unit[]} */
+    /**
+     * @type {Unit[]}
+     */
     const threats = this.threats || [];
-    const actionsToCollect = [Promise.resolve(runBehaviors(world))];
+
+    // Directly collect runBehaviors commands first
+    const runBehaviorCommands = await runBehaviors(world);
+
+    // Store them directly without mixing with other commands
+    this.collectedActions = this.mergeOrdersBasedOnUnitTag(this.collectedActions, runBehaviorCommands);
+
+    const actionsToCollect = []; // No need to put runBehaviors here now as we already processed it
 
     if (this.foodUsed !== undefined) {
       const shouldDefend = this.foodUsed < ATTACKFOOD && !this.state.pushMode;
       const shouldAttack = this.foodUsed >= ATTACKFOOD &&
-        (!worldService.outpowered || trackUnitsService.selfCombatSupply === trackUnitsService.inFieldSelfSupply);
+        (!armyManagementService.outpowered || trackUnitsService.selfCombatSupply === trackUnitsService.inFieldSelfSupply);
 
       if (shouldDefend) {
         const action = this.state.defenseMode
@@ -375,11 +384,51 @@ class AssemblePlan {
 
     const shouldExpand = worldService.getFoodUsed() >= 132 && !worldService.shortOnWorkers(world);
     if (shouldExpand) {
-      actionsToCollect.push(Promise.resolve(expand(world))); // Assuming expand is synchronous
+      actionsToCollect.push(expand(world));
     }
 
     const results = await Promise.all(actionsToCollect);
-    this.collectedActions.push(...results.flat());
+
+    this.collectedActions = this.mergeOrdersBasedOnUnitTag(this.collectedActions, results.flat());
+  }
+
+  /**
+   * Merges orders based on unitTags to ensure no duplicates or overrides.
+   * Assumes each order in the lists contains a unitTags property.
+   * 
+   * @param {SC2APIProtocol.ActionRawUnitCommand[]} existingOrders 
+   * @param {SC2APIProtocol.ActionRawUnitCommand[]} newOrders 
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} Merged orders
+   */
+  mergeOrdersBasedOnUnitTag(existingOrders, newOrders) {
+    const orderMap = {};
+
+    // Store existing orders in a map based on unitTags.
+    for (const order of existingOrders) {
+      if (!order || !order.unitTags) continue;
+
+      for (const unitTag of order.unitTags) {
+        if (!orderMap[unitTag]) {
+          orderMap[unitTag] = [];
+        }
+        orderMap[unitTag].push(order);
+      }
+    }
+
+    // For new orders, only add to the orderMap if there isn't an existing order for that unitTag.
+    for (const order of newOrders) {
+      if (!order || !order.unitTags) continue;
+
+      for (const unitTag of order.unitTags) {
+        if (!orderMap[unitTag]) {
+          orderMap[unitTag] = [order];
+        }
+        // If there's already an order for this unitTag, we don't push the new order.
+      }
+    }
+
+    // Flatten the orderMap into a single array
+    return [].concat(...Object.values(orderMap));
   }
 
   /**
@@ -699,7 +748,7 @@ class AssemblePlan {
 
     // Execute push actions
     if (units.withLabel(label).length > 0 && !this.state.cancelPush) {
-      if (worldService.outpowered) {
+      if (armyManagementService.outpowered) {
         this.state.cancelPush = true;
         deleteLabel(this.units, label);
       } else {

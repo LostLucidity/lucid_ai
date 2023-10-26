@@ -4,21 +4,20 @@
 const { createSystem } = require("@node-sc2/core");
 const planService = require("../../services/plan-service");
 const { shortOnWorkers, trainCombatUnits } = require("../../src/world-service");
-const worldService = require("../../src/world-service");
 const unitTrainingService = require("./unit-training-service");
+const armyManagementService = require("../../src/services/army-management/army-management-service");
 
 module.exports = createSystem({
   name: 'UnitTrainingSystem',
   type: 'agent',
   async onStep(world) {
-    const { outpowered } = worldService;
     const trainUnitConditions = [
-      outpowered,
+      armyManagementService.outpowered,
       unitTrainingService.workersTrainingTendedTo && !planService.isPlanPaused,
       !shortOnWorkers(world) && !planService.isPlanPaused,
     ];
     if (trainUnitConditions.some(condition => condition)) {
-      await trainCombatUnits(world);
+      trainCombatUnits(world);
     }
   }
 });

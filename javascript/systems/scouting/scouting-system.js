@@ -26,6 +26,7 @@ const { calculateTimeToKillUnits } = require("../../src/services/combat-statisti
 const enemyTrackingServiceV2 = require("../../src/services/enemy-tracking/enemy-tracking-service");
 const { getUnitsTraining } = require("../../src/services/unit-retrieval");
 const { getUnitTypeData } = require("../unit-resource/unit-resource-service");
+const { combatTypes } = require("@node-sc2/core/constants/groups");
 
 module.exports = createSystem({
   name: 'ScoutingSystem',
@@ -190,38 +191,55 @@ function setOutpowered(world) {
   const { units } = world.resources.get();
   const allSelfUnits = units.getAlive(Alliance.SELF);
   const allEnemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
-  const unitTypesTraining = getUnitTypesInTraining(world);  // Retrieve unit types in training
+  const unitTypesTraining = getUnitTypesInTraining(world);
+
+  // Filter out unit types in training that are not of combat type or QUEEN
+  const validTrainingTypes = unitTypesTraining.filter(type => combatTypes.includes(type) || type === UnitType.QUEEN);
 
   const currentSelfUnits = allSelfUnits.filter(unit => unitService.potentialCombatants(unit));
   const enemyUnits = allEnemyUnits.filter(unit => unitService.potentialCombatants(unit));
 
-  // Create a unit object from types for units in training
-  const trainingUnits = unitTypesTraining.map(type => createMockUnitFromTypeID(world, type));
+  // Create a unit object from types for valid training units
+  const trainingUnits = validTrainingTypes.map(type => createMockUnitFromTypeID(world, type))
+    .filter(unit => unitService.potentialCombatants(unit)); // Filter out undesired units after creation
 
   // Combine current units and units in training for total self units
   const totalSelfUnits = currentSelfUnits.concat(trainingUnits);
 
-  // Calculate combined engagement metrics
-  const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, totalSelfUnits, enemyUnits);
+  // Calculate combined engagement metrics with default values
+  let timeToKill = Infinity, timeToBeKilled = 0;
+  if (totalSelfUnits.length > 0 && enemyUnits.length > 0) {
+    const metrics = calculateTimeToKillUnits(world, totalSelfUnits, enemyUnits);
+    timeToKill = metrics.timeToKill;
+    timeToBeKilled = metrics.timeToBeKilled;
+  }
 
-  // Determine outpowered status
-  worldService.outpowered = timeToKill > timeToBeKilled;
+  // Check if either army is empty
+  if (totalSelfUnits.length === 0 && enemyUnits.length === 0) {
+    armyManagementService.outpowered = false;
+  } else if (totalSelfUnits.length === 0) {
+    armyManagementService.outpowered = true;
+  } else if (enemyUnits.length === 0) {
+    armyManagementService.outpowered = false;
+  } else {
+    armyManagementService.outpowered = timeToKill > timeToBeKilled;
+  }
 
   // Log details including the metrics leading to shouldEngage decision
   const logDetails = {
-    selfUnitsCount: totalSelfUnits.length, // corrected from selfUnits to totalSelfUnits
+    selfUnitsCount: totalSelfUnits.length,
     enemyUnitsCount: enemyUnits.length,
     totalEnemyDPSHealth: worldService.totalEnemyDPSHealth,
     totalSelfDPSHealth: worldService.totalSelfDPSHealth,
-    outpowered: worldService.outpowered,
+    outpowered: armyManagementService.outpowered,
     shouldEngage: worldService.shouldEngage,
-    timeToKill,
-    timeToBeKilled
+    timeToKill: timeToKill || "N/A",
+    timeToBeKilled: timeToBeKilled || "N/A"
   };
 
   console.log(JSON.stringify(logDetails));
 
-  if (worldService.outpowered) {
+  if (armyManagementService.outpowered) {
     console.log('Outpowered! Consider training more units or improving defenses.');
   }
 }
