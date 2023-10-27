@@ -509,7 +509,10 @@ class ArmyManagementService {
 
     const rangedUnitAlly = units.getClosest(selfUnit.pos, selfUnit['selfUnits'].filter(isValidUnit))[0];
     const nearbyAllies = unitService.getUnitsInRadius(units.getAlive(Alliance.SELF), selfUnit.pos, 16);
-    const meleeNearbyAllies = nearbyAllies.filter(unit => !isValidUnit(unit));
+    const meleeNearbyAllies = nearbyAllies.filter(unit =>
+      unit.isMelee() && unit.unitType !== undefined && unitService.getWeaponThatCanAttack(data, unit.unitType, targetUnit) !== undefined
+    );
+
     const nearbyEnemies = unitService.getUnitsInRadius(enemyTrackingServiceV2.mappedEnemyUnits, targetUnit.pos, 16);
 
     // Handling the melee unit's actions based on the surrounding context
