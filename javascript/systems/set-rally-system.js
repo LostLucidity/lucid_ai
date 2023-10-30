@@ -5,8 +5,8 @@ const { createSystem } = require("@node-sc2/core");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { getCandidatePositions } = require("../helper/placement/placement-helper");
 const planService = require("../services/plan-service");
-const { getFoodUsed } = require("../src/world-service");
 const armyManagementService = require("../src/services/army-management/army-management-service");
+const { getFoodUsed } = require("../src/services/shared-utilities/info-utils");
 
 module.exports = createSystem({
   name: 'SetRallySystem',

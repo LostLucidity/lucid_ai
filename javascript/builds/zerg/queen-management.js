@@ -7,8 +7,6 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { intersectionOfPoints } = require("../../helper/utilities");
 const { creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
-const { canBuild } = require("../../src/world-service");
-const { createUnitCommand } = require("../../src/services/command-service");
 const { getPathCoordinates } = require("../../services/path-service");
 const { getMapPath } = require("../../systems/map-resource-system/map-resource-service");
 const unitService = require("../../services/unit-service");
@@ -20,6 +18,8 @@ const armyManagementService = require("../../src/services/army-management/army-m
 const MapResourceService = require("../../systems/map-resource-system/map-resource-service");
 const { createMoveCommand } = require("../../src/services/command-service");
 const { isOnCreep } = require("../../src/services/shared-utilities/common-utilities");
+const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
+const { canBuild } = require("../../src/services/shared-utilities/training-shared-utils");
 
 module.exports = {
   /**

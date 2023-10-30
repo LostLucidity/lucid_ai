@@ -6,7 +6,6 @@ const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getRandomPoint } = require("../../helper/location");
-const { createUnitCommand } = require("../../src/services/command-service");
 const { getDistance, getStructureCells } = require("../../services/position-service");
 const { canAttack } = require("../../services/resources-service");
 const { micro, getWorkerDefenseCommands } = require("../../src/world-service");
@@ -17,6 +16,7 @@ const enemyTrackingService = require("../../src/services/enemy-tracking/enemy-tr
 const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
 const armyManagementService = require("../../src/services/army-management/army-management-service");
 const { createMoveCommand } = require("../../src/services/command-service");
+const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
 
 module.exports = createSystem({
   name: 'AttackSystem',

@@ -7,11 +7,10 @@ const { HALT_TERRANBUILD } = require("@node-sc2/core/constants/ability");
 const { Race } = require("@node-sc2/core/constants/enums");
 const { CREEPTUMOR, CREEPTUMORQUEEN } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const loggingService = require("../services/logging-service");
 const planService = require("../services/plan-service");
 const worldService = require("../src/world-service");
-const { logActionIfNearPosition } = require("../src/world-service");
-const healthTrackingService = require("./health-tracking/health-tracking-service");
+const { setFoodUsed } = require("../src/services/shared-utilities/data-utils");
+const loggingService = require("../src/services/logging/logging-service");
 
 module.exports = createSystem({
   name: 'Logging',
@@ -29,8 +28,8 @@ module.exports = createSystem({
       if (agent.race === Race.ZERG && ![CREEPTUMOR, CREEPTUMORQUEEN].includes(unitType)) {
         planService.pausePlan = false;
       }
-      worldService.setFoodUsed(world);
-      logActionIfNearPosition(world, unit);
+      setFoodUsed(world);
+      loggingService.logActionIfNearPosition(world, unit);
     }
   }
 });

@@ -10,7 +10,7 @@ const { calculateNearSupply } = require("./data-service");
 const { moveAwayPosition, getDistance, getBorderPositions } = require("./position-service");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
 const unitService = require("./unit-service");
-const { createUnitCommand } = require("../src/services/command-service");
+const { createUnitCommand } = require("../src/services/shared-utilities/command-utilities");
 
 const armyManagementService = {
   /** @type {Unit[]} */

@@ -6,13 +6,11 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { mineralFieldTypes, vespeneGeyserTypes } = require("@node-sc2/core/constants/groups");
 const { PHOTONCANNON, CREEPTUMORBURROWED } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { createUnitCommand } = require("../../src/services/command-service");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
 const { isInMineralLine } = require("../../systems/map-resource-system/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
 const { getDistance, getClusters, getDistanceSquared } = require("../../services/position-service");
 const { canAttack } = require("../../services/resources-service");
-const { getUnitTypeCount } = require("../../src/world-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
 const unitService = require("../../services/unit-service");
@@ -24,9 +22,12 @@ const { getClosestPathWithGasGeysers } = require("../../src/services/utility-ser
 const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
 const { getGasGeysers } = require("../../src/services/unit-retrieval");
 const { getCreepEdges } = require("../../services/resource-manager-service");
-const { isByItselfAndNotAttacking, getPotentialCombatantsInRadius } = require("../../src/services/unit-analysis");
+const { getPotentialCombatantsInRadius } = require("../../src/services/unit-analysis");
 const enemyTrackingService = require("../../src/services/enemy-tracking/enemy-tracking-service");
 const { filterEnemyUnits } = require("../../src/services/shared-utilities/combat-utilities");
+const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
+const unitRetrievalService = require("../../src/services/unit-retrieval");
+const { isByItselfAndNotAttacking } = require("../../src/services/shared-utilities/game-analysis-utils");
 
 module.exports = {
   /**
@@ -454,7 +455,7 @@ function handleCreepSpread(world, unit, collectedActions) {
   const { pos } = unit;
   if (!pos) return;
 
-  const isFewCreepTumors = getUnitTypeCount(world, CREEPTUMORBURROWED) <= 3;
+  const isFewCreepTumors = unitRetrievalService.getUnitTypeCount(world, CREEPTUMORBURROWED) <= 3;
   const selectedCreepEdge = isFewCreepTumors
     ? getCreepEdgeCloseToEnemy(resources)
     : getCreepEdgeCloseToEnemy(resources, pos);

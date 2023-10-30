@@ -6,13 +6,13 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { ATTACK_ATTACK, MOVE } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
-const { createUnitCommand } = require("../../src/services/command-service");
 const planService = require("../../services/plan-service");
 const scoutingService = require("../scouting/scouting-service");
 const harassService = require("./harass-service");
 const armyManagementService = require("../../src/services/army-management/army-management-service");
 const { pathFindingService } = require("../../src/services/pathfinding");
 const { microRangedUnit } = require("../../src/services/army-management/army-management-service");
+const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
 
 module.exports = createSystem({
   name: "HarassSystem",

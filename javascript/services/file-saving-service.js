@@ -6,8 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const scoutService = require('../systems/scouting/scouting-service');
 const agentService = require('./agent-service');
-const loggingService = require('./logging-service');
-
+const loggingService = require('../src/services/logging/logging-service');
 const fileSavingService = {
   /**
    * @param {SC2APIProtocol.ResponseSaveReplay} replay

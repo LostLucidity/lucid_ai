@@ -8,6 +8,7 @@ const unitService = require("../services/unit-service");
 const agentService = require("../services/agent-service");
 const worldService = require("../src/world-service");
 const MapResourceService = require("./map-resource-system/map-resource-service");
+const unitRetrievalService = require("../src/services/unit-retrieval");
 
 let knownUpgrades = new Set();
 
@@ -58,7 +59,7 @@ module.exports = createSystem({
     unitService.selfUnits = new Map();
     agentService.hasTechFor = new Map();
     worldService.availableProductionUnits = new Map();
-    worldService.productionUnitsCache = new Map();
+    unitRetrievalService.resetCache();
 
     const currentUpgrades = new Set(agent.upgradeIds);
 

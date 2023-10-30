@@ -27,7 +27,6 @@ const loggingSystem = require('./systems/logging-system');
 const boGeneratorSystem = require('./systems/bo-generator-system');
 const scoutingSystem = require('./systems/scouting/scouting-system');
 const taggingSystem = require('./systems/tagging-system');
-const { logoutStepsExecuted } = require('./services/logging-service');
 const { saveReplay, saveExecutedStepsLog } = require('./services/file-saving-service');
 const agentService = require('./services/agent-service');
 const mulingSystem = require('./systems/muling-system');
@@ -50,6 +49,7 @@ const qTableService = require('./systems/q-table/q-table-service');
 const delayedStepSystem = require('./systems/delayed-step-system');
 const performanceTrackingSystem = require('./systems/performance-tracking/performance-tracking-system');
 const mapResourceSystem = require('./systems/map-resource-system/map-resource-system');
+const { logoutStepsExecuted } = require('./src/services/logging/logging-service');
 
 // const aiBuild = AIBuild.Rush;
 agentService.difficulty = Difficulty.CHEATMONEY;

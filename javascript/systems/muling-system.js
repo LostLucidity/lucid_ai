@@ -2,10 +2,10 @@
 "use strict"
 
 const { createSystem } = require("@node-sc2/core");
-const { EFFECT_CALLDOWNMULE, MORPH_ORBITALCOMMAND } = require("@node-sc2/core/constants/ability");
+const { EFFECT_CALLDOWNMULE } = require("@node-sc2/core/constants/ability");
 const planService = require("../services/plan-service");
 const { getMineralFieldTarget } = require("./unit-resource/unit-resource-service");
-const { createUnitCommand } = require("../src/services/command-service");
+const { createUnitCommand } = require("../src/services/shared-utilities/command-utilities");
 
 module.exports = createSystem({
   name: 'MulingSystem',

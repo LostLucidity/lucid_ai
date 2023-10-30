@@ -8,11 +8,11 @@ const { salvageBunker } = require("../../builds/terran/salvage-bunker");
 const { getMiddleOfNaturalWall } = require("../../helper/placement/placement-helper");
 const armyManagementService = require("../../services/army-management-service");
 const { attackWithArmy } = require("../../services/army-management-service");
-const { canBuild } = require("../../src/world-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const scoutService = require("../scouting/scouting-service");
 const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
 const armyManagementServiceV2 = require("../../src/services/army-management/army-management-service");
+const { canBuild } = require("../../src/services/shared-utilities/training-shared-utils");
 
 module.exports = createSystem({
   name: 'DefenseSystem',

@@ -11,12 +11,12 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { countTypes, larvaOrEgg } = require("../../helper/groups");
-const { createUnitCommand } = require("../../src/services/command-service");
 const { isPendingContructing } = require("../../services/shared-service");
 const { canBeChronoBoosted, triggerAbilityByDistance } = require("../../services/unit-service");
 const unitService = require("../../services/unit-service");
 const Ability = require("@node-sc2/core/constants/ability");
 const { UnitType } = require("@node-sc2/core/constants");
+const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
 
 const unitResourceService = {
   /** @type {Map<string, UnitTypeId>} */

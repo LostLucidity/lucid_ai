@@ -2,6 +2,7 @@
 "use strict"
 
 const { UnitType, Upgrade } = require("@node-sc2/core/constants");
+// eslint-disable-next-line no-unused-vars
 const { Race } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");

@@ -9,7 +9,7 @@ const resourceManagerService = require("../../../services/resource-manager-servi
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("../../../systems/track-units/track-units-service");
 const { getWeaponDPS } = require("../shared-utilities/combat-utilities");
-const { isByItselfAndNotAttacking } = require("../unit-analysis");
+const { isByItselfAndNotAttacking } = require("../shared-utilities/game-analysis-utils");
 
 
 /**

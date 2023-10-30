@@ -9,7 +9,7 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { DRONE, BUNKER } = require("@node-sc2/core/constants/unit-type");
 const foodUsedService = require("../services/food-used-service");
 const planService = require("../services/plan-service");
-const { getUnitTypeCount, getFoodUsed, shortOnWorkers, getBuilder, assignAndSendWorkerToBuild, train, build, upgrade, runPlan } = require("../src/world-service");
+const { shortOnWorkers } = require("../src/world-service");
 const scoutingService = require("./scouting/scouting-service");
 const { v4: uuidv4 } = require('uuid');
 const dataService = require("../services/data-service");
@@ -20,6 +20,14 @@ const { setScout, setOpponentRace } = require("./scouting/scouting-service");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const { getTargetLocation } = require("./map-resource-system/map-resource-service");
 const { getTimeInSeconds } = require("../services/frames-service");
+const { upgrade } = require("../src/services/training");
+const { build } = require("../src/services/building-management");
+const { runPlan } = require("../src/services/plan-management");
+const { prepareBuilderForConstruction } = require("../src/services/resource-management");
+const { commandBuilderToConstruct } = require("../src/services/unit-commands/builder-commands");
+const { train } = require("../src/services/shared-utilities/training-utilities");
+const { getFoodUsed } = require("../src/services/shared-utilities/info-utils");
+const unitRetrievalService = require("../src/services/unit-retrieval");
 
 module.exports = createSystem({
   name: 'BoGeneratorSystem',
@@ -135,7 +143,7 @@ async function runAction(world, allAvailableAbilities) {
     const [action] = allAvailableAbilitiesArray.splice(Math.floor(Math.random() * allAvailableAbilitiesArray.length), 1);
     const { orderType, unitType } = action;
     if (orderType === 'UnitType') {
-      const unitTypeCount = getUnitTypeCount(world, unitType) + (unitType === DRONE ? units.getStructures().length - 1 : 0);
+      const unitTypeCount = unitRetrievalService.getUnitTypeCount(world, unitType) + (unitType === DRONE ? units.getStructures().length - 1 : 0);
       const conditions = [
         isGasExtractorWithoutFreeGasGeyser(map, unitType),
         diminishChangeToBuild(data, unitType, unitTypeCount),
@@ -151,7 +159,7 @@ async function runAction(world, allAvailableAbilities) {
       actionTaken = true;
       if (!isMatchingPlan) {
         planService.plan.push({
-          orderType, unitType, food: foodUsed, targetCount: getUnitTypeCount(world, unitType)
+          orderType, unitType, food: foodUsed, targetCount: unitRetrievalService.getUnitTypeCount(world, unitType)
         });
         planService.latestStep = planService.plan.length - 1;
         const { attributes } = data.getUnitTypeData(unitType);
@@ -174,6 +182,7 @@ async function runAction(world, allAvailableAbilities) {
     await actions.sendAction(collectedActions);
   }
 }
+
 /**
  * @param {World} world 
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
@@ -182,48 +191,51 @@ function optimizeBuildCommands(world) {
   const { agent, data, resources } = world;
   const { units } = resources.get();
   const collectedActions = [];
+
   units.getWorkers().forEach(worker => {
     const { orders, pos } = worker;
     if (orders === undefined || pos === undefined) return;
+
     let unitType;
     const foundOrder = orders.find(order => {
-      const { abilityId } = order;
-      if (abilityId === undefined) return false;
+      const { abilityId, targetWorldSpacePos } = order;
+      if (abilityId === undefined || targetWorldSpacePos === undefined) return false;
+
       const unitTypeTrainingAbilities = dataService.unitTypeTrainingAbilities;
       unitType = unitTypeTrainingAbilities.get(abilityId);
-      if (unitType === undefined) return false;
-      const { attributes } = data.getUnitTypeData(unitType);
-      if (attributes === undefined) return false;
-      if (attributes.includes(Attribute.STRUCTURE)) {
-        const { targetWorldSpacePos } = order;
-        if (targetWorldSpacePos === undefined) return false;
-        const { x, y } = targetWorldSpacePos;
-        if (x === undefined || y === undefined) return false;
-        const structure = units.getStructures().find(structure => {
-          const { pos } = structure;
-          if (pos === undefined) return false;
-          const { x: structureX, y: structureY } = pos;
-          if (structureX === undefined || structureY === undefined) return false;
-          return structureX === x && structureY === y;
-        });
-        return structure === undefined;
-      }
-      return false;
+
+      if (!unitType) return false;  // Check here to avoid using an undefined unitType
+
+      const unitData = data.getUnitTypeData(unitType);
+      return unitData && unitData.attributes && unitData.attributes.includes(Attribute.STRUCTURE) && !units.getStructures().some(structure => {
+        const { pos: structurePos } = structure;
+        return structurePos && structurePos.x === targetWorldSpacePos.x && structurePos.y === targetWorldSpacePos.y;
+      });
     });
-    if (foundOrder === undefined) return;
+
+    if (!foundOrder) return;
     const { targetWorldSpacePos } = foundOrder;
-    if (targetWorldSpacePos === undefined) return;
-    const closestWorker = getBuilder(world, targetWorldSpacePos);
-    if (closestWorker === null) return;
+
+    if (!targetWorldSpacePos || !unitType) return;  // Ensure both variables are defined
+
+    const closestWorker = prepareBuilderForConstruction(world, unitType, targetWorldSpacePos);
+    if (!closestWorker) return;
+
     const { pos: closestWorkerPos } = closestWorker;
-    if (closestWorkerPos === undefined || unitType === undefined) return;
-    if (closestWorker.tag === worker.tag || (pathFindingService.getDistanceByPath(resources, pos, targetWorldSpacePos) <= pathFindingService.getDistanceByPath(resources, closestWorkerPos, targetWorldSpacePos))) return;
+    if (!closestWorkerPos) return;
+
+    if (closestWorker.tag === worker.tag ||
+      (pathFindingService.getDistanceByPath(resources, pos, targetWorldSpacePos) <=
+        pathFindingService.getDistanceByPath(resources, closestWorkerPos, targetWorldSpacePos))) return;
+
     if (agent.canAfford(unitType)) {
-      collectedActions.push(...assignAndSendWorkerToBuild(world, unitType, targetWorldSpacePos, false));
+      collectedActions.push(...commandBuilderToConstruct(world, closestWorker, unitType, targetWorldSpacePos));
     }
   });
+
   return collectedActions;
 }
+
 /**
  * @param {World} world
  * return {void}

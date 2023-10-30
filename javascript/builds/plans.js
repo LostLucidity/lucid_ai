@@ -162,7 +162,7 @@ const plans = {
         [21, 'train', QUEEN, 1],
         [25, 'upgrade', ZERGLINGMOVEMENTSPEED],
         [25, 'train', ZERGLING, 0],
-        [25, 'train', ZERGLING, 1],
+        [25, 'train', ZERGLING, 2],
         [[...range(26, 200)], 'continuouslyBuild', [ZERGLING, ROACH, HYDRALISK]],
         [[...range(32, 33)], 'scout', ZERGLING, 'AcrossTheMap'],
         [32, 'train', OVERLORD, 3],

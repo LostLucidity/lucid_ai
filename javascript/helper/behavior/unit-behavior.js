@@ -9,10 +9,9 @@ const { filterLabels } = require("../unit-selection");
 const Ability = require("@node-sc2/core/constants/ability");
 const { larvaOrEgg } = require("../groups");
 const { isRepairing, isMining, getOrderTargetPosition } = require("../../systems/unit-resource/unit-resource-service");
-const { createUnitCommand } = require("../../src/services/command-service");
 const { shadowEnemy } = require("../../builds/helper");
 const { getDistance } = require("../../services/position-service");
-const { pullWorkersToDefend, getUnitsInRangeOfPosition, findPosition } = require("../../src/world-service");
+const { pullWorkersToDefend, getUnitsInRangeOfPosition } = require("../../src/world-service");
 const { getTimeInSeconds } = require("../../services/frames-service");
 const { UnitType } = require("@node-sc2/core/constants");
 const { getPendingOrders, setPendingOrders, triggerAbilityByDistance } = require("../../services/unit-service");
@@ -34,6 +33,8 @@ const armyManagementService = require("../../src/services/army-management/army-m
 const { getDistanceByPath } = require("../../src/services/pathfinding/pathfinding-service");
 const { getSelfUnits } = require("../../src/services/unit-retrieval/unit-retrieval-service");
 const enemyTrackingService = require("../../src/services/enemy-tracking");
+const PlacementService = require("../../src/services/placement/placement-service");
+const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
 
 module.exports = {
   /**
@@ -433,7 +434,7 @@ function handleTumor(world, tumor, creepTumorsBurrowed, enemyNaturalTownhallPosi
         });
   
         if (candidatePositions.length > 0) {
-          foundPosition = findPosition(world, CREEPTUMOR, candidatePositions);
+          foundPosition = PlacementService.findPosition(world, CREEPTUMOR, candidatePositions);
         }
   
         lowerLimit -= 0.5;

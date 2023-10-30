@@ -5,10 +5,14 @@ const fs = require('fs');
 const { Attribute } = require("@node-sc2/core/constants/enums");
 const { getAllActions } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
-const { train, getStep, getUnitTypeCount, build, upgrade } = require("../../src/world-service");
+const { getStep } = require("../../src/world-service");
 const path = require('path');
 const { maxEnergyNexusChronoboost } = require('../unit-resource/unit-resource-service');
 const { EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
+const { upgrade } = require('../../src/services/training');
+const { build } = require('../../src/services/building-management');
+const { train } = require('../../src/services/shared-utilities/training-utilities');
+const unitRetrievalService = require('../../src/services/unit-retrieval');
 
 /** @typedef { { step: number } } State */
 
@@ -62,7 +66,7 @@ const qTableService = {
       const matchingStep = getStep(world, unitType);
       if (!matchingStep) {
         planService.plan.push({
-          orderType, unitType, food: foodUsed, targetCount: getUnitTypeCount(world, unitType)
+          orderType, unitType, food: foodUsed, targetCount: unitRetrievalService.getUnitTypeCount(world, unitType)
         });
         planService.latestStep = planService.plan.length - 1;
         const { attributes } = data.getUnitTypeData(unitType);

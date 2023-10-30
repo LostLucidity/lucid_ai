@@ -7,7 +7,7 @@ const { tankBehavior } = require("../systems/unit-resource/unit-resource-service
 const armyManagementService = require("../src/services/army-management/army-management-service");
 const enemyTrackingService = require("../src/services/enemy-tracking");
 const { filterEnemyUnits } = require("../src/services/shared-utilities/combat-utilities");
-const { createUnitCommand } = require("../src/services/command-service");
+const { createUnitCommand } = require("../src/services/shared-utilities/command-utilities");
 
 /**
  * Rallies units to a specified point or a default location.

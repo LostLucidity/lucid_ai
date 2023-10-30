@@ -22,7 +22,6 @@ const { balanceResources } = require("../systems/manage-resources");
 const { addonTypes, gasMineTypes } = require("@node-sc2/core/constants/groups");
 const runBehaviors = require("./behavior/run-behaviors");
 const mismatchMappings = require("../systems/salt-converter/mismatch-mapping");
-const { getStringNameOfConstant } = require("../services/logging-service");
 const { keepPosition } = require("../services/placement-service");
 const { getEnemyWorkers, deleteLabel, getMineralFieldTarget } = require("../systems/unit-resource/unit-resource-service");
 const planService = require("../services/plan-service");
@@ -35,7 +34,6 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { pointsOverlap } = require("./utilities");
-const resourceManagerService = require("../services/resource-manager-service");
 const { getTargetLocation } = require("../systems/map-resource-system/map-resource-service");
 const scoutService = require("../systems/scouting/scouting-service");
 const { creeperBehavior } = require("./behavior/labelled-behavior");
@@ -51,7 +49,24 @@ const { pathFindingService } = require("../src/services/pathfinding");
 const armyManagementService = require("../src/services/army-management/army-management-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const { attack } = require("./behavior/army-behavior");
-const { createUnitCommand } = require("../src/services/command-service");
+const { buildSupplyOrTrain } = require("../src/services/training");
+const PlacementService = require("../src/services/placement/placement-service");
+const expansionManagementService = require("../src/services/expansion-management/expansion-management-service");
+const { createUnitCommand } = require("../src/services/shared-utilities/command-utilities");
+const { prepareBuilderForConstruction } = require("../src/services/resource-management/resource-management-service");
+const { addEarmark, getStringNameOfConstant } = require("../src/services/shared-utilities/common-utilities");
+const { commandBuilderToConstruct } = require("../src/services/unit-commands/builder-commands");
+const { setFoodUsed } = require("../src/services/shared-utilities/data-utils");
+const { morphStructureAction } = require("../src/services/shared-utilities/building-utils");
+const { getFoodUsed } = require("../src/services/shared-utilities/info-utils");
+const { getAbilityIdsForAddons } = require("../src/services/shared-utilities/ability-utils");
+const { isSupplyNeeded } = require("../src/services/shared-utilities/supply-utils");
+const { getBuilder } = require("../src/services/unit-commands/building-commands");
+const { premoveBuilderToPosition } = require("../src/services/shared-utilities/builder-utils");
+const { train } = require("../src/services/shared-utilities/training-utilities");
+const unitRetrievalService = require("../src/services/unit-retrieval");
+const loggingService = require("../src/services/logging/logging-service");
+const { canBuild } = require("../src/services/shared-utilities/training-shared-utils");
 
 
 let ATTACKFOOD = 194;
@@ -116,7 +131,6 @@ class AssemblePlan {
     const { agent, data, resources } = world;
     const { foodUsed } = agent;
     const { actions, units } = resources.get();
-    const { getFoodUsed } = worldService;
     if (getFoodUsed() >= food) {
       if (conditions === undefined || conditions.targetType || conditions.targetCount === units.getById(conditions.countType).length + units.withCurrentOrders(abilityId).length) {
         if (conditions && conditions.targetType && conditions.continuous === false) { if (foodUsed !== food) { return; } }
@@ -160,12 +174,12 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async build(world, unitType, targetCount, candidatePositions = []) {
-    const { addAddOn, getUnitCount, getUnitTypeCount, morphStructureAction } = worldService;
+    const { addAddOn } = worldService;
     const { agent, data, resources } = world;
     const { race } = agent;
     const { actions, map, units } = resources.get();
-    const unitTypeCount = getUnitTypeCount(world, unitType);
-    const unitCount = getUnitCount(world, unitType);
+    const unitTypeCount = unitRetrievalService.getUnitTypeCount(world, unitType);
+    const unitCount = unitRetrievalService.getUnitCount(world, unitType);
     if (unitTypeCount <= targetCount && unitCount <= targetCount) {
       switch (true) {
         case TownhallRace[race].includes(unitType):
@@ -174,9 +188,16 @@ class AssemblePlan {
               candidatePositions = await getInTheMain(resources, unitType);
               await this.buildBuilding(world, unitType, candidatePositions);
             } else {
-              resourceManagerService.availableExpansions = resourceManagerService.availableExpansions.length === 0 ? getAvailableExpansions(resources) : resourceManagerService.availableExpansions;
-              const { availableExpansions } = resourceManagerService;
-              candidatePositions.push(getNextSafeExpansions(world, availableExpansions)[0]);
+              // Use getter to retrieve the available expansions
+              let expansions = expansionManagementService.getAvailableExpansions();
+
+              // Check and update the expansions if necessary
+              if (expansions.length === 0) {
+                expansions = getAvailableExpansions(resources);
+                expansionManagementService.setAvailableExpansions(expansions);
+              }
+
+              candidatePositions.push(getNextSafeExpansions(world, expansions)[0]);
               await this.buildBuilding(world, unitType, candidatePositions);
             }
           } else {
@@ -184,7 +205,7 @@ class AssemblePlan {
           }
           break;
         case addonTypes.includes(unitType): {
-          const { addEarmark, getAbilityIdsForAddons, getUnitTypesWithAbilities } = worldService;
+          const { getUnitTypesWithAbilities } = worldService;
           if (agent.canAfford(unitType)) {
             const abilityIds = getAbilityIdsForAddons(data, unitType);
             let canDoTypes = getUnitTypesWithAbilities(data, abilityIds);
@@ -225,31 +246,44 @@ class AssemblePlan {
    * @param {Point2D[]} candidatePositions 
    */
   async buildBuilding(world, unitType, candidatePositions) {
-    const { findPlacements, premoveBuilderToPosition } = worldService;
     const { agent, resources } = world;
     const { actions } = resources.get();
+
     let buildingPosition = await getBuildingPosition(world, unitType, candidatePositions);
-    candidatePositions = buildingPosition ? [buildingPosition] : findPlacements(world, unitType);
+    candidatePositions = buildingPosition ? [buildingPosition] : PlacementService.findPlacements(world, unitType);
+
     planService.buildingPosition = buildingPosition;
+
     if (buildingPosition) {
       if (agent.canAfford(unitType)) {
         if (await actions.canPlace(unitType, [buildingPosition])) {
-          const { assignAndSendWorkerToBuild } = worldService;
-          await actions.sendAction(assignAndSendWorkerToBuild(world, unitType, buildingPosition));
+
+          // First, we prepare a builder for construction
+          const builder = prepareBuilderForConstruction(world, unitType, buildingPosition);
+
+          // If we have a valid builder, command it to start construction
+          if (builder) {
+            const constructionActions = commandBuilderToConstruct(world, builder, unitType, buildingPosition);
+            await actions.sendAction(constructionActions);
+          }
+
           planService.pausePlan = false;
           planService.continueBuild = true;
+
         } else {
           buildingPosition = keepPosition(world, unitType, buildingPosition) ? buildingPosition : false;
           planService.buildingPosition = buildingPosition;
+
           if (buildingPosition) {
-            this.collectedActions.push(...premoveBuilderToPosition(world, buildingPosition, unitType));
+            this.collectedActions.push(...premoveBuilderToPosition(world, buildingPosition, unitType, getBuilder));
           }
         }
       } else {
-        this.collectedActions.push(...premoveBuilderToPosition(world, buildingPosition, unitType));
+        this.collectedActions.push(...premoveBuilderToPosition(world, buildingPosition, unitType, getBuilder));
       }
     }
   }
+
   checkEnemyBuild() {
     const { frame } = this.resources.get();
     if (scoutingService.earlyScout) {
@@ -382,7 +416,7 @@ class AssemblePlan {
       }
     }
 
-    const shouldExpand = worldService.getFoodUsed() >= 132 && !worldService.shortOnWorkers(world);
+    const shouldExpand = getFoodUsed() >= 132 && !worldService.shortOnWorkers(world);
     if (shouldExpand) {
       actionsToCollect.push(expand(world));
     }
@@ -679,7 +713,7 @@ class AssemblePlan {
    * @returns {boolean} - Returns true if the conditions for expansion are met, otherwise false.
    */
   shouldExpand(world) {
-    const { getFoodUsed, shortOnWorkers } = worldService;
+    const { shortOnWorkers } = worldService;
     return getFoodUsed() >= 132 && !shortOnWorkers(world);
   }
 
@@ -774,12 +808,11 @@ class AssemblePlan {
    * @returns {void}
    */
   scout(world, foodRanges, unitType, targetLocation, conditions) {
-    const { getFoodUsed, getUnitCount } = worldService;
     const { resources } = world;
     const { map, units } = resources.get();
     const label = conditions && conditions.label ? conditions.label : 'scout';
     const isScoutTypeActive = conditions && conditions.scoutType ? scoutingService[conditions.scoutType] : true;
-    const requiredUnitCount = conditions && conditions.unitCount ? getUnitCount(world, conditions.unitType) >= conditions.unitCount : true;
+    const requiredUnitCount = conditions && conditions.unitCount ? unitRetrievalService.getUnitCount(world, conditions.unitType) >= conditions.unitCount : true;
     if (foodRanges.indexOf(getFoodUsed()) > -1 && isScoutTypeActive && requiredUnitCount) {
       const location = getTargetLocation(map, `get${targetLocation}`);
       let labelledScouts = units.withLabel(label).filter(unit => unit.unitType === unitType && !unit.isConstructing());
@@ -820,13 +853,12 @@ class AssemblePlan {
    * @returns {Promise<void>}
    */
   async train(world, food, unitType, targetCount) {
-    const { addEarmark, canBuild, getFoodUsed, getUnitCount, isSupplyNeeded, setAndLogExecutedSteps } = worldService;
     const { data, resources } = world;
     const { actions } = resources.get();
     if (getFoodUsed() >= food) {
       let abilityId = this.data.getUnitTypeData(unitType).abilityId;
       const unitTypeData = data.getUnitTypeData(unitType);
-      if (targetCount === null || getUnitCount(world, unitType) <= targetCount) {
+      if (targetCount === null || unitRetrievalService.getUnitCount(world, unitType) <= targetCount) {
         if (canBuild(this.world, unitType)) {
           const trainer = this.units.getProductionUnits(unitType).find(unit => {
             const pendingOrders = unit['pendingOrders'] ? unit['pendingOrders'] : [];
@@ -856,7 +888,7 @@ class AssemblePlan {
             }
           }
           planService.pausePlan = false;
-          setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
+          loggingService.setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
           unitTrainingService.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
           addEarmark(data, unitTypeData);
@@ -875,7 +907,6 @@ class AssemblePlan {
    * @param {number} upgradeId
    */
   async upgrade(world, food, upgradeId) {
-    const { addEarmark, getFoodUsed, setAndLogExecutedSteps } = worldService;
     const { agent, data, resources } = world;
     const { upgradeIds } = agent; if (upgradeIds === undefined) return;
     const { actions, frame, units } = resources.get();
@@ -897,7 +928,7 @@ class AssemblePlan {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
           planService.pausePlan = false;
-          setAndLogExecutedSteps(world, frame.timeInSeconds(), upgradeName);
+          loggingService.setAndLogExecutedSteps(world, frame.timeInSeconds(), upgradeName);
           console.log(`Upgrading ${upgradeName}`);
         } else {
           console.log(`${upgradeName} not available`);
@@ -914,7 +945,7 @@ class AssemblePlan {
    * @param {World} world
    */
   async runPlan(world) {
-    const { addEarmark, buildSupplyOrTrain, setFoodUsed, swapBuildings, train } = worldService;
+    const { swapBuildings } = worldService;
     const { agent, data, resources } = world;
     const { actions, units } = resources.get();
     const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
@@ -962,7 +993,7 @@ class AssemblePlan {
         const foodTarget = planStep[0];
         let conditions;
         let unitType;
-        let foodUsed = worldService.getFoodUsed();
+        let foodUsed = getFoodUsed();
         switch (planStep[1]) {
           case 'ability':
             const abilityId = planStep[2];
@@ -1063,7 +1094,6 @@ module.exports = AssemblePlan;
  * @returns {Promise<Point2D | false>}
  */
 async function getBuildingPosition(world, unitType, candidatePositions) {
-  const { findPosition } = worldService;
   const { agent, resources } = world;
   const { race } = agent;
   let position = planService.buildingPosition;
@@ -1080,7 +1110,7 @@ async function getBuildingPosition(world, unitType, candidatePositions) {
       return position;
     }
   }
-  return findPosition(world, unitType, candidatePositions.filter(pos => armyManagementService.isStrongerAtPosition(world, pos)));
+  return PlacementService.findPosition(world, unitType, candidatePositions.filter(pos => armyManagementService.isStrongerAtPosition(world, pos)));
 }
 
 /**
@@ -1285,13 +1315,13 @@ function optimizeWorkerAssignments(world, constructingWorker) {
 
     if (closerWorker) {
       if (!isWorkerMovingToCorrectPosition(worker, buildPosition)) {
-        worldService.premoveBuilderToPosition(world, buildPosition, unitType);
+        premoveBuilderToPosition(world, buildPosition, unitType, getBuilder);
 
         // Halt the original worker's build task and store the command
         commands.push(...worldService.haltWorker(world, worker));
       }
     } else if (!isWorkerMovingToCorrectPosition(worker, buildPosition)) {
-      worldService.premoveBuilderToPosition(world, buildPosition, unitType);
+      premoveBuilderToPosition(world, buildPosition, unitType, getBuilder);
     }
   });
 

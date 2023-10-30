@@ -10,7 +10,7 @@ const { getInRangeUnits } = require("../../../helper/battle-analysis");
 const { pathFindingService } = require("../pathfinding");
 const { getGasGeysers } = require("../unit-retrieval");
 const { isInMineralLine } = require("../../../systems/map-resource-system/map-resource-service");
-const { isByItselfAndNotAttacking } = require("../unit-analysis/unit-analysis-service");
+const { isByItselfAndNotAttacking } = require("../shared-utilities/game-analysis-utils");
 
 class EnemyTrackingService {
   /** @type {Unit[]} */

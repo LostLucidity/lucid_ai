@@ -5,8 +5,8 @@ const { LARVA, ZERGLING, WARPGATE } = require("@node-sc2/core/constants/unit-typ
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { WarpUnitAbility } = require("@node-sc2/core/constants");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { canBuild } = require("../src/world-service");
 const { warpIn } = require("../services/resource-manager-service");
+const { canBuild } = require("../src/services/shared-utilities/training-shared-utils");
 
 /**
  * @param {World} world 

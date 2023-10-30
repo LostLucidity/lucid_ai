@@ -12,7 +12,6 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cancelEarlyScout } = require("../../builds/scouting");
 const placementHelper = require("../../helper/placement/placement-helper");
-const { createUnitCommand } = require("../../src/services/command-service");
 const planService = require("../../services/plan-service");
 const { getZergEarlyBuild } = require("../../src/world-service");
 const worldService = require("../../src/world-service");
@@ -27,6 +26,7 @@ const enemyTrackingServiceV2 = require("../../src/services/enemy-tracking/enemy-
 const { getUnitsTraining } = require("../../src/services/unit-retrieval");
 const { getUnitTypeData } = require("../unit-resource/unit-resource-service");
 const { combatTypes } = require("@node-sc2/core/constants/groups");
+const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
 
 module.exports = createSystem({
   name: 'ScoutingSystem',

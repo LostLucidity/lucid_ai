@@ -17,14 +17,11 @@ const { setPendingOrders } = require("./unit-service");
 const { shuffle } = require("../helper/utilities");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { getOccupiedExpansions } = require("../helper/expansions");
-const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const pathFindingService = require("../src/services/pathfinding/pathfinding-service");
 const { getGasGeysers } = require("../src/services/unit-retrieval");
-const { createUnitCommand } = require("../src/services/command-service");
+const { createUnitCommand } = require("../src/services/shared-utilities/command-utilities");
 
 const resourceManagerService = {
-  /** @type {Expansion[]} */
-  availableExpansions: [],
   creepEdges: [],
   /**
    * @param {ResourceManager} resources
@@ -72,24 +69,6 @@ const resourceManagerService = {
       setPendingOrders(unit, sendToGather);
     }
     return collectedActions;
-  },
-  /**
-  * @param {ResourceManager} resources
-  * @param {UnitTypeId[]} unitTypes
-  * @returns {Unit[]}
-  */
-  getById(resources, unitTypes) {
-    const { isCurrent } = unitResourceService;
-    const { frame, units } = resources.get();
-    const currentFrame = frame.getGameLoop();
-    return unitTypes.reduce((/** @type {Unit[]} */ unitsById, unitType) => {
-      if (!isCurrent(unitType, frame.getGameLoop())) {
-        const newUnits = units.getById(unitType);
-        unitResourceService.unitsById.set(unitType, { units: newUnits, frame: currentFrame });
-      }
-      const entry = unitResourceService.unitsById.get(unitType);
-      return [...unitsById, ...(entry ? entry.units : [])];
-    }, []);
   },
   /**
    * @param {ResourceManager} resources
@@ -285,19 +264,6 @@ const resourceManagerService = {
     }
     try { await actions.warpIn(unitType, { nearPosition: nearPosition }) } catch (error) { console.log(error); }
   },
-  /**
-   * @param {World} world
-   * @param {UnitTypeId} unitType
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
-   */
-  warpInSync: (world, unitType) => {
-    const { resources } = world;
-    const collectedActions = []
-    const nearPosition = armyManagementService.getCombatRally(resources);
-    console.log('nearPosition', nearPosition);
-    collectedActions.push(...warpInCommands(world, unitType, { nearPosition }));
-    return collectedActions;
-  }
 }
 
 module.exports = resourceManagerService;

@@ -4,7 +4,7 @@
 const { TECHLAB } = require("@node-sc2/core/constants/unit-type");
 const dataService = require("../../services/data-service");
 const { getPendingOrders, getBuildTimeLeft } = require("../../services/unit-service");
-const { getById } = require("../../services/resource-manager-service");
+const { getById } = require("../../src/services/unit-retrieval");
 
 const unitTrainingService = {
   /** @type {number|null} */

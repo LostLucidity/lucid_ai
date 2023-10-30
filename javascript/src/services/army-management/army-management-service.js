@@ -16,7 +16,6 @@ const { getPathCoordinates } = require("../../../services/path-service");
 const { WeaponTargetType, Alliance } = require("@node-sc2/core/constants/enums");
 const { UnitType, Ability } = require("@node-sc2/core/constants");
 const microService = require("../../../services/micro-service");
-const resourceManagerService = require("../../../services/resource-manager-service");
 const dataService = require("../../../services/data-service");
 const { getClosestPosition } = require("../../../helper/get-closest");
 const unitResourceService = require("../../../systems/unit-resource/unit-resource-service");
@@ -25,15 +24,14 @@ const trackUnitsService = require("../../../systems/track-units/track-units-serv
 const { pointsOverlap } = require("../../../helper/utilities");
 const positionService = require("../../../services/position-service");
 const { existsInMap, getRallyPointByBases } = require("../../../helper/location");
-const { getClosestSafeMineralField } = require("../shared-functions");
 const pathFindingService = require("../pathfinding/pathfinding-service");
 const { getWeaponDPS, getWeapon, getWeaponDamage, setDamageForTag, getDamageForTag } = require("../shared-utilities/combat-utilities");
 const enemyTrackingServiceV2 = require("../enemy-tracking/enemy-tracking-service");
-const { getDistanceBetween } = require("../utility-service");
+const { getDistanceBetween, getClosestSafeMineralField } = require("../utility-service");
 const { getCachedAlive } = require("../cache-service");
 const { getPotentialCombatantsInRadius } = require("../unit-analysis");
 const { calculateTimeToKillUnits } = require("../combat-statistics");
-const { createUnitCommand } = require("../command-service");
+const { createUnitCommand } = require("../shared-utilities/command-utilities");
 
 class ArmyManagementService {
   constructor() {
@@ -1676,121 +1674,6 @@ function moveInDirection(startPos, direction, distance) {
 }
 
 /**
- * Calculates the total DPS of a group of units based on enemy composition.
- * 
- * @param {World} world - The game world.
- * @param {Unit[]} unitsGroup - Array of units whose total DPS needs to be calculated.
- * @param {Unit[]} enemyUnits - Array of enemy units.
- * @returns {number} - Total DPS of the group against the provided enemy units.
- */
-function calculateGroupDPS(world, unitsGroup, enemyUnits) {
-  let totalDPS = 0;
-
-  for (let unit of unitsGroup) {
-    // Check if unitType is defined before proceeding
-    if (unit.unitType !== undefined) {
-      // Fetch the DPS values for each weapon of the unit type
-      const unitDPSArray = getUnitDPS(world, unit.unitType);
-
-      // If the unit has multiple weapons, choose the best one based on enemy composition
-      const bestWeaponDPS = chooseBestWeaponDPS(unitDPSArray, enemyUnits);
-
-      totalDPS += bestWeaponDPS;
-    }
-  }
-
-  return totalDPS;
-}
-
-/**
- * Calculates the Damage Per Second (DPS) for each weapon of a given unit type.
- * 
- * @param {World} world - The game world.
- * @param {number} unitType - The type ID of the unit.
- * @returns {import("../../../interfaces/weapon-dps").WeaponDPS[]} - An array of DPS values for each weapon of the unit.
- */
-function getUnitDPS(world, unitType) {
-  // Fetch unit data
-  const unitData = world.data.getUnitTypeData(unitType);
-
-  // If the unit doesn't exist or doesn't have weapons, return an empty array
-  if (!unitData?.weapons?.length) {
-    return [];
-  }
-
-  // Map each weapon to its DPS
-  const dpsArray = unitData.weapons.map(weapon => {
-    // Using optional chaining to safely access properties
-    const damage = weapon?.damage ?? 0;  // Default to 0 if undefined
-    const speed = weapon?.speed ?? 1;    // Default to 1 if undefined to prevent division by zero
-    const attacks = weapon?.attacks ?? 1; // Default to 1 if undefined
-
-    // Compute DPS considering multiple attacks
-    const dps = speed > 0 ? (damage * attacks) / speed : 0;
-
-    // Generate a descriptor for the weapon
-    const descriptor = `Type: ${weapon.type}, Damage: ${damage}, Range: ${weapon.range}, Speed: ${speed}, Attacks: ${attacks}`;
-
-    return {
-      name: descriptor,
-      dps: dps,
-      type: weapon?.type ?? WeaponTargetType.ANY, // default to ANY if type is undefined
-    };
-  });
-
-  return dpsArray;
-}
-
-/**
- * Chooses the average of the best weapon's DPS against each enemy unit.
- * 
- * @param {import("../../../interfaces/weapon-dps").WeaponDPS[]} dpsArray - DPS values for each weapon of a unit.
- * @param {Unit[]} enemyUnits - Array of enemy units.
- * @returns {number} - Average of the best DPS values against each of the provided enemy units.
- */
-function chooseBestWeaponDPS(dpsArray, enemyUnits) {
-  let totalBestDPS = 0;
-
-  for (let enemy of enemyUnits) {
-    let bestDPSForEnemy = 0;
-    let targetPreference = enemy.isFlying ? WeaponTargetType.AIR : WeaponTargetType.GROUND;
-
-    for (let dps of dpsArray) {
-      switch (targetPreference) {
-        case WeaponTargetType.AIR:
-          if (dps.type === WeaponTargetType.AIR && dps.dps > bestDPSForEnemy) {
-            bestDPSForEnemy = dps.dps;
-          }
-          break;
-        case WeaponTargetType.GROUND:
-          if (dps.type === WeaponTargetType.GROUND && dps.dps > bestDPSForEnemy) {
-            bestDPSForEnemy = dps.dps;
-          }
-          break;
-        default:
-          if (dps.dps > bestDPSForEnemy) {
-            bestDPSForEnemy = dps.dps;
-          }
-          break;
-      }
-    }
-
-    totalBestDPS += bestDPSForEnemy;
-  }
-
-  return enemyUnits.length > 0 ? totalBestDPS / enemyUnits.length : 0;
-}
-
-/**
- * Calculate the combined health and shields of a group of units.
- * @param {Unit[]} units
- * @returns {number}
- */
-function calculateGroupHealthAndShields(units) {
-  return units.reduce((total, unit) => total + (unit.health || 0) + (unit.shield || 0), 0);
-}
-
-/**
  * @param {Unit} unit
  * @returns {boolean}
  */
@@ -2094,7 +1977,7 @@ const shouldRetreatToBunker = (resources, pos, thresholdDistance = 16) => {
   const bunkerPositions = getBunkerPositions(units);
   if (bunkerPositions.length === 0) return false;
 
-  const [closestBunker] = resourceManagerService.getClosestPositionByPath(resources, pos, bunkerPositions);
+  const [closestBunker] = pathFindingService.getClosestPositionByPath(resources, pos, bunkerPositions);
   if (!closestBunker) return false;
   const distanceToClosestBunker = pathFindingService.getDistanceByPath(resources, pos, closestBunker);
 
@@ -2276,7 +2159,7 @@ const logExpansionInPath = (resources, unit, retreat) => {
 function getClosestPositionByPathSorted(resources, pos, mapPoints) {
   const { map } = resources.get();
   return mapPoints.map(point => {
-    const [closestPathablePosition] = resourceManagerService.getClosestPositionByPath(resources, pos, MapResourceService.getPathablePositions(map, point));
+    const [closestPathablePosition] = pathFindingService.getClosestPositionByPath(resources, pos, MapResourceService.getPathablePositions(map, point));
     return {
       point,
       distanceByPath: pathFindingService.getDistanceByPath(resources, pos, closestPathablePosition)
