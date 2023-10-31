@@ -528,8 +528,8 @@ class ArmyManagementService {
         logMessages.push('Decision: Fallback - shouldFallback returned true');
         moveToFallbackPosition();
       } else {
-        logMessages.push('Decision: Surround - will try to surround the enemy');
-        moveToSurroundPosition();
+        logMessages.push('Decision: Check Surround or Attack');
+        moveToSurroundOrAttack();
       }
     }
 
@@ -603,17 +603,6 @@ class ArmyManagementService {
           createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions, queueCommand);
           queueCommand = true;
         }
-      }
-    }
-
-    /**
-     * Directs the melee unit to the optimal position to surround the enemy.
-     */
-    function moveToSurroundPosition() {
-      const surroundPosition = getOptimalSurroundPosition();
-      if (surroundPosition) {
-        createAndAddUnitCommand(MOVE, selfUnit, surroundPosition, collectedActions);
-        queueCommand = true;
       }
     }
 
