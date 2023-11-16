@@ -7,8 +7,7 @@ const { Ability, UnitTypeId, UnitType, UpgradeId } = require("@node-sc2/core/con
 const { getDistance } = require("../../../services/position-service");
 const { getAddOnBuildingPosition, getAddOnBuildingPlacement } = require("../../../helper/placement/placement-utilities");
 const { checkUnitCount } = require("../unit-analysis");
-const armyManagementService = require("../army-management/army-management-service");
-const { unpauseAndLog } = require("../shared-functions");
+const { unpauseAndLog, setAndLogExecutedSteps } = require("../shared-functions");
 const getRandom = require("@node-sc2/core/utils/get-random");
 const UnitAbilityMap = require("@node-sc2/core/constants/unit-ability-map");
 const { Alliance, Race, Attribute } = require("@node-sc2/core/constants/enums");
@@ -20,21 +19,26 @@ const { countTypes } = require("../../../helper/groups");
 const { isTrainingUnit } = require("../../../services/data-service");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const dataService = require("../../../services/data-service");
-const { createUnitCommand } = require("../shared-utilities/command-utilities");
+const { createUnitCommand } = require("../../shared-utilities/command-utilities");
 const worldService = require("../../world-service");
 const unitTrainingService = require("../../../systems/unit-training/unit-training-service");
-const { addEarmark, getTimeToTargetCost, getTimeToTargetTech } = require("../shared-utilities/common-utilities");
+const { addEarmark, getTimeToTargetCost, getTimeToTargetTech } = require("../../shared-utilities/common-utilities");
 const planService = require("../../../services/plan-service");
 const { trainWorkers } = require("../economy-management/economy-management-service");
 const { checkTechFor } = require("../../../services/agent-service");
-const { setFoodUsed } = require("../shared-utilities/data-utils");
-const { getFoodUsed } = require("../shared-utilities/info-utils");
-const { train } = require("../shared-utilities/training-utilities");
-const { canBuild, getTrainer } = require("../shared-utilities/training-shared-utils");
-const { buildSupply } = require("../shared-utilities/supply-utils");
+const { setFoodUsed } = require("../../shared-utilities/data-utils");
+const { getFoodUsed } = require("../../shared-utilities/info-utils");
+const { train } = require("../../shared-utilities/training-utilities");
+const { canBuild, getTrainer } = require("../../shared-utilities/training-shared-utils");
+const { buildSupply } = require("../../shared-utilities/supply-utils");
 const { warpInSync } = require("../unit-commands/warp-in-commands");
 const unitRetrievalService = require("../unit-retrieval");
-const loggingService = require("../logging/logging-service");
+const loggingService = require("../../logging/logging-service");
+const { isStrongerAtPosition } = require("../combat-shared/combat-evaluation-service");
+const serviceLocator = require("../service-locator");
+
+/** @type {import("../../services/army-management/army-management-service")} */
+const armyManagementService = serviceLocator.get('armyManagementService');
 
 // Main Functions
 /**
@@ -103,7 +107,7 @@ function buildWorkers(world, limit = 1, checkCanBuild = false) {
     trainers = trainers.reduce((/** @type {Unit[]} */acc, trainer) => {
       if (trainer.pos) { // Ensure trainer has a position
         const point2D = { x: trainer.pos.x, y: trainer.pos.y }; // Convert to Point2D or use type assertion
-        if (armyManagementService.isStrongerAtPosition(world, point2D)) {
+        if (isStrongerAtPosition(world, point2D)) {
           acc.push(trainer);
         }
       }
@@ -193,7 +197,7 @@ function trainSync(world, unitTypeId, targetCount = null) {
     // Filter trainers based on strength at their position.
     const safeTrainers = trainers.filter(trainer => {
       if (trainer.pos) {
-        return armyManagementService.isStrongerAtPosition(world, trainer.pos);
+        return isStrongerAtPosition(world, trainer.pos);
       }
       return false;
     });
@@ -207,10 +211,10 @@ function trainSync(world, unitTypeId, targetCount = null) {
           const unitCommand = createUnitCommand(abilityId, [randomSafeTrainer]);
           collectedActions.push(unitCommand);
           setPendingOrders(randomSafeTrainer, unitCommand);
-          unpauseAndLog(world, UnitTypeId[unitTypeId]);
+          unpauseAndLog(world, UnitTypeId[unitTypeId], loggingService);
         } else {
           collectedActions.push(...warpInSync(world, unitTypeId));
-          unpauseAndLog(world, UnitTypeId[unitTypeId]);
+          unpauseAndLog(world, UnitTypeId[unitTypeId], loggingService);
         }
         addEarmark(data, data.getUnitTypeData(unitTypeId));
         console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);
@@ -248,7 +252,7 @@ async function upgrade(world, upgradeId) {
       const unitCommand = createUnitCommand(abilityId, [upgrader]);
       await actions.sendAction([unitCommand]);
       unitService.setPendingOrders(upgrader, unitCommand);
-      loggingService.setAndLogExecutedSteps(world, frame.timeInSeconds(), UpgradeId[upgradeId]);
+      setAndLogExecutedSteps(world, frame.timeInSeconds(), UpgradeId[upgradeId], loggingService, armyManagementService);
     } else {
       const techLabRequired = techLabTypes.some(techLabType => UnitAbilityMap[techLabType].some(ability => ability === abilityId));
       if (techLabRequired) {

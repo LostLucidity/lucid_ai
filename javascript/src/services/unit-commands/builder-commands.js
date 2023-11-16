@@ -6,10 +6,10 @@
 // 1. Required imports
 const unitService = require('../../../services/unit-service');
 const { isPendingContructing } = require('../../../services/shared-service');
-const { createUnitCommand } = require('../shared-utilities/command-utilities');
+const { createUnitCommand } = require('../../shared-utilities/command-utilities');
 const { GasMineRace } = require('@node-sc2/core/constants/race-map');
 const unitResourceService = require('../../../systems/unit-resource/unit-resource-service');
-const { setBuilderLabel } = require('../shared-utilities/builder-utils');
+const { setBuilderLabel } = require('../../shared-utilities/builder-utils');
 
 // 2. Main functionality
 /**

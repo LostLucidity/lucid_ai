@@ -28,13 +28,14 @@ const InfoRetrievalService = require('../../src/services/info-retrieval-service'
 const unitService = require("../../services/unit-service");
 const { calculateNearDPSHealth } = require("../../src/services/combat-statistics");
 const { getClosestPathWithGasGeysers } = require("../../src/services/utility-service");
-const { getWeaponDPS } = require("../../src/services/shared-utilities/combat-utilities");
-const armyManagementService = require("../../src/services/army-management/army-management-service");
+const { getWeaponDPS } = require("../../src/shared-utilities/combat-utilities");
 const { getDistanceByPath } = require("../../src/services/pathfinding/pathfinding-service");
 const { getSelfUnits } = require("../../src/services/unit-retrieval/unit-retrieval-service");
 const enemyTrackingService = require("../../src/services/enemy-tracking");
 const PlacementService = require("../../src/services/placement/placement-service");
-const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
+const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
+const { getCombatRally } = require("../../src/services/shared-config/combatRallyConfig");
+const { isStrongerAtPosition } = require("../../src/services/combat-shared/combat-evaluation-service");
 
 module.exports = {
   /**
@@ -421,7 +422,7 @@ function handleTumor(world, tumor, creepTumorsBurrowed, enemyNaturalTownhallPosi
           const { pos: closestCreepGeneratorPos } = closestCreepGenerator;
           if (closestCreepGeneratorPos === undefined) return false;
           const [closestTownhallPosition] = getClosestPosition(position, map.getExpansions().map(expansion => expansion.townhallPosition));
-          const isSafePosition = armyManagementService.isStrongerAtPosition(world, position);
+          const isSafePosition = isStrongerAtPosition(world, position);
   
           return [
             closestCreepGenerator,
@@ -584,7 +585,7 @@ function handleRetreatOrDefend(world, worker, enemyUnits, allWorkers) {
   }
 
   // Check for retreat options
-  const retreatPoint = armyManagementService.retreat(world, worker, [closestEnemyUnit]);
+  const retreatPoint = retreatManagementService.retreat(world, worker, [closestEnemyUnit]);
   if (retreatPoint) {
     actions.push(createFinalMoveCommand(worker, retreatPoint, false));
     return actions;
@@ -702,7 +703,7 @@ function handleCloseProximityActions(world, worker, enemyUnits, workers, collect
 
   if (closestEnemies.length === 0) return;
 
-  const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, armyManagementService.getCombatRally(world.resources));
+  const selfCombatRallyUnits = getUnitsInRangeOfPosition(world, getCombatRally(world.resources));
   const selfCombatRallyUnitTypes = extractUnitTypes(selfCombatRallyUnits);
   const inRangeUnitsOfClosestEnemy = getSelfUnits(units, closestEnemies[0], enemyTrackingService.mappedEnemyUnits);
 
@@ -711,7 +712,7 @@ function handleCloseProximityActions(world, worker, enemyUnits, workers, collect
   const inRangeCombatUnitsOfEnemyDPSHealth = calculateNearDPSHealth(world, inRangeUnitsOfClosestEnemy, selfCombatRallyUnitTypes);
 
   const shouldRallyToCombatRally = selfCombatRallyDPSHealth > inRangeCombatUnitsOfEnemyDPSHealth;
-  const targetPosition = armyManagementService.retreat(world, worker, closestEnemies, shouldRallyToCombatRally);
+  const targetPosition = retreatManagementService.retreat(world, worker, closestEnemies, shouldRallyToCombatRally);
 
   /** @type {SC2APIProtocol.ActionRawUnitCommand} */
   const unitCommand = {

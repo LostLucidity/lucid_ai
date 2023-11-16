@@ -19,14 +19,13 @@ const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service")
 const scoutingService = require("./scouting-service");
 const scoutService = require("./scouting-service");
 const { setOutsupplied, setEnemyCombatSupply } = require("./scouting-service");
-const armyManagementService = require("../../src/services/army-management/army-management-service");
 const unitService = require("../../services/unit-service");
 const { calculateTimeToKillUnits } = require("../../src/services/combat-statistics");
 const enemyTrackingServiceV2 = require("../../src/services/enemy-tracking/enemy-tracking-service");
 const { getUnitsTraining } = require("../../src/services/unit-retrieval");
 const { getUnitTypeData } = require("../unit-resource/unit-resource-service");
 const { combatTypes } = require("@node-sc2/core/constants/groups");
-const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
+const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
 
 module.exports = createSystem({
   name: 'ScoutingSystem',
@@ -48,7 +47,7 @@ module.exports = createSystem({
     if (damagedUnit.labels.get('scoutEnemyMain') || damagedUnit.labels.get('scoutEnemyNatural')) {
       const [closestEnemyUnit] = units.getClosest(pos, enemyTrackingService.enemyUnits);
       const unitCommand = createUnitCommand(MOVE, [damagedUnit]);
-      unitCommand.targetWorldSpacePos = armyManagementService.retreat(world, damagedUnit, [closestEnemyUnit], false);
+      unitCommand.targetWorldSpacePos = retreatManagementService.retreat(world, damagedUnit, [closestEnemyUnit], false);
       collectedActions.push(unitCommand);
     }
     collectedActions.length && actions.sendAction(collectedActions);

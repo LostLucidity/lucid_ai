@@ -25,8 +25,8 @@ const { build } = require("../src/services/building-management");
 const { runPlan } = require("../src/services/plan-management");
 const { prepareBuilderForConstruction } = require("../src/services/resource-management");
 const { commandBuilderToConstruct } = require("../src/services/unit-commands/builder-commands");
-const { train } = require("../src/services/shared-utilities/training-utilities");
-const { getFoodUsed } = require("../src/services/shared-utilities/info-utils");
+const { train } = require("../src/shared-utilities/training-utilities");
+const { getFoodUsed } = require("../src/shared-utilities/info-utils");
 const unitRetrievalService = require("../src/services/unit-retrieval");
 
 module.exports = createSystem({

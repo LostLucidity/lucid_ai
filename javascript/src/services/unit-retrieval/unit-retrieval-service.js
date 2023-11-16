@@ -10,7 +10,7 @@ const dataService = require("../../../services/data-service");
 const { UnitType } = require("@node-sc2/core/constants");
 const { morphMapping, countTypes } = require("../../../helper/groups");
 const { TRAIN_ZERGLING } = require("@node-sc2/core/constants/ability");
-const { getAbilityIdsForAddons } = require("../shared-utilities/ability-utils");
+const { getAbilityIdsForAddons } = require("../../shared-utilities/ability-utils");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
 class UnitRetrievalService {

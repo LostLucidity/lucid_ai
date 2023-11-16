@@ -2,9 +2,10 @@
 "use strict"
 
 const { UnitType, UnitTypeId } = require("@node-sc2/core/constants");
-const { ability } = require("../command-service");
-const { unpauseAndLog } = require("../shared-functions");
+const { ability } = require("../services/command-service");
+const { unpauseAndLog } = require("../services/shared-functions");
 const { addEarmark } = require("./common-utilities");
+const loggingService = require("../logging/logging-service");
 
 // building-utils.js in shared-utilities
 
@@ -26,7 +27,7 @@ async function morphStructureAction(world, unitType) {
     const { abilityId } = data.getUnitTypeData(unitType); if (abilityId === undefined) return collectedActions;
     const actions = await ability(world, abilityId);
     if (actions.length > 0) {
-      unpauseAndLog(world, UnitTypeId[unitType]);
+      unpauseAndLog(world, UnitTypeId[unitType], loggingService,);
       collectedActions.push(...actions);
     }
   }

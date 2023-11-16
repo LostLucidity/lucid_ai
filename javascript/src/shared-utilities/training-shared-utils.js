@@ -2,10 +2,10 @@
 "use strict";
 
 const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
-const unitService = require("../../../services/unit-service");
-const { flyingTypesMapping } = require("../../../helper/groups");
+const unitService = require("../../services/unit-service");
+const { flyingTypesMapping } = require("../../helper/groups");
 const { isSupplyNeeded } = require("./supply-utils");
-const unitRetrievalService = require("../unit-retrieval");
+const unitRetrievalService = require("../services/unit-retrieval");
 
 
 /**

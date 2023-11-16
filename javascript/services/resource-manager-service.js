@@ -19,7 +19,8 @@ const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { getOccupiedExpansions } = require("../helper/expansions");
 const pathFindingService = require("../src/services/pathfinding/pathfinding-service");
 const { getGasGeysers } = require("../src/services/unit-retrieval");
-const { createUnitCommand } = require("../src/services/shared-utilities/command-utilities");
+const { createUnitCommand } = require("../src/shared-utilities/command-utilities");
+const { getCombatRally } = require("../src/services/shared-config/combatRallyConfig");
 
 const resourceManagerService = {
   creepEdges: [],
@@ -186,7 +187,7 @@ const resourceManagerService = {
       });
     let closestPylon;
     if (pylonsNearProduction.length > 0) {
-      [closestPylon] = units.getClosest(armyManagementService.getCombatRally(resources), pylonsNearProduction);
+      [closestPylon] = units.getClosest(getCombatRally(resources), pylonsNearProduction);
       return closestPylon.pos;
     } else {
       const pylons = units.getById(PYLON)
@@ -198,7 +199,7 @@ const resourceManagerService = {
           }
         });
       if (pylons) {
-        [closestPylon] = units.getClosest(armyManagementService.getCombatRally(resources), pylons);
+        [closestPylon] = units.getClosest(getCombatRally(resources), pylons);
         if (closestPylon) {
           return closestPylon.pos;
         }
@@ -259,7 +260,7 @@ const resourceManagerService = {
     if (assemblePlan && assemblePlan.state && assemblePlan.state.defenseMode && scoutService.outsupplied) {
       nearPosition = getWarpInLocations(resources);
     } else {
-      nearPosition = armyManagementService.getCombatRally(resources);
+      nearPosition = getCombatRally(resources);
       console.log('nearPosition', nearPosition);
     }
     try { await actions.warpIn(unitType, { nearPosition: nearPosition }) } catch (error) { console.log(error); }

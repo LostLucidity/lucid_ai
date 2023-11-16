@@ -14,9 +14,9 @@ const Ability = require("@node-sc2/core/constants/ability");
 const unitService = require("../../services/unit-service");
 const enemyTrackingService = require("../../src/services/enemy-tracking/enemy-tracking-service");
 const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
-const armyManagementService = require("../../src/services/army-management/army-management-service");
 const { createMoveCommand } = require("../../src/services/command-service");
-const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
+const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
+const { getCombatRally } = require("../../src/services/shared-config/combatRallyConfig");
 
 module.exports = createSystem({
   name: 'AttackSystem',
@@ -38,7 +38,7 @@ module.exports = createSystem({
 
       if (enemyUnits.length > 0) {
         if (isWorkerDefending) {
-          const [nearestEnemy] = pathFindingService.getClosestUnitByPath(resources, armyManagementService.getCombatRally(resources), enemyUnits);
+          const [nearestEnemy] = pathFindingService.getClosestUnitByPath(resources, getCombatRally(resources), enemyUnits);
           actionQueue.push(...getWorkerDefenseCommands(world, unitsReadyForAttack.flat(), nearestEnemy));
         } else {
           let attackableUnitGroups = unitsReadyForAttack.filter(myUnitGroup => {
@@ -414,7 +414,7 @@ function pathIncludesPoint(point, path) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function goToRallyPoint(resources, units) {
-  const rallyPoint = armyManagementService.getCombatRally(resources);
+  const rallyPoint = getCombatRally(resources);
   const collectedActions = [];
 
   for (const unit of units) {
@@ -581,7 +581,7 @@ function handleFallbackStrategy(resources, unitsReadyForAttack, enemyUnits) {
   const groupCenter = getCenterPosition(unitsReadyForAttack.flat());
 
   if (groupCenter !== undefined) {
-    const rallyPoint = armyManagementService.getCombatRally(resources);
+    const rallyPoint = getCombatRally(resources);
     const pathToRallyPoint = getMapPath(map, groupCenter, rallyPoint);
     const enemiesAlongPath = enemyUnits.filter(enemy => enemy.pos && pathIncludesPoint(toPointArray(enemy.pos), pathToRallyPoint));
 

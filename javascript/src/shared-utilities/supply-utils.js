@@ -2,11 +2,11 @@
 "use strict"
 
 const { UnitType } = require("@node-sc2/core/constants");
-const planService = require("../../../services/plan-service");
+const planService = require("../../services/plan-service");
 const { Race } = require("@node-sc2/core/constants/enums");
 const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
-const { build } = require("../building-management");
-const { PlacementService } = require("../placement");
+const { build } = require("../services/building-management");
+const { PlacementService } = require("../services/placement");
 
 // common-functions-service.js
 

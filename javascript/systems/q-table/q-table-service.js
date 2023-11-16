@@ -11,7 +11,7 @@ const { maxEnergyNexusChronoboost } = require('../unit-resource/unit-resource-se
 const { EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
 const { upgrade } = require('../../src/services/training');
 const { build } = require('../../src/services/building-management');
-const { train } = require('../../src/services/shared-utilities/training-utilities');
+const { train } = require('../../src/shared-utilities/training-utilities');
 const unitRetrievalService = require('../../src/services/unit-retrieval');
 
 /** @typedef { { step: number } } State */

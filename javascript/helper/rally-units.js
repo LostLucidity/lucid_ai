@@ -4,10 +4,10 @@
 const { BUNKER } = require("@node-sc2/core/constants/unit-type");
 const { STOP } = require("@node-sc2/core/constants/ability");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
-const armyManagementService = require("../src/services/army-management/army-management-service");
 const enemyTrackingService = require("../src/services/enemy-tracking");
-const { filterEnemyUnits } = require("../src/services/shared-utilities/combat-utilities");
-const { createUnitCommand } = require("../src/services/shared-utilities/command-utilities");
+const { filterEnemyUnits } = require("../src/shared-utilities/combat-utilities");
+const { createUnitCommand } = require("../src/shared-utilities/command-utilities");
+const { getCombatRally } = require("../src/services/shared-config/combatRallyConfig");
 
 /**
  * Rallies units to a specified point or a default location.
@@ -34,7 +34,7 @@ function rallyUnits(world, supportUnitTypes, rallyPoint = null) {
   });
 
   if (!rallyPoint) {
-    rallyPoint = armyManagementService.getCombatRally(resources);
+    rallyPoint = getCombatRally(resources);
   }
 
   const processedUnits = new Set();

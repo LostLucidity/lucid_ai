@@ -14,12 +14,16 @@ const pathFindingService = require("../../src/services/pathfinding/pathfinding-s
 const { getClosestPathWithGasGeysers, getDistanceBetween } = require("../../src/services/utility-service");
 const { getGasGeysers } = require("../../src/services/unit-retrieval");
 const enemyTrackingService = require("../../src/services/enemy-tracking");
-const armyManagementService = require("../../src/services/army-management/army-management-service");
 const MapResourceService = require("../../systems/map-resource-system/map-resource-service");
 const { createMoveCommand } = require("../../src/services/command-service");
-const { isOnCreep } = require("../../src/services/shared-utilities/common-utilities");
-const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
-const { canBuild } = require("../../src/services/shared-utilities/training-shared-utils");
+const { isOnCreep } = require("../../src/shared-utilities/common-utilities");
+const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
+const { canBuild } = require("../../src/shared-utilities/training-shared-utils");
+const serviceLocator = require("../../src/services/service-locator");
+
+// Retrieve the armyManagementService using the service locator's get method
+const armyManagementService = serviceLocator.get('armyManagementService');
+
 
 module.exports = {
   /**

@@ -36,20 +36,25 @@ const { WARPGATE } = require('@node-sc2/core/constants/unit-type');
 const { scanCloakedEnemy } = require('../helper/terran');
 const groupTypes = require('@node-sc2/core/constants/groups');
 const unitService = require('../services/unit-service');
-const { shouldMicro, getUnitsFromClustering } = require('./services/army-management/army-management-service');
 const { getDPSHealth, calculateHealthAdjustedSupply, calculateNearDPSHealth } = require('./services/combat-statistics');
 const { getClosestPathWithGasGeysers, getClosestSafeMineralField } = require('./services/utility-service');
 const pathFindingService = require('./services/pathfinding/pathfinding-service');
-const { getWeaponDPS } = require('./services/shared-utilities/combat-utilities');
-const armyManagementService = require('./services/army-management/army-management-service');
+const { getWeaponDPS } = require('./shared-utilities/combat-utilities');
 const { getUnitsTraining, getUnitsWithCurrentOrders, getById } = require('./services/unit-retrieval');
 const enemyTrackingServiceV2 = require('./services/enemy-tracking');
-const { createUnitCommand } = require('./services/shared-utilities/command-utilities');
-const { addEarmark } = require('./services/shared-utilities/common-utilities');
-const { getCurrentlyEnrouteConstructionGrids } = require('./services/shared-utilities/construction-utils');
-const { getFoodUsed } = require('./services/shared-utilities/info-utils');
+const { createUnitCommand } = require('./shared-utilities/command-utilities');
+const { addEarmark } = require('./shared-utilities/common-utilities');
+const { getCurrentlyEnrouteConstructionGrids } = require('./shared-utilities/construction-utils');
+const { getFoodUsed } = require('./shared-utilities/info-utils');
 const unitRetrievalService = require('./services/unit-retrieval');
-const loggingService = require('./services/logging/logging-service');
+const loggingService = require('./logging/logging-service');
+const { getProjectedPosition } = require('./shared-utilities/vector-utils');
+const { getCombatRally } = require('./services/shared-config/combatRallyConfig');
+const { MicroManagementService } = require('./services/army-management/micro-management');
+const serviceLocator = require('./services/service-locator');
+/** @type {import('./interfaces/i-army-management-service').IArmyManagementService} */
+const armyManagementService = serviceLocator.get('armyManagementService');
+
   
 const worldService = {
   availableProductionUnits: new Map(),
@@ -129,7 +134,8 @@ const worldService = {
       const targetWorldSpacePos = distance(army.combatPoint.pos, army.enemyTarget.pos) > range ? army.combatPoint.pos : army.enemyTarget.pos;
       [...pointTypeUnits, ...nonPointTypeUnits].forEach(unit => {
         const [closestUnit] = units.getClosest(unit.pos, enemyUnits.filter(enemyUnit => distance(unit.pos, enemyUnit.pos) < 16));
-        if (!unit.isMelee() && closestUnit) { collectedActions.push(...armyManagementService.microRangedUnit(world, unit, closestUnit)); }
+        const microManagement = new MicroManagementService();
+        if (!unit.isMelee() && closestUnit) { collectedActions.push(...microManagement.microRangedUnit(world, unit, closestUnit)); }
         else {
           const unitCommand = createUnitCommand(ATTACK_ATTACK, [unit]);
           if (unit.labels.get('combatPoint')) {
@@ -230,7 +236,7 @@ const worldService = {
     console.log('defend');
 
     const { units } = world.resources.get();
-    const rallyPoint = armyManagementService.getCombatRally(world.resources);
+    const rallyPoint = getCombatRally(world.resources);
     const enemyUnits = enemyTrackingServiceV2.mappedEnemyUnits;
 
     if (!rallyPoint) return [];
@@ -990,7 +996,7 @@ const worldService = {
 
     let [closestEnemyBase] = pathFindingService.getClosestUnitByPath(
       resources,
-      armyManagementService.getCombatRally(resources),
+      getCombatRally(resources),
       units.getBases(Alliance.ENEMY)
     );
 
@@ -1395,9 +1401,9 @@ const worldService = {
 
     let unitList;
     if (agent.race === Race.ZERG) {
-      unitList = getUnitsFromClustering(units.getById(EGG));
+      unitList = armyManagementService.getUnitsFromClustering(units.getById(EGG));
     } else {
-      unitList = getUnitsFromClustering(units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1));
+      unitList = armyManagementService.getUnitsFromClustering(units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1));
     }
 
     const [closestUnitByPath] = pathFindingService.getClosestUnitByPath(resources, position, unitList);
@@ -1605,30 +1611,6 @@ function getPointsInRange(position, range) {
     pointsInRange.push(point);
   }
   return pointsInRange;
-}
-
-/**
- * @description Returns projected position of unit.
- * @param {Point2D} pos
- * @param {Point2D} pos1
- * @param {number} time
- * @param {number} time1
- * @param {number} [stepSize=8]
- * @returns {Point2D}
- */
-function getProjectedPosition(pos, pos1, time, time1, stepSize = 8) {
-  const { x, y } = pos; if (x === undefined || y === undefined) return pos;
-  const { x: x1, y: y1 } = pos1; if (x1 === undefined || y1 === undefined) return pos;
-  const timeDiff = time1 - time;
-  if (timeDiff === 0) return pos;
-  const adjustedTimeDiff = timeDiff / stepSize;
-  const xDiff = x1 - x;
-  const yDiff = y1 - y;
-  const projectedPosition = {
-    x: x + xDiff / adjustedTimeDiff,
-    y: y + yDiff / adjustedTimeDiff,
-  };
-  return projectedPosition;
 }
 
 /**

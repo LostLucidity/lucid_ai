@@ -19,7 +19,7 @@ const { gatherOrMine } = require('./manage-resources');
 const { getMineralFieldAssignments, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
 const { getDistance } = require('../services/position-service');
 const { getClosestPathWithGasGeysers } = require('../src/services/utility-service');
-const { createUnitCommand } = require('../src/services/shared-utilities/command-utilities');
+const { createUnitCommand } = require('../src/shared-utilities/command-utilities');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',

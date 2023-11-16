@@ -49,7 +49,7 @@ const qTableService = require('./systems/q-table/q-table-service');
 const delayedStepSystem = require('./systems/delayed-step-system');
 const performanceTrackingSystem = require('./systems/performance-tracking/performance-tracking-system');
 const mapResourceSystem = require('./systems/map-resource-system/map-resource-system');
-const { logoutStepsExecuted } = require('./src/services/logging/logging-service');
+const { logoutStepsExecuted } = require('./src/logging/logging-service');
 
 // const aiBuild = AIBuild.Rush;
 agentService.difficulty = Difficulty.CHEATMONEY;

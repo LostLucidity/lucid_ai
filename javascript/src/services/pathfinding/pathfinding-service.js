@@ -7,7 +7,7 @@ const { getPathablePositions, getMapPath, getClosestPathablePositions } = requir
 const { getPathCoordinates } = require("../../../services/path-service");
 const { avgPoints, areEqual } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../../../helper/get-closest");
-const { isOnCreep } = require("../shared-utilities/common-utilities");
+const { isOnCreep } = require("../../shared-utilities/common-utilities");
 
 /**
  * Service for handling pathfinding and movement related logic.

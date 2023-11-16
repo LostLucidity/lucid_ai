@@ -17,6 +17,8 @@ const { attackWithArmy } = require("../src/world-service");
 const { getInRangeDestructables } = require("../services/unit-service");
 const pathFindingService = require("../src/services/pathfinding/pathfinding-service");
 const armyManagementService = require("../src/services/army-management/army-management-service");
+const { getCombatRally } = require("../src/services/shared-config/combatRallyConfig");
+const { retreatManagementService } = require("../src/services/service-locator");
 
 module.exports = createSystem({
   name: 'BattleManagerSystem',
@@ -48,7 +50,7 @@ module.exports = createSystem({
     this.threats = threats(resources, this.state);
     this.foodUsed = agent.foodUsed;
     if (this.foodUsed < 194 && this.state.defenseMode) {
-      const rallyPoint = armyManagementService.getCombatRally(resources);
+      const rallyPoint = getCombatRally(resources);
       if (rallyPoint) {
         let [ closestEnemyUnit ] = pathFindingService.getClosestUnitByPath(resources, rallyPoint, this.threats);
         if (closestEnemyUnit) {
@@ -94,7 +96,7 @@ module.exports = createSystem({
                     if (isFlying) {
                       targetWorldSpacePos = moveAwayPosition(map, closestEnemyUnit.pos, selfUnit.pos);
                     } else {
-                      targetWorldSpacePos = armyManagementService.retreat(world, selfUnit, [closestEnemyUnit]);
+                      targetWorldSpacePos = retreatManagementService.retreat(world, selfUnit, [closestEnemyUnit]);
                     }
                     if (targetWorldSpacePos) {
                       const unitCommand = {

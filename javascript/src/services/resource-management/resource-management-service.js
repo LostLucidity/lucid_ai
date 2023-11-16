@@ -3,7 +3,7 @@
 
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const expansionManagementService = require("../expansion-management/expansion-management-service");
-const { addEarmark } = require("../shared-utilities/common-utilities");
+const { addEarmark } = require("../../shared-utilities/common-utilities");
 const { getBuilder } = require("../unit-commands/building-commands");
 
 /**

@@ -14,7 +14,6 @@ const { canAttack } = require("../../services/resources-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
 const unitService = require("../../services/unit-service");
-const armyManagementService = require("../../src/services/army-management/army-management-service");
 const { getEnemyUnits, getClosestEnemyByPath } = require("../../src/services/enemy-tracking/enemy-tracking-service");
 const { calculateTotalHealthRatio, getDPSHealth } = require("../../src/services/combat-statistics");
 const { isMining } = require("../../systems/unit-resource/unit-resource-service");
@@ -24,10 +23,11 @@ const { getGasGeysers } = require("../../src/services/unit-retrieval");
 const { getCreepEdges } = require("../../services/resource-manager-service");
 const { getPotentialCombatantsInRadius } = require("../../src/services/unit-analysis");
 const enemyTrackingService = require("../../src/services/enemy-tracking/enemy-tracking-service");
-const { filterEnemyUnits } = require("../../src/services/shared-utilities/combat-utilities");
-const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
+const { filterEnemyUnits } = require("../../src/shared-utilities/combat-utilities");
+const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
 const unitRetrievalService = require("../../src/services/unit-retrieval");
-const { isByItselfAndNotAttacking } = require("../../src/services/shared-utilities/game-analysis-utils");
+const { isByItselfAndNotAttacking } = require("../../src/shared-utilities/game-analysis-utils");
+const { getCombatRally } = require("../../src/services/shared-config/combatRallyConfig");
 
 module.exports = {
   /**
@@ -83,7 +83,7 @@ module.exports = {
     const { units } = resources.get();
     const label = 'clearFromEnemy';
     const collectedActions = [];
-    const combatRallyPosition = armyManagementService.getCombatRally(resources);
+    const combatRallyPosition = getCombatRally(resources);
 
     // Find the unit with the specified label
     const [unit] = units.withLabel(label);
@@ -98,7 +98,7 @@ module.exports = {
       console.log('clear!');
       collectedActions.push(...gatherOrMine(resources, unit));
     } else {
-      const retreatPosition = armyManagementService.retreat(world, unit, threateningUnits, true);
+      const retreatPosition = retreatManagementService.retreat(world, unit, threateningUnits, true);
 
       if (retreatPosition) {
         const action = createUnitCommand(MOVE, [unit]);
@@ -204,7 +204,7 @@ module.exports = {
         const unitCommand = {
           abilityId: MOVE,
           unitTags: [unit.tag],
-          targetWorldSpacePos: armyManagementService.getCombatRally(resources),
+          targetWorldSpacePos: getCombatRally(resources),
         };
         collectedActions.push(unitCommand);
       }
@@ -377,7 +377,7 @@ function handleThreateningUnits(world, scoutUnit, threateningUnits, closestThrea
     collectedActions.push({
       abilityId: MOVE,
       unitTags: [tag],
-      targetWorldSpacePos: farthestEmptyExpansionCloserToUnit ? farthestEmptyExpansionCloserToUnit.centroid : armyManagementService.retreat(world, scoutUnit, [closestThreateningUnit], false),
+      targetWorldSpacePos: farthestEmptyExpansionCloserToUnit ? farthestEmptyExpansionCloserToUnit.centroid : retreatManagementService.retreat(world, scoutUnit, [closestThreateningUnit], false),
     });
   }
 

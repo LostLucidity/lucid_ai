@@ -16,7 +16,7 @@ const { canBeChronoBoosted, triggerAbilityByDistance } = require("../../services
 const unitService = require("../../services/unit-service");
 const Ability = require("@node-sc2/core/constants/ability");
 const { UnitType } = require("@node-sc2/core/constants");
-const { createUnitCommand } = require("../../src/services/shared-utilities/command-utilities");
+const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
 
 const unitResourceService = {
   /** @type {Map<string, UnitTypeId>} */

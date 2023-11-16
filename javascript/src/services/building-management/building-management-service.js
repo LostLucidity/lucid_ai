@@ -12,12 +12,12 @@ const { commandPlaceBuilding } = require("../command-service");
 const { getAvailableExpansions, getNextSafeExpansions } = require("../../../helper/expansions");
 const MapResourceService = require("../../../systems/map-resource-system/map-resource-service");
 const planService = require("../../../services/plan-service");
-const { addEarmark } = require("../shared-utilities/common-utilities");
+const { addEarmark } = require("../../shared-utilities/common-utilities");
 const { prepareBuilderForConstruction } = require("../resource-management");
 const { commandBuilderToConstruct } = require("../unit-commands/builder-commands");
-const { morphStructureAction } = require("../shared-utilities/building-utils");
+const { morphStructureAction } = require("../../shared-utilities/building-utils");
 const { getBuilder } = require("../unit-commands/building-commands");
-const { premoveBuilderToPosition } = require("../shared-utilities/builder-utils");
+const { premoveBuilderToPosition } = require("../../shared-utilities/builder-utils");
 const unitRetrievalService = require("../unit-retrieval");
 
 // === FUNCTION DEFINITIONS ===

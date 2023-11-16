@@ -4,25 +4,26 @@
 // === IMPORTS ===
 
 const groupTypes = require("@node-sc2/core/constants/groups");
-const { earmarkThresholdReached } = require("../../../services/data-service");
-const { getMiddleOfStructure, getDistance } = require("../../../services/position-service");
-const unitService = require("../../../services/unit-service");
-const worldService = require("../../world-service");
+const { earmarkThresholdReached } = require("../../services/data-service");
+const { getMiddleOfStructure, getDistance } = require("../../services/position-service");
+const unitService = require("../../services/unit-service");
+const worldService = require("../world-service");
 const { getTimeToTargetCost, getTimeToTargetTech } = require("./common-utilities");
-const { getTimeInSeconds } = require("../../../services/frames-service");
-const { getClosestPathWithGasGeysers } = require("../utility-service");
-const { pathFindingService } = require("../pathfinding");
+const { getTimeInSeconds } = require("../../services/frames-service");
+const { getClosestPathWithGasGeysers } = require("../services/utility-service");
+const { pathFindingService } = require("../services/pathfinding");
 const { createUnitCommand } = require("./command-utilities");
 const { MOVE, STOP } = require("@node-sc2/core/constants/ability");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const { UnitType } = require("@node-sc2/core/constants");
-const { getPathCoordinates } = require("../../../services/path-service");
-const MapResourceService = require("../../../systems/map-resource-system/map-resource-service");
-const dataService = require("../../../services/data-service");
+const { getPathCoordinates } = require("../../services/path-service");
+const MapResourceService = require("../../systems/map-resource-system/map-resource-service");
+const dataService = require("../../services/data-service");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const unitResourceService = require("../../../systems/unit-resource/unit-resource-service");
-const planService = require("../../../services/plan-service");
+const unitResourceService = require("../../systems/unit-resource/unit-resource-service");
+const planService = require("../../services/plan-service");
+
 
 // === UTILITY FUNCTIONS ===
 

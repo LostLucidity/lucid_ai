@@ -7,8 +7,8 @@ const { SUPPLYDEPOT, PYLON, OVERLORD } = require("@node-sc2/core/constants/unit-
 const planService = require("../services/plan-service");
 const { build } = require("../src/services/building-management");
 const { PlacementService } = require("../src/services/placement");
-const { train } = require("../src/services/shared-utilities/training-utilities");
-const { isSupplyNeeded } = require("../src/services/shared-utilities/supply-utils");
+const { train } = require("../src/shared-utilities/training-utilities");
+const { isSupplyNeeded } = require("../src/shared-utilities/supply-utils");
 
 module.exports = createSystem({
   name: 'ManageSupplySystem',

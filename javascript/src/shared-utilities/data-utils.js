@@ -1,6 +1,6 @@
 const { Race } = require("@node-sc2/core/constants/enums");
-const planService = require("../../../services/plan-service");
-const unitRetrievalService = require("../unit-retrieval");
+const planService = require("../../services/plan-service");
+const unitRetrievalService = require("../services/unit-retrieval/unit-retrieval-service");
 
 /** @type {{foodUsed: number}} */
 const foodData = {

@@ -10,7 +10,7 @@ const { CHRONOBOOSTENERGYCOST: CHRONOBOOSTED } = require("@node-sc2/core/constan
 const { filterLabels } = require("../helper/unit-selection");
 const { getDistance } = require("./position-service");
 const { UnitType } = require("@node-sc2/core/constants");
-const { createUnitCommand } = require("../src/services/shared-utilities/command-utilities");
+const { createUnitCommand } = require("../src/shared-utilities/command-utilities");
 
 /** @type {(unit: Unit) => number} */
 const zealotModifier = unit => (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) ? 0.5 : 0;

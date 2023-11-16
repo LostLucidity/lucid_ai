@@ -17,7 +17,7 @@ const { pointsOverlap } = require('../../../helper/utilities');
 const unitResourceService = require('../../../systems/unit-resource/unit-resource-service');
 const { PlacementService } = require('../placement');
 const { canUnitBuildAddOn } = require('../utility-service');
-const { getStringNameOfConstant } = require('../shared-utilities/common-utilities');
+const { getStringNameOfConstant } = require('../../shared-utilities/common-utilities');
 
 
 /**

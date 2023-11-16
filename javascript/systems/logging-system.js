@@ -9,8 +9,12 @@ const { CREEPTUMOR, CREEPTUMORQUEEN } = require("@node-sc2/core/constants/unit-t
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const planService = require("../services/plan-service");
 const worldService = require("../src/world-service");
-const { setFoodUsed } = require("../src/services/shared-utilities/data-utils");
-const loggingService = require("../src/services/logging/logging-service");
+const { setFoodUsed } = require("../src/shared-utilities/data-utils");
+const { formatToMinutesAndSeconds } = require("../src/shared-utilities/logging-utils");
+const serviceLocator = require("../src/services/service-locator");
+
+/** @type {import("../src/interfaces/i-logging-service").ILoggingService} */
+const loggingService = serviceLocator.get('loggingService');
 
 module.exports = createSystem({
   name: 'Logging',
@@ -29,7 +33,8 @@ module.exports = createSystem({
         planService.pausePlan = false;
       }
       setFoodUsed(world);
-      loggingService.logActionIfNearPosition(world, unit);
+      const message = `Unit created: ${unitType}`;
+      loggingService.logActionIfNearPosition(world, unit, message);
     }
   }
 });
@@ -39,7 +44,7 @@ module.exports = createSystem({
  * @returns {void}
  */
 function logStepStats({ agent, resources }) {
-  const formattedTime = loggingService.formatToMinutesAndSeconds(resources.get().frame.timeInSeconds());
+  const formattedTime = formatToMinutesAndSeconds(resources.get().frame.timeInSeconds());
   const { foodUsed, minerals, vespene } = agent;
   const { totalSelfDPSHealth, totalEnemyDPSHealth } = worldService;
   let logBuilder = `foodUsed: ${foodUsed}`;

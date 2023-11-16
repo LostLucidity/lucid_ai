@@ -8,8 +8,8 @@ const { isInMineralLine } = require("../../../systems/map-resource-system/map-re
 const resourceManagerService = require("../../../services/resource-manager-service");
 const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service");
 const trackUnitsService = require("../../../systems/track-units/track-units-service");
-const { getWeaponDPS } = require("../shared-utilities/combat-utilities");
-const { isByItselfAndNotAttacking } = require("../shared-utilities/game-analysis-utils");
+const { getWeaponDPS } = require("../../shared-utilities/combat-utilities");
+const { isByItselfAndNotAttacking } = require("../../shared-utilities/game-analysis-utils");
 
 
 /**

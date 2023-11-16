@@ -2,14 +2,14 @@
 "use strict"
 
 // === IMPORTS & CONSTANTS ===
-const MapResourceService = require("../../../systems/map-resource-system/map-resource-service");
-const dataService = require("../../../services/data-service");
-const planService = require("../../../services/plan-service");
+const MapResourceService = require("../../systems/map-resource-system/map-resource-service");
+const dataService = require("../../services/data-service");
+const planService = require("../../services/plan-service");
 const { UnitType } = require("@node-sc2/core/constants");
-const { upgradeTypes, countTypes } = require("../../../helper/groups");
+const { upgradeTypes, countTypes } = require("../../helper/groups");
 const { Attribute, Race } = require("@node-sc2/core/constants/enums");
 const { getFoodUsed } = require("./info-utils");
-const { getTimeInSeconds } = require("../../../services/frames-service");
+const { getTimeInSeconds } = require("../../services/frames-service");
 
 // === FUNCTION DEFINITIONS ===
 

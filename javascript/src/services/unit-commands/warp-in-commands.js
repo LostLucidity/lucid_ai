@@ -2,12 +2,12 @@
 "use strict"
 
 const { WarpUnitAbility, UnitType } = require("@node-sc2/core/constants");
-const armyManagementService = require("../army-management/army-management-service");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { nClosestPoint } = require("@node-sc2/core/utils/geometry/point");
 const { getDistance } = require("../../../services/position-service");
 const { shuffle } = require("../../../helper/utilities");
-const { createUnitCommand } = require("../shared-utilities/command-utilities");
+const { createUnitCommand } = require("../../shared-utilities/command-utilities");
+const { getCombatRally } = require("../shared-config/combatRallyConfig");
 
 /**
  * @param {World} world
@@ -56,7 +56,7 @@ function warpInCommands(world, unitType, opts = {}) {
 function warpInSync(world, unitType) {
   const { resources } = world;
   const collectedActions = []
-  const nearPosition = armyManagementService.getCombatRally(resources);
+  const nearPosition = getCombatRally(resources);
   console.log('nearPosition', nearPosition);
   collectedActions.push(...warpInCommands(world, unitType, { nearPosition }));
   return collectedActions;

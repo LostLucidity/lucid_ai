@@ -1,9 +1,12 @@
 //@ts-check
 "use strict"
 
-const { setCombatBuildingsRallies } = require("../../src/services/army-management/army-management-service");
+const serviceLocator = require("../../src/services/service-locator");
 const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior, acrossTheMapBehavior, recruitToBattleBehavior } = require("./labelled-behavior");
 const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior, bunkerBehavior, creepTumorBurrowedBehavior } = require("./unit-behavior");
+
+/** @type {import("../../src/interfaces/i-army-management-service").IArmyManagementService} */
+const armyManagementService = serviceLocator.get('armyManagementService');
 
 /**
  * @param {World} world 
@@ -30,7 +33,7 @@ async function runBehaviors(world) {
     ...observerBehavior(world),
     ...overlordBehavior(world),
     ...scoutEnemyMainBehavior(world),
-    ...setCombatBuildingsRallies(resources),
+    ...armyManagementService.setCombatBuildingsRallies(resources),
     ...supplyDepotBehavior(resources),
     ...recruitToBattleBehavior(units),
     ...behaviors.flat()  // Flatten the array of arrays into a single array

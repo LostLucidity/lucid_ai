@@ -12,7 +12,7 @@ const enemyTrackingService = require("../enemy-tracking/enemy-tracking-service")
 const scoutService = require("../scouting/scouting-service");
 const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
 const armyManagementServiceV2 = require("../../src/services/army-management/army-management-service");
-const { canBuild } = require("../../src/services/shared-utilities/training-shared-utils");
+const { canBuild } = require("../../src/shared-utilities/training-shared-utils");
 
 module.exports = createSystem({
   name: 'DefenseSystem',

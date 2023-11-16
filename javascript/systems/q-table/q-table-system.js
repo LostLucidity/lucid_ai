@@ -8,7 +8,7 @@ const qTableService = require("./q-table-service");
 const planService = require("../../services/plan-service");
 const { executeAction } = require("./q-table-service");
 const { runPlan } = require("../../src/services/plan-management");
-const { setFoodUsed } = require("../../src/services/shared-utilities/data-utils");
+const { setFoodUsed } = require("../../src/shared-utilities/data-utils");
 
 module.exports = createSystem({
   name: 'QTableSystem',

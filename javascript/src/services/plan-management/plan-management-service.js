@@ -7,8 +7,8 @@ const planService = require("../../../services/plan-service");
 const { upgrade, buildSupplyOrTrain } = require("../training");
 const { build } = require("../building-management");
 const { balanceResources } = require("../../../systems/manage-resources");
-const { train } = require("../shared-utilities/training-utilities");
-const { setFoodUsed } = require("../shared-utilities/data-utils");
+const { train } = require("../../shared-utilities/training-utilities");
+const { setFoodUsed } = require("../../shared-utilities/data-utils");
 
 /**
  * Execute the game plan

@@ -157,13 +157,13 @@ const positionService = {
     return clusters;
   },
   /**
- * Find a nearby pathable point by adjusting the angle.
- * @param {MapResource} map
- * @param {Point2D} position
- * @param {number} oppositeAngle
- * @param {number} distance
- * @returns {Point2D | undefined}
- */
+   * Find a nearby pathable point by adjusting the angle.
+   * @param {MapResource} map
+   * @param {Point2D} position
+   * @param {number} oppositeAngle
+   * @param {number} distance
+   * @returns {Point2D | undefined}
+   */
   findPathablePointByAngleAdjustment(map, position, oppositeAngle, distance) {
     const MAX_ADJUSTMENT_ANGLE = 90;  // Limit to how much we adjust the angle
     const ANGLE_INCREMENT = 10;       // Angle step

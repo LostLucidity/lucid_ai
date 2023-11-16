@@ -2,12 +2,12 @@
 
 // eslint-disable-next-line no-unused-vars
 const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
-const unitService = require("../../../services/unit-service");
-const unitResourceService = require("../../../systems/unit-resource/unit-resource-service");
-const dataService = require("../../../services/data-service");
+const unitService = require("../../services/unit-service");
+const unitResourceService = require("../../systems/unit-resource/unit-resource-service");
+const dataService = require("../../services/data-service");
 const { UnitType } = require("@node-sc2/core/constants");
-const { getDistance } = require("../../../services/position-service");
-const { canAttack } = require("../../../services/resources-service");
+const { getDistance } = require("../../services/position-service");
+const { canAttack } = require("../../services/resources-service");
 
 let damageByTag = {};
 let lastUpdatedStep = -1;  // A value that indicates it hasn't been updated yet.

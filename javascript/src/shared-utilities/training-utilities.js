@@ -2,19 +2,20 @@
 "use strict";
 
 const groupTypes = require("@node-sc2/core/constants/groups");
-const unitService = require("../../../services/unit-service");
+const unitService = require("../../services/unit-service");
 const { addEarmark } = require("./common-utilities");
 const { createUnitCommand } = require("./command-utilities");
-const { checkAddOnPlacement, checkUnitCount } = require("../unit-analysis");
+const { checkAddOnPlacement, checkUnitCount } = require("../services/unit-analysis");
 const { Ability, UnitTypeId, UnitType } = require("@node-sc2/core/constants");
-const { unpauseAndLog } = require("../shared-functions");
-const { getDistance } = require("../../../services/position-service");
-const { getAddOnBuildingPosition } = require("../../../helper/placement/placement-utilities");
-const armyManagementService = require("../army-management/army-management-service");
+const { unpauseAndLog } = require("../services/shared-functions");
+const { getDistance } = require("../../services/position-service");
+const { getAddOnBuildingPosition } = require("../../helper/placement/placement-utilities");
 const { WARPGATE } = require("@node-sc2/core/constants/unit-type");
-const resourceManagerService = require("../../../services/resource-manager-service");
+const resourceManagerService = require("../../services/resource-manager-service");
 const { getTrainer, canBuild } = require("./training-shared-utils");
-const unitRetrievalService = require("../unit-retrieval");
+const unitRetrievalService = require("../services/unit-retrieval");
+const { isStrongerAtPosition } = require("../services/combat-shared/combat-evaluation-service");
+const loggingService = require("../logging/logging-service");
 
 /**
  * Train a unit.
@@ -63,7 +64,7 @@ async function train(world, unitTypeId, targetCount = null) {
       }
     } else {
       await sendCommand(abilityId, trainer);
-      unpauseAndLog(world, UnitTypeId[unitTypeId]);
+      unpauseAndLog(world, UnitTypeId[unitTypeId], loggingService);
     }
   };
 
@@ -150,7 +151,7 @@ async function train(world, unitTypeId, targetCount = null) {
     const trainers = getTrainer(world, unitTypeId);
     const safeTrainers = trainers.filter(trainer => {
       if (trainer.pos) {
-        return armyManagementService.isStrongerAtPosition(world, trainer.pos);
+        return isStrongerAtPosition(world, trainer.pos);
       }
       return false;
     });
@@ -160,7 +161,7 @@ async function train(world, unitTypeId, targetCount = null) {
       if (randomSafeTrainer.unitType !== WARPGATE) {
         await handleNonWarpgateTrainer(randomSafeTrainer);
       } else {
-        unpauseAndLog(world, UnitTypeId[unitTypeId]);
+        unpauseAndLog(world, UnitTypeId[unitTypeId], loggingService);
         await resourceManagerService.warpIn(resources, this, unitTypeId);
       }
       console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitTypeId)}`);

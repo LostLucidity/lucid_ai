@@ -6,13 +6,19 @@ const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const planService = require("../services/plan-service");
 const { balanceResources } = require("../systems/manage-resources");
 const { getAvailableExpansions, getNextSafeExpansions } = require("./expansions");
-const { addEarmark, getStringNameOfConstant } = require("../src/services/shared-utilities/common-utilities");
+const { addEarmark, getStringNameOfConstant } = require("../src/shared-utilities/common-utilities");
 const { prepareBuilderForConstruction } = require("../src/services/resource-management");
 const { commandBuilderToConstruct } = require("../src/services/unit-commands/builder-commands");
-const { canBuild } = require("../src/services/shared-utilities/training-shared-utils");
+const { canBuild } = require("../src/shared-utilities/training-shared-utils");
 const { getBuilder } = require("../src/services/unit-commands/building-commands");
-const { premoveBuilderToPosition } = require("../src/services/shared-utilities/builder-utils");
-const loggingService = require("../src/services/logging/logging-service");
+const { premoveBuilderToPosition } = require("../src/shared-utilities/builder-utils");
+const { setAndLogExecutedSteps } = require("../src/services/shared-functions");
+const serviceLocator = require("../src/services/service-locator");
+
+/** @type {import("../src/interfaces/i-army-management-service").IArmyManagementService} */
+const armyManagementService = serviceLocator.get('armyManagementService');
+/** @type {import("../src/interfaces/i-logging-service").ILoggingService} */
+const loggingService = serviceLocator.get('loggingService');
 
 module.exports = {
   expand: async (world) => {
@@ -35,7 +41,7 @@ module.exports = {
           if (builder) {
             collectedActions.push(...commandBuilderToConstruct(world, builder, townhallTypeId, expansionLocation));
             const unitTypeData = data.getUnitTypeData(townhallTypeId);
-            loggingService.setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallTypeId));
+            setAndLogExecutedSteps(world, frame.timeInSeconds(), getStringNameOfConstant(UnitType, townhallTypeId), loggingService, armyManagementService);
             addEarmark(data, unitTypeData);
           }
 

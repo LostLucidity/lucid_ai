@@ -14,8 +14,10 @@ const { getMovementSpeed } = require("../services/unit-service");
 const { getDPSOfInRangeAntiAirUnits } = require("../src/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
 const enemyTrackingService = require("../src/services/enemy-tracking/enemy-tracking-service");
-const armyManagementService = require("../src/services/army-management/army-management-service");
-const { createUnitCommand } = require("../src/services/shared-utilities/command-utilities");
+const { createUnitCommand } = require("../src/shared-utilities/command-utilities");
+const serviceLocator = require("../src/services/service-locator");
+// Retrieve the armyManagementService using the service locator's get method
+const armyManagementService = serviceLocator.get('armyManagementService');
 
 const helper = {
   /**

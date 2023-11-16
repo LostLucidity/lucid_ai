@@ -34,7 +34,7 @@ const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const expansionManagementService = require("../expansion-management/expansion-management-service");
 const { getClosestPosition } = require("../../../helper/get-closest");
 const { canUnitBuildAddOn } = require("../utility-service");
-const { getCurrentlyEnrouteConstructionGrids } = require("../shared-utilities/construction-utils");
+const { getCurrentlyEnrouteConstructionGrids } = require("../../shared-utilities/construction-utils");
 const unitRetrievalService = require("../unit-retrieval");
 
 class PlacementService {

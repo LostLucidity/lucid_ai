@@ -1,7 +1,7 @@
 //@ts-check
 "use strict";
 
-const { getSelfUnits } = require("../unit-retrieval");
+const { getSelfUnits } = require("../services/unit-retrieval");
 
 /**
   * @param {UnitResource} units

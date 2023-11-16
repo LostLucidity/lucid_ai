@@ -9,8 +9,9 @@ const { searchAndDestroy } = require("../../services/resource-manager-service");
 const { groupUnits } = require("../../services/unit-service");
 const { attackWithArmy } = require("../../src/world-service");
 const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
-const armyManagementService = require("../../src/services/army-management/army-management-service");
 const { getGasGeysers } = require("../../src/services/unit-retrieval");
+const { getCombatRally } = require("../../src/services/shared-config/combatRallyConfig");
+const { armyManagementService } = require("../../src/services/service-locator");
 
 const armyBehavior = {
   /**
@@ -24,7 +25,7 @@ const armyBehavior = {
     const { resources } = world;
     const { units } = resources.get();
     const collectedActions = [];
-    let [closestEnemyBase] = pathFindingService.getClosestUnitByPath(resources, armyManagementService.getCombatRally(resources), units.getBases(Alliance.ENEMY), getGasGeysers(units), 1);
+    let [closestEnemyBase] = pathFindingService.getClosestUnitByPath(resources, getCombatRally(resources), units.getBases(Alliance.ENEMY), getGasGeysers(units), 1);
     const enemyUnits = units.getAlive(Alliance.ENEMY).filter(unit => !(unit.unitType === LARVA));
     const [combatUnits, supportUnits] = groupUnits(units, mainCombatTypes, supportUnitTypes);
     const avgCombatUnitsPoint = avgPoints(combatUnits.map(unit => unit.pos));

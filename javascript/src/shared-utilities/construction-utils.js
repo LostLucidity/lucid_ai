@@ -4,14 +4,14 @@
 // construction-utils.js inside the shared-utilities directory
 
 const groupTypes = require("@node-sc2/core/constants/groups");
-const unitService = require("../../../services/unit-service");
+const unitService = require("../../services/unit-service");
 const { MOVE } = require("@node-sc2/core/constants/ability");
-const planService = require("../../../services/plan-service");
-const { getDistance } = require("../../../services/position-service");
+const planService = require("../../services/plan-service");
+const { getDistance } = require("../../services/position-service");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
-const { isPendingContructing } = require("../../../services/shared-service");
+const { isPendingContructing } = require("../../services/shared-service");
 const { UnitType } = require("@node-sc2/core/constants");
 
 /**

@@ -3,10 +3,13 @@
 
 const { WorkerRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const worldService = require("../../world-service");
-const armyManagementService = require("../army-management/army-management-service");
 const planService = require("../../../services/plan-service");
 const unitTrainingService = require("../../../systems/unit-training/unit-training-service");
 const { getById } = require("../unit-retrieval");
+const serviceLocator = require('../service-locator');
+
+// Retrieve the armyManagementService using the service locator's get method
+const armyManagementService = serviceLocator.get('armyManagementService');
 
 // economy-management-service.js
 

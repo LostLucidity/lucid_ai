@@ -46,27 +46,32 @@ const { CANCEL_QUEUE5, CANCEL_QUEUE1, CANCEL_QUEUECANCELTOSELECTION, CANCEL_BUIL
 const dataService = require("../services/data-service");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
 const { pathFindingService } = require("../src/services/pathfinding");
-const armyManagementService = require("../src/services/army-management/army-management-service");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const { attack } = require("./behavior/army-behavior");
 const { buildSupplyOrTrain } = require("../src/services/training");
 const PlacementService = require("../src/services/placement/placement-service");
 const expansionManagementService = require("../src/services/expansion-management/expansion-management-service");
-const { createUnitCommand } = require("../src/services/shared-utilities/command-utilities");
+const { createUnitCommand } = require("../src/shared-utilities/command-utilities");
 const { prepareBuilderForConstruction } = require("../src/services/resource-management/resource-management-service");
-const { addEarmark, getStringNameOfConstant } = require("../src/services/shared-utilities/common-utilities");
+const { addEarmark, getStringNameOfConstant } = require("../src/shared-utilities/common-utilities");
 const { commandBuilderToConstruct } = require("../src/services/unit-commands/builder-commands");
-const { setFoodUsed } = require("../src/services/shared-utilities/data-utils");
-const { morphStructureAction } = require("../src/services/shared-utilities/building-utils");
-const { getFoodUsed } = require("../src/services/shared-utilities/info-utils");
-const { getAbilityIdsForAddons } = require("../src/services/shared-utilities/ability-utils");
-const { isSupplyNeeded } = require("../src/services/shared-utilities/supply-utils");
+const { setFoodUsed } = require("../src/shared-utilities/data-utils");
+const { morphStructureAction } = require("../src/shared-utilities/building-utils");
+const { getFoodUsed } = require("../src/shared-utilities/info-utils");
+const { getAbilityIdsForAddons } = require("../src/shared-utilities/ability-utils");
+const { isSupplyNeeded } = require("../src/shared-utilities/supply-utils");
 const { getBuilder } = require("../src/services/unit-commands/building-commands");
-const { premoveBuilderToPosition } = require("../src/services/shared-utilities/builder-utils");
-const { train } = require("../src/services/shared-utilities/training-utilities");
+const { premoveBuilderToPosition } = require("../src/shared-utilities/builder-utils");
+const { train } = require("../src/shared-utilities/training-utilities");
 const unitRetrievalService = require("../src/services/unit-retrieval");
-const loggingService = require("../src/services/logging/logging-service");
-const { canBuild } = require("../src/services/shared-utilities/training-shared-utils");
+const { canBuild } = require("../src/shared-utilities/training-shared-utils");
+const loggingService = require("../src/logging/logging-service");
+const { setAndLogExecutedSteps } = require("../src/services/shared-functions");
+const { isStrongerAtPosition } = require("../src/services/combat-shared/combat-evaluation-service");
+const serviceLocator = require("../src/services/service-locator");
+
+// Retrieve the armyManagementService using the service locator's get method
+const armyManagementService = serviceLocator.get('armyManagementService');
 
 
 let ATTACKFOOD = 194;
@@ -520,7 +525,7 @@ class AssemblePlan {
 
       return structure.buildProgress > 0.9 && structure.buildProgress < 1 &&
         !(structure.is(CREEPTUMORQUEEN) || structure.is(CREEPTUMOR)) &&
-        structure.pos && !armyManagementService.isStrongerAtPosition(world, structure.pos) &&
+        structure.pos && !isStrongerAtPosition(world, structure.pos) &&
         structure.tag;
     }) || [];  // Provide a default empty array if this.units is undefined
 
@@ -888,7 +893,7 @@ class AssemblePlan {
             }
           }
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType));
+          setAndLogExecutedSteps(this.world, this.frame.timeInSeconds(), getStringNameOfConstant(UnitType, unitType), loggingService, armyManagementService);
           unitTrainingService.selectedTypeToBuild = null;
           console.log(`Training ${Object.keys(UnitType).find(type => UnitType[type] === unitType)}`);
           addEarmark(data, unitTypeData);
@@ -901,6 +906,7 @@ class AssemblePlan {
       } 
     }
   }
+  
   /**
    * @param {World} world
    * @param {number} food
@@ -913,22 +919,24 @@ class AssemblePlan {
     if (upgradeIds.includes(upgradeId)) return;
     const upgraders = units.getUpgradeFacilities(upgradeId).filter(upgrader => upgrader.alliance === Alliance.SELF);
     const upgradeData = data.getUpgradeData(upgradeId);
-    const { abilityId } = data.getUpgradeData(upgradeId); if (abilityId === undefined) return;
+    if (!upgradeData || upgradeData.abilityId === undefined) {
+      return;
+    }
+    const { abilityId } = upgradeData;
     const upgradeInProgress = upgraders.find(upgrader => upgrader.orders && upgrader.orders.find(order => order.abilityId === abilityId));
     if (upgradeInProgress) return;
     if (getFoodUsed() >= food) {
       const upgradeName = getStringNameOfConstant(Upgrade, upgradeId)
       upgradeId = mismatchMappings[upgradeName] ? Upgrade[mismatchMappings[upgradeName]] : Upgrade[upgradeName];
-      const { abilityId } = upgradeData;
       const { mineralCost, vespeneCost } = data.getUpgradeData(upgradeId);
       if (mineralCost === undefined || vespeneCost === undefined) return;
       if (agent.canAffordUpgrade(upgradeId)) {
         const upgrader = units.getUpgradeFacilities(upgradeId).find(unit => unit.noQueue && unit.abilityAvailable(abilityId));
-        if (upgrader) {
+        if (upgrader && upgrader.tag) {
           const unitCommand = { abilityId, unitTags: [upgrader.tag] };
           await actions.sendAction([unitCommand]);
           planService.pausePlan = false;
-          loggingService.setAndLogExecutedSteps(world, frame.timeInSeconds(), upgradeName);
+          setAndLogExecutedSteps(world, frame.timeInSeconds(), upgradeName, loggingService, armyManagementService);
           console.log(`Upgrading ${upgradeName}`);
         } else {
           console.log(`${upgradeName} not available`);
@@ -959,7 +967,7 @@ class AssemblePlan {
     const trainers = getTrainingUnits(world, race);
 
     for (const trainer of trainers) {
-      if (trainer.pos && !armyManagementService.isStrongerAtPosition(world, trainer.pos)) {
+      if (trainer.pos && !isStrongerAtPosition(world, trainer.pos)) {
         const cancelCommand = createCancelMorphOrTrainCommand(trainer);
         if (cancelCommand) {
           await actions.sendAction(cancelCommand);
@@ -1101,7 +1109,7 @@ async function getBuildingPosition(world, unitType, candidatePositions) {
     const { map, units } = resources.get();
     const areEnemyUnitsInWay = checkIfEnemyUnitsInWay(units, unitType, position);
     const enemyBlockingExpansion = areEnemyUnitsInWay && TownhallRace[race][0] === unitType;
-    const strongerAtFoundPosition = armyManagementService.isStrongerAtPosition(world, position);
+    const strongerAtFoundPosition = isStrongerAtPosition(world, position);
     if (
       (gasMineTypes.includes(unitType) ? MapResourceService.isGeyserFree(map, position) : map.isPlaceableAt(unitType, position))
       && !enemyBlockingExpansion
@@ -1110,7 +1118,7 @@ async function getBuildingPosition(world, unitType, candidatePositions) {
       return position;
     }
   }
-  return PlacementService.findPosition(world, unitType, candidatePositions.filter(pos => armyManagementService.isStrongerAtPosition(world, pos)));
+  return PlacementService.findPosition(world, unitType, candidatePositions.filter(pos => isStrongerAtPosition(world, pos)));
 }
 
 /**

@@ -10,15 +10,15 @@ const { keepPosition } = require("../../services/placement-service");
 const planService = require("../../services/plan-service");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const getRandom = require("@node-sc2/core/utils/get-random");
-const { createUnitCommand } = require("./shared-utilities/command-utilities");
+const { createUnitCommand } = require("../shared-utilities/command-utilities");
 const unitService = require("../../services/unit-service");
 const { flyingTypesMapping } = require("../../helper/groups");
 const dataService = require("../../services/data-service");
-const { addEarmark } = require("./shared-utilities/common-utilities");
+const { addEarmark } = require("../shared-utilities/common-utilities");
 const { prepareBuilderForConstruction } = require("./resource-management");
 const { commandBuilderToConstruct } = require("./unit-commands/builder-commands");
 const { getBuilder } = require("./unit-commands/building-commands");
-const { premoveBuilderToPosition } = require("./shared-utilities/builder-utils");
+const { premoveBuilderToPosition } = require("../shared-utilities/builder-utils");
 
 /**
  * @param {World} world 
