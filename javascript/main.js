@@ -7,7 +7,7 @@ const path = require('path');
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { AIBuild, Difficulty, PlayerType, Race } = require('@node-sc2/core/constants/enums');
 
-const maps = require('./maps');
+const maps = require('./config/maps');
 
 const workerBalanceSystem = require('./systems/worker-balance-system');
 const entry = require('./builds/entry');
