@@ -6,8 +6,10 @@ const config = require('../config/config');
 const GameState = require('./gameState');
 const { assignWorkersToMinerals } = require('./workerAssignment');
 const { logMessage, logError } = require('./logger');
-const { WorkerRace } = require("@node-sc2/core/constants/race-map");
+const { WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { Race } = require('@node-sc2/core/constants/enums');
+const { calculateDistance } = require('./utils');
+const { UnitType } = require('@node-sc2/core/constants');
 
 // Instantiate the game state manager
 const gameState = new GameState();
@@ -20,6 +22,29 @@ let totalWorkers = 0;
 
 /** @type {number} Maximum number of workers */
 let maxWorkers = 0;
+
+/**
+ * Attempts to find the enemy's base location.
+ * @param {MapResource} map - The map resource object from the bot.
+ * @param {Point2D} myBaseLocation - The bot's main base location.
+ * @returns {Point2D | null} - The suspected enemy base location or null if not found.
+ */
+function findEnemyBase(map, myBaseLocation) {
+  const possibleExpansions = map.getExpansions();
+  let enemyBaseLocation = null;
+
+  // Example: On a two-player map, the enemy base is typically the farthest expansion
+  let maxDistance = 0;
+  for (const expansion of possibleExpansions) {
+    const distance = calculateDistance(expansion.townhallPosition, myBaseLocation);
+    if (distance > maxDistance) {
+      maxDistance = distance;
+      enemyBaseLocation = expansion.townhallPosition;
+    }
+  }
+
+  return enemyBaseLocation;
+}
 
 /**
  * Updates the maximum number of workers based on current game conditions.
@@ -36,7 +61,6 @@ function updateMaxWorkers(units) {
  */
 function calculateMaxWorkers(units) {
   const bases = units.getBases().length;
-  // Adjust worker count per base for better efficiency
   return bases * 22; // Example: 22 workers per base
 }
 
@@ -52,18 +76,153 @@ function isBaseSaturated(base) {
 }
 
 /**
- * Trains a worker at the specified base.
- * @param {Unit} base - The base to train the worker at.
- * @param {number} workerType - The type ID of the worker unit to train.
- * @param {ActionManager} actions - The actions object from the bot.
+ * @param {World} world 
+ * @param {number} buffer 
+ * @returns {boolean} 
  */
-async function trainWorker(base, workerType, actions) {
-  try {
-    await actions.train(workerType, base);
-    totalWorkers++;
-  } catch (error) {
-    logError('Error in training worker:', error);
+function isSupplyNeeded(world, buffer = 0) {
+  const { agent, data, resources } = world;
+  const { foodCap, foodUsed } = agent;
+  const { units } = resources.get();
+  const supplyUnitId = SupplyUnitRace[agent.race];
+  const unitTypeData = data.getUnitTypeData(supplyUnitId);
+
+  if (!unitTypeData || unitTypeData.abilityId === undefined || foodCap === undefined || foodUsed === undefined) {
+    return false; // Skip logic if essential data is not available
   }
+
+  const buildAbilityId = unitTypeData.abilityId;
+  const pendingSupply = (
+    (units.inProgress(supplyUnitId).length * 8) +
+    (units.withCurrentOrders(buildAbilityId).length * 8)
+  );
+  const pendingSupplyCap = foodCap + pendingSupply;
+  const supplyLeft = foodCap - foodUsed; // Now safe to use foodUsed
+  const pendingSupplyLeft = supplyLeft + pendingSupply;
+  const conditions = [
+    pendingSupplyLeft < pendingSupplyCap * buffer,
+    !(foodCap === 200),
+  ];
+  return conditions.every(c => c);
+}
+
+/**
+ * @param {World} world 
+ * @param {UnitTypeId} unitTypeId 
+ * @returns {boolean}
+ */
+function canBuild(world, unitTypeId) {
+  const { agent } = world;
+  return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && (!isSupplyNeeded(world) || unitTypeId === UnitType.OVERLORD)
+}
+
+/**
+ * Trains a worker at the specified base.
+ * @param {World} world - The game world context.
+ * @param {number} limit - The maximum number of workers to train.
+ * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>} - The list of actions to train workers.
+ */
+async function trainWorker(world, limit = 1) {
+  const { agent, data, resources } = world;
+  const { units } = resources.get();
+  const workerTypeId = WorkerRace[agent.race];
+  const collectedActions = [];
+
+  if (canBuild(world, workerTypeId)) {
+    const { abilityId, foodRequired } = data.getUnitTypeData(workerTypeId);
+    if (abilityId === undefined || foodRequired === undefined) return collectedActions;
+
+    let trainers = [];
+    if (agent.race === Race.ZERG) {
+      trainers = units.getById(UnitType.LARVA).filter(larva => !larva['pendingOrders'] || larva['pendingOrders'].length === 0);
+    } else {
+      trainers = units.getById(workerTypeId).filter(unit => unit.isIdle());
+    }
+
+    trainers = trainers.slice(0, limit);
+    trainers.forEach(trainer => {
+      const unitCommand = createUnitCommand(abilityId, [trainer]);
+      collectedActions.push(unitCommand);
+      // Logic to handle the pending orders and resource accounting
+    });
+
+    // Execute the actions
+    // You need to implement logic to execute these collected actions
+  }
+
+  return collectedActions;
+}
+
+/**
+ * Sends a worker to scout the enemy base.
+ * @param {World} world - The game context, including resources and actions.
+ */
+async function performEarlyScouting(world) {
+  const { units, actions, map } = world.resources.get();
+  const workers = units.getMineralWorkers();
+  const mainBaseLocation = map.getMain().townhallPosition;
+
+  const scout = selectScout(workers, mainBaseLocation);
+  if (scout) {
+    const enemyBaseLocation = findEnemyBase(map, mainBaseLocation);
+    if (enemyBaseLocation) {
+      await actions.move(scout, enemyBaseLocation); // Send scout to enemy base
+    }
+  }
+}
+
+/**
+ * Selects a suitable worker to perform scouting based on distance from the main base.
+ * @param {Unit[]} workers - Array of worker units.
+ * @param {Point2D} mainBaseLocation - Location of the main base.
+ * @returns {Unit | null} - Selected scout or null if no suitable worker found.
+ */
+function selectScout(workers, mainBaseLocation) {
+  if (workers.length === 0 || !mainBaseLocation) {
+    return null;
+  }
+
+  let selectedScout = workers[0];
+  let minDistance = calculateDistance(workers[0].pos, mainBaseLocation);
+
+  for (const worker of workers) {
+    const distance = calculateDistance(worker.pos, mainBaseLocation);
+    if (distance < minDistance) {
+      selectedScout = worker;
+      minDistance = distance;
+    }
+  }
+
+  return selectedScout;
+}
+
+/**
+ * Creates a unit command action.
+ * 
+ * @param {AbilityId} abilityId - The ability ID for the action.
+ * @param {Unit[]} units - The units to which the action applies.
+ * @param {boolean} queue - Whether or not to queue the action.
+ * @param {Point2D} [targetPos] - Optional target position for the action.
+ * 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand} - The unit command action.
+ */
+function createUnitCommand(abilityId, units, queue = false, targetPos) {
+  const unitCommand = {
+    abilityId,
+    unitTags: units.reduce((/** @type {string[]} */ acc, unit) => {
+      if (unit.tag !== undefined) {
+        acc.push(unit.tag);
+      }
+      return acc;
+    }, []),
+    queueCommand: queue,
+  };
+
+  if (targetPos) {
+    unitCommand.targetWorldSpacePos = targetPos;
+  }
+
+  return unitCommand;
 }
 
 // Create a new StarCraft II bot agent with event handlers.
@@ -75,10 +234,8 @@ const bot = createAgent({
   async onGameStart(world) {
     logMessage('Game Started', 1);
 
-    // Determine the bot's race at the start of the game
     botRace = (typeof world.agent.race !== 'undefined') ? world.agent.race : Race.TERRAN;
 
-    // Assign initial workers to mineral fields
     const { units, actions } = world.resources.get();
     const workers = units.getWorkers();
     const mineralFields = units.getMineralFields();
@@ -86,14 +243,13 @@ const bot = createAgent({
     if (workers.length && mineralFields.length) {
       try {
         assignWorkersToMinerals(workers, mineralFields, actions);
+        await performEarlyScouting(world); // Perform early game scouting
       } catch (error) {
-        logError('Error in assigning workers to minerals:', error);
+        logError('Error in assigning workers to minerals or scouting:', error);
       }
     } else {
       logError('Error: Workers or mineral fields are undefined or empty');
     }
-
-    // TODO: Implement initial scouting or base expansion logic
   },
 
   /**
@@ -111,14 +267,17 @@ const bot = createAgent({
         if (base.isIdle() && !isBaseSaturated(base)) {
           const workerType = WorkerRace[botRace];
           if (workerType) {
-            await trainWorker(base, workerType, actions);
+            const actionCommands = await trainWorker(world, 1);
+            if (actionCommands.length > 0) {
+              // Execute the actions through the action manager
+              await actions.sendAction(actionCommands);
+            }
           }
         }
       }
     }
 
-    // TODO: Implement advanced strategies like scouting, tech upgrades, army management, etc.
-    // TODO: Efficiently manage resources and plan expansions
+    // TODO: Add logic for continuous scouting and other strategies
   },
 
   /**
