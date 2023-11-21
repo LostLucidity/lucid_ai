@@ -4,12 +4,12 @@
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const config = require('../config/config');
 const GameState = require('./gameState');
-const { assignWorkersToMinerals } = require('./workerAssignment');
 const { logMessage, logError } = require('./logger');
 const { WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { Race } = require('@node-sc2/core/constants/enums');
 const { calculateDistance } = require('./utils');
 const { UnitType } = require('@node-sc2/core/constants');
+const { assignWorkers } = require('./workerAssignment');
 
 // Instantiate the game state manager
 const gameState = new GameState();
@@ -52,6 +52,53 @@ function findEnemyBase(map, myBaseLocation) {
  */
 function updateMaxWorkers(units) {
   maxWorkers = calculateMaxWorkers(units);
+}
+
+/**
+ * Balances the worker distribution across all bases.
+ * @param {UnitResource} units - The units resource object from the bot.
+ */
+function balanceWorkerDistribution() {
+  // Get all bases and their worker counts
+  const bases = units.getBases();
+  const workerCounts = bases.map(base => ({
+    base: base,
+    mineralWorkers: countMineralWorkers(base),
+    gasWorkers: countGasWorkers(base),
+    isSaturated: isBaseSaturated(base)
+  }));
+
+  // Logic to balance workers across bases
+  // This may include transferring workers from saturated to unsaturated bases
+  // And assigning workers to gas if needed
+}
+
+/**
+ * Starts gas harvesting at the appropriate bases.
+ * @param {UnitResource} units - The units resource object from the bot.
+ */
+function startGasHarvesting() {
+  const bases = units.getBases();
+
+  for (const base of bases) {
+    // Check if gas geysers are available and no workers are assigned
+    const gasGeysers = getGasGeysers(base);
+    for (const geyser of gasGeysers) {
+      if (geyser.assignedHarvesters === 0) {
+        // Assign workers to gas geyser
+        assignWorkersToGas(geyser);
+      }
+    }
+  }
+}
+
+/**
+ * Assigns workers to a gas geyser.
+ * @param {Unit} geyser - The gas geyser unit.
+ * @param {UnitResource} units - The units resource object from the bot.
+ */
+function assignWorkersToGas(geyser, units) {
+  // ... implementation
 }
 
 /**
@@ -196,35 +243,6 @@ function selectScout(workers, mainBaseLocation) {
   return selectedScout;
 }
 
-/**
- * Creates a unit command action.
- * 
- * @param {AbilityId} abilityId - The ability ID for the action.
- * @param {Unit[]} units - The units to which the action applies.
- * @param {boolean} queue - Whether or not to queue the action.
- * @param {Point2D} [targetPos] - Optional target position for the action.
- * 
- * @returns {SC2APIProtocol.ActionRawUnitCommand} - The unit command action.
- */
-function createUnitCommand(abilityId, units, queue = false, targetPos) {
-  const unitCommand = {
-    abilityId,
-    unitTags: units.reduce((/** @type {string[]} */ acc, unit) => {
-      if (unit.tag !== undefined) {
-        acc.push(unit.tag);
-      }
-      return acc;
-    }, []),
-    queueCommand: queue,
-  };
-
-  if (targetPos) {
-    unitCommand.targetWorldSpacePos = targetPos;
-  }
-
-  return unitCommand;
-}
-
 // Create a new StarCraft II bot agent with event handlers.
 const bot = createAgent({
   /**
@@ -234,20 +252,29 @@ const bot = createAgent({
   async onGameStart(world) {
     logMessage('Game Started', 1);
 
+    // Determine the bot's race at the start of the game
     botRace = (typeof world.agent.race !== 'undefined') ? world.agent.race : Race.TERRAN;
 
+    // Retrieve initial units and resources
     const { units, actions } = world.resources.get();
     const workers = units.getWorkers();
     const mineralFields = units.getMineralFields();
 
+    // Check if workers and mineral fields are available
     if (workers.length && mineralFields.length) {
       try {
-        assignWorkersToMinerals(workers, mineralFields, actions);
-        await performEarlyScouting(world); // Perform early game scouting
+        // Assign workers to mineral fields for initial resource gathering
+        const workerActions = assignWorkers(world.resources);
+        await actions.sendAction(workerActions);
+
+        // Perform early game scouting
+        await performEarlyScouting(world);
       } catch (error) {
+        // Log any errors encountered during the initial setup
         logError('Error in assigning workers to minerals or scouting:', error);
       }
     } else {
+      // Log an error if workers or mineral fields are undefined or empty
       logError('Error: Workers or mineral fields are undefined or empty');
     }
   },
@@ -259,8 +286,16 @@ const bot = createAgent({
   async onStep(world) {
     const { units, actions } = world.resources.get();
 
+    // Update the maximum number of workers based on the current game state
     updateMaxWorkers(units);
 
+    // Balance worker distribution across all bases
+    balanceWorkerDistribution(units);
+
+    // Start or continue gas harvesting as necessary
+    startGasHarvesting(units);
+
+    // Check if more workers need to be trained based on the max worker count
     if (totalWorkers < maxWorkers) {
       const mainBases = units.getBases();
       for (const base of mainBases) {
@@ -277,7 +312,13 @@ const bot = createAgent({
       }
     }
 
-    // TODO: Add logic for continuous scouting and other strategies
+    // TODO: Add additional logic here for continuous scouting, unit production,
+    //       tech upgrades, and other strategic actions.
+
+    // Example: Implement additional functions and logic for your bot's strategy
+    // handleTechUpgrades(world);
+    // executeCombatStrategies(world);
+    // manageUnitProduction(world);
   },
 
   /**

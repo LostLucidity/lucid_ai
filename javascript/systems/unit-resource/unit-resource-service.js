@@ -304,30 +304,6 @@ const unitResourceService = {
   },
   /**
    * @param {UnitResource} units
-   * @param {Unit[]} mineralFields
-   * @returns {Unit | undefined}}
-   */
-  getNeediestMineralField: (units, mineralFields) => {
-    const mineralFieldCounts = unitResourceService.getMineralFieldAssignments(units, mineralFields)
-      .filter(mineralFieldAssignments => mineralFieldAssignments.count < 2 && mineralFieldAssignments.targetedCount < 2)
-      .sort((a, b) => {
-        const { mineralContents: aContents } = a;
-        const { mineralContents: bContents } = b;
-        if (aContents === undefined || bContents === undefined) return 0;
-        return bContents - aContents
-      }).sort((a, b) => {
-        return Math.max(a.count, a.targetedCount) - Math.max(b.count, b.targetedCount);
-      });
-    if (mineralFieldCounts.length > 0) {
-      const [mineralFieldCount] = mineralFieldCounts;
-      const { mineralFieldTag } = mineralFieldCount;
-      if (mineralFieldTag) {
-        return units.getByTag(mineralFieldTag);
-      }
-    }
-  },
-  /**
-   * @param {UnitResource} units
    * @param {Unit} unit
    * @returns {Point2D|undefined}
    */
@@ -343,28 +319,6 @@ const unitResourceService = {
         }
       }
     }
-  },
-  /**
-   * @param {UnitResource} units
-   * @param {Unit} unit
-   * @returns {Unit[]}
-   */
-  getTargetedByWorkers: (units, unit) => {
-    const workers = units.getWorkers().filter(worker => {
-      const { orders } = worker;
-      const pendingOrders = worker['pendingOrders'];
-      if (orders === undefined) return false;
-      return orders.some(order => {
-        if (order.targetUnitTag === unit.tag) {
-          return true;
-        } else if (pendingOrders && pendingOrders.some(pendingOrder => pendingOrder.targetUnitTag === unit.tag)) {
-          return true;
-        } else {
-          return false;
-        }
-      });
-    });
-    return workers;
   },
 
   /**

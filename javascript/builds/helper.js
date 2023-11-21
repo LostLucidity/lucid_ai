@@ -8,16 +8,11 @@ const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
 const { getTimeInSeconds, getTravelDistancePerStep } = require("../services/frames-service");
-const { moveAwayPosition, getDistance } = require("../services/position-service");
+const { moveAwayPosition } = require("../services/position-service");
 const { canAttack } = require("../services/resources-service");
-const { getMovementSpeed } = require("../services/unit-service");
-const { getDPSOfInRangeAntiAirUnits } = require("../src/world-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
-const enemyTrackingService = require("../src/services/enemy-tracking/enemy-tracking-service");
-const { createUnitCommand } = require("../src/shared-utilities/command-utilities");
-const serviceLocator = require("../src/services/service-locator");
+const { createUnitCommand } = require("../src/utils");
 // Retrieve the armyManagementService using the service locator's get method
-const armyManagementService = serviceLocator.get('armyManagementService');
 
 const helper = {
   /**

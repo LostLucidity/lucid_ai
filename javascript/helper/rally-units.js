@@ -4,10 +4,6 @@
 const { BUNKER } = require("@node-sc2/core/constants/unit-type");
 const { STOP } = require("@node-sc2/core/constants/ability");
 const { tankBehavior } = require("../systems/unit-resource/unit-resource-service");
-const enemyTrackingService = require("../src/services/enemy-tracking");
-const { filterEnemyUnits } = require("../src/shared-utilities/combat-utilities");
-const { createUnitCommand } = require("../src/shared-utilities/command-utilities");
-const { getCombatRally } = require("../src/services/shared-config/combatRallyConfig");
 
 /**
  * Rallies units to a specified point or a default location.

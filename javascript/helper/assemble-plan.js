@@ -29,7 +29,6 @@ const scoutingService = require("../systems/scouting/scouting-service");
 const unitTrainingService = require("../systems/unit-training/unit-training-service");
 const { getAvailableExpansions, getNextSafeExpansions } = require("./expansions");
 const { hasEarmarks, clearEarmarks } = require("../services/data-service");
-const worldService = require("../src/world-service");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
@@ -45,34 +44,8 @@ const { requiresPylon } = require("../services/agent-service");
 const { CANCEL_QUEUE5, CANCEL_QUEUE1, CANCEL_QUEUECANCELTOSELECTION, CANCEL_BUILDINPROGRESS } = require("@node-sc2/core/constants/ability");
 const dataService = require("../services/data-service");
 const unitResourceService = require("../systems/unit-resource/unit-resource-service");
-const { pathFindingService } = require("../src/services/pathfinding");
 const trackUnitsService = require("../systems/track-units/track-units-service");
 const { attack } = require("./behavior/army-behavior");
-const { buildSupplyOrTrain } = require("../src/services/training");
-const PlacementService = require("../src/services/placement/placement-service");
-const expansionManagementService = require("../src/services/expansion-management/expansion-management-service");
-const { createUnitCommand } = require("../src/shared-utilities/command-utilities");
-const { prepareBuilderForConstruction } = require("../src/services/resource-management/resource-management-service");
-const { addEarmark, getStringNameOfConstant } = require("../src/shared-utilities/common-utilities");
-const { commandBuilderToConstruct } = require("../src/services/unit-commands/builder-commands");
-const { setFoodUsed } = require("../src/shared-utilities/data-utils");
-const { morphStructureAction } = require("../src/shared-utilities/building-utils");
-const { getFoodUsed } = require("../src/shared-utilities/info-utils");
-const { getAbilityIdsForAddons } = require("../src/shared-utilities/ability-utils");
-const { isSupplyNeeded } = require("../src/shared-utilities/supply-utils");
-const { getBuilder } = require("../src/services/unit-commands/building-commands");
-const { premoveBuilderToPosition } = require("../src/shared-utilities/builder-utils");
-const { train } = require("../src/shared-utilities/training-utilities");
-const unitRetrievalService = require("../src/services/unit-retrieval");
-const { canBuild } = require("../src/shared-utilities/training-shared-utils");
-const loggingService = require("../src/logging/logging-service");
-const { setAndLogExecutedSteps } = require("../src/services/shared-functions");
-const { isStrongerAtPosition } = require("../src/services/combat-shared/combat-evaluation-service");
-const serviceLocator = require("../src/services/service-locator");
-
-// Retrieve the armyManagementService using the service locator's get method
-const armyManagementService = serviceLocator.get('armyManagementService');
-
 
 let ATTACKFOOD = 194;
 
@@ -1345,14 +1318,4 @@ function optimizeWorkerAssignments(world, constructingWorker) {
 function isWorkerMovingToCorrectPosition(worker, buildPosition) {
   // Check if worker has orders and if any of those orders have the target build position.
   return !!(worker.orders && worker.orders.some(order => order.targetWorldSpacePos && areEqual(order.targetWorldSpacePos, buildPosition)));
-}
-/**
- * Compares two positions for equality.
- *
- * @param {SC2APIProtocol.Point} pos1 - The first position.
- * @param {SC2APIProtocol.Point} pos2 - The second position.
- * @returns {boolean} - True if the positions are equal, false otherwise.
- */
-function areEqual(pos1, pos2) {
-  return pos1.x === pos2.x && pos1.y === pos2.y;
 }

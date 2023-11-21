@@ -9,25 +9,14 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getTravelDistancePerStep } = require("../../services/frames-service");
 const { isInMineralLine } = require("../../systems/map-resource-system/map-resource-service");
 const { isFacing } = require("../../services/micro-service");
-const { getDistance, getClusters, getDistanceSquared } = require("../../services/position-service");
+const { getClusters, getDistanceSquared } = require("../../services/position-service");
 const { canAttack } = require("../../services/resources-service");
 const { gatherOrMine } = require("../../systems/manage-resources");
 const { getRandomPoints, getAcrossTheMap } = require("../location");
 const unitService = require("../../services/unit-service");
-const { getEnemyUnits, getClosestEnemyByPath } = require("../../src/services/enemy-tracking/enemy-tracking-service");
-const { calculateTotalHealthRatio, getDPSHealth } = require("../../src/services/combat-statistics");
 const { isMining } = require("../../systems/unit-resource/unit-resource-service");
-const { getClosestPathWithGasGeysers } = require("../../src/services/utility-service");
-const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
-const { getGasGeysers } = require("../../src/services/unit-retrieval");
 const { getCreepEdges } = require("../../services/resource-manager-service");
-const { getPotentialCombatantsInRadius } = require("../../src/services/unit-analysis");
-const enemyTrackingService = require("../../src/services/enemy-tracking/enemy-tracking-service");
-const { filterEnemyUnits } = require("../../src/shared-utilities/combat-utilities");
-const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
-const unitRetrievalService = require("../../src/services/unit-retrieval");
-const { isByItselfAndNotAttacking } = require("../../src/shared-utilities/game-analysis-utils");
-const { getCombatRally } = require("../../src/services/shared-config/combatRallyConfig");
+const { createUnitCommand } = require("../../src/utils");
 
 module.exports = {
   /**

@@ -225,14 +225,6 @@ const positionService = {
     return positionService.dbscan(points, eps, minPts);
   },
   /**
-   * @param {Point2D} posA
-   * @param {Point2D} posB
-   * @returns {number}
-   */
-  getDistance(posA, posB) {
-    return distance(posA, posB);
-  },
-  /**
    * @param {Point2D} a
    * @param {Point2D} b
    * @returns {number}

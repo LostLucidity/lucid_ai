@@ -8,9 +8,7 @@ const { add } = require("@node-sc2/core/utils/geometry/point");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { CHRONOBOOSTENERGYCOST: CHRONOBOOSTED } = require("@node-sc2/core/constants/buff");
 const { filterLabels } = require("../helper/unit-selection");
-const { getDistance } = require("./position-service");
 const { UnitType } = require("@node-sc2/core/constants");
-const { createUnitCommand } = require("../src/shared-utilities/command-utilities");
 
 /** @type {(unit: Unit) => number} */
 const zealotModifier = unit => (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) ? 0.5 : 0;
@@ -217,13 +215,6 @@ const unitService = {
     return unitService.movementSpeedByType.get(unitType);
   },
   /**
-   * @param {Unit} unit
-   * @returns {SC2APIProtocol.UnitOrder[]}
-   */
-  getPendingOrders: (unit) => {
-    return unit['pendingOrders'] || [];
-  },
-  /**
    * Get weapon that can attack target
    * @param {DataStorage} data
    * @param {UnitTypeId} unitTypeId
@@ -351,18 +342,6 @@ const unitService = {
         }
       }
     });
-  },
-  /**
-  * @param {Unit} unit 
-  * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand
-  * @returns {void}
-  */
-  setPendingOrders: (unit, unitCommand) => {
-    if (unit['pendingOrders']) {
-      unit['pendingOrders'].push(unitCommand);
-    } else {
-      unit['pendingOrders'] = [unitCommand];
-    }
   },
   /**
    * @param {Unit[]} units 

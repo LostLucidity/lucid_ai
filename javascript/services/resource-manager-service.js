@@ -9,68 +9,15 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, nClosestPoint } = require("@node-sc2/core/utils/geometry/point");
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
-const { getTargetedByWorkers } = require("../systems/unit-resource/unit-resource-service");
 const dataService = require("./data-service");
-const { getPathablePositions, getPathablePositionsForStructure } = require("../systems/map-resource-system/map-resource-service");
-const { getDistance, getClusters } = require("./position-service");
-const { setPendingOrders } = require("./unit-service");
+const { getPathablePositions } = require("../systems/map-resource-system/map-resource-service");
+const { getClusters } = require("./position-service");
 const { shuffle } = require("../helper/utilities");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { getOccupiedExpansions } = require("../helper/expansions");
-const pathFindingService = require("../src/services/pathfinding/pathfinding-service");
-const { getGasGeysers } = require("../src/services/unit-retrieval");
-const { createUnitCommand } = require("../src/shared-utilities/command-utilities");
-const { getCombatRally } = require("../src/services/shared-config/combatRallyConfig");
 
 const resourceManagerService = {
   creepEdges: [],
-  /**
-   * @param {ResourceManager} resources
-   * @param {Unit} unit 
-   * @param {Unit | undefined} mineralField
-   * @param {boolean} queue 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
-   */
-  gather: (resources, unit, mineralField, queue = true) => {
-    const { units } = resources.get();
-    const { pos: unitPos } = unit;
-    const collectedActions = [];
-    if (unitPos === undefined) { return collectedActions; }
-    if (unit.labels.has('command') && queue === false) {
-      console.warn('WARNING! unit with command erroniously told to force gather! Forcing queue');
-      queue = true;
-    }
-    const ownBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1);
-    let target;
-    const localMaxDistanceOfMineralFields = 10;
-    if (mineralField && mineralField.tag) {
-      target = mineralField;
-    } else {
-      let targetBase;
-      const needyBases = ownBases.filter(base => {
-        const { assignedHarvesters, idealHarvesters } = base;
-        if (assignedHarvesters === undefined || idealHarvesters === undefined) { return false; }
-        return assignedHarvesters < idealHarvesters
-      });
-      const candidateBases = needyBases.length > 0 ? needyBases : ownBases;
-      targetBase = resourceManagerService.getClosestUnitFromUnit(resources, unit, candidateBases);
-      if (targetBase === undefined || targetBase.pos === undefined) { return collectedActions; }
-      [target] = getUnitsWithinDistance(targetBase.pos, units.getMineralFields(), localMaxDistanceOfMineralFields).sort((a, b) => {
-        const targetedByWorkersACount = getTargetedByWorkers(units, a).length;
-        const targetedByWorkersBCount = getTargetedByWorkers(units, b).length;
-        return targetedByWorkersACount - targetedByWorkersBCount;
-      });
-    }
-    if (target) {
-      const { pos: targetPos } = target; if (targetPos === undefined) { return collectedActions; }
-      const sendToGather = createUnitCommand(SMART, [unit]);
-      sendToGather.targetUnitTag = target.tag;
-      sendToGather.queueCommand = queue;
-      collectedActions.push(sendToGather);
-      setPendingOrders(unit, sendToGather);
-    }
-    return collectedActions;
-  },
   /**
    * @param {ResourceManager} resources
    * @param {Point2D} unitPosition
@@ -82,31 +29,6 @@ const resourceManagerService = {
     const pathablePositions = getPathablePositions(map, unitPosition);
     const [closestPositionByPath] = pathFindingService.getClosestPositionByPath(resources, position, pathablePositions);
     return closestPositionByPath;
-  },
-  /**
-   *
-   * @param {ResourceManager} resources
-   * @param {Unit} unit
-   * @param {Unit[]} units
-   * @returns {Unit | undefined}
-   */
-  getClosestUnitFromUnit(resources, unit, units) {
-    const { map, units: unitResource } = resources.get();
-    const { pos } = unit;
-    if (pos === undefined) return undefined;
-    const pathablePositions = getPathablePositionsForStructure(map, unit);
-    const pathablePositionsForUnits = units.map(unit => getPathablePositionsForStructure(map, unit));
-    const distances = pathablePositions.map(pathablePosition => {
-      const distancesToUnits = pathablePositionsForUnits.map(pathablePositionsForUnit => {
-        const distancesToUnit = pathablePositionsForUnit.map(pathablePositionForUnit => {
-          return pathFindingService.getDistanceByPath(resources, pathablePosition, pathablePositionForUnit);
-        });
-        return Math.min(...distancesToUnit);
-      });
-      return Math.min(...distancesToUnits);
-    });
-    const closestPathablePosition = pathablePositions[distances.indexOf(Math.min(...distances))];
-    return pathFindingService.getClosestUnitByPath(resources, closestPathablePosition, units, getGasGeysers(unitResource), 1)[0];
   },
   /**
    * Gets the edges of the "creep" area based on the provided resources and position.
@@ -268,20 +190,6 @@ const resourceManagerService = {
 }
 
 module.exports = resourceManagerService;
- 
-/**
- * @param {Point2D} pos 
- * @param {Unit[]} units 
- * @param {Number} maxDistance
- * @returns {Unit[]}
- */
-function getUnitsWithinDistance(pos, units, maxDistance) {
-  return units.filter(unit => {
-    const { pos: unitPos } = unit;
-    if (unitPos === undefined) { return false; }
-    return getDistance(unitPos, pos) <= maxDistance;
-  });
-}
 
 /**
  * Retrieves the creep edges within specified ranges. The function filters out 

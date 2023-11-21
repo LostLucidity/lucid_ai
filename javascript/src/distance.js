@@ -1,17 +1,35 @@
+//@ts-check
+"use strict"
+
+const { getClosestUnitByPath } = require("./pathfinding");
+const { getPathablePositionsForStructure, getDistanceByPath, getGasGeysers } = require("./utils");
+
 /**
- * Calculate the Euclidean distance between two points.
- * 
- * @param {SC2APIProtocol.Point | undefined} point1
- * @param {SC2APIProtocol.Point | undefined} point2
- * @returns {number | undefined} The distance, or undefined if either point or their properties are undefined.
+ *
+ * @param {ResourceManager} resources
+ * @param {Unit} unit
+ * @param {Unit[]} units
+ * @returns {Unit | undefined}
  */
-function getEuclideanDistance(point1, point2) {
-  if (point1 && point2 && typeof point1.x === 'number' && typeof point1.y === 'number' && typeof point2.x === 'number' && typeof point2.y === 'number') {
-    const dx = point1.x - point2.x;
-    const dy = point1.y - point2.y;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-  return undefined;
+function getClosestUnitFromUnit(resources, unit, units) {
+  const { map, units: unitResource } = resources.get();
+  const { pos } = unit;
+  if (pos === undefined) return undefined;
+  const pathablePositions = getPathablePositionsForStructure(map, unit);
+  const pathablePositionsForUnits = units.map(unit => getPathablePositionsForStructure(map, unit));
+  const distances = pathablePositions.map(pathablePosition => {
+    const distancesToUnits = pathablePositionsForUnits.map(pathablePositionsForUnit => {
+      const distancesToUnit = pathablePositionsForUnit.map(pathablePositionForUnit => {
+        return getDistanceByPath(resources, pathablePosition, pathablePositionForUnit);
+      });
+      return Math.min(...distancesToUnit);
+    });
+    return Math.min(...distancesToUnits);
+  });
+  const closestPathablePosition = pathablePositions[distances.indexOf(Math.min(...distances))];
+  return getClosestUnitByPath(resources, closestPathablePosition, units, getGasGeysers(unitResource), 1)[0];
 }
 
-module.exports = getEuclideanDistance;
+module.exports = {
+  getClosestUnitFromUnit,
+};

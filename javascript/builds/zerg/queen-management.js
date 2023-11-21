@@ -7,19 +7,9 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { intersectionOfPoints } = require("../../helper/utilities");
 const { creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
-const { getPathCoordinates } = require("../../services/path-service");
 const { getMapPath } = require("../../systems/map-resource-system/map-resource-service");
 const unitService = require("../../services/unit-service");
-const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
-const { getClosestPathWithGasGeysers, getDistanceBetween } = require("../../src/services/utility-service");
-const { getGasGeysers } = require("../../src/services/unit-retrieval");
-const enemyTrackingService = require("../../src/services/enemy-tracking");
 const MapResourceService = require("../../systems/map-resource-system/map-resource-service");
-const { createMoveCommand } = require("../../src/services/command-service");
-const { isOnCreep } = require("../../src/shared-utilities/common-utilities");
-const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
-const { canBuild } = require("../../src/shared-utilities/training-shared-utils");
-const serviceLocator = require("../../src/services/service-locator");
 
 // Retrieve the armyManagementService using the service locator's get method
 const armyManagementService = serviceLocator.get('armyManagementService');

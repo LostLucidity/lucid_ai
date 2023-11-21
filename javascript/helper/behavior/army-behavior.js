@@ -7,11 +7,6 @@ const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { scanCloakedEnemy } = require("../terran");
 const { searchAndDestroy } = require("../../services/resource-manager-service");
 const { groupUnits } = require("../../services/unit-service");
-const { attackWithArmy } = require("../../src/world-service");
-const pathFindingService = require("../../src/services/pathfinding/pathfinding-service");
-const { getGasGeysers } = require("../../src/services/unit-retrieval");
-const { getCombatRally } = require("../../src/services/shared-config/combatRallyConfig");
-const { armyManagementService } = require("../../src/services/service-locator");
 
 const armyBehavior = {
   /**

@@ -40,14 +40,6 @@ class UnitRetrievalService {
   }  
   
   /**
-   * @param {UnitResource} units
-   * @returns {Unit[]}
-  */
-  getGasGeysers(units) {
-    return unitResourceService.gasGeysers || (unitResourceService.gasGeysers = units.getGasGeysers());
-  }
-
-  /**
    * Retrieves units capable of producing a specific unit type.
    * @param {World} world
    * @param {UnitTypeId} unitTypeId

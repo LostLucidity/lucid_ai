@@ -13,13 +13,9 @@ const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { pointsOverlap } = require('../helper/utilities');
 const { getTimeInSeconds } = require('../services/frames-service');
 const { getClosestExpansion } = require('./map-resource-system/map-resource-service');
-const { gather } = require('../services/resource-manager-service');
 const { getPendingOrders, getBuildTimeLeft, getMovementSpeed, setPendingOrders } = require('../services/unit-service');
 const { gatherOrMine } = require('./manage-resources');
-const { getMineralFieldAssignments, getNeediestMineralField, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
-const { getDistance } = require('../services/position-service');
-const { getClosestPathWithGasGeysers } = require('../src/services/utility-service');
-const { createUnitCommand } = require('../src/shared-utilities/command-utilities');
+const { getMineralFieldAssignments, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
 
 module.exports = createSystem({
   name: 'WorkerBalanceSystem',

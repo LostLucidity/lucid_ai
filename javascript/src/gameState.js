@@ -1,3 +1,6 @@
+//@ts-check
+"use strict"
+
 /**
  * Class representing the game state.
  * It maintains and manages various game-related data such as resources, unit statuses, etc.

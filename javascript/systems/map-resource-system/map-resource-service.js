@@ -6,40 +6,13 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, areEqual, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const location = require("../../helper/location");
 const { pointsOverlap } = require("../../helper/utilities");
-const { getPathCoordinates } = require("../../services/path-service");
-const { getDistance } = require("../../services/position-service");
 
 const MapResourceService = {
   creepEdges: [],
   creepPositionsSet: new Set(),
   /** @type {Map<string, Unit[]>} */
   freeGasGeysersCache: new Map(),
-  /** @type {Map<string, number[][]>} */
-  pathCache: new Map(),
-  /**
-   * @param {MapResource} map
-   * @param {Point2D} position 
-   * @returns {Point2D[]}
-   */
-  getClosestPathablePositions(map, position) {
-    const { x, y } = position;
-    if (x === undefined || y === undefined) return [position];
-    const gridCorners = [
-      { x: Math.floor(x), y: Math.floor(y) },
-      { x: Math.ceil(x), y: Math.floor(y) },
-      { x: Math.floor(x), y: Math.ceil(y) },
-      { x: Math.ceil(x), y: Math.ceil(y) },
-    ].filter((grid, index, self) => {
-      const mapSize = map.getSize();
-      const mapEdge = { x: mapSize.x, y: mapSize.y };
-      if (grid.x === mapEdge.x || grid.y === mapEdge.y) return false;
-      return self.findIndex(g => areEqual(g, grid)) === index;
-    });
-    const placeableCorners = gridCorners.filter(corner => map.isPathable(corner));
-    const sortedCorners = placeableCorners.sort((a, b) => distance(a, position) - distance(b, position));
-    const closestCorners = sortedCorners.filter(corner => distance(corner, position) === distance(sortedCorners[0], position));
-    return closestCorners;
-  },
+
   /**
    * @param {MapResource} map 
    * @param {Point2D} position
@@ -61,58 +34,6 @@ const MapResourceService = {
   },
   /**
    * @param {MapResource} map
-   * @param {Point2D} start
-   * @param {Point2D} end
-   * @param {MapPathOptions} options
-   * @returns {number[][]}
-   */
-  getMapPath: (map, start, end, options = {}) => {
-    const { pathCache, getClosestPathablePositions } = MapResourceService;
-    const [startGrid, endGrid] = [getClosestPathablePositions(map, start)[0], getClosestPathablePositions(map, end)[0]];
-
-    start = startGrid || start;
-    end = endGrid || end;
-
-    if (areEqual(start, end)) {
-      return [];
-    }
-
-    const pathKey = `${start.x},${start.y}-${end.x},${end.y}`;
-
-    if (pathCache.has(pathKey)) {
-      const cachedPath = pathCache.get(pathKey) || [];
-      const pathCoordinates = getPathCoordinates(cachedPath);
-
-      if (pathCoordinates.every(coordinate => map.isPathable(coordinate))) {
-        return cachedPath;
-      }
-
-      pathCache.delete(pathKey);
-    }
-
-    const mapPath = map.path(start, end, options);
-    if (mapPath.length === 0) {
-      return [];
-    }
-
-    pathCache.set(pathKey, mapPath);
-
-    for (let i = 1; i < mapPath.length; i++) {
-      const subStart = mapPath[i];
-      const subPathKey = `${subStart[0]},${subStart[1]}-${end.x},${end.y}`;
-      if (!pathCache.has(subPathKey)) {
-        pathCache.set(subPathKey, mapPath.slice(i));
-      } else {
-        // If the path from the current point to the end is already cached, 
-        // there's no need to set it for the rest of the points in the current path.
-        break;
-      }
-    }
-
-    return mapPath;
-  },
-  /**
-   * @param {MapResource} map
    * @param {Point2D} position 
    * @return {Point2D[]}
    */
@@ -127,26 +48,6 @@ const MapResourceService = {
       radius += 1;
     }
     return pathablePositions;
-  },
-  /**
-   * @param {MapResource} map
-   * @param {Unit} structure 
-   * @return {Point2D[]}
-   */
-  getPathablePositionsForStructure: (map, structure) => {
-    const { pos } = structure;
-    if (pos === undefined) return [];
-    let positions = []
-    let radius = 1
-    if (map.isPathable(pos)) {
-      positions.push(pos);
-    } else {
-      do {
-        positions = gridsInCircle(pos, radius).filter(position => map.isPathable(position));
-        radius++
-      } while (positions.length === 0);
-    }
-    return positions;
   },
   /**
    * @param {MapResource} map 
