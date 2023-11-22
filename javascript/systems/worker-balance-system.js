@@ -13,7 +13,7 @@ const { distance } = require('@node-sc2/core/utils/geometry/point');
 const { pointsOverlap } = require('../helper/utilities');
 const { getTimeInSeconds } = require('../services/frames-service');
 const { getClosestExpansion } = require('./map-resource-system/map-resource-service');
-const { getPendingOrders, getBuildTimeLeft, getMovementSpeed, setPendingOrders } = require('../services/unit-service');
+const { getBuildTimeLeft, getMovementSpeed } = require('../services/unit-service');
 const { gatherOrMine } = require('./manage-resources');
 const { getMineralFieldAssignments, getGatheringWorkers } = require('./unit-resource/unit-resource-service');
 

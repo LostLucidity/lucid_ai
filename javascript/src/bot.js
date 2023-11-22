@@ -7,9 +7,9 @@ const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
 const { WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { Race } = require('@node-sc2/core/constants/enums');
-const { calculateDistance } = require('./utils');
+const { calculateDistance, createUnitCommand } = require('./utils');
 const { UnitType } = require('@node-sc2/core/constants');
-const { assignWorkers } = require('./workerAssignment');
+const { assignWorkers, balanceWorkerDistribution } = require('./workerAssignment');
 
 // Instantiate the game state manager
 const gameState = new GameState();
@@ -52,53 +52,6 @@ function findEnemyBase(map, myBaseLocation) {
  */
 function updateMaxWorkers(units) {
   maxWorkers = calculateMaxWorkers(units);
-}
-
-/**
- * Balances the worker distribution across all bases.
- * @param {UnitResource} units - The units resource object from the bot.
- */
-function balanceWorkerDistribution() {
-  // Get all bases and their worker counts
-  const bases = units.getBases();
-  const workerCounts = bases.map(base => ({
-    base: base,
-    mineralWorkers: countMineralWorkers(base),
-    gasWorkers: countGasWorkers(base),
-    isSaturated: isBaseSaturated(base)
-  }));
-
-  // Logic to balance workers across bases
-  // This may include transferring workers from saturated to unsaturated bases
-  // And assigning workers to gas if needed
-}
-
-/**
- * Starts gas harvesting at the appropriate bases.
- * @param {UnitResource} units - The units resource object from the bot.
- */
-function startGasHarvesting() {
-  const bases = units.getBases();
-
-  for (const base of bases) {
-    // Check if gas geysers are available and no workers are assigned
-    const gasGeysers = getGasGeysers(base);
-    for (const geyser of gasGeysers) {
-      if (geyser.assignedHarvesters === 0) {
-        // Assign workers to gas geyser
-        assignWorkersToGas(geyser);
-      }
-    }
-  }
-}
-
-/**
- * Assigns workers to a gas geyser.
- * @param {Unit} geyser - The gas geyser unit.
- * @param {UnitResource} units - The units resource object from the bot.
- */
-function assignWorkersToGas(geyser, units) {
-  // ... implementation
 }
 
 /**
@@ -229,14 +182,16 @@ function selectScout(workers, mainBaseLocation) {
     return null;
   }
 
-  let selectedScout = workers[0];
-  let minDistance = calculateDistance(workers[0].pos, mainBaseLocation);
+  let selectedScout = null;
+  let minDistance = Infinity;
 
   for (const worker of workers) {
-    const distance = calculateDistance(worker.pos, mainBaseLocation);
-    if (distance < minDistance) {
-      selectedScout = worker;
-      minDistance = distance;
+    if (worker.pos) {
+      const distance = calculateDistance(worker.pos, mainBaseLocation);
+      if (distance < minDistance) {
+        selectedScout = worker;
+        minDistance = distance;
+      }
     }
   }
 
@@ -290,10 +245,7 @@ const bot = createAgent({
     updateMaxWorkers(units);
 
     // Balance worker distribution across all bases
-    balanceWorkerDistribution(units);
-
-    // Start or continue gas harvesting as necessary
-    startGasHarvesting(units);
+    balanceWorkerDistribution(units, world.resources);
 
     // Check if more workers need to be trained based on the max worker count
     if (totalWorkers < maxWorkers) {
