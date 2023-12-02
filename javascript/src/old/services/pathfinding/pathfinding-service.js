@@ -2,12 +2,9 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { getStructureCells, getDistance } = require("../../../services/position-service");
-const { getPathablePositions, getMapPath, getClosestPathablePositions } = require("../../../systems/map-resource-system/map-resource-service");
-const { getPathCoordinates } = require("../../../services/path-service");
-const { avgPoints, areEqual } = require("@node-sc2/core/utils/geometry/point");
-const { getClosestPosition } = require("../../../helper/get-closest");
+const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 const { isOnCreep } = require("../../shared-utilities/common-utilities");
+const { getStructureCells } = require("../../../placementPathfindingUtils");
 
 /**
  * Service for handling pathfinding and movement related logic.
@@ -168,36 +165,6 @@ class PathfindingService {
     // return the result after restoring unpathable cells
     return result;
   }
-
-  /**
-   * 
-   * @param {ResourceManager} resources 
-   * @param {Point2D} position 
-   * @param {Point2D[]} points
-   * @param {number} n
-   * @returns {Point2D[]}
-   */
-  getClosestPositionByPath(resources, position, points, n = 1) {
-    return points.map(point => ({ point, distance: this.getDistanceByPath(resources, position, point) }))
-      .sort((a, b) => a.distance - b.distance)
-      .map(pointObject => pointObject.point)
-      .slice(0, n);
-  }
 }
 
 module.exports = new PathfindingService();
-
-/**
- * @param {Point2D[]} positions 
- * @param {Point2D} position 
- * @returns {Boolean}
- */
-function checkIfPositionIsCorner(positions, position) {
-  return positions.some(pos => {
-    const { x, y } = position;
-    const { x: pathableX, y: pathableY } = pos;
-    if (x === undefined || y === undefined || pathableX === undefined || pathableY === undefined) { return false; }
-    const halfway = Math.abs(x - pathableX) === 0.5 || Math.abs(y - pathableY) === 0.5;
-    return halfway && getDistance(position, pos) <= 1;
-  });
-}

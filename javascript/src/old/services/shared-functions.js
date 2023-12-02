@@ -106,24 +106,7 @@ function setAndLogExecutedSteps(world, time, name, loggingService, armyManagemen
   }
 }
 
-/**
- * Unpause and log on attempted steps.
- * @param {World} world 
- * @param {string} name 
- * @param {import("../interfaces/i-logging-service").ILoggingService} loggingService The logging service to be used.
- * @param {import("../interfaces/i-army-management-service-minimal").IArmyManagementServiceMinimal} armyManagementServiceMinimal The army management service to be used.
- * @param {string} extra 
-*/
-function unpauseAndLog(world, name, loggingService, armyManagementServiceMinimal, extra = '') {
-  const { agent, resources } = world;
-  const { frame } = resources.get();
-  if (!(WorkerRace[agent.race] === UnitType[name])) {
-    setAndLogExecutedSteps(world, frame.timeInSeconds(), name, loggingService, armyManagementServiceMinimal, extra);
-  }
-}
-
 // Export the functions
 module.exports = {
   setAndLogExecutedSteps,
-  unpauseAndLog,
 };

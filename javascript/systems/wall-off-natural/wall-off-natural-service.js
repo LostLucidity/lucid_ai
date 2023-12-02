@@ -18,16 +18,6 @@ const wallOffNaturalService = {
    * @type {Point2D[]}
    */
   adjacentToRampGrids: [],
-  /** @type {Point2D} */
-  pylonPlacement: null,
-  /**
-   * @type {Point2D[]}
-   */
-  threeByThreePositions: [],
-  /**
-   * @type {Point2D[]}
-   */
-  wall: [],
   /**
    * @param {ResourceManager} resources
    * @param {{ path: Point2D[]; pathLength: number;}[]} walls

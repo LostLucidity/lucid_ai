@@ -1,50 +1,23 @@
 //@ts-check
 "use strict"
 
+// src/utils.js
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { getMapPath, getPathCoordinates, isLineTraversable } = require("./pathfinding");
 const { getDistance } = require("./geometryUtils");
 const { areEqual, getClosestPathablePositions } = require("./common");
-// src/utils.js
-
-
-let gasGeysers;
-
-/**
- * Calculates the distance between two points.
- * @param {Point2D} pointA - First point.
- * @param {Point2D} pointB - Second point.
- * @returns {number} - The distance between the two points.
- */
-function calculateDistance(pointA, pointB) {
-  return Math.sqrt(Math.pow(pointA.x - pointB.x, 2) + Math.pow(pointA.y - pointB.y, 2));
-}
+const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
+const { UnitType } = require("@node-sc2/core/constants");
+const { getMapPath, getPathCoordinates } = require("./pathUtils");
+const { isLineTraversable } = require("./mapUtils");
 
 /**
- * Finds the closest expansion to a given position.
- * @param {MapResource} map - The map resource object from the bot.
- * @param {Point2D} position - The position to compare against expansion locations.
- * @returns {Expansion | undefined} The closest expansion, or undefined if not found.
+ * @param {DataStorage} data
+ * @param {UnitTypeId} unitType
+ * @returns {number}
  */
-function getClosestExpansion(map, position) {
-  const expansions = map.getExpansions();
-  if (expansions.length === 0) return undefined;
-
-  return expansions.sort((a, b) => {
-    // Use a fallback value (like Number.MAX_VALUE) if getDistance returns undefined
-    const distanceA = getDistance(a.townhallPosition, position) || Number.MAX_VALUE;
-    const distanceB = getDistance(b.townhallPosition, position) || Number.MAX_VALUE;
-    return distanceA - distanceB;
-  })[0];
-}
-
-/**
- * Retrieves pending orders for a unit.
- * @param {Unit} unit - The unit to retrieve pending orders for.
- * @returns {SC2APIProtocol.UnitOrder[]} An array of pending orders.
- */
-function getPendingOrders(unit) {
-  return unit['pendingOrders'] || [];
+function getFoodUsedByUnitType(data, unitType) {
+  const { foodRequired } = data.getUnitTypeData(unitType);
+  return foodRequired || 0;
 }
 
 /**
@@ -69,6 +42,14 @@ function getPathablePositionsForStructure(map, structure){
 }
 
 /**
+ * @param {{ [x: string]: any; }} constants
+ * @param {any} value
+ */
+function getStringNameOfConstant(constants, value) {
+  return `${Object.keys(constants).find(constant => constants[constant] === value)}`;
+}
+
+/**
  * @param {Point2D} pos 
  * @param {Unit[]} units 
  * @param {Number} maxDistance
@@ -86,11 +67,11 @@ function getUnitsWithinDistance(pos, units, maxDistance) {
 }
 
 /**
-* @param {ResourceManager} resources
-* @param {Point2D} position
-* @param {Point2D|SC2APIProtocol.Point} targetPosition
-* @returns {number}
-*/
+  * @param {ResourceManager} resources
+  * @param {Point2D} position
+  * @param {Point2D|SC2APIProtocol.Point} targetPosition
+  * @returns {number}
+  */
 function getDistanceByPath(resources, position, targetPosition) {
   const { map } = resources.get();
   try {
@@ -167,15 +148,6 @@ function getLine(start, end, steps = 0) {
 }
 
 /**
- * Retrieves gas geyser units from the unit resource.
- * @param {UnitResource} units - The unit resource object from the bot.
- * @returns {Unit[]}
- */
-function getGasGeysers(units) {
-  return gasGeysers || (gasGeysers = units.getGasGeysers());
-}
-
-/**
  * Creates a unit command action.
  * 
  * @param {AbilityId} abilityId - The ability ID for the action.
@@ -204,14 +176,64 @@ function createUnitCommand(abilityId, units, queue = false, targetPos) {
   return unitCommand;
 }
 
+/**
+ * @param {World} world 
+ * @param {number} buffer 
+ * @returns {boolean} 
+ */
+function isSupplyNeeded(world, buffer = 0) {
+  const { agent, data, resources } = world;
+  const { foodCap, foodUsed } = agent;
+  const { units } = resources.get();
+  const supplyUnitId = SupplyUnitRace[agent.race];
+  const unitTypeData = data.getUnitTypeData(supplyUnitId);
+
+  if (!unitTypeData || unitTypeData.abilityId === undefined || foodCap === undefined || foodUsed === undefined) {
+    return false; // Skip logic if essential data is not available
+  }
+
+  const buildAbilityId = unitTypeData.abilityId;
+  const pendingSupply = (
+    (units.inProgress(supplyUnitId).length * 8) +
+    (units.withCurrentOrders(buildAbilityId).length * 8)
+  );
+  const pendingSupplyCap = foodCap + pendingSupply;
+  const supplyLeft = foodCap - foodUsed; // Now safe to use foodUsed
+  const pendingSupplyLeft = supplyLeft + pendingSupply;
+  const conditions = [
+    pendingSupplyLeft < pendingSupplyCap * buffer,
+    !(foodCap === 200),
+  ];
+  return conditions.every(c => c);
+}
+
+/**
+ * @param {World} world 
+ * @param {UnitTypeId} unitTypeId 
+ * @returns {boolean}
+ */
+function canBuild(world, unitTypeId) {
+  const { agent } = world;
+  return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && (!isSupplyNeeded(world) || unitTypeId === UnitType.OVERLORD)
+}
+
+/**
+ * @param {number} frames 
+ * @returns {number}
+ */
+function getTimeInSeconds(frames) {
+  return frames / 22.4;
+}
+
 module.exports = {
-  calculateDistance,
-  getClosestExpansion,
-  getPendingOrders,
+  getFoodUsedByUnitType,
   getPathablePositionsForStructure,
+  getStringNameOfConstant,
   getUnitsWithinDistance,
   getDistanceByPath,
   getLine,
-  getGasGeysers,
   createUnitCommand,
+  isSupplyNeeded,
+  canBuild,
+  getTimeInSeconds,
 };

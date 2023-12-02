@@ -218,40 +218,6 @@ class ArmyManagementService {
   }
 
   /**
-   * 
-   * @param {Unit[]} units
-   * @returns {Unit[]}
-   */
-  getUnitsFromClustering(units) {
-    // Perform clustering on builderCandidates
-    let unitPoints = units.reduce((/** @type {Point2D[]} */accumulator, builder) => {
-      const { pos } = builder; if (pos === undefined) return accumulator;
-      accumulator.push(pos);
-      return accumulator;
-    }, []);
-    // Apply DBSCAN to get clusters
-    const clusters = dbscan(unitPoints);
-    // Find the closest builderCandidate to each centroid
-    let closestUnits = clusters.reduce((/** @type {Unit[]} */acc, builderCandidateCluster) => {
-      let closestBuilderCandidate;
-      let shortestDistance = Infinity;
-      for (let unit of units) {
-        const { pos } = unit; if (pos === undefined) return acc;
-        let distance = getDistance(builderCandidateCluster, pos);
-        if (distance < shortestDistance) {
-          shortestDistance = distance;
-          closestBuilderCandidate = unit;
-        }
-      }
-      if (closestBuilderCandidate) {
-        acc.push(closestBuilderCandidate);
-      }
-      return acc;
-    }, []);
-    return closestUnits;
-  }
-
-  /**
    * Handle logic for melee units in combat scenarios.
    *
    * @param {World} world - The world context.

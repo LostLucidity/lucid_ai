@@ -2,12 +2,13 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { getClosestExpansion, getPendingOrders, getUnitsWithinDistance, createUnitCommand } = require("./utils");
+const { getUnitsWithinDistance, createUnitCommand } = require("./utils");
 const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 const { getClosestUnitFromUnit } = require("./distance");
 const { SMART } = require("@node-sc2/core/constants/ability");
 const { getDistance } = require("./geometryUtils");
 const { setPendingOrders } = require("./common");
+const { getClosestExpansion, getPendingOrders } = require("./sharedUtils");
 
 /**
  * Assigns workers to mineral fields for optimal resource gathering.
@@ -398,7 +399,38 @@ function balanceWorkerDistribution(units, resources) {
   return collectedActions;
 }
 
+/**
+ * @param {UnitResource} units
+ * @param {Unit} unit 
+ * @returns {boolean}
+ */
+function getWithLabelAvailable(units, unit) {
+  // if unit has constructing order, if building at order position has a buildProgress of 1, then unitIsConstructing is false
+  let unitIsConstructing = unit.isConstructing();
+  if (unitIsConstructing) {
+    if (!unit.orders[0].targetWorldSpacePos && !units.getByTag(unit.orders[0].targetUnitTag)) {
+      console.log('unit.orders', unit.orders);
+    }
+    const constructionPosition = unit.orders[0].targetWorldSpacePos ? unit.orders[0].targetWorldSpacePos : units.getByTag(unit.orders[0].targetUnitTag).pos;
+    const buildingAtOrderPosition = units.getAlive().filter(unit => unit.isStructure()).find(structure => unit.orders[0].targetWorldSpacePos && distance(structure.pos, constructionPosition) < 1);
+    if (buildingAtOrderPosition) {
+      const { buildProgress } = buildingAtOrderPosition;
+      if (buildProgress === undefined) return false;
+      if (buildProgress >= 1) {
+        unitIsConstructing = false;
+      }
+    } else {
+      unitIsConstructing = false;
+    }
+  }
+  const isNotConstructing = !unitIsConstructing || (unitIsConstructing && unit.unitType === PROBE);
+  const probeAndMoving = unit.unitType === PROBE && unitService.isMoving(unit);
+  return (isNotConstructing && !unit.isAttacking() && !isPendingContructing(unit)) || probeAndMoving;
+}
+
 module.exports = {
   assignWorkers,
   balanceWorkerDistribution,
+  getWithLabelAvailable,
+  getNeediestMineralField,
 };

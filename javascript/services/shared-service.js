@@ -2,13 +2,9 @@
 "use strict"
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { ZERGLING } = require("@node-sc2/core/constants/unit-type");
 
 const sharedService = {
-  isPendingContructing: (unit) => {
-    return unit.pendingOrders && unit.pendingOrders.some(o => constructionAbilities.includes(o.abilityId));
-  },
   getTrainingSupply: (world, unitTypes) => {
     const { data, resources } = world;
     const { units } = resources.get();

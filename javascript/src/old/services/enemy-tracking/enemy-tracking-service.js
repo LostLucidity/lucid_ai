@@ -1,15 +1,10 @@
 //@ts-check
 "use strict"
 
-const trackUnitsService = require("../../../systems/track-units/track-units-service");
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
-const { stateOfGame, default: stateOfGameService } = require("../../../systems/state-of-game-system/state-of-game-service");
-const { getInRangeUnits } = require("../../../helper/battle-analysis");
 const { pathFindingService } = require("../pathfinding");
-const { getGasGeysers } = require("../unit-retrieval");
-const { isInMineralLine } = require("../../../systems/map-resource-system/map-resource-service");
 const { isByItselfAndNotAttacking } = require("../../shared-utilities/game-analysis-utils");
 
 class EnemyTrackingService {

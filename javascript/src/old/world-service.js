@@ -66,49 +66,6 @@ const worldService = {
   unitProductionAvailable: true,
 
   /**
-   * Adds addon, with placement checks and relocating logic.
-   * @param {World} world 
-   * @param {Unit} unit 
-   * @param {UnitTypeId} addOnType 
-   * @returns {Promise<void>}
-   */
-  addAddOn: async (world, unit, addOnType) => {
-    const { landingAbilities, liftingAbilities } = groupTypes;
-    const { data, resources } = world;
-    const { actions } = resources.get();
-    const { tag } = unit; if (tag === undefined) return;
-
-    addOnType = updateAddOnType(addOnType, countTypes);
-    const unitTypeToBuild = getUnitTypeToBuild(unit, flyingTypesMapping, addOnType);
-
-    const { abilityId } = data.getUnitTypeData(unitTypeToBuild); if (abilityId === undefined) return;
-    const unitCommand = { abilityId, unitTags: [tag] };
-
-    if (!unit.noQueue || unit.labels.has('swapBuilding') || unitService.getPendingOrders(unit).length > 0) {
-      return;
-    }
-
-    const availableAbilities = unit.availableAbilities();
-
-    if (unit.abilityAvailable(abilityId)) {
-      if (await attemptBuildAddOn(world, unit, addOnType, unitCommand)) {
-        addEarmark(data, data.getUnitTypeData(addOnType));
-        return;
-      }
-    }
-
-    if (availableAbilities.some(ability => liftingAbilities.includes(ability))) {
-      if (await attemptLiftOff(actions, unit)) {
-        return;
-      }
-    }
-
-    if (availableAbilities.some(ability => landingAbilities.includes(ability))) {
-      await attemptLand(world, unit, addOnType);
-    }
-  },
-
-  /**
    * 
    * @param {World} world 
    * @param {{ combatPoint: Unit; combatUnits: Unit[]; enemyTarget: Unit; supportUnits?: any[]; }} army 
@@ -634,19 +591,6 @@ const worldService = {
     }
   },
   /**
-   * 
-   * @param {DataStorage} data 
-   * @param {AbilityId[]} abilityIds
-   * @returns {UnitTypeId[]}
-   */
-  getUnitTypesWithAbilities: (data, abilityIds) => {
-    const unitTypesWithAbilities = [];
-    abilityIds.forEach(abilityId => {
-      unitTypesWithAbilities.push(...data.findUnitTypesWithAbility(abilityId));
-    });
-    return unitTypesWithAbilities;
-  },
-  /**
    * @param {World} world
    * @returns {void}
    */
@@ -1043,52 +987,6 @@ const worldService = {
     return collectedActions;
   },
   /**
-   * @param {World} world 
-   * @param {Point2D} position
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
-   */
-  rallyWorkerToTarget: (world, position, mineralTarget = false) => {
-    const { rallyWorkersAbilities } = groupTypes;
-    const { getPendingOrders, setPendingOrders } = unitService;
-    const { getNeediestMineralField } = unitResourceService;
-    const { data, resources } = world;
-    const { units } = resources.get();
-    const { DRONE, EGG } = UnitType;
-    const collectedActions = [];
-    const workerSourceByPath = worldService.getWorkerSourceByPath(world, position);
-
-    if (!workerSourceByPath) return collectedActions;
-
-    const { orders, pos } = workerSourceByPath;
-    if (pos === undefined) return collectedActions;
-
-    if (getPendingOrders(workerSourceByPath).some(order => order.abilityId && order.abilityId === SMART)) return collectedActions;
-
-    let rallyAbility = null;
-    if (workerSourceByPath.unitType === EGG) {
-      rallyAbility = orders.some(order => order.abilityId === data.getUnitTypeData(DRONE).abilityId) ? RALLY_BUILDING : null;
-    } else {
-      rallyAbility = rallyWorkersAbilities.find(ability => workerSourceByPath.abilityAvailable(ability));
-    }
-
-    if (!rallyAbility) return collectedActions;
-
-    const unitCommand = createUnitCommand(SMART, [workerSourceByPath]);
-    if (mineralTarget) {
-      const mineralFields = units.getMineralFields().filter(mineralField => mineralField.pos && getDistance(pos, mineralField.pos) < 14);
-      const neediestMineralField = getNeediestMineralField(units, mineralFields);
-      if (neediestMineralField === undefined) return collectedActions;
-      unitCommand.targetUnitTag = neediestMineralField.tag;
-    } else {
-      unitCommand.targetWorldSpacePos = position;
-    }
-
-    collectedActions.push(unitCommand);
-    setPendingOrders(workerSourceByPath, unitCommand);
-
-    return collectedActions;
-  },
-  /**
    * @param {World} world
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
    */
@@ -1388,27 +1286,6 @@ const worldService = {
     const unitsTrainingTargetUnitType = worldService.getUnitsTrainingTargetUnitType(world, WorkerRace[agent.race]);
     return idealHarvesters > (assignedHarvesters + unitsTrainingTargetUnitType.length);
   },
-
-  /**
-   * @param {World} world
-   * @param {Point2D} position
-   * @returns {Unit}
-   */
-  getWorkerSourceByPath: (world, position) => {
-    const { agent, resources } = world;
-    const { units } = resources.get();
-    const { EGG } = UnitType;
-
-    let unitList;
-    if (agent.race === Race.ZERG) {
-      unitList = armyManagementService.getUnitsFromClustering(units.getById(EGG));
-    } else {
-      unitList = armyManagementService.getUnitsFromClustering(units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1));
-    }
-
-    const [closestUnitByPath] = pathFindingService.getClosestUnitByPath(resources, position, unitList);
-    return closestUnitByPath;
-  }
 }
 
 module.exports = worldService;
@@ -1708,105 +1585,6 @@ function updateAddOnType(addOnType, countTypes) {
     }
   }
   return addOnType;
-}
-
-/**
- * Returns unit type to build.
- * @param {Unit} unit 
- * @param {Map} flyingTypesMapping 
- * @param {UnitTypeId} addOnType 
- * @returns {UnitTypeId}
- */
-function getUnitTypeToBuild(unit, flyingTypesMapping, addOnType) {
-  return UnitType[`${UnitTypeId[flyingTypesMapping.get(unit.unitType) || unit.unitType]}${UnitTypeId[addOnType]}`];
-}
-
-/**
- * Attempt to build addOn
- * @param {World} world
- * @param {Unit} unit
- * @param {UnitTypeId} addOnType
- * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand
- * @returns {Promise<boolean>}
- */
-async function attemptBuildAddOn(world, unit, addOnType, unitCommand) {
-  const { data, resources } = world;
-  const { actions, map } = resources.get();
-  const { pos } = unit; if (pos === undefined) return false;
-  const addonPlacement = getAddOnPlacement(pos);
-  const addOnFootprint = getFootprint(addOnType);
-
-  if (addOnFootprint === undefined) return false;
-
-  const canPlace = map.isPlaceableAt(addOnType, addonPlacement) &&
-    !pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), unitResourceService.seigeTanksSiegedGrids);
-
-  if (!canPlace) return false;
-
-  unitCommand.targetWorldSpacePos = unit.pos;
-  await actions.sendAction(unitCommand);
-  planService.pausePlan = false;
-  unitService.setPendingOrders(unit, unitCommand);
-  addEarmark(data, data.getUnitTypeData(addOnType));
-
-  return true;
-}
-
-/**
- * Attempt to lift off the unit if it doesn't have pending orders.
- * @param {ActionManager} actions 
- * @param {Unit} unit 
- * @returns {Promise<Boolean>}
- */
-async function attemptLiftOff(actions, unit) {
-  const { pos, tag } = unit; if (pos === undefined || tag === undefined) return false;
-  if (!unit.labels.has('pendingOrders')) {
-    const addOnPosition = unit.labels.get('addAddOn');
-    if (addOnPosition && distance(getAddOnPlacement(pos), addOnPosition) < 1) {
-      unit.labels.delete('addAddOn');
-    } else {
-      unit.labels.set('addAddOn', null);
-      const unitCommand = {
-        abilityId: Ability.LIFT,
-        unitTags: [tag],
-      };
-      await actions.sendAction(unitCommand);
-      unitService.setPendingOrders(unit, unitCommand);
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Attempts to land the unit at a suitable location.
- * @param {World} world
- * @param {Unit} unit 
- * @param {UnitTypeId} addOnType 
- * @returns {Promise<void>}
- */
-async function attemptLand(world, unit, addOnType) {
-  const { data, resources } = world;
-  const { actions } = resources.get();
-  const { tag, unitType } = unit; if (tag === undefined || unitType === undefined) return;
-  const foundPosition = worldService.checkAddOnPlacement(world, unit, addOnType);
-
-  if (!foundPosition) {
-    return;
-  }
-
-  unit.labels.set('addAddOn', foundPosition);
-
-  const unitCommand = {
-    abilityId: data.getUnitTypeData(UnitType[`${UnitTypeId[flyingTypesMapping.get(unitType) || unitType]}${UnitTypeId[addOnType]}`]).abilityId,
-    unitTags: [tag],
-    targetWorldSpacePos: foundPosition
-  }
-
-  await actions.sendAction(unitCommand);
-  planService.pausePlan = false;
-  unitService.setPendingOrders(unit, unitCommand);
-  addEarmark(data, data.getUnitTypeData(addOnType));
 }
 
 /**

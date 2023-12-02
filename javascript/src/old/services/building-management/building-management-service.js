@@ -6,18 +6,10 @@ const { UnitType } = require("@node-sc2/core/constants");
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { Race } = require("@node-sc2/core/constants/enums");
-const { getInTheMain } = require("../../../helper/placement/placement-helper");
 const { PlacementService } = require("../placement");
-const { commandPlaceBuilding } = require("../command-service");
-const { getAvailableExpansions, getNextSafeExpansions } = require("../../../helper/expansions");
-const MapResourceService = require("../../../systems/map-resource-system/map-resource-service");
-const planService = require("../../../services/plan-service");
-const { addEarmark } = require("../../shared-utilities/common-utilities");
 const { prepareBuilderForConstruction } = require("../resource-management");
-const { commandBuilderToConstruct } = require("../unit-commands/builder-commands");
 const { morphStructureAction } = require("../../shared-utilities/building-utils");
 const { getBuilder } = require("../unit-commands/building-commands");
-const { premoveBuilderToPosition } = require("../../shared-utilities/builder-utils");
 const unitRetrievalService = require("../unit-retrieval");
 
 // === FUNCTION DEFINITIONS ===

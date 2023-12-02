@@ -14,6 +14,7 @@
     "@babel/preset-env": "^7.22.2",
     "@types/pathfinding": "^0.0.6",
     "eslint": "^8.41.0",
+    "eslint-plugin-import": "^2.29.0",
     "pkg": "^4.4.8",
     "webpack": "^4.43.0",
     "webpack-cli": "^3.3.11"

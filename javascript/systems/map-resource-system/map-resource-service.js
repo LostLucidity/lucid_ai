@@ -33,23 +33,6 @@ const MapResourceService = {
     return freeGasGeysersCache.get('freeGasGeysers') || [];
   },
   /**
-   * @param {MapResource} map
-   * @param {Point2D} position 
-   * @return {Point2D[]}
-   */
-  getPathablePositions: (map, position) => {
-    let pathablePositions = [];
-    let radius = 0;
-    const closestPathablePositions = MapResourceService.getClosestPathablePositions(map, position);
-    pathablePositions.push(...closestPathablePositions);
-    while (pathablePositions.length === 0) {
-
-      pathablePositions = getGridsInCircleWithinMap(map, position, radius).filter(grid => map.isPathable(grid));
-      radius += 1;
-    }
-    return pathablePositions;
-  },
-  /**
    * @param {MapResource} map 
    * @param {string} targetLocationFunction
    * @returns 
@@ -101,20 +84,3 @@ const MapResourceService = {
 }
 
 module.exports = MapResourceService;
-
-/**
- * 
- * @param {MapResource} map 
- * @param {Point2D} position 
- * @param {number} radius 
- * @returns {Point2D[]}
- */
-function getGridsInCircleWithinMap(map, position, radius) {
-  const grids = gridsInCircle(position, radius);
-  return grids.filter(grid => {
-    const { x: gridX, y: gridY } = grid;
-    const { x: mapX, y: mapY } = map.getSize();
-    if (gridX === undefined || gridY === undefined || mapX === undefined || mapY === undefined) return false;
-    return gridX >= 0 && gridX < mapX && gridY >= 0 && gridY < mapY;
-  });
-}

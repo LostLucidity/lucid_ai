@@ -2,7 +2,7 @@
 "use strict"
 
 const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
-const { SMART, MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
+const { MOVE, ATTACK_ATTACK } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { combatTypes, creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
@@ -10,7 +10,6 @@ const { distance, nClosestPoint } = require("@node-sc2/core/utils/geometry/point
 const location = require("../helper/location");
 const scoutService = require("../systems/scouting/scouting-service");
 const dataService = require("./data-service");
-const { getPathablePositions } = require("../systems/map-resource-system/map-resource-service");
 const { getClusters } = require("./position-service");
 const { shuffle } = require("../helper/utilities");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
@@ -18,18 +17,6 @@ const { getOccupiedExpansions } = require("../helper/expansions");
 
 const resourceManagerService = {
   creepEdges: [],
-  /**
-   * @param {ResourceManager} resources
-   * @param {Point2D} unitPosition
-   * @param {Point2D} position
-   * @returns {Point2D}
-   */
-  getClosestUnitPositionByPath: (resources, unitPosition, position) => {
-    const { map } = resources.get();
-    const pathablePositions = getPathablePositions(map, unitPosition);
-    const [closestPositionByPath] = pathFindingService.getClosestPositionByPath(resources, position, pathablePositions);
-    return closestPositionByPath;
-  },
   /**
    * Gets the edges of the "creep" area based on the provided resources and position.
    * If the edges are already calculated and stored, it retrieves them from the cache.

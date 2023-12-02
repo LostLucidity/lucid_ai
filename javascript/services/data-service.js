@@ -6,8 +6,6 @@ const { EFFECT_CHRONOBOOSTENERGYCOST } = require("@node-sc2/core/constants/abili
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const curatedAbilities = require("../constants/curated-abilities");
-const { getTimeInSeconds } = require("./frames-service");
-const { getDistance } = require("./position-service");
 const { requiresPylon } = require("./agent-service");
 const unitService = require("./unit-service");
 
@@ -15,12 +13,8 @@ const dataService = {
   /** @type number[] */
   allActions: [],
   curatedAbilityMapping: [],
-  /** @type {Earmark[]} */
-  earmarks: [],
   /** @type {Map<string, number>} */
   foodEarmarks: new Map(),
-  /** @type {Map<number, number>} */
-  unitTypeTrainingAbilities: new Map(),
   /** @type {Map<number, number>} */
   upgradeAbilities: [],
   /**
@@ -39,14 +33,6 @@ const dataService = {
     data.get('earmarks').forEach((/** @type {Earmark} */ earmark) => data.settleEarmark(earmark.name));
     dataService.foodEarmarks.clear();
     dataService.earmarks = [];
-  },
-  /**
-   * @param {DataStorage} data 
-   * @returns {boolean}
-   */
-  earmarkThresholdReached: (data) => {
-    const { minerals: earmarkedTotalMinerals, vespene: earmarkedTotalVespene } = data.getEarmarkTotals('');
-    return earmarkedTotalMinerals > 512 && earmarkedTotalVespene > 512 || earmarkedTotalMinerals > 1024;
   },
   /**
    * @returns {number[]}
@@ -155,13 +141,6 @@ const dataService = {
     const { buildProgress } = unit;
     const { buildTime } = data.getUnitTypeData(unit.unitType);
     return getTimeInSeconds(buildTime) * buildProgress;
-  },
-  /**
-   * @description Get total food earmarked for all steps
-   * @returns {number}
-   */
-  getEarmarkedFood: () => {
-    return Array.from(dataService.foodEarmarks.values()).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   },
   /**
    * @param {DataStorage} data 
