@@ -1,27 +1,14 @@
 //@ts-check
 "use strict"
 
-const Buff = require("@node-sc2/core/constants/buff");
-const { HARVEST_GATHER, MOVE, STOP } = require("@node-sc2/core/constants/ability");
+const { HARVEST_GATHER, STOP } = require("@node-sc2/core/constants/ability");
 const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { add } = require("@node-sc2/core/utils/geometry/point");
-const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const { CHRONOBOOSTENERGYCOST: CHRONOBOOSTED } = require("@node-sc2/core/constants/buff");
 const { filterLabels } = require("../helper/unit-selection");
 const { UnitType } = require("@node-sc2/core/constants");
 
-/** @type {(unit: Unit) => number} */
-const zealotModifier = unit => (unit.alliance === Alliance.ENEMY && unitService.enemyCharge) ? 0.5 : 0;
-
-/** @type {(unit: Unit) => number} */
-const zerglingModifier = unit => (unit.alliance === Alliance.ENEMY && unitService.enemyMetabolicBoost) ? (4.69921875 / 2.9351) - 1 : 0;
-
 const unitService = {
-  /** @type Map<UnitTypeId, (unit: Unit) => number> */
-  SPEED_MODIFIERS: new Map([
-    [UnitType.ZEALOT, zealotModifier],
-    [UnitType.ZERGLING, zerglingModifier],
-  ]),
   /** @type Map<UnitTypeId, number> */
   ZERG_UNITS_ON_CREEP_BONUS: new Map([
     [UnitType.QUEEN, 2.67],
@@ -29,14 +16,6 @@ const unitService = {
     [UnitType.SPORECRAWLER, 1.5],
     [UnitType.SPINECRAWLER, 1.5],
   ]),
-  /**
-   * @type boolean
-   */
-  enemyCharge: false,
-  /**
-   * @type boolean
-   */
-  enemyMetabolicBoost: false,
   /** @type number */
   liftAndLandingTime: 64 / 22.4,
   /**
@@ -63,8 +42,6 @@ const unitService = {
    * @type number
    */
   enemyAttackUpgradeLevel: 0,
-  /** @type Map<number, number> */
-  movementSpeedByType: new Map(),
   /**
    * @param {Unit} unit 
    * @returns {boolean}
@@ -99,20 +76,6 @@ const unitService = {
       attackUpgradeLevel = unitService.enemyAttackUpgradeLevel;
     }
     return attackUpgradeLevel;
-  },
-  /**
-   * @param {Unit} unit
-   * @param {number} buildTime
-   * @param {number} progress
-   * @returns {number}
-   **/
-  getBuildTimeLeft(unit, buildTime, progress) {
-    const { buffIds } = unit;
-    if (buffIds === undefined) return buildTime;
-    if (buffIds.includes(CHRONOBOOSTED)) {
-      buildTime = buildTime * 2 / 3;
-    }
-    return Math.round(buildTime * (1 - progress));
   },
   /**
    * @param {Unit} unit 
@@ -167,53 +130,7 @@ const unitService = {
       return distance <= radius;
     });
   },
-  /**
-   * @param {MapResource} map
-   * @param {Unit} unit 
-   * @param {boolean} adjustForRealSeconds
-   * @returns {number}
-   */
-  getMovementSpeed: function (map, unit, adjustForRealSeconds = false) {
-    const { pos, unitType } = unit;
-    if (!pos || !unitType) return 0;
 
-    let movementSpeed = unitService.getMovementSpeedByType(unit);
-    if (!movementSpeed) return 0;
-
-    const { SPEED_MODIFIERS, ZERG_UNITS_ON_CREEP_BONUS } = unitService;
-
-    // Apply speed modifier specific to the unit type, if any.
-    const speedModifierFunc = SPEED_MODIFIERS.get(unitType);
-    if (speedModifierFunc) {
-      movementSpeed += speedModifierFunc(unit);
-    }
-
-    let multiplier = adjustForRealSeconds ? 1.4 : 1;
-
-    // Apply stimpack buff speed multiplier.
-    if (unit.buffIds?.includes(Buff.STIMPACK)) {
-      multiplier *= 1.5;
-    }
-
-    // Apply speed bonus for Zerg units on creep.
-    if (map.hasCreep(pos)) {
-      multiplier *= ZERG_UNITS_ON_CREEP_BONUS.get(unitType) || 1.3;
-    }
-
-    return movementSpeed * multiplier;
-  },
-  /**
-   * @param {Unit} unit
-   * @returns {number | undefined}
-   */
-  getMovementSpeedByType: (unit) => {
-    const { unitType } = unit; if (unitType === undefined) return;
-    if (!unitService.movementSpeedByType.has(unitType)) {
-      const { movementSpeed } = unit.data(); if (movementSpeed === undefined) return;
-      unitService.movementSpeedByType.set(unitType, movementSpeed);
-    }
-    return unitService.movementSpeedByType.get(unitType);
-  },
   /**
    * Get weapon that can attack target
    * @param {DataStorage} data
@@ -257,34 +174,6 @@ const unitService = {
     );
 
     return [combatUnits, supportUnits];
-  }
-,
-  /**
-   * @param {Unit} unit
-   * @param {boolean} pending
-   * @returns {boolean}
-   **/
-  isConstructing: (unit, pending = false) => {
-    /** @type {SC2APIProtocol.UnitOrder[]} */
-    let pendingOrders = [];
-    if (pending) {
-      pendingOrders = unitService.getPendingOrders(unit);
-    }
-    return unit.isConstructing() || pendingOrders.some(order => order.abilityId && constructionAbilities.includes(order.abilityId));
-  },
-  /**
-   * @param {Unit} unit
-   * @param {boolean} pending
-   * @returns {boolean}
-   */
-  isMoving: (unit, pending=false) => {
-    const { orders } = unit; if (orders === undefined || orders.length === 0) return false;
-    if (pending) {
-      /** @type {SC2APIProtocol.UnitOrder[]} */
-      const pendingOrders = unitService.getPendingOrders(unit);
-      orders.concat(pendingOrders);
-    }
-    return orders.some(order => order.abilityId === MOVE);
   },
   /**
    * @param {Unit} worker 

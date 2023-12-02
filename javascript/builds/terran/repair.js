@@ -6,7 +6,6 @@ const { Alliance, Attribute } = require("@node-sc2/core/constants/enums");
 const { addonTypes } = require("@node-sc2/core/constants/groups");
 const { BUNKER } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { isPendingContructing } = require("../../services/shared-service");
 
 module.exports = {
   repairBurningStructures: (resources) => {

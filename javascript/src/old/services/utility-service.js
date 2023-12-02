@@ -2,54 +2,7 @@
 "use strict"
 
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const { getDistance } = require("../../services/position-service");
 const { pathFindingService } = require("./pathfinding");
-const { getGasGeysers } = require("./unit-retrieval");
-const { UnitType } = require("@node-sc2/core/constants");
-const { countTypes, addOnTypesMapping } = require("../../helper/groups");
-
-/**
- * Check if a unit type can construct an addon.
- * @param {UnitTypeId} unitType 
- * @returns {boolean}
- */
-function canUnitBuildAddOn(unitType) {
-  const { BARRACKS, FACTORY, STARPORT } = UnitType;
-  // Add the unit types that can construct addons here
-  const addonConstructingUnits = [
-    ...(countTypes.get(BARRACKS) || []), ...(addOnTypesMapping.get(BARRACKS) || []),
-    ...(countTypes.get(FACTORY) || []), ...(addOnTypesMapping.get(FACTORY) || []),
-    ...(countTypes.get(STARPORT) || []), ...(addOnTypesMapping.get(STARPORT) || []),
-  ];
-  return addonConstructingUnits.includes(unitType);
-}
-
-/**
- * Retrieves the closest pathable positions between two points, considering gas geysers.
- * @param {ResourceManager} resources - The resource manager containing map and units data.
- * @param {Point2D} position - The starting position.
- * @param {Point2D} targetPosition - The target position.
- * @returns {{distance: number, pathCoordinates: Point2D[], pathablePosition: Point2D, pathableTargetPosition: Point2D}} - Closest pathable positions and related data.
- */
-function getClosestPathWithGasGeysers(resources, position, targetPosition) {
-  const { units } = resources.get();
-  const gasGeysers = getGasGeysers(units);
-  return pathFindingService.getClosestPathablePositionsBetweenPositions(resources, position, targetPosition, gasGeysers);
-}
-
-/**
- * Retrieves the closest unit by path while considering gas geysers.
- * @param {ResourceManager} resources - The resource manager containing map and units data.
- * @param {Point2D} position - The starting position.
- * @param {Unit[]} units - The array of units.
- * @param {number} n - Number of units to retrieve.
- * @returns {Unit[]} - Closest units by path.
- */
-function getClosestUnitConsideringGasGeysers(resources, position, units, n = 1) {
-  const { units: unitResource } = resources.get();
-  const gasGeysers = getGasGeysers(unitResource);
-  return pathFindingService.getClosestUnitByPath(resources, position, units, gasGeysers, n);
-}
 
 /**
  * Calculate Euclidean distance between two points
@@ -97,9 +50,6 @@ function getClosestSafeMineralField(resources, position, targetPosition) {
 }
 
 const utilityService = {
-  canUnitBuildAddOn,
-  getClosestPathWithGasGeysers,
-  getClosestUnitConsideringGasGeysers,
   getDistanceBetween,
   getClosestSafeMineralField
 };

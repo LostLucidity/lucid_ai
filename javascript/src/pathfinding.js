@@ -1,111 +1,9 @@
 //@ts-check
 "use strict"
 
-const { areEqual, getClosestPathablePositions } = require("./common");
-const { getDistance } = require("./geometryUtils");
 // pathfinding.js
-
-
-/** @type {Map<string, number[][]>} */
-let pathCache = new Map();
-
-/**
- * @param {MapResource} map
- * @param {Point2D} start
- * @param {Point2D} end
- * @param {MapPathOptions} options
- * @returns {number[][]}
- */
-function getMapPath(map, start, end, options = {})  {
-  const [startGrid, endGrid] = [getClosestPathablePositions(map, start)[0], getClosestPathablePositions(map, end)[0]];
-
-  start = startGrid || start;
-  end = endGrid || end;
-
-  if (areEqual(start, end)) {
-    return [];
-  }
-
-  const pathKey = `${start.x},${start.y}-${end.x},${end.y}`;
-
-  if (pathCache.has(pathKey)) {
-    const cachedPath = pathCache.get(pathKey) || [];
-    const pathCoordinates = getPathCoordinates(cachedPath);
-
-    if (pathCoordinates.every(coordinate => map.isPathable(coordinate))) {
-      return cachedPath;
-    }
-
-    pathCache.delete(pathKey);
-  }
-
-  const mapPath = map.path(start, end, options);
-  if (mapPath.length === 0) {
-    return [];
-  }
-
-  pathCache.set(pathKey, mapPath);
-
-  for (let i = 1; i < mapPath.length; i++) {
-    const subStart = mapPath[i];
-    const subPathKey = `${subStart[0]},${subStart[1]}-${end.x},${end.y}`;
-    if (!pathCache.has(subPathKey)) {
-      pathCache.set(subPathKey, mapPath.slice(i));
-    } else {
-      // If the path from the current point to the end is already cached, 
-      // there's no need to set it for the rest of the points in the current path.
-      break;
-    }
-  }
-
-  return mapPath;
-}
-
-/**
- * @param {number[][]} path 
- * @returns {Point2D[]}
- */
-function getPathCoordinates(path) {
-  return path.map(path => ({ 'x': path[0], 'y': path[1] }));
-}
-
-/**
- * @param {MapResource} map
- * @param {Point2D[]} line - An array containing two points that define a straight line segment.
- * @returns {boolean}
- */
-function isLineTraversable(map, line) {
-  const [start, end] = line;
-  const { x: startX, y: startY } = start; if (startX === undefined || startY === undefined) return false;
-  const { x: endX, y: endY } = end; if (endX === undefined || endY === undefined) return false;
-
-  // Use fallback value if getDistance returns undefined
-  const distance = getDistance(start, end) || 0;
-
-  // Assume the unit width is 1
-  const unitWidth = 1;
-
-  // Calculate the number of points to check along the line, spaced at unit-width intervals
-  const numPoints = distance === 0 ? 0 : Math.ceil(distance / unitWidth);
-
-  // For each point along the line segment
-  for (let i = 0; i <= numPoints; i++) {
-    const t = i / numPoints; // The fraction of the way from the start point to the end point
-
-    // Calculate the coordinates of the point
-    const x = startX + t * (endX - startX);
-    const y = startY + t * (endY - startY);
-    const point = { x, y };
-
-    // If the point is not on walkable terrain, return false
-    if (!map.isPathable(point)) {
-      return false;
-    }
-  }
-
-  // If all points along the line are on walkable terrain, return true
-  return true;
-}
+const { getDistance } = require("./geometryUtils");
+const { getGasGeysers } = require("./mapUtils");
 
 /**
  *
@@ -180,10 +78,122 @@ function getClosestUnitByPath(resources, position, units, gasGeysers = [], n = 1
   return unitsByDistance.slice(0, n).map(u => u.unit);
 }
 
+/**
+ * 
+ * @param {ResourceManager} resources 
+ * @param {Point2D} position 
+ * @param {Point2D[]} points
+ * @param {number} n
+ * @returns {Point2D[]}
+ */
+function getClosestPositionByPath(resources, position, points, n = 1) {
+  return points.map(point => ({ point, distance: this.getDistanceByPath(resources, position, point) }))
+    .sort((a, b) => a.distance - b.distance)
+    .map(pointObject => pointObject.point)
+    .slice(0, n);
+}
+
+/**
+ * Calculate the closest constructing worker and the time to reach a specific position
+ * @param {World} world - The resources object to access game state
+ * @param {Unit[]} constructingWorkers - The array of workers currently in constructing state
+ * @param {Point2D} position - The position to calculate the distance to
+ * @returns {{unit: Unit, timeToPosition: number} | undefined} - Closest constructing worker and time to reach the position or undefined
+ */
+function calculateClosestConstructingWorker(world, constructingWorkers, position) {
+  const { data, resources } = world;
+  const { units } = resources.get();
+
+  return constructingWorkers.reduce((/** @type {{unit: Unit, timeToPosition: number} | undefined} */closestWorker, worker) => {
+    const { orders, pos } = worker; if (orders === undefined || pos === undefined) return closestWorker;
+    // get unit type of building in construction
+    const constructingOrder = orders.find(order => order.abilityId && groupTypes.constructionAbilities.includes(order.abilityId)); if (constructingOrder === undefined) return closestWorker;
+    const { abilityId } = constructingOrder; if (abilityId === undefined) return closestWorker;
+    const unitType = dataService.unitTypeTrainingAbilities.get(abilityId); if (unitType === undefined) return closestWorker;
+    const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return closestWorker;
+
+    // get closest unit type to worker position if within unit type radius
+    const closestUnitType = units.getClosest(pos, units.getById(unitType)).filter(unit => unit.pos && getDistance(unit.pos, pos) < 3)[0];
+
+    if (closestUnitType) {
+      const { buildProgress } = closestUnitType; if (buildProgress === undefined) return closestWorker;
+      const buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * buildProgress));
+      const distanceToPositionByPath = pathFindingService.getDistanceByPath(resources, pos, position);
+      const { movementSpeed } = worker.data(); if (movementSpeed === undefined) return closestWorker;
+      const movementSpeedPerSecond = movementSpeed * 1.4;
+      const timeToPosition = buildTimeLeft + (distanceToPositionByPath / movementSpeedPerSecond);
+
+      // If this is the first worker or if it's closer than the current closest worker, update closestWorker
+      if (!closestWorker || timeToPosition < closestWorker.timeToPosition) {
+        return { unit: worker, timeToPosition };
+      }
+    }
+
+    return closestWorker;
+  }, undefined);
+}
+
+/**
+ * @param {ResourceManager} resources
+ * @param {{center: Point2D, units: Unit[]}[]} builderCandidateClusters
+ * @param {Point2D} position
+ * @returns {Unit | undefined}
+ */
+function getClosestBuilderCandidate(resources, builderCandidateClusters, position) {
+  const { map, units } = resources.get();
+  let closestCluster;
+  let shortestClusterDistance = Infinity;
+
+  // Find the closest cluster to the position
+  for (let cluster of builderCandidateClusters) {
+    const distance = getDistance(cluster.center, position);
+    if (distance < shortestClusterDistance) {
+      shortestClusterDistance = distance;
+      closestCluster = cluster;
+    }
+  }
+
+  // If no clusters, return undefined
+  if (!closestCluster) return undefined;
+
+  let closestBuilderCandidate;
+  let shortestCandidateDistance = Infinity;
+
+  // Store the original state of each cell
+  const originalCellStates = new Map();
+  const gasGeysers = getGasGeysers(units).filter(geyser => geyser.pos && getDistance(geyser.pos, position) < 1);
+  const structureAtPositionCells = BuildingPlacement.getStructureCells(position, gasGeysers);
+  [...structureAtPositionCells].forEach(cell => {
+    originalCellStates.set(cell, map.isPathable(cell));
+    map.setPathable(cell, true);
+  });
+
+  // Find the closest candidate within that cluster
+  for (let builderCandidate of closestCluster.units) {
+    const { pos } = builderCandidate;
+    if (pos === undefined) continue;
+
+    const distance = getDistanceByPath(resources, pos, position);
+
+    if (distance < shortestCandidateDistance) {
+      shortestCandidateDistance = distance;
+      closestBuilderCandidate = builderCandidate;
+    }
+  }
+
+  // Restore each cell to its original state
+  [...structureAtPositionCells].forEach(cell => {
+    const originalState = originalCellStates.get(cell);
+    map.setPathable(cell, originalState);
+  });
+
+  // Return the closest candidate, or undefined if none was found
+  return closestBuilderCandidate;
+}
+
 module.exports = {
-  getMapPath,
-  pathCache,
-  getPathCoordinates,
-  isLineTraversable,
   getClosestUnitByPath,
+  calculateClosestConstructingWorker,
+  getClosestBuilderCandidate,
+  getClosestPositionByPath,
 };

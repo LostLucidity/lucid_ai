@@ -6,21 +6,6 @@ const { avgPoints, add } = require("@node-sc2/core/utils/geometry/point");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 const location = {
-  /**
-   * @param {MapResource} map 
-   * @param {Point2D} position 
-   * @returns {boolean}
-   */
-  existsInMap: (map, position) => {
-    const mapSize = map.getSize();
-    // return true if the position is within the map
-    return (
-      position.x >= 0 &&
-      position.x < mapSize.x &&
-      position.y >= 0 &&
-      position.y < mapSize.y
-    );
-  },
   getRallyPointByBases: (map, units) => {
     const averageBasePosition = avgPoints(units.getBases().map(base => base.pos))
     let [ closestEnemyBase ] = units.getClosest(averageBasePosition, units.getBases(Alliance.ENEMY), 1);

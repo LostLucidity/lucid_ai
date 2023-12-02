@@ -1,8 +1,9 @@
 //@ts-check
 "use strict"
 
+const { getGasGeysers } = require("./mapUtils");
 const { getClosestUnitByPath } = require("./pathfinding");
-const { getPathablePositionsForStructure, getDistanceByPath, getGasGeysers } = require("./utils");
+const { getPathablePositionsForStructure, getDistanceByPath } = require("./utils");
 
 /**
  *

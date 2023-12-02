@@ -6,21 +6,6 @@ const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { supplyTypes } = require("../helper/groups");
 
 const planService = {
-  /** @type {false | Point2D | undefined} */
-  get buildingPosition() {
-    const step = planService.currentStep;
-    return planService.buildingPositions.get(step);
-  },
-  /**
-   * @param {false | Point2D} value
-   * @returns {void}
-   */
-  set buildingPosition(value) {
-    if (value) {
-      const step = planService.currentStep;
-      planService.buildingPositions.set(step, value);
-    }
-  },
   /**
    * @param {boolean} value
    */
@@ -36,85 +21,28 @@ const planService = {
   automateSupply: true,
   /** @type {boolean} */
   bogIsActive: false,
-  /** @type {Map<number, false | Point2D>} */
-  buildingPositions: new Map(),
   dirtyBasePlan: false,
   /** @type {import("../interfaces/plan-step").PlanStep[]} */
   convertedLegacyPlan: [],
   continueBuild: true,
-  currentStep: -1,
   /** @type {number} */
   foodMark: 12,
-  /** @type {Point2D | false} */
-  foundPosition: false,
   /** @type {{enemyBuild?: string; units: {STALKER?: number; } } | null} */
   harass: null,
   /** @type {boolean} */
   isPlanPaused: null,
   latestStep: 0,
-  /** @type {any[][]} */
-  legacyPlan: [],
   mineralThreshold: 512,
-  naturalWallPylon: true,
   /** @type {boolean} */
   pausedThisRound: false,
   pendingFood: 0,
   /** @type {boolean} */
   pendingRunPlan: false,
-  /** @type {(import("../interfaces/plan-step").PlanStep[])} */
-  plan: [],
   planMax: {
     gasMine: 0,
     supply: 0,
   },
   planMin: {},
-  /**
-   * @param {any[]} legacyPlan
-   * @returns {import("../interfaces/plan-step").PlanStep[]}
-   */
-  convertLegacyPlan(legacyPlan) {
-    const trueActions = ['build', 'train', 'upgrade'];
-    return legacyPlan.filter(step => {
-      return trueActions.includes(step[1]);
-    }).map(step => {
-      return planService.convertLegacyStep(step);
-    });
-  },
-  /**
-   * @description converts a legacy step to a new step, legacy step is an array of [food, orderType, unitType, targetCount]
-   * @param {any[]} trueStep
-   * @returns {import("../interfaces/plan-step").PlanStep}
-   */
-  convertLegacyStep(trueStep) {
-    const [food, orderType, itemType, targetCount] = trueStep;
-    /** @type {import("../interfaces/plan-step").PlanStep} */
-    const step = {
-      food,
-      orderType,
-      targetCount,
-    };
-
-    if (orderType === 'upgrade') {
-      step.upgrade = itemType;
-    } else {
-      step.unitType = itemType;
-    }
-
-    return step;
-  },
-  /**
- * @param {UnitTypeId} unitType
- * @param {Point2D | false} position
- * @returns {void}
- */
-  setBuildingPosition: (unitType, position) => {
-    const { legacyPlan, currentStep } = planService;
-    planService.buildingPosition =
-      legacyPlan.length > 0 && legacyPlan[currentStep][2] !== unitType
-        ? planService.buildingPosition || false // Provide a default value
-        : position;
-  },
-
   /**
    * @param {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number, candidatePositions?: Point2D[] }[]}  plan 
    */

@@ -1,16 +1,7 @@
 //@ts-check
 "use strict"
 
-const { getMovementSpeed } = require("./unit-service");
-
 const frameService = {
-  /**
-   * @param {number} frames 
-   * @returns {number}
-   */
-  getTimeInSeconds(frames) {
-    return frames / 22.4;
-  },
   /**
    * @param {MapResource} map
    * @param {Unit} unit 

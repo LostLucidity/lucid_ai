@@ -5,11 +5,11 @@ const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const config = require('../config/config');
 const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
-const { WorkerRace, SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
+const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { Race } = require('@node-sc2/core/constants/enums');
-const { calculateDistance, createUnitCommand } = require('./utils');
-const { UnitType } = require('@node-sc2/core/constants');
 const { assignWorkers, balanceWorkerDistribution } = require('./workerAssignment');
+const { trainWorker, buildSupply } = require('./economyManagement');
+const { calculateDistance } = require('./sharedUtils');
 
 // Instantiate the game state manager
 const gameState = new GameState();
@@ -73,84 +73,6 @@ function isBaseSaturated(base) {
   const idealHarvesters = base.idealHarvesters || 0;
   const assignedHarvesters = base.assignedHarvesters || 0;
   return assignedHarvesters >= idealHarvesters;
-}
-
-/**
- * @param {World} world 
- * @param {number} buffer 
- * @returns {boolean} 
- */
-function isSupplyNeeded(world, buffer = 0) {
-  const { agent, data, resources } = world;
-  const { foodCap, foodUsed } = agent;
-  const { units } = resources.get();
-  const supplyUnitId = SupplyUnitRace[agent.race];
-  const unitTypeData = data.getUnitTypeData(supplyUnitId);
-
-  if (!unitTypeData || unitTypeData.abilityId === undefined || foodCap === undefined || foodUsed === undefined) {
-    return false; // Skip logic if essential data is not available
-  }
-
-  const buildAbilityId = unitTypeData.abilityId;
-  const pendingSupply = (
-    (units.inProgress(supplyUnitId).length * 8) +
-    (units.withCurrentOrders(buildAbilityId).length * 8)
-  );
-  const pendingSupplyCap = foodCap + pendingSupply;
-  const supplyLeft = foodCap - foodUsed; // Now safe to use foodUsed
-  const pendingSupplyLeft = supplyLeft + pendingSupply;
-  const conditions = [
-    pendingSupplyLeft < pendingSupplyCap * buffer,
-    !(foodCap === 200),
-  ];
-  return conditions.every(c => c);
-}
-
-/**
- * @param {World} world 
- * @param {UnitTypeId} unitTypeId 
- * @returns {boolean}
- */
-function canBuild(world, unitTypeId) {
-  const { agent } = world;
-  return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && (!isSupplyNeeded(world) || unitTypeId === UnitType.OVERLORD)
-}
-
-/**
- * Trains a worker at the specified base.
- * @param {World} world - The game world context.
- * @param {number} limit - The maximum number of workers to train.
- * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>} - The list of actions to train workers.
- */
-async function trainWorker(world, limit = 1) {
-  const { agent, data, resources } = world;
-  const { units } = resources.get();
-  const workerTypeId = WorkerRace[agent.race];
-  const collectedActions = [];
-
-  if (canBuild(world, workerTypeId)) {
-    const { abilityId, foodRequired } = data.getUnitTypeData(workerTypeId);
-    if (abilityId === undefined || foodRequired === undefined) return collectedActions;
-
-    let trainers = [];
-    if (agent.race === Race.ZERG) {
-      trainers = units.getById(UnitType.LARVA).filter(larva => !larva['pendingOrders'] || larva['pendingOrders'].length === 0);
-    } else {
-      trainers = units.getById(workerTypeId).filter(unit => unit.isIdle());
-    }
-
-    trainers = trainers.slice(0, limit);
-    trainers.forEach(trainer => {
-      const unitCommand = createUnitCommand(abilityId, [trainer]);
-      collectedActions.push(unitCommand);
-      // Logic to handle the pending orders and resource accounting
-    });
-
-    // Execute the actions
-    // You need to implement logic to execute these collected actions
-  }
-
-  return collectedActions;
 }
 
 /**
@@ -246,6 +168,9 @@ const bot = createAgent({
 
     // Balance worker distribution across all bases
     balanceWorkerDistribution(units, world.resources);
+
+    // Check if supply is needed and if a supply unit is not currently being built
+    await buildSupply(world, trainWorker);
 
     // Check if more workers need to be trained based on the max worker count
     if (totalWorkers < maxWorkers) {

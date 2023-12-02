@@ -27,4 +27,22 @@ function logError(message, error) {
   }
 }
 
+/**
+ * Unpause and log on attempted steps.
+ * @param {World} world 
+ * @param {string} name 
+ * @param {ILoggingService} loggingService The logging service to be used.
+ * @param {IArmyManagementServiceMinimal} armyManagementServiceMinimal The army management service to be used.
+ * @param {string} extra 
+ */
+function unpauseAndLog(world, name, loggingService, armyManagementServiceMinimal, extra = '') {
+  const { agent, resources } = world;
+  const { frame } = resources.get();
+  if (!(WorkerRace[agent.race] === UnitType[name])) {
+    setAndLogExecutedSteps(world, frame.timeInSeconds(), name, loggingService, armyManagementServiceMinimal, extra);
+  }
+}
+
+module.exports = { logMessage, logError, unpauseAndLog };
+
 module.exports = { logMessage, logError };

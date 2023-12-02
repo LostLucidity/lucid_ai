@@ -34,47 +34,6 @@ module.exports = {
      * @returns {Point2D[]}
      */
     intersectionOfPoints: (firstArray, secondArray) => firstArray.filter(first => secondArray.some(second => distance(first, second) < 1)),
-  /**
-   * 
-   * @param {Point2D[]} firstArray 
-   * @param {Point2D[]} secondArray 
-   * @param {number} range
-   * @returns {Boolean}
-   */
-  pointsOverlap: (firstArray, secondArray, range = 1) => {
-    const cellSize = range;
-    const grid = new Map();
-
-    for (const point of secondArray) {
-      const xCell = Math.floor(point.x / cellSize);
-      const yCell = Math.floor(point.y / cellSize);
-      const key = `${xCell},${yCell}`;
-
-      if (!grid.has(key)) {
-        grid.set(key, []);
-      }
-
-      grid.get(key).push(point);
-    }
-
-    return firstArray.some(first => {
-      const xCell = Math.floor(first.x / cellSize);
-      const yCell = Math.floor(first.y / cellSize);
-
-      for (let i = -1; i <= 1; i++) {
-        for (let j = -1; j <= 1; j++) {
-          const key = `${xCell + i},${yCell + j}`;
-          const pointsInCell = grid.get(key);
-
-          if (pointsInCell && pointsInCell.some(second => distance(first, second) < range)) {
-            return true;
-          }
-        }
-      }
-
-      return false;
-    });
-  },
     /**
      * @param {Point2D[]} points
      * @param {Point2D[]} grids

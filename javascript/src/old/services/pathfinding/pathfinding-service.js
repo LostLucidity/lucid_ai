@@ -168,36 +168,6 @@ class PathfindingService {
     // return the result after restoring unpathable cells
     return result;
   }
-
-  /**
-   * 
-   * @param {ResourceManager} resources 
-   * @param {Point2D} position 
-   * @param {Point2D[]} points
-   * @param {number} n
-   * @returns {Point2D[]}
-   */
-  getClosestPositionByPath(resources, position, points, n = 1) {
-    return points.map(point => ({ point, distance: this.getDistanceByPath(resources, position, point) }))
-      .sort((a, b) => a.distance - b.distance)
-      .map(pointObject => pointObject.point)
-      .slice(0, n);
-  }
 }
 
 module.exports = new PathfindingService();
-
-/**
- * @param {Point2D[]} positions 
- * @param {Point2D} position 
- * @returns {Boolean}
- */
-function checkIfPositionIsCorner(positions, position) {
-  return positions.some(pos => {
-    const { x, y } = position;
-    const { x: pathableX, y: pathableY } = pos;
-    if (x === undefined || y === undefined || pathableX === undefined || pathableY === undefined) { return false; }
-    const halfway = Math.abs(x - pathableX) === 0.5 || Math.abs(y - pathableY) === 0.5;
-    return halfway && getDistance(position, pos) <= 1;
-  });
-}

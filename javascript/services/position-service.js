@@ -3,8 +3,6 @@
 
 const { gasMineTypes } = require("@node-sc2/core/constants/groups");
 const { toDegrees, toRadians } = require("@node-sc2/core/utils/geometry/angle");
-const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { distance, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const positionService = {
@@ -27,135 +25,6 @@ const positionService = {
     };
   },
 
-  /**
-   * Performs DBSCAN (Density-Based Spatial Clustering of Applications with Noise) clustering
-   * on a given set of points. This clustering algorithm groups together points that are close 
-   * to each other based on a distance measurement (eps) and a minimum number of points. 
-   * It also marks as noise the points that are in low-density regions.
-   *
-   * @param {Point2D[]} points - The set of points to be clustered.
-   * @param {number} [eps=1.5] - The maximum distance between two points for one to be considered as in the neighborhood of the other.
-   * @param {number} [minPts=1] - The minimum number of points to form a dense region.
-   * 
-   * @returns {Point2D[]} - The center points of each detected cluster.
-   */
-  dbscan(points, eps = 1.5, minPts = 1) {
-    let clusters = [];
-    let visited = new Set();
-
-    /**
-     * Returns the neighbors of a given point within the 'eps' distance.
-     *
-     * @param {Point2D} p - The point for which to find the neighbors.
-     * @returns {Point2D[]} - The neighboring points within the 'eps' distance.
-     */
-    function rangeQuery(p) {
-      return points.filter(point => {
-        const distance = positionService.getDistance(p, point);
-        return distance <= eps;
-      });
-    }
-
-    points.forEach(point => {
-      if (visited.has(point)) {
-        return;
-      }
-
-      visited.add(point);
-      const neighbors = rangeQuery(point);
-
-      if (neighbors.length < minPts) {
-        return;
-      }
-
-      let cluster = new Set();
-      clusters.push(cluster);
-
-      neighbors.forEach(neighbor => {
-        if (!visited.has(neighbor)) {
-          visited.add(neighbor);
-          const neighbors2 = rangeQuery(neighbor);
-          if (neighbors2.length >= minPts) {
-            neighbors2.forEach(neighbor2 => neighbors.push(neighbor2));
-          }
-        }
-        cluster.add(neighbor);
-      });
-    });
-
-    /**
-     * Calculates the centroid for each cluster.
-     *
-     * @returns {Point2D[]} - An array containing the centroids of the clusters.
-     */
-    return clusters.map(cluster => {
-      let x = 0, y = 0;
-      cluster.forEach(point => {
-        x += point.x;
-        y += point.y;
-      });
-      return { x: x / cluster.size, y: y / cluster.size };
-    });
-  },
-  
-  /**
-   * @param {{point: Point2D, unit: Unit}[]} pointsWithUnits
-   * @param {number} eps
-   * @param {number} minPts
-   * @returns {{center: Point2D, units: Unit[]}[]}
-   */
-  dbscanWithUnits(pointsWithUnits, eps = 1.5, minPts = 1) {
-    let clusters = [];
-    let visited = new Set();
-    let noise = new Set();
-
-    function rangeQuery(p) {
-      return pointsWithUnits.filter(({ point }) => {
-        const distance = positionService.getDistance(p, point); // Assume getDistance is defined
-        return distance <= eps;
-      });
-    }
-
-    pointsWithUnits.forEach(({ point }) => {
-      if (!visited.has(point)) {
-        visited.add(point);
-
-        let neighbors = rangeQuery(point);
-
-        if (neighbors.length < minPts) {
-          noise.add(point);
-        } else {
-          let cluster = new Set([point]);
-
-          for (let { point: point2 } of neighbors) {
-            if (!visited.has(point2)) {
-              visited.add(point2);
-
-              let neighbors2 = rangeQuery(point2);
-
-              if (neighbors2.length >= minPts) {
-                neighbors = neighbors.concat(neighbors2);
-              }
-            }
-
-            if (!Array.from(cluster).includes(point2)) {
-              cluster.add(point2);
-            }
-          }
-
-          const clusterUnits = pointsWithUnits.filter(pt => cluster.has(pt.point)).map(pt => pt.unit);
-          const center = {
-            x: Array.from(cluster).reduce((a, b) => a + b.x, 0) / cluster.size,
-            y: Array.from(cluster).reduce((a, b) => a + b.y, 0) / cluster.size
-          };
-
-          clusters.push({ center, units: clusterUnits });
-        }
-      }
-    });
-
-    return clusters;
-  },
   /**
    * Find a nearby pathable point by adjusting the angle.
    * @param {MapResource} map
@@ -235,41 +104,6 @@ const positionService = {
     const dx = ax - bx;
     const dy = ay - by;
     return dx * dx + dy * dy;
-  },
-  /**
-   * @param {Point2D} position 
-   * @param {UnitTypeId} unitType
-   * @returns {Point2D}
-   */
-  getMiddleOfStructure(position, unitType ) {
-    if (gasMineTypes.includes(unitType)) return position;
-    const point2D = createPoint2D(position);
-    let { x, y } = point2D;
-    if (x === undefined || y === undefined) return position;
-    const footprint = getFootprint(unitType);
-    if (footprint === undefined) return position;
-    if (footprint.h % 2 === 1) {
-      x += 0.5;
-      y += 0.5;
-    }
-    return { x, y };
-  },
-  /**
-   * @param {Point2D} position
-   * @param {Unit[]} structures
-   * @returns {Point2D[]}
-   */
-  getStructureCells(position, structures) {
-    return structures.reduce((/** @type {Point2D[]} */ acc, structure) => {
-      const { pos, unitType } = structure;
-      if (pos === undefined || unitType === undefined) return acc;
-      if (positionService.getDistance(pos, position) <= 1) {
-        const footprint = getFootprint(unitType);
-        if (footprint === undefined) return acc;
-        acc.push(...cellsInFootprint(createPoint2D(pos), footprint));
-      }
-      return acc;
-    }, []);
   },
   /**
    * Return position directly away from targetPosition based on position.

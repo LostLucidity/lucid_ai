@@ -194,51 +194,6 @@ const unitResourceService = {
   },
   /**
    * @param {UnitResource} units
-   * @param {Unit} unit 
-   * @returns {boolean}
-   */
-  getWithLabelAvailable: (units, unit) => {
-    // if unit has constructing order, if building at order position has a buildProgress of 1, then unitIsConstructing is false
-    let unitIsConstructing = unit.isConstructing();
-    if (unitIsConstructing) {
-      if (!unit.orders[0].targetWorldSpacePos && !units.getByTag(unit.orders[0].targetUnitTag)) {
-        console.log('unit.orders', unit.orders);
-      }
-      const constructionPosition = unit.orders[0].targetWorldSpacePos ? unit.orders[0].targetWorldSpacePos : units.getByTag(unit.orders[0].targetUnitTag).pos;
-      const buildingAtOrderPosition = units.getAlive().filter(unit => unit.isStructure()).find(structure => unit.orders[0].targetWorldSpacePos && distance(structure.pos, constructionPosition) < 1);
-      if (buildingAtOrderPosition) {
-        const { buildProgress } = buildingAtOrderPosition;
-        if (buildProgress === undefined) return false;
-        if (buildProgress >= 1) {
-          unitIsConstructing = false;
-        }
-      } else {
-        unitIsConstructing = false;
-      }
-    }
-    const isNotConstructing = !unitIsConstructing || (unitIsConstructing && unit.unitType === PROBE);
-    const probeAndMoving = unit.unitType === PROBE && unitService.isMoving(unit);
-    return (isNotConstructing && !unit.isAttacking() && !isPendingContructing(unit)) || probeAndMoving;
-  },
-  /**
-   * 
-   * @param {UnitResource} units 
-   * @returns {Unit[]}
-   */
-  getBuilders: (units) => {
-    const { getWithLabelAvailable } = unitResourceService;
-    let builders = [
-      ...units.withLabel('builder').filter(builder => getWithLabelAvailable(units, builder)),
-      ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(units, proxy)),
-    ].filter(worker => {
-      const gatheringAndMining = worker.isGathering() && unitResourceService.isMining(units, worker);
-      const isConstructingDrone = worker.isConstructing() && worker.unitType === DRONE;
-      return !worker.isReturning() && !gatheringAndMining && !isConstructingDrone;
-    });
-    return builders;
-  },
-  /**
-   * @param {UnitResource} units
    * @param {UnitTypeId} unitType
    * @returns {Unit[]}
    */
@@ -301,24 +256,6 @@ const unitResourceService = {
         targetedCount: targetedMineralFieldWorkers.length,
       };
     });
-  },
-  /**
-   * @param {UnitResource} units
-   * @param {Unit} unit
-   * @returns {Point2D|undefined}
-   */
-  getOrderTargetPosition: (units, unit) => {
-    if (unit.orders && unit.orders.length > 0) {
-      const order = unit.orders[0];
-      if (order.targetWorldSpacePos) {
-        return order.targetWorldSpacePos;
-      } else if (order.targetUnitTag) {
-        const targetUnit = units.getByTag(order.targetUnitTag);
-        if (targetUnit) {
-          return targetUnit.pos;
-        }
-      }
-    }
   },
 
   /**
