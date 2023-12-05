@@ -1,20 +1,24 @@
 // sharedBuildingUtils.js
 
 // Import necessary constants, types, and other modules
+
+// External library imports
 const { UnitType, Ability } = require("@node-sc2/core/constants");
-const { getPendingOrders, getMovementSpeed, getClosestUnitPositionByPath, isMoving, getBuildTimeLeft, getUnitsFromClustering } = require("./sharedUtils");
+const { Alliance, Race } = require("@node-sc2/core/constants/enums");
+const groupTypes = require("@node-sc2/core/constants/groups");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+
+// Internal module imports
+const { stopOverlappingBuilders } = require("./buildingSharedUtils");
+const { setPendingOrders } = require("./common");
 const GameState = require("./gameState");
 const { getStructureAtPosition, getDistance, getAwayPosition, areApproximatelyEqual } = require("./geometryUtils");
 const MapResources = require("./mapResources");
+const { getPendingOrders, getMovementSpeed, getClosestUnitPositionByPath, isMoving, getBuildTimeLeft, getUnitsFromClustering } = require("./sharedUtils");
 const { unitTypeTrainingAbilities } = require("./unitConfig");
-const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
-const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 const { createUnitCommand, getDistanceByPath, getTimeInSeconds } = require("./utils");
 const { rallyWorkerToTarget } = require("./workerUtils");
-const groupTypes = require("@node-sc2/core/constants/groups");
-const { stopOverlappingBuilders } = require("./buildingSharedUtils");
-const { setPendingOrders } = require("./common");
 
 /**
  * @param {World} world

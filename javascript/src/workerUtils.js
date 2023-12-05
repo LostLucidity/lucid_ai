@@ -1,16 +1,19 @@
 //@ts-check
 "use strict"
 
+// External library imports
 const { UnitType, Ability } = require("@node-sc2/core/constants");
-const { getWithLabelAvailable, getNeediestMineralField } = require("./workerAssignment");
-const { getPendingOrders, isMoving, dbscanWithUnits, getBuildTimeLeft, getUnitsFromClustering } = require("./sharedUtils");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
-const { getDistance } = require("./geometryUtils");
-const { unitTypeTrainingAbilities } = require("./unitConfig");
 const groupTypes = require("@node-sc2/core/constants/groups");
-const { getWorkerSourceByPath } = require("./pathfinding");
-const { createUnitCommand } = require("./utils");
+
+// Internal module imports from other utility files
 const { setPendingOrders } = require("./common");
+const { getDistance } = require("./geometryUtils");
+const { getWorkerSourceByPath } = require("./pathfinding");
+const { getPendingOrders, isMoving, dbscanWithUnits, getBuildTimeLeft, getUnitsFromClustering } = require("./sharedUtils");
+const { unitTypeTrainingAbilities } = require("./unitConfig");
+const { createUnitCommand } = require("./utils");
+const { getWithLabelAvailable, getNeediestMineralField } = require("./workerAssignment");
 const { stopUnitFromMovingToPosition } = require("./workerHelpers");
 
 /**

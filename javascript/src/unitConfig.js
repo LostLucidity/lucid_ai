@@ -1,8 +1,10 @@
 //@ts-check
 'use strict';
 
-// Import necessary constants and services from your game's core library
+// Core library imports
 const { UnitType } = require('@node-sc2/core/constants');
+
+// Internal module imports
 const GameState = require('./gameState');
 
 /**

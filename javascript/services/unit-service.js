@@ -9,7 +9,6 @@ const { filterLabels } = require("../helper/unit-selection");
 const { UnitType } = require("@node-sc2/core/constants");
 
 const unitService = {
-
   /**
    * @type boolean
    */

@@ -2,13 +2,17 @@
 "use strict"
 
 // src/utils.js
-const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { getDistance } = require("./geometryUtils");
-const { areEqual, getClosestPathablePositions } = require("./common");
-const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
+
+// External library imports from @node-sc2/core
 const { UnitType } = require("@node-sc2/core/constants");
-const { getMapPath, getPathCoordinates } = require("./pathUtils");
+const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
+const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+
+// Internal module imports
+const { areEqual, getClosestPathablePositions } = require("./common");
+const { getDistance } = require("./geometryUtils");
 const { isLineTraversable } = require("./mapUtils");
+const { getMapPath, getPathCoordinates } = require("./pathUtils");
 
 /**
  * @param {DataStorage} data

@@ -1,21 +1,24 @@
 //@ts-check
 "use strict";
 
-// Import necessary modules or constants
+// External library imports
 const { Ability, UnitType } = require("@node-sc2/core/constants");
-const { getDistance } = require("./geometryUtils");
-const { createUnitCommand, getFoodUsedByUnitType } = require("./utils");
-const { getAddOnPlacement } = require("./placementUtils");
-const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
-const { pointsOverlap } = require("./mapUtils");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { setPendingOrders } = require("./common");
-const { addEarmark } = require("./resourceUtils");
-const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff } = require("./unitHelpers");
-const GameState = require("./gameState");
-const { getPendingOrders } = require("./sharedUtils");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+
+// Internal module imports: Game State and Utilities
 const { findBestPositionForAddOn } = require("./buildingUnitHelpers");
+const { setPendingOrders } = require("./common");
+const GameState = require("./gameState");
+const { getDistance } = require("./geometryUtils");
+const { pointsOverlap } = require("./mapUtils");
+// Internal module imports: Building and Unit Management
+const { getAddOnPlacement } = require("./placementUtils");
+const { addEarmark } = require("./resourceUtils");
+const { getPendingOrders } = require("./sharedUtils");
 const { flyingTypesMapping, liftAndLandingTime } = require("./unitConfig");
+const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff } = require("./unitHelpers");
+const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");
 
 /** @type {Point2D[]} */
 const seigeTanksSiegedGrids = [];

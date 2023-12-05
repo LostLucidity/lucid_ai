@@ -1,14 +1,16 @@
 //@ts-check
 "use strict"
 
-// Import necessary constants, enums, or other dependencies
+// External library imports
 const { UnitType } = require('@node-sc2/core/constants');
-const GameState = require('./gameState');
-const { earmarkThresholdReached, getEarmarkedFood } = require('./resourceUtils');
 const { Race, Attribute } = require('@node-sc2/core/constants/enums');
+
+// Internal module imports
+const { upgradeTypes } = require('./gameData');
+const GameState = require('./gameState');
 const { currentStep } = require('./gameStateResources');
 const { earmarks } = require('./resourceData');
-const { upgradeTypes } = require('./gameData');
+const { earmarkThresholdReached, getEarmarkedFood } = require('./resourceUtils');
 
 // Shared data structures
 let foodEarmarks = {}; // Example of a shared data structure

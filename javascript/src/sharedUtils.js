@@ -1,22 +1,23 @@
 //@ts-check
 "use strict"
 
-// Import dependencies if any are required
-const { Ability, UnitType, Buff } = require("@node-sc2/core/constants");
-const { getDistance, getClosestPosition } = require("./geometryUtils");
-const { getMovementSpeedByType, flyingTypesMapping, ZERG_UNITS_ON_CREEP_BONUS } = require("./unitConfig");
+// External library imports from @node-sc2/core
+const { Ability, Buff, UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
+const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
+const getRandom = require("@node-sc2/core/utils/get-random");
+
+// Internal utility function imports
+const { setPendingOrders } = require("./common");
 // eslint-disable-next-line no-unused-vars
 const GameState = require("./gameState");
-const { getPathablePositions } = require("./pathUtils");
+const { getClosestPosition, getDistance } = require("./geometryUtils");
+const { dbscan, getGasGeysers } = require("./mapUtils");
 const { getClosestPositionByPath } = require("./pathfinding");
-const { getGasGeysers, dbscan } = require("./mapUtils");
-const getRandom = require("@node-sc2/core/utils/get-random");
+const { getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath } = require("./pathUtils");
 const { getStructureCells } = require("./placementPathfindingUtils");
-const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const { getDistanceByPath, createUnitCommand } = require("./utils");
-const pathUtils = require("./pathUtils");
-const { setPendingOrders } = require("./common");
+const { flyingTypesMapping, getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS } = require("./unitConfig");
+const { createUnitCommand, getDistanceByPath } = require("./utils");
 
 /** @type {(unit: Unit, gameState: GameState) => number} */
 const zealotModifier = (unit, gameState) => (
@@ -252,8 +253,8 @@ function getClosestPathablePositionsBetweenPositions(resources, position, target
     map.setPathable(cell, true);
   });
 
-  const pathablePositions = pathUtils.getPathablePositions(map, position);
-  const isAnyPositionCorner = pathUtils.checkIfPositionIsCorner(pathablePositions, position);
+  const pathablePositions = getPathablePositions(map, position);
+  const isAnyPositionCorner = checkIfPositionIsCorner(pathablePositions, position);
   const filteredPathablePositions = isAnyPositionCorner && pathablePositions.length === 4
     ? pathablePositions.filter(pos => {
       const { x, y } = pos;
@@ -263,8 +264,8 @@ function getClosestPathablePositionsBetweenPositions(resources, position, target
       return (x > centerX && y > centerY) || (x < centerX && y < centerY);
     })
     : pathablePositions;
-  const pathableTargetPositions = pathUtils.getPathablePositions(map, targetPosition);
-  const isAnyTargetPositionCorner = pathUtils.checkIfPositionIsCorner(pathableTargetPositions, targetPosition);
+  const pathableTargetPositions = getPathablePositions(map, targetPosition);
+  const isAnyTargetPositionCorner = checkIfPositionIsCorner(pathableTargetPositions, targetPosition);
   const filteredPathableTargetPositions = isAnyTargetPositionCorner && pathableTargetPositions.length === 4
     ? pathableTargetPositions.filter(pos => {
       const { x, y } = pos;
@@ -279,14 +280,14 @@ function getClosestPathablePositionsBetweenPositions(resources, position, target
       return {
         pathablePosition,
         pathableTargetPosition,
-        pathCoordinates: pathUtils.getPathCoordinates(pathUtils.getMapPath(map, pathablePosition, pathableTargetPosition)),
+        pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, pathableTargetPosition)),
         distance: getDistanceByPath(resources, pathablePosition, pathableTargetPosition)
       };
     });
     if (isAnyPositionCorner || isAnyTargetPositionCorner) {
       const averageDistance = distancesToTargetPositions.reduce((acc, { distance }) => acc + distance, 0) / distancesToTargetPositions.length;
       return {
-        pathCoordinates: pathUtils.getPathCoordinates(pathUtils.getMapPath(map, pathablePosition, targetPosition)),
+        pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, targetPosition)),
         pathablePosition,
         pathableTargetPosition: targetPosition,
         distance: averageDistance
@@ -303,7 +304,7 @@ function getClosestPathablePositionsBetweenPositions(resources, position, target
     const pathablePosition = isAnyPositionCorner ? avgPoints(filteredPathablePositions) : getClosestPosition(position, filteredPathablePositions)[0];
     const pathableTargetPosition = isAnyTargetPositionCorner ? avgPoints(filteredPathableTargetPositions) : getClosestPosition(targetPosition, filteredPathableTargetPositions)[0];
     result = {
-      pathCoordinates: pathUtils.getPathCoordinates(pathUtils.getMapPath(map, pathablePosition, pathableTargetPosition)),
+      pathCoordinates: getPathCoordinates(getMapPath(map, pathablePosition, pathableTargetPosition)),
       pathablePosition,
       pathableTargetPosition,
       distance: averageDistance

@@ -1,18 +1,22 @@
 //@ts-check
 "use strict";
 
+// External library imports
+const { UnitType, UnitTypeId } = require("@node-sc2/core/constants");
+const groupTypes = require("@node-sc2/core/constants/groups");
+
+// Internal module imports: Game State and Building Utilities
+const BuildingPlacement = require("./buildingPlacement");
+const { hasAddOn } = require("./buildingSharedUtils");
+const { setPendingOrders } = require("./common");
+const GameState = require("./gameState");
+const { addEarmark } = require("./resourceUtils");
 const { getPendingOrders } = require("./sharedUtils");
-const { getTimeInSeconds } = require("./utils");
+// Internal module imports: Unit Configuration and Actions
+const { attemptBuildAddOn, attemptLiftOff } = require("./unitActions");
 const { canUnitBuildAddOn, flyingTypesMapping, unitTypeTrainingAbilities } = require("./unitConfig");
 const { calculateLiftLandAndMoveTime, updateAddOnType, getUnitTypeToBuild } = require("./unitHelpers");
-const groupTypes = require("@node-sc2/core/constants/groups");
-const GameState = require("./gameState");
-const { attemptBuildAddOn, attemptLiftOff } = require("./unitActions");
-const { addEarmark } = require("./resourceUtils");
-const { hasAddOn } = require("./buildingSharedUtils");
-const BuildingPlacement = require("./buildingPlacement");
-const { UnitType, UnitTypeId } = require("@node-sc2/core/constants");
-const { setPendingOrders } = require("./common");
+const { getTimeInSeconds } = require("./utils");
 
 /**
  * Adds addon, with placement checks and relocating logic.

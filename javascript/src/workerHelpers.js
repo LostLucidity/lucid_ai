@@ -1,10 +1,12 @@
 //@ts-check
 "use strict";
 
-// Import necessary modules and constants
+// External library imports
+const { Ability } = require('@node-sc2/core/constants');
+
+// Internal module imports
 const { getDistance } = require('./geometryUtils');
 const { createUnitCommand } = require('./utils');
-const { Ability } = require('@node-sc2/core/constants');
 
 /**
  * Stops a unit from moving to a specified position.

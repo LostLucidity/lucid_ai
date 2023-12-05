@@ -1,11 +1,13 @@
 //@ts-check
 "use strict";
 
-// Import necessary modules, constants, and types
+// External library imports from '@node-sc2/core/constants'
 const { UnitType, UnitTypeId } = require('@node-sc2/core/constants');
-const { getDistance } = require('./geometryUtils');
 const groupTypes = require('@node-sc2/core/constants/groups');
+
+// Internal module imports for utility functions and configurations
 const { findBestPositionForAddOn } = require('./buildingUnitHelpers');
+const { getDistance } = require('./geometryUtils');
 const { unitTypeTrainingAbilities, liftAndLandingTime, flyingTypesMapping } = require('./unitConfig');
 
 /**
