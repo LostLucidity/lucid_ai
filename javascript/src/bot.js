@@ -102,6 +102,9 @@ const bot = createAgent({
     const { units, actions } = world.resources.get();
     const { agent } = world; // Corrected access to agent
 
+    // Calculate the total number of workers
+    totalWorkers = units.getWorkers().length;
+
     // Initialize an array to collect actions
     const actionCollection = [];
 
