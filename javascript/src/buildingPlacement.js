@@ -613,26 +613,18 @@ class BuildingPlacement {
    * Find potential building placements within the main base.
    * @param {World} world
    * @param {UnitTypeId} unitType
-   * @returns {Promise<Point2D[]>}
+   * @returns {Point2D[]}
    */
-  static async getInTheMain(world, unitType) {
-    const { actions, map } = world.resources.get();
+  static getInTheMain(world, unitType) {
+    const { map } = world.resources.get();
     const mainBase = map.getMain();
 
     if (!mainBase || !mainBase.areas) {
       return []; // Return an empty array if mainBase or its areas are undefined
     }
 
-    const candidatePositions = mainBase.areas.placementGrid.filter(grid => map.isPlaceableAt(unitType, grid));
-    const placementResults = await Promise.all(candidatePositions.map(pos => actions.canPlace(unitType, [pos])));
-
-    // Use reduce to filter and accumulate the Point2D objects
-    return placementResults.reduce((/** @type {Point2D[]} */ acc, result, index) => {
-      if (result) {
-        acc.push(candidatePositions[index]);
-      }
-      return acc;
-    }, []);
+    // Filter the placement grid to find suitable positions
+    return mainBase.areas.placementGrid.filter(grid => map.isPlaceableAt(unitType, grid));
   }
 
   /**

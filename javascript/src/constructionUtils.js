@@ -68,16 +68,16 @@ function gatherCandidateWorkersTimeToPosition(resources, position, movingOrConst
 /**
  * @param {World} world 
  * @param {UnitTypeId} unitType
- * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>}
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
-async function morphStructureAction(world, unitType) {
+function morphStructureAction(world, unitType) {
   const { CYCLONE, LAIR } = UnitType;
   const { agent, data } = world;
   const collectedActions = [];
   // use unitType for LAIR with CYCLONE when can afford as LAIR data is inflated by the cost of a HATCHERY
   if (agent.canAfford(unitType === LAIR ? CYCLONE : unitType)) {
     const { abilityId } = data.getUnitTypeData(unitType); if (abilityId === undefined) return collectedActions;
-    const actions = await ability(world, abilityId, isIdleOrAlmostIdle);
+    const actions = ability(world, abilityId, isIdleOrAlmostIdle);
     if (actions.length > 0) {
       collectedActions.push(...actions);
     }
@@ -127,11 +127,11 @@ function commandBuilderToConstruct(world, builder, unitType, position) {
  * @param {World} world - The game world context.
  * @param {UnitTypeId} unitType - The type of the unit to be built.
  * @param {AbilityId} abilityId - The ability ID for the construction action.
- * @return {Promise<SC2APIProtocol.ActionRawUnitCommand[]>} - A promise that resolves to an array of unit commands.
+ * @return {SC2APIProtocol.ActionRawUnitCommand[]} - A promise that resolves to an array of unit commands.
  */
-async function buildWithNydusNetwork(world, unitType, abilityId) {
+function buildWithNydusNetwork(world, unitType, abilityId) {
   const { agent, resources, data } = world;
-  const { actions, units } = resources.get();
+  const { map, units } = resources.get();
   const collectedActions = [];
   const foundPosition = BuildingPlacement.getFoundPosition();
   const nydusNetworks = units.getById(UnitType.NYDUSNETWORK, { alliance: Alliance.SELF });
@@ -141,7 +141,7 @@ async function buildWithNydusNetwork(world, unitType, abilityId) {
     const nydusNetwork = getRandom(nydusNetworks);
 
     if (agent.canAfford(unitType)) {
-      if (foundPosition && await actions.canPlace(unitType, [foundPosition])) {
+      if (foundPosition && map.isPlaceableAt(unitType, foundPosition)) {
         const unitCommand = createUnitCommand(abilityId, [nydusNetwork]);
         unitCommand.targetWorldSpacePos = foundPosition;
         collectedActions.push(unitCommand);

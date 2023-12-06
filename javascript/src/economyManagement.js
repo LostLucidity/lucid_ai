@@ -30,9 +30,9 @@ const config = require('../config/config');
  * Trains a worker at the specified base.
  * @param {World} world - The game world context.
  * @param {number} limit - The maximum number of workers to train.
- * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>} - The list of actions to train workers.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The list of actions to train workers.
  */
-async function trainWorker(world, limit = 1) {
+function trainWorker(world, limit = 1) {
   const { agent, data, resources } = world;
   const { units } = resources.get();
   const workerTypeId = WorkerRace[agent.race];
@@ -68,17 +68,17 @@ async function trainWorker(world, limit = 1) {
  * @param {UnitTypeId} unitType
  * @param {number} [targetCount=null]
  * @param {Point2D[]} [candidatePositions=[]]
- * @returns {Promise<void>}
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
-async function build(world, unitType, targetCount = undefined, candidatePositions = []) {
+function build(world, unitType, targetCount = undefined, candidatePositions = []) {
   const { addonTypes } = groupTypes;
   const { BARRACKS, ORBITALCOMMAND, GREATERSPIRE } = UnitType;
-  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
   const { agent, data, resources } = world;
-  const { actions, units } = resources.get();
+  const { units } = resources.get();
   const gameState = new GameState();
   const effectiveTargetCount = targetCount === undefined ? Number.MAX_SAFE_INTEGER : targetCount;
+
   if (gameState.getUnitTypeCount(world, unitType) <= effectiveTargetCount &&
     gameState.getUnitCount(world, unitType) <= effectiveTargetCount) {
     const { race } = agent;
@@ -86,16 +86,14 @@ async function build(world, unitType, targetCount = undefined, candidatePosition
       case TownhallRace[race].includes(unitType):
         if (TownhallRace[race].indexOf(unitType) === 0) {
           if (units.getBases().length == 2 && agent.race === Race.TERRAN) {
-            candidatePositions = await BuildingPlacement.getInTheMain(world, unitType);
+            // Await the promise and then assign its value to candidatePositions
+            candidatePositions = BuildingPlacement.getInTheMain(world, unitType);
             const position = BuildingPlacement.determineBuildingPosition(world, unitType, candidatePositions);
             if (position === false) {
-              // If position is false, handle this as an error or a special case
-              // For example, log an error, return, or take some other action
               console.error(`No valid position found for building type ${unitType}`);
-              return;
+              return collectedActions;
             }
-
-            collectedActions.push(...await commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, BuildingPlacement.premoveBuilderToPosition, BuildingPlacement.isPlaceableAtGasGeyser));
+            collectedActions.push(...commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, BuildingPlacement.premoveBuilderToPosition, BuildingPlacement.isPlaceableAtGasGeyser));
           } else {
             const availableExpansions = MapResources.getAvailableExpansions(resources);
             const nextSafeExpansions = getNextSafeExpansions(world, availableExpansions);
@@ -105,16 +103,16 @@ async function build(world, unitType, targetCount = undefined, candidatePosition
 
               if (position === false) {
                 console.error(`No valid position found for building type ${unitType}`);
-                return;
+                return collectedActions;
               }
 
-              collectedActions.push(...await commandPlaceBuilding(world, unitType, position || null, commandBuilderToConstruct, buildWithNydusNetwork, BuildingPlacement.premoveBuilderToPosition, BuildingPlacement.isPlaceableAtGasGeyser));
+              collectedActions.push(...commandPlaceBuilding(world, unitType, position || null, commandBuilderToConstruct, buildWithNydusNetwork, BuildingPlacement.premoveBuilderToPosition, BuildingPlacement.isPlaceableAtGasGeyser));
             }
           }
         } else {
           const unitTypeToCheckAfford = unitType === ORBITALCOMMAND ? BARRACKS : unitType;
           if (agent.canAfford(unitTypeToCheckAfford)) {
-            collectedActions.push(...await morphStructureAction(world, unitType));
+            collectedActions.push(...morphStructureAction(world, unitType));
           }
           addEarmark(data, data.getUnitTypeData(unitType));
         }
@@ -142,7 +140,7 @@ async function build(world, unitType, targetCount = undefined, candidatePosition
           // If a suitable unit is found, build the add-on with it
           if (fastestAvailableUnit) {
             addEarmark(data, data.getUnitTypeData(unitType));
-            await addAddOn(world, fastestAvailableUnit, unitType);
+            collectedActions.push(...addAddOn(world, fastestAvailableUnit, unitType));
           }
         } else {
           const timeUntilCanBeAfforded = getTimeUntilCanBeAfforded(world, unitType);
@@ -164,44 +162,41 @@ async function build(world, unitType, targetCount = undefined, candidatePosition
             // Prepare the fastest available unit to build the addon
             // TODO: Implement a function to prepare the unit to build the addon
             let targetPosition = findBestPositionForAddOn(world, fastestAvailableUnit);
-            const response = await prepareUnitToBuildAddon(world, fastestAvailableUnit, targetPosition); if (response === undefined) return;
+            collectedActions.push(...prepareUnitToBuildAddon(world, fastestAvailableUnit, targetPosition));
           }
         }
         break;
       }
       default:
         if (unitType === GREATERSPIRE) {
-          collectedActions.push(...await morphStructureAction(world, unitType));
+          collectedActions.push(...morphStructureAction(world, unitType));
         } else {
           const position = BuildingPlacement.determineBuildingPosition(world, unitType, candidatePositions);
-
           if (position === false) {
-            // Handle the case when no valid position is found
             console.error(`No valid position found for building type ${unitType}`);
-            return;
+            return collectedActions;
           } else {
-            // Now 'position' is guaranteed to be Point2D or null, so it's safe to pass to commandPlaceBuilding
-            collectedActions.push(...await commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, BuildingPlacement.premoveBuilderToPosition, BuildingPlacement.isPlaceableAtGasGeyser));
+            collectedActions.push(...commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, BuildingPlacement.premoveBuilderToPosition, BuildingPlacement.isPlaceableAtGasGeyser));
           }
         }
     }
   }
-  if (collectedActions.length > 0) {
-    const response = await actions.sendAction(collectedActions);
-    if (response.result === undefined) return;
-  }
+
+  return collectedActions;
 }
 
 /**
  * @param {World} world
- * @param {(world: World, limit?: number) => Promise<SC2APIProtocol.ActionRawUnitCommand[]>} trainFunc
- * @returns {Promise<void>} 
+ * @param {(world: World, limit?: number) => SC2APIProtocol.ActionRawUnitCommand[]} trainFunc
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} 
  */
-async function buildSupply(world, trainFunc) {
+function buildSupply(world, trainFunc) {
   const { OVERLORD, PYLON, SUPPLYDEPOT } = UnitType;
   const { agent } = world;
   const { foodUsed, minerals } = agent;
-  if (foodUsed === undefined || minerals === undefined) return;
+  const actions = []; // Initialize an array to collect actions
+
+  if (foodUsed === undefined || minerals === undefined) return actions;
 
   const greaterThanPlanSupply = foodUsed > config.planMax.supply;
   const conditions = [
@@ -214,20 +209,27 @@ async function buildSupply(world, trainFunc) {
     switch (agent.race) {
       case Race.TERRAN: {
         const candidatePositions = BuildingPlacement.findPlacements(world, SUPPLYDEPOT);
-        await build(world, SUPPLYDEPOT, undefined, candidatePositions); // Use undefined instead of null
+        const supplyDepotActions = build(world, SUPPLYDEPOT, undefined, candidatePositions); // Use undefined instead of null
+        actions.push(...supplyDepotActions);
         break;
       }
       case Race.PROTOSS: {
         const candidatePositions = BuildingPlacement.findPlacements(world, PYLON);
-        await build(world, PYLON, undefined, candidatePositions); // Use undefined instead of null
+        const pylonActions = build(world, PYLON, undefined, candidatePositions); // Use undefined instead of null
+        actions.push(...pylonActions);
         break;
       }
-      case Race.ZERG:
-        await trainFunc(world, OVERLORD);
+      case Race.ZERG: {
+        const overlordActions = trainFunc(world, OVERLORD);
+        actions.push(...overlordActions);
         break;
+      }
     }
   }
+
+  return actions;
 }
+
 
 module.exports = {
   trainWorker,

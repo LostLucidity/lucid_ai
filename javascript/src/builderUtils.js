@@ -92,14 +92,14 @@ function prepareBuilderForConstruction(world, unitType, position) {
  * @param {number} unitType The type of unit/building to place.
  * @param {?Point2D} position The position to place the unit/building, or null if no valid position.
  * @param {(world: World, builder: Unit, unitType: UnitTypeId, position: Point2D) => SC2APIProtocol.ActionRawUnitCommand[]} commandBuilderToConstruct - Injected dependency from constructionUtils.js
- * @param {(world: World, unitType: UnitTypeId, abilityId: AbilityId) => Promise<SC2APIProtocol.ActionRawUnitCommand[]>} buildWithNydusNetwork - Injected dependency from constructionUtils.js
+ * @param {(world: World, unitType: UnitTypeId, abilityId: AbilityId) => SC2APIProtocol.ActionRawUnitCommand[]} buildWithNydusNetwork - Injected dependency from constructionUtils.js
  * @param {(world: World, position: Point2D, unitType: UnitTypeId, getBuilderFunc: (world: World, position: Point2D) => { unit: Unit; timeToPosition: number; } | undefined) => SC2APIProtocol.ActionRawUnitCommand[]} premoveBuilderToPosition - Injected dependency from buildingPlacement.js
  * @param {(map: MapResource, unitType: UnitTypeId, position: Point2D) => boolean} isPlaceableAtGasGeyser - Injected dependency from buildingPlacement.js
- * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>} A promise containing a list of raw unit commands.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A promise containing a list of raw unit commands.
  */
-async function commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, premoveBuilderToPosition, isPlaceableAtGasGeyser) {
+function commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, premoveBuilderToPosition, isPlaceableAtGasGeyser) {
   const { agent, data, resources } = world;
-  const { actions, units } = resources.get();
+  const { units } = resources.get();
   const collectedActions = [];
 
   const unitTypeData = data.getUnitTypeData(unitType);
@@ -114,8 +114,7 @@ async function commandPlaceBuilding(world, unitType, position, commandBuilderToC
 
     if (!unitTypes.includes(UnitType.NYDUSNETWORK)) {
       if (agent.canAfford(unitType)) {
-        const canPlaceOrFalse = await actions.canPlace(unitType, [position]);
-        position = (canPlaceOrFalse === false && !keepPosition(world, unitType, position, isPlaceableAtGasGeyser)) ? null : position;
+        position = !keepPosition(world, unitType, position, isPlaceableAtGasGeyser) ? null : position;
 
         if (position) {
           // Prepare the builder for the task
@@ -132,7 +131,7 @@ async function commandPlaceBuilding(world, unitType, position, commandBuilderToC
         // This logic needs to be implemented if it's the desired behavior.
       }
     } else {
-      collectedActions.push(...await buildWithNydusNetwork(world, unitType, abilityId));
+      collectedActions.push(...buildWithNydusNetwork(world, unitType, abilityId));
     }
 
     const [pylon] = units.getById(UnitType.PYLON);

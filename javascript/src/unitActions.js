@@ -29,38 +29,38 @@ const seigeTanksSiegedGrids = [];
  * @param {Unit} unit
  * @param {UnitTypeId} addOnType
  * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand
- * @returns {Promise<boolean>}
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
-async function attemptBuildAddOn(world, unit, addOnType, unitCommand) {
+function attemptBuildAddOn(world, unit, addOnType, unitCommand) {
   const { data, resources } = world;
-  const { actions, map } = resources.get();
-  const { pos } = unit; if (pos === undefined) return false;
+  const { map } = resources.get();
+  const { pos } = unit; if (pos === undefined) return [];
   const addonPlacement = getAddOnPlacement(pos);
   const addOnFootprint = getFootprint(addOnType);
 
-  if (addOnFootprint === undefined) return false;
+  if (addOnFootprint === undefined) return [];
 
   const canPlace = map.isPlaceableAt(addOnType, addonPlacement) &&
     !pointsOverlap(cellsInFootprint(addonPlacement, addOnFootprint), seigeTanksSiegedGrids);
 
-  if (!canPlace) return false;
+  if (!canPlace) return [];
 
   unitCommand.targetWorldSpacePos = unit.pos;
-  await actions.sendAction(unitCommand);
   setPendingOrders(unit, unitCommand);
   addEarmark(data, data.getUnitTypeData(addOnType));
 
-  return true;
+  return [unitCommand];
 }
 
 /**
  * Attempt to lift off the unit if it doesn't have pending orders.
- * @param {ActionManager} actions 
  * @param {Unit} unit 
- * @returns {Promise<Boolean>}
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
-async function attemptLiftOff(actions, unit) {
-  const { pos, tag } = unit; if (pos === undefined || tag === undefined) return false;
+function attemptLiftOff(unit) {
+  const { pos, tag } = unit; if (pos === undefined || tag === undefined) return [];
+  const collectedActions = [];
+
   if (!unit.labels.has('pendingOrders')) {
     const addOnPosition = unit.labels.get('addAddOn');
     if (addOnPosition && getDistance(getAddOnPlacement(pos), addOnPosition) < 1) {
@@ -71,24 +71,24 @@ async function attemptLiftOff(actions, unit) {
         abilityId: Ability.LIFT,
         unitTags: [tag],
       };
-      await actions.sendAction(unitCommand);
+      collectedActions.push(unitCommand);
       setPendingOrders(unit, unitCommand);
-      return true;
     }
   }
-  return false;
+
+  return collectedActions;
 }
 
 /**
  * @param {World} world
  * @param {Unit} unit
  * @param {Point2D | undefined} targetPosition
- * @returns {Promise<SC2APIProtocol.ResponseAction | undefined>}
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
-async function prepareUnitToBuildAddon(world, unit, targetPosition) {
-  const { agent, data, resources } = world;
-  const { foodUsed } = agent; if (foodUsed === undefined) return;
-  const { actions } = resources.get();
+function prepareUnitToBuildAddon(world, unit, targetPosition) {
+  const { agent, data } = world;
+  const { foodUsed } = agent; if (foodUsed === undefined) return [];
+  const collectedActions = [];
 
   const currentFood = foodUsed;
   const unitBeingTrained = getUnitBeingTrained(unit); // Placeholder function, replace with your own logic
@@ -96,31 +96,29 @@ async function prepareUnitToBuildAddon(world, unit, targetPosition) {
   const gameState = GameState.getInstance();
   const plan = gameState.getPlanFoodValue(); // Function to get the plan's food value
 
-  // If the structure is idle (and has no pending orders) and flying, it should land at the target position
   if (unit.isIdle() && getPendingOrders(unit).length === 0 && isStructureLifted(unit) && targetPosition) {
     const landCommand = createUnitCommand(Ability.LAND, [unit]);
     landCommand.targetWorldSpacePos = targetPosition;
-    return actions.sendAction([landCommand]);
+    collectedActions.push(landCommand);
   }
 
-  // If the structure can be lifted and has no pending orders, issue a lift command
   if (canStructureLiftOff(unit) && getPendingOrders(unit).length === 0) {
     const liftCommand = createUnitCommand(Ability.LIFT, [unit]);
-    return actions.sendAction([liftCommand]);
+    collectedActions.push(liftCommand);
   }
 
-  // If the structure is in a lifted state and has no pending orders, issue a land command
   if (isStructureLifted(unit) && getPendingOrders(unit).length === 0 && targetPosition) {
     const landCommand = createUnitCommand(Ability.LAND, [unit]);
     landCommand.targetWorldSpacePos = targetPosition;
-    return actions.sendAction([landCommand]);
+    collectedActions.push(landCommand);
   }
 
-  // If the unit is busy with another order, cancel it only if it doesn't break the plan and has no pending orders
   if (!unit.isIdle() && getPendingOrders(unit).length === 0 && (currentFood - foodUsedByTrainingUnit >= plan)) {
     const cancelCommand = createUnitCommand(Ability.CANCEL_QUEUE5, [unit]);
-    return actions.sendAction([cancelCommand]);
+    collectedActions.push(cancelCommand);
   }
+
+  return collectedActions;
 }
 
 /**

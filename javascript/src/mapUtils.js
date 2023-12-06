@@ -18,6 +18,29 @@ const { getDistance } = require('./geometryUtils');
  */
 const mapUtils = {
   /**
+   * Attempts to find the enemy's base location.
+   * @param {MapResource} map - The map resource object from the bot.
+   * @param {Point2D} myBaseLocation - The bot's main base location.
+   * @returns {Point2D | null} - The suspected enemy base location or null if not found.
+   */
+  findEnemyBase(map, myBaseLocation) {
+    const possibleExpansions = map.getExpansions();
+    let enemyBaseLocation = null;
+
+    // Example: On a two-player map, the enemy base is typically the farthest expansion
+    let maxDistance = 0;
+    for (const expansion of possibleExpansions) {
+      const distance = getDistance(expansion.townhallPosition, myBaseLocation);
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        enemyBaseLocation = expansion.townhallPosition;
+      }
+    }
+
+    return enemyBaseLocation;
+  },
+  
+  /**
    * @param {MapResource} map
    * @param {Point2D[]} line - An array containing two points that define a straight line segment.
    * @returns {boolean}

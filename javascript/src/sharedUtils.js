@@ -353,9 +353,9 @@ function getClosestPathWithGasGeysers(resources, position, targetPosition) {
  * @param {World} world 
  * @param {AbilityId} abilityId 
  * @param {(data: DataStorage, unit: Unit) => boolean} isIdleOrAlmostIdleFunc - Function to check if a unit is idle or almost idle.
- * @returns {Promise<any[]>}
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
-async function ability(world, abilityId, isIdleOrAlmostIdleFunc) {
+function ability(world, abilityId, isIdleOrAlmostIdleFunc) {
   const { data, resources } = world;
   const { units } = resources.get();
   const collectedActions = [];
