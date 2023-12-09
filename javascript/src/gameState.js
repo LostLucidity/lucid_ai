@@ -20,6 +20,12 @@ class GameState {
   static legacyPlan = [];
 
   /**
+   * The armor upgrade level for enemy units.
+   * @type {number}
+   */
+  enemyArmorUpgradeLevel = 0;
+
+  /**
    * Indicates whether the enemy Zealot has the charge upgrade.
    * @type {boolean}
    */
@@ -29,21 +35,82 @@ class GameState {
    * The plan consisting of a sequence of PlanStep objects.
    * @type {import("../interfaces/plan-step").PlanStep[]}
    */
-  plan = [];  
+  plan = [];
+
+  /**
+   * The armor upgrade level for the player's (self) units.
+   * @type {number}
+   */
+  selfArmorUpgradeLevel = 0;  
+
+  /**
+   * A map of unit types to their corresponding units and frame information.
+   * @type {Map<number, { units: Unit[]; frame: number; }>}
+   */
+  unitsById = new Map();  
 
   /**
    * Constructor for the GameState class.
    * Initializes various game state properties.
    */
   constructor() {
+    /**
+     * A map of unit types to arrays of related unit types.
+     * This is used for grouping together related unit types, such as a building and its flying version.
+     * @type {Map<number, number[]>}
+     */
     this.countTypes = new Map();
+    /**
+     * The attack upgrade level for the enemy alliance.
+     * @type {number}
+     */
+    this.enemyAttackUpgradeLevel = 0;    
     this.pendingFood = 0;
     this.resources = {};
+    /**
+     * The attack upgrade level for the self alliance.
+     * @type {number}
+     */
+    this.selfAttackUpgradeLevel = 0;    
     this.unitStatuses = {};
     this.initCountTypes();
     this.initMorphMapping();
     this.enemyMetabolicBoost = false;
   }
+
+  /**
+   * Retrieves the armor upgrade level based on the alliance of the unit.
+   * @param {Alliance} alliance - The alliance of the unit (SELF, NEUTRAL, ENEMY).
+   * @returns {number} - The armor upgrade level of the unit.
+   */
+  getArmorUpgradeLevel(alliance) {
+    switch (alliance) {
+      case Alliance.SELF:
+        // Return self alliance armor upgrade level
+        return this.selfArmorUpgradeLevel; // Assuming this is a property of the class
+      case Alliance.ENEMY:
+        // Return enemy alliance armor upgrade level
+        return this.enemyArmorUpgradeLevel; // Assuming this is a property of the class
+      default:
+        // Default to 0 if the alliance is not SELF or ENEMY
+        return 0;
+    }
+  }  
+
+  /**
+   * Retrieves the attack upgrade level based on the alliance.
+   * @param {Alliance} alliance The alliance to check the upgrade level for.
+   * @returns {number} The attack upgrade level.
+   */
+  getAttackUpgradeLevel(alliance) {
+    let attackUpgradeLevel = 0;
+    if (alliance === Alliance.SELF) {
+      attackUpgradeLevel = this.selfAttackUpgradeLevel;
+    } else if (alliance === Alliance.ENEMY) {
+      attackUpgradeLevel = this.enemyAttackUpgradeLevel;
+    }
+    return attackUpgradeLevel;
+  }  
 
   /**
    * Get the amount of food used.
@@ -303,7 +370,8 @@ class GameState {
     const abilityIds = this.getAbilityIdsForAddons(data, unitType);
     const unitsWithCurrentOrders = this.getUnitsWithCurrentOrders(unitArray, abilityIds);
     let count = unitsWithCurrentOrders.length;
-    const unitTypes = this.countTypes.get(unitType) ? this.countTypes.get(unitType) : [unitType];
+
+    const unitTypes = this.countTypes.get(unitType) || [unitType];
 
     unitTypes.forEach(type => {
       let unitsToCount = unitArray.filter(unit => unit.unitType === type);

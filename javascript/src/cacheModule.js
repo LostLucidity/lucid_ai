@@ -7,6 +7,7 @@
 
 /** @type {Map<string, number[][]>} */
 const pathCache = new Map();
+
 const gasGeysersCache = new Map();
 
 /**
@@ -17,6 +18,7 @@ const gasGeysersCache = new Map();
 function getPathCache(key) {
   return pathCache.get(key);
 }
+
 
 /**
  * Sets the path data in the cache.

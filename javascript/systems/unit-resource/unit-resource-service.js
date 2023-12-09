@@ -1,22 +1,17 @@
 //@ts-check
 "use strict"
 
-const { EFFECT_REPAIR, STOP, EFFECT_CHRONOBOOSTENERGYCOST: CHRONOBOOST } = require("@node-sc2/core/constants/ability");
+const { EFFECT_REPAIR, EFFECT_CHRONOBOOSTENERGYCOST: CHRONOBOOST } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-const { workerTypes, gatheringAbilities } = require("@node-sc2/core/constants/groups");
+const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { PROBE, COLOSSUS, MULE, DRONE, NEXUS } = require("@node-sc2/core/constants/unit-type");
+const { COLOSSUS, MULE, NEXUS } = require("@node-sc2/core/constants/unit-type");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
-const getRandom = require("@node-sc2/core/utils/get-random");
-const { countTypes, larvaOrEgg } = require("../../helper/groups");
-const { isPendingContructing } = require("../../services/shared-service");
+
+const { larvaOrEgg } = require("../../helper/groups");
 const { canBeChronoBoosted, triggerAbilityByDistance } = require("../../services/unit-service");
-const unitService = require("../../services/unit-service");
-const Ability = require("@node-sc2/core/constants/ability");
-const { UnitType } = require("@node-sc2/core/constants");
-const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
 
 const unitResourceService = {
   /** @type {Map<string, UnitTypeId>} */
@@ -27,8 +22,6 @@ const unitResourceService = {
   landingGrids: [],
   /** @type {{}} */
   unitTypeData: {},
-  /** @type {Map<number, { units: Unit[]; frame: number; }>} */
-  unitsById: new Map(),
   /** @type {Unit[] | null} */
   workers: null,
   /**
@@ -175,24 +168,6 @@ const unitResourceService = {
   /**
    * @param {UnitResource} units
    * @param {UnitTypeId} unitType
-   * @returns {{ healthMax: number; isFlying: boolean; radius: number; shieldMax: number, weaponCooldownMax: number; }} 
-   */
-  getUnitTypeData: (units, unitType) => {
-    const unitTypeData = unitResourceService.unitTypeData[unitType];
-    if (unitTypeData) {
-      if (['healthMax', 'isFlying', 'radius', 'shieldMax', 'weaponCooldownMax'].every(property => Object.prototype.hasOwnProperty.call(unitTypeData, property))) {
-        let { healthMax, isFlying, radius, shieldMax, weaponCooldownMax } = unitTypeData;
-        return { healthMax, isFlying, radius, shieldMax, weaponCooldownMax };
-      } else {
-        return unitResourceService.saveAndGetUnitTypeData(units, unitType);
-      }
-    } else {
-      return unitResourceService.saveAndGetUnitTypeData(units, unitType);
-    }
-  },
-  /**
-   * @param {UnitResource} units
-   * @param {UnitTypeId} unitType
    * @returns {Unit[]}
    */
   getUnitsById: (units, unitType) => {
@@ -285,26 +260,6 @@ const unitResourceService = {
       }
     }
     return collectedActions;
-  },
-  /**
-   * 
-   * @param {UnitResource} units 
-   * @param {UnitTypeId} unitType 
-   * @returns 
-   */
-  saveAndGetUnitTypeData: (units, unitType) => {
-    const [unit] = units.getByType(unitType);
-    if (unit) {
-      let { healthMax, isFlying, radius, shieldMax, weaponCooldown } = unit;
-      const weaponCooldownMax = weaponCooldown;
-      unitResourceService.unitTypeData[unitType] = { healthMax, isFlying, radius, shieldMax, weaponCooldownMax };
-      return { healthMax, isFlying, radius, shieldMax, weaponCooldownMax };
-    } else {
-      return unitResourceService.unitTypeData[unitType];
-    }
-  },
-  isWorker(unit) {
-    return workerTypes.includes(unit.unitType);
   },
 
   /**

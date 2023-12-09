@@ -15,6 +15,23 @@ const { isLineTraversable } = require("./mapUtils");
 const { getMapPath, getPathCoordinates } = require("./pathUtils");
 
 /**
+ * @param {Map} map 
+ * @param {any} targetValue
+ * @returns {Array}
+ */
+function findKeysForValue(map, targetValue) {
+  const keys = [];
+
+  for (const [key, value] of map.entries()) {
+    if (value === targetValue) {
+      keys.push(key);
+    }
+  }
+
+  return keys;
+}
+
+/**
  * @param {DataStorage} data
  * @param {UnitTypeId} unitType
  * @returns {number}
@@ -230,6 +247,7 @@ function getTimeInSeconds(frames) {
 }
 
 module.exports = {
+  findKeysForValue,
   getFoodUsedByUnitType,
   getPathablePositionsForStructure,
   getStringNameOfConstant,

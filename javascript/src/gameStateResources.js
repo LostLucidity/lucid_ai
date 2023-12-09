@@ -21,16 +21,16 @@ let currentStep = -1; // Assuming currentStep is also a shared resource
 /**
  * Sets a new building position.
  * @param {number} key Key to identify the building position.
- * @param {Point2D[]} positions Array of positions for the building.
+ * @param {Point2D} position Array of positions for the building.
  */
-function setBuildingPosition(key, positions) {
-  buildingPositions.set(key, positions);
+function setBuildingPosition(key, position) {
+  buildingPositions.set(key, position);
 }
 
 /**
  * Retrieves building positions based on the key.
  * @param {number} key Key to identify the building position.
- * @returns {Point2D[] | undefined} Array of positions for the building or undefined.
+ * @returns {Point2D | undefined} Array of positions for the building or undefined.
  */
 function getBuildingPosition(key) {
   return buildingPositions.get(key);

@@ -77,6 +77,23 @@ class BuildingPlacement {
   }
 
   /**
+   * Calculates the building position for an add-on.
+   * @param {Point2D} position - The position to calculate from.
+   * @returns {Point2D | undefined} - The calculated position for the add-on building, or undefined if input is invalid.
+   */
+  static getAddOnBuildingPosition(position) {
+    // Check if both x and y coordinates are defined
+    if (typeof position.x === 'number' && typeof position.y === 'number') {
+      // Adjust the x and y coordinates as needed
+      return { x: position.x - 2.5, y: position.y + 0.5 };
+    } else {
+      // Handle the case where x or y is undefined
+      console.error("Invalid position provided to getAddOnBuildingPosition:", position);
+      return undefined;
+    }
+  } 
+
+  /**
    * Updates the found position.
    * @param {Point2D | null} newPosition - The new position to set.
    */

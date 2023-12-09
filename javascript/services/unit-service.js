@@ -4,35 +4,18 @@
 const { HARVEST_GATHER, STOP } = require("@node-sc2/core/constants/ability");
 const { Alliance, WeaponTargetType } = require("@node-sc2/core/constants/enums");
 const { add } = require("@node-sc2/core/utils/geometry/point");
-const { CHRONOBOOSTENERGYCOST: CHRONOBOOSTED } = require("@node-sc2/core/constants/buff");
-const { filterLabels } = require("../helper/unit-selection");
-const { UnitType } = require("@node-sc2/core/constants");
 
 const unitService = {
   /**
    * @type boolean
    */
   selfGlialReconstitution: false,
-  /**
-   * @type number
-   */
-  selfArmorUpgradeLevel: 0,
+  
   /** @type Map<string, number> */
   selfDPSHealth: new Map(),
   /** @type Map<string, Unit[]> */
   selfUnits: new Map(),
-  /**
-   * @type number
-   */
-  enemyArmorUpgradeLevel: 0,
-  /**
-   * @type number
-   */
-  selfAttackUpgradeLevel: 0,
-  /**
-   * @type number
-   */
-  enemyAttackUpgradeLevel: 0,
+  
   /**
    * @param {Unit} unit 
    * @returns {boolean}
@@ -42,32 +25,7 @@ const unitService = {
     if (buffIds === undefined) return false;
     return !buffIds.includes(CHRONOBOOSTED) && !unit.isIdle();
   },
-  /**
-   * Retrieves the armor upgrade level based on the alliance of the unit.
-   * 
-   * @param {Alliance} alliance - The alliance of the unit (SELF, NEUTRAL, ENEMY).
-   * @returns {number} - The armor upgrade level of the unit.
-   */
-  getArmorUpgradeLevel: (alliance) => {
-    if (alliance === Alliance.ENEMY) {
-      return unitService.enemyArmorUpgradeLevel;
-    }
 
-    // Default to 0 if the alliance is not ENEMY.
-    return 0;
-  },
-  /**
-   * @param {Alliance} alliance 
-   */
-  getAttackUpgradeLevel: (alliance) => {
-    let attackUpgradeLevel = 0;
-    if (alliance === Alliance.SELF) {
-      attackUpgradeLevel = unitService.selfAttackUpgradeLevel;
-    } else if (alliance === Alliance.ENEMY) {
-      attackUpgradeLevel = unitService.enemyAttackUpgradeLevel;
-    }
-    return attackUpgradeLevel;
-  },
   /**
    * @param {Unit} unit 
    * @param {WeaponTargetType} weaponTargetType 
@@ -178,13 +136,6 @@ const unitService = {
     unitService.setPendingOrders(worker, unitCommand);
     return unitCommand;
   },
-  /**
-   * Determines if a unit is potentially a combatant.
-   * @param {Unit} unit - Unit to check.
-   * @returns {boolean} - True if unit has potential for combat, otherwise false.
-   */
-  potentialCombatants: (unit) =>
-    unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && !unit.isHarvesting()),
   /**
    * @param {Unit[]} units 
    * @returns {void}

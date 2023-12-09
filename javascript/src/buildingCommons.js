@@ -39,13 +39,19 @@ function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
   const { agent, resources } = world;
   const { race } = agent; if (race === undefined) { return false; }
   const { map, units } = resources.get();
-  const conditions = [map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position)];
-  if (race === Race.PROTOSS) {
-    const pylonExists = units.getById(UnitType.PYLON).length > 0;
-    conditions.push(pylonExists);
+
+  // Check if the position is valid on the map and for gas geysers
+  let validMapPlacement = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
+
+  // For Protoss, check for Pylon presence if the unit is not a Pylon itself
+  if (race === Race.PROTOSS && unitType !== UnitType.PYLON) {
+    const pylonExists = units.getById(UnitType.PYLON).some(pylon => pylon.isPowered);
+    validMapPlacement = validMapPlacement && pylonExists;
   }
-  return conditions.every(condition => condition)
+
+  return validMapPlacement;
 }
+
 
 /**
  * @param {World} world

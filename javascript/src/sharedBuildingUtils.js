@@ -177,7 +177,7 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
       }
     }
   }
-  actions.push(...rallyWorkerToTarget(world, position, true));
+  actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering, true));
 
   return actions;
 }

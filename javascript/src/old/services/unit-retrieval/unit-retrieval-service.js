@@ -13,54 +13,7 @@ class UnitRetrievalService {
     /** @type {Map<UnitTypeId, Unit[]>} */
     this.productionUnitsCache = new Map();
   }
-
-  /**
-  * @param {ResourceManager} resources
-  * @param {UnitTypeId[]} unitTypes
-  * @returns {Unit[]}
-  */
-  getById(resources, unitTypes) {
-    const { frame, units } = resources.get();
-    const currentFrame = frame.getGameLoop();
-    return unitTypes.reduce((/** @type {Unit[]} */ unitsById, unitType) => {
-      if (!isCurrent(unitType, frame.getGameLoop())) {
-        const newUnits = units.getById(unitType);
-        unitResourceService.unitsById.set(unitType, { units: newUnits, frame: currentFrame });
-      }
-      const entry = unitResourceService.unitsById.get(unitType);
-      return [...unitsById, ...(entry ? entry.units : [])];
-    }, []);
-  }  
-  
-  /**
-   * Retrieves units capable of producing a specific unit type.
-   * @param {World} world
-   * @param {UnitTypeId} unitTypeId
-   * @returns {Unit[]}
-   */
-  getProductionUnits(world, unitTypeId) {
-    const { units } = world.resources.get();
-    // Check if the result is in the cache
-    if (this.productionUnitsCache.has(unitTypeId)) {
-      return this.productionUnitsCache.get(unitTypeId) || [];
-    }
-
-    const { abilityId } = world.data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return [];
-    let producerUnitTypeIds = world.data.findUnitTypesWithAbility(abilityId);
-
-    if (producerUnitTypeIds.length <= 0) {
-      const alias = world.data.getAbilityData(abilityId).remapsToAbilityId; if (alias === undefined) return [];
-      producerUnitTypeIds = world.data.findUnitTypesWithAbility(alias);
-    }
-
-    const result = units.getByType(producerUnitTypeIds);
-
-    // Store the result in the cache
-    this.productionUnitsCache.set(unitTypeId, result);
-
-    return result;
-  }
-  
+    
   /**
    * @param {UnitResource} units
    * @param {Unit} unit
@@ -85,31 +38,6 @@ class UnitRetrievalService {
       unitService.selfUnits.set(tag, selfUnits);
     }
     return unitService.selfUnits.get(tag) || [];
-  }
-
-  /**
-   * Retrieves and counts units of a specific type.
-   * 
-   * @param {World} world 
-   * @param {UnitTypeId} unitType
-   * @returns {number}
-   */
-  getUnitTypeCount(world, unitType) {
-    const { agent, data, resources } = world;
-    const { units } = resources.get();
-    const abilityIds = getAbilityIdsForAddons(data, unitType);
-    const unitsWithCurrentOrders = this.getUnitsWithCurrentOrders(units, abilityIds);
-    let count = unitsWithCurrentOrders.length;
-    const unitTypes = countTypes.get(unitType) ? countTypes.get(unitType) : [unitType];
-    unitTypes.forEach(type => {
-      let unitsToCount = this.getById(resources, [type])
-      if (agent.race === Race.TERRAN) {
-        const completed = type === UnitType.ORBITALCOMMAND ? 0.998 : 1;
-        unitsToCount = unitsToCount.filter(unit => unit.buildProgress >= completed);
-      }
-      count += unitsToCount.length;
-    });
-    return count;
   }
 
   /**

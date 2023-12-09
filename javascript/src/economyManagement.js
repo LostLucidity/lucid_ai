@@ -22,7 +22,7 @@ const { getTimeUntilCanBeAfforded } = require('./resourceManagement');
 const { addEarmark } = require('./resourceUtils');
 // Unit management and actions
 const { prepareUnitToBuildAddon } = require('./unitActions');
-const { getUnitsCapableToAddOn, getTimeUntilUnitCanBuildAddon, addAddOn } = require('./unitManagement');
+const { getUnitsCapableToAddOn, getTimeUntilUnitCanBuildAddon, addAddOn, train, getProductionUnits } = require('./unitManagement');
 const { createUnitCommand, isSupplyNeeded, canBuild } = require('./utils');
 const config = require('../config/config');
 
@@ -33,8 +33,7 @@ const config = require('../config/config');
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The list of actions to train workers.
  */
 function trainWorker(world, limit = 1) {
-  const { agent, data, resources } = world;
-  const { units } = resources.get();
+  const { agent, data } = world;
   const workerTypeId = WorkerRace[agent.race];
   const collectedActions = [];
 
@@ -42,22 +41,17 @@ function trainWorker(world, limit = 1) {
     const { abilityId, foodRequired } = data.getUnitTypeData(workerTypeId);
     if (abilityId === undefined || foodRequired === undefined) return collectedActions;
 
-    let trainers = [];
-    if (agent.race === Race.ZERG) {
-      trainers = units.getById(UnitType.LARVA).filter(larva => !larva['pendingOrders'] || larva['pendingOrders'].length === 0);
-    } else {
-      trainers = units.getById(workerTypeId).filter(unit => unit.isIdle());
-    }
+    // Use getProductionUnits to accurately identify the units that can produce the workers
+    let trainers = getProductionUnits(world, workerTypeId);
 
     trainers = trainers.slice(0, limit);
     trainers.forEach(trainer => {
       const unitCommand = createUnitCommand(abilityId, [trainer]);
       collectedActions.push(unitCommand);
-      // Logic to handle the pending orders and resource accounting
+      // Handle pending orders and resource accounting as necessary
     });
 
-    // Execute the actions
-    // You need to implement logic to execute these collected actions
+    // Ensure that the actions are executed elsewhere in your code
   }
 
   return collectedActions;
@@ -187,10 +181,9 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
 
 /**
  * @param {World} world
- * @param {(world: World, limit?: number) => SC2APIProtocol.ActionRawUnitCommand[]} trainFunc
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} 
  */
-function buildSupply(world, trainFunc) {
+function buildSupply(world) {
   const { OVERLORD, PYLON, SUPPLYDEPOT } = UnitType;
   const { agent } = world;
   const { foodUsed, minerals } = agent;
@@ -220,7 +213,7 @@ function buildSupply(world, trainFunc) {
         break;
       }
       case Race.ZERG: {
-        const overlordActions = trainFunc(world, OVERLORD);
+        const overlordActions = train(world, OVERLORD);
         actions.push(...overlordActions);
         break;
       }

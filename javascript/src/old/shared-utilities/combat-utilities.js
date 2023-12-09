@@ -27,40 +27,6 @@ const filterEnemyUnits = (unit, enemyUnits) => {
 }
 
 /**
- * @param {World} world
- * @param {UnitTypeId} unitType
- * @param {Alliance} alliance
- * @param {UnitTypeId[]} enemyUnitTypes
- * @returns {number}
-*/
-const getWeaponDPS = (world, unitType, alliance, enemyUnitTypes) => {
-  const { getArmorUpgradeLevel, getAttackUpgradeLevel } = unitService;
-  const { calculateSplashDamage } = unitResourceService;
-  const { data, resources } = world;
-  const { units } = resources.get();
-  const { weapons } = data.getUnitTypeData(unitType);
-  if (weapons === undefined) return 0;
-  const weaponsDPS = weapons.map(weapon => {
-    const weaponAverageDPSAgainstTypes = enemyUnitTypes.reduce((totalDPS, enemyUnitType) => {
-      const { attacks, damage, speed } = weapon;
-      if (!attacks || !damage || !speed) return totalDPS;
-      if (canWeaponAttackType(units, weapon, enemyUnitType)) {
-        const weaponUpgradeDamage = damage + (getAttackUpgradeLevel(alliance) * dataService.getUpgradeBonus(alliance, weapon.damage));
-        const weaponBonusDamage = dataService.getAttributeBonusDamageAverage(data, weapon, [enemyUnitType]);
-        const weaponDamage = weaponUpgradeDamage - getArmorUpgradeLevel(alliance) + weaponBonusDamage;
-        const weaponSplashDamage = calculateSplashDamage(units, unitType, enemyUnitTypes);
-        return totalDPS + (weaponDamage * attacks * weaponSplashDamage) / (speed / 1.4);
-      }
-      return totalDPS;
-    }, 0);
-    return weaponAverageDPSAgainstTypes / enemyUnitTypes.length;
-  });
-  // return max of weaponsDPS, if no value found in weaponsDPS, return 0
-  if (weaponsDPS.length === 0) return 0;
-  return Math.max.apply(Math, weaponsDPS);
-}
-
-/**
  * @param {DataStorage} data
  * @param {Unit} unit
  * @param {Unit} targetUnit
@@ -168,22 +134,8 @@ const getWeaponDamage = (world, attackingUnitType, target) => {
 // Exporting the functions using module.exports
 module.exports = {
   filterEnemyUnits,
-  getWeaponDPS,
   getWeapon,
   setDamageForTag,
   getDamageForTag,
   getWeaponDamage
 };
-
-
-/**
- * @param {UnitResource} units
- * @param {SC2APIProtocol.Weapon} weapon
- * @param {UnitTypeId} targetUnitType
- * @returns {boolean}
- **/
-function canWeaponAttackType(units, weapon, targetUnitType) {
-  const { getUnitTypeData } = unitResourceService;
-  const { isFlying } = getUnitTypeData(units, targetUnitType);
-  return weapon.type === WeaponTargetType.ANY || (weapon.type === WeaponTargetType.GROUND && !isFlying) || (weapon.type === WeaponTargetType.AIR && isFlying || targetUnitType === UnitType.COLOSSUS);
-}

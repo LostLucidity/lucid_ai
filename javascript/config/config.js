@@ -1,8 +1,11 @@
 //@ts-check
 "use strict"
 
-const maps = require('./maps');
+// Core constants from the Node-SC2 library
 const { Difficulty, Race } = require('@node-sc2/core/constants/enums');
+
+// Local module imports
+const maps = require('./maps');
 
 /**
  * Configuration settings for the StarCraft 2 bot.
@@ -31,7 +34,7 @@ module.exports = {
 
   // Maximum supply threshold
   planMax: {
-    supply: 200,
+    supply: 0,
   },
 
   // Whether to automate the building of supply units (true to automate, false to disable)

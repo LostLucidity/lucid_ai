@@ -3,9 +3,11 @@
 
 // Core library imports
 const { UnitType } = require('@node-sc2/core/constants');
+const { Alliance } = require('@node-sc2/core/constants/enums');
 
 // Internal module imports
 const GameState = require('./gameState');
+
 
 /**
  * Mapping of unit types to their possible addon types.
@@ -99,6 +101,26 @@ function canLiftOff(unit) {
   return typesThatCanLiftOff.has(unitType);
 }
 
+/**
+ * Calculates the upgrade bonus for damage based on the alliance.
+ * @param {Alliance} alliance - The alliance (SELF or ENEMY) to calculate the bonus for.
+ * @param {number} damage - The base damage value.
+ * @returns {number} - The calculated upgrade bonus.
+ */
+function getUpgradeBonus(alliance, damage) {
+  if (alliance === Alliance.SELF) {
+    // Logic for calculating bonus for self alliance
+    return 0; // Adjust this according to your game's logic
+  } else if (alliance === Alliance.ENEMY) {
+    // Logic for calculating bonus for enemy alliance
+    const roundedDamage = Math.round(damage / 10);
+    return roundedDamage > 0 ? roundedDamage : 1;
+  }
+
+  // Fallback return statement
+  return 0; // Or any other default value you deem appropriate
+}
+
 // Export the mappings, configurations, and functions
 module.exports = {
   addOnTypesMapping,
@@ -109,4 +131,5 @@ module.exports = {
   unitTypeTrainingAbilities,
   canUnitBuildAddOn,
   canLiftOff,
+  getUpgradeBonus,
 };

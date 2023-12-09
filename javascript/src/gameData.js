@@ -3,6 +3,17 @@
 
 // src/gameData.js
 
+/**
+ * Extended unit type data including additional fields specific to your application.
+ * This type builds upon SC2APIProtocol.UnitTypeData by adding more fields.
+ * @typedef {Object} ExtendedUnitTypeData
+ * @property {number} [healthMax] - Maximum health of the unit.
+ * @property {boolean} [isFlying] - Indicates if the unit is flying.
+ * @property {number} [radius] - The radius of the unit.
+ * @property {number} [shieldMax] - Maximum shield of the unit.
+ * @property {number} [weaponCooldownMax] - Maximum weapon cooldown.
+ */
+
 // External library imports
 const { UnitType } = require('@node-sc2/core/constants');
 const { reactorTypes, techLabTypes } = require('@node-sc2/core/constants/groups');
@@ -25,8 +36,10 @@ const { getTimeInSeconds } = require('./utils');
 const upgradeTypes = new Map([
   [UnitType.COMMANDCENTER, [UnitType.ORBITALCOMMAND, UnitType.PLANETARYFORTRESS]],
   [UnitType.HATCHERY, [UnitType.LAIR]],
-  // Add other unit types and their upgrades as needed
 ]);
+
+/** @type {{ [unitTypeId: number]: ExtendedUnitTypeData  }} */
+const unitTypeData = {};
 
 /**
  * Retrieves the ability IDs for unit addons.
@@ -114,6 +127,15 @@ function getTechlabAbilities(data) {
 }
 
 /**
+ * Retrieves data for a specific unit type.
+ * @param {UnitTypeId} unitTypeId
+ * @returns {ExtendedUnitTypeData}
+ */
+function getUnitTypeData(unitTypeId) {
+  return unitTypeData[unitTypeId];
+}
+
+/**
  * Retrieves unit types that correspond to given ability IDs.
  * 
  * @param {DataStorage} data 
@@ -128,10 +150,51 @@ function getUnitTypesWithAbilities(data, abilityIds) {
   return unitTypesWithAbilities;
 }
 
+/**
+ * Retrieves detailed data for a specific unit type and saves it if not already present.
+ * @param {UnitResource} units
+ * @param {UnitTypeId} unitType
+ * @returns {ExtendedUnitTypeData}
+ */
+function saveAndGetUnitTypeData(units, unitType) {
+  const [unit] = units.getByType(unitType);
+  if (unit) {
+    const { healthMax, isFlying, radius, shieldMax, weaponCooldown } = unit;
+    const weaponCooldownMax = weaponCooldown;
+
+    // Construct the object with only existing properties
+    const dataToSave = {
+      healthMax: healthMax !== undefined ? healthMax : undefined,
+      isFlying: isFlying !== undefined ? isFlying : undefined,
+      radius: radius !== undefined ? radius : undefined,
+      shieldMax: shieldMax !== undefined ? shieldMax : undefined,
+      weaponCooldownMax: weaponCooldownMax !== undefined ? weaponCooldownMax : undefined,
+    };
+
+    unitTypeData[unitType] = dataToSave;
+    return dataToSave;
+  } else {
+    return unitTypeData[unitType] || undefined;
+  }
+}
+
+/**
+ * Updates or adds data for a specific unit type.
+ * @param {UnitTypeId} unitTypeId
+ * @param {ExtendedUnitTypeData} data
+ */
+function setUnitTypeData(unitTypeId, data) {
+  unitTypeData[unitTypeId] = data;
+}
+
 // Export the data and functions so they can be used by other modules
 module.exports = {
   upgradeTypes,
+  unitTypeData,
   getTimeToTargetTech,
   getAbilityIdsForAddons,
+  getUnitTypeData,
   getUnitTypesWithAbilities,
+  saveAndGetUnitTypeData,
+  setUnitTypeData,
 };

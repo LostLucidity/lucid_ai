@@ -11,6 +11,12 @@ const { findEnemyBase } = require('./mapUtils');
 const { calculateDistance } = require('./sharedUtils');
 
 /**
+ * Array to keep track of mapped enemy units.
+ * @type {Unit[]}
+ */
+const mappedEnemyUnits = [];
+
+/**
  * Prepares scouting actions for a worker to scout the enemy base.
  * @param {World} world - The game context, including resources and actions.
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of action commands for scouting.
@@ -68,5 +74,6 @@ function selectScout(workers, mainBaseLocation) {
 
 // Export the function(s)
 module.exports = {
+  mappedEnemyUnits,
   prepareEarlyScouting,
 };

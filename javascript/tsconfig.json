@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "allowJs": true, // Allows JavaScript files to be compiled
+    "checkJs": true, // Enables type checking for JavaScript files
+    "lib": [
+      "es2019"
+    ], // Specify library files to be included in the compilation
+    "noEmit": true, // No files will be generated after type checking
+    "strict": false, // For strict type-checking set to true
+    "target": "es6", // Set the JavaScript version for features (change as needed)
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true // Skip type checking for all the declaration files (*.d.ts)
+  },
+  "include": [
+    "src/**/*" // Adjust this to point to your JavaScript files
+  ],
+  "exclude": [
+    "node_modules",
+    "src/old"
+  ]
+}

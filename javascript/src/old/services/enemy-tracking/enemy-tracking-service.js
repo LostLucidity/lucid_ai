@@ -8,8 +8,6 @@ const { pathFindingService } = require("../pathfinding");
 const { isByItselfAndNotAttacking } = require("../../shared-utilities/game-analysis-utils");
 
 class EnemyTrackingService {
-  /** @type {Unit[]} */
-  mappedEnemyUnits = [];
   /**
    * Get the closest enemy to a given point by path distance.
    *

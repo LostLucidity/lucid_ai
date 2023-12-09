@@ -19,23 +19,6 @@ function canBuild(world, unitTypeId) {
 }
 
 /**
- * @param {Map} map 
- * @param {any} targetValue
- * @returns {Array}
- */
-function findKeysForValue(map, targetValue) {
-  const keys = [];
-
-  for (const [key, value] of map.entries()) {
-    if (value === targetValue) {
-      keys.push(key);
-    }
-  }
-
-  return keys;
-}
-
-/**
  * @param {World} world
  * @param {UnitTypeId} unitTypeId
  * @returns {Unit[]}

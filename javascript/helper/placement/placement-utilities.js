@@ -12,9 +12,6 @@ const placementUtilities = {
   getBuildingAndAddonGrids: (pos, unitType) => {
     return [...cellsInFootprint(pos, getFootprint(unitType)), ...cellsInFootprint(placementUtilities.getAddOnPlacement(pos), getFootprint(REACTOR))];
   },
-  getAddOnBuildingPosition: (position) => {
-    return { x: position.x - 2.5, y: position.y + 0.5 }
-  },
   getAddOnPosition: (position) => {
     return { x: position.x + 2.5, y: position.y - 0.5 }
   },

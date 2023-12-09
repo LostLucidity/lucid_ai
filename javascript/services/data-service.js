@@ -167,20 +167,7 @@ const dataService = {
   getSupply: (data, units) => {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
   },
-  /**
-   * @param {Alliance} alliance
-   * @param {number} damage 
-   * @returns {number}
-   */
-  getUpgradeBonus: (alliance, damage) => {
-    if (alliance === Alliance.SELF) {
-      return 0;
-    } else if (alliance === Alliance.ENEMY) {
-      // divide damage by 10, round, min 1.
-      const roundedDamage = Math.round(damage / 10);
-      return roundedDamage > 0 ? roundedDamage : 1;
-    }
-  },
+  
   /**
    * @param {DataStorage} data
    * @returns {boolean}

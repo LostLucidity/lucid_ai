@@ -58,46 +58,6 @@ function calculateNearDPSHealth(world, units, enemyUnitTypes) {
 }
 
 /**
- * @param {World} world
- * @param {Unit[]} selfUnits
- * @param {Unit[]} enemyUnits
- * @returns {{timeToKill: number, timeToBeKilled: number}}
- */
-function calculateTimeToKillUnits(world, selfUnits, enemyUnits) {
-  if (selfUnits.length === 0) {
-    return { timeToKill: Infinity, timeToBeKilled: 0 };
-  }
-
-  if (enemyUnits.length === 0) {
-    return { timeToKill: 0, timeToBeKilled: Infinity };
-  }
-
-  const timeToKill = enemyUnits.reduce((timeToKill, threat) => {
-    const { health, shield, unitType } = threat; if (health === undefined || shield === undefined || unitType === undefined) return timeToKill;
-    const totalHealth = health + shield;
-    const totalWeaponDPS = selfUnits.reduce((totalWeaponDPS, unit) => {
-      const { unitType } = unit; if (unitType === undefined) return totalWeaponDPS;
-      const weaponDPS = getWeaponDPS(world, unitType, Alliance.SELF, enemyUnits.map(threat => threat.unitType));
-      return totalWeaponDPS + weaponDPS;
-    }, 0);
-    const timeToKillCurrent = totalHealth / (totalWeaponDPS === 0 ? 1 : totalWeaponDPS);
-    return (timeToKill === Infinity) ? timeToKillCurrent : timeToKill + timeToKillCurrent;
-  }, Infinity);
-  const timeToBeKilled = selfUnits.reduce((timeToBeKilled, unit) => {
-    const { health, shield, unitType } = unit; if (health === undefined || shield === undefined || unitType === undefined) return timeToBeKilled;
-    const totalHealth = health + shield;
-    const totalWeaponDPS = enemyUnits.reduce((totalWeaponDPS, threat) => {
-      const { unitType } = threat; if (unitType === undefined) return totalWeaponDPS;
-      const weaponDPS = getWeaponDPS(world, unitType, Alliance.ENEMY, selfUnits.map(unit => unit.unitType));
-      return totalWeaponDPS + weaponDPS;
-    }, 0);
-    const timeToBeKilledCurrent = totalHealth / (totalWeaponDPS === 0 ? 1 : totalWeaponDPS);
-    return (timeToBeKilled === Infinity) ? timeToBeKilledCurrent : timeToBeKilled + timeToBeKilledCurrent;
-  }, Infinity);
-  return { timeToKill, timeToBeKilled };
-}
-
-/**
  * Calculates the total health ratio of a unit.
  * @param {UnitResource} units 
  * @param {Unit} unit 

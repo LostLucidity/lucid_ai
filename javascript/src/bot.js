@@ -11,6 +11,7 @@ const { trainWorker, buildSupply } = require('./economyManagement');
 const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
 const { prepareEarlyScouting } = require('./scoutingUtils');
+const { refreshProductionUnitsCache } = require('./unitManagement');
 const { assignWorkers, balanceWorkerDistribution } = require('./workerAssignment');
 const config = require('../config/config');
 
@@ -99,6 +100,9 @@ const bot = createAgent({
    * @param {World} world - The game context, including resources and actions.
    */
   async onStep(world) {
+    // Refresh the production units cache
+    refreshProductionUnitsCache();
+    
     const { units, actions } = world.resources.get();
     const { agent } = world; // Corrected access to agent
 
@@ -116,7 +120,7 @@ const bot = createAgent({
     actionCollection.push(...workerDistributionActions);
 
     // Check if supply is needed and if a supply unit is not currently being built
-    const supplyActions = buildSupply(world, trainWorker);
+    const supplyActions = buildSupply(world);
     actionCollection.push(...supplyActions);
 
     // Check if more workers need to be trained based on the max worker count
@@ -130,7 +134,7 @@ const bot = createAgent({
         if (base.isIdle() && !isBaseSaturated(base) && supplyAvailable > 0) {
           const workerType = WorkerRace[botRace];
           if (workerType) {
-            const workerTrainingActions = trainWorker(world, 1);
+            const workerTrainingActions = trainWorker(world);
             actionCollection.push(...workerTrainingActions);
           }
         }
