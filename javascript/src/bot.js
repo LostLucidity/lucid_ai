@@ -11,7 +11,7 @@ const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
 const { prepareEarlyScouting } = require('./scoutingUtils');
 const { refreshProductionUnitsCache } = require('./unitManagement');
-const { assignWorkers, balanceWorkerDistribution } = require('./workerAssignment');
+const { assignWorkers, balanceWorkerDistribution, reassignIdleWorkers } = require('./workerAssignment');
 const config = require('../config/config');
 
 // Instantiate the game state manager
@@ -81,34 +81,40 @@ const bot = createAgent({
    * @param {World} world - The game context, including resources and actions.
    */
   async onStep(world) {
-    // Refresh the production units cache at each step
+    // Refresh production units cache
     refreshProductionUnitsCache();
 
     const { units, actions } = world.resources.get();
     const { agent } = world;
 
-    // Update total workers and max workers based on the current game state
+    // Update worker counts
     totalWorkers = units.getWorkers().length;
     updateMaxWorkers(units);
 
-    // Initialize an array to collect actions for batch processing
-    const actionCollection = [];
+    // Collect actions for batch processing
+    const actionCollection = [
+      ...balanceWorkerDistribution(units, world.resources),
+      ...buildSupply(world),
+    ];
 
-    // Balance worker distribution and build supply if necessary
-    actionCollection.push(...balanceWorkerDistribution(units, world.resources));
-    actionCollection.push(...buildSupply(world));
-
-    // Train more workers if below the maximum count
+    // Additional worker training
     if (shouldTrainMoreWorkers(totalWorkers, maxWorkers)) {
-      const workerTrainingActions = trainAdditionalWorkers(world, agent, units.getBases());
-      actionCollection.push(...workerTrainingActions);
+      actionCollection.push(...trainAdditionalWorkers(world, agent, units.getBases()));
     }
 
-    // Send all collected actions in a single batch for efficiency
-    if (actionCollection.length > 0) {
-      await actions.sendAction(actionCollection);
+    // Reassign idle workers
+    reassignIdleWorkers(world);
+
+    // Send collected actions in a batch
+    try {
+      if (actionCollection.length > 0) {
+        await actions.sendAction(actionCollection);
+      }
+    } catch (error) {
+      console.error('Error sending actions:', error);
     }
-  },
+  }
+,
 
   /**
    * Handler for game end events.

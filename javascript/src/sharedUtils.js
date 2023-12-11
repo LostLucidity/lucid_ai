@@ -55,6 +55,55 @@ function calculateDistance(pointA, pointB) {
   }
 }
 
+/**
+ * Finds the closest base to a mineral field.
+ * @param {Unit} mineralField - The mineral field unit.
+ * @param {Unit[]} bases - An array of base units.
+ * @returns {Unit | undefined} The closest base, or undefined if none are found.
+ */
+function findClosestBase(mineralField, bases) {
+  let closestBase = undefined;
+  let minDistance = Number.MAX_VALUE;
+
+  bases.forEach(base => {
+    if (base.pos) {
+      const distance = getDistance(mineralField.pos, base.pos);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestBase = base;
+      }
+    }
+  });
+
+  return closestBase;
+}
+
+/**
+ * Finds the closest mineral field to a worker.
+ * @param {Unit} worker - The worker unit.
+ * @param {Unit[]} mineralFields - An array of mineral field units.
+ * @param {Unit[]} bases - An array of base units.
+ * @returns {Unit | undefined} The closest mineral field, or undefined if none are found.
+ */
+function findClosestMineralField(worker, mineralFields, bases) {
+  if (!worker.pos) return undefined;
+
+  let closestMineralField = undefined;
+  let minDistance = Number.MAX_VALUE;
+
+  mineralFields.forEach(mineralField => {
+    if (mineralField.pos) {
+      const distanceToWorker = getDistance(worker.pos, mineralField.pos);
+      const closestBase = findClosestBase(mineralField, bases);
+      if (closestBase && distanceToWorker < minDistance && getDistance(mineralField.pos, closestBase.pos) <= 20) { // Assuming 20 is the max distance to base
+        minDistance = distanceToWorker;
+        closestMineralField = mineralField;
+      }
+    }
+  });
+
+  return closestMineralField;
+}
 
 /**
  * Finds the closest expansion to a given position.
@@ -424,6 +473,7 @@ module.exports = {
   getClosestExpansion,
   getPendingOrders,
   getUnitsFromClustering,
+  findClosestMineralField,
   isMoving,
   dbscanWithUnits,
   getMovementSpeed,

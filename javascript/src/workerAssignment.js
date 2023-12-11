@@ -12,7 +12,7 @@ const { isPendingContructing } = require("./buildingCommons");
 const { setPendingOrders } = require("./common");
 const { getClosestUnitFromUnit } = require("./distance");
 const { getDistance } = require("./geometryUtils");
-const { getClosestExpansion, getPendingOrders, isMoving } = require("./sharedUtils");
+const { getClosestExpansion, getPendingOrders, isMoving, findClosestMineralField } = require("./sharedUtils");
 const { getUnitsWithinDistance, createUnitCommand } = require("./utils");
 
 /**
@@ -445,9 +445,30 @@ function getWithLabelAvailable(units, unit) {
   return (isNotConstructing && !unit.isAttacking() && !isPendingContructing(unit)) || probeAndMoving;
 }
 
+/**
+ * Reassign idle workers to mineral fields, ensuring there's a nearby base.
+ * @param {World} world - The game context, including resources and actions.
+ */
+function reassignIdleWorkers(world) {
+  const { units, actions } = world.resources.get();
+  const idleWorkers = units.getWorkers().filter(worker => worker.isIdle());
+  const mineralFields = units.getMineralFields();
+  const bases = units.getBases({ alliance: Alliance.SELF, buildProgress: 1 });
+
+  if (idleWorkers.length && mineralFields.length && bases.length) {
+    idleWorkers.forEach(worker => {
+      const closestMineralField = findClosestMineralField(worker, mineralFields, bases);
+      if (closestMineralField && closestMineralField.tag) {
+        actions.gather(worker, closestMineralField);
+      }
+    });
+  }
+}
+
 module.exports = {
   assignWorkers,
   balanceWorkerDistribution,
   getWithLabelAvailable,
   getNeediestMineralField,
+  reassignIdleWorkers,
 };
