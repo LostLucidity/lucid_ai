@@ -4,10 +4,9 @@
 // External library imports
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Race } = require('@node-sc2/core/constants/enums');
-const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
 // Internal module imports
-const { trainWorker, buildSupply } = require('./economyManagement');
+const { buildSupply, shouldTrainMoreWorkers, trainAdditionalWorkers, calculateMaxWorkers } = require('./economyManagement');
 const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
 const { prepareEarlyScouting } = require('./scoutingUtils');
@@ -33,27 +32,6 @@ let maxWorkers = 0;
  */
 function updateMaxWorkers(units) {
   maxWorkers = calculateMaxWorkers(units);
-}
-
-/**
- * Calculates the maximum number of workers based on current game conditions.
- * @param {UnitResource} units - The units resource object from the bot.
- * @returns {number} - The calculated maximum number of workers.
- */
-function calculateMaxWorkers(units) {
-  const bases = units.getBases().length;
-  return bases * 22; // Example: 22 workers per base
-}
-
-/**
- * Checks if a base is saturated with workers.
- * @param {Unit} base - The base to check for saturation.
- * @returns {boolean} - True if the base is saturated, false otherwise.
- */
-function isBaseSaturated(base) {
-  const idealHarvesters = base.idealHarvesters || 0;
-  const assignedHarvesters = base.assignedHarvesters || 0;
-  return assignedHarvesters >= idealHarvesters;
 }
 
 // Create a new StarCraft II bot agent with event handlers.
@@ -96,55 +74,37 @@ const bot = createAgent({
   },
 
   /**
-   * Handler for each game step.
+   * Handler for each game step. This function orchestrates various actions based on the current game state.
+   * It updates worker distribution, builds supply structures if needed, and trains additional workers.
+   * Future enhancements can include logic for scouting, unit production, tech upgrades, and other strategic actions.
+   * 
    * @param {World} world - The game context, including resources and actions.
    */
   async onStep(world) {
-    // Refresh the production units cache
+    // Refresh the production units cache at each step
     refreshProductionUnitsCache();
-    
+
     const { units, actions } = world.resources.get();
-    const { agent } = world; // Corrected access to agent
+    const { agent } = world;
 
-    // Calculate the total number of workers
+    // Update total workers and max workers based on the current game state
     totalWorkers = units.getWorkers().length;
-
-    // Initialize an array to collect actions
-    const actionCollection = [];
-
-    // Update the maximum number of workers based on the current game state
     updateMaxWorkers(units);
 
-    // Balance worker distribution across all bases
-    const workerDistributionActions = balanceWorkerDistribution(units, world.resources);
-    actionCollection.push(...workerDistributionActions);
+    // Initialize an array to collect actions for batch processing
+    const actionCollection = [];
 
-    // Check if supply is needed and if a supply unit is not currently being built
-    const supplyActions = buildSupply(world);
-    actionCollection.push(...supplyActions);
+    // Balance worker distribution and build supply if necessary
+    actionCollection.push(...balanceWorkerDistribution(units, world.resources));
+    actionCollection.push(...buildSupply(world));
 
-    // Check if more workers need to be trained based on the max worker count
-    if (totalWorkers < maxWorkers) {
-      const currentSupply = agent.foodUsed || 0;
-      const supplyCap = agent.foodCap || 0;
-      const supplyAvailable = supplyCap - currentSupply;
-
-      const mainBases = units.getBases();
-      for (const base of mainBases) {
-        if (base.isIdle() && !isBaseSaturated(base) && supplyAvailable > 0) {
-          const workerType = WorkerRace[botRace];
-          if (workerType) {
-            const workerTrainingActions = trainWorker(world);
-            actionCollection.push(...workerTrainingActions);
-          }
-        }
-      }
+    // Train more workers if below the maximum count
+    if (shouldTrainMoreWorkers(totalWorkers, maxWorkers)) {
+      const workerTrainingActions = trainAdditionalWorkers(world, agent, units.getBases());
+      actionCollection.push(...workerTrainingActions);
     }
 
-    // TODO: Collect actions from additional logic for continuous scouting, unit production,
-    //       tech upgrades, and other strategic actions.
-
-    // Send all collected actions in a batch
+    // Send all collected actions in a single batch for efficiency
     if (actionCollection.length > 0) {
       await actions.sendAction(actionCollection);
     }

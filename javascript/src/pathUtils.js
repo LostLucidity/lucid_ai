@@ -28,7 +28,7 @@ const pathUtils = {
 
     if (getPathCache(pathKey)) {
       const cachedPath = getPathCache(pathKey) || [];
-      const pathCoordinates = this.getPathCoordinates(cachedPath);
+      const pathCoordinates = pathUtils.getPathCoordinates(cachedPath);
 
       if (pathCoordinates.every(coordinate => map.isPathable(coordinate))) {
         return cachedPath;

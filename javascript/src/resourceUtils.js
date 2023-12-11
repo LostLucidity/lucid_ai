@@ -12,6 +12,7 @@ const { upgradeTypes } = require('./gameData');
 const GameState = require('./gameState');
 const { currentStep } = require('./gameStateResources');
 const { foodEarmarks, earmarks } = require('./resourceData');
+const { calculateDistance } = require('./sharedUtils');
 
 /**
  * @param {DataStorage} data 
@@ -48,6 +49,36 @@ function getById(resources, unitTypes) {
    */
 function getEarmarkedFood() {
   return Array.from(foodEarmarks.values()).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+}
+
+/**
+ * Retrieves gas geysers near a given position.
+ * @param {UnitResource} units - The units resource object.
+ * @param {Point2D} pos - The position to check near.
+ * @param {number} [radius=8] - The radius within which to search for gas geysers.
+ * @returns {Unit[]} - Array of gas geyser units near the given position.
+ */
+function getGasGeysersNearby(units, pos, radius = 8) {
+  const gasGeysers = units.getGasGeysers();
+  return gasGeysers.filter(geyser => {
+    if (!geyser.pos) return false;
+    return calculateDistance(pos, geyser.pos) <= radius;
+  });
+}
+
+/**
+ * Retrieves mineral fields near a given position.
+ * @param {UnitResource} units - The units resource object.
+ * @param {Point2D} pos - The position to check near.
+ * @param {number} [radius=8] - The radius within which to search for mineral fields.
+ * @returns {Unit[]} - Array of mineral field units near the given position.
+ */
+function getMineralFieldsNearby(units, pos, radius = 8) {
+  const mineralFields = units.getMineralFields();
+  return mineralFields.filter(field => {
+    if (!field.pos) return false;
+    return calculateDistance(pos, field.pos) <= radius;
+  });
 }
 
 /**
@@ -125,6 +156,8 @@ function isCurrent(unitType, currentFrame) {
 module.exports = {
   earmarkThresholdReached,
   getById,
+  getGasGeysersNearby,
+  getMineralFieldsNearby,
   addEarmark,
   getEarmarkedFood,
 };
