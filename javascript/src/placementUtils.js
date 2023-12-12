@@ -8,8 +8,9 @@ const { UnitType } = require("@node-sc2/core/constants");
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
-
 // Internal module imports
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
+
 const GameState = require("./gameState");
 const { getDistance, getClosestPosition } = require("./geometryUtils");
 const MapResources = require("./mapResources");
@@ -41,6 +42,27 @@ function getAddOnBuildingPlacement(position) {
     console.error('Invalid position provided for add-on building placement');
     return { x: 0, y: 0 }; // Default Point2D
   }
+}
+
+/**
+ * Gets the combined grids of a building and its associated add-on.
+ * @param {Point2D} pos - The position of the building.
+ * @param {UnitTypeId} unitType - The unit type of the building.
+ * @returns {Point2D[]} - An array of grid positions for the building and add-on.
+ */
+function getBuildingAndAddonGrids(pos, unitType) {
+  const unitFootprint = getFootprint(unitType);
+  const addOnFootprint = getFootprint(UnitType.REACTOR);
+
+  if (!unitFootprint || !addOnFootprint) {
+    console.error('Invalid footprint data for', unitType, 'or REACTOR');
+    return []; // Or handle this scenario as appropriate for your application
+  }
+
+  return [
+    ...cellsInFootprint(pos, unitFootprint),
+    ...cellsInFootprint(getAddOnPlacement(pos), addOnFootprint)
+  ];
 }
 
 /**
@@ -111,10 +133,23 @@ function findZergPlacements(world, unitType) {
   return candidatePositions;
 }
 
+/**
+ * Checks if a building and its associated add-on are placeable at a given grid location.
+ * @param {MapResource} map - The map resource.
+ * @param {UnitTypeId} unitType - The unit type of the building.
+ * @param {Point2D} grid - The grid position to check for placement.
+ * @returns {boolean} - True if both the building and its add-on are placeable at the grid position.
+ */
+function isBuildingAndAddonPlaceable(map, unitType, grid) {
+  return map.isPlaceableAt(unitType, grid) && map.isPlaceableAt(UnitType.REACTOR, getAddOnPlacement(grid));
+}
+
 // Export the shared functionalities
 module.exports = {
   getAddOnPlacement,
   getAddOnBuildingPlacement,
+  getBuildingAndAddonGrids,
   getBuildingFootprintOfOrphanAddons,
   findZergPlacements,
+  isBuildingAndAddonPlaceable,
 };

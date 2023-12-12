@@ -6,9 +6,11 @@ const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Race } = require('@node-sc2/core/constants/enums');
 
 // Internal module imports
+const BuildingPlacement = require('./buildingPlacement');
 const { buildSupply, shouldTrainMoreWorkers, trainAdditionalWorkers, calculateMaxWorkers } = require('./economyManagement');
 const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
+const { calculateAdjacentToRampGrids } = require('./mapUtils');
 const { prepareEarlyScouting } = require('./scoutingUtils');
 const { refreshProductionUnitsCache } = require('./unitManagement');
 const { assignWorkers, balanceWorkerDistribution, reassignIdleWorkers } = require('./workerAssignment');
@@ -34,42 +36,72 @@ function updateMaxWorkers(units) {
   maxWorkers = calculateMaxWorkers(units);
 }
 
+/**
+ * Performs initial map analysis based on the bot's race.
+ * @param {World} world - The game world context.
+ */
+function performInitialMapAnalysis(world) {
+  botRace = world.agent.race || Race.TERRAN;
+  const map = world.resources.get().map;
+
+  if (botRace === Race.TERRAN) {
+    // First calculate the grids adjacent to ramps
+    calculateAdjacentToRampGrids(map);
+
+    // Then calculate wall-off positions using the calculated ramp grids
+    BuildingPlacement.calculateWallOffPositions(world);
+  }
+  // Additional map analysis for other races can be added here
+}
+
+/**
+ * Assigns initial workers to mineral fields and prepares for scouting.
+ * @param {World} world - The game world context, including resources and actions.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The collection of actions to be executed.
+ */
+function assignInitialWorkersAndScout(world) {
+  // Retrieve the resource manager from the world object
+  const resourceManager = world.resources;
+
+  // Initialize an array to collect actions
+  const actionCollection = [];
+
+  // Assign workers to mineral fields
+  const workerActions = assignWorkers(resourceManager); // Pass the ResourceManager object
+  actionCollection.push(...workerActions);
+
+  // Prepare for early game scouting
+  const scoutingActions = prepareEarlyScouting(world); // Pass the world object
+  actionCollection.push(...scoutingActions);
+
+  // Return the collection of actions
+  return actionCollection;
+}
+
 // Create a new StarCraft II bot agent with event handlers.
 const bot = createAgent({
   async onGameStart(world) {
     logMessage('Game Started', 1);
 
-    // Determine the bot's race at the start of the game
-    botRace = (typeof world.agent.race !== 'undefined') ? world.agent.race : Race.TERRAN;
+    // Determine the bot's race at the start of the game (default to Terran if undefined)
+    botRace = world.agent.race || Race.TERRAN;
 
-    // Retrieve initial units and resources
-    const { units, actions } = world.resources.get();
-    const workers = units.getWorkers();
-    const mineralFields = units.getMineralFields();
+    // Perform initial map analysis based on the bot's race
+    performInitialMapAnalysis(world);
 
     // Initialize an array to collect actions
     const actionCollection = [];
 
-    // Check if workers and mineral fields are available
-    if (workers.length && mineralFields.length) {
-      try {
-        // Assign workers to mineral fields for initial resource gathering
-        const workerActions = assignWorkers(world.resources);
-        actionCollection.push(...workerActions); // Collect actions instead of sending immediately
+    try {
+      // Assign workers and prepare for scouting
+      const initialActions = assignInitialWorkersAndScout(world);
+      actionCollection.push(...initialActions);
 
-        // Prepare for early game scouting
-        const scoutingActions = prepareEarlyScouting(world); // Modified function to collect actions
-        actionCollection.push(...scoutingActions);
-
-        // Send all collected actions in a batch
-        await actions.sendAction(actionCollection);
-      } catch (error) {
-        // Log any errors encountered during the initial setup
-        logError('Error in assigning workers to minerals or scouting:', error);
-      }
-    } else {
-      // Log an error if workers or mineral fields are undefined or empty
-      logError('Error: Workers or mineral fields are undefined or empty');
+      // Send all collected actions in a batch
+      const { actions } = world.resources.get();
+      await actions.sendAction(actionCollection);
+    } catch (error) {
+      logError('Error during initial setup:', error);
     }
   },
 
@@ -139,3 +171,4 @@ engine.connect().then(() => {
 });
 
 module.exports = bot;
+

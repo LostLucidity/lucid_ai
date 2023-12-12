@@ -26,14 +26,6 @@ module.exports = {
     
       return result;
     },
-    // https://stackoverflow.com/questions/33356504/difference-and-intersection-of-two-arrays-containing-objects
-    /**
-     * 
-     * @param {Point2D[]} firstArray 
-     * @param {Point2D[]} secondArray 
-     * @returns {Point2D[]}
-     */
-    intersectionOfPoints: (firstArray, secondArray) => firstArray.filter(first => secondArray.some(second => distance(first, second) < 1)),
     /**
      * @param {Point2D[]} points
      * @param {Point2D[]} grids

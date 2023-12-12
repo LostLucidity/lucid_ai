@@ -6,12 +6,8 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getNeighbors, avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
-const getRandom = require("@node-sc2/core/utils/get-random");
-const { getClosestPosition } = require("../../helper/get-closest");
-const { pointsOverlap, intersectionOfPoints, allPointsWithinGrid, shuffle } = require("../../helper/utilities");
-const { getPathCoordinates } = require("../../services/path-service");
-const { getDistance, getMiddleOfStructure } = require("../../services/position-service");
-const { getMapPath } = require("../map-resource-system/map-resource-service");
+
+const { intersectionOfPoints, allPointsWithinGrid, shuffle } = require("../../helper/utilities");
 
 const wallOffNaturalService = {
   /**

@@ -59,7 +59,7 @@ const pathUtils = {
     return mapPath;
   }, 
   /**
-   * @param {number[][]} path 
+   * @param {Path} path 
    * @returns {Point2D[]}
    */ 
   getPathCoordinates(path) {

@@ -104,11 +104,24 @@ const areApproximatelyEqual = (point1, point2, epsilon = 0.0002) => {
   return dx < epsilon && dy < epsilon;
 };
 
+/**
+ * Finds the intersection of two arrays of points.
+ * @param {Point2D[]} firstArray 
+ * @param {Point2D[]} secondArray 
+ * @returns {Point2D[]}
+ */
+function intersectionOfPoints(firstArray, secondArray) {
+  return firstArray.filter(first =>
+    secondArray.some(second => getDistance(first, second) < 1)
+  );
+}
+
 module.exports = {
   getDistance,
   getStructureAtPosition,
   getGridsInCircleWithinMap,
   getClosestPosition,
   getAwayPosition,
-  areApproximatelyEqual
+  areApproximatelyEqual,
+  intersectionOfPoints
 };

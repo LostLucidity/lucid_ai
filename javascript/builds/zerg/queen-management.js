@@ -3,12 +3,7 @@
 
 const { EFFECT_INJECTLARVA, BUILD_CREEPTUMOR_QUEEN } = require("@node-sc2/core/constants/ability");
 const { QUEEN, CREEPTUMORBURROWED, CREEPTUMOR, HATCHERY, LAIR } = require("@node-sc2/core/constants/unit-type");
-const { Alliance } = require("@node-sc2/core/constants/enums");
-const { distance } = require("@node-sc2/core/utils/geometry/point");
-const { intersectionOfPoints } = require("../../helper/utilities");
-const { creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
-const { getMapPath } = require("../../systems/map-resource-system/map-resource-service");
-const unitService = require("../../services/unit-service");
+
 const MapResourceService = require("../../systems/map-resource-system/map-resource-service");
 
 // Retrieve the armyManagementService using the service locator's get method

@@ -6,17 +6,42 @@ const { Alliance } = require('@node-sc2/core/constants/enums');
 const { TownhallRace } = require('@node-sc2/core/constants/race-map');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
+const { getNeighbors } = require('@node-sc2/core/utils/geometry/point');
 const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
 
 // Internal module imports
 const { getGasGeysersCache, setGasGeysersCache } = require('./cacheModule');
 const { getDistance } = require('./geometryUtils');
+const { getPathCoordinates } = require('./pathUtils');
 
 
 /**
  * Provides utilities and functions related to map analysis and pathfinding.
  */
 const mapUtils = {
+  /** @type {Point2D[]} */
+  adjacentToRampGrids: [],
+
+  /**
+   * Identifies grids adjacent to ramps and on the path from the main base to the natural expansion.
+   * @param {MapResource} map - The map resource object.
+   */
+  calculateAdjacentToRampGrids(map) {
+    const main = map.getMain();
+    if (!main || !main.areas) return [];
+
+    const pathFromMain = map.getNatural().pathFromMain;
+    if (!pathFromMain) return [];
+
+    const pathFromMainToNatural = getPathCoordinates(pathFromMain);
+    mapUtils.adjacentToRampGrids = main.areas.placementGrid.filter(grid => {
+      const adjacentGrids = getNeighbors(grid);
+      const isAdjacentToRamp = adjacentGrids.some(adjacentGrid => map.isRamp(adjacentGrid));
+      const isOnPath = pathFromMainToNatural.some(pathGrid => getDistance(pathGrid, grid) <= 4);
+      return isAdjacentToRamp && isOnPath;
+    });
+  },  
+
   /**
    * Attempts to find the enemy's base location.
    * @param {MapResource} map - The map resource object from the bot.
@@ -39,42 +64,59 @@ const mapUtils = {
 
     return enemyBaseLocation;
   },
+
+  /**
+   * Get the adjacentToRampGrids property.
+   * @returns {Point2D[]}
+   */
+  getAdjacentToRampGrids() {
+    return mapUtils.adjacentToRampGrids;
+  },
   
   /**
-   * @param {MapResource} map
-   * @param {Point2D[]} line - An array containing two points that define a straight line segment.
-   * @returns {boolean}
-   */  
-  isLineTraversable(map, line) {
-    const [start, end] = line;
-    const { x: startX, y: startY } = start; if (startX === undefined || startY === undefined) return false;
-    const { x: endX, y: endY } = end; if (endX === undefined || endY === undefined) return false;
+   * Checks if a line between two points is traversable on the map.
+   * @param {MapResource} map - The map object.
+   * @param {Point2D} start - The start point of the line.
+   * @param {Point2D} end - The end point of the line.
+   * @returns {boolean} - True if the line is traversable, false otherwise.
+   */
+  isLineTraversable(map, start, end) {
+    // Ensure both points have defined x and y values
+    if (typeof start.x !== 'number' || typeof start.y !== 'number' ||
+      typeof end.x !== 'number' || typeof end.y !== 'number') {
+      throw new Error("Start or end points are not properly defined.");
+    }
 
-    // Use fallback value if getDistance returns undefined
-    const distance = getDistance(start, end) || 0;
+    let x0 = start.x;
+    let y0 = start.y;
+    const x1 = end.x;
+    const y1 = end.y;
 
-    // Assume the unit width is 1
-    const unitWidth = 1;
+    const dx = Math.abs(x1 - x0);
+    const dy = -Math.abs(y1 - y0);
 
-    // Calculate the number of points to check along the line, spaced at unit-width intervals
-    const numPoints = distance === 0 ? 0 : Math.ceil(distance / unitWidth);
+    const sx = (x0 < x1) ? 1 : -1;
+    const sy = (y0 < y1) ? 1 : -1;
 
-    // For each point along the line segment
-    for (let i = 0; i <= numPoints; i++) {
-      const t = i / numPoints; // The fraction of the way from the start point to the end point
+    let err = dx + dy;
 
-      // Calculate the coordinates of the point
-      const x = startX + t * (endX - startX);
-      const y = startY + t * (endY - startY);
-      const point = { x, y };
-
-      // If the point is not on walkable terrain, return false
-      if (!map.isPathable(point)) {
+    // Use the coordinates comparison as the loop condition
+    while (!(x0 === x1 && y0 === y1)) {
+      if (!map.isPathable({ x: x0, y: y0 })) {
         return false;
+      }
+
+      const e2 = 2 * err;
+      if (e2 >= dy) {
+        err += dy;
+        x0 += sx;
+      }
+      if (e2 <= dx) {
+        err += dx;
+        y0 += sy;
       }
     }
 
-    // If all points along the line are on walkable terrain, return true
     return true;
   },
 
@@ -301,6 +343,14 @@ const mapUtils = {
       });
       return { x: x / cluster.size, y: y / cluster.size };
     });
+  },
+
+  /**
+   * Set the adjacentToRampGrids property.
+   * @param {Point2D[]} grids - The array of Point2D objects.
+   */
+  setAdjacentToRampGrids(grids) {
+    mapUtils.adjacentToRampGrids = grids;
   },  
 };
 

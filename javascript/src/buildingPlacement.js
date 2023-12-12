@@ -20,13 +20,13 @@ const { getCurrentlyEnrouteConstructionGrids, keepPosition, getBuilderInformatio
 const { getTimeToTargetTech } = require('./gameData');
 const GameState = require('./gameState');
 const { buildingPositions, currentStep } = require('./gameStateResources');
-const { getDistance, getClosestPosition } = require('./geometryUtils');
+const { getDistance, getClosestPosition, intersectionOfPoints } = require('./geometryUtils');
 const MapResources = require('./mapResources');
-const { getOccupiedExpansions, existsInMap, pointsOverlap } = require('./mapUtils');
+const { getOccupiedExpansions, existsInMap, pointsOverlap, getAdjacentToRampGrids } = require('./mapUtils');
 const { getClosestUnitByPath, getClosestPositionByPath } = require('./pathfinding');
 const { getPathCoordinates, getMapPath } = require('./pathUtils');
 const { calculateBaseTimeToPosition } = require('./placementAndConstructionUtils');
-const { getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require('./placementUtils');
+const { getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable } = require('./placementUtils');
 const { getTimeToTargetCost } = require('./resourceManagement');
 const { earmarkThresholdReached } = require('./resourceUtils');
 const { handleNonRallyBase } = require('./sharedBuildingUtils');
@@ -61,20 +61,37 @@ class BuildingPlacement {
 
   /** @type {false | Point2D | undefined} */
   static get buildingPosition() {
-    const positions = buildingPositions.get(currentStep);
-    // Return the first element of the array or undefined if the array is empty
-    return positions ? positions[0] : undefined;
+    // Attempt to retrieve the position for the current step
+    const position = buildingPositions.get(currentStep);
+    // Return the position if it exists, or undefined otherwise
+    return position !== undefined ? position : undefined;
   }
 
   /**
+   * Sets the building position for the current step.
    * @param {false | Point2D} value
-   * @returns {void}
    */
   static set buildingPosition(value) {
     if (value) {
+      // If value is a valid position, set it for the current step
       buildingPositions.set(currentStep, value);
+    } else {
+      // If value is false, remove the entry for the current step
+      buildingPositions.delete(currentStep);
     }
   }
+
+  /**
+   * Calculates and sets the wall-off positions.
+   * @param {World} world - The world context containing map and other game info.
+   */
+  static calculateWallOffPositions(world) {
+    // Assuming setWallOffRampPlacements requires map as an argument
+    const map = world.resources.get().map;
+
+    // Call existing logic to set wall-off placements
+    this.setWallOffRampPlacements(map);
+  } 
 
   /**
    * Calculates the building position for an add-on.
@@ -91,7 +108,108 @@ class BuildingPlacement {
       console.error("Invalid position provided to getAddOnBuildingPosition:", position);
       return undefined;
     }
-  } 
+  }
+
+  /**
+   * Sets the add-on wall-off position based on the map layout.
+   * @param {MapResource} map - The map resource for analyzing placement.
+   */
+  static setAddOnWallOffPosition(map) {
+    const middleOfAdjacentGrids = avgPoints(getAdjacentToRampGrids());
+    const footprint = getFootprint(UnitType.SUPPLYDEPOT);
+    if (footprint === undefined) return;
+    const twoByTwoPlacements = this.twoByTwoPositions.map(grid => cellsInFootprint(grid, footprint)).flat();
+    const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3).filter(grid => ![...twoByTwoPlacements].some(placement => placement.x === grid.x && placement.y === grid.y));
+    let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle, middleOfAdjacentGridCircle.length).filter(grid => {
+      return intersectionOfPoints(twoByTwoPlacements, getBuildingAndAddonGrids(grid, UnitType.BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, UnitType.BARRACKS, grid);
+    });
+    const [closestRamp] = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle.filter(grid => map.isRamp(grid)));
+    if (closestRamp) {
+      closestPlaceableGrids = closestPlaceableGrids.map(grid => {
+        if (getDistance(grid, closestRamp) < getDistance(getAddOnPlacement(grid), closestRamp)) {
+          return grid;
+        } else {
+          return getAddOnPlacement(grid);
+        }
+      });
+      const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
+      if (closestPlaceableToRamp) {
+        let position = null;
+        if (intersectionOfPoints(this.twoByTwoPositions, getBuildingAndAddonGrids(closestPlaceableToRamp, UnitType.BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, UnitType.BARRACKS, closestPlaceableToRamp)) {
+          position = closestPlaceableToRamp;
+        } else {
+          position = getAddOnBuildingPlacement(closestPlaceableToRamp);
+        }
+        this.addOnPositions = [position];
+      }
+    }
+  }
+
+  /**
+   * Sets three-by-three building placements based on the map.
+   * @param {MapResource} map - The map resource for analyzing placement.
+   */
+  static setThreeByThreePlacements(map) {
+    // Implement the logic for setting three-by-three placements
+    this.setAddOnWallOffPosition(map);
+    this.setThreeByThreePosition(map);
+  }
+
+  /**
+   * Sets specific three-by-three building placements on the map.
+   * @param {MapResource} map - The map resource for analysis and placement.
+   */
+  static setThreeByThreePosition(map) {
+    const middleOfAdjacentGrids = avgPoints(getAdjacentToRampGrids());
+    const footprint = getFootprint(UnitType.SUPPLYDEPOT);
+    if (footprint === undefined) return;
+    const twoByTwoPlacements = this.twoByTwoPositions.map(grid => cellsInFootprint(grid, footprint)).flat();
+    const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3).filter(grid => ![...twoByTwoPlacements].some(placement => placement.x === grid.x && placement.y === grid.y));
+    let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle, middleOfAdjacentGridCircle.length).filter(grid => {
+      const footprint = getFootprint(UnitType.ENGINEERINGBAY);
+      if (footprint === undefined) return false;
+      return intersectionOfPoints(twoByTwoPlacements, cellsInFootprint(grid, footprint)).length === 0 && map.isPlaceableAt(UnitType.ENGINEERINGBAY, grid);
+    });
+    const [closestRamp] = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle.filter(grid => map.isRamp(grid)));
+    if (closestRamp) {
+      const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
+      if (closestPlaceableToRamp) {
+        this.threeByThreePositions = [closestPlaceableToRamp];
+      }
+    }
+  }
+
+  /**
+   * Sets two-by-two building placements based on the map.
+   * @param {MapResource} map - The map resource for analyzing placement.
+   */
+  static setTwoByTwoPlacements(map) {
+    const placeableGrids = getAdjacentToRampGrids().filter(grid => map.isPlaceable(grid));
+    const cornerGrids = placeableGrids.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1).filter(point => getDistance(point, grid) <= 1), placeableGrids).length === 2);
+    cornerGrids.forEach(cornerGrid => {
+      const cornerGridCircle = gridsInCircle(cornerGrid, 3);
+      let closestPlaceableGrids = getClosestPosition(cornerGrid, cornerGridCircle, cornerGridCircle.length).filter(grid => {
+        return map.isPlaceableAt(UnitType.SUPPLYDEPOT, grid);
+      });
+      const [closestRamp] = getClosestPosition(cornerGrid, cornerGridCircle.filter(grid => map.isRamp(grid)));
+      if (closestRamp) {
+        const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
+        if (closestPlaceableToRamp) {
+          this.twoByTwoPositions.push(closestPlaceableToRamp);
+        }
+      }
+    });
+  }
+  
+  /**
+   * Sets wall-off placements on the map.
+   * @param {MapResource} map - The map resource to analyze for wall-off placements.
+   */
+  static setWallOffRampPlacements(map) {
+    // Implement the logic to set two-by-two and three-by-three placements based on the map
+    this.setTwoByTwoPlacements(map);
+    this.setThreeByThreePlacements(map);
+  }  
 
   /**
    * Updates the found position.
@@ -687,16 +805,17 @@ class BuildingPlacement {
   }
 
   /**
+   * Sets the building position for a specific unit type.
    * @param {UnitTypeId} unitType
    * @param {Point2D | false} position
-   * @returns {void}
    */
   static setBuildingPosition(unitType, position) {
-    this.buildingPosition =
-      GameState.legacyPlan.length > 0 && GameState.legacyPlan[currentStep][2] !== unitType
-        ? this.buildingPosition || false // Provide a default value
-        : position;
-  } 
+    if (GameState.legacyPlan.length > 0 && GameState.legacyPlan[currentStep][2] !== unitType) {
+      this.buildingPosition = this.buildingPosition || false;
+    } else {
+      this.buildingPosition = position;
+    }
+  }
 
   /**
    * Determines a valid position for placing a building.
