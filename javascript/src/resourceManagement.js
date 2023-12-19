@@ -2,10 +2,47 @@
 "use strict";
 
 // src/resourceManagement.js
+const { Race } = require('@node-sc2/core/constants/enums');
+const { GasMineRace } = require('@node-sc2/core/constants/race-map');
 
 // Import necessary constants and modules
 const { getTimeToTargetTech } = require('./gameData');
-const { addEarmark } = require('./resourceUtils');
+const GameState = require('./gameState');
+const { addEarmark, getEarmarkedFood } = require('./resourceUtils');
+const { planMax } = require('../config/config');
+
+/**
+ * Check for gas mine construction conditions and initiate building if criteria are met.
+ * @param {World} world - The game world context.
+ * @param {number} targetRatio - Optional ratio of minerals to vespene gas to maintain.
+ * @param {(world: World, unitType: number, targetCount?: number | undefined, candidatePositions?: Point2D[] | undefined) => SC2APIProtocol.ActionRawUnitCommand[]} buildFunction - The function to build the gas mine.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+const gasMineCheckAndBuild = (world, targetRatio = 2.4, buildFunction) => {
+    const { agent, data, resources } = world;
+  const { map, units } = resources.get();
+  const { minerals, vespene } = agent;
+  const resourceRatio = (minerals ?? 0) / (vespene ?? 1);
+  const gasUnitId = GasMineRace[agent.race || Race.TERRAN];
+  const buildAbilityId = data.getUnitTypeData(gasUnitId).abilityId;
+  if (buildAbilityId === undefined) return [];
+
+  const [geyser] = map.freeGasGeysers();
+  const conditions = [
+    resourceRatio > targetRatio,
+    agent.canAfford(gasUnitId),
+    units.getById(gasUnitId).filter(unit => (unit.buildProgress ?? 0) < 1).length < 1,
+    planMax && planMax.gasMine ? (agent.foodUsed ?? 0) > planMax.gasMine : units.getById(gasUnitId).length > 2,
+    units.withCurrentOrders(buildAbilityId).length <= 0,
+    geyser,
+  ];
+
+  if (conditions.every(c => c)) {
+    return buildFunction(world, gasUnitId);
+  }
+
+  return [];
+};
 
 /**
  * @param {World} world
@@ -59,7 +96,35 @@ function getTimeUntilCanBeAfforded(world, unitType) {
   return Math.max(timeToTargetCost, timeToTargetTech);
 }
 
+/**
+ * Checks if there are any earmarked resources.
+ * @param {DataStorage} data
+ * @returns {boolean}
+ */
+const hasEarmarks = (data) => {
+  const earmarkTotals = data.getEarmarkTotals('');
+  return earmarkTotals.minerals > 0 || earmarkTotals.vespene > 0;
+};
+
+/**
+ * @param {World} world 
+ * @param {UnitTypeId} unitType
+ */
+function haveSupplyForUnit(world, unitType) {
+  const { agent, data } = world;
+  const { foodCap } = agent; if (foodCap === undefined) return false;
+  const gameState = GameState.getInstance();
+  const foodUsed = gameState.getFoodUsed();
+  const earmarkedFood = getEarmarkedFood();
+  const { foodRequired } = data.getUnitTypeData(unitType); if (foodRequired === undefined) return false;
+  const supplyLeft = foodCap - foodUsed - earmarkedFood - foodRequired;
+  return supplyLeft >= 0;
+}
+
 module.exports = {
+  gasMineCheckAndBuild,
   getTimeToTargetCost,
   getTimeUntilCanBeAfforded,
+  hasEarmarks,
+  haveSupplyForUnit,
 };

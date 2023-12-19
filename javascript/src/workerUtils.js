@@ -5,16 +5,26 @@
 const { UnitType, Ability } = require("@node-sc2/core/constants");
 const { constructionAbilities } = require("@node-sc2/core/constants/groups");
 const groupTypes = require("@node-sc2/core/constants/groups");
-
 // Internal module imports from other utility files
-const { setPendingOrders } = require("./common");
+const { WorkerRace } = require("@node-sc2/core/constants/race-map");
+
+const { getById } = require("./gameUtils");
 const { getDistance } = require("./geometryUtils");
-const { getWorkerSourceByPath } = require("./pathfinding");
-const { getPendingOrders, isMoving, dbscanWithUnits, getBuildTimeLeft, getUnitsFromClustering } = require("./sharedUtils");
+const { isMoving, dbscanWithUnits, getBuildTimeLeft, getUnitsFromClustering, getClosestPathWithGasGeysers } = require("./sharedUtils");
 const { unitTypeTrainingAbilities } = require("./unitConfig");
-const { createUnitCommand } = require("./utils");
+const { setPendingOrders } = require("./unitOrders");
+const { getUnitsTrainingTargetUnitType } = require("./unitWorkerService");
+const { createUnitCommand, getDistanceByPath } = require("./utils");
+const { getPendingOrders } = require("./utils/commonGameUtils");
+const { getWorkerSourceByPath } = require("./utils/coreUtils");
 const { getWithLabelAvailable, getNeediestMineralField } = require("./workerAssignment");
 const { stopUnitFromMovingToPosition } = require("./workerHelpers");
+
+/** 
+ * Flag to track if workers training is tended to.
+ * @type {boolean}
+ */
+let workersTrainingTendedTo = false;
 
 /**
  * Sets rally points for workers and stops a unit from moving to a position.
@@ -31,52 +41,12 @@ const handleRallyBase = (world, unit, position) => {
 };
 
 /**
- * Rallies a worker to a specified target position.
- * @param {World} world 
- * @param {Point2D} position
- * @param {(units: Unit[]) => Unit[]} getUnitsFromClustering - Injected dependency from unitManagement.js
- * @param {boolean} mineralTarget
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ * Checks if workers training has been tended to.
+ * @returns {boolean}
  */
-const rallyWorkerToTarget = (world, position, getUnitsFromClustering, mineralTarget = false) => {
-  const { rallyWorkersAbilities } = groupTypes;
-  const { data, resources } = world;
-  const { units } = resources.get();
-  const { DRONE, EGG } = UnitType;
-  const collectedActions = [];
-  const workerSourceByPath = getWorkerSourceByPath(world, position, getUnitsFromClustering);
-
-  if (!workerSourceByPath) return collectedActions;
-
-  const { orders, pos } = workerSourceByPath;
-  if (pos === undefined) return collectedActions;
-
-  if (getPendingOrders(workerSourceByPath).some(order => order.abilityId && order.abilityId === Ability.SMART)) return collectedActions;
-
-  let rallyAbility = null;
-  if (workerSourceByPath.unitType === EGG) {
-    rallyAbility = orders?.some(order => order.abilityId === data.getUnitTypeData(DRONE).abilityId) ? Ability.RALLY_BUILDING : null;
-  } else {
-    rallyAbility = rallyWorkersAbilities.find(ability => workerSourceByPath.abilityAvailable(ability));
-  }
-
-  if (!rallyAbility) return collectedActions;
-
-  const unitCommand = createUnitCommand(Ability.SMART, [workerSourceByPath]);
-  if (mineralTarget) {
-    const mineralFields = units.getMineralFields().filter(mineralField => mineralField.pos && getDistance(pos, mineralField.pos) < 14);
-    const neediestMineralField = getNeediestMineralField(units, mineralFields);
-    if (neediestMineralField === undefined) return collectedActions;
-    unitCommand.targetUnitTag = neediestMineralField.tag;
-  } else {
-    unitCommand.targetWorldSpacePos = position;
-  }
-
-  collectedActions.push(unitCommand);
-  setPendingOrders(workerSourceByPath, unitCommand);
-
-  return collectedActions;
-};
+function isWorkersTrainingTendedTo() {
+  return workersTrainingTendedTo;
+}
 
 /**
  * 
@@ -248,10 +218,132 @@ function isIdleOrAlmostIdle(data, unit) {
   return isAlmostIdle;
 }
 
+
+
+/**
+ * Rallies a worker to a specified target position.
+ * @param {World} world 
+ * @param {Point2D} position
+ * @param {(units: Unit[]) => Unit[]} getUnitsFromClustering - Injected dependency from unitManagement.js
+ * @param {boolean} mineralTarget
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+const rallyWorkerToTarget = (world, position, getUnitsFromClustering, mineralTarget = false) => {
+  const { rallyWorkersAbilities } = groupTypes;
+  const { data, resources } = world;
+  const { units } = resources.get();
+  const { DRONE, EGG } = UnitType;
+
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+  const collectedActions = [];
+
+  const workerSourceByPath = getWorkerSourceByPath(world, position, getUnitsFromClustering);
+  if (!workerSourceByPath) return collectedActions;
+
+  const { orders, pos } = workerSourceByPath;
+  if (pos === undefined) return collectedActions;
+
+  if (getPendingOrders(workerSourceByPath).some(order => order.abilityId && order.abilityId === Ability.SMART)) return collectedActions;
+
+  let rallyAbility = null;
+  if (workerSourceByPath.unitType === EGG) {
+    rallyAbility = orders?.some(order => order.abilityId === data.getUnitTypeData(DRONE).abilityId) ? Ability.RALLY_BUILDING : null;
+  } else {
+    rallyAbility = rallyWorkersAbilities.find(ability => workerSourceByPath.abilityAvailable(ability));
+  }
+
+  if (!rallyAbility) return collectedActions;
+
+  const unitCommand = createUnitCommand(Ability.SMART, [workerSourceByPath]);
+  if (mineralTarget) {
+    const mineralFields = units.getMineralFields().filter(mineralField => mineralField.pos && getDistance(pos, mineralField.pos) < 14);
+    const neediestMineralField = getNeediestMineralField(units, mineralFields);
+    if (neediestMineralField === undefined) return collectedActions;
+    unitCommand.targetUnitTag = neediestMineralField.tag;
+  } else {
+    unitCommand.targetWorldSpacePos = position;
+  }
+
+  collectedActions.push(unitCommand);
+  setPendingOrders(workerSourceByPath, unitCommand);
+
+  return collectedActions;
+};
+
+/**
+ * Sets the workersTrainingTendedTo flag.
+ * @param {boolean} status - The status to set.
+ */
+function setWorkersTrainingTendedTo(status) {
+  workersTrainingTendedTo = status;
+}
+
+/**
+ * Determines if there are fewer workers than needed for optimal resource harvesting.
+ * @param {World} world - The current game world context.
+ * @returns {boolean} - True if more workers are needed, false otherwise.
+ */
+function shortOnWorkers(world) {
+  const { gasMineTypes, townhallTypes } = groupTypes;
+  const { agent, resources } = world;
+  const { map, units } = resources.get();
+  let idealHarvesters = 0
+  let assignedHarvesters = 0
+  const mineralCollectors = [...units.getBases(), ...getById(resources, gasMineTypes)];
+  mineralCollectors.forEach(mineralCollector => {
+    const { buildProgress, assignedHarvesters: assigned, idealHarvesters: ideal, unitType } = mineralCollector;
+    if (buildProgress === undefined || assigned === undefined || ideal === undefined || unitType === undefined) return;
+    if (buildProgress === 1) {
+      assignedHarvesters += assigned;
+      idealHarvesters += ideal;
+    } else {
+      if (townhallTypes.includes(unitType)) {
+        const { pos: townhallPos } = mineralCollector; if (townhallPos === undefined) return false;
+        if (map.getExpansions().some(expansion => getDistance(expansion.townhallPosition, townhallPos) < 1)) {
+          let mineralFields = [];
+          if (!mineralCollector.labels.has('mineralFields')) {
+            mineralFields = units.getMineralFields().filter(mineralField => {
+              const { pos } = mineralField; if (pos === undefined) return false;
+              if (getDistance(pos, townhallPos) < 16) {
+                const closestPathablePositionBetweenPositions = getClosestPathWithGasGeysers(resources, pos, townhallPos)
+                const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
+                const distanceByPath = getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
+                return distanceByPath <= 16;
+              } else {
+                return false;
+              }
+            });
+            mineralCollector.labels.set('mineralFields', mineralFields);
+          }
+          mineralFields = mineralCollector.labels.get('mineralFields');
+          idealHarvesters += mineralFields.length * 2 * buildProgress;
+        }
+      } else {
+        idealHarvesters += 3 * buildProgress;
+      }
+    }
+  });
+
+
+  if (agent.race === undefined) {
+    console.error("Agent race is undefined.");
+    return false; // Or handle this situation as appropriate
+  }
+
+  // count workers that are training
+  const unitsTrainingTargetUnitType = getUnitsTrainingTargetUnitType(world, WorkerRace[agent.race]);
+  const shortOnWorkers = idealHarvesters > (assignedHarvesters + unitsTrainingTargetUnitType.length);
+
+  workersTrainingTendedTo = !shortOnWorkers;
+  return shortOnWorkers;
+}
+
 module.exports = {
   getBuilders,
   gatherBuilderCandidates,
   isConstructing,
+  isMining,
+  isWorkersTrainingTendedTo,
   filterMovingOrConstructingNonDrones,
   filterBuilderCandidates,
   getBuilderCandidateClusters,
@@ -259,4 +351,6 @@ module.exports = {
   handleRallyBase,
   getOrderTargetPosition,
   rallyWorkerToTarget,
+  setWorkersTrainingTendedTo,
+  shortOnWorkers,
 };

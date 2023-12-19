@@ -10,9 +10,10 @@ const { Race, Attribute } = require('@node-sc2/core/constants/enums');
 // Internal module imports
 const { upgradeTypes } = require('./gameData');
 const GameState = require('./gameState');
-const { currentStep } = require('./gameStateResources');
 const { foodEarmarks, earmarks } = require('./resourceData');
-const { calculateDistance } = require('./sharedUtils');
+const StrategyManager = require('./strategyManager');
+const strategyManager = StrategyManager.getInstance();
+const { calculateDistance } = require('./utils/coreUtils');
 
 /**
  * @param {DataStorage} data 
@@ -21,26 +22,6 @@ const { calculateDistance } = require('./sharedUtils');
 function earmarkThresholdReached(data) {
   const { minerals: earmarkedTotalMinerals, vespene: earmarkedTotalVespene } = data.getEarmarkTotals('');
   return earmarkedTotalMinerals > 512 && earmarkedTotalVespene > 512 || earmarkedTotalMinerals > 1024;
-}
-
-
-/**
- * @param {ResourceManager} resources
- * @param {UnitTypeId[]} unitTypes
- * @returns {Unit[]}
- */
-function getById(resources, unitTypes) {
-  const { frame, units } = resources.get();
-  const currentFrame = frame.getGameLoop();
-  const gameState = GameState.getInstance();
-  return unitTypes.reduce((/** @type {Unit[]} */ unitsById, unitType) => {
-    if (!isCurrent(unitType, frame.getGameLoop())) {
-      const newUnits = units.getById(unitType);
-      gameState.unitsById.set(unitType, { units: newUnits, frame: currentFrame });
-    }
-    const entry = gameState.unitsById.get(unitType);
-    return [...unitsById, ...(entry ? entry.units : [])];
-  }, []);
 }
 
 /**
@@ -96,7 +77,7 @@ function addEarmark(data, orderData) {
   if (earmarkThresholdReached(data) || name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
 
   const foodKey = `${foodUsed + getEarmarkedFood()}`;
-  const stepKey = `${currentStep}`;
+  const stepKey = `${strategyManager.getCurrentStep()}`;
   const fullKey = `${stepKey}_${foodKey}`;
 
   let minerals = 0;
@@ -155,9 +136,9 @@ function isCurrent(unitType, currentFrame) {
 
 module.exports = {
   earmarkThresholdReached,
-  getById,
   getGasGeysersNearby,
   getMineralFieldsNearby,
   addEarmark,
   getEarmarkedFood,
+  isCurrent,
 };

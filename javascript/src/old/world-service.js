@@ -26,26 +26,12 @@ const scoutService = require("../systems/scouting/scouting-service");
 const path = require('path');
 const foodUsedService = require('../services/food-used-service');
 const trackUnitsService = require('../systems/track-units/track-units-service');
-const { canAttack } = require('../services/resources-service');
-const { moveAwayPosition, getDistance } = require('../services/position-service');
-const resourceManagerService = require('../services/resource-manager-service');
-const { getAddOnPlacement, getAddOnBuildingPosition } = require('../helper/placement/placement-utilities');
-const unitTrainingService = require('../systems/unit-training/unit-training-service');
-const microService = require('../services/micro-service');
 const { WARPGATE } = require('@node-sc2/core/constants/unit-type');
-const { scanCloakedEnemy } = require('../helper/terran');
 const groupTypes = require('@node-sc2/core/constants/groups');
-const unitService = require('../services/unit-service');
 const { getDPSHealth, calculateHealthAdjustedSupply, calculateNearDPSHealth } = require('./services/combat-statistics');
-const { getClosestPathWithGasGeysers, getClosestSafeMineralField } = require('./services/utility-service');
 const pathFindingService = require('./services/pathfinding/pathfinding-service');
-const { getWeaponDPS } = require('./shared-utilities/combat-utilities');
-const { getUnitsTraining, getUnitsWithCurrentOrders, getById } = require('./services/unit-retrieval');
+const { getUnitsTraining } = require('./services/unit-retrieval');
 const enemyTrackingServiceV2 = require('./services/enemy-tracking');
-const { createUnitCommand } = require('./shared-utilities/command-utilities');
-const { addEarmark } = require('./shared-utilities/common-utilities');
-const { getCurrentlyEnrouteConstructionGrids } = require('./shared-utilities/construction-utils');
-const { getFoodUsed } = require('./shared-utilities/info-utils');
 const unitRetrievalService = require('./services/unit-retrieval');
 const loggingService = require('./logging/logging-service');
 const { getProjectedPosition } = require('./shared-utilities/vector-utils');
@@ -57,13 +43,10 @@ const armyManagementService = serviceLocator.get('armyManagementService');
 
   
 const worldService = {
-  availableProductionUnits: new Map(),
   /** @type {number} */
   totalEnemyDPSHealth: 0,
   /** @type {number} */
   totalSelfDPSHealth: 0,
-  /** @type {boolean} */
-  unitProductionAvailable: true,
 
   /**
    * 
@@ -259,33 +242,6 @@ const worldService = {
       dPSHealth = unitType === ZERGLING ? dPSHealth * 2 : dPSHealth;
     }
     return dPSHealth;
-  },
-  /**
-   * @param {World} world
-   * @returns {number}
-   */
-  getFoodDifference: (world) => {
-    const { agent, data } = world;
-    const { race } = agent;
-    const { abilityId } = data.getUnitTypeData(WorkerRace[race]); if (abilityId === undefined) { return 0; }
-    let { plan, legacyPlan } = planService;
-    const { getIdleOrAlmostIdleUnits } = worldService;
-    const foodUsed = getFoodUsed();
-    const step = plan.find(step => step.food > foodUsed);
-    const legacyPlanStep = legacyPlan.find(step => step[0] > foodUsed);
-    const foodDifference = ((step && step.food) || (legacyPlanStep && legacyPlanStep[0])) - getFoodUsed();
-    const productionUnitsCount = getIdleOrAlmostIdleUnits(world, WorkerRace[race]).length;
-    const lowerOfFoodDifferenceAndProductionUnitsCount = Math.min(foodDifference, productionUnitsCount);
-    let affordableFoodDifference = 0;
-    for (let i = 0; i < lowerOfFoodDifferenceAndProductionUnitsCount; i++) {
-      if (agent.canAfford(WorkerRace[agent.race]) && haveSupplyForUnit(world, WorkerRace[agent.race])) {
-        affordableFoodDifference++;
-        addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]))
-      } else {
-        break;
-      }
-    }
-    return affordableFoodDifference;
   },
   /**
    *
@@ -532,18 +488,6 @@ const worldService = {
     const { units } = world.resources.get();
     const inRangeUnits = units.getCombatUnits(Alliance.SELF).filter(unit => unit.pos && distance(unit.pos, position) <= range);
     return inRangeUnits;
-  },
-  /**
-   * @param {World} world
-   * @param {UnitTypeId} unitType
-   * @returns {Unit[]}
-   */
-  getUnitsTrainingTargetUnitType: (world, unitType) => {
-    const { data, resources } = world;
-    const { units } = resources.get();
-    let { abilityId } = data.getUnitTypeData(unitType);
-    if (abilityId === undefined) return [];
-    return getUnitsWithCurrentOrders(units, [abilityId]);
   },
 
   /**
@@ -1075,21 +1019,6 @@ const worldService = {
 
     return collectedActions;
   },
-
-  /**
-   * @param {World} world 
-   * @param {UnitTypeId[]} candidateTypesToBuild 
-   * @returns {UnitTypeId}
-   */
-  selectTypeToBuild(world, candidateTypesToBuild) {
-    const { agent, data } = world;
-    const { vespene } = agent; if (vespene === undefined) return candidateTypesToBuild[0];
-    const filteredTypes = candidateTypesToBuild.filter(type => {
-      const { vespeneCost } = data.getUnitTypeData(type); if (vespeneCost === undefined) return true;
-      return vespene > 170 || vespeneCost === 0;
-    });
-    return filteredTypes[Math.floor(Math.random() * filteredTypes.length)];
-  },
   /**
    * @param {World} world
    * @param {SC2APIProtocol.PlayerResult} selfResult
@@ -1237,55 +1166,6 @@ const worldService = {
       buildingsToSwap[1].labels.set(label, buildingsToSwap[0].pos);
     }
   },
-
-  /**
-   * @param {World} world
-   * @returns {Boolean}
-   */
-  shortOnWorkers: (world) => {
-    const { gasMineTypes, townhallTypes } = groupTypes;
-    const { agent, resources } = world;
-    const { map, units } = resources.get();
-    let idealHarvesters = 0
-    let assignedHarvesters = 0
-    const mineralCollectors = [...units.getBases(), ...getById(resources, gasMineTypes)];
-    mineralCollectors.forEach(mineralCollector => {
-      const { buildProgress, assignedHarvesters: assigned, idealHarvesters: ideal, unitType } = mineralCollector;
-      if (buildProgress === undefined || assigned === undefined || ideal === undefined || unitType === undefined) return;
-      if (buildProgress === 1) {
-        assignedHarvesters += assigned;
-        idealHarvesters += ideal;
-      } else {
-        if (townhallTypes.includes(unitType)) {
-          const { pos: townhallPos } = mineralCollector; if (townhallPos === undefined) return false;
-          if (map.getExpansions().some(expansion => getDistance(expansion.townhallPosition, townhallPos) < 1)) {
-            let mineralFields = [];
-            if (!mineralCollector.labels.has('mineralFields')) {
-              mineralFields = units.getMineralFields().filter(mineralField => {
-                const { pos } = mineralField; if (pos === undefined) return false;
-                if (distance(pos, townhallPos) < 16) {
-                  const closestPathablePositionBetweenPositions = getClosestPathWithGasGeysers(resources, pos, townhallPos)
-                  const { pathablePosition, pathableTargetPosition } = closestPathablePositionBetweenPositions;
-                  const distanceByPath = pathFindingService.getDistanceByPath(resources, pathablePosition, pathableTargetPosition);
-                  return distanceByPath <= 16;
-                } else {
-                  return false;
-                }
-              });
-              mineralCollector.labels.set('mineralFields', mineralFields);
-            }
-            mineralFields = mineralCollector.labels.get('mineralFields');
-            idealHarvesters += mineralFields.length * 2 * buildProgress;
-          }
-        } else {
-          idealHarvesters += 3 * buildProgress;
-        }
-      }
-    });
-    // count workers that are training
-    const unitsTrainingTargetUnitType = worldService.getUnitsTrainingTargetUnitType(world, WorkerRace[agent.race]);
-    return idealHarvesters > (assignedHarvesters + unitsTrainingTargetUnitType.length);
-  },
 }
 
 module.exports = worldService;
@@ -1308,20 +1188,6 @@ function setUnitsProperty(map, unit, units) {
     
     return distance(pos, toFilterUnitPos) <= weaponRange + radius + toFilterUnitRadius + getTravelDistancePerStep(map, toFilterUnit) + getTravelDistancePerStep(map, unit);
   });
-}
-
-/**
- * @param {World} world 
- * @param {UnitTypeId} unitType
- */
-function haveSupplyForUnit(world, unitType) {
-  const { agent, data } = world;
-  const { foodCap } = agent; if (foodCap === undefined) return false;
-  const foodUsed = getFoodUsed();
-  const earmarkedFood = dataService.getEarmarkedFood();
-  const { foodRequired } = data.getUnitTypeData(unitType); if (foodRequired === undefined) return false;
-  const supplyLeft = foodCap - foodUsed - earmarkedFood - foodRequired;
-  return supplyLeft >= 0;
 }
 
 /**

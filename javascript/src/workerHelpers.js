@@ -15,6 +15,7 @@ const { createUnitCommand } = require('./utils');
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function stopUnitFromMovingToPosition(unit, position) {
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
   const { orders } = unit;
   if (orders === undefined) return collectedActions;

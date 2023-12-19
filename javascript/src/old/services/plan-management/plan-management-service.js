@@ -2,13 +2,8 @@
 "use strict"
 
 const { Attribute } = require("@node-sc2/core/constants/enums");
-const dataService = require("../../../services/data-service");
-const planService = require("../../../services/plan-service");
-const { upgrade, buildSupplyOrTrain } = require("../training");
+const { buildSupplyOrTrain } = require("../training");
 const { build } = require("../building-management");
-const { balanceResources } = require("../../../systems/manage-resources");
-const { train } = require("../../shared-utilities/training-utilities");
-const { setFoodUsed } = require("../../shared-utilities/data-utils");
 
 /**
  * Execute the game plan

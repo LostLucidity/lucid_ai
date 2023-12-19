@@ -3,11 +3,13 @@
 
 // buildingPlacement.js
 
+
 // External library imports
-const { UnitType, Ability } = require('@node-sc2/core/constants');
+
+/** @type {import('./common').UnitTypeMap} */
+const UnitType = require('@node-sc2/core/constants').UnitType;
 const { Race, Alliance } = require('@node-sc2/core/constants/enums');
 const groupTypes = require('@node-sc2/core/constants/groups');
-const { WorkerRace } = require('@node-sc2/core/constants/race-map');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
 const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
 const { createPoint2D, getNeighbors, avgPoints } = require('@node-sc2/core/utils/geometry/point');
@@ -16,30 +18,31 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
 // Internal module imports
-const { getCurrentlyEnrouteConstructionGrids, keepPosition, getBuilderInformation } = require('./buildingCommons');
-const { getTimeToTargetTech } = require('./gameData');
+const { getCurrentlyEnrouteConstructionGrids } = require('./buildingCommons');
+const { isPlaceableAtGasGeyser } = require('./buildingHelpers');
 const GameState = require('./gameState');
-const { buildingPositions, currentStep } = require('./gameStateResources');
+const { buildingPositions } = require('./gameStateResources');
 const { getDistance, getClosestPosition, intersectionOfPoints } = require('./geometryUtils');
 const MapResources = require('./mapResources');
 const { getOccupiedExpansions, existsInMap, pointsOverlap, getAdjacentToRampGrids } = require('./mapUtils');
-const { getClosestUnitByPath, getClosestPositionByPath } = require('./pathfinding');
-const { getPathCoordinates, getMapPath } = require('./pathUtils');
-const { calculateBaseTimeToPosition } = require('./placementAndConstructionUtils');
 const { getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable } = require('./placementUtils');
-const { getTimeToTargetCost } = require('./resourceManagement');
-const { earmarkThresholdReached } = require('./resourceUtils');
-const { handleNonRallyBase } = require('./sharedBuildingUtils');
-const { getBuildTimeLeft, getClosestPathWithGasGeysers, getPendingOrders, getUnitsFromClustering } = require('./sharedUtils');
+const { getBuildTimeLeft } = require('./sharedUtils');
+const StrategyManager = require('./strategyManager');
+const strategyManager = StrategyManager.getInstance();
 const { seigeTanksSiegedGrids } = require('./unitActions');
-const { flyingTypesMapping, canUnitBuildAddOn, unitTypeTrainingAbilities, addOnTypesMapping } = require('./unitConfig');
-const { getTimeInSeconds, getPathablePositionsForStructure, getDistanceByPath, createUnitCommand, getStringNameOfConstant } = require('./utils');
-const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('./workerUtils');
+const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require('./unitConfig');
+const { getTimeInSeconds, getStringNameOfConstant } = require('./utils');
 const config = require('../config/config');
 
 class BuildingPlacement {
   /** @type {Point2D[]} */
   static addOnPositions = [];
+
+  static functionMappings = {
+    "getAddOnBuildingPosition": BuildingPlacement.getAddOnBuildingPosition,
+    "setAddOnWallOffPosition": BuildingPlacement.setAddOnWallOffPosition,
+    // ... other mappings
+  };  
 
   /** @type {Point2D[]} */
   static wall = []; 
@@ -62,7 +65,7 @@ class BuildingPlacement {
   /** @type {false | Point2D | undefined} */
   static get buildingPosition() {
     // Attempt to retrieve the position for the current step
-    const position = buildingPositions.get(currentStep);
+    const position = buildingPositions.get(strategyManager.getCurrentStep());
     // Return the position if it exists, or undefined otherwise
     return position !== undefined ? position : undefined;
   }
@@ -74,10 +77,10 @@ class BuildingPlacement {
   static set buildingPosition(value) {
     if (value) {
       // If value is a valid position, set it for the current step
-      buildingPositions.set(currentStep, value);
+      buildingPositions.set(strategyManager.getCurrentStep(), value);
     } else {
       // If value is false, remove the entry for the current step
-      buildingPositions.delete(currentStep);
+      buildingPositions.delete(strategyManager.getCurrentStep());
     }
   }
 
@@ -90,8 +93,18 @@ class BuildingPlacement {
     const map = world.resources.get().map;
 
     // Call existing logic to set wall-off placements
-    this.setWallOffRampPlacements(map);
-  } 
+    BuildingPlacement.setWallOffRampPlacements(map);
+  }
+
+  /**
+   * @type {{ [key: string]: (...args: any[]) => any }}
+   */
+  static get functionMappingsWithSignature() {
+    return {
+      "getAddOnBuildingPosition": BuildingPlacement.getAddOnBuildingPosition,
+      "setAddOnWallOffPosition": BuildingPlacement.setAddOnWallOffPosition,
+    };
+  }  
 
   /**
    * Calculates the building position for an add-on.
@@ -111,6 +124,27 @@ class BuildingPlacement {
   }
 
   /**
+   * Retrieves candidate positions for building based on provided criteria.
+   * @param {ResourceManager} resources
+   * @param {Point2D[] | string} positions
+   * @param {UnitTypeId | null} [unitType=null]
+   * @returns {Point2D[]}
+   */
+  static getCandidatePositions(resources, positions, unitType = null) {
+    if (typeof positions === 'string') {
+      const functionName = `get${positions}`;
+      const mappedFunction = BuildingPlacement.functionMappingsWithSignature[functionName];
+      if (typeof mappedFunction === 'function') {
+        return mappedFunction(resources, unitType);
+      } else {
+        throw new Error(`Function "${functionName}" does not exist in BuildingPlacement`);
+      }
+    } else {
+      return positions;
+    }
+  }  
+
+  /**
    * Sets the add-on wall-off position based on the map layout.
    * @param {MapResource} map - The map resource for analyzing placement.
    */
@@ -118,7 +152,7 @@ class BuildingPlacement {
     const middleOfAdjacentGrids = avgPoints(getAdjacentToRampGrids());
     const footprint = getFootprint(UnitType.SUPPLYDEPOT);
     if (footprint === undefined) return;
-    const twoByTwoPlacements = this.twoByTwoPositions.map(grid => cellsInFootprint(grid, footprint)).flat();
+    const twoByTwoPlacements = BuildingPlacement.twoByTwoPositions.map(grid => cellsInFootprint(grid, footprint)).flat();
     const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3).filter(grid => ![...twoByTwoPlacements].some(placement => placement.x === grid.x && placement.y === grid.y));
     let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle, middleOfAdjacentGridCircle.length).filter(grid => {
       return intersectionOfPoints(twoByTwoPlacements, getBuildingAndAddonGrids(grid, UnitType.BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, UnitType.BARRACKS, grid);
@@ -135,12 +169,12 @@ class BuildingPlacement {
       const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
       if (closestPlaceableToRamp) {
         let position = null;
-        if (intersectionOfPoints(this.twoByTwoPositions, getBuildingAndAddonGrids(closestPlaceableToRamp, UnitType.BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, UnitType.BARRACKS, closestPlaceableToRamp)) {
+        if (intersectionOfPoints(BuildingPlacement.twoByTwoPositions, getBuildingAndAddonGrids(closestPlaceableToRamp, UnitType.BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, UnitType.BARRACKS, closestPlaceableToRamp)) {
           position = closestPlaceableToRamp;
         } else {
           position = getAddOnBuildingPlacement(closestPlaceableToRamp);
         }
-        this.addOnPositions = [position];
+        BuildingPlacement.addOnPositions = [position];
       }
     }
   }
@@ -151,8 +185,8 @@ class BuildingPlacement {
    */
   static setThreeByThreePlacements(map) {
     // Implement the logic for setting three-by-three placements
-    this.setAddOnWallOffPosition(map);
-    this.setThreeByThreePosition(map);
+    BuildingPlacement.setAddOnWallOffPosition(map);
+    BuildingPlacement.setThreeByThreePosition(map);
   }
 
   /**
@@ -163,7 +197,7 @@ class BuildingPlacement {
     const middleOfAdjacentGrids = avgPoints(getAdjacentToRampGrids());
     const footprint = getFootprint(UnitType.SUPPLYDEPOT);
     if (footprint === undefined) return;
-    const twoByTwoPlacements = this.twoByTwoPositions.map(grid => cellsInFootprint(grid, footprint)).flat();
+    const twoByTwoPlacements = BuildingPlacement.twoByTwoPositions.map(grid => cellsInFootprint(grid, footprint)).flat();
     const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3).filter(grid => ![...twoByTwoPlacements].some(placement => placement.x === grid.x && placement.y === grid.y));
     let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle, middleOfAdjacentGridCircle.length).filter(grid => {
       const footprint = getFootprint(UnitType.ENGINEERINGBAY);
@@ -174,7 +208,7 @@ class BuildingPlacement {
     if (closestRamp) {
       const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
       if (closestPlaceableToRamp) {
-        this.threeByThreePositions = [closestPlaceableToRamp];
+        BuildingPlacement.threeByThreePositions = [closestPlaceableToRamp];
       }
     }
   }
@@ -195,7 +229,7 @@ class BuildingPlacement {
       if (closestRamp) {
         const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
         if (closestPlaceableToRamp) {
-          this.twoByTwoPositions.push(closestPlaceableToRamp);
+          BuildingPlacement.twoByTwoPositions.push(closestPlaceableToRamp);
         }
       }
     });
@@ -207,8 +241,8 @@ class BuildingPlacement {
    */
   static setWallOffRampPlacements(map) {
     // Implement the logic to set two-by-two and three-by-three placements based on the map
-    this.setTwoByTwoPlacements(map);
-    this.setThreeByThreePlacements(map);
+    BuildingPlacement.setTwoByTwoPlacements(map);
+    BuildingPlacement.setThreeByThreePlacements(map);
   }  
 
   /**
@@ -226,27 +260,6 @@ class BuildingPlacement {
   static getFoundPosition() {
     return BuildingPlacement.#foundPosition;
   }  
-
-  /**
-   * Retrieves candidate positions for building based on provided criteria.
-   * @param {ResourceManager} resources
-   * @param {Point2D[] | string} positions
-   * @param {UnitTypeId | null} [unitType=null]
-   * @returns {Point2D[]}
-   */
-  static getCandidatePositions(resources, positions, unitType = null) {
-    if (typeof positions === 'string') {
-      const functionName = `get${positions}`;
-      // Replace placementHelper with direct method call
-      if (typeof BuildingPlacement[functionName] === 'function') {
-        return BuildingPlacement[functionName](resources, unitType);
-      } else {
-        throw new Error(`Function "${functionName}" does not exist in BuildingPlacement`);
-      }
-    } else {
-      return positions;
-    }
-  }
 
   /**
    * @param {ResourceManager} resources
@@ -273,6 +286,7 @@ class BuildingPlacement {
     return pathableMainAreas;
   }
 
+
   /**
    * Finds positions where a given unit type can be placed.
    * @param {Point2D[]} candidates - Candidate positions for placement.
@@ -284,6 +298,7 @@ class BuildingPlacement {
     const filteredCandidates = candidates.filter(position => map.isPlaceableAt(unitType, position));
 
     if (filteredCandidates.length === 0) {
+      /** @type {Point2D[]} */
       let expandedCandidates = [];
       candidates.forEach(candidate => {
         expandedCandidates.push(candidate, ...getNeighbors(candidate));
@@ -303,17 +318,18 @@ class BuildingPlacement {
   }
 
   /**
-   * 
+   * Retrieves middle positions of a natural wall for a specific unit type.
    * @param {ResourceManager} resources 
    * @param {UnitTypeId} unitType 
    * @returns {Point2D[]}
    */
   static getMiddleOfNaturalWall(resources, unitType) {
     const { map } = resources.get();
-    const naturalWall = map.getNatural().getWall() || this.wall;
+    const naturalWall = map.getNatural().getWall() || BuildingPlacement.wall;
+    /** @type {Point2D[]} */
     let candidates = [];
     if (naturalWall) {
-      let wallPositions = this.getPlaceableAtPositions(naturalWall, map, unitType);
+      let wallPositions = BuildingPlacement.getPlaceableAtPositions(naturalWall, map, unitType);
       // Filter placeable positions first to reduce size of array
       wallPositions = wallPositions.filter(point => map.isPlaceableAt(unitType, point));
       const middleOfWall = getClosestPosition(avgPoints(wallPositions), wallPositions, 2);
@@ -323,47 +339,51 @@ class BuildingPlacement {
   }
 
   /**
+   * @typedef {Object} ExtendedPoint2D
+   * @property {number} x - The x-coordinate.
+   * @property {number} y - The y-coordinate.
+   * @property {number} coverage - Coverage property, always a number.
+   */
+
+  /**
+   * Retrieves natural wall pylon positions.
    * @param {ResourceManager} resources
-   * @returns {Point2D[]}
+   * @returns {ExtendedPoint2D[]}
    */
   static getNaturalWallPylon(resources) {
     const { map } = resources.get();
     const naturalExpansion = map.getNatural();
 
-    // Check if 'naturalExpansion' and 'naturalExpansion.areas' are defined
     if (!naturalExpansion || !naturalExpansion.areas) {
-      return []; // Return an empty array if 'naturalExpansion' or 'naturalExpansion.areas' is undefined
+      return [];
     }
 
-    let possiblePlacements = this.pylonPlacement ? [this.pylonPlacement] : [];
-    const naturalWall = this.wall.length > 0 ? this.wall : naturalExpansion.getWall();
-    if (naturalWall) {
-      const naturalTownhallPosition = naturalExpansion.townhallPosition;
-      if (!this.pylonPlacement) {
-        possiblePlacements = frontOfGrid(resources, naturalExpansion.areas.areaFill)
-          .filter(point => naturalWall.every(wallCell => (
-            (getDistance(naturalTownhallPosition, point) > 4.5) &&
-            (getDistance(wallCell, point) <= 6.5) &&
-            (getDistance(wallCell, point) >= 3) &&
-            getDistance(wallCell, naturalTownhallPosition) > getDistance(point, naturalTownhallPosition)
-          )));
-
-        if (possiblePlacements.length === 0) {
-          possiblePlacements = frontOfGrid(resources, naturalExpansion.areas.areaFill)
-            .map(point => {
-              point['coverage'] = naturalWall.filter(wallCell => (
-                (getDistance(wallCell, point) <= 6.5) &&
-                (getDistance(wallCell, point) >= 1) &&
-                getDistance(wallCell, naturalTownhallPosition) > getDistance(point, naturalTownhallPosition)
-              )).length;
-              return point;
-            })
-            .sort((a, b) => b['coverage'] - a['coverage'])
-            .filter((cell, i, arr) => cell['coverage'] === arr[0]['coverage'])
-        }
-      }
+    const naturalWall = BuildingPlacement.wall.length > 0 ? BuildingPlacement.wall : naturalExpansion.getWall();
+    if (!naturalWall) {
+      return BuildingPlacement.pylonPlacement ? [{ x: BuildingPlacement.pylonPlacement.x || 0, y: BuildingPlacement.pylonPlacement.y || 0, coverage: 0 }] : [];
     }
-    return possiblePlacements;
+
+    const naturalTownhallPosition = naturalExpansion.townhallPosition;
+
+    const possiblePlacements = frontOfGrid(resources, naturalExpansion.areas.areaFill)
+      .map(point => {
+        const coverage = naturalWall.filter(wallCell => (
+          (getDistance(wallCell, point) <= 6.5) &&
+          (getDistance(wallCell, point) >= 1) &&
+          getDistance(wallCell, naturalTownhallPosition) > getDistance(point, naturalTownhallPosition)
+        )).length;
+
+        /** @type {ExtendedPoint2D} */
+        return {
+          x: point.x !== undefined ? point.x : 0,
+          y: point.y !== undefined ? point.y : 0,
+          coverage: coverage // coverage is always a number, even if it's 0
+        };
+      });
+
+    return possiblePlacements
+      .sort((a, b) => b.coverage - a.coverage)
+      .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
   }
 
   /**
@@ -418,10 +438,10 @@ class BuildingPlacement {
             position = getAddOnBuildingPlacement(addOnPosition);
             console.log(`isPlaceableAt for ${getStringNameOfConstant(UnitType, building.unitType)}`, position);
           } else {
-            addOnPosition = this.findPosition(world, addOnType, nearPoints);
+            addOnPosition = BuildingPlacement.findPosition(world, addOnType, nearPoints);
             if (addOnPosition) {
               if (typeof building.unitType === 'number') {
-                position = this.findPosition(world, building.unitType, [getAddOnBuildingPlacement(addOnPosition)]);
+                position = BuildingPlacement.findPosition(world, building.unitType, [getAddOnBuildingPlacement(addOnPosition)]);
               } else {
                 console.error('checkAddOnPlacement: building.unitType is undefined');
               }
@@ -437,40 +457,11 @@ class BuildingPlacement {
   }
 
   /**
-   * Retrieves positions near mineral lines.
-   * @param {ResourceManager} resources
-   * @returns {Point2D[]}
+   * @typedef {Object} FootprintType
+   * @property {number} h - The height of the footprint.
+   * @property {number} w - The width of the footprint.
    */
-  static getMineralLines(resources) {
-    const { map, units } = resources.get();
-    const occupiedExpansions = map.getOccupiedExpansions()
-    const mineralLineCandidates = [];
-    occupiedExpansions.forEach(expansion => {
-      const [base] = units.getClosest(expansion.townhallPosition, units.getBases());
-      if (base) {
-        mineralLineCandidates.push(...gridsInCircle(avgPoints([...expansion.cluster.mineralFields.map(field => field.pos), base.pos, base.pos]), 0.6))
-      }
-    });
-    return mineralLineCandidates;
-  }
 
-  /**
-   * Finds placement for wall-off structures based on the unit type.
-   * @param {UnitTypeId} unitType
-   * @returns {Point2D[]}
-   */
-  static findWallOffPlacement(unitType) {
-    if (twoByTwoUnits.includes(unitType)) {
-      return this.twoByTwoPositions;
-    } else if (addOnTypesMapping.has(unitType)) {
-      return this.addOnPositions;
-    } else if (groupTypes.structureTypes.includes(unitType)) {
-      return this.threeByThreePositions;
-    } else {
-      return [];
-    }
-  }
-  
   /**
    * @param {World} world
    * @param {UnitTypeId} unitType
@@ -536,7 +527,7 @@ class BuildingPlacement {
       if (unitType === PYLON) {
         if (gameState.getUnitTypeCount(world, unitType) === 0) {
           if (config.naturalWallPylon) {
-            return this.getCandidatePositions(resources, 'NaturalWallPylon', unitType);
+            return BuildingPlacement.getCandidatePositions(resources, 'NaturalWallPylon', unitType);
           }
         }
         const occupiedExpansions = getOccupiedExpansions(resources);
@@ -547,6 +538,7 @@ class BuildingPlacement {
           return acc;
         }, []);
 
+        /** @type {Point2D[]} */
         const placementGrids = [];
         occupiedExpansionsPlacementGrid.forEach(grid => placementGrids.push(grid));
         placements = placementGrids
@@ -576,6 +568,7 @@ class BuildingPlacement {
               .filter(grid => existsInMap(map, grid) && getDistance(grid, pylon.pos) < 6.5));
           }
         });
+        /** @type {Point2D[]} */
         const wallOffPositions = [];
         const currentlyEnrouteConstructionGrids = getCurrentlyEnrouteConstructionGrids(world);
         const threeByThreeFootprint = getFootprint(FORGE); if (threeByThreeFootprint === undefined) return [];
@@ -592,7 +585,7 @@ class BuildingPlacement {
         }, []);
 
 
-        this.threeByThreePositions = this.threeByThreePositions.filter(position => {
+        BuildingPlacement.threeByThreePositions = BuildingPlacement.threeByThreePositions.filter(position => {
           // Ensure position is a valid Point2D object before passing it to cellsInFootprint
           if (typeof position === 'object' && position) {
             return !pointsOverlap(
@@ -603,12 +596,12 @@ class BuildingPlacement {
           return false;
         });
 
-        if (this.threeByThreePositions.length > 0) {
-          const threeByThreeCellsInFootprints = this.threeByThreePositions.map(position => cellsInFootprint(position, threeByThreeFootprint));
+        if (BuildingPlacement.threeByThreePositions.length > 0) {
+          const threeByThreeCellsInFootprints = BuildingPlacement.threeByThreePositions.map(position => cellsInFootprint(position, threeByThreeFootprint));
           wallOffPositions.push(...threeByThreeCellsInFootprints.flat().filter(position => !pointsOverlap(currentlyEnrouteConstructionGrids, cellsInFootprint(position, threeByThreeFootprint))));
           const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
           if (unitTypeFootprint.h === threeByThreeFootprint.h && unitTypeFootprint.w === threeByThreeFootprint.w) {
-            const canPlace = getRandom(this.threeByThreePositions.filter(pos => map.isPlaceableAt(unitType, pos)));
+            const canPlace = getRandom(BuildingPlacement.threeByThreePositions.filter(pos => map.isPlaceableAt(unitType, pos)));
             if (canPlace) {
               return [canPlace];
             }
@@ -626,15 +619,15 @@ class BuildingPlacement {
 
       }
     } else if (race === Race.TERRAN) {
+      /** @type {Point2D[]} */
       const placementGrids = [];
       const orphanAddons = units.getById([REACTOR, TECHLAB]);
 
       const buildingFootprints = Array.from(buildingPositions.entries()).reduce((/** @type {Point2D[]} */positions, [step, buildingPos]) => {
-        const stepData = currentPlan[step] ?
-          currentPlan[step] :
-          gameState.convertLegacyPlan(GameState.legacyPlan)[step];
 
-        const stepUnitType = (stepData && stepData[2]) ? stepData[2] : undefined;
+        const stepData = currentPlan[step];
+
+        const stepUnitType = stepData.unitType;
 
         if (unitType === undefined) return positions;
 
@@ -657,7 +650,7 @@ class BuildingPlacement {
         return [...positions, ...cells];
       }, []);
 
-      const wallOffPositions = this.findWallOffPlacement(unitType).slice();
+      const wallOffPositions = BuildingPlacement.findWallOffPlacement(unitType).slice();
       if (wallOffPositions.filter(position => map.isPlaceableAt(unitType, position)).length > 0) {
         // Check if the structure is one that cannot use an orphan add-on
         if (!canUnitBuildAddOn(unitType)) {
@@ -688,25 +681,26 @@ class BuildingPlacement {
           placementGrids.push(...expansion.areas.placementGrid);
         }
       });
-      if (this.addOnPositions.length > 0) {
+      if (BuildingPlacement.addOnPositions.length > 0) {
         const barracksFootprint = getFootprint(BARRACKS);
         if (barracksFootprint === undefined) return [];
-        const barracksCellInFootprints = this.addOnPositions.map(position => cellsInFootprint(createPoint2D(position), barracksFootprint));
+        const barracksCellInFootprints = BuildingPlacement.addOnPositions.map(position => cellsInFootprint(createPoint2D(position), barracksFootprint));
         wallOffPositions.push(...barracksCellInFootprints.flat());
       }
-      if (this.twoByTwoPositions.length > 0) {
+      if (BuildingPlacement.twoByTwoPositions.length > 0) {
         const supplyFootprint = getFootprint(SUPPLYDEPOT);
         if (supplyFootprint === undefined) return [];
-        const supplyCellInFootprints = this.twoByTwoPositions.map(position => cellsInFootprint(position, supplyFootprint));
+        const supplyCellInFootprints = BuildingPlacement.twoByTwoPositions.map(position => cellsInFootprint(position, supplyFootprint));
         wallOffPositions.push(...supplyCellInFootprints.flat());
       }
-      if (this.threeByThreePositions.length > 0) {
+      if (BuildingPlacement.threeByThreePositions.length > 0) {
         const engineeringBayFootprint = getFootprint(ENGINEERINGBAY);
         if (engineeringBayFootprint === undefined) return [];
-        const engineeringBayCellInFootprints = this.threeByThreePositions.map(position => cellsInFootprint(position, engineeringBayFootprint));
+        const engineeringBayCellInFootprints = BuildingPlacement.threeByThreePositions.map(position => cellsInFootprint(position, engineeringBayFootprint));
         wallOffPositions.push(...engineeringBayCellInFootprints.flat());
       }
       const unitTypeFootprint = getFootprint(unitType);
+      /** @type {FootprintType | undefined} */
       let addonFootprint;
       if (addOnTypesMapping.has(unitType)) {
         addonFootprint = getFootprint(REACTOR); if (addonFootprint === undefined) return [];
@@ -743,24 +737,6 @@ class BuildingPlacement {
     }
     return placements;
   }
-  
-  /**
-   * Find potential building placements within the main base.
-   * @param {World} world
-   * @param {UnitTypeId} unitType
-   * @returns {Point2D[]}
-   */
-  static getInTheMain(world, unitType) {
-    const { map } = world.resources.get();
-    const mainBase = map.getMain();
-
-    if (!mainBase || !mainBase.areas) {
-      return []; // Return an empty array if mainBase or its areas are undefined
-    }
-
-    // Filter the placement grid to find suitable positions
-    return mainBase.areas.placementGrid.filter(grid => map.isPlaceableAt(unitType, grid));
-  }
 
   /**
    * Determines a valid position for a given unit type.
@@ -768,11 +744,11 @@ class BuildingPlacement {
    * @param {UnitTypeId} unitType
    * @param {Point3D[]} candidatePositions
    * @returns {false | Point2D}
-   */  
+   */
   static findPosition(world, unitType, candidatePositions) {
     const { gasMineTypes } = groupTypes;
     if (candidatePositions.length === 0) {
-      candidatePositions = this.findPlacements(world, unitType);
+      candidatePositions = BuildingPlacement.findPlacements(world, unitType);
     }
     const { agent, resources } = world;
     const { map } = resources.get();
@@ -783,7 +759,7 @@ class BuildingPlacement {
     candidatePositions = candidatePositions.filter(position => {
       const footprint = getFootprint(unitType); if (footprint === undefined) return false;
       const unitTypeCells = cellsInFootprint(position, footprint);
-      if (gasMineTypes.includes(unitType)) return this.isPlaceableAtGasGeyser(map, unitType, position);
+      if (gasMineTypes.includes(unitType)) return isPlaceableAtGasGeyser(map, unitType, position);
       const isPlaceable = unitTypeCells.every(cell => {
         const isPlaceable = map.isPlaceable(cell);
         const needsCreep = agent.race === Race.ZERG && unitType !== UnitType.HATCHERY;
@@ -798,61 +774,69 @@ class BuildingPlacement {
       .map(a => a.pos)
       .slice(0, 20);
     let foundPosition = getRandom(randomPositions);
-    const unitTypeName = Object.keys(UnitType).find(type => UnitType[type] === unitType);
+    const unitTypeName = Object.keys(UnitType).find(type => UnitType[/** @type {keyof UnitType} */(type)] === unitType);
     if (foundPosition) console.log(`Found position for ${unitTypeName}`, foundPosition);
     else console.log(`Could not find position for ${unitTypeName}`);
     return foundPosition;
   }
 
   /**
-   * Sets the building position for a specific unit type.
-   * @param {UnitTypeId} unitType
-   * @param {Point2D | false} position
+   * Retrieves positions near mineral lines.
+   * @param {ResourceManager} resources
+   * @returns {Point2D[]}
    */
-  static setBuildingPosition(unitType, position) {
-    if (GameState.legacyPlan.length > 0 && GameState.legacyPlan[currentStep][2] !== unitType) {
-      this.buildingPosition = this.buildingPosition || false;
+  static getMineralLines(resources) {
+    const { map, units } = resources.get();
+    const occupiedExpansions = map.getOccupiedExpansions();
+
+    /** @type {Point2D[]} */
+    const mineralLineCandidates = [];
+
+    occupiedExpansions.forEach(expansion => {
+      const [base] = units.getClosest(expansion.townhallPosition, units.getBases());
+      if (base) {
+        mineralLineCandidates.push(...gridsInCircle(avgPoints([...expansion.cluster.mineralFields.map(field => field.pos), base.pos, base.pos]), 0.6));
+      }
+    });
+
+    return mineralLineCandidates;
+  }
+
+
+  /**
+   * Extracts the unit type from the action property.
+   * @param {string} action - The action string from the plan step.
+   * @returns {number | null} The extracted unit type ID or null if not found.
+   */
+  static extractUnitTypeFromAction(action) {
+    const actionParts = action.split(' ');
+    const baseAction = actionParts[0].toUpperCase();
+
+    // Iterate over the keys of UnitType to find a match
+    for (const key in UnitType) {
+      if (Object.prototype.hasOwnProperty.call(UnitType, key) && key === baseAction) {
+        return UnitType[key];
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Finds placement for wall-off structures based on the unit type.
+   * @param {UnitTypeId} unitType
+   * @returns {Point2D[]}
+   */
+  static findWallOffPlacement(unitType) {
+    if (twoByTwoUnits.includes(unitType)) {
+      return BuildingPlacement.twoByTwoPositions;
+    } else if (addOnTypesMapping.has(unitType)) {
+      return BuildingPlacement.addOnPositions;
+    } else if (groupTypes.structureTypes.includes(unitType)) {
+      return BuildingPlacement.threeByThreePositions;
     } else {
-      this.buildingPosition = position;
+      return [];
     }
-  }
-
-  /**
-   * Determines a valid position for placing a building.
-   * @param {World} world
-   * @param {UnitTypeId} unitType
-   * @param {Point3D[]} candidatePositions
-   * @returns {false | Point2D}
-   */
-  static determineBuildingPosition(world, unitType, candidatePositions) {
-    let position = this.buildingPosition;
-    const validPosition = position && keepPosition(world, unitType, position, this.isPlaceableAtGasGeyser);
-
-    if (!validPosition) {
-      if (candidatePositions.length === 0) {
-        candidatePositions = this.findPlacements(world, unitType);
-      }
-      position = this.findPosition(world, unitType, candidatePositions);
-      if (!position) {
-        candidatePositions = this.findPlacements(world, unitType);
-        position = this.findPosition(world, unitType, candidatePositions);
-      }
-      this.setBuildingPosition(unitType, position);
-    }
-
-    return position || false;
-  }
-
-  /**
-   * Determines if a position is suitable for placing a building near a gas geyser.
-   * 
-   * @param {MapResource} map 
-   * @param {UnitTypeId} unitType
-   * @param {Point2D} position
-   * @returns {boolean}
-   */
-  static isPlaceableAtGasGeyser(map, unitType, position) {
-    return groupTypes.gasMineTypes.includes(unitType) && map.freeGasGeysers().some(gasGeyser => gasGeyser.pos && getDistance(gasGeyser.pos, position) <= 1);
   }
 
   /**
@@ -877,85 +861,35 @@ class BuildingPlacement {
       y += 0.5;
     }
     return { x, y };
-  }  
+  }
 
   /**
-   * Moves a builder to a position in preparation for building.
-   * @param {World} world 
-   * @param {Point2D} position 
+   * Sets the building position for a specific unit type.
    * @param {UnitTypeId} unitType
-   * @param {(world: World, position: Point2D) => {unit: Unit, timeToPosition: number} | undefined} getBuilderFunc
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+   * @param {Point2D | false} position
    */
-  static premoveBuilderToPosition(world, position, unitType, getBuilderFunc) {
-    const { constructionAbilities, gasMineTypes, workerTypes } = groupTypes;
-    const { agent, data, resources } = world;
-    if (earmarkThresholdReached(data)) return [];
-    const { debug, map, units } = resources.get();
-    const collectedActions = [];
-    position = this.getMiddleOfStructure(position, unitType);
-    const builder = getBuilderFunc(world, position);
-    if (builder) {
-      let { unit, timeToPosition, movementSpeedPerSecond } = getBuilderInformation(builder);
-      const { orders, pos } = unit; if (orders === undefined || pos === undefined) return collectedActions;
-      const closestPathablePositionBetweenPositions = getClosestPathWithGasGeysers(resources, pos, position);
-      const { pathCoordinates, pathableTargetPosition } = closestPathablePositionBetweenPositions;
-      if (debug !== undefined) {
-        debug.setDrawCells('prmv', getPathCoordinates(getMapPath(map, pos, pathableTargetPosition)).map(point => ({ pos: point })), { size: 1, cube: false });
-      }
-      let rallyBase = false;
-      let buildTimeLeft = 0;
-      const completedBases = units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1);
-      const [closestBaseByPath] = getClosestUnitByPath(resources, pathableTargetPosition, completedBases);
-      if (closestBaseByPath) {
-        const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
-        const [pathableStructurePosition] = getClosestPositionByPath(resources, pathableTargetPosition, pathablePositions);
-        const baseDistanceToPosition = getDistanceByPath(resources, pathableStructurePosition, pathableTargetPosition);
-        const workerCurrentlyTraining = closestBaseByPath.orders ?
-          closestBaseByPath.orders.some(order => {
-            const abilityId = order.abilityId;
-            if (abilityId === undefined) {
-              return false;
-            }
-            const unitTypeForAbility = unitTypeTrainingAbilities.get(abilityId);
-            return unitTypeForAbility !== undefined && workerTypes.includes(unitTypeForAbility);
-          }) :
-          false;
+  static setBuildingPosition(unitType, position) {
+    const strategyManager = StrategyManager.getInstance();
+    const currentStep = strategyManager.getCurrentStep();
+    const currentStrategy = strategyManager.getCurrentStrategy();
 
-        if (workerCurrentlyTraining) {
-          const { buildTime } = data.getUnitTypeData(WorkerRace[agent.race]);
-          const progress = closestBaseByPath.orders?.[0]?.progress;
-          if (buildTime === undefined || progress === undefined) return collectedActions;
-          buildTimeLeft = getBuildTimeLeft(closestBaseByPath, buildTime, progress);
-          let baseTimeToPosition = calculateBaseTimeToPosition(baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond);
-          rallyBase = timeToPosition > baseTimeToPosition;
-          timeToPosition = rallyBase ? baseTimeToPosition : timeToPosition;
-        }
-      }
-      const pendingConstructionOrder = getPendingOrders(unit).some(order => order.abilityId && constructionAbilities.includes(order.abilityId));
-      const unitCommand = builder ? createUnitCommand(Ability.MOVE, [unit], pendingConstructionOrder) : {};
-      const timeToTargetCost = getTimeToTargetCost(world, unitType);
-      const timeToTargetTech = getTimeToTargetTech(world, unitType);
-      const timeToTargetCostOrTech = timeToTargetTech > timeToTargetCost ? timeToTargetTech : timeToTargetCost;
-      const gameState = GameState.getInstance();
-      if (gameState.shouldPremoveNow(world, timeToTargetCostOrTech, timeToPosition)) {
-        if (agent.race === Race.PROTOSS && !gasMineTypes.includes(unitType)) {
-          if (pathCoordinates.length >= 2) {
-            const secondToLastPosition = pathCoordinates[pathCoordinates.length - 2];
-            position = avgPoints([secondToLastPosition, position, position]);
-          }
-        }
-        if (rallyBase) {
-          collectedActions.push(...handleRallyBase(world, unit, position));
-        } else {
-          collectedActions.push(...handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrderTargetPosition));
-        }
+    // Check if currentStrategy is defined
+    if (!currentStrategy) {
+      console.error('Current strategy is undefined.');
+      return;
+    }
+
+    const currentPlan = currentStrategy.steps;
+
+    if (currentPlan.length > 0) {
+      const planUnitType = BuildingPlacement.extractUnitTypeFromAction(currentPlan[currentStep].action);
+      if (planUnitType !== unitType) {
+        BuildingPlacement.buildingPosition = BuildingPlacement.buildingPosition || false;
       } else {
-        collectedActions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering));
+        BuildingPlacement.buildingPosition = position;
       }
     }
-    return collectedActions;
-  }
+  } 
 }
 
 module.exports = BuildingPlacement;

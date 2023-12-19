@@ -41,7 +41,6 @@ const planService = {
     gasMine: 0,
     supply: 0,
   },
-  planMin: {},
   /**
    * @param {{ orderType: string, unitType?: UnitTypeId?; food: number, targetCount?: number, upgrade?: number, candidatePositions?: Point2D[] }[]}  plan 
    */
@@ -71,10 +70,6 @@ const planService = {
   },
   rallies: [],
   scouts: [],
-  /** @type {number[]} */
-  trainingTypes: [],
-  /** @type {{}} */
-  unitMax: {},
   wallOff: null,
 }
 

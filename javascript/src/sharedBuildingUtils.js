@@ -11,13 +11,16 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 // Internal module imports
 const { stopOverlappingBuilders } = require("./buildingSharedUtils");
-const { setPendingOrders } = require("./common");
 const GameState = require("./gameState");
 const { getStructureAtPosition, getDistance, getAwayPosition, areApproximatelyEqual } = require("./geometryUtils");
 const MapResources = require("./mapResources");
-const { getPendingOrders, getMovementSpeed, getClosestUnitPositionByPath, isMoving, getBuildTimeLeft, getUnitsFromClustering } = require("./sharedUtils");
+const { getClosestUnitPositionByPath } = require("./pathfinding");
+const { isMoving, getBuildTimeLeft, getUnitsFromClustering } = require("./sharedUtils");
 const { unitTypeTrainingAbilities } = require("./unitConfig");
+const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand, getDistanceByPath, getTimeInSeconds } = require("./utils");
+const { getPendingOrders } = require("./utils/commonGameUtils");
+const { getMovementSpeed } = require("./utils/coreUtils");
 const { rallyWorkerToTarget } = require("./workerUtils");
 
 /**
@@ -55,6 +58,7 @@ function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrCon
     constructingStructure && MapResources.setPathableGrids(map, constructingStructure, false);
 
     let buildTimeLeft = 0;
+    /** @type {Point2D[]} */
     let supplyDepotCells = [];
     if (isSCV) {
       buildTimeLeft = getContructionTimeLeft(world, movingOrConstructingNonDrone);

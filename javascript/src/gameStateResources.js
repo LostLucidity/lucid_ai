@@ -10,8 +10,10 @@
 /** @type {Map<number, Point2D>} */
 const buildingPositions = new Map();
 
-/** @type {number} */
-let currentStep = -1; // Assuming currentStep is also a shared resource
+/** @type {{foodUsed: number}} */
+const foodData = {
+  foodUsed: 12,
+};
 
 /**
  * Function or methods to manipulate buildingPositions and other shared resources
@@ -36,19 +38,10 @@ function getBuildingPosition(key) {
   return buildingPositions.get(key);
 }
 
-/**
- * Updates the current step in the game state.
- * @param {number} step The new current step.
- */
-function updateCurrentStep(step) {
-  currentStep = step;
-}
-
 // Export the shared resources and utility functions
 module.exports = {
   buildingPositions,
-  currentStep,
+  foodData,
   setBuildingPosition,
   getBuildingPosition,
-  updateCurrentStep,
 };

@@ -68,16 +68,6 @@ class UnitRetrievalService {
     }, []);
   }
 
-  /**
-   * @param {World} world
-   * @returns {Unit[]}
-   */
-  getWorkers(world) {
-    const { agent, resources } = world;
-    const { race } = agent; if (race === undefined) return [];
-    return this.getById(resources, [groupTypes.workerTypes[race]])
-  }  
-
   resetCache() {
     this.productionUnitsCache.clear();
   }

@@ -8,12 +8,15 @@ const { Race, Attribute } = require('@node-sc2/core/constants/enums');
 // Internal module imports
 const { upgradeTypes } = require('./gameData');
 const GameState = require('./gameState');
-const { currentStep } = require('./gameStateResources');
 const { earmarks } = require('./resourceData');
 const { earmarkThresholdReached, getEarmarkedFood } = require('./resourceUtils');
+const StrategyManager = require('./strategyManager');
+const strategyManager = StrategyManager.getInstance();
 
 // Shared data structures
-let foodEarmarks = {}; // Example of a shared data structure
+/** @type {Map<string, number>} */
+let foodEarmarks = new Map();
+
 
 /**
  * @param {DataStorage} data 
@@ -30,7 +33,7 @@ function addEarmark(data, orderData) {
   if (earmarkThresholdReached(data) || name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
 
   const foodKey = `${foodUsed + getEarmarkedFood()}`;
-  const stepKey = `${currentStep}`;
+  const stepKey = `${strategyManager.getCurrentStep()}`;
   const fullKey = `${stepKey}_${foodKey}`;
 
   let minerals = 0;

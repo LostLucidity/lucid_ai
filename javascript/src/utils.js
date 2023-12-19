@@ -4,7 +4,7 @@
 // src/utils.js
 
 // External library imports from @node-sc2/core
-const { UnitType } = require("@node-sc2/core/constants");
+const { UnitType, Upgrade } = require("@node-sc2/core/constants");
 const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
@@ -15,9 +15,44 @@ const { isLineTraversable } = require("./mapUtils");
 const { getMapPath, getPathCoordinates } = require("./pathUtils");
 
 /**
- * @param {Map} map 
- * @param {any} targetValue
- * @returns {Array}
+ * Creates a unit command action.
+ * 
+ * @param {number} abilityId - The ability ID for the action.
+ * @param {Unit[]} units - The units to which the action applies.
+ * @param {boolean} [queue=false] - Whether or not to queue the action.
+ * @param {Point2D} [targetPos] - Optional target position for the action.
+ * 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand} - The unit command action.
+ */
+function createUnitCommand(abilityId, units, queue = false, targetPos) {
+  // Create an object with the structure of ActionRawUnitCommand
+  /** @type {SC2APIProtocol.ActionRawUnitCommand} */
+  const unitCommand = {
+    abilityId: abilityId,
+    unitTags: units.reduce((/** @type {string[]} */ acc, unit) => {
+      if (unit.tag !== undefined) {
+        acc.push(unit.tag);
+      }
+      return acc;
+    }, []),
+    queueCommand: queue
+  };
+
+  // Conditionally add targetWorldSpacePos if it is provided
+  if (targetPos) {
+    unitCommand.targetWorldSpacePos = targetPos;
+  }
+
+  return unitCommand;
+}
+
+/**
+ * Finds all keys in a map that correspond to a specific target value.
+ * 
+ * @param {Map<K, V>} map - The map to search through.
+ * @param {V} targetValue - The value to find the keys for.
+ * @returns {K[]} - An array of keys that correspond to the target value.
+ * @template K, V
  */
 function findKeysForValue(map, targetValue) {
   const keys = [];
@@ -118,11 +153,12 @@ function getDistanceByPath(resources, position, targetPosition) {
 
       for (let i = 1; i < pathCoordinates.length; i++) {
         const point = pathCoordinates[i];
-        const segment = [currentSegmentStart, point];
+        const previousPoint = pathCoordinates[i - 1];
 
-        if (!isLineTraversable(map, segment)) {
-          straightLineSegments.push([currentSegmentStart, pathCoordinates[i - 1]]);
-          currentSegmentStart = pathCoordinates[i - 1];
+        // Corrected usage of isLineTraversable with required three arguments
+        if (!isLineTraversable(map, previousPoint, point)) {
+          straightLineSegments.push([currentSegmentStart, previousPoint]);
+          currentSegmentStart = point;
         }
       }
 
@@ -169,32 +205,67 @@ function getLine(start, end, steps = 0) {
 }
 
 /**
- * Creates a unit command action.
- * 
- * @param {AbilityId} abilityId - The ability ID for the action.
- * @param {Unit[]} units - The units to which the action applies.
- * @param {boolean} queue - Whether or not to queue the action.
- * @param {Point2D} [targetPos] - Optional target position for the action.
- * 
- * @returns {SC2APIProtocol.ActionRawUnitCommand} - The unit command action.
+ * @param {World} world 
+ * @param {UnitTypeId} unitTypeId 
+ * @returns {boolean}
  */
-function createUnitCommand(abilityId, units, queue = false, targetPos) {
-  const unitCommand = {
-    abilityId,
-    unitTags: units.reduce((/** @type {string[]} */ acc, unit) => {
-      if (unit.tag !== undefined) {
-        acc.push(unit.tag);
-      }
-      return acc;
-    }, []),
-    queueCommand: queue,
+function canBuild(world, unitTypeId) {
+  const { agent } = world;
+  return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && (!isSupplyNeeded(world) || unitTypeId === UnitType.OVERLORD)
+}
+
+/**
+ * @param {number} frames 
+ * @returns {number}
+ */
+function getTimeInSeconds(frames) {
+  return frames / 22.4;
+}
+
+/**
+ * @typedef {Object} BuildOrderStep
+ * @property {string} supply - The supply count at this step.
+ * @property {string} time - The game time for this step.
+ * @property {string} action - The action to be taken at this step.
+ */
+
+/**
+ * @typedef {Object} InterpretedStep
+ * @property {number} supply - The supply count at this step.
+ * @property {string} time - The game time for this step.
+ * @property {string} action - The action to be taken at this step.
+ * @property {number} unitType - The unit type associated with this step.
+ * @property {number} upgrade - The upgrade associated with this step.
+ * @property {number} count - The number of units or upgrades.
+ * @property {boolean} isChronoBoosted - Whether the action is Chrono Boosted.
+ */
+
+/**
+ * Interprets a build order step and converts it into a PlanStep object.
+ * @param {BuildOrderStep} step - A step from the build order.
+ * @returns {InterpretedStep} A PlanStep object.
+ */
+function interpretBuildOrderStep(step) {
+  const actionParts = step.action.split(' ');
+  const baseAction = actionParts[0].toUpperCase();
+
+  let unitType = safeGetProperty(UnitType, baseAction) || UnitType.INVALID;
+  let upgrade = safeGetProperty(Upgrade, baseAction) || Upgrade.NULL;
+
+  let isUpgrade = upgrade !== Upgrade.NULL;
+  let isChronoBoosted = step.action.includes('Chrono Boost');
+  let count = actionParts.includes('x') ? parseInt(actionParts[actionParts.indexOf('x') + 1], 10) : 1;
+
+  return {
+    supply: parseInt(step.supply, 10),
+    time: step.time,
+    action: step.action, // Include the 'action' property as required by InterpretedStep type
+    unitType: isUpgrade ? UnitType.INVALID : unitType,
+    upgrade: isUpgrade ? upgrade : Upgrade.NULL,
+    count: count,
+    isChronoBoosted: isChronoBoosted,
+    // Add other relevant properties here
   };
-
-  if (targetPos) {
-    unitCommand.targetWorldSpacePos = targetPos;
-  }
-
-  return unitCommand;
 }
 
 /**
@@ -206,6 +277,9 @@ function isSupplyNeeded(world, buffer = 0) {
   const { agent, data, resources } = world;
   const { foodCap, foodUsed } = agent;
   const { units } = resources.get();
+  if (agent.race === undefined) {
+    return false; // Skip logic if the race is not defined
+  }
   const supplyUnitId = SupplyUnitRace[agent.race];
   const unitTypeData = data.getUnitTypeData(supplyUnitId);
 
@@ -229,24 +303,22 @@ function isSupplyNeeded(world, buffer = 0) {
 }
 
 /**
- * @param {World} world 
- * @param {UnitTypeId} unitTypeId 
- * @returns {boolean}
+ * @typedef {Object.<string, number>} Dictionary
+ * Represents a dictionary object with string keys and number values.
  */
-function canBuild(world, unitTypeId) {
-  const { agent } = world;
-  return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && (!isSupplyNeeded(world) || unitTypeId === UnitType.OVERLORD)
-}
 
 /**
- * @param {number} frames 
- * @returns {number}
+ * Safely gets a property value from an object.
+ * @param {Dictionary} obj - The object from which to retrieve the property.
+ * @param {string} key - The key of the property to retrieve.
+ * @returns {number|undefined} The value of the property, or undefined if not found.
  */
-function getTimeInSeconds(frames) {
-  return frames / 22.4;
+function safeGetProperty(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined;
 }
 
 module.exports = {
+  createUnitCommand,
   findKeysForValue,
   getFoodUsedByUnitType,
   getPathablePositionsForStructure,
@@ -254,7 +326,7 @@ module.exports = {
   getUnitsWithinDistance,
   getDistanceByPath,
   getLine,
-  createUnitCommand,
+  interpretBuildOrderStep,
   isSupplyNeeded,
   canBuild,
   getTimeInSeconds,

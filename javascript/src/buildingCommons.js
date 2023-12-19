@@ -10,10 +10,11 @@ const { createPoint2D } = require('@node-sc2/core/utils/geometry/point');
 const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
 
 // Local File Imports
+const { buildUnitTypeMap } = require('./gameData');
 const GameState = require('./gameState');
 const { buildingPositions } = require('./gameStateResources');
 const { getDistance } = require('./geometryUtils');
-const { getPendingOrders } = require('./sharedUtils');
+const { getPendingOrders } = require('./utils/commonGameUtils');
 
 /**
  * Retrieves detailed information about a builder unit.
@@ -28,40 +29,20 @@ function getBuilderInformation(builder) {
 }
 
 /**
- * Determines if a position should be kept for building construction.
- * @param {World} world - The game world context.
- * @param {UnitTypeId} unitType - The unit type ID for the building.
- * @param {Point2D} position - The position to evaluate.
- * @param {(map: MapResource, unitType: number, position: Point2D) => boolean} isPlaceableAtGasGeyser - Injected dependency from buildingPlacement.js
- * @returns {boolean} - Whether the position should be kept.
- */
-function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
-  const { agent, resources } = world;
-  const { race } = agent; if (race === undefined) { return false; }
-  const { map, units } = resources.get();
-
-  // Check if the position is valid on the map and for gas geysers
-  let validMapPlacement = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
-
-  // For Protoss, check for Pylon presence if the unit is not a Pylon itself
-  if (race === Race.PROTOSS && unitType !== UnitType.PYLON) {
-    const pylonExists = units.getById(UnitType.PYLON).some(pylon => pylon.isPowered);
-    validMapPlacement = validMapPlacement && pylonExists;
-  }
-
-  return validMapPlacement;
-}
-
-
-/**
  * @param {World} world
  * @returns {Point2D[]}
  */
 function getCurrentlyEnrouteConstructionGrids(world) {
   const { constructionAbilities } = groupTypes;
-  const { data, resources } = world;
+  const { resources } = world;
   const { units } = resources.get();
-  const contructionGrids = [];
+
+  /** @type {Point2D[]} */
+  const constructionGrids = [];
+
+  const UnitTypeMap = buildUnitTypeMap(world.data.getUnitTypeData);
+
+  const gameState = GameState.getInstance();
 
   units.getWorkers().forEach(worker => {
     const { orders } = worker;
@@ -94,10 +75,13 @@ function getCurrentlyEnrouteConstructionGrids(world) {
       );
 
       if (buildingStep) {
-        const buildingType = GameState.legacyPlan[buildingStep[0]][2];
-        const footprint = getFootprint(buildingType);
-        if (footprint && 'w' in footprint && 'h' in footprint) {
-          contructionGrids.push(...cellsInFootprint(createPoint2D(intendedConstructionLocation), footprint));
+        const stepNumber = buildingStep[0];
+        const buildingType = gameState.getBuildingTypeByStepNumber(stepNumber);
+        if (buildingType !== undefined) {
+          const footprint = getFootprint(buildingType);
+          if (footprint && 'w' in footprint && 'h' in footprint) {
+            constructionGrids.push(...cellsInFootprint(createPoint2D(intendedConstructionLocation), footprint)); // Use the correct variable name
+          }
         }
       }
     }
@@ -105,18 +89,47 @@ function getCurrentlyEnrouteConstructionGrids(world) {
     if (worker.isConstructing() || isPendingContructing(worker)) {
       const foundOrder = allOrders.find(order => order.abilityId && constructionAbilities.includes(order.abilityId));
       if (foundOrder && foundOrder.targetWorldSpacePos) {
-        const foundUnitTypeName = Object.keys(UnitType).find(unitType => data.getUnitTypeData(UnitType[unitType]).abilityId === foundOrder.abilityId);
+        // Find the unit type name associated with the found order's abilityId
+        const foundUnitTypeName = Object.keys(UnitTypeMap).find(unitTypeName =>
+          UnitTypeMap[unitTypeName] === foundOrder.abilityId
+        );
+
         if (foundUnitTypeName) {
-          const footprint = getFootprint(UnitType[foundUnitTypeName]);
+          const footprint = getFootprint(UnitTypeMap[foundUnitTypeName]);
           if (footprint && 'w' in footprint && 'h' in footprint) {
-            contructionGrids.push(...cellsInFootprint(createPoint2D(foundOrder.targetWorldSpacePos), footprint));
+            constructionGrids.push(...cellsInFootprint(createPoint2D(foundOrder.targetWorldSpacePos), footprint));
           }
         }
       }
     }
   });
 
-  return contructionGrids;
+  return constructionGrids;
+}
+
+/**
+ * Determines if a position should be kept for building construction.
+ * @param {World} world - The game world context.
+ * @param {UnitTypeId} unitType - The unit type ID for the building.
+ * @param {Point2D} position - The position to evaluate.
+ * @param {(map: MapResource, unitType: number, position: Point2D) => boolean} isPlaceableAtGasGeyser - Injected dependency from buildingPlacement.js
+ * @returns {boolean} - Whether the position should be kept.
+ */
+function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
+  const { agent, resources } = world;
+  const { race } = agent; if (race === undefined) { return false; }
+  const { map, units } = resources.get();
+
+  // Check if the position is valid on the map and for gas geysers
+  let validMapPlacement = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
+
+  // For Protoss, check for Pylon presence if the unit is not a Pylon itself
+  if (race === Race.PROTOSS && unitType !== UnitType.PYLON) {
+    const pylonExists = units.getById(UnitType.PYLON).some(pylon => pylon.isPowered);
+    validMapPlacement = validMapPlacement && pylonExists;
+  }
+
+  return validMapPlacement;
 }
 
 /**

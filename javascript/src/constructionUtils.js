@@ -13,13 +13,14 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 const { isPendingContructing } = require('./buildingCommons');
 const BuildingPlacement = require('./buildingPlacement');
 const { stopOverlappingBuilders } = require('./buildingSharedUtils');
-const { setPendingOrders } = require('./common');
 // eslint-disable-next-line no-unused-vars
 const GameState = require('./gameState');
 const { addEarmark } = require('./resourceUtils');
 const { setBuilderLabel } = require('./sharedBuildingUtils');
-const { getMovementSpeed, getClosestPathWithGasGeysers, ability } = require('./sharedUtils');
+const { getClosestPathWithGasGeysers, ability } = require('./sharedUtils');
+const { setPendingOrders } = require('./unitOrders');
 const { createUnitCommand } = require('./utils');
+const { getMovementSpeed } = require('./utils/coreUtils');
 const { isIdleOrAlmostIdle } = require('./workerUtils');
 
 /**
@@ -73,6 +74,8 @@ function gatherCandidateWorkersTimeToPosition(resources, position, movingOrConst
 function morphStructureAction(world, unitType) {
   const { CYCLONE, LAIR } = UnitType;
   const { agent, data } = world;
+
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
   // use unitType for LAIR with CYCLONE when can afford as LAIR data is inflated by the cost of a HATCHERY
   if (agent.canAfford(unitType === LAIR ? CYCLONE : unitType)) {
@@ -105,7 +108,7 @@ function commandBuilderToConstruct(world, builder, unitType, position) {
     setBuilderLabel(builder);
     const unitCommand = createUnitCommand(abilityId, [builder]);
 
-    if (GasMineRace[agent.race] === unitType) {
+    if (agent.race !== undefined && GasMineRace[agent.race] === unitType) {
       const closestGasGeyser = units.getClosest(position, units.getGasGeysers())[0];
       if (closestGasGeyser) {
         unitCommand.targetUnitTag = closestGasGeyser.tag;

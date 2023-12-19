@@ -7,12 +7,14 @@ const { Race } = require('@node-sc2/core/constants/enums');
 
 // Internal module imports
 const BuildingPlacement = require('./buildingPlacement');
-const { buildSupply, shouldTrainMoreWorkers, trainAdditionalWorkers, calculateMaxWorkers } = require('./economyManagement');
+const { buildSupply } = require('./buildingService');
+const { shouldTrainMoreWorkers, trainAdditionalWorkers, calculateMaxWorkers } = require('./economyManagement');
 const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
 const { calculateAdjacentToRampGrids } = require('./mapUtils');
 const { prepareEarlyScouting } = require('./scoutingUtils');
-const { refreshProductionUnitsCache } = require('./unitManagement');
+const { runPlan } = require('./strategyService');
+const { refreshProductionUnitsCache, manageZergSupply } = require('./unitManagement');
 const { assignWorkers, balanceWorkerDistribution, reassignIdleWorkers } = require('./workerAssignment');
 const config = require('../config/config');
 
@@ -21,9 +23,6 @@ const gameState = new GameState();
 
 /** @type {number} Variable to store the bot's race */
 let botRace;
-
-/** @type {number} Track the total number of workers */
-let totalWorkers = 0;
 
 /** @type {number} Maximum number of workers */
 let maxWorkers = 0;
@@ -101,17 +100,16 @@ const bot = createAgent({
       const { actions } = world.resources.get();
       await actions.sendAction(actionCollection);
     } catch (error) {
-      logError('Error during initial setup:', error);
+      // Check if error is an instance of Error
+      if (error instanceof Error) {
+        logError('Error during initial setup:', error);
+      } else {
+        // Handle cases where the error is not an Error instance
+        logError('An unknown error occurred during initial setup');
+      }
     }
   },
 
-  /**
-   * Handler for each game step. This function orchestrates various actions based on the current game state.
-   * It updates worker distribution, builds supply structures if needed, and trains additional workers.
-   * Future enhancements can include logic for scouting, unit production, tech upgrades, and other strategic actions.
-   * 
-   * @param {World} world - The game context, including resources and actions.
-   */
   async onStep(world) {
     // Refresh production units cache
     refreshProductionUnitsCache();
@@ -120,22 +118,36 @@ const bot = createAgent({
     const { agent } = world;
 
     // Update worker counts
-    totalWorkers = units.getWorkers().length;
+    let totalWorkers = units.getWorkers().length;
     updateMaxWorkers(units);
 
-    // Collect actions for batch processing
-    const actionCollection = [
-      ...balanceWorkerDistribution(units, world.resources),
-      ...buildSupply(world),
-    ];
+    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+    let actionCollection = [];
+
+    // Execute the game plan and collect actions
+    const planActions = runPlan(world);
+    if (planActions && planActions.length > 0) {
+      actionCollection = actionCollection.concat(planActions);
+    }
+
+    // Collect worker and supply management actions
+    actionCollection = actionCollection.concat(
+      balanceWorkerDistribution(world, units, world.resources),
+      buildSupply(world)
+    );
+
+    // Manage Zerg race specific actions
+    if (agent.race === Race.ZERG) {
+      actionCollection = actionCollection.concat(manageZergSupply(world));
+    }
 
     // Additional worker training
     if (shouldTrainMoreWorkers(totalWorkers, maxWorkers)) {
-      actionCollection.push(...trainAdditionalWorkers(world, agent, units.getBases()));
+      actionCollection = actionCollection.concat(trainAdditionalWorkers(world, agent, units.getBases()));
     }
 
     // Reassign idle workers
-    reassignIdleWorkers(world);
+    actionCollection = actionCollection.concat(reassignIdleWorkers(world));
 
     // Send collected actions in a batch
     try {
@@ -143,10 +155,9 @@ const bot = createAgent({
         await actions.sendAction(actionCollection);
       }
     } catch (error) {
-      console.error('Error sending actions:', error);
+      console.error('Error sending actions in onStep:', error);
     }
-  }
-,
+  },
 
   /**
    * Handler for game end events.
@@ -171,4 +182,3 @@ engine.connect().then(() => {
 });
 
 module.exports = bot;
-

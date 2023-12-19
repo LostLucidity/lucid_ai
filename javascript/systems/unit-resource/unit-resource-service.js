@@ -18,8 +18,6 @@ const unitResourceService = {
   flyingStructures: new Map(),
   /** @type {Unit[] | null} */
   gasGeysers: null,
-  /** @type {Point2D[]} */
-  landingGrids: [],
   /** @type {{}} */
   unitTypeData: {},
   /** @type {Unit[] | null} */
@@ -52,19 +50,6 @@ const unitResourceService = {
   },
   deleteLabel(units, label) {
     units.withLabel(label).forEach(pusher => pusher.labels.delete(label));
-  },
-  /**
-   * @param {UnitResource} units
-   * @returns {UnitTypeId[]}
-   */
-  getExistingTrainingTypes(units) {
-    return units.getAlive().reduce((/** @type {UnitTypeId[]} */ types, unit) => {
-      const { unitType } = unit; if (unitType === undefined) { return types; }
-      if (types.includes(unitType)) {
-        return types;
-      }
-      return [...types, unitType];
-    }, []);
   },
   /**
    * 

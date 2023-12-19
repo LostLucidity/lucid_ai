@@ -38,8 +38,29 @@ const upgradeTypes = new Map([
   [UnitType.HATCHERY, [UnitType.LAIR]],
 ]);
 
-/** @type {{ [unitTypeId: number]: ExtendedUnitTypeData  }} */
+/** @type {{ [unitTypeId: number]: ExtendedUnitTypeData }} */
 const unitTypeData = {};
+
+/**
+ * Builds a map from unit names to their ability IDs.
+ * @param {function(number): SC2APIProtocol.UnitTypeData} getUnitTypeDataFn
+ * @returns {import('./common').UnitTypeMap}
+ */
+function buildUnitTypeMap(getUnitTypeDataFn) {
+  /** @type {import('./common').UnitTypeMap} */
+  const map = {};
+
+  const allUnitTypeIds = getAllUnitTypeIds(); // Implement this function
+
+  allUnitTypeIds.forEach(id => {
+    const data = getUnitTypeDataFn(id);
+    if (data && data.name && data.abilityId !== undefined) {
+      map[data.name] = data.abilityId;
+    }
+  });
+
+  return map;
+}
 
 /**
  * Retrieves the ability IDs for unit addons.
@@ -60,6 +81,31 @@ function getAbilityIdsForAddons(data, unitType) {
   }
 
   return abilityIds;
+}
+
+/**
+ * Returns a list of all unit type IDs.
+ * @returns {number[]}
+ */
+function getAllUnitTypeIds() {
+  return Object.values(UnitType);
+}
+
+/**
+ * Retrieves the ability IDs for reactor types.
+ * @param {DataStorage} data
+ * @returns {AbilityId[]}
+ */
+function getReactorAbilities(data) {
+  /** @type {AbilityId[]} */
+  const reactorAbilities = [];
+  reactorTypes.forEach(type => {
+    const unitTypeData = data.getUnitTypeData(type);
+    if (unitTypeData && unitTypeData.abilityId !== undefined) {
+      reactorAbilities.push(unitTypeData.abilityId);
+    }
+  });
+  return reactorAbilities;
 }
 
 /**
@@ -100,28 +146,19 @@ function getTimeToTargetTech(world, unitType) {
 }
 
 /**
- * Retrieves the ability IDs for reactor types.
- * @param {DataStorage} data
- * @returns {AbilityId[]}
- */
-function getReactorAbilities(data) {
-  const reactorAbilities = [];
-  reactorTypes.forEach(type => {
-    reactorAbilities.push(data.getUnitTypeData(type).abilityId);
-  });
-  return reactorAbilities;
-}
-
-/**
  * Retrieves ability IDs associated with Tech Labs.
  * 
  * @param {DataStorage} data 
  * @returns {AbilityId[]}
  */
 function getTechlabAbilities(data) {
+  /** @type {AbilityId[]} */
   const techlabAbilities = [];
   techLabTypes.forEach(type => {
-    techlabAbilities.push(data.getUnitTypeData(type).abilityId);
+    const unitTypeData = data.getUnitTypeData(type);
+    if (unitTypeData && unitTypeData.abilityId !== undefined) {
+      techlabAbilities.push(unitTypeData.abilityId);
+    }
   });
   return techlabAbilities;
 }
@@ -143,9 +180,13 @@ function getUnitTypeData(unitTypeId) {
  * @returns {UnitTypeId[]}
  */
 function getUnitTypesWithAbilities(data, abilityIds) {
+  /** @type {UnitTypeId[]} */
   const unitTypesWithAbilities = [];
   abilityIds.forEach(abilityId => {
-    unitTypesWithAbilities.push(...data.findUnitTypesWithAbility(abilityId));
+    const unitTypes = data.findUnitTypesWithAbility(abilityId);
+    if (unitTypes && unitTypes.length > 0) {
+      unitTypesWithAbilities.push(...unitTypes);
+    }
   });
   return unitTypesWithAbilities;
 }
@@ -191,6 +232,7 @@ function setUnitTypeData(unitTypeId, data) {
 module.exports = {
   upgradeTypes,
   unitTypeData,
+  buildUnitTypeMap,
   getTimeToTargetTech,
   getAbilityIdsForAddons,
   getUnitTypeData,

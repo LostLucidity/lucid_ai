@@ -4,91 +4,15 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities, mineralFieldTypes } = require("@node-sc2/core/constants/groups");
 const { COMMANDCENTER, MULE } = require("@node-sc2/core/constants/unit-type");
-const getRandom = require("@node-sc2/core/utils/get-random");
+
 const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const { upgradeTypes } = require("../helper/groups");
 const { gather } = require("../services/resource-manager-service");
 const { mine, getPendingOrders, setPendingOrders } = require("../services/unit-service");
-const { getGatheringWorkers, isMining } = require("./unit-resource/unit-resource-service");
-const { shuffle } = require("../helper/utilities");
-const { getDistance } = require("../services/position-service");
-const { canAttack } = require("../services/resources-service");
-const enemyTrackingService = require("../src/services/enemy-tracking/enemy-tracking-service");
-const { getClosestPathWithGasGeysers } = require("../src/services/utility-service");
+
 const debugSilly = require('debug')('sc2:silly:WorkerBalance');
 
 const manageResources = {
-  /**
-   * @param {World} world
-   * @param {number} targetRatio
-   */
-  balanceResources: async (world, targetRatio = 16 / 6) => {
-    const { agent, data, resources } = world;
-    const { minerals, vespene } = agent; if (minerals === undefined || vespene === undefined) return;
-    const { actions, units } = resources.get();
-    targetRatio = isNaN(targetRatio) ? 16 / 6 : targetRatio;
-    const maxRatio = 32 / 6;
-    const increaseRatio = targetRatio > maxRatio || (vespene > 512 && minerals < 512);
-    targetRatio = increaseRatio ? maxRatio : targetRatio;
-    const needyGasMines = getNeedyGasMines(units);
-    const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
-    const mineralMinerCountRatio = mineralMinerCount / vespeneMinerCount;
-    const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
-    const needyBase = units.getBases(readySelfFilter).find(base => {
-      const { assignedHarvesters, idealHarvesters } = base; if (assignedHarvesters === undefined || idealHarvesters === undefined) return false;
-      return assignedHarvesters < idealHarvesters;
-    });
-    if (mineralMinerCountRatio > targetRatio) {
-      const decreaseRatio = (mineralMinerCount - 1) / (vespeneMinerCount + 1);
-      if ((mineralMinerCountRatio + decreaseRatio) / 2 >= targetRatio) {
-        if (needyGasMines.length > 0) {
-          const townhalls = units.getBases(readySelfFilter);
-          // const possibleDonerThs = townhalls.filter(townhall => townhall.assignedHarvesters > needyGasMine.assignedHarvesters + 1);
-          // debugSilly('possible ths', possibleDonerThs.map(th => th.tag));
-          // const [givingTownhall] = units.getClosest(needyGasMine.pos, possibleDonerThs);
-          debugSilly('possible ths', townhalls.map(th => th.tag));
-          const needyGasMine = getRandom(needyGasMines);
-          const { pos } = needyGasMine;
-          if (pos === undefined) return;
-          const [givingTownhall] = units.getClosest(pos, townhalls);
-          const gatheringMineralWorkers = units.getWorkers()
-            .filter(unit => unit.orders.some(order => {
-              return (
-                [...gatheringAbilities].includes(order.abilityId) &&
-                order.targetUnitTag &&
-                mineralFieldTypes.includes(units.getByTag(order.targetUnitTag).unitType)
-              );
-            }));
-          debugSilly('possible doners', gatheringMineralWorkers.map(worker => worker.tag));
-          if (givingTownhall && gatheringMineralWorkers.length > 0) {
-            debugSilly('chosen closest th', givingTownhall.tag);
-            const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringMineralWorkers);
-            debugSilly('chosen worker', donatingWorker.tag);
-            await actions.mine([donatingWorker], needyGasMine, false);
-            setPendingOrders(donatingWorker, mine(donatingWorker, needyGasMine, false));
-          }
-        } else {
-          gasMineCheckAndBuild({ agent, data, resources })
-        }
-      }
-    } else if (mineralMinerCountRatio === targetRatio) {
-      return;
-    } else if (needyBase && mineralMinerCountRatio < targetRatio) {
-      const { pos: basePos } = needyBase; if (basePos === undefined) return;
-      const increaseRatio = (mineralMinerCount + 1) / (vespeneMinerCount - 1);
-      if ((mineralMinerCountRatio + increaseRatio) / 2 <= targetRatio) {
-        const gasMines = units.getAlive(readySelfFilter).filter(u => u.isGasMine());
-        const [givingGasMine] = units.getClosest(basePos, gasMines);
-        const gatheringGasWorkers = getGatheringWorkers(units, "vespene").filter(worker => !isMining(units, worker));
-        if (givingGasMine && gatheringGasWorkers.length > 0) {
-          debugSilly('chosen closest th', givingGasMine.tag);
-          const [donatingWorker] = units.getClosest(givingGasMine.pos, gatheringGasWorkers);
-          debugSilly('chosen worker', donatingWorker.tag);
-          await actions.gather(donatingWorker, null, false);
-        }
-      }
-    }
-  },
   /**
    * @param {ResourceManager} resources
    * @param {Unit} unit

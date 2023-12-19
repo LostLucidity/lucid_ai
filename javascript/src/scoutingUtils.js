@@ -7,14 +7,32 @@
 const { Ability } = require('@node-sc2/core/constants');
 
 // Shared utility functions
+const { getDistance } = require('./geometryUtils');
 const { findEnemyBase } = require('./mapUtils');
-const { calculateDistance } = require('./sharedUtils');
+const { calculateDistance } = require('./utils/coreUtils');
 
 /**
  * Array to keep track of mapped enemy units.
  * @type {Unit[]}
  */
 const mappedEnemyUnits = [];
+
+/**
+ * Finds enemy units near a given unit.
+ * @param {UnitResource} units - The units resource object from the bot.
+ * @param {Unit} unit - The unit to check for nearby enemy units.
+ * @param {number} radius - The radius to check for enemy units.
+ * @returns {Unit[]} Array of enemy units near the given unit.
+ */
+function findEnemyUnitsNear(units, unit, radius) {
+  if (!unit.pos) return [];
+  const enemyUnits = Array.from(units._units[4].values()); // 4 represents Enemy
+
+  return enemyUnits.filter(enemyUnit => {
+    const distance = getDistance(unit.pos, enemyUnit.pos);
+    return distance !== undefined && distance < radius;
+  });
+}
 
 /**
  * Prepares scouting actions for a worker to scout the enemy base.
@@ -75,5 +93,6 @@ function selectScout(workers, mainBaseLocation) {
 // Export the function(s)
 module.exports = {
   mappedEnemyUnits,
+  findEnemyUnitsNear,
   prepareEarlyScouting,
 };

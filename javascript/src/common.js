@@ -3,8 +3,10 @@
 
 const { getDistance } = require("./geometryUtils");
 
-// common.js
-// Example: Functions shared between utils.js and pathfinding.js
+/**
+ * @typedef {Object.<string, number>} UnitTypeMap
+ */
+
 /**
  * Compares two positions for equality.
  *
@@ -56,19 +58,6 @@ function getClosestPathablePositions(map, position) {
 }
 
 /**
-* @param {Unit} unit 
-* @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand
-* @returns {void}
-*/
-function setPendingOrders(unit, unitCommand) {
-  if (unit['pendingOrders']) {
-    unit['pendingOrders'].push(unitCommand);
-  } else {
-    unit['pendingOrders'] = [unitCommand];
-  }
-}
-
-/**
  * Converts an ActionRawUnitCommand to an SC2APIProtocol.Action.
  * @param {SC2APIProtocol.ActionRawUnitCommand} cmd - The command to convert.
  * @returns {SC2APIProtocol.Action} The converted action.
@@ -86,6 +75,5 @@ function convertToAction(cmd) {
 module.exports = {
   areEqual,
   getClosestPathablePositions,
-  setPendingOrders,
   convertToAction,
 };

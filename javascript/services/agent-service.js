@@ -7,8 +7,6 @@ const { Race, Attribute } = require("@node-sc2/core/constants/enums");
 const agentService = {
   /** @type {number | null} */
   difficulty: null,
-  /** @type {Map<number, boolean>} */
-  hasTechFor: new Map(),
   /**
    * @param {Agent} agent
    * @param {SC2APIProtocol.UnitTypeData} unitTypeData

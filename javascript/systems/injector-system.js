@@ -12,7 +12,6 @@ const { shuffle } = require("../helper/utilities");
 const { getTimeInSeconds } = require("../services/frames-service");
 const planService = require("../services/plan-service");
 const { getDistance } = require("../services/position-service");
-const { getClosestUnitPositionByPath } = require("../services/resource-manager-service");
 const { getMovementSpeed, getPendingOrders, setPendingOrders } = require("../services/unit-service");
 const pathFindingService = require("../src/services/pathfinding/pathfinding-service");
 const { createUnitCommand } = require("../src/shared-utilities/command-utilities");

@@ -6,26 +6,108 @@
 // External library imports
 const { UnitType } = require('@node-sc2/core/constants');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
-const groupTypes = require('@node-sc2/core/constants/groups');
-const { WorkerRace, TownhallRace } = require('@node-sc2/core/constants/race-map');
+const { gatheringAbilities, mineralFieldTypes } = require('@node-sc2/core/constants/groups');
+const { WorkerRace, GasMineRace } = require('@node-sc2/core/constants/race-map');
+const getRandom = require('@node-sc2/core/utils/get-random');
 
-// Building and construction utilities
-const { commandPlaceBuilding } = require('./builderUtils');
-const BuildingPlacement = require('./buildingPlacement');
-const { findBestPositionForAddOn } = require('./buildingUnitHelpers');
-const { morphStructureAction, commandBuilderToConstruct, buildWithNydusNetwork } = require('./constructionUtils');
-const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require('./gameData');
 const GameState = require('./gameState');
-const MapResources = require('./mapResources');
-const { getNextSafeExpansions } = require('./mapUtils');
-const { getTimeUntilCanBeAfforded } = require('./resourceManagement');
-const { addEarmark, getMineralFieldsNearby, getGasGeysersNearby } = require('./resourceUtils');
-// Unit management and actions
-const { calculateDistance } = require('./sharedUtils');
-const { prepareUnitToBuildAddon } = require('./unitActions');
-const { getUnitsCapableToAddOn, getTimeUntilUnitCanBuildAddon, addAddOn, train, getProductionUnits } = require('./unitManagement');
-const { createUnitCommand, isSupplyNeeded, canBuild } = require('./utils');
-const config = require('../config/config');
+const { foodData } = require('./gameStateResources');
+const { getById } = require('./gameUtils');
+const { gasMineCheckAndBuild } = require('./resourceManagement');
+const { getMineralFieldsNearby, getGasGeysersNearby } = require('./resourceUtils');
+const StrategyManager = require('./strategyManager');
+const strategyManager = StrategyManager.getInstance();
+const { mine } = require('./unitActions');
+const { getProductionUnits, getFoodDifference, haveAvailableProductionUnitsFor, unitProductionAvailable } = require('./unitManagement');
+const { createUnitCommand, canBuild } = require('./utils');
+const { getPendingOrders } = require('./utils/commonGameUtils');
+const { calculateDistance } = require('./utils/coreUtils');
+const { getGatheringWorkers, gather } = require('./workerAssignment');
+const { shortOnWorkers, setWorkersTrainingTendedTo, isMining } = require('./workerUtils');
+
+/**
+ * Balances the resources based on the target ratio.
+ * @param {World} world - The game world context.
+ * @param {number} targetRatio - The target ratio of minerals to vespene gas.
+ * @param {(world: World, unitType: number, targetCount?: number | undefined, candidatePositions?: Point2D[] | undefined) => SC2APIProtocol.ActionRawUnitCommand[]} buildFunction - The function to build the gas mine.
+ */
+const balanceResources = (world, targetRatio = 16 / 6, buildFunction) => {
+  const { agent, resources } = world;
+  const { minerals, vespene } = agent;
+  if (minerals === undefined || vespene === undefined) return [];
+  const { units } = resources.get();
+  targetRatio = isNaN(targetRatio) ? 16 / 6 : targetRatio;
+  const maxRatio = 32 / 6;
+  const increaseRatio = targetRatio > maxRatio || (vespene > 512 && minerals < 512);
+  targetRatio = increaseRatio ? maxRatio : targetRatio;
+  const needyGasMines = getNeedyGasMines(units);
+  const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
+  const mineralMinerCountRatio = mineralMinerCount / vespeneMinerCount;
+  const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
+  const needyBase = units.getBases(readySelfFilter).find(base => {
+    const { assignedHarvesters, idealHarvesters } = base;
+    if (assignedHarvesters === undefined || idealHarvesters === undefined) return false;
+    return assignedHarvesters < idealHarvesters;
+  });
+
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+  const actionsToReturn = []; // Array to store actions
+
+  if (mineralMinerCountRatio > targetRatio) {
+    const decreaseRatio = (mineralMinerCount - 1) / (vespeneMinerCount + 1);
+    if ((mineralMinerCountRatio + decreaseRatio) / 2 >= targetRatio) {
+      if (needyGasMines.length > 0) {
+        const townhalls = units.getBases(readySelfFilter);
+        const needyGasMine = getRandom(needyGasMines);
+        const { pos } = needyGasMine;
+        if (pos === undefined) return [];
+        const [givingTownhall] = units.getClosest(pos, townhalls);
+        const gatheringMineralWorkers = units.getWorkers()
+          .filter(unit => unit.orders && unit.orders.some(order => {
+            const abilityId = order.abilityId; // Extract abilityId from order
+            if (!order.targetUnitTag) return false; // Check if targetUnitTag is defined
+            const targetUnit = units.getByTag(order.targetUnitTag); // Get the target unit
+            return (
+              abilityId !== undefined && // Check if abilityId is defined
+              [...gatheringAbilities].includes(abilityId) &&
+              targetUnit && // Check if targetUnit is defined
+              targetUnit.unitType !== undefined && // Check if unitType is defined
+              mineralFieldTypes.includes(targetUnit.unitType) // Use targetUnit.unitType
+            );
+          }));
+        if (givingTownhall && givingTownhall.pos && gatheringMineralWorkers.length > 0) {
+          const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringMineralWorkers);
+          // Push the single action returned by mine() to actionsToReturn
+          const action = mine(donatingWorker, needyGasMine, false);
+          if (action) {
+            actionsToReturn.push(action);
+          }
+        }
+      }
+    } else {
+      gasMineCheckAndBuild(world, targetRatio, buildFunction);
+    }
+  } else if (mineralMinerCountRatio === targetRatio) {
+    return actionsToReturn;
+  } else if (needyBase && mineralMinerCountRatio < targetRatio) {
+    const { pos: basePos } = needyBase;
+    if (basePos === undefined) return [];
+    const increaseRatio = (mineralMinerCount + 1) / (vespeneMinerCount - 1);
+
+    if ((mineralMinerCountRatio + increaseRatio) / 2 <= targetRatio) {
+      const gasMines = units.getAlive(readySelfFilter).filter(u => u.isGasMine());
+      const [givingGasMine] = units.getClosest(basePos, gasMines);
+      const gatheringGasWorkers = getGatheringWorkers(units, "vespene").filter(worker => !isMining(units, worker));
+
+      if (givingGasMine && givingGasMine.pos && gatheringGasWorkers.length > 0) {
+        const [donatingWorker] = units.getClosest(givingGasMine.pos, gatheringGasWorkers);
+        // Concatenate the array returned by gather() with actionsToReturn
+        actionsToReturn.push(...gather(resources, donatingWorker, null, false));
+      }
+    }
+  }
+  return actionsToReturn;
+};
 
 /**
  * Calculates the maximum number of workers based on current game conditions, 
@@ -36,23 +118,22 @@ const config = require('../config/config');
 function calculateMaxWorkers(units) {
   const bases = units.getBases();
   let totalMaxWorkers = 0;
-  const playerAlliance = Alliance.SELF; // Assuming SELF alliance for player-owned units
+  const playerAlliance = Alliance.SELF;
 
   bases.forEach(base => {
-    const basePos = base.pos;
     const baseBuildProgress = base.buildProgress || 0;
+    if (!base.pos) return;
 
-    if (!basePos) return;
-
-    const mineralFields = getMineralFieldsNearby(units, basePos);
-    const gasGeysers = getGasGeysersNearby(units, basePos);
+    const mineralFields = getMineralFieldsNearby(units, base.pos);
+    const gasGeysers = getGasGeysersNearby(units, base.pos);
 
     let gasWorkerCapacity = 0;
     gasGeysers.forEach(gasGeyser => {
-      // Find the nearest gas mining structure to the geyser
+      if (!gasGeyser.pos) return;
+
       const gasMines = units.getGasMines().filter(gasMine =>
-        calculateDistance(gasGeyser.pos, gasMine.pos) <= 1 &&
-        gasMine.alliance === playerAlliance // Check if the gas mine is owned by the player
+        gasMine.pos && gasGeyser.pos && calculateDistance(gasGeyser.pos, gasMine.pos) <= 1 &&
+        gasMine.alliance === playerAlliance
       );
       const gasStructure = gasMines.length > 0 ? gasMines[0] : null;
       const gasBuildProgress = gasStructure?.buildProgress || 0;
@@ -77,6 +158,62 @@ function isBaseSaturated(base) {
 }
 
 /**
+ * 
+ * @param {UnitResource} units 
+ * @returns {any}
+ */
+function getMinerCount(units) {
+  const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
+  let mineralMinerCount = units.getBases(readySelfFilter).reduce((accumulator, currentValue) => {
+    return accumulator + (currentValue.assignedHarvesters || 0); // Check if assignedHarvesters is defined
+  }, 0);
+  mineralMinerCount += (units.getById(UnitType.MULE).filter(mule => mule.isHarvesting()).length * (3 + 2 / 3));
+  const vespeneMinerCount = units.getGasMines(readySelfFilter).reduce((accumulator, currentValue) => {
+    return accumulator + (currentValue.assignedHarvesters || 0); // Check if assignedHarvesters is defined
+  }, 0);
+  return { mineralMinerCount, vespeneMinerCount }
+}
+
+/**
+ * @param {UnitResource} units 
+ * @returns {Unit[]}
+ */
+function getNeedyGasMines(units) {
+  const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
+  return units.getGasMines(readySelfFilter).filter(gasMine => {
+    const { assignedHarvesters, idealHarvesters } = gasMine;
+    if (assignedHarvesters === undefined || idealHarvesters === undefined) return false;
+    const workers = units.getWorkers().filter(worker => {
+      const pendingOrders = getPendingOrders(worker);
+      return pendingOrders.some(order => {
+        const { abilityId, targetUnitTag } = order;
+        if (abilityId === undefined || targetUnitTag === undefined) return false;
+        return (
+          [...gatheringAbilities].includes(abilityId) &&
+          targetUnitTag === gasMine.tag
+        );
+      });
+    });
+    const assignedHarvestersWithWorkers = assignedHarvesters + workers.length;
+    return assignedHarvestersWithWorkers < idealHarvesters;
+  });
+}
+
+/**
+ * Update the food used based on the world state.
+ * @param {World} world - The current world state.
+ */
+function setFoodUsed(world) {
+  const { agent } = world;
+  const { foodUsed, race } = agent;
+  if (foodUsed === undefined) { return 0; }
+  const gameState = GameState.getInstance();
+  const pendingFoodUsed = race === Race.ZERG ? gameState.getWorkers(world).filter(worker => worker.isConstructing()).length : 0;
+  const calculatedFoodUsed = foodUsed + gameState.pendingFood - pendingFoodUsed;
+  foodData.foodUsed = calculatedFoodUsed;
+}
+
+/**
  * Trains additional workers if the conditions are met.
  * @param {World} world - The game world context.
  * @param {Agent} agent - The game agent.
@@ -91,209 +228,14 @@ function trainAdditionalWorkers(world, agent, bases) {
 
   for (const base of bases) {
     if (base.isIdle() && !isBaseSaturated(base) && supplyAvailable > 0) {
-      const workerType = WorkerRace[agent.race];
-      if (workerType) {
-        actions.push(...trainWorker(world, workerType));
+      if (agent.race !== undefined) {
+        const workerType = WorkerRace[agent.race];
+        if (workerType) {
+          actions.push(...trainWorker(world, workerType));
+        }
       }
     }
   }
-  return actions;
-}
-
-/**
- * Trains a worker at the specified base.
- * @param {World} world - The game world context.
- * @param {number} limit - The maximum number of workers to train.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The list of actions to train workers.
- */
-function trainWorker(world, limit = 1) {
-  const { agent, data } = world;
-  const workerTypeId = WorkerRace[agent.race];
-  const collectedActions = [];
-
-  if (canBuild(world, workerTypeId)) {
-    const { abilityId, foodRequired } = data.getUnitTypeData(workerTypeId);
-    if (abilityId === undefined || foodRequired === undefined) return collectedActions;
-
-    // Use getProductionUnits to accurately identify the units that can produce the workers
-    let trainers = getProductionUnits(world, workerTypeId);
-
-    trainers = trainers.slice(0, limit);
-    trainers.forEach(trainer => {
-      const unitCommand = createUnitCommand(abilityId, [trainer]);
-      collectedActions.push(unitCommand);
-      // Handle pending orders and resource accounting as necessary
-    });
-
-    // Ensure that the actions are executed elsewhere in your code
-  }
-
-  return collectedActions;
-}
-
-/**
- * @param {World} world
- * @param {UnitTypeId} unitType
- * @param {number} [targetCount=null]
- * @param {Point2D[]} [candidatePositions=[]]
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
-function build(world, unitType, targetCount = undefined, candidatePositions = []) {
-  const { addonTypes } = groupTypes;
-  const { BARRACKS, ORBITALCOMMAND, GREATERSPIRE } = UnitType;
-  const collectedActions = [];
-  const { agent, data, resources } = world;
-  const { units } = resources.get();
-  const gameState = new GameState();
-  const effectiveTargetCount = targetCount === undefined ? Number.MAX_SAFE_INTEGER : targetCount;
-
-  if (gameState.getUnitTypeCount(world, unitType) <= effectiveTargetCount &&
-    gameState.getUnitCount(world, unitType) <= effectiveTargetCount) {
-    const { race } = agent;
-    switch (true) {
-      case TownhallRace[race].includes(unitType):
-        if (TownhallRace[race].indexOf(unitType) === 0) {
-          if (units.getBases().length == 2 && agent.race === Race.TERRAN) {
-            // Await the promise and then assign its value to candidatePositions
-            candidatePositions = BuildingPlacement.getInTheMain(world, unitType);
-            const position = BuildingPlacement.determineBuildingPosition(world, unitType, candidatePositions);
-            if (position === false) {
-              console.error(`No valid position found for building type ${unitType}`);
-              return collectedActions;
-            }
-            collectedActions.push(...commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, BuildingPlacement.premoveBuilderToPosition, BuildingPlacement.isPlaceableAtGasGeyser));
-          } else {
-            const availableExpansions = MapResources.getAvailableExpansions(resources);
-            const nextSafeExpansions = getNextSafeExpansions(world, availableExpansions);
-            if (nextSafeExpansions.length > 0) {
-              candidatePositions.push(nextSafeExpansions[0]);
-              const position = BuildingPlacement.determineBuildingPosition(world, unitType, candidatePositions);
-
-              if (position === false) {
-                console.error(`No valid position found for building type ${unitType}`);
-                return collectedActions;
-              }
-
-              collectedActions.push(...commandPlaceBuilding(world, unitType, position || null, commandBuilderToConstruct, buildWithNydusNetwork, BuildingPlacement.premoveBuilderToPosition, BuildingPlacement.isPlaceableAtGasGeyser));
-            }
-          }
-        } else {
-          const unitTypeToCheckAfford = unitType === ORBITALCOMMAND ? BARRACKS : unitType;
-          if (agent.canAfford(unitTypeToCheckAfford)) {
-            collectedActions.push(...morphStructureAction(world, unitType));
-          }
-          addEarmark(data, data.getUnitTypeData(unitType));
-        }
-        break;
-      case addonTypes.includes(unitType): {
-        const abilityIds = getAbilityIdsForAddons(data, unitType);
-        const canDoTypes = getUnitTypesWithAbilities(data, abilityIds);
-        const canDoTypeUnits = units.getById(canDoTypes);
-        // First, get the units that can perform the action regardless of affordability
-        if (agent.canAfford(unitType)) {
-          const allUnits = getUnitsCapableToAddOn(canDoTypeUnits);
-
-          let fastestAvailableUnit = null;
-          let fastestAvailableTime = Infinity;
-
-          // Calculate time until each unit can build the add-on
-          for (let unit of allUnits) {
-            let timeUntilAvailable = getTimeUntilUnitCanBuildAddon(world, unit);
-            if (timeUntilAvailable < fastestAvailableTime) {
-              fastestAvailableUnit = unit;
-              fastestAvailableTime = timeUntilAvailable;
-            }
-          }
-
-          // If a suitable unit is found, build the add-on with it
-          if (fastestAvailableUnit) {
-            addEarmark(data, data.getUnitTypeData(unitType));
-            collectedActions.push(...addAddOn(world, fastestAvailableUnit, unitType));
-          }
-        } else {
-          const timeUntilCanBeAfforded = getTimeUntilCanBeAfforded(world, unitType);
-          const allUnits = getUnitsCapableToAddOn(canDoTypeUnits);
-
-          let fastestAvailableUnit = null;
-          let fastestAvailableTime = Infinity;
-
-          // Calculate time until each unit can build the addon
-          for (let unit of allUnits) {
-            let timeUntilAvailable = getTimeUntilUnitCanBuildAddon(world, unit);
-            if (timeUntilAvailable < fastestAvailableTime) {
-              fastestAvailableUnit = unit;
-              fastestAvailableTime = timeUntilAvailable;
-            }
-          }
-          // Check if we have a suitable unit to build the addon soon
-          if (fastestAvailableUnit && fastestAvailableTime >= timeUntilCanBeAfforded) {
-            // Prepare the fastest available unit to build the addon
-            // TODO: Implement a function to prepare the unit to build the addon
-            let targetPosition = findBestPositionForAddOn(world, fastestAvailableUnit);
-            collectedActions.push(...prepareUnitToBuildAddon(world, fastestAvailableUnit, targetPosition));
-          }
-        }
-        break;
-      }
-      default:
-        if (unitType === GREATERSPIRE) {
-          collectedActions.push(...morphStructureAction(world, unitType));
-        } else {
-          const position = BuildingPlacement.determineBuildingPosition(world, unitType, candidatePositions);
-          if (position === false) {
-            console.error(`No valid position found for building type ${unitType}`);
-            return collectedActions;
-          } else {
-            collectedActions.push(...commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, BuildingPlacement.premoveBuilderToPosition, BuildingPlacement.isPlaceableAtGasGeyser));
-          }
-        }
-    }
-  }
-
-  return collectedActions;
-}
-
-/**
- * @param {World} world
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} 
- */
-function buildSupply(world) {
-  const { OVERLORD, PYLON, SUPPLYDEPOT } = UnitType;
-  const { agent } = world;
-  const { foodUsed, minerals } = agent;
-  const actions = []; // Initialize an array to collect actions
-
-  if (foodUsed === undefined || minerals === undefined) return actions;
-
-  const greaterThanPlanSupply = foodUsed > config.planMax.supply;
-  const conditions = [
-    isSupplyNeeded(world, 0.2) &&
-    (greaterThanPlanSupply || minerals > 512) &&
-    config.automateSupply,
-  ];
-
-  if (conditions.some(condition => condition)) {
-    switch (agent.race) {
-      case Race.TERRAN: {
-        const candidatePositions = BuildingPlacement.findPlacements(world, SUPPLYDEPOT);
-        const supplyDepotActions = build(world, SUPPLYDEPOT, undefined, candidatePositions); // Use undefined instead of null
-        actions.push(...supplyDepotActions);
-        break;
-      }
-      case Race.PROTOSS: {
-        const candidatePositions = BuildingPlacement.findPlacements(world, PYLON);
-        const pylonActions = build(world, PYLON, undefined, candidatePositions); // Use undefined instead of null
-        actions.push(...pylonActions);
-        break;
-      }
-      case Race.ZERG: {
-        const overlordActions = train(world, OVERLORD);
-        actions.push(...overlordActions);
-        break;
-      }
-    }
-  }
-
   return actions;
 }
 
@@ -307,11 +249,80 @@ function shouldTrainMoreWorkers(totalWorkers, maxWorkers) {
   return totalWorkers < maxWorkers;
 }
 
+/**
+ * Trains a worker at the specified base.
+ * @param {World} world - The game world context.
+ * @param {number} limit - The maximum number of workers to train.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The list of actions to train workers.
+ */
+function trainWorker(world, limit = 1) {
+  const { agent, data } = world;
+
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+  const collectedActions = [];
+
+  if (agent.race === undefined) {
+    console.error("Agent race is undefined in trainWorker.");
+    return collectedActions;
+  }
+
+  const workerTypeId = WorkerRace[agent.race];
+
+  if (canBuild(world, workerTypeId)) {
+    const { abilityId, foodRequired } = data.getUnitTypeData(workerTypeId);
+    if (abilityId === undefined || foodRequired === undefined) return collectedActions;
+
+    let trainers = getProductionUnits(world, workerTypeId);
+    trainers = trainers.slice(0, limit);
+    trainers.forEach(trainer => {
+      const unitCommand = createUnitCommand(abilityId, [trainer]);
+      collectedActions.push(unitCommand);
+    });
+  }
+
+  return collectedActions;
+}
+
+/**
+ * Trains workers based on the conditions of the world and agent.
+ * @param {World} world 
+ * @param {Function} buildWorkersFunction - The function from training service to build workers.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+const trainWorkers = (world, buildWorkersFunction) => {
+  const { agent: { minerals, race }, resources } = world;
+
+  if (minerals === undefined || race === undefined) return [];
+
+  const workerCount = getById(resources, [WorkerRace[race]]).length;
+  const assignedWorkerCount = [...resources.get().units.getBases(), ...getById(resources, [GasMineRace[race]])]
+    .reduce((acc, base) => (base.assignedHarvesters || 0) + acc, 0);
+  const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
+  const foodDifference = getFoodDifference(world);
+  const sufficientMinerals = minerals < 512 || minimumWorkerCount <= 36;
+  const productionPossible = race ? haveAvailableProductionUnitsFor(world, WorkerRace[race]) : false;
+  const notOutpoweredOrNoUnits = !strategyManager.getOutpowered() || (strategyManager.getOutpowered() && !unitProductionAvailable);
+
+  let shouldTrainWorkers = sufficientMinerals && (shortOnWorkers(world) || foodDifference > 0)
+    && notOutpoweredOrNoUnits && productionPossible;
+
+  // Update the workersTrainingTendedTo flag and potentially add actions to train workers.
+  if (shouldTrainWorkers) {
+    setWorkersTrainingTendedTo(false);
+    return buildWorkersFunction(world, foodDifference, true);
+  } else {
+    setWorkersTrainingTendedTo(true);
+    return [];
+  }
+};
+
+
 module.exports = {
+  balanceResources,
   calculateMaxWorkers,
+  setFoodUsed,
   trainAdditionalWorkers,
   trainWorker,
-  build,
-  buildSupply,
   shouldTrainMoreWorkers,
+  trainWorkers,
 };

@@ -19,6 +19,17 @@ const { getNextSafeExpansions, dbscan } = require("./mapUtils");
 // Destructured import from MapResources
 const { getAvailableExpansions } = MapResources;
 
+/** @type {Point2D[]} */
+let landingGrids = [];
+
+/**
+ * Adds a new landing grid.
+ * @param {Point2D} grid - The grid to add.
+ */
+function addLandingGrid(grid) {
+  landingGrids.push(grid);
+}
+
 /**
  * Calculates the placement for an add-on structure based on the main building's position.
  * @param {Point2D} position - The position of the main building.
@@ -42,6 +53,14 @@ function getAddOnBuildingPlacement(position) {
     console.error('Invalid position provided for add-on building placement');
     return { x: 0, y: 0 }; // Default Point2D
   }
+}
+
+/**
+ * Retrieves all landing grids.
+ * @returns {Point2D[]}
+ */
+function getAllLandingGrids() {
+  return landingGrids;
 }
 
 /**
@@ -71,11 +90,12 @@ function getBuildingAndAddonGrids(pos, unitType) {
  */
 function getBuildingFootprintOfOrphanAddons(units) {
   const orphanAddons = units.getById([UnitType.TECHLAB, UnitType.REACTOR]);
+  /** @type {Point2D[]} */
   const buildingFootprints = [];
   orphanAddons.forEach(addon => {
-    if (addon.pos) { // Ensure addon.pos is defined
+    if (addon.pos) {
       const addonPlacement = getAddOnBuildingPlacement(addon.pos);
-      if (addonPlacement) { // Additional check if getAddOnBuildingPlacement returns a valid value
+      if (addonPlacement) {
         buildingFootprints.push(...cellsInFootprint(createPoint2D(addonPlacement), { w: 3, h: 3 }));
       }
     }
@@ -146,8 +166,11 @@ function isBuildingAndAddonPlaceable(map, unitType, grid) {
 
 // Export the shared functionalities
 module.exports = {
+  landingGrids,
+  addLandingGrid,
   getAddOnPlacement,
   getAddOnBuildingPlacement,
+  getAllLandingGrids,
   getBuildingAndAddonGrids,
   getBuildingFootprintOfOrphanAddons,
   findZergPlacements,

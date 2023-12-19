@@ -7,20 +7,20 @@ const { Race, Alliance, WeaponTargetType } = require('@node-sc2/core/constants/e
 const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports for utility functions and configurations
-const { findBestPositionForAddOn } = require('./buildingUnitHelpers');
 const { getAbilityIdsForAddons, unitTypeData, saveAndGetUnitTypeData } = require('./gameData');
 const GameState = require('./gameState');
 const { getDistance } = require('./geometryUtils');
 const { unitTypeTrainingAbilities, liftAndLandingTime, flyingTypesMapping, getUpgradeBonus } = require('./unitConfig');
 
 /**
- * Calculate the time it takes for a unit with an add-on to lift off (if not already flying), move, and land
- * @param {World} world
- * @param {Unit} unit
- * @param {Point2D | undefined} targetPosition
- * @returns {number}
+ * Calculate the time it takes for a unit with an add-on to lift off (if not already flying), move, and land.
+ * @param {World} world - The current world state.
+ * @param {Unit} unit - The unit to calculate the lift, land, and move time for.
+ * @param {Point2D | undefined} targetPosition - The target position to move to. If undefined, it will be calculated.
+ * @param {(world: World, unit: Unit) => Point2D | undefined} findBestPositionForAddOnFn - Function to find the best position for an add-on.
+ * @returns {number} - The time in seconds it takes to lift off, move, and land.
  */
-function calculateLiftLandAndMoveTime(world, unit, targetPosition = undefined) {
+function calculateLiftLandAndMoveTime(world, unit, targetPosition = undefined, findBestPositionForAddOnFn) {
   const { data } = world;
   const { isFlying, pos, unitType } = unit; if (isFlying === undefined || pos === undefined || unitType === undefined) return Infinity;
 
@@ -28,7 +28,7 @@ function calculateLiftLandAndMoveTime(world, unit, targetPosition = undefined) {
   const { movementSpeed } = data.getUnitTypeData(UnitType.BARRACKSFLYING); if (movementSpeed === undefined) return Infinity;
   const movementSpeedPerSecond = movementSpeed * 1.4;
 
-  targetPosition = targetPosition || findBestPositionForAddOn(world, unit); // placeholder function, replace with your own logic
+  targetPosition = targetPosition || findBestPositionForAddOnFn(world, unit); // placeholder function, replace with your own logic
   if (!targetPosition) return Infinity;
   const distance = getDistance(pos, targetPosition); // placeholder function, replace with your own logic
   const timeToMove = distance / movementSpeedPerSecond;
@@ -235,27 +235,6 @@ function getUnitTypeData(units, unitType) {
 }
 
 /**
- * Returns the unit type to build based on the given unit and add-on type.
- * @param {Unit} unit 
- * @param {Map<number, number>} flyingTypesMapping 
- * @param {UnitTypeId} addOnType 
- * @returns {UnitTypeId | undefined}
- */
-function getUnitTypeToBuild(unit, flyingTypesMapping, addOnType) {
-  if (unit.unitType === undefined || addOnType === undefined) {
-    // Handle the case where unit.unitType or addOnType is undefined
-    console.error("Undefined unit type or addOn type encountered in getUnitTypeToBuild.");
-    return undefined;
-  }
-
-  const flyingType = flyingTypesMapping.get(unit.unitType);
-  const baseUnitType = flyingType !== undefined ? flyingType : unit.unitType;
-
-  const unitTypeString = `${UnitTypeId[baseUnitType]}${UnitTypeId[addOnType]}`;
-  return UnitType[unitTypeString];
-}
-
-/**
  * @param {Unit} unit 
  * @returns {UnitTypeId | null}
  */
@@ -272,6 +251,44 @@ function getUnitBeingTrained(unit) {
   const unitBeingTrained = unitTypeTrainingAbilities.get(abilityId); if (unitBeingTrained === undefined) return null;
 
   return unitBeingTrained || null;
+}
+
+
+/**
+ * Returns the unit type to build based on the given unit and add-on type.
+ * @param {Unit} unit 
+ * @param {Map<number, number>} flyingTypesMapping 
+ * @param {UnitTypeId} addOnType 
+ * @returns {UnitTypeId | undefined}
+ */
+function getUnitTypeToBuild(unit, flyingTypesMapping, addOnType) {
+  if (unit.unitType === undefined || addOnType === undefined) {
+    console.error("Undefined unit type or addOn type encountered in getUnitTypeToBuild.");
+    return undefined;
+  }
+
+  const flyingType = flyingTypesMapping.get(unit.unitType);
+  const baseUnitType = flyingType !== undefined ? flyingType : unit.unitType;
+
+  // Using the keys as strings
+  const baseTypeKey = baseUnitType.toString();
+  const addOnTypeKey = addOnType.toString();
+
+  /** @type {{ [key: string]: string }} */
+  const castedUnitTypeId = /** @type {*} */ (UnitTypeId);
+
+  // Check if keys exist in UnitTypeId using Object.prototype.hasOwnProperty
+  if (Object.prototype.hasOwnProperty.call(castedUnitTypeId, baseTypeKey) && Object.prototype.hasOwnProperty.call(castedUnitTypeId, addOnTypeKey)) {
+    // Construct the unit type string
+    const unitTypeString = `${castedUnitTypeId[baseTypeKey]}${castedUnitTypeId[addOnTypeKey]}`;
+
+    /** @type {{ [key: string]: number }} */
+    const castedUnitType = /** @type {*} */ (UnitType);
+
+    return castedUnitType[unitTypeString];
+  }
+
+  return undefined;
 }
 
 /**
@@ -324,6 +341,26 @@ function isStructureLifted(unit) {
 }
 
 /**
+ * Checks if a unit is currently training another unit.
+ * @param {DataStorage} data
+ * @param {Unit} unit 
+ * @returns {boolean}
+ */
+const isTrainingUnit = (data, unit) => {
+  // Return false if unit.orders is undefined
+  if (!unit.orders) {
+    return false;
+  }
+
+  /** @type {{ [key: string]: number }} */
+  const castedUnitType = /** @type {*} */ (UnitType);
+
+  return unit.orders.some(order => {
+    return Object.keys(castedUnitType).some(key => order.abilityId === data.getUnitTypeData(castedUnitType[key]).abilityId);
+  });
+};
+
+/**
  * Determines if a unit is potentially a combatant.
  * @param {Unit} unit - Unit to check.
  * @returns {boolean} - True if unit has potential for combat, otherwise false.
@@ -335,7 +372,7 @@ function potentialCombatants(unit) {
 /**
  * Returns updated addOnType using countTypes.
  * @param {UnitTypeId} addOnType 
- * @param {Map} countTypes 
+ * @param {Map<UnitTypeId, UnitTypeId[]>} countTypes 
  * @returns {UnitTypeId}
  */
 function updateAddOnType(addOnType, countTypes) {
@@ -356,6 +393,7 @@ module.exports = {
   getUnitTypeToBuild,
   getUnitBeingTrained,
   isStructureLifted,
+  isTrainingUnit,
   potentialCombatants,
   updateAddOnType,
 };

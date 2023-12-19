@@ -2,18 +2,22 @@
 "use strict"
 
 // External library imports from @node-sc2/core
+const { UnitType } = require("@node-sc2/core/constants");
 const { SMART } = require("@node-sc2/core/constants/ability");
-const Ability = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 
 // Internal module imports
 const { isPendingContructing } = require("./buildingCommons");
-const { setPendingOrders } = require("./common");
 const { getClosestUnitFromUnit } = require("./distance");
 const { getDistance } = require("./geometryUtils");
-const { getClosestExpansion, getPendingOrders, isMoving, findClosestMineralField } = require("./sharedUtils");
+const { findEnemyUnitsNear } = require("./scoutingUtils");
+const { getClosestExpansion, isMoving } = require("./sharedUtils");
+const { setPendingOrders } = require("./unitOrders");
 const { getUnitsWithinDistance, createUnitCommand } = require("./utils");
+const { getPendingOrders } = require("./utils/commonGameUtils");
+const { findClosestMineralField } = require("./utils/coreUtils");
+const { isTownhallInDanger } = require("./utils/gameStateHelpers");
 
 /**
  * Assigns workers to mineral fields for optimal resource gathering.
@@ -23,6 +27,7 @@ const { getUnitsWithinDistance, createUnitCommand } = require("./utils");
  */
 function assignWorkers(resources) {
   const { map, units } = resources.get();
+  /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
   const collectedActions = [];
   const gatheringMineralWorkers = getGatheringWorkers(units, 'minerals');
   const completedBases = units.getBases({ buildProgress: 1, alliance: Alliance.SELF });
@@ -36,6 +41,147 @@ function assignWorkers(resources) {
 }
 
 /**
+ * Balances the worker distribution across all bases.
+ * @param {World} world - The game world context.
+ * @param {UnitResource} units - The units resource object from the bot.
+ * @param {ResourceManager} resources - The resource manager from the bot.
+ * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} An array of actions to reassign workers.
+ */
+function balanceWorkerDistribution(world, units, resources) {
+  const townhalls = units.getBases();
+  const gatheringWorkers = getGatheringWorkers(units);
+  /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
+  const collectedActions = []; // Initialize the array to collect actions
+
+  // Iterate over each townhall to identify the needy ones
+  townhalls.forEach(townhall => {
+    if (!townhall.pos) return;
+
+    // Use findEnemyUnitsNear to assess enemy presence
+    const nearbyEnemies = findEnemyUnitsNear(units, townhall, 10);
+    const isNeedy = nearbyEnemies.length === 0 || isTownhallInDanger(world, townhall, nearbyEnemies);
+
+    if (isNeedy) {
+      // Find potential donor townhalls
+      const possibleDonorThs = townhalls.filter(donorTh => {
+        const { assignedHarvesters, idealHarvesters } = donorTh;
+        return assignedHarvesters !== undefined && idealHarvesters !== undefined &&
+          assignedHarvesters > idealHarvesters && donorTh.pos;
+      });
+
+      const [givingTownhall] = units.getClosest(townhall.pos, possibleDonorThs);
+      if (givingTownhall && givingTownhall.pos && gatheringWorkers.length > 0) {
+        const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringWorkers);
+        if (donatingWorker && donatingWorker.pos) {
+          // Logic for reassigning the worker
+          const mineralFields = units.getMineralFields().filter(field => {
+            const numWorkers = units.getWorkers().filter(worker => {
+              const { orders } = worker;
+              if (orders === undefined) { return false; }
+              return orders.some(order => order.targetUnitTag === field.tag);
+            }).length;
+            return (
+              (getDistance(field.pos, townhall.pos) < 8) &&
+              (!field.labels.has('workerCount') || field.labels.get('workerCount') < 2) &&
+              numWorkers < 2
+            );
+          });
+          const [mineralFieldTarget] = units.getClosest(townhall.pos, mineralFields);
+          if (mineralFieldTarget) {
+            donatingWorker.labels.set('mineralField', mineralFieldTarget);
+            if (!mineralFieldTarget.labels.has('workerCount')) {
+              mineralFieldTarget.labels.set('workerCount', 1);
+            } else {
+              mineralFieldTarget.labels.set('workerCount', mineralFieldTarget.labels.get('workerCount') + 1);
+            }
+            const unitCommands = gather(resources, donatingWorker, mineralFieldTarget, false);
+            collectedActions.push(...unitCommands);
+            unitCommands.forEach(unitCommand => setPendingOrders(donatingWorker, unitCommand));
+          } else {
+            const mineralFields = units.getMineralFields();
+            const [mineralFieldTarget] = units.getClosest(townhall.pos, mineralFields);
+            if (mineralFieldTarget) {
+              donatingWorker.labels.delete('mineralField');
+              const unitCommands = gather(resources, donatingWorker, mineralFieldTarget, false);
+              collectedActions.push(...unitCommands);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  return collectedActions;
+}
+
+
+/**
+ * Finds the gathering order for a specific worker.
+ * @param {UnitResource} units - The units resource object from the bot.
+ * @param {Unit} worker - The worker unit to find the gathering order for.
+ * @returns {SC2APIProtocol.UnitOrder | undefined} The gathering order or undefined if not found.
+ */
+function findGatheringOrder(units, worker) {
+  // Retrieve pending orders using the getPendingOrders function
+  const pendingOrders = getPendingOrders(worker);
+
+  // Find a pending order targeting a mineral field
+  const foundPendingOrder = pendingOrders.find(order =>
+    order.targetUnitTag && units.getByTag(order.targetUnitTag).isMineralField()
+  );
+
+  if (foundPendingOrder) {
+    return foundPendingOrder;
+  } else {
+    // Check if worker.orders is defined and filter out any undefined abilityId
+    if (worker.orders) {
+      return worker.orders.find(order =>
+        order.abilityId !== undefined && gatheringAbilities.includes(order.abilityId)
+      );
+    } else {
+      // Handle the case when worker.orders is undefined
+      return undefined;
+    }
+  }
+}
+
+/**
+ * Retrieves gathering workers based on resource type.
+ * 
+ * @param {UnitResource} units 
+ * @param {"minerals" | "vespene" | undefined} type 
+ * @param {boolean} [firstOrderOnly=true] - Whether to filter based on the first order only.
+ * @returns {Unit[]} An array of workers gathering the specified resource type.
+ */
+function getGatheringWorkers(units, type = undefined, firstOrderOnly = true) {
+  const gatheringWorkers = units.getWorkers()
+    .filter(worker => {
+      return (
+        worker.isGathering(type) ||
+        getPendingOrders(worker).some(order =>
+          order.abilityId !== undefined && gatheringAbilities.includes(order.abilityId)
+        )
+      );
+    });
+
+  if (firstOrderOnly) {
+    return gatheringWorkers.filter(worker => {
+      const { orders } = worker;
+      if (orders === undefined) return false;
+
+      const pendingOrders = getPendingOrders(worker);
+      const gatheringOrders = [...orders, ...pendingOrders].filter(order =>
+        order.abilityId !== undefined && gatheringAbilities.includes(order.abilityId)
+      );
+
+      return gatheringOrders.length > 0;
+    });
+  }
+
+  return gatheringWorkers;
+}
+
+/**
  * Handles the assignment of a single worker to a mineral field.
  * 
  * @param {Unit} worker - The worker unit to be assigned.
@@ -46,6 +192,7 @@ function assignWorkers(resources) {
  * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} An array of actions for the worker.
  */
 function handleWorkerAssignment(worker, completedBases, map, units, resources) {
+  /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
   const collectedActions = [];
   const { pos: workerPos } = worker;
   if (!workerPos) return collectedActions;
@@ -111,35 +258,6 @@ function handleWorkerAssignment(worker, completedBases, map, units, resources) {
 }
 
 /**
- * 
- * @param {UnitResource} units 
- * @param {"minerals" | "vespene" | undefined} type 
- * @returns 
- */
-function getGatheringWorkers(units, type = undefined, firstOrderOnly = true) {
-  const gatheringWorkers = units.getWorkers()
-    .filter(worker => {
-      return (
-        worker.isGathering(type) ||
-        (worker['pendingOrders'] && worker['pendingOrders'].some((/** @type {{ abilityId: number | undefined; }} */ order) =>
-          order.abilityId !== undefined && gatheringAbilities.includes(order.abilityId)
-        ))
-      );
-    });
-  if (firstOrderOnly) {
-    return gatheringWorkers.filter(worker => {
-      const { orders } = worker; if (orders === undefined) return false;
-      const pendingOrders = getPendingOrders(worker);
-      const gatheringOrders = [...orders, ...pendingOrders].filter(order =>
-        order.abilityId !== undefined && gatheringAbilities.includes(order.abilityId)
-      );
-      return gatheringOrders.length > 0;
-    });
-  }
-  return gatheringWorkers;
-}
-
-/**
  * @param {UnitResource} units
  * @param {Unit[]} mineralFields
  * @returns {Unit | undefined}}
@@ -165,42 +283,42 @@ function getNeediestMineralField (units, mineralFields) {
 }
 
 /**
- * Creates an action for a worker to gather from a specific mineral field.
+ * Creates an action for a worker to gather from a specific mineral field or the nearest one if not specified.
  * @param {ResourceManager} resources - The resource manager from the bot.
  * @param {Unit} worker - The worker unit to be assigned.
- * @param {Unit} mineralField - The mineral field to gather from.
+ * @param {Unit | null} mineralField - The mineral field to gather from, or null to pick the nearest one.
  * @param {boolean} queue - Whether or not to queue the action.
  * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} An array of actions for gathering.
  */
-function gather(resources, worker, mineralField, queue) {
+function gather(resources, worker, mineralField, queue = false) {
+  /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
   const collectedActions = [];
   if (!worker.pos) { return collectedActions; }
 
-  // Extract the UnitResource from the ResourceManager
   const units = resources.get().units;
 
   if (worker.labels.has('command') && !queue) {
-    console.warn('WARNING! unit with command erroniously told to force gather! Forcing queue');
+    console.warn('WARNING! unit with command erroneously told to force gather! Forcing queue');
     queue = true;
   }
 
   const ownBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress !== undefined && b.buildProgress >= 1);
-  let target = mineralField;
 
-  if (!target || !target.tag) {
+  // Find the nearest mineral field if none is provided
+  if (!mineralField) {
     const needyBases = ownBases.filter(base => (base.assignedHarvesters ?? 0) < (base.idealHarvesters ?? 0));
     const candidateBases = needyBases.length > 0 ? needyBases : ownBases;
     const targetBase = getClosestUnitFromUnit(resources, worker, candidateBases);
 
     if (!targetBase || !targetBase.pos) { return collectedActions; }
 
-    [target] = getUnitsWithinDistance(targetBase.pos, units.getMineralFields(), 10)
+    [mineralField] = getUnitsWithinDistance(targetBase.pos, units.getMineralFields(), 10)
       .sort((a, b) => getTargetedByWorkers(units, a).length - getTargetedByWorkers(units, b).length);
   }
 
-  if (target && target.pos) {
+  if (mineralField && mineralField.pos) {
     const sendToGather = createUnitCommand(SMART, [worker], queue);
-    sendToGather.targetUnitTag = target.tag;
+    sendToGather.targetUnitTag = mineralField.tag;
     collectedActions.push(sendToGather);
     setPendingOrders(worker, sendToGather);
   }
@@ -227,32 +345,6 @@ function getLeastNeediestMineralField(units, mineralFields) {
     const { mineralFieldTag } = mineralFieldCount;
     if (mineralFieldTag) {
       return units.getByTag(mineralFieldTag);
-    }
-  }
-}
-
-/**
- * Finds the gathering order for a specific worker.
- * @param {UnitResource} units - The units resource object from the bot.
- * @param {Unit} worker - The worker unit to find the gathering order for.
- * @returns {SC2APIProtocol.UnitOrder | undefined} The gathering order or undefined if not found.
- */
-function findGatheringOrder(units, worker) {
-  const foundPendingOrder = worker['pendingOrders'] && worker['pendingOrders'].find(order =>
-    order.targetUnitTag && units.getByTag(order.targetUnitTag).isMineralField()
-  );
-
-  if (foundPendingOrder) {
-    return foundPendingOrder;
-  } else {
-    // Check if worker.orders is defined and filter out any undefined abilityId
-    if (worker.orders) {
-      return worker.orders.find(order =>
-        order.abilityId !== undefined && gatheringAbilities.includes(order.abilityId)
-      );
-    } else {
-      // Handle the case when worker.orders is undefined
-      return undefined;
     }
   }
 }
@@ -301,107 +393,12 @@ function getMineralFieldAssignments (units, mineralFields) {
 function getTargetedByWorkers(units, unit) {
   const workers = units.getWorkers().filter(worker => {
     const { orders } = worker;
-    const pendingOrders = worker['pendingOrders'];
+    const pendingOrders = getPendingOrders(worker); // Use getPendingOrders instead of direct access
     if (orders === undefined) return false;
     return orders.some(order => order.targetUnitTag === unit.tag) ||
-      (pendingOrders && pendingOrders.some((/** @type {{ targetUnitTag: string | undefined; }} */ pendingOrder) => pendingOrder.targetUnitTag === unit.tag));
+      pendingOrders.some(pendingOrder => pendingOrder.targetUnitTag === unit.tag);
   });
   return workers;
-}
-
-/**
- * Balances the worker distribution across all bases.
- * @param {UnitResource} units - The units resource object from the bot.
- * @param {ResourceManager} resources - The resource manager from the bot.
- * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} An array of actions to reassign workers.
- */
-function balanceWorkerDistribution(units, resources) {
-  const townhalls = units.getBases();
-  const gatheringWorkers = getGatheringWorkers(units);
-  const collectedActions = []; // Initialize the array to collect actions
-
-  // Logic to identify needy townhalls
-  const needyTownhall = townhalls.filter(townhall => {
-    // Ensure townhall has a valid position
-    if (!townhall.pos) return false;
-
-    // Check for enemy presence
-    if (townhall['enemyUnits']) {
-      let [closestEnemyUnit] = units.getClosest(townhall.pos, townhall['enemyUnits'], 1);
-      if (closestEnemyUnit) {
-        return townhall['selfDPSHealth'] >= closestEnemyUnit['selfDPSHealth'];
-      }
-    }
-    return true;
-  }).find(townhall => {
-    const { assignedHarvesters, buildProgress, idealHarvesters } = townhall;
-    if (assignedHarvesters === undefined || buildProgress === undefined || idealHarvesters === undefined) return false;
-
-    // Check for excess harvesters
-    let excessHarvesters = false;
-    if (buildProgress < 1) {
-      const mineralFields = units.getMineralFields().filter(field => {
-        // Check if both field and townhall have valid positions before calculating the distance
-        const distance = getDistance(field.pos, townhall.pos);
-        return distance !== undefined && distance < 8;
-      });
-      excessHarvesters = assignedHarvesters < mineralFields.length * 2;
-    } else {
-      excessHarvesters = assignedHarvesters < idealHarvesters;
-    }
-    return excessHarvesters;
-  });
-
-  if (needyTownhall && needyTownhall.pos) {
-    const possibleDonerThs = townhalls.filter(townhall => {
-      const { assignedHarvesters, idealHarvesters } = townhall;
-      return assignedHarvesters !== undefined && idealHarvesters !== undefined &&
-        assignedHarvesters > idealHarvesters && townhall.pos;
-    });
-
-    const [givingTownhall] = units.getClosest(needyTownhall.pos, possibleDonerThs);
-    if (givingTownhall && givingTownhall.pos && gatheringWorkers.length > 0) {
-      const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringWorkers);
-      if (donatingWorker && donatingWorker.pos) {
-        // Logic for reassigning the worker
-        const mineralFields = units.getMineralFields().filter(field => {
-          const numWorkers = units.getWorkers().filter(worker => {
-            const { orders } = worker;
-            if (orders === undefined) { return false }
-            return orders.some(order => order.targetUnitTag === field.tag);
-          }).length;
-          return (
-            (getDistance(field.pos, needyTownhall.pos) < 8) &&
-            (!field.labels.has('workerCount') || field.labels.get('workerCount') < 2) &&
-            numWorkers < 2
-          );
-        });
-        const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, mineralFields);
-        if (mineralFieldTarget) {
-          donatingWorker.labels.set('mineralField', mineralFieldTarget);
-          if (!mineralFieldTarget.labels.has('workerCount')) {
-            mineralFieldTarget.labels.set('workerCount', 1);
-          } else {
-            mineralFieldTarget.labels.set('workerCount', mineralFieldTarget.labels.get('workerCount') + 1);
-          }
-          const unitCommands = gather(resources, donatingWorker, mineralFieldTarget, false);
-          collectedActions.push(...unitCommands);
-          unitCommands.forEach(unitCommand => setPendingOrders(donatingWorker, unitCommand));
-        } else {
-          const mineralFields = units.getMineralFields();
-          const [mineralFieldTarget] = units.getClosest(needyTownhall.pos, mineralFields);
-          if (mineralFieldTarget) {
-            donatingWorker.labels.delete('mineralField');
-            const unitCommands = gather(resources, donatingWorker, mineralFieldTarget, false);
-            collectedActions.push(...unitCommands);
-          }
-        }
-      }
-    }
-  }
-
-  // Return collected actions, ensuring the function always returns an array of ActionRawUnitCommand
-  return collectedActions;
 }
 
 /**
@@ -413,6 +410,7 @@ function balanceWorkerDistribution(units, resources) {
 function getWithLabelAvailable(units, unit) {
   let unitIsConstructing = unit.isConstructing();
   if (unitIsConstructing && unit.orders && unit.orders.length > 0) {
+    /** @type {Point2D | undefined} */
     let constructionPosition;
 
     // Determine construction position based on unit orders
@@ -440,34 +438,45 @@ function getWithLabelAvailable(units, unit) {
     }
   }
 
-  const isNotConstructing = !unitIsConstructing || (unitIsConstructing && unit.unitType === Ability.PROBE);
-  const probeAndMoving = unit.unitType === Ability.PROBE && isMoving(unit);
+  const isNotConstructing = !unitIsConstructing || (unitIsConstructing && unit.unitType === UnitType.PROBE);
+  const probeAndMoving = unit.unitType === UnitType.PROBE && isMoving(unit);
   return (isNotConstructing && !unit.isAttacking() && !isPendingContructing(unit)) || probeAndMoving;
 }
 
 /**
  * Reassign idle workers to mineral fields, ensuring there's a nearby base.
  * @param {World} world - The game context, including resources and actions.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of actions for reassigning workers.
  */
 function reassignIdleWorkers(world) {
-  const { units, actions } = world.resources.get();
+  const { resources } = world;
+  const units = resources.get().units;
   const idleWorkers = units.getWorkers().filter(worker => worker.isIdle());
   const mineralFields = units.getMineralFields();
   const bases = units.getBases({ alliance: Alliance.SELF, buildProgress: 1 });
 
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+  const actionsToReturn = [];
+
   if (idleWorkers.length && mineralFields.length && bases.length) {
     idleWorkers.forEach(worker => {
       const closestMineralField = findClosestMineralField(worker, mineralFields, bases);
-      if (closestMineralField && closestMineralField.tag) {
-        actions.gather(worker, closestMineralField);
+      if (closestMineralField) {
+        // Use the gather function to create a gather action
+        const gatherActions = gather(resources, worker, closestMineralField);
+        actionsToReturn.push(...gatherActions);
       }
     });
   }
+
+  return actionsToReturn;
 }
 
 module.exports = {
   assignWorkers,
   balanceWorkerDistribution,
+  gather,
+  getGatheringWorkers,
   getWithLabelAvailable,
   getNeediestMineralField,
   reassignIdleWorkers,

@@ -124,18 +124,7 @@ const unitService = {
 
     return [combatUnits, supportUnits];
   },
-  /**
-   * @param {Unit} worker 
-   * @param {Unit} target 
-   * @param {boolean} queue 
-   * @returns {SC2APIProtocol.ActionRawUnitCommand}
-   */
-  mine: (worker, target, queue = true) => {
-    const unitCommand = createUnitCommand(HARVEST_GATHER, [worker], queue);
-    unitCommand.targetUnitTag = target.tag;
-    unitService.setPendingOrders(worker, unitCommand);
-    return unitCommand;
-  },
+
   /**
    * @param {Unit[]} units 
    * @returns {void}

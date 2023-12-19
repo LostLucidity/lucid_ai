@@ -8,16 +8,24 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
 const { calculateTimeToFinishStructure } = require('./buildingUtils');
+const cacheManager = require('./cacheManager');
 const { missingUnits } = require('./gameDataStore');
-const { currentStep } = require('./gameStateResources');
+const { foodData } = require('./gameStateResources');
+const { defaultResources } = require('./resourceTypes');
+const StrategyManager = require('./strategyManager');
+const strategyManager = StrategyManager.getInstance();
+const { getPendingOrders } = require('./utils/commonGameUtils');
 
 /**
  * Class representing the game state.
  * It maintains and manages various game-related data such as resources, unit statuses, etc.
  */
 class GameState {
-  /** @type {any[][]} */
-  static legacyPlan = [];
+  /**
+   * A map to cache the availability of production units.
+   * @type {Map<number, boolean>}
+   */
+  availableProductionUnits = new Map();
 
   /**
    * The armor upgrade level for enemy units.
@@ -32,16 +40,29 @@ class GameState {
   enemyCharge = false;
 
   /**
+   * A map to cache the results of tech availability checks.
+   * @type {Map<number, boolean>}
+   */
+  hasTechFor = new Map();
+
+  /**
    * The plan consisting of a sequence of PlanStep objects.
-   * @type {import("../interfaces/plan-step").PlanStep[]}
+   * @type {import('./strategyService').PlanStep[]}
    */
   plan = [];
+
+  /**
+   * @type {import('./resourceTypes').Resources} - Typing the resources property using JSDoc comment
+   */
+  resources = defaultResources;
 
   /**
    * The armor upgrade level for the player's (self) units.
    * @type {number}
    */
-  selfArmorUpgradeLevel = 0;  
+  selfArmorUpgradeLevel = 0;
+  
+  setEarmark = false;
 
   /**
    * A map of unit types to their corresponding units and frame information.
@@ -66,7 +87,7 @@ class GameState {
      */
     this.enemyAttackUpgradeLevel = 0;    
     this.pendingFood = 0;
-    this.resources = {};
+    this.resources = defaultResources;
     /**
      * The attack upgrade level for the self alliance.
      * @type {number}
@@ -77,6 +98,21 @@ class GameState {
     this.initMorphMapping();
     this.enemyMetabolicBoost = false;
   }
+
+  /**
+   * @description Cache the result of agent.hasTechFor() to avoid unnecessary calls to the game.
+   * @param {Agent} agent
+   * @param {number} unitType
+   * @returns {boolean | undefined}
+   **/
+  checkTechFor(agent, unitType) {
+    if (this.hasTechFor.has(unitType)) {
+      return this.hasTechFor.get(unitType);
+    }
+    const hasTechFor = agent.hasTechFor(unitType);
+    this.hasTechFor.set(unitType, hasTechFor);
+    return hasTechFor;
+  } 
 
   /**
    * Retrieves the armor upgrade level based on the alliance of the unit.
@@ -110,7 +146,24 @@ class GameState {
       attackUpgradeLevel = this.enemyAttackUpgradeLevel;
     }
     return attackUpgradeLevel;
-  }  
+  }
+
+  /**
+   * Retrieves the building type associated with a specific step number.
+   * @param {number} stepNumber - The step number in the building plan.
+   * @returns {number | undefined} - The building type (as a unit type ID), or undefined if not found.
+   */
+  getBuildingTypeByStepNumber(stepNumber) {
+    if (stepNumber < 0 || stepNumber >= this.plan.length) {
+      console.warn("Step number out of range");
+      return undefined;
+    }
+
+    const planStep = this.plan[stepNumber];
+
+    // Assuming each plan step has a property 'unitType' that stores the building type
+    return planStep.unitType; // Replace with actual logic based on your plan structure
+  }
 
   /**
    * Get the amount of food used.
@@ -126,12 +179,36 @@ class GameState {
    * @returns {number}
    */
   getPlanFoodValue() {
-    if (this.plan.length === 0 || currentStep >= this.plan.length) {
+    if (this.plan.length === 0 || strategyManager.getCurrentStep() >= this.plan.length) {
       console.error('Plan is empty or current step is out of range.');
       return 0;
     }
-    return this.plan[currentStep].food;
-  }  
+    return this.plan[strategyManager.getCurrentStep()].food;
+  }
+
+  /**
+   * Retrieves worker units for the given race from the cache.
+   * @param {World} world
+   * @returns {Unit[]}
+   */
+  getWorkers(world) {
+    const { agent, resources } = world;
+    const { race } = agent;
+    if (race === undefined) return [];
+
+    const workerType = groupTypes.workerTypes[race];
+    const currentFrame = resources.get().frame.getGameLoop();
+    const cachedWorkers = cacheManager.getDataIfCurrent(workerType, currentFrame);
+
+    if (cachedWorkers) {
+      return cachedWorkers;
+    } else {
+      // Fetch and update cache if not current
+      const newWorkers = resources.get().units.getById(workerType);
+      cacheManager.updateCache(workerType, newWorkers, currentFrame);
+      return newWorkers;
+    }
+  }
 
   /**
    * Set available expansions.
@@ -142,38 +219,6 @@ class GameState {
   }  
 
   /**
-   * Converts a legacy plan into the current plan format.
-   * @param {any[]} legacyPlan - The legacy plan to convert.
-   * @returns {import("../interfaces/plan-step").PlanStep[]}
-   */
-  convertLegacyPlan(legacyPlan) {
-    const trueActions = ['build', 'train', 'upgrade'];
-    return legacyPlan.filter(step => {
-      return trueActions.includes(step[1]);
-    }).map(step => {
-      return this.convertLegacyStep(step);
-    });
-  }
-
-  /**
-   * Converts a legacy step to a new step, legacy step is an array of [food, orderType, unitType, targetCount]
-   * @param {any[]} trueStep
-   * @returns {import("../interfaces/plan-step").PlanStep}
-   */
-  convertLegacyStep(trueStep) {
-    const [food, orderType, itemType, targetCount] = trueStep;
-    const step = { food, orderType, targetCount };
-
-    if (orderType === 'upgrade') {
-      step.upgrade = itemType;
-    } else {
-      step.unitType = itemType;
-    }
-
-    return step;
-  }  
-
-  /**
    * Singleton instance accessor.
    */
   static getInstance() {
@@ -181,14 +226,29 @@ class GameState {
       this.instance = new GameState();
     }
     return this.instance;
-  }  
+  }
 
-  reset() {
-    this.resources = {}; // Reset resources
-    this.unitStatuses = {}; // Reset unit statuses
-    this.enemyCharge = false; // Reset enemyCharge
-    // Reset countTypes to an empty map
-    this.countTypes = new Map();
+  /**
+   * Retrieves units with specific current orders.
+   * 
+   * @param {Unit[]} units - An array of units to filter.
+   * @param {AbilityId[]} abilityIds - An array of ability IDs to filter units by.
+   * @returns {Unit[]} An array of units with the specified current orders.
+   */
+  getUnitsWithCurrentOrders(units, abilityIds) {
+    /** @type {Unit[]} */
+    const unitsWithCurrentOrders = [];
+
+    abilityIds.forEach(abilityId => {
+      units.forEach(unit => {
+        if (unit.orders && unit.orders.some(order => order.abilityId === abilityId)) {
+          unitsWithCurrentOrders.push(unit);
+        }
+      });
+    });
+
+    // Remove duplicates
+    return Array.from(new Set(unitsWithCurrentOrders));
   }
 
   initMorphMapping() {
@@ -203,7 +263,6 @@ class GameState {
       [ZERGLING, [ZERGLING, BANELING, BANELINGCOCOON]],
     ]);
   }
-
 
   /**
    * Initializes the countTypes map with mappings of unit types.
@@ -230,48 +289,23 @@ class GameState {
     return this.enemyMetabolicBoost;
   }
 
-  // Method to update the metabolic boost state
-  /**
-   * @param {boolean} hasBoost
-   */
-  updateEnemyMetabolicBoostState(hasBoost) {
-    this.enemyMetabolicBoost = hasBoost;
-  }
-
-  /**
-   * Retrieves units with specific current orders.
-   * 
-   * @param {Unit[]} units - An array of units to filter.
-   * @param {AbilityId[]} abilityIds - An array of ability IDs to filter units by.
-   * @returns {Unit[]} An array of units with the specified current orders.
-   */
-  getUnitsWithCurrentOrders(units, abilityIds) {
-    const unitsWithCurrentOrders = [];
-    // Assuming 'units' is already an array of alive and self-alliance units
-
-    abilityIds.forEach(abilityId => {
-      // Add units with matching current orders
-      units.forEach(unit => {
-        if (unit.orders && unit.orders.some(order => order.abilityId === abilityId)) {
-          unitsWithCurrentOrders.push(unit);
-        }
-      });
-    });
-
-    // Remove duplicates
-    return Array.from(new Set(unitsWithCurrentOrders));
-  }  
-
   /**
    * @param {DataStorage} data 
    * @returns {AbilityId[]}
    */
   getReactorAbilities(data) {
     const { reactorTypes } = require("@node-sc2/core/constants/groups");
+
+    /** @type {AbilityId[]} */
     const reactorAbilities = [];
+
     reactorTypes.forEach(type => {
-      reactorAbilities.push(data.getUnitTypeData(type).abilityId)
+      const abilityId = data.getUnitTypeData(type).abilityId;
+      if (abilityId !== undefined) {
+        reactorAbilities.push(abilityId);
+      }
     });
+
     return reactorAbilities;
   }
 
@@ -283,12 +317,47 @@ class GameState {
    */
   getTechlabAbilities(data) {
     const { techLabTypes } = groupTypes;
+
+    /** @type {AbilityId[]} */
     const techlabAbilities = [];
+
     techLabTypes.forEach(type => {
-      techlabAbilities.push(data.getUnitTypeData(type).abilityId)
+      const abilityId = data.getUnitTypeData(type).abilityId;
+      if (abilityId !== undefined) {
+        techlabAbilities.push(abilityId);
+      }
     });
+
     return techlabAbilities;
+  }
+
+  reset() {
+    this.unitStatuses = {}; // Reset unit statuses
+    this.enemyCharge = false; // Reset enemyCharge
+    // Reset countTypes to an empty map
+    this.countTypes = new Map();
+  }
+
+  /**
+   * Update the food used based on the world state.
+   * @param {World} world - The current world state.
+   */
+  setFoodUsed(world) {
+    const { agent } = world;
+    const { foodUsed, race } = agent;
+    if (foodUsed === undefined) { return 0; }
+    const pendingFoodUsed = race === Race.ZERG ? this.getWorkers(world).filter(worker => worker.isConstructing()).length : 0;
+    const calculatedFoodUsed = foodUsed + this.pendingFood - pendingFoodUsed;
+    foodData.foodUsed = calculatedFoodUsed;
   }  
+
+  // Method to update the metabolic boost state
+  /**
+   * @param {boolean} hasBoost
+   */
+  updateEnemyMetabolicBoostState(hasBoost) {
+    this.enemyMetabolicBoost = hasBoost;
+  } 
 
   /**
    * Retrieves ability IDs for unit addons.
@@ -343,15 +412,15 @@ class GameState {
         });
         return matchingOrders;
       }, []);
-      const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => u['pendingOrders'] && u['pendingOrders'].some((/** @type {SC2APIProtocol.UnitOrder} */ o) => o.abilityId === abilityId));
-      /** @type {SC2APIProtocol.UnitOrder[]} */
-      const pendingOrders = unitsWithPendingOrders.map(u => u['pendingOrders']).reduce((a, b) => a.concat(b), []);
+      const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => getPendingOrders(u).some(o => o.abilityId === abilityId));
+      const pendingOrders = unitsWithPendingOrders.map(u => getPendingOrders(u)).flat();
       const ordersLength = orders.some(order => order.abilityId === Ability.TRAIN_ZERGLING) ? orders.length * 2 : orders.length;
       let pendingOrdersLength = pendingOrders.some(order => order.abilityId === Ability.TRAIN_ZERGLING) ? pendingOrders.length * 2 : pendingOrders.length;
       let totalOrdersLength = ordersLength + pendingOrdersLength;
       if (totalOrdersLength > 0) {
         totalOrdersLength = unitType === ZERGLING ? totalOrdersLength - 1 : totalOrdersLength;
       }
+
       return units.getById(unitTypes).length + totalOrdersLength + missingUnits.filter(unit => unit.unitType === unitType).length;
     }
   }

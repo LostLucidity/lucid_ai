@@ -21,6 +21,7 @@
   },
   "scripts": {
     "build": "pkg ./ --target win-x64 --out-path ./dist",
+    "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

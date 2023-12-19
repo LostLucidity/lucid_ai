@@ -14,14 +14,14 @@ const maps = require('./maps');
  *   defaultDifficulty: Difficulty,
  *   defaultMap: string,
  *   loggingLevel: number,
- *   planMax: { supply: number },
+ *   planMax: { supply: number, gasMine: number }, // Add this line
  *   automateSupply: boolean,
  *   naturalWallPylon: boolean
  * }}
  */
 module.exports = {
   // Default race of the bot
-  defaultRace: Race.RANDOM,
+  defaultRace: Race.TERRAN,
 
   // Default difficulty level for the AI opponent
   defaultDifficulty: Difficulty.MEDIUM,
@@ -35,6 +35,7 @@ module.exports = {
   // Maximum supply threshold
   planMax: {
     supply: 0,
+    gasMine: 0, // Add this line
   },
 
   // Whether to automate the building of supply units (true to automate, false to disable)

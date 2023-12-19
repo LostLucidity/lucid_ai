@@ -5,9 +5,10 @@ const { UnitType, WarpUnitAbility, Upgrade } = require("@node-sc2/core/constants
 const { EFFECT_CHRONOBOOSTENERGYCOST } = require("@node-sc2/core/constants/ability");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
-const curatedAbilities = require("../constants/curated-abilities");
+
 const { requiresPylon } = require("./agent-service");
 const unitService = require("./unit-service");
+const curatedAbilities = require("../constants/curated-abilities");
 
 const dataService = {
   /** @type number[] */
@@ -168,23 +169,6 @@ const dataService = {
     return units.reduce((accumulator, currentValue) => accumulator + data.getUnitTypeData(currentValue.unitType).foodRequired, 0);
   },
   
-  /**
-   * @param {DataStorage} data
-   * @returns {boolean}
-   */
-  hasEarmarks: (data) => {
-    const earmarkTotals = data.getEarmarkTotals('');
-    return earmarkTotals.minerals > 0 || earmarkTotals.vespene > 0;
-  },
-  /**
-   * @param {DataStorage} data
-   * @param {Unit} unit 
-   */
-  isTrainingUnit: (data, unit) => {
-    return unit.orders.some(order => {
-      return Object.keys(UnitType).some(key => order.abilityId === data.getUnitTypeData(UnitType[key]).abilityId);
-    });
-  },
   /**
    * @param {DataStorage} data 
    * @param {Unit[]} units

@@ -5,6 +5,7 @@
 const { UnitType } = require("@node-sc2/core/constants");
 
 // Internal module imports
+const BuildingPlacement = require("./buildingPlacement");
 const { hasAddOn } = require("./buildingSharedUtils");
 const { getAddOnPlacement } = require("./placementUtils");
 const { canLiftOff } = require("./unitConfig");
@@ -28,7 +29,7 @@ function findBestPositionForAddOn(world, unit, logCondition = false) {
 
   // Scenario 0: The building is idle, doesn't have an add-on, and is flying.
   if (unit.isIdle() && !hasAddOn(unit) && isFlying) {
-    const landingSpot = this.checkAddOnPlacement(world, unit);
+    const landingSpot = BuildingPlacement.checkAddOnPlacement(world, unit);
     if (landingSpot !== undefined) {
       // If a suitable landing spot is available, return it
       return landingSpot;
@@ -65,7 +66,7 @@ function findBestPositionForAddOn(world, unit, logCondition = false) {
   // Scenario 4: The building already has an add-on.
   if (hasAddOn(unit)) {
     // Find a suitable landing spot
-    const landingSpot = this.checkAddOnPlacement(world, unit);
+    const landingSpot = BuildingPlacement.checkAddOnPlacement(world, unit);
     if (logCondition) {
       console.log(`findBestPositionForAddOn: ${unit.unitType} ${unit.tag} has an add-on and ${landingSpot ? 'has a suitable landing spot' : 'does not have a suitable landing spot'}`);
     }
@@ -82,7 +83,7 @@ function findBestPositionForAddOn(world, unit, logCondition = false) {
   if (canLiftOff(unit)) {
     // You will have to define the function findNearbyLocationWithSpace()
     // which finds a nearby location with enough space for the building and an add-on.
-    const newLocation = this.checkAddOnPlacement(world, unit);
+    const newLocation = BuildingPlacement.checkAddOnPlacement(world, unit);
     if (newLocation) {
       // In this case, you will want to move your unit to the new location before building the add-on.
       // You might want to store this information (that the unit needs to move before building the add-on) somewhere.

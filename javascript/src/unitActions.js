@@ -2,23 +2,19 @@
 "use strict";
 
 // External library imports
-const { Ability, UnitType } = require("@node-sc2/core/constants");
+const { Ability } = require("@node-sc2/core/constants");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-// Internal module imports: Game State and Utilities
-const { findBestPositionForAddOn } = require("./buildingUnitHelpers");
-const { setPendingOrders } = require("./common");
 const GameState = require("./gameState");
 const { getDistance } = require("./geometryUtils");
 const { pointsOverlap } = require("./mapUtils");
-// Internal module imports: Building and Unit Management
 const { getAddOnPlacement } = require("./placementUtils");
 const { addEarmark } = require("./resourceUtils");
-const { getPendingOrders } = require("./sharedUtils");
-const { flyingTypesMapping, liftAndLandingTime } = require("./unitConfig");
 const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff } = require("./unitHelpers");
+const { setPendingOrders } = require("./unitOrders");
 const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");
+const { getPendingOrders } = require("./utils/commonGameUtils");
 
 /** @type {Point2D[]} */
 const seigeTanksSiegedGrids = [];
@@ -80,6 +76,19 @@ function attemptLiftOff(unit) {
 }
 
 /**
+ * @param {Unit} worker 
+ * @param {Unit} target 
+ * @param {boolean} queue 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand}
+ */
+const mine = (worker, target, queue = true) => {
+  const unitCommand = createUnitCommand(Ability.HARVEST_GATHER, [worker], queue);
+  unitCommand.targetUnitTag = target.tag;
+  setPendingOrders(worker, unitCommand);
+  return unitCommand;
+};
+
+/**
  * @param {World} world
  * @param {Unit} unit
  * @param {Point2D | undefined} targetPosition
@@ -121,37 +130,11 @@ function prepareUnitToBuildAddon(world, unit, targetPosition) {
   return collectedActions;
 }
 
-/**
- * Calculate the time it takes for a unit with an add-on to lift off (if not already flying), move, and land
- * @param {World} world
- * @param {Unit} unit
- * @param {Point2D | undefined} targetPosition
- * @returns {number}
- */
-function calculateLiftLandAndMoveTime(world, unit, targetPosition = undefined) {
-  const { data } = world;
-  const { isFlying, pos, unitType } = unit; if (isFlying === undefined || pos === undefined || unitType === undefined) return Infinity;
-
-  // Get movement speed data for a flying barracks
-  const { movementSpeed } = data.getUnitTypeData(UnitType.BARRACKSFLYING); if (movementSpeed === undefined) return Infinity;
-  const movementSpeedPerSecond = movementSpeed * 1.4;
-
-  targetPosition = targetPosition || findBestPositionForAddOn(world, unit); // placeholder function, replace with your own logic
-  if (!targetPosition) return Infinity;
-  const distance = getDistance(pos, targetPosition); // placeholder function, replace with your own logic
-  const timeToMove = distance / movementSpeedPerSecond;
-
-  // If unit is already flying, don't account for the lift-off time
-  const totalLiftAndLandingTime = (isFlying || flyingTypesMapping.has(unitType)) ? liftAndLandingTime : liftAndLandingTime * 2;
-
-  return totalLiftAndLandingTime + timeToMove;
-}
-
 // Export the function
 module.exports = {
   attemptBuildAddOn,
   attemptLiftOff,
-  calculateLiftLandAndMoveTime,
+  mine,
   prepareUnitToBuildAddon,
   seigeTanksSiegedGrids,
 };
