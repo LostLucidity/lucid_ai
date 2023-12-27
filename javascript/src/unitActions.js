@@ -96,14 +96,21 @@ const mine = (worker, target, queue = true) => {
  */
 function prepareUnitToBuildAddon(world, unit, targetPosition) {
   const { agent, data } = world;
-  const { foodUsed } = agent; if (foodUsed === undefined) return [];
+  const { foodUsed } = agent;
+  if (foodUsed === undefined) return [];
+
   const collectedActions = [];
 
   const currentFood = foodUsed;
-  const unitBeingTrained = getUnitBeingTrained(unit); // Placeholder function, replace with your own logic
+  const unitBeingTrained = getUnitBeingTrained(unit); // Placeholder function
   const foodUsedByTrainingUnit = unitBeingTrained ? getFoodUsedByUnitType(data, unitBeingTrained) : 0;
+
+  // Retrieve the race from the world object
+  const race = world.agent.race; // Assuming world.agent.race holds the race information
   const gameState = GameState.getInstance();
-  const plan = gameState.getPlanFoodValue(); // Function to get the plan's food value
+
+  // Pass the race when calling getPlanFoodValue
+  const plan = gameState.getPlanFoodValue(race);
 
   if (unit.isIdle() && getPendingOrders(unit).length === 0 && isStructureLifted(unit) && targetPosition) {
     const landCommand = createUnitCommand(Ability.LAND, [unit]);

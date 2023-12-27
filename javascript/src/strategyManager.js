@@ -1,7 +1,11 @@
 // strategyManager.js
 "use strict";
 
-const pvxStalkerColossiBuildOrder = require("./buildOrders/pvxStalkerColossi");
+const { Race } = require("@node-sc2/core/constants/enums");
+
+// Import build orders for each race
+/** @type {import("./utils/globalTypes").BuildOrders} */
+const buildOrders = require('./buildOrders');
 
 /**
  * @typedef {Object} StrategyStep
@@ -27,15 +31,34 @@ class StrategyManager {
    * @private
    */
   static instance = null;
-  constructor() {
+
+  /**
+   * @type {SC2APIProtocol.Race | undefined}
+   */
+  race;
+
+  /**
+   * @param {SC2APIProtocol.Race | undefined} race
+   */
+  constructor(race) {
     if (StrategyManager.instance) {
       return StrategyManager.instance;
     }
     StrategyManager.instance = this;
+    this.race = race;
+
+    try {
+      // Select a build order based on some criteria
+      const buildOrderKey = this.selectBuildOrderKey(race);
+
+      // Dynamically load the strategy
+      /** @type {import("./utils/globalTypes").BuildOrder | Strategy | undefined} */
+      this.currentStrategy = this.loadStrategy(race, buildOrderKey);
+    } catch (error) {
+      console.error(`Error loading strategy for ${race}:`, error);
+    }
 
     this.currentStep = -1;
-    // Initialize with default or initial strategy
-    this.currentStrategy = pvxStalkerColossiBuildOrder;
     /** @type {boolean} Indicates whether the bot is currently outpowered by the opponent. */
     this.outpowered = false;
     /** @type {{ [key: string]: number }} Minimum thresholds or requirements for the plan. */
@@ -53,11 +76,15 @@ class StrategyManager {
 
   /**
    * Retrieves the singleton instance of StrategyManager.
+   * @param {SC2APIProtocol.Race | undefined} race - The race for the strategy manager.
    * @returns {StrategyManager} The singleton instance.
    */
-  static getInstance() {
+  static getInstance(race = undefined) {
+    if (!StrategyManager.instance && race !== undefined) {
+      StrategyManager.instance = new StrategyManager(race);
+    }
     if (!StrategyManager.instance) {
-      StrategyManager.instance = new StrategyManager();
+      throw new Error("StrategyManager instance is not initialized.");
     }
     return StrategyManager.instance;
   }
@@ -65,6 +92,75 @@ class StrategyManager {
   // Getters and setters for the properties
   getOutpowered() {
     return this.outpowered;
+  }
+
+  /**
+   * Dynamically loads a strategy based on race and build order key.
+   * @param {SC2APIProtocol.Race | undefined} race
+   * @param {string} buildOrderKey
+   * @returns {import("./utils/globalTypes").BuildOrder | undefined}
+   */
+  loadStrategy(race, buildOrderKey) {
+    switch (race) {
+      case Race.TERRAN:
+        return buildOrders.terran[buildOrderKey];
+      case Race.PROTOSS:
+        return buildOrders.protoss[buildOrderKey];
+      case Race.ZERG:
+        return buildOrders.zerg[buildOrderKey];
+      default:
+        throw new Error('Unknown race');
+    }
+  }
+
+  /**
+   * Maps SC2APIProtocol.Race to a specific race key.
+   * @param {SC2APIProtocol.Race} race - The race to map.
+   * @returns {keyof import("./utils/globalTypes").BuildOrders}
+   */
+  mapRaceToKey(race) {
+    switch (race) {
+      case Race.PROTOSS:
+        return 'protoss';
+      case Race.TERRAN:
+        return 'terran';
+      case Race.ZERG:
+        return 'zerg';
+      default:
+        throw new Error('Unknown race');
+    }
+  }
+
+  /**
+   * Selects a build order key based on race and possibly other criteria.
+   * @param {SC2APIProtocol.Race | undefined} race
+   * @returns {string}
+   */
+  selectBuildOrderKey(race) {
+    if (race === undefined) {
+      throw new Error('Race must be provided');
+    }
+    return this.selectRandomBuildOrderKey(race);
+  }
+
+  /**
+   * Selects a random build order key for a given race.
+   * @param {SC2APIProtocol.Race} race - The race for which to select a build order.
+   * @returns {string} A randomly selected build order key.
+   */
+  selectRandomBuildOrderKey(race) {
+    const raceKey = this.mapRaceToKey(race);
+    const raceBuildOrders = buildOrders[raceKey];
+
+    if (!raceBuildOrders) {
+      // Handle the case where the raceBuildOrders is undefined
+      // This could be throwing an error or choosing a default behavior
+      throw new Error(`Build orders for race ${raceKey} not found`);
+    }
+
+    const buildOrderKeys = Object.keys(raceBuildOrders);
+    const randomIndex = Math.floor(Math.random() * buildOrderKeys.length);
+    return buildOrderKeys[randomIndex];
   }
 
   /**
@@ -81,8 +177,8 @@ class StrategyManager {
 
   /**
    * Sets the current strategy.
-   * @param {Strategy} strategy - The strategy to set.
-   */  
+   * @param {import("./utils/globalTypes").BuildOrder | Strategy} strategy - The strategy to set.
+   */
   setCurrentStrategy(strategy) {
     this.currentStrategy = strategy;
     this.currentStep = 0; // Reset current step when strategy changes
@@ -162,7 +258,7 @@ class StrategyManager {
       return vespeneCost === undefined || vespene > 170 || vespeneCost === 0;
     });
     return filteredTypes[Math.floor(Math.random() * filteredTypes.length)];
-  } 
+  }
 
 }
 

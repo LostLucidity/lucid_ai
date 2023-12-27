@@ -13,7 +13,6 @@ const { missingUnits } = require('./gameDataStore');
 const { foodData } = require('./gameStateResources');
 const { defaultResources } = require('./resourceTypes');
 const StrategyManager = require('./strategyManager');
-const strategyManager = StrategyManager.getInstance();
 const { getPendingOrders } = require('./utils/commonGameUtils');
 
 /**
@@ -50,6 +49,11 @@ class GameState {
    * @type {import('./strategyService').PlanStep[]}
    */
   plan = [];
+
+  /**
+   * @type {SC2APIProtocol.Race | null}
+   */
+  race = null;
 
   /**
    * @type {import('./resourceTypes').Resources} - Typing the resources property using JSDoc comment
@@ -176,15 +180,25 @@ class GameState {
 
   /**
    * Gets the food value of the current step in the plan.
+   * @param {SC2APIProtocol.Race | undefined} race - The race for the strategy manager.
    * @returns {number}
    */
-  getPlanFoodValue() {
+  getPlanFoodValue(race) {
+    const strategyManager = StrategyManager.getInstance(race);
     if (this.plan.length === 0 || strategyManager.getCurrentStep() >= this.plan.length) {
       console.error('Plan is empty or current step is out of range.');
       return 0;
     }
     return this.plan[strategyManager.getCurrentStep()].food;
   }
+
+  /**
+   * Retrieves the race of the player or AI.
+   * @returns {SC2APIProtocol.Race | null}
+   */
+  getRace() {
+    return this.race;
+  }  
 
   /**
    * Retrieves worker units for the given race from the cache.
@@ -330,6 +344,14 @@ class GameState {
 
     return techlabAbilities;
   }
+
+  /**
+   * Sets the race of the player or AI.
+   * @param {SC2APIProtocol.Race} newRace - The race to be set.
+   */
+  setRace(newRace) {
+    this.race = newRace;
+  }  
 
   reset() {
     this.unitStatuses = {}; // Reset unit statuses

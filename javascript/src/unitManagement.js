@@ -27,7 +27,6 @@ const { mappedEnemyUnits } = require("./scoutingUtils");
 const { earmarkResourcesIfNeeded } = require("./sharedEconomicFunctions");
 const { getBuildTimeLeft } = require("./sharedUtils");
 const StrategyManager = require("./strategyManager");
-const strategyManager = StrategyManager.getInstance();
 const { flyingTypesMapping, unitTypeTrainingAbilities, liftAndLandingTime } = require("./unitConfig");
 const { getUnitTypeCount, potentialCombatants, calculateTimeToKillUnits, isTrainingUnit } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
@@ -461,6 +460,7 @@ function shouldTrainWorkers(world) {
   const foodDifference = getFoodDifference(world);
   const sufficientMinerals = minerals < 512 || minimumWorkerCount <= 36;
   const productionPossible = haveAvailableProductionUnitsFor(world, workerRaceData);
+  const strategyManager = StrategyManager.getInstance();
   const notOutpoweredOrNoUnits = !strategyManager.getOutpowered() || (strategyManager.getOutpowered() && !unitProductionAvailable);
 
   return sufficientMinerals && (shortOnWorkers(world) || foodDifference > 0)

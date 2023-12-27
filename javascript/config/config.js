@@ -21,7 +21,7 @@ const maps = require('./maps');
  */
 module.exports = {
   // Default race of the bot
-  defaultRace: Race.TERRAN,
+  defaultRace: Race.RANDOM,
 
   // Default difficulty level for the AI opponent
   defaultDifficulty: Difficulty.MEDIUM,

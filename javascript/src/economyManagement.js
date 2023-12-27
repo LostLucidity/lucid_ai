@@ -16,7 +16,6 @@ const { getById } = require('./gameUtils');
 const { gasMineCheckAndBuild } = require('./resourceManagement');
 const { getMineralFieldsNearby, getGasGeysersNearby } = require('./resourceUtils');
 const StrategyManager = require('./strategyManager');
-const strategyManager = StrategyManager.getInstance();
 const { mine } = require('./unitActions');
 const { getProductionUnits, getFoodDifference, haveAvailableProductionUnitsFor, unitProductionAvailable } = require('./unitManagement');
 const { createUnitCommand, canBuild } = require('./utils');
@@ -301,6 +300,7 @@ const trainWorkers = (world, buildWorkersFunction) => {
   const foodDifference = getFoodDifference(world);
   const sufficientMinerals = minerals < 512 || minimumWorkerCount <= 36;
   const productionPossible = race ? haveAvailableProductionUnitsFor(world, WorkerRace[race]) : false;
+  const strategyManager = StrategyManager.getInstance(race);
   const notOutpoweredOrNoUnits = !strategyManager.getOutpowered() || (strategyManager.getOutpowered() && !unitProductionAvailable);
 
   let shouldTrainWorkers = sufficientMinerals && (shortOnWorkers(world) || foodDifference > 0)

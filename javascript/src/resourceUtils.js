@@ -12,7 +12,6 @@ const { upgradeTypes } = require('./gameData');
 const GameState = require('./gameState');
 const { foodEarmarks, earmarks } = require('./resourceData');
 const StrategyManager = require('./strategyManager');
-const strategyManager = StrategyManager.getInstance();
 const { calculateDistance } = require('./utils/coreUtils');
 
 /**
@@ -67,7 +66,16 @@ function getMineralFieldsNearby(units, pos, radius = 8) {
  * @param {SC2APIProtocol.UnitTypeData|SC2APIProtocol.UpgradeData} orderData 
  */
 function addEarmark(data, orderData) {
-  const gameState = GameState.getInstance(); // Get the instance of GameState
+  const gameState = GameState.getInstance();
+  const race = gameState.getRace();
+
+  // If race information is not available, exit the function
+  if (race === null) {
+    console.warn("Race information not available in addEarmark.");
+    return;
+  }
+
+  const strategyManager = StrategyManager.getInstance(race);
   const foodUsed = gameState.getFoodUsed(); // Use the getFoodUsed method
 
   const { ZERGLING } = UnitType;

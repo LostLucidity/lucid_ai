@@ -28,7 +28,6 @@ const { getOccupiedExpansions, existsInMap, pointsOverlap, getAdjacentToRampGrid
 const { getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable } = require('./placementUtils');
 const { getBuildTimeLeft } = require('./sharedUtils');
 const StrategyManager = require('./strategyManager');
-const strategyManager = StrategyManager.getInstance();
 const { seigeTanksSiegedGrids } = require('./unitActions');
 const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require('./unitConfig');
 const { getTimeInSeconds, getStringNameOfConstant } = require('./utils');
@@ -65,6 +64,7 @@ class BuildingPlacement {
   /** @type {false | Point2D | undefined} */
   static get buildingPosition() {
     // Attempt to retrieve the position for the current step
+    const strategyManager = StrategyManager.getInstance();
     const position = buildingPositions.get(strategyManager.getCurrentStep());
     // Return the position if it exists, or undefined otherwise
     return position !== undefined ? position : undefined;
@@ -75,6 +75,7 @@ class BuildingPlacement {
    * @param {false | Point2D} value
    */
   static set buildingPosition(value) {
+    const strategyManager = StrategyManager.getInstance();
     if (value) {
       // If value is a valid position, set it for the current step
       buildingPositions.set(strategyManager.getCurrentStep(), value);

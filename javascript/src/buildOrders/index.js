@@ -1,7 +1,14 @@
-// Import individual build orders
-const pvxStalkerColossi = require('./pvxStalkerColossi');
+const { loadBuildOrdersFromDirectory } = require("./buildOrderUtils");
 
-// Export all build orders as a module
-module.exports = {
-  pvxStalkerColossi,
+const protossBuildOrders = loadBuildOrdersFromDirectory('protoss');
+const terranBuildOrders = loadBuildOrdersFromDirectory('terran');
+const zergBuildOrders = loadBuildOrdersFromDirectory('zerg');
+
+/** @type {import('../utils/globalTypes').BuildOrders} */
+const buildOrders = {
+  protoss: protossBuildOrders,
+  terran: terranBuildOrders,
+  zerg: zergBuildOrders,
 };
+
+module.exports = buildOrders;

@@ -13,6 +13,7 @@ const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
 const { calculateAdjacentToRampGrids } = require('./mapUtils');
 const { prepareEarlyScouting } = require('./scoutingUtils');
+const StrategyManager = require('./strategyManager');
 const { runPlan } = require('./strategyService');
 const { refreshProductionUnitsCache, manageZergSupply } = require('./unitManagement');
 const { assignWorkers, balanceWorkerDistribution, reassignIdleWorkers } = require('./workerAssignment');
@@ -42,7 +43,7 @@ function updateMaxWorkers(units) {
 function performInitialMapAnalysis(world) {
   botRace = world.agent.race || Race.TERRAN;
   const map = world.resources.get().map;
-
+  StrategyManager.getInstance(botRace);
   if (botRace === Race.TERRAN) {
     // First calculate the grids adjacent to ramps
     calculateAdjacentToRampGrids(map);
@@ -50,7 +51,6 @@ function performInitialMapAnalysis(world) {
     // Then calculate wall-off positions using the calculated ramp grids
     BuildingPlacement.calculateWallOffPositions(world);
   }
-  // Additional map analysis for other races can be added here
 }
 
 /**
@@ -83,7 +83,11 @@ const bot = createAgent({
     logMessage('Game Started', 1);
 
     // Determine the bot's race at the start of the game (default to Terran if undefined)
-    botRace = world.agent.race || Race.TERRAN;
+    const botRace = world.agent.race || Race.TERRAN;
+
+    // Update the GameState with the determined race
+    const gameState = GameState.getInstance();
+    gameState.setRace(botRace);
 
     // Perform initial map analysis based on the bot's race
     performInitialMapAnalysis(world);

@@ -249,7 +249,7 @@ const mapUtils = {
             return footprint ? coverage.concat(cellsInFootprint(pos, footprint)) : coverage;
           }
         }, []);
-      return map.isPlaceableAt(townhallType, townhallPosition) && !this.pointsOverlap(enemyUnitCoverage, cellsInFootprint(townhallPosition, footprint));
+      return map.isPlaceableAt(townhallType, townhallPosition) && !mapUtils.pointsOverlap(enemyUnitCoverage, cellsInFootprint(townhallPosition, footprint));
     });
     return placeableExpansions.map(expansion => expansion.townhallPosition);
   },

@@ -12,7 +12,6 @@ const GameState = require('./gameState');
 const { earmarks } = require('./resourceData');
 const { hasEarmarks } = require('./resourceManagement');
 const StrategyManager = require('./strategyManager');
-const strategyManager = StrategyManager.getInstance();
 const { buildSupplyOrTrain, train, upgrade } = require('./unitManagement');
 const { interpretBuildOrderStep } = require('./utils');
 
@@ -39,6 +38,7 @@ class StrategyService {
    * @returns {PlanStep | null} The next step in the strategy, or null if no current strategy is set.
    */
   getNextStep() {
+    const strategyManager = StrategyManager.getInstance();
     const currentStrategy = strategyManager.getCurrentStrategy();
     if (!currentStrategy || !Array.isArray(currentStrategy.steps)) {
       console.error('No current strategy is set or steps are invalid.');

@@ -6,3 +6,7 @@ main-linux
 /data
 /logs
 /systems/q-table/data
+src/buildOrders/protoss/*
+src/buildOrders/terran/*
+src/buildOrders/zerg/*
+src/buildOrders/scrapedBuildOrders.json
