@@ -11,7 +11,6 @@ const { WorkerRace, GasMineRace } = require('@node-sc2/core/constants/race-map')
 const getRandom = require('@node-sc2/core/utils/get-random');
 
 const GameState = require('./gameState');
-const { foodData } = require('./gameStateResources');
 const { getById } = require('./gameUtils');
 const { gasMineCheckAndBuild } = require('./resourceManagement');
 const { getMineralFieldsNearby, getGasGeysersNearby } = require('./resourceUtils');
@@ -205,11 +204,24 @@ function getNeedyGasMines(units) {
 function setFoodUsed(world) {
   const { agent } = world;
   const { foodUsed, race } = agent;
-  if (foodUsed === undefined) { return 0; }
+
+  // Check if foodUsed is defined on the agent
+  if (foodUsed === undefined) {
+    console.error('Agent foodUsed is undefined');
+    return;
+  }
+
+  // Get the singleton instance of GameState
   const gameState = GameState.getInstance();
+
+  // Calculate pending food used, specific to Zerg race
   const pendingFoodUsed = race === Race.ZERG ? gameState.getWorkers(world).filter(worker => worker.isConstructing()).length : 0;
+
+  // Calculate the total food used
   const calculatedFoodUsed = foodUsed + gameState.pendingFood - pendingFoodUsed;
-  foodData.foodUsed = calculatedFoodUsed;
+
+  // Update the food used in the GameState
+  gameState.resources.foodUsed = calculatedFoodUsed;
 }
 
 /**
