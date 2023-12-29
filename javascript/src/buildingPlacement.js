@@ -41,10 +41,10 @@ class BuildingPlacement {
     "getAddOnBuildingPosition": BuildingPlacement.getAddOnBuildingPosition,
     "setAddOnWallOffPosition": BuildingPlacement.setAddOnWallOffPosition,
     // ... other mappings
-  };  
+  };
 
   /** @type {Point2D[]} */
-  static wall = []; 
+  static wall = [];
 
   /** @type {Point2D | null} */
   static pylonPlacement = null;
@@ -105,7 +105,7 @@ class BuildingPlacement {
       "getAddOnBuildingPosition": BuildingPlacement.getAddOnBuildingPosition,
       "setAddOnWallOffPosition": BuildingPlacement.setAddOnWallOffPosition,
     };
-  }  
+  }
 
   /**
    * Calculates the building position for an add-on.
@@ -143,7 +143,7 @@ class BuildingPlacement {
     } else {
       return positions;
     }
-  }  
+  }
 
   /**
    * Sets the add-on wall-off position based on the map layout.
@@ -235,7 +235,7 @@ class BuildingPlacement {
       }
     });
   }
-  
+
   /**
    * Sets wall-off placements on the map.
    * @param {MapResource} map - The map resource to analyze for wall-off placements.
@@ -244,7 +244,7 @@ class BuildingPlacement {
     // Implement the logic to set two-by-two and three-by-three placements based on the map
     BuildingPlacement.setTwoByTwoPlacements(map);
     BuildingPlacement.setThreeByThreePlacements(map);
-  }  
+  }
 
   /**
    * Updates the found position.
@@ -260,7 +260,7 @@ class BuildingPlacement {
    */
   static getFoundPosition() {
     return BuildingPlacement.#foundPosition;
-  }  
+  }
 
   /**
    * @param {ResourceManager} resources
@@ -890,7 +890,7 @@ class BuildingPlacement {
         BuildingPlacement.buildingPosition = position;
       }
     }
-  } 
+  }
 }
 
 module.exports = BuildingPlacement;

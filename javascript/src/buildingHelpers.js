@@ -5,6 +5,7 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
 const { keepPosition, getBuilderInformation } = require("./buildingCommons");
+const { isGasCollector, isGeyserFree } = require("./buildingUtils");
 const { getTimeToTargetTech } = require("./gameData");
 const GameState = require("./gameState");
 const { getDistance } = require("./geometryUtils");
@@ -51,22 +52,43 @@ module.exports = {
    * @returns {false | Point2D}
    */  
   determineBuildingPosition(world, unitType, candidatePositions, buildingPositionFn, findPlacementsFn, findPositionFn, setBuildingPositionFn) {
-    let position = buildingPositionFn;
-    const validPosition = position && keepPosition(world, unitType, position, module.exports.isPlaceableAtGasGeyser);
+    // Check if the unitType is a gas collector
+    if (isGasCollector(unitType)) {
+      // For gas collectors, find placements should return geyser positions
+      candidatePositions = findPlacementsFn(world, unitType);
 
-    if (!validPosition) {
+      // Filter out geysers that are already occupied
+      candidatePositions = candidatePositions.filter(pos => isGeyserFree(world, pos));
+
       if (candidatePositions.length === 0) {
-        candidatePositions = findPlacementsFn(world, unitType);
+        console.error('No free geysers available for gas collector');
+        return false;
       }
-      position = findPositionFn(world, unitType, candidatePositions);
-      if (!position) {
-        candidatePositions = findPlacementsFn(world, unitType);
-        position = findPositionFn(world, unitType, candidatePositions);
+    } else {
+      // For other unit types, follow the existing logic
+      if (!buildingPositionFn) {
+        if (candidatePositions.length === 0) {
+          candidatePositions = findPlacementsFn(world, unitType);
+        }
+      } else {
+        // Check if the initial position is valid
+        const validPosition = keepPosition(world, unitType, buildingPositionFn, module.exports.isPlaceableAtGasGeyser);
+        if (validPosition) {
+          setBuildingPositionFn(unitType, buildingPositionFn);
+          return buildingPositionFn;
+        }
       }
-      setBuildingPositionFn(unitType, position);
     }
 
-    return position || false;
+    // Find the best position from candidate positions
+    let position = findPositionFn(world, unitType, candidatePositions);
+    if (!position) {
+      console.error(`No valid position found for building type ${unitType}`);
+      return false;
+    }
+
+    setBuildingPositionFn(unitType, position);
+    return position;
   },
 
   /**

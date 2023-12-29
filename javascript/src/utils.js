@@ -303,6 +303,21 @@ function isSupplyNeeded(world, buffer = 0) {
 }
 
 /**
+ * Compares two positions to determine if they are the same.
+ * @param {Point2D} pos1 - The first position.
+ * @param {Point2D} pos2 - The second position.
+ * @returns {boolean} - Returns true if positions are the same, false otherwise.
+ */
+function positionIsEqual(pos1, pos2) {
+  const epsilon = 0.1; // Define a small tolerance for comparison
+  if (pos1 && pos2 && typeof pos1.x === 'number' && typeof pos1.y === 'number' && typeof pos2.x === 'number' && typeof pos2.y === 'number') {
+    return Math.abs(pos1.x - pos2.x) < epsilon && Math.abs(pos1.y - pos2.y) < epsilon;
+  } else {
+    return false; // Return false if any of the positions or coordinates are undefined
+  }
+}
+
+/**
  * @typedef {Object.<string, number>} Dictionary
  * Represents a dictionary object with string keys and number values.
  */
@@ -330,4 +345,5 @@ module.exports = {
   isSupplyNeeded,
   canBuild,
   getTimeInSeconds,
+  positionIsEqual,
 };
