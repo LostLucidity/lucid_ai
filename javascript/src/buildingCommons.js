@@ -40,7 +40,7 @@ function getCurrentlyEnrouteConstructionGrids(world) {
   /** @type {Point2D[]} */
   const constructionGrids = [];
 
-  const UnitTypeMap = buildUnitTypeMap(world.data.getUnitTypeData);
+  const UnitTypeMap = buildUnitTypeMap(world.data);
 
   const gameState = GameState.getInstance();
 

@@ -43,17 +43,17 @@ const unitTypeData = {};
 
 /**
  * Builds a map from unit names to their ability IDs.
- * @param {function(number): SC2APIProtocol.UnitTypeData} getUnitTypeDataFn
+ * @param {DataStorage} dataStorage
  * @returns {import('./common').UnitTypeMap}
  */
-function buildUnitTypeMap(getUnitTypeDataFn) {
+function buildUnitTypeMap(dataStorage) {
   /** @type {import('./common').UnitTypeMap} */
   const map = {};
 
   const allUnitTypeIds = getAllUnitTypeIds(); // Implement this function
 
   allUnitTypeIds.forEach(id => {
-    const data = getUnitTypeDataFn(id);
+    const data = dataStorage.getUnitTypeData(id);
     if (data && data.name && data.abilityId !== undefined) {
       map[data.name] = data.abilityId;
     }
