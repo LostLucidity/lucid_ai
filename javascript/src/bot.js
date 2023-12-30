@@ -16,6 +16,7 @@ const { prepareEarlyScouting } = require('./scoutingUtils');
 const StrategyManager = require('./strategyManager');
 const { runPlan } = require('./strategyService');
 const { refreshProductionUnitsCache, manageZergSupply } = require('./unitManagement');
+const { convertToPlanSteps } = require('./utils/strategyUtils');
 const { assignWorkers, balanceWorkerDistribution, reassignIdleWorkers } = require('./workerAssignment');
 const config = require('../config/config');
 
@@ -88,6 +89,14 @@ const bot = createAgent({
     // Update the GameState with the determined race
     const gameState = GameState.getInstance();
     gameState.setRace(botRace);
+
+    // Synchronize the strategy plan with GameState
+    const strategyManager = StrategyManager.getInstance(botRace);
+    const currentStrategy = strategyManager.getCurrentStrategy();
+    if (currentStrategy && currentStrategy.steps) {
+      const planSteps = convertToPlanSteps(currentStrategy.steps);
+      gameState.setPlan(planSteps);
+    }
 
     // Perform initial map analysis based on the bot's race
     performInitialMapAnalysis(world);

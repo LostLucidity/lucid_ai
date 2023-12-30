@@ -346,6 +346,14 @@ class GameState {
   }
 
   /**
+   * Sets the building plan.
+   * @param {import('./strategyService').PlanStep[]} newPlan - The new building plan.
+   */
+  setPlan(newPlan) {
+    this.plan = newPlan;
+  }  
+
+  /**
    * Sets the race of the player or AI.
    * @param {SC2APIProtocol.Race} newRace - The race to be set.
    */
