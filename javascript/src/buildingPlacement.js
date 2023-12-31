@@ -31,7 +31,10 @@ const StrategyManager = require('./strategyManager');
 const { seigeTanksSiegedGrids } = require('./unitActions');
 const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require('./unitConfig');
 const { getTimeInSeconds, getStringNameOfConstant } = require('./utils');
+const { calculateDistance } = require('./utils/coreUtils');
 const config = require('../config/config');
+
+const PYLON_POWER_RANGE = 6.5;
 
 class BuildingPlacement {
   /** @type {Point2D[]} */
@@ -144,6 +147,27 @@ class BuildingPlacement {
       return positions;
     }
   }
+
+  /**
+   * Checks if the Pylon is in range and powered for the given positions.
+   * @param {Unit} pylon The Pylon unit to check.
+   * @param {Point2D[]} candidatePositions The positions to check against.
+   * @returns {boolean} True if the Pylon is in range and powered, false otherwise.
+   */
+  static isPylonInRangeAndPowered(pylon, candidatePositions) {
+    if (!pylon.pos) {
+      // If pylon position is undefined, return false as we cannot calculate distance
+      return false;
+    }
+
+    for (const position of candidatePositions) {
+      const distance = calculateDistance(pylon.pos, position);
+      if (distance <= PYLON_POWER_RANGE && pylon.isPowered) {
+        return true; // Pylon is in range and powered for this position
+      }
+    }
+    return false; // No candidate positions are in range of a powered Pylon
+  }  
 
   /**
    * Sets the add-on wall-off position based on the map layout.

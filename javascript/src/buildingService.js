@@ -39,6 +39,16 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
   const gameState = new GameState();
   const effectiveTargetCount = targetCount === undefined ? Number.MAX_SAFE_INTEGER : targetCount;
 
+  // Check if a Pylon is needed and if it exists for Protoss buildings
+  if (agent.race === Race.PROTOSS && requiresPylonPower(unitType)) {
+    const pylonExists = units.getByType(UnitType.PYLON).some(pylon => BuildingPlacement.isPylonInRangeAndPowered(pylon, candidatePositions));
+    if (!pylonExists) {
+      // Build a Pylon first if required
+      collectedActions.push(/* Pylon building commands */);
+      return collectedActions;
+    }
+  }
+
   if (gameState.getUnitTypeCount(world, unitType) <= effectiveTargetCount &&
     gameState.getUnitCount(world, unitType) <= effectiveTargetCount) {
     const { race } = agent;
@@ -252,3 +262,13 @@ module.exports = {
   buildSupply,
   build
 };
+
+/**
+ * Checks if the given Protoss unit type requires Pylon power.
+ * @param {UnitTypeId} unitType The type of the Protoss unit.
+ * @returns {boolean} True if the unit requires Pylon power, false otherwise.
+ */
+function requiresPylonPower(unitType) {
+  const noPylonRequired = [UnitType.NEXUS, UnitType.ASSIMILATOR, UnitType.PYLON];
+  return !noPylonRequired.includes(unitType);
+}
