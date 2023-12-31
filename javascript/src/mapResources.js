@@ -7,20 +7,34 @@ const { createPoint2D } = require('@node-sc2/core/utils/geometry/point');
 const { getFootprint, Townhall } = require('@node-sc2/core/utils/geometry/units');
 
 class MapResources {
-  /** @type {Map<string, Unit[]>} */
   static freeGasGeysersCache = new Map();
 
   /**
    * Finds unoccupied gas geysers on the map.
    * @param {MapResource} map - The game map context.
+   * @param {number} currentGameLoop - The current game loop.
    * @returns {Unit[]} - Array of unoccupied gas geysers.
    */
-  static getFreeGasGeysers(map) {
-    // Use the static property for caching
-    if (!MapResources.freeGasGeysersCache.has('freeGasGeysers')) {
-      MapResources.freeGasGeysersCache.set('freeGasGeysers', map.freeGasGeysers());
+  static getFreeGasGeysers(map, currentGameLoop) {
+    if (!this.isCacheValid(currentGameLoop)) {
+      this.updateCache(map, currentGameLoop);
     }
-    return MapResources.freeGasGeysersCache.get('freeGasGeysers') || [];
+    return this.freeGasGeysersCache.get('freeGasGeysers') || [];
+  }
+
+  static invalidateCache() {
+    this.freeGasGeysersCache.clear();
+  }  
+
+  /**
+  * Checks if the cache is valid based on the current game loop.
+  * @param {number} currentGameLoop - The current game loop.
+  * @returns {boolean} - True if the cache is valid, false otherwise.
+  */
+  static isCacheValid(currentGameLoop) {
+    // Make sure to retrieve a number here
+    const lastUpdatedLoop = this.freeGasGeysersCache.get('lastUpdatedLoop');
+    return lastUpdatedLoop === currentGameLoop;
   }
 
   /**
@@ -56,6 +70,16 @@ class MapResources {
     });
     return availableExpansions;
   } 
+
+  /**
+   * @param {MapResource} map
+   * @param {number} currentGameLoop - The current game loop.
+   */
+  static updateCache(map, currentGameLoop) {
+    const freeGeysers = map.freeGasGeysers();
+    this.freeGasGeysersCache.set('freeGasGeysers', freeGeysers);
+    this.freeGasGeysersCache.set('lastUpdatedLoop', currentGameLoop); // Ensure this is a number
+  }
 }
 
 module.exports = MapResources;

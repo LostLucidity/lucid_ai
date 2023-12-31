@@ -497,17 +497,18 @@ class BuildingPlacement {
     const { gasMineTypes } = groupTypes;
     const { agent, data, resources } = world;
     const { race } = agent;
-    const { map, units } = resources.get();
+    const { map, units, frame } = resources.get();
+    const currentGameLoop = frame.getGameLoop();
     const [main, natural] = map.getExpansions();
 
-    // Check if main and natural expansions are defined and have the 'areas' property
     if (!main || !main.areas || !natural || !natural.areas) {
       return [];
     }
 
     const mainMineralLine = main.areas.mineralLine;
+
     if (gasMineTypes.includes(unitType)) {
-      const geyserPositions = MapResources.getFreeGasGeysers(map).map(geyser => {
+      const geyserPositions = MapResources.getFreeGasGeysers(map, currentGameLoop).map(geyser => {
         const { pos } = geyser;
         if (pos === undefined) return { pos, buildProgress: 0 };
         const [closestBase] = units.getClosest(pos, units.getBases());
