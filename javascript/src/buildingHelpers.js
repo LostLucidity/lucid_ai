@@ -18,28 +18,11 @@ const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering }
 const { unitTypeTrainingAbilities } = require("./unitConfig");
 const { getPathablePositionsForStructure, getDistanceByPath, createUnitCommand } = require("./utils");
 const { getPendingOrders } = require("./utils/commonGameUtils");
+const { logMessageStorage } = require("./utils/loggingUtils");
 const { handleRallyBase, rallyWorkerToTarget, getOrderTargetPosition } = require("./workerUtils");
 
 // src/buildingHelpers.js
 module.exports = {
-  /**
-   * Find potential building placements within the main base.
-   * @param {World} world
-   * @param {UnitTypeId} unitType
-   * @returns {Point2D[]}
-   */  
-  getInTheMain: function (world, unitType) {
-    const { map } = world.resources.get();
-    const mainBase = map.getMain();
-
-    if (!mainBase || !mainBase.areas) {
-      return []; // Return an empty array if mainBase or its areas are undefined
-    }
-
-    // Filter the placement grid to find suitable positions
-    return mainBase.areas.placementGrid.filter(grid => map.isPlaceableAt(unitType, grid));
-  },
-
   /**
    * Determines a valid position for placing a building.
    * @param {World} world
@@ -50,19 +33,26 @@ module.exports = {
    * @param {(world: World, unitType: UnitTypeId, candidatePositions: Point2D[]) => false | Point2D} findPositionFn
    * @param {(unitType: UnitTypeId, position: false | Point2D) => void} setBuildingPositionFn
    * @returns {false | Point2D}
-   */  
+   */
   determineBuildingPosition(world, unitType, candidatePositions, buildingPositionFn, findPlacementsFn, findPositionFn, setBuildingPositionFn) {
+    // Use an external storage for logged messages
+    if (!logMessageStorage.noFreeGeysers) {
+      logMessageStorage.noFreeGeysers = false;
+    }
+
     // Check if the unitType is a gas collector
     if (isGasCollector(unitType)) {
-      // For gas collectors, find placements should return geyser positions
       candidatePositions = findPlacementsFn(world, unitType);
-
-      // Filter out geysers that are already occupied
       candidatePositions = candidatePositions.filter(pos => isGeyserFree(world, pos));
 
       if (candidatePositions.length === 0) {
-        console.error('No free geysers available for gas collector');
+        if (!logMessageStorage.noFreeGeysers) {
+          console.error('No free geysers available for gas collector');
+          logMessageStorage.noFreeGeysers = true;
+        }
         return false;
+      } else {
+        logMessageStorage.noFreeGeysers = false;
       }
     } else {
       // For other unit types, follow the existing logic
@@ -89,6 +79,24 @@ module.exports = {
 
     setBuildingPositionFn(unitType, position);
     return position;
+  },
+
+  /**
+   * Find potential building placements within the main base.
+   * @param {World} world
+   * @param {UnitTypeId} unitType
+   * @returns {Point2D[]}
+   */  
+  getInTheMain: function (world, unitType) {
+    const { map } = world.resources.get();
+    const mainBase = map.getMain();
+
+    if (!mainBase || !mainBase.areas) {
+      return []; // Return an empty array if mainBase or its areas are undefined
+    }
+
+    // Filter the placement grid to find suitable positions
+    return mainBase.areas.placementGrid.filter(grid => map.isPlaceableAt(unitType, grid));
   },
 
   /**
