@@ -41,10 +41,9 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
 
   // Check if a Pylon is needed and if it exists for Protoss buildings
   if (agent.race === Race.PROTOSS && requiresPylonPower(unitType)) {
-    const pylonExists = units.getByType(UnitType.PYLON).some(pylon => BuildingPlacement.isPylonInRangeAndPowered(pylon, candidatePositions));
-    if (!pylonExists) {
-      // Build a Pylon first if required
-      collectedActions.push(/* Pylon building commands */);
+    const pylons = units.getByType(UnitType.PYLON);
+    if (pylons.length === 0) {
+      // Add logic to handle the situation when there are no Pylons
       return collectedActions;
     }
   }
