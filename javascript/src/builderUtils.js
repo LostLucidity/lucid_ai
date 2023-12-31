@@ -16,6 +16,7 @@ const GameState = require("./gameState");
 const { getClosestBuilderCandidate } = require("./pathfinding");
 const { addEarmark } = require("./resourceUtils");
 const { calculateMovingOrConstructingNonDronesTimeToPosition } = require("./sharedBuildingUtils");
+const { findUnitTypesWithAbilityCached } = require("./utils");
 const { calculateClosestConstructingWorker } = require("./utils/coreUtils");
 const { getBuilders, gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters } = require("./workerUtils");
 
@@ -48,7 +49,7 @@ function commandPlaceBuilding(world, unitType, position, commandBuilderToConstru
   const abilityId = unitTypeData.abilityId;
 
   if (position) {
-    const unitTypes = data.findUnitTypesWithAbility(abilityId);
+    const unitTypes = findUnitTypesWithAbilityCached(data, abilityId);
 
     if (!unitTypes.includes(UnitType.NYDUSNETWORK)) {
       if (agent.canAfford(unitType)) {

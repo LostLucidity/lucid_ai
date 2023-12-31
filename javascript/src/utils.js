@@ -9,6 +9,7 @@ const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
 // Internal module imports
+const cacheManager = require("./cacheManager");
 const { areEqual, getClosestPathablePositions } = require("./common");
 const { getDistance } = require("./geometryUtils");
 const { isLineTraversable } = require("./mapUtils");
@@ -64,6 +65,27 @@ function findKeysForValue(map, targetValue) {
   }
 
   return keys;
+}
+
+/**
+ * Finds unit types with a specific ability, using caching to improve performance.
+ * @param {DataStorage} dataStorage - The data storage instance.
+ * @param {number} abilityId - The ID of the ability to find unit types for.
+ * @returns {number[]} - The list of unit type IDs with the specified ability.
+ */
+function findUnitTypesWithAbilityCached(dataStorage, abilityId) {
+  let cachedResult = cacheManager.getUnitTypeAbilityData(abilityId);
+  if (cachedResult !== undefined) {
+    return cachedResult;
+  }
+
+  // Accessing data from the passed-in DataStorage instance
+  let result = dataStorage.findUnitTypesWithAbility(abilityId);
+
+  // Cache the result for future use
+  cacheManager.cacheUnitTypeAbilityData(abilityId, result);
+
+  return result;
 }
 
 /**
@@ -335,6 +357,7 @@ function safeGetProperty(obj, key) {
 module.exports = {
   createUnitCommand,
   findKeysForValue,
+  findUnitTypesWithAbilityCached,
   getFoodUsedByUnitType,
   getPathablePositionsForStructure,
   getStringNameOfConstant,

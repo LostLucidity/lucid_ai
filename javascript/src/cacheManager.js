@@ -3,7 +3,17 @@
 class CacheManager {
   constructor() {
     this.cachedData = new Map();
+    this.unitTypeAbilityCache = new Map(); // New cache for unit type abilities
   }
+
+  /**
+   * Caches unit type ability data.
+   * @param {number} abilityId - The ability ID.
+   * @param {any} data - The data to cache.
+   */
+  cacheUnitTypeAbilityData(abilityId, data) {
+    this.unitTypeAbilityCache.set(abilityId, data);
+  }  
 
   /**
    * Retrieves data for a given key, if it's current for the specified frame.
@@ -18,6 +28,15 @@ class CacheManager {
     }
     return undefined;
   }
+
+  /**
+   * Retrieves unit type ability data from the cache.
+   * @param {number} abilityId - The ability ID.
+   * @returns {any | undefined} - The cached data or undefined if not available.
+   */
+  getUnitTypeAbilityData(abilityId) {
+    return this.unitTypeAbilityCache.get(abilityId);
+  }  
 
   /**
    * Updates the cache with new data.
