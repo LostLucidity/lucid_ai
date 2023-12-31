@@ -114,7 +114,6 @@ function balanceWorkerDistribution(world, units, resources) {
   return collectedActions;
 }
 
-
 /**
  * Finds the gathering order for a specific worker.
  * @param {UnitResource} units - The units resource object from the bot.

@@ -9,7 +9,7 @@ const { build } = require('./buildingService');
 const { interpretBuildOrderAction } = require('./buildOrders/buildOrderUtils');
 const { setFoodUsed, balanceResources } = require('./economyManagement');
 const GameState = require('./gameState');
-const { earmarks } = require('./resourceData');
+const { resetEarmarks } = require('./resourceData');
 const { hasEarmarks } = require('./resourceManagement');
 const StrategyManager = require('./strategyManager');
 const { buildSupplyOrTrain, train, upgrade } = require('./unitManagement');
@@ -89,10 +89,7 @@ class StrategyService {
     const { minerals, vespene } = agent;
     if (minerals === undefined || vespene === undefined) return [];
 
-    // Use the singleton instance of StrategyManager
     const strategyManager = StrategyManager.getInstance();
-
-    // Check if strategyManager is defined before using it
     if (!strategyManager) {
       console.error('StrategyManager instance is undefined.');
       return [];
@@ -100,7 +97,7 @@ class StrategyService {
 
     if (strategyManager.getCurrentStep() > -1) return [];
 
-    earmarks.length = 0;
+    resetEarmarks(); // Resetting the earmarks here
     const gameState = GameState.getInstance();
     gameState.pendingFood = 0;
 
@@ -111,6 +108,7 @@ class StrategyService {
     }
 
     let actionsToPerform = [];
+    let firstEarmarkSet = false;
 
     for (let step = 0; step < plan.steps.length; step++) {
       const rawStep = plan.steps[step];
@@ -159,7 +157,8 @@ class StrategyService {
 
       setFoodUsed(world);
 
-      if (gameState.setEarmark && hasEarmarks(data)) {
+      if (hasEarmarks(data) && !firstEarmarkSet) {
+        firstEarmarkSet = true;
         const earmarkTotals = data.getEarmarkTotals('');
         const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
         const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
@@ -170,12 +169,12 @@ class StrategyService {
 
     strategyManager.setCurrentStep(-1);
     if (!hasEarmarks(data)) {
-      const targetRatio = undefined; // Use 'undefined' instead of 'null'
+      const targetRatio = undefined;
       actionsToPerform.push(...balanceResources(world, targetRatio, build));
     }
 
     return actionsToPerform;
-  } 
+  }
 }
 
 // Export an instance of the strategy service
