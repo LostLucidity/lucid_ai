@@ -18,7 +18,6 @@ const path = require('path');
  * @property {string} raceMatchup - The race matchup indicator (e.g., PvZ, TvT, ZvX).
  */
 
-
 /**
  * Fetches the detailed steps of a build order from its URL.
  * @param {string} buildOrderUrl - The URL of the detailed build order page.

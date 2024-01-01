@@ -119,13 +119,15 @@ class StrategyService {
         time: rawStep.time,
         action: rawStep.action,
         orderType: interpretedAction.isUpgrade ? 'Upgrade' : 'UnitType',
-        unitType: interpretedAction.unitType,
+        // Default unitType to 0 if null
+        unitType: interpretedAction.unitType != null ? interpretedAction.unitType : 0,
         targetCount: interpretedAction.count,
-        upgrade: interpretedAction.isUpgrade ? interpretedAction.unitType : Upgrade.NULL,
+        // Default upgrade to 0 if null
+        upgrade: interpretedAction.isUpgrade ? (interpretedAction.unitType != null ? interpretedAction.unitType : 0) : Upgrade.NULL,
         isChronoBoosted: interpretedAction.isChronoBoosted,
         count: interpretedAction.count,
         candidatePositions: [],
-        food: parseInt(rawStep.supply, 10) // Assigning supply value to food
+        food: parseInt(rawStep.supply, 10)
       };
 
       strategyManager.setCurrentStep(step);
