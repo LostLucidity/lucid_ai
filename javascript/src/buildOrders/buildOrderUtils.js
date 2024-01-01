@@ -2,7 +2,7 @@
 
 
 // Import necessary modules or dependencies
-const { UnitType } = require("@node-sc2/core/constants");
+const { UnitType, Upgrade } = require("@node-sc2/core/constants");
 const fs = require("fs");
 const path = require("path");
 
@@ -38,18 +38,27 @@ function determineRaceDirectory(raceMatchup) {
 }
 
 /**
- * Reads the scraped build order data and generates individual files.
+ * Reads the scraped build order data and generates individual files,
+ * overwriting existing files with updated content.
  * @param {string} dataFilePath - Path to the JSON file containing the scraped build order data.
  */
 function generateBuildOrderFiles(dataFilePath) {
+  // Parse the build orders from the file
   /** @type {BuildOrder[]} */
   const buildOrders = JSON.parse(fs.readFileSync(dataFilePath, 'utf8'));
 
   buildOrders.forEach(buildOrder => {
+    // Determine the directory based on the race matchup
     const directory = determineRaceDirectory(buildOrder.raceMatchup);
+
     if (directory) {
+      // Construct the file path
       const filePath = path.join(__dirname, directory, sanitizeFileName(buildOrder.title) + '.js');
+
+      // Generate the content for the file, ensuring the updated interpretBuildOrderAction is used
       const fileContent = generateFileContent(buildOrder);
+
+      // Write (or overwrite) the file with the new content
       fs.writeFileSync(filePath, fileContent);
     }
   });
@@ -69,29 +78,55 @@ function generateFileContent(buildOrder) {
 }
 
 /**
- * Dynamically interprets build order actions, directly converting action strings to UnitType references.
+ * Dynamically interprets build order actions, converting action strings to either UnitType or Upgrade references.
  * @param {string} action - The action string from the build order.
- * @returns {{unitType: number, count: number, isUpgrade: boolean, isChronoBoosted: boolean}}
+ * @returns {{unitType: number | null, upgradeType: number | null, count: number, isUpgrade: boolean, isChronoBoosted: boolean}}
  */
 function interpretBuildOrderAction(action) {
-  const formattedAction = action.split(' ')[0].toUpperCase().replace(/\s+/g, '_');
+  /**
+   * Maps action strings to corresponding upgrade keys.
+   * @param {string} action - The action string.
+   * @returns {string | null} - The upgrade key or null if not found.
+   */
+  function getUpgradeKey(action) {
+    /** @type {Object<string, string>} */
+    const actionToUpgradeKey = {
+      'Blink': 'BLINKTECH',
+      // Add other mappings as needed
+    };
 
-  let unitType;
+    return actionToUpgradeKey[action] || null;
+  }
 
-  if (formattedAction in UnitType) {
-    // Type assertion to bypass TypeScript error
-    unitType = UnitType[/** @type {keyof typeof UnitType} */ (formattedAction)];
-  } else {
-    unitType = UnitType.INVALID;
+  // Remove additional details like "(Chrono Boost)" or "x3"
+  const cleanedAction = action.replace(/\s+\(.*?\)|\sx\d+/g, '');
+
+  // Replace spaces with underscores and convert to uppercase
+  const formattedAction = cleanedAction.toUpperCase().replace(/\s+/g, '');
+
+  let unitType = null;
+  let upgradeType = null;
+
+  // Check if the action is an upgrade
+  const upgradeKey = getUpgradeKey(cleanedAction);
+  if (upgradeKey && upgradeKey in Upgrade) {
+    // Bypass TypeScript strict type checking for Upgrade indexing
+    /** @type {{[key: string]: number}} */
+    const typedUpgrade = Upgrade;
+    upgradeType = typedUpgrade[upgradeKey];
+  } else if (formattedAction in UnitType) {
+    /** @type {{[key: string]: number}} */
+    const typedUnitType = UnitType;
+    unitType = typedUnitType[formattedAction];
   }
 
   const countMatch = action.match(/\sx(\d+)/);
   const count = countMatch ? parseInt(countMatch[1], 10) : 1;
 
-  const isUpgrade = action.includes("Level") || action.includes("Thermal Lance") || action.includes("Charge");
+  const isUpgrade = !!upgradeKey;
   const isChronoBoosted = action.includes("Chrono Boost");
 
-  return { unitType, count, isUpgrade, isChronoBoosted };
+  return { unitType, upgradeType, count, isUpgrade, isChronoBoosted };
 }
 
 /**
