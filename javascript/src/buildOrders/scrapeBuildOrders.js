@@ -22,15 +22,17 @@ async function fetchBuildOrderSteps(buildOrderUrl) {
       const supply = $(stepElem).find('td:nth-child(1)').text().trim();
       const time = $(stepElem).find('td:nth-child(2)').text().trim();
       const action = $(stepElem).find('td:nth-child(3)').text().trim();
+      // Extract comments from the fourth column
+      const comment = $(stepElem).find('td:nth-child(4)').text().trim();
 
-      // Add logic to derive 'interpretBuildOrderAction' based on the 'action' string
       const interpretedAction = interpretBuildOrderAction(action);
 
       steps.push({
         supply,
         time,
         action,
-        interpretedAction
+        interpretedAction,
+        comment // Add the comment to the step object
       });
     });
 
