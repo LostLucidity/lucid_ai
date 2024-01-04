@@ -13,6 +13,7 @@ const { resetEarmarks } = require('./resourceData');
 const { hasEarmarks } = require('./resourceManagement');
 const StrategyManager = require('./strategyManager');
 const { buildSupplyOrTrain, train, upgrade } = require('./unitManagement');
+const { isBuildOrderStep } = require('./utils/typeGuards');
 
 /**
  * @typedef {Object} PlanStep
@@ -71,8 +72,14 @@ class StrategyService {
 
       let interpretedAction = rawStep.interpretedAction;
       if (!interpretedAction) {
-        // If interpretedAction doesn't exist, handle it according to your strategy logic
-        interpretedAction = interpretBuildOrderAction(rawStep.action);
+        let comment = '';
+
+        // Use the type guard to safely access the 'comment' property
+        if (isBuildOrderStep(rawStep)) {
+          comment = rawStep.comment || ''; // Fallback to an empty string if undefined
+        }
+
+        interpretedAction = interpretBuildOrderAction(rawStep.action, comment);
       }
 
       // Ensure interpretedAction is defined before proceeding

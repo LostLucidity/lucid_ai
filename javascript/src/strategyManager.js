@@ -10,6 +10,7 @@ const { interpretBuildOrderAction } = require("./buildOrders/buildOrderUtils");
 const GameState = require("./gameState");
 const { calculateTargetCountForStep, sharedData } = require("./utils/intermediaryUtils");
 const { getSingletonInstance } = require("./utils/singletonFactory");
+const { isBuildOrderStep } = require("./utils/typeGuards");
 
 /**
  * @typedef {Object} StrategyStep
@@ -160,7 +161,15 @@ class StrategyManager {
 
     let interpretedAction = step.interpretedAction;
     if (!interpretedAction) {
-      interpretedAction = interpretBuildOrderAction(step.action); // Use the interpretBuildOrderAction function
+      // Provide a default value of an empty string if step.comment is undefined
+      let comment = '';
+
+      // Use the custom type guard to check if 'step' is a BuildOrderStep
+      if (isBuildOrderStep(step)) {
+        comment = step.comment || ''; // Provide a default empty string
+      }
+
+      interpretedAction = interpretBuildOrderAction(step.action, comment);
     }
 
     // Checking for unit production actions

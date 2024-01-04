@@ -25,7 +25,7 @@ async function fetchBuildOrderSteps(buildOrderUrl) {
       // Extract comments from the fourth column
       const comment = $(stepElem).find('td:nth-child(4)').text().trim();
 
-      const interpretedAction = interpretBuildOrderAction(action);
+      const interpretedAction = interpretBuildOrderAction(action, comment);
 
       steps.push({
         supply,

@@ -57,7 +57,7 @@ function generateBuildOrderFiles(dataFilePath) {
 function generateFileContent(buildOrder) {
   const steps = buildOrder.steps.map(step => ({
     ...step,
-    interpretedAction: interpretBuildOrderAction(step.action)
+    interpretedAction: interpretBuildOrderAction(step.action, step.comment)
   }));
   return `module.exports = ${JSON.stringify({ ...buildOrder, steps }, null, 2)};\n`;
 }
@@ -65,9 +65,10 @@ function generateFileContent(buildOrder) {
 /**
  * Dynamically interprets build order actions, converting action strings to either UnitType or Upgrade references.
  * @param {string} action - The action string from the build order.
- * @returns {{unitType: number | null, upgradeType: number | null, count: number, isUpgrade: boolean, isChronoBoosted: boolean}}
+ * @param {string} [comment] - Optional comment associated with the action.
+ * @returns {{unitType: number | null, upgradeType: number | null, count: number, isUpgrade: boolean, isChronoBoosted: boolean, specialAction: string | null}}
  */
-function interpretBuildOrderAction(action) {
+function interpretBuildOrderAction(action, comment = '') {
   /**
    * Maps action strings to corresponding upgrade keys.
    * @param {string} action - The action string.
@@ -91,6 +92,7 @@ function interpretBuildOrderAction(action) {
 
   let unitType = null;
   let upgradeType = null;
+  let specialAction = null;
 
   // Check if the action is an upgrade
   const upgradeKey = getUpgradeKey(cleanedAction);
@@ -105,13 +107,22 @@ function interpretBuildOrderAction(action) {
     unitType = typedUnitType[formattedAction];
   }
 
+  // Check if the action should be interpreted based on the comment
+  if (unitType === null && upgradeType === null) {
+    if (comment.includes("SCOUT CSV")) {
+      specialAction = 'Scouting with SCV';
+      unitType = UnitType['SCV']; // Replace with the correct enum for SCV
+    }
+    // Add additional else-if blocks for other special comments/actions
+  }
+
   const countMatch = action.match(/\sx(\d+)/);
   const count = countMatch ? parseInt(countMatch[1], 10) : 1;
 
   const isUpgrade = !!upgradeKey;
   const isChronoBoosted = action.includes("Chrono Boost");
 
-  return { unitType, upgradeType, count, isUpgrade, isChronoBoosted };
+  return { unitType, upgradeType, count, isUpgrade, isChronoBoosted, specialAction };
 }
 
 /**
