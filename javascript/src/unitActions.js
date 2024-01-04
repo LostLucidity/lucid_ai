@@ -15,6 +15,8 @@ const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff } = require(
 const { setPendingOrders } = require("./unitOrders");
 const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");
 const { getPendingOrders } = require("./utils/commonGameUtils");
+const { getPlanFoodValue } = require("./utils/gameStrategyUtils");
+const { getSingletonInstance } = require("./utils/singletonFactory");
 
 /** @type {Point2D[]} */
 const seigeTanksSiegedGrids = [];
@@ -105,12 +107,10 @@ function prepareUnitToBuildAddon(world, unit, targetPosition) {
   const unitBeingTrained = getUnitBeingTrained(unit); // Placeholder function
   const foodUsedByTrainingUnit = unitBeingTrained ? getFoodUsedByUnitType(data, unitBeingTrained) : 0;
 
-  // Retrieve the race from the world object
-  const race = world.agent.race; // Assuming world.agent.race holds the race information
-  const gameState = GameState.getInstance();
-
-  // Pass the race when calling getPlanFoodValue
-  const plan = gameState.getPlanFoodValue(race);
+  // Retrieve the singleton instance of GameState
+  const gameState = getSingletonInstance(GameState);
+  // Pass the retrieved GameState instance
+  const plan = getPlanFoodValue(gameState);
 
   if (unit.isIdle() && getPendingOrders(unit).length === 0 && isStructureLifted(unit) && targetPosition) {
     const landCommand = createUnitCommand(Ability.LAND, [unit]);

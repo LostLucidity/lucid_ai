@@ -24,7 +24,7 @@ module.exports = {
   defaultRace: Race.RANDOM,
 
   // Default difficulty level for the AI opponent
-  defaultDifficulty: Difficulty.MEDIUM,
+  defaultDifficulty: Difficulty.EASY,
 
   // Default map to play on
   defaultMap: maps.MAP_JAGANNATHA_LE,

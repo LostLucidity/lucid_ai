@@ -13,7 +13,6 @@ const { resetEarmarks } = require('./resourceData');
 const { hasEarmarks } = require('./resourceManagement');
 const StrategyManager = require('./strategyManager');
 const { buildSupplyOrTrain, train, upgrade } = require('./unitManagement');
-const { interpretBuildOrderStep } = require('./utils');
 
 /**
  * @typedef {Object} PlanStep
@@ -32,52 +31,6 @@ const { interpretBuildOrderStep } = require('./utils');
  */
 class StrategyService {
   constructor() {  } 
-
-  /**
-   * Retrieves the next step in the current strategy.
-   * @returns {PlanStep | null} The next step in the strategy, or null if no current strategy is set.
-   */
-  getNextStep() {
-    const strategyManager = StrategyManager.getInstance();
-    const currentStrategy = strategyManager.getCurrentStrategy();
-    if (!currentStrategy || !Array.isArray(currentStrategy.steps)) {
-      console.error('No current strategy is set or steps are invalid.');
-      return null;
-    }
-
-    const currentStepIndex = strategyManager.getCurrentStep();
-    // Check if currentStepIndex is undefined
-    if (currentStepIndex === undefined) {
-      console.error('Current step index is undefined.');
-      return null;
-    }
-
-    if (currentStepIndex < 0 || currentStepIndex >= currentStrategy.steps.length) {
-      console.error('Current step index is out of bounds.');
-      return null;
-    }
-
-    const rawStep = currentStrategy.steps[currentStepIndex];
-    strategyManager.setCurrentStep(currentStepIndex + 1);
-
-    // Use interpretBuildOrderStep to get a detailed interpretation of the action
-    const interpretedStep = interpretBuildOrderStep(rawStep);
-
-    // Extract or calculate the 'food' value as per your application logic
-    const food = parseInt(rawStep.supply, 10); // Example: converting supply string to a food value
-
-    return {
-      supply: interpretedStep.supply,
-      time: rawStep.time,
-      action: rawStep.action,
-      unitType: interpretedStep.unitType,
-      upgrade: interpretedStep.upgrade,
-      count: interpretedStep.count,
-      isChronoBoosted: interpretedStep.isChronoBoosted,
-      food, // Include the food property
-      // Add other relevant properties as required
-    };
-  }
 
   /**
    * Execute the game plan and return the actions to be performed.
@@ -112,18 +65,30 @@ class StrategyService {
 
     for (let step = 0; step < plan.steps.length; step++) {
       const rawStep = plan.steps[step];
-      const interpretedAction = interpretBuildOrderAction(rawStep.action);
+
+      // Check if the conditions of the step are satisfied
+      if (strategyManager.isStepSatisfied(world, rawStep)) continue;
+
+      let interpretedAction = rawStep.interpretedAction;
+      if (!interpretedAction) {
+        // If interpretedAction doesn't exist, handle it according to your strategy logic
+        interpretedAction = interpretBuildOrderAction(rawStep.action);
+      }
+
+      // Ensure interpretedAction is defined before proceeding
+      if (!interpretedAction) {
+        console.error("Interpreted action is undefined for step:", rawStep);
+        continue;  // Skip to the next iteration
+      }
 
       const planStep = {
         supply: parseInt(rawStep.supply, 10),
         time: rawStep.time,
         action: rawStep.action,
         orderType: interpretedAction.isUpgrade ? 'Upgrade' : 'UnitType',
-        // Default unitType to 0 if null
-        unitType: interpretedAction.unitType != null ? interpretedAction.unitType : 0,
+        unitType: interpretedAction.unitType || 0,  // Using short-circuit evaluation
         targetCount: interpretedAction.count,
-        // Default upgrade to 0 if null
-        upgrade: interpretedAction.isUpgrade ? (interpretedAction.unitType != null ? interpretedAction.unitType : 0) : Upgrade.NULL,
+        upgrade: interpretedAction.isUpgrade ? (interpretedAction.unitType || 0) : Upgrade.NULL,
         isChronoBoosted: interpretedAction.isChronoBoosted,
         count: interpretedAction.count,
         candidatePositions: [],

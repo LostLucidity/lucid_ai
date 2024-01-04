@@ -245,13 +245,6 @@ function getTimeInSeconds(frames) {
 }
 
 /**
- * @typedef {Object} BuildOrderStep
- * @property {string} supply - The supply count at this step.
- * @property {string} time - The game time for this step.
- * @property {string} action - The action to be taken at this step.
- */
-
-/**
  * @typedef {Object} InterpretedStep
  * @property {number} supply - The supply count at this step.
  * @property {string} time - The game time for this step.
@@ -264,7 +257,7 @@ function getTimeInSeconds(frames) {
 
 /**
  * Interprets a build order step and converts it into a PlanStep object.
- * @param {BuildOrderStep} step - A step from the build order.
+ * @param {import("./utils/globalTypes").BuildOrderStep} step - A step from the build order.
  * @returns {InterpretedStep} A PlanStep object.
  */
 function interpretBuildOrderStep(step) {

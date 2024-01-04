@@ -6,21 +6,6 @@ const { UnitType, Upgrade } = require("@node-sc2/core/constants");
 const fs = require("fs");
 const path = require("path");
 
-/** 
- * @typedef {Object} BuildOrder
- * @property {string} title - The title of the build order.
- * @property {string} raceMatchup - The race matchup indicator (e.g., PvZ, TvT, ZvX).
- * @property {BuildOrderStep[]} steps - The steps in the build order.
- * @property {string} url - The URL of the detailed build order page.
- */
-
-/** 
- * @typedef {Object} BuildOrderStep
- * @property {string} supply - The supply count at this step.
- * @property {string} time - The game time for this step.
- * @property {string} action - The action to be taken at this step.
- */
-
 /**
  * Determines the directory name based on the race matchup of the build order.
  * @param {string} raceMatchup - The race matchup indicator (e.g., PvZ, TvT, ZvX).
@@ -44,7 +29,7 @@ function determineRaceDirectory(raceMatchup) {
  */
 function generateBuildOrderFiles(dataFilePath) {
   // Parse the build orders from the file
-  /** @type {BuildOrder[]} */
+  /** @type {import("../utils/globalTypes").BuildOrder[]} */
   const buildOrders = JSON.parse(fs.readFileSync(dataFilePath, 'utf8'));
 
   buildOrders.forEach(buildOrder => {
@@ -66,7 +51,7 @@ function generateBuildOrderFiles(dataFilePath) {
 
 /**
  * Generates the content for a build order file.
- * @param {BuildOrder} buildOrder - The build order object.
+ * @param {import("../utils/globalTypes").BuildOrder} buildOrder - The build order object.
  * @returns {string} The string to be written to the file.
  */
 function generateFileContent(buildOrder) {

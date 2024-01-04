@@ -6,12 +6,17 @@ const { Race } = require("@node-sc2/core/constants/enums");
 // Import build orders for each race
 /** @type {import("./utils/globalTypes").BuildOrders} */
 const buildOrders = require('./buildOrders');
+const { interpretBuildOrderAction } = require("./buildOrders/buildOrderUtils");
+const GameState = require("./gameState");
+const { calculateTargetCountForStep, sharedData } = require("./utils/intermediaryUtils");
+const { getSingletonInstance } = require("./utils/singletonFactory");
 
 /**
  * @typedef {Object} StrategyStep
- * @property {string} supply - The supply count at this step.
- * @property {string} time - The game time for this step.
- * @property {string} action - The action to be taken at this step.
+ * @property {string} supply
+ * @property {string} time
+ * @property {string} action
+ * @property {import("./utils/globalTypes").InterpretedAction} [interpretedAction] - Optional property for interpreted action details
  */
 
 /**
@@ -75,23 +80,103 @@ class StrategyManager {
   }
 
   /**
+   * Assigns a race to the strategy manager and initializes the strategy.
+   * @param {SC2APIProtocol.Race | undefined} race - The race to assign.
+   */
+  assignRaceAndInitializeStrategy(race) {
+    this.race = race;
+    this.initializeStrategy(race);
+  } 
+
+  /**
+   * Get the current strategy's build order.
+   * @param {World} world
+   * @returns {import('./utils/globalTypes').BuildOrder}
+   */
+  getBuildOrderForCurrentStrategy(world) {
+    const strategyManager = StrategyManager.getInstance(world.agent.race);
+    const currentStrategy = strategyManager.getCurrentStrategy();
+
+    if (!currentStrategy) {
+      throw new Error('No current strategy found');
+    }
+
+    // Check if currentStrategy is a BuildOrder
+    if ('title' in currentStrategy && 'raceMatchup' in currentStrategy && 'steps' in currentStrategy && 'url' in currentStrategy) {
+      return currentStrategy;
+    }
+
+    // If currentStrategy is not a BuildOrder, handle the error or alternative case
+    throw new Error('Current strategy does not contain a valid build order');
+  }
+
+  /**
    * Retrieves the singleton instance of StrategyManager.
    * @param {SC2APIProtocol.Race | undefined} race - The race for the strategy manager.
    * @returns {StrategyManager} The singleton instance.
    */
   static getInstance(race = undefined) {
-    if (!StrategyManager.instance && race !== undefined) {
-      StrategyManager.instance = new StrategyManager(race);
+    // Wrap 'race' in an array
+    const instance = getSingletonInstance(StrategyManager, [race]);
+
+    // Only initialize with race if race is provided
+    if (race !== undefined && instance.race === undefined) {
+      instance.assignRaceAndInitializeStrategy(race);
     }
-    if (!StrategyManager.instance) {
-      throw new Error("StrategyManager instance is not initialized.");
-    }
-    return StrategyManager.instance;
+
+    return instance;
   }
 
   // Getters and setters for the properties
   getOutpowered() {
     return this.outpowered;
+  }
+
+  /**
+   * Initializes the strategy for the given race.
+   * @param {SC2APIProtocol.Race | undefined} race - The race for which to initialize the strategy.
+   */
+  initializeStrategy(race) {
+    if (this.race === undefined) {
+      this.race = race;
+    }
+    try {
+      const buildOrderKey = this.selectBuildOrderKey(race);
+      this.currentStrategy = this.loadStrategy(race, buildOrderKey);
+    } catch (error) {
+      console.error(`Error loading strategy for ${race}:`, error);
+    }
+  }
+
+  /**
+   * Check if the step conditions are satisfied.
+   * @param {World} world
+   * @param {import('./utils/globalTypes').BuildOrderStep | StrategyStep} step
+   * @returns {boolean}
+   */
+  isStepSatisfied(world, step) {
+    const gameState = GameState.getInstance();
+    const agent = world.agent;
+
+    let interpretedAction = step.interpretedAction;
+    if (!interpretedAction) {
+      interpretedAction = interpretBuildOrderAction(step.action); // Use the interpretBuildOrderAction function
+    }
+
+    // Checking for unit production actions
+    if (interpretedAction.isUpgrade === false && interpretedAction.unitType !== null) {
+      const currentUnitCount = gameState.getUnitCount(world, interpretedAction.unitType);
+      const buildOrder = this.getBuildOrderForCurrentStrategy(world); // Retrieve the build order for the current strategy
+      const targetCountForStep = calculateTargetCountForStep(step, buildOrder, sharedData.cumulativeTargetCounts);
+      return currentUnitCount >= targetCountForStep;
+    }
+
+    // Checking for upgrade-related actions
+    if (interpretedAction.isUpgrade === true && interpretedAction.upgradeType !== null) {
+      return agent.upgradeIds ? agent.upgradeIds.includes(interpretedAction.upgradeType) : false;
+    }
+
+    return false;
   }
 
   /**
@@ -173,15 +258,6 @@ class StrategyManager {
 
   getCurrentStrategy() {
     return this.currentStrategy;
-  }
-
-  /**
-   * Sets the current strategy.
-   * @param {import("./utils/globalTypes").BuildOrder | Strategy} strategy - The strategy to set.
-   */
-  setCurrentStrategy(strategy) {
-    this.currentStrategy = strategy;
-    this.currentStep = 0; // Reset current step when strategy changes
   }
 
   /**

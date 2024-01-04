@@ -3,39 +3,34 @@ const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
 
-/**
- * @typedef {Object} BuildOrderStep
- * @property {string} supply - The supply count at this step.
- * @property {string} time - The game time for this step.
- * @property {string} action - The action to be taken at this step.
- */
-
-/**
- * @typedef {Object} BuildOrder
- * @property {string} title - The title of the build order.
- * @property {BuildOrderStep[]} steps - The steps in the build order.
- * @property {string} url - The URL of the detailed build order page.
- * @property {string} raceMatchup - The race matchup indicator (e.g., PvZ, TvT, ZvX).
- */
+const { interpretBuildOrderAction } = require('./buildOrderUtils');
 
 /**
  * Fetches the detailed steps of a build order from its URL.
  * @param {string} buildOrderUrl - The URL of the detailed build order page.
- * @returns {Promise<BuildOrderStep[]>} A promise that resolves to an array of build order steps.
+ * @returns {Promise<import('../utils/globalTypes').BuildOrderStep[]>} A promise that resolves to an array of build order steps.
  */
 async function fetchBuildOrderSteps(buildOrderUrl) {
   try {
     const { data } = await axios.get(buildOrderUrl);
     const $ = cheerio.load(data);
 
-    /** @type {BuildOrderStep[]} */
+    /** @type {import('../utils/globalTypes').BuildOrderStep[]} */
     const steps = []; // Explicitly defining the type of 'steps' as an array of 'BuildOrderStep'
 
     $('tbody > tr').each((i, stepElem) => {
+      const supply = $(stepElem).find('td:nth-child(1)').text().trim();
+      const time = $(stepElem).find('td:nth-child(2)').text().trim();
+      const action = $(stepElem).find('td:nth-child(3)').text().trim();
+
+      // Add logic to derive 'interpretBuildOrderAction' based on the 'action' string
+      const interpretedAction = interpretBuildOrderAction(action);
+
       steps.push({
-        supply: $(stepElem).find('td:nth-child(1)').text().trim(),
-        time: $(stepElem).find('td:nth-child(2)').text().trim(),
-        action: $(stepElem).find('td:nth-child(3)').text().trim()
+        supply,
+        time,
+        action,
+        interpretedAction
       });
     });
 
@@ -56,7 +51,7 @@ async function scrapeBuildOrders(url) {
     const { data } = await axios.get(url);
     const $ = cheerio.load(data);
 
-    /** @type {BuildOrder[]} */
+    /** @type {import('../utils/globalTypes').BuildOrder[]} */
     let buildOrders = [];
 
     $('tbody > tr').each((i, element) => {

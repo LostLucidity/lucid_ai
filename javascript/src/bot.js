@@ -90,8 +90,14 @@ const bot = createAgent({
     const gameState = GameState.getInstance();
     gameState.setRace(botRace);
 
-    // Synchronize the strategy plan with GameState
+    // Initialize StrategyManager with the determined race
     const strategyManager = StrategyManager.getInstance(botRace);
+
+    // Ensure currentStrategy is properly loaded
+    if (!strategyManager.currentStrategy) {
+      strategyManager.initializeStrategy(botRace);
+    }
+
     const currentStrategy = strategyManager.getCurrentStrategy();
     if (currentStrategy && currentStrategy.steps) {
       const planSteps = convertToPlanSteps(currentStrategy.steps);

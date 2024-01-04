@@ -12,8 +12,8 @@ const cacheManager = require('./cacheManager');
 const { missingUnits } = require('./gameDataStore');
 const { foodData } = require('./gameStateResources');
 const { defaultResources } = require('./resourceTypes');
-const StrategyManager = require('./strategyManager');
 const { getPendingOrders } = require('./utils/commonGameUtils');
+const { getSingletonInstance } = require('./utils/singletonFactory');
 
 /**
  * Class representing the game state.
@@ -179,18 +179,11 @@ class GameState {
   }
 
   /**
-   * Gets the food value of the current step in the plan.
-   * @param {SC2APIProtocol.Race | undefined} race - The race for the strategy manager.
-   * @returns {number}
+   * Singleton instance accessor.
    */
-  getPlanFoodValue(race) {
-    const strategyManager = StrategyManager.getInstance(race);
-    if (this.plan.length === 0 || strategyManager.getCurrentStep() >= this.plan.length) {
-      console.error('Plan is empty or current step is out of range.');
-      return 0;
-    }
-    return this.plan[strategyManager.getCurrentStep()].food;
-  }
+  static getInstance() {
+    return getSingletonInstance(GameState);
+  }  
 
   /**
    * Retrieves the race of the player or AI.
@@ -230,16 +223,6 @@ class GameState {
    */
   setAvailableExpansions(expansions) {
     this.availableExpansions = expansions;
-  }  
-
-  /**
-   * Singleton instance accessor.
-   */
-  static getInstance() {
-    if (!this.instance) {
-      this.instance = new GameState();
-    }
-    return this.instance;
   }
 
   /**

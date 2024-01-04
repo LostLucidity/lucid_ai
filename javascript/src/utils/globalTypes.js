@@ -17,17 +17,27 @@
 
 /**
  * @typedef {Object} BuildOrderStep
- * @property {string} supply - The supply count at this step.
- * @property {string} time - The game time for this step.
- * @property {string} action - The action to be taken at this step.
+ * @property {string} supply
+ * @property {string} time
+ * @property {string} action
+ * @property {InterpretedAction} [interpretedAction] - Optional property for interpreted action details
  */
 
 /**
  * @typedef {Object} GameState
+ * @property {import("../strategyService").PlanStep[]} plan - The current plan.
  * @property {number} resources - The current resources available to the bot.
  * @property {Object} enemyInfo - Information about the enemy's units and buildings.
  * @property {Object[]} ownUnits - Array of the bot's own units.
- * // Add more properties as needed to represent your game state
+ */
+
+/**
+ * @typedef {Object} InterpretedAction
+ * @property {number|null} unitType - The unit type for the action, if applicable.
+ * @property {number|null} upgradeType - The upgrade type for the action, if applicable.
+ * @property {number} count - The count for the unit or upgrade.
+ * @property {boolean} isUpgrade - Indicates if the action is an upgrade.
+ * @property {boolean} isChronoBoosted - Indicates if the action is Chrono Boosted.
  */
 
 /**
@@ -39,6 +49,7 @@ module.exports = {
   BuildOrderStep: null,
   BuildOrder: null,
   GameState: null, // Dummy export for JSDoc typedef
+  InterpretedAction: null,
   RaceBuildOrders: null,
   BuildOrders: null,
 };
