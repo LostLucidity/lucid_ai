@@ -50,7 +50,7 @@ class StrategyService {
 
     if (strategyManager.getCurrentStep() > -1) return [];
 
-    resetEarmarks(); // Resetting the earmarks here
+    resetEarmarks(data); // Resetting the earmarks here
     const gameState = GameState.getInstance();
     gameState.pendingFood = 0;
 

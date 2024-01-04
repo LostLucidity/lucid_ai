@@ -86,7 +86,6 @@ function buildSupplyOrTrain(world, step) {
   return collectedActions;
 }
 
-
 /**
  * Check if unit can train now.
  * @param {World} world
