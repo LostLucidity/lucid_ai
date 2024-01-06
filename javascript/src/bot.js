@@ -12,7 +12,6 @@ const { shouldTrainMoreWorkers, trainAdditionalWorkers, calculateMaxWorkers } = 
 const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
 const { calculateAdjacentToRampGrids } = require('./mapUtils');
-const { prepareEarlyScouting } = require('./scoutingUtils');
 const StrategyManager = require('./strategyManager');
 const { runPlan } = require('./strategyService');
 const { refreshProductionUnitsCache, manageZergSupply } = require('./unitManagement');
@@ -59,7 +58,7 @@ function performInitialMapAnalysis(world) {
  * @param {World} world - The game world context, including resources and actions.
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The collection of actions to be executed.
  */
-function assignInitialWorkersAndScout(world) {
+function assignInitialWorkers(world) {
   // Retrieve the resource manager from the world object
   const resourceManager = world.resources;
 
@@ -69,10 +68,6 @@ function assignInitialWorkersAndScout(world) {
   // Assign workers to mineral fields
   const workerActions = assignWorkers(resourceManager); // Pass the ResourceManager object
   actionCollection.push(...workerActions);
-
-  // Prepare for early game scouting
-  const scoutingActions = prepareEarlyScouting(world); // Pass the world object
-  actionCollection.push(...scoutingActions);
 
   // Return the collection of actions
   return actionCollection;
@@ -112,7 +107,7 @@ const bot = createAgent({
 
     try {
       // Assign workers and prepare for scouting
-      const initialActions = assignInitialWorkersAndScout(world);
+      const initialActions = assignInitialWorkers(world);
       actionCollection.push(...initialActions);
 
       // Send all collected actions in a batch

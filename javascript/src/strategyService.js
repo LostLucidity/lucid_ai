@@ -12,6 +12,7 @@ const GameState = require('./gameState');
 const { resetEarmarks } = require('./resourceData');
 const { hasEarmarks } = require('./resourceManagement');
 const StrategyManager = require('./strategyManager');
+const { performScoutingWithSCV } = require('./unitActions');
 const { buildSupplyOrTrain, train, upgrade } = require('./unitManagement');
 const { isBuildOrderStep } = require('./utils/typeGuards');
 
@@ -31,7 +32,31 @@ const { isBuildOrderStep } = require('./utils/typeGuards');
  * Represents the strategy service responsible for managing the bot's strategy.
  */
 class StrategyService {
-  constructor() {  } 
+  constructor() { } 
+
+  /**
+   * Handles special actions identified in build order steps.
+   * @param {string} specialAction - The special action to handle.
+   * @param {World} world - The current world state.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed for the special action.
+   */
+  handleSpecialAction(specialAction, world) {
+    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+    let actions = []; // Explicitly typed as an array of SC2APIProtocol.ActionRawUnitCommand
+
+    switch (specialAction) {
+      case 'Scouting with SCV':
+        // Implement the logic for the specific special action
+        actions = performScoutingWithSCV(world);
+        break;
+      // Add more cases for other special actions
+
+      default:
+        console.warn(`Unhandled special action: ${specialAction}`);
+    }
+
+    return actions;
+  }
 
   /**
    * Execute the game plan and return the actions to be performed.
@@ -101,6 +126,13 @@ class StrategyService {
         candidatePositions: [],
         food: parseInt(rawStep.supply, 10)
       };
+
+      // Check for special actions and handle them after planStep is defined
+      if (interpretedAction.specialAction) {
+        const specialActions = this.handleSpecialAction(interpretedAction.specialAction, world);
+        actionsToPerform.push(...specialActions);
+        continue; // Skip the normal execution for this step
+      }
 
       strategyManager.setCurrentStep(step);
 

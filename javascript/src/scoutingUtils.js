@@ -3,19 +3,59 @@
 
 // scoutingUtils.js
 
-// Core SC2 constants and utilities
-const { Ability } = require('@node-sc2/core/constants');
-
 // Shared utility functions
 const { getDistance } = require('./geometryUtils');
-const { findEnemyBase } = require('./mapUtils');
-const { calculateDistance } = require('./utils/coreUtils');
+const MapResources = require('./mapResources');
 
 /**
  * Array to keep track of mapped enemy units.
  * @type {Unit[]}
  */
 const mappedEnemyUnits = [];
+
+/**
+ * Determines the location for scouting.
+ * @param {World} world - The world state containing the map resource.
+ * @returns {Point2D} The location for scouting.
+ */
+function determineScoutingLocation(world) {
+  // Extract the map resource from the world state
+  const mapResource = world.resources.get().map;
+
+  // Get the enemy's main base location using the map resource
+  const enemyBaseLocation = MapResources.getEnemyBaseLocation(mapResource);
+
+  // Method to get potential expansion sites, assuming it doesn't require additional parameters
+  const expansionSites = MapResources.getPotentialExpansionSites(mapResource);
+
+  // Choose a location based on the current game situation
+  return enemyBaseLocation || expansionSites[0]; // Fallback to the first expansion site if the main base location is unknown
+} 
+
+/**
+ * Determines multiple locations for scouting.
+ * @param {World} world - The current world state.
+ * @returns {Point2D[]} An array of locations for scouting.
+ */
+function determineScoutingLocations(world) {
+  const mapResource = world.resources.get().map;
+
+  // Identify key areas of interest for scouting
+  const enemyMainBase = mapResource.getEnemyMain()?.townhallPosition;
+  const enemyNatural = mapResource.getEnemyNatural()?.townhallPosition;
+
+  // Combine these locations into an array
+  let pointsOfInterest = [];
+
+  if (enemyMainBase) {
+    pointsOfInterest.push(enemyMainBase);
+  }
+  if (enemyNatural) {
+    pointsOfInterest.push(enemyNatural);
+  }
+
+  return pointsOfInterest;
+} 
 
 /**
  * Finds enemy units near a given unit.
@@ -35,64 +75,49 @@ function findEnemyUnitsNear(units, unit, radius) {
 }
 
 /**
- * Prepares scouting actions for a worker to scout the enemy base.
- * @param {World} world - The game context, including resources and actions.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of action commands for scouting.
+ * Determines if a unit is suitable for scouting.
+ * @param {Unit} unit - The unit to evaluate.
+ * @returns {boolean} True if the unit is suitable for scouting, false otherwise.
  */
-function prepareEarlyScouting(world) {
-  const { units, map } = world.resources.get();
+function isSuitableForScouting(unit) {
+  // Ensure all checks return a boolean value, defaulting to false if undefined
+  const isIdleOrFree = !!unit.noQueue && !unit.isGathering() && !unit.isConstructing();
+  const isNotInCombat = !unit.isAttacking();
 
-  const workers = units.getMineralWorkers();
-  const mainBaseLocation = map.getMain().townhallPosition;
-
-  const scoutActions = [];
-  const scout = selectScout(workers, mainBaseLocation);
-
-  if (scout && scout.tag) {
-    const enemyBaseLocation = findEnemyBase(map, mainBaseLocation);
-    if (enemyBaseLocation) {
-      const moveCommand = {
-        abilityId: Ability.MOVE,
-        targetWorldSpacePos: enemyBaseLocation,
-        unitTags: [scout.tag],
-      };
-      scoutActions.push(moveCommand);
-    }
-  }
-
-  return scoutActions;
+  return isIdleOrFree && isNotInCombat;
 }
 
 /**
- * Selects a suitable worker to perform scouting based on distance from the main base.
- * @param {Unit[]} workers - Array of worker units.
- * @param {Point2D} mainBaseLocation - Location of the main base.
- * @returns {Unit | null} - Selected scout or null if no suitable worker found.
+ * Selects an SCV unit for scouting.
+ * @param {World} world - The current world state.
+ * @returns {number} The ID of the selected SCV.
  */
-function selectScout(workers, mainBaseLocation) {
-  if (workers.length === 0 || !mainBaseLocation) {
-    return null;
+function selectSCVForScouting(world) {
+  const SCV_TYPE_ID = 45; // Constant ID for an SCV
+  const units = world.resources.get().units; // Accessing the units resource
+
+  const scoutingLocation = determineScoutingLocation(world);
+
+  let [selectedScv] = units.getClosest(
+    scoutingLocation,
+    units.getById(SCV_TYPE_ID).filter(unit => isSuitableForScouting(unit))
+  );
+
+  // Check if a suitable SCV is found and return its ID
+  if (selectedScv && selectedScv.tag) {
+    // Assuming tag is a string that can be parsed to a number
+    return parseInt(selectedScv.tag);
   }
 
-  let selectedScout = null;
-  let minDistance = Infinity;
-
-  for (const worker of workers) {
-    if (worker.pos) {
-      const distance = calculateDistance(worker.pos, mainBaseLocation);
-      if (distance < minDistance) {
-        selectedScout = worker;
-        minDistance = distance;
-      }
-    }
-  }
-
-  return selectedScout;
+  // Return a consistent fallback value if no suitable SCV is found
+  return -1;
 }
 
 // Export the function(s)
 module.exports = {
   mappedEnemyUnits,
+  determineScoutingLocations,
   findEnemyUnitsNear,
-  prepareEarlyScouting,
+  isSuitableForScouting,
+  selectSCVForScouting,
 };

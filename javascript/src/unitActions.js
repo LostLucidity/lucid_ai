@@ -11,6 +11,7 @@ const { getDistance } = require("./geometryUtils");
 const { pointsOverlap } = require("./mapUtils");
 const { getAddOnPlacement } = require("./placementUtils");
 const { addEarmark } = require("./resourceUtils");
+const { determineScoutingLocations, selectSCVForScouting } = require("./scoutingUtils");
 const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
 const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");
@@ -78,6 +79,23 @@ function attemptLiftOff(unit) {
 }
 
 /**
+ * Creates a move command for a unit to go to a specified location.
+ * @param {number} unitId - The ID of the unit to move.
+ * @param {Point2D} location - The destination location.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand} The move command for the unit.
+ */
+function createMoveCommand(unitId, location) {
+  const MOVE_ABILITY_ID = Ability.MOVE; // Using the MOVE ability from the Ability module
+
+  return {
+    abilityId: MOVE_ABILITY_ID,
+    targetWorldSpacePos: location,
+    unitTags: [unitId.toString()], // Converting unitId to a string
+    queueCommand: false
+  };
+}
+
+/**
  * @param {Unit} worker 
  * @param {Unit} target 
  * @param {boolean} queue 
@@ -137,11 +155,34 @@ function prepareUnitToBuildAddon(world, unit, targetPosition) {
   return collectedActions;
 }
 
+/**
+ * Performs the action of scouting with an SCV.
+ * @param {World} world - The current world state.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions representing the scouting task.
+ */
+function performScoutingWithSCV(world) {
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+  let actions = [];
+  const scvId = selectSCVForScouting(world);
+
+  // Determine multiple scouting locations
+  const scoutingLocations = determineScoutingLocations(world);
+
+  // Create move commands for the SCV to scout each location
+  scoutingLocations.forEach(location => {
+    const moveCommand = createMoveCommand(scvId, location);
+    actions.push(moveCommand);
+  });
+
+  return actions;
+}
+
 // Export the function
 module.exports = {
   attemptBuildAddOn,
   attemptLiftOff,
   mine,
+  performScoutingWithSCV,
   prepareUnitToBuildAddon,
   seigeTanksSiegedGrids,
 };

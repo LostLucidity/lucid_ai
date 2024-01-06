@@ -66,7 +66,7 @@ function generateFileContent(buildOrder) {
  * Dynamically interprets build order actions, converting action strings to either UnitType or Upgrade references.
  * @param {string} action - The action string from the build order.
  * @param {string} [comment] - Optional comment associated with the action.
- * @returns {{unitType: number | null, upgradeType: number | null, count: number, isUpgrade: boolean, isChronoBoosted: boolean, specialAction: string | null}}
+ * @returns {import("../utils/globalTypes").InterpretedAction} An object representing the interpreted action.
  */
 function interpretBuildOrderAction(action, comment = '') {
   /**

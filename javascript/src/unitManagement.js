@@ -724,7 +724,6 @@ function trainCombatUnits(world) {
   return collectedActions;
 }
 
-
 /**
  * Implement direct worker training logic here.
  * @param {World} world

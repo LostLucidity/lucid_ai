@@ -33,13 +33,16 @@
  */
 
 /**
+ * Represents an interpreted action from a build order step.
  * @typedef {Object} InterpretedAction
- * @property {number|null} unitType - The unit type for the action, if applicable.
- * @property {number|null} upgradeType - The upgrade type for the action, if applicable.
- * @property {number} count - The count for the unit or upgrade.
+ * @property {number | null} unitType - The type of unit, if applicable.
+ * @property {number | null} upgradeType - The type of upgrade, if applicable.
+ * @property {number} count - The number of units or upgrades.
  * @property {boolean} isUpgrade - Indicates if the action is an upgrade.
- * @property {boolean} isChronoBoosted - Indicates if the action is Chrono Boosted.
+ * @property {boolean} isChronoBoosted - Indicates if the action is chrono boosted.
+ * @property {string | null} [specialAction] - An optional special action indicated by the step.
  */
+
 
 /**
  * @typedef {{ [key: string]: BuildOrder | undefined }} RaceBuildOrders

@@ -10,6 +10,24 @@ class MapResources {
   static freeGasGeysersCache = new Map();
 
   /**
+   * Gets the enemy's main base location.
+   * @param {MapResource} map - The map resource from the world state.
+   * @returns {Point2D | null} The enemy's main base location, or null if not available.
+   */
+  static getEnemyBaseLocation(map) {
+    // Use the getEnemyMain method from MapResource to get the enemy's main base location
+    const enemyMainBase = map.getEnemyMain();
+
+    if (enemyMainBase && enemyMainBase.townhallPosition) {
+      // Use the townhallPosition property, which is a Point2D representing the main building's location
+      return enemyMainBase.townhallPosition;
+    }
+
+    // If the main base location isn't available, return null
+    return null;
+  }
+
+  /**
    * Finds unoccupied gas geysers on the map.
    * @param {MapResource} map - The game map context.
    * @param {number} currentGameLoop - The current game loop.
@@ -21,6 +39,21 @@ class MapResources {
     }
     return this.freeGasGeysersCache.get('freeGasGeysers') || [];
   }
+
+  /**
+   * Gets potential expansion sites on the map.
+   * @param {MapResource} map - The map resource from the world state.
+   * @returns {Point2D[]} An array of potential expansion site locations.
+   */
+  static getPotentialExpansionSites(map) {
+    // Get a list of all available expansions
+    const availableExpansions = map.getAvailableExpansions();
+
+    // Extract the townhall positions of these expansions
+    let potentialSites = availableExpansions.map(expansion => expansion.townhallPosition);
+
+    return potentialSites;
+  }  
 
   static invalidateCache() {
     this.freeGasGeysersCache.clear();
