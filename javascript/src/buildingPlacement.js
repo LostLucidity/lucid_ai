@@ -828,21 +828,24 @@ class BuildingPlacement {
     return mineralLineCandidates;
   }
 
-
   /**
    * Extracts the unit type from the action property.
    * @param {string} action - The action string from the plan step.
    * @returns {number | null} The extracted unit type ID or null if not found.
    */
   static extractUnitTypeFromAction(action) {
-    const actionParts = action.split(' ');
-    const baseAction = actionParts[0].toUpperCase();
+    // Early return for invalid inputs
+    if (!action || typeof action !== 'string') {
+      return null;
+    }
 
-    // Iterate over the keys of UnitType to find a match
-    for (const key in UnitType) {
-      if (Object.prototype.hasOwnProperty.call(UnitType, key) && key === baseAction) {
-        return UnitType[key];
-      }
+    // Remove additional details and format the action
+    const cleanedAction = action.replace(/\s+\(.*?\)|\sx\d+/g, '');
+    const formattedAction = cleanedAction.toUpperCase().replace(/\s+/g, '');
+
+    // Check if the formatted action is in UnitType
+    if (formattedAction in UnitType) {
+      return UnitType[formattedAction];
     }
 
     return null;

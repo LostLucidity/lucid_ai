@@ -4,7 +4,7 @@
 // src/utils.js
 
 // External library imports from @node-sc2/core
-const { UnitType, Upgrade } = require("@node-sc2/core/constants");
+const { UnitType } = require("@node-sc2/core/constants");
 const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
@@ -256,34 +256,6 @@ function getTimeInSeconds(frames) {
  */
 
 /**
- * Interprets a build order step and converts it into a PlanStep object.
- * @param {import("./utils/globalTypes").BuildOrderStep} step - A step from the build order.
- * @returns {InterpretedStep} A PlanStep object.
- */
-function interpretBuildOrderStep(step) {
-  const actionParts = step.action.split(' ');
-  const baseAction = actionParts[0].toUpperCase();
-
-  let unitType = safeGetProperty(UnitType, baseAction) || UnitType.INVALID;
-  let upgrade = safeGetProperty(Upgrade, baseAction) || Upgrade.NULL;
-
-  let isUpgrade = upgrade !== Upgrade.NULL;
-  let isChronoBoosted = step.action.includes('Chrono Boost');
-  let count = actionParts.includes('x') ? parseInt(actionParts[actionParts.indexOf('x') + 1], 10) : 1;
-
-  return {
-    supply: parseInt(step.supply, 10),
-    time: step.time,
-    action: step.action, // Include the 'action' property as required by InterpretedStep type
-    unitType: isUpgrade ? UnitType.INVALID : unitType,
-    upgrade: isUpgrade ? upgrade : Upgrade.NULL,
-    count: count,
-    isChronoBoosted: isChronoBoosted,
-    // Add other relevant properties here
-  };
-}
-
-/**
  * @param {World} world 
  * @param {number} buffer 
  * @returns {boolean} 
@@ -332,21 +304,6 @@ function positionIsEqual(pos1, pos2) {
   }
 }
 
-/**
- * @typedef {Object.<string, number>} Dictionary
- * Represents a dictionary object with string keys and number values.
- */
-
-/**
- * Safely gets a property value from an object.
- * @param {Dictionary} obj - The object from which to retrieve the property.
- * @param {string} key - The key of the property to retrieve.
- * @returns {number|undefined} The value of the property, or undefined if not found.
- */
-function safeGetProperty(obj, key) {
-  return Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined;
-}
-
 module.exports = {
   createUnitCommand,
   findKeysForValue,
@@ -357,7 +314,6 @@ module.exports = {
   getUnitsWithinDistance,
   getDistanceByPath,
   getLine,
-  interpretBuildOrderStep,
   isSupplyNeeded,
   canBuild,
   getTimeInSeconds,
