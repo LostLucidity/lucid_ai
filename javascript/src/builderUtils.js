@@ -20,7 +20,6 @@ const { findUnitTypesWithAbilityCached } = require("./utils");
 const { calculateClosestConstructingWorker } = require("./utils/coreUtils");
 const { getBuilders, gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters } = require("./workerUtils");
 
-
 /**
  * Command to place a building at the specified position.
  * 
@@ -35,49 +34,44 @@ const { getBuilders, gatherBuilderCandidates, filterMovingOrConstructingNonDrone
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A promise containing a list of raw unit commands.
  */
 function commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, premoveBuilderToPosition, isPlaceableAtGasGeyser, getTimeToTargetCost) {
-  const { agent, data, resources } = world;
-  const { units } = resources.get();
-
+  const { agent, data } = world;
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
 
   const unitTypeData = data.getUnitTypeData(unitType);
-  if (!unitTypeData || typeof unitTypeData.abilityId === 'undefined') {
-    return collectedActions; // return an empty array early
+  if (!unitTypeData?.abilityId) {
+    return collectedActions;
   }
 
-  const abilityId = unitTypeData.abilityId;
-
-  if (position) {
-    const unitTypes = findUnitTypesWithAbilityCached(data, abilityId);
-
-    if (!unitTypes.includes(UnitType.NYDUSNETWORK)) {
-      if (agent.canAfford(unitType)) {
-        position = !keepPosition(world, unitType, position, isPlaceableAtGasGeyser) ? null : position;
-
-        if (position) {
-          // Prepare the builder for the task
-          const builder = prepareBuilderForConstruction(world, unitType, position);
-          if (builder) {
-            collectedActions.push(...commandBuilderToConstruct(world, builder, unitType, position));
-          } else {
-            // No builder found. Handle the scenario or add a fallback mechanism.
-          }
-        }
-      } else {
-        // When you cannot afford the structure, you might want to move the builder close to the position 
-        // so it's ready when you can afford it. 
-        // This logic needs to be implemented if it's the desired behavior.
-      }
-    } else {
-      collectedActions.push(...buildWithNydusNetwork(world, unitType, abilityId));
-    }
-
-    const [pylon] = units.getById(UnitType.PYLON);
-    if (pylon && typeof pylon.buildProgress !== 'undefined' && pylon.buildProgress < 1 && pylon.pos && typeof pylon.unitType !== 'undefined') {
-      collectedActions.push(...premoveBuilderToPosition(world, pylon.pos, pylon.unitType, getBuilder, BuildingPlacement.getMiddleOfStructure, getTimeToTargetCost));
-    }
+  if (!position) {
+    return collectedActions;
   }
+
+  const isNydusNetwork = findUnitTypesWithAbilityCached(data, unitTypeData.abilityId).includes(UnitType.NYDUSNETWORK);
+
+  if (isNydusNetwork) {
+    collectedActions.push(...buildWithNydusNetwork(world, unitType, unitTypeData.abilityId));
+    return collectedActions;
+  }
+
+  if (!agent.canAfford(unitType)) {
+    collectedActions.push(...handleCannotAffordBuilding(world, position, unitType, premoveBuilderToPosition, getTimeToTargetCost));
+    return collectedActions;
+  }
+
+  if (!keepPosition(world, unitType, position, isPlaceableAtGasGeyser)) {
+    return collectedActions;
+  }
+
+  const builder = prepareBuilderForConstruction(world, unitType, position);
+  if (!builder) {
+    // Handle no builder found scenario
+    return collectedActions;
+  }
+
+  collectedActions.push(...commandBuilderToConstruct(world, builder, unitType, position));
+  handleSpecialUnits(world, collectedActions, premoveBuilderToPosition, getTimeToTargetCost);
+
   return collectedActions;
 }
 
@@ -121,6 +115,39 @@ function getBuilder(world, position) {
 
   if (closestWorker === undefined) return;
   return closestWorker;
+}
+
+/**
+ * Handles the scenario where the agent cannot afford to build a specified unit.
+ * 
+ * @param {World} world - The current world state.
+ * @param {Point2D} position - The intended position for the building.
+ * @param {UnitTypeId} unitType - The type of unit to be built.
+ * @param {(world: World, position: Point2D, unitType: UnitTypeId, getBuilderFunc: (world: World, position: Point2D) => { unit: Unit; timeToPosition: number } | undefined, getMiddleOfStructureFn: (position: Point2D, unitType: UnitTypeId) => Point2D, getTimeToTargetCostFn: (world: World, unitType: UnitTypeId) => number) => SC2APIProtocol.ActionRawUnitCommand[]} premoveBuilderToPosition - Function to move builder to a position.
+ * @param {(world: World, unitType: UnitTypeId) => number} getTimeToTargetCost - Function to get time to target cost.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions for moving the builder.
+ */
+function handleCannotAffordBuilding(world, position, unitType, premoveBuilderToPosition, getTimeToTargetCost) {
+  return premoveBuilderToPosition(world, position, unitType, getBuilder, BuildingPlacement.getMiddleOfStructure, getTimeToTargetCost);
+}
+
+/**
+ * Handles special unit-specific actions, such as dealing with Pylons in StarCraft II.
+ * 
+ * @param {World} world - The current world state.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - Collection of actions to be performed.
+ * @param {(world: World, position: Point2D, unitType: UnitTypeId, getBuilderFunc: (world: World, position: Point2D) => { unit: Unit; timeToPosition: number } | undefined, getMiddleOfStructureFn: (position: Point2D, unitType: UnitTypeId) => Point2D, getTimeToTargetCostFn: (world: World, unitType: UnitTypeId) => number) => SC2APIProtocol.ActionRawUnitCommand[]} premoveBuilderToPosition - Function to move builder to a position.
+ * @param {(world: World, unitType: UnitTypeId) => number} getTimeToTargetCost - Function to get time to target cost.
+ * @returns {void} No return value; actions are added to collectedActions.
+ */
+function handleSpecialUnits(world, collectedActions, premoveBuilderToPosition, getTimeToTargetCost) {
+  const units = world.resources.get().units; // Accessing units from the World's ResourceManager
+  const [pylon] = units.getById(UnitType.PYLON);
+
+  // Check if pylon, buildProgress, pos, and unitType are defined
+  if (pylon && typeof pylon.buildProgress !== 'undefined' && pylon.buildProgress < 1 && pylon.pos && typeof pylon.unitType !== 'undefined') {
+    collectedActions.push(...premoveBuilderToPosition(world, pylon.pos, pylon.unitType, getBuilder, BuildingPlacement.getMiddleOfStructure, getTimeToTargetCost));
+  }
 }
 
 /**

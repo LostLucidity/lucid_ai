@@ -75,6 +75,13 @@ function assignInitialWorkers(world) {
 
 // Create a new StarCraft II bot agent with event handlers.
 const bot = createAgent({
+  interface: {
+      raw: true,
+      rawCropToPlayableArea: true,
+      score: true,
+      showBurrowedShadows: true,
+      showCloaked: true
+  },
   async onGameStart(world) {
     logMessage('Game Started', 1);
 
