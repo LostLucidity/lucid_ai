@@ -105,6 +105,7 @@ class BuildingPlacement {
    */
   static get functionMappingsWithSignature() {
     return {
+      "getNaturalWallPylon": BuildingPlacement.getNaturalWallPylon,
       "getAddOnBuildingPosition": BuildingPlacement.getAddOnBuildingPosition,
       "setAddOnWallOffPosition": BuildingPlacement.setAddOnWallOffPosition,
     };

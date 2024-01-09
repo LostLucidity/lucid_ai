@@ -74,8 +74,6 @@ class StrategyService {
       return [];
     }
 
-    if (strategyManager.getCurrentStep() > -1) return [];
-
     resetEarmarks(data); // Resetting the earmarks here
     const gameState = GameState.getInstance();
     gameState.pendingFood = 0;
