@@ -66,7 +66,7 @@ function generateFileContent(buildOrder) {
  * Dynamically interprets build order actions, converting action strings to either UnitType or Upgrade references.
  * @param {string} action - The action string from the build order.
  * @param {string} [comment] - Optional comment associated with the action.
- * @returns {import("../utils/globalTypes").InterpretedAction} An object representing the interpreted action.
+ * @returns {import("../utils/globalTypes").InterpretedAction[]} An array of objects representing the interpreted actions.
  */
 function interpretBuildOrderAction(action, comment = '') {
   /**
@@ -84,45 +84,52 @@ function interpretBuildOrderAction(action, comment = '') {
     return actionToUpgradeKey[action] || null;
   }
 
-  // Remove additional details like "(Chrono Boost)" or "x3"
-  const cleanedAction = action.replace(/\s+\(.*?\)|\sx\d+/g, '');
+  const actions = action.split(',');
+  /** @type {import("../utils/globalTypes").InterpretedAction[]} */
+  const interpretedActions = [];
+  
+  actions.forEach(actionPart => {
+    // Remove additional details like "(Chrono Boost)" or "x3"
+    const cleanedAction = actionPart.trim().replace(/\s+\(.*?\)|\sx\d+/g, '');
+    // Replace spaces with underscores and convert to uppercase
+    const formattedAction = cleanedAction.toUpperCase().replace(/\s+/g, '');
+  
+    let unitType = null;
+    let upgradeType = null;
+    let specialAction = null;
 
-  // Replace spaces with underscores and convert to uppercase
-  const formattedAction = cleanedAction.toUpperCase().replace(/\s+/g, '');
-
-  let unitType = null;
-  let upgradeType = null;
-  let specialAction = null;
-
-  // Check if the action is an upgrade
-  const upgradeKey = getUpgradeKey(cleanedAction);
-  if (upgradeKey && upgradeKey in Upgrade) {
-    // Bypass TypeScript strict type checking for Upgrade indexing
-    /** @type {{[key: string]: number}} */
-    const typedUpgrade = Upgrade;
-    upgradeType = typedUpgrade[upgradeKey];
-  } else if (formattedAction in UnitType) {
-    /** @type {{[key: string]: number}} */
-    const typedUnitType = UnitType;
-    unitType = typedUnitType[formattedAction];
-  }
-
-  // Check if the action should be interpreted based on the comment
-  if (unitType === null && upgradeType === null) {
-    if (comment.includes("SCOUT CSV")) {
-      specialAction = 'Scouting with SCV';
-      unitType = UnitType['SCV']; // Replace with the correct enum for SCV
+    // Check if the action is an upgrade
+    const upgradeKey = getUpgradeKey(cleanedAction);
+    if (upgradeKey && upgradeKey in Upgrade) {
+      // Bypass TypeScript strict type checking for Upgrade indexing
+      /** @type {{[key: string]: number}} */
+      const typedUpgrade = Upgrade;
+      upgradeType = typedUpgrade[upgradeKey];
+    } else if (formattedAction in UnitType) {
+      /** @type {{[key: string]: number}} */
+      const typedUnitType = UnitType;
+      unitType = typedUnitType[formattedAction];
     }
-    // Add additional else-if blocks for other special comments/actions
-  }
 
-  const countMatch = action.match(/\sx(\d+)/);
-  const count = countMatch ? parseInt(countMatch[1], 10) : 1;
+    // Check if the action should be interpreted based on the comment
+    if (unitType === null && upgradeType === null) {
+      if (comment.includes("SCOUT CSV")) {
+        specialAction = 'Scouting with SCV';
+        unitType = UnitType['SCV']; // Replace with the correct enum for SCV
+      }
+      // Add additional else-if blocks for other special comments/actions
+    }
 
-  const isUpgrade = !!upgradeKey;
-  const isChronoBoosted = action.includes("Chrono Boost");
+    const countMatch = action.match(/\sx(\d+)/);
+    const count = countMatch ? parseInt(countMatch[1], 10) : 1;
+  
+    const isUpgrade = !!upgradeKey;
+    const isChronoBoosted = action.includes("Chrono Boost");
 
-  return { unitType, upgradeType, count, isUpgrade, isChronoBoosted, specialAction };
+    interpretedActions.push({ unitType, upgradeType, count, isUpgrade, isChronoBoosted, specialAction });
+  });
+  
+  return interpretedActions;
 }
 
 /**

@@ -159,33 +159,30 @@ class StrategyManager {
     const gameState = GameState.getInstance();
     const agent = world.agent;
 
-    let interpretedAction = step.interpretedAction;
-    if (!interpretedAction) {
-      // Provide a default value of an empty string if step.comment is undefined
+    let interpretedActions;
+    if (step.interpretedAction) {
+      // Ensure interpretedActions is always an array
+      interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : [step.interpretedAction];
+    } else {
       let comment = '';
-
-      // Use the custom type guard to check if 'step' is a BuildOrderStep
       if (isBuildOrderStep(step)) {
-        comment = step.comment || ''; // Provide a default empty string
+        comment = step.comment || '';
+      }
+      interpretedActions = interpretBuildOrderAction(step.action, comment);
+    }
+
+    return interpretedActions.every(interpretedAction => {
+      if (interpretedAction.isUpgrade === false && interpretedAction.unitType !== null) {
+        const currentUnitCount = gameState.getUnitCount(world, interpretedAction.unitType);
+        const buildOrder = this.getBuildOrderForCurrentStrategy(world);
+        const targetCountForStep = calculateTargetCountForStep(step, buildOrder, sharedData.cumulativeTargetCounts);
+        return currentUnitCount >= targetCountForStep;
+      } else if (interpretedAction.isUpgrade === true && interpretedAction.upgradeType !== null) {
+        return agent.upgradeIds ? agent.upgradeIds.includes(interpretedAction.upgradeType) : false;
       }
 
-      interpretedAction = interpretBuildOrderAction(step.action, comment);
-    }
-
-    // Checking for unit production actions
-    if (interpretedAction.isUpgrade === false && interpretedAction.unitType !== null) {
-      const currentUnitCount = gameState.getUnitCount(world, interpretedAction.unitType);
-      const buildOrder = this.getBuildOrderForCurrentStrategy(world); // Retrieve the build order for the current strategy
-      const targetCountForStep = calculateTargetCountForStep(step, buildOrder, sharedData.cumulativeTargetCounts);
-      return currentUnitCount >= targetCountForStep;
-    }
-
-    // Checking for upgrade-related actions
-    if (interpretedAction.isUpgrade === true && interpretedAction.upgradeType !== null) {
-      return agent.upgradeIds ? agent.upgradeIds.includes(interpretedAction.upgradeType) : false;
-    }
-
-    return false;
+      return false;
+    });
   }
 
   /**

@@ -20,7 +20,7 @@
  * @property {string} supply
  * @property {string} time
  * @property {string} action
- * @property {InterpretedAction} [interpretedAction] - Optional property for interpreted action details
+ * @property {InterpretedAction[]} [interpretedAction] - Optional property for interpreted action details
  * @property {string} [comment] - Optional comment for the step.
  */
 

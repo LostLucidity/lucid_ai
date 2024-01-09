@@ -16,23 +16,21 @@ async function fetchBuildOrderSteps(buildOrderUrl) {
     const $ = cheerio.load(data);
 
     /** @type {import('../utils/globalTypes').BuildOrderStep[]} */
-    const steps = []; // Explicitly defining the type of 'steps' as an array of 'BuildOrderStep'
+    const steps = [];
 
     $('tbody > tr').each((i, stepElem) => {
       const supply = $(stepElem).find('td:nth-child(1)').text().trim();
       const time = $(stepElem).find('td:nth-child(2)').text().trim();
       const action = $(stepElem).find('td:nth-child(3)').text().trim();
-      // Extract comments from the fourth column
       const comment = $(stepElem).find('td:nth-child(4)').text().trim();
 
-      const interpretedAction = interpretBuildOrderAction(action, comment);
-
+      const interpretedActions = interpretBuildOrderAction(action, comment);
       steps.push({
         supply,
         time,
         action,
-        interpretedAction,
-        comment // Add the comment to the step object
+        interpretedAction: interpretedActions, // Now assigning the array directly
+        comment
       });
     });
 
