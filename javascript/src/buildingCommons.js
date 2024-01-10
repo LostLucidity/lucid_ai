@@ -108,31 +108,6 @@ function getCurrentlyEnrouteConstructionGrids(world) {
 }
 
 /**
- * Determines if a position should be kept for building construction.
- * @param {World} world - The game world context.
- * @param {UnitTypeId} unitType - The unit type ID for the building.
- * @param {Point2D} position - The position to evaluate.
- * @param {(map: MapResource, unitType: number, position: Point2D) => boolean} isPlaceableAtGasGeyser - Injected dependency from buildingPlacement.js
- * @returns {boolean} - Whether the position should be kept.
- */
-function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
-  const { agent, resources } = world;
-  const { race } = agent; if (race === undefined) { return false; }
-  const { map, units } = resources.get();
-
-  // Check if the position is valid on the map and for gas geysers
-  let validMapPlacement = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
-
-  // For Protoss, check for Pylon presence if the unit is not a Pylon itself
-  if (race === Race.PROTOSS && unitType !== UnitType.PYLON) {
-    const pylonExists = units.getById(UnitType.PYLON).some(pylon => pylon.isPowered);
-    validMapPlacement = validMapPlacement && pylonExists;
-  }
-
-  return validMapPlacement;
-}
-
-/**
  * Determines if a unit has pending construction orders.
  * @param {Unit & { pendingOrders?: SC2APIProtocol.UnitOrder[] }} unit - The unit to check.
  * @returns {boolean}
@@ -145,9 +120,33 @@ function isPendingContructing(unit) {
   });
 }
 
+/**
+ * Determines if a position should be kept for building construction.
+ * @param {World} world - The game world context.
+ * @param {UnitTypeId} unitType - The unit type ID for the building.
+ * @param {Point2D} position - The position to evaluate.
+ * @param {(map: MapResource, unitType: number, position: Point2D) => boolean} isPlaceableAtGasGeyser - Dependency for gas geyser placement.
+ * @returns {boolean} - Whether the position should be kept.
+ */
+function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
+  const { race } = world.agent;
+  if (race === undefined) return false;
+
+  const { map, units } = world.resources.get();
+  let isPositionValid = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
+
+  if (race === Race.PROTOSS && unitType !== UnitType.PYLON) {
+    let pylons = units.getById(UnitType.PYLON);
+    let pylonExists = pylons.some(pylon => pylon.isPowered || (pylon.buildProgress && pylon.buildProgress < 1));
+    isPositionValid = isPositionValid && pylonExists;
+  }
+
+  return isPositionValid;
+}
+
 module.exports = {
   getCurrentlyEnrouteConstructionGrids,
   isPendingContructing,
-  keepPosition,
   getBuilderInformation,
+  keepPosition,
 };
