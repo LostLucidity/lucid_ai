@@ -8,47 +8,44 @@ let sharedData = {
  */
 
 /**
- * @param {GeneralStep} step 
- * @param {import('./globalTypes').BuildOrder} buildOrder 
- * @param {Map<GeneralStep, number>} cumulativeTargetCounts 
- * @returns {number}
+ * Calculate the target count for a specific step in the build order.
+ * @param {GeneralStep} step - The step to calculate the target count for.
+ * @param {import('./globalTypes').BuildOrder} buildOrder - The build order containing the steps.
+ * @param {Map<GeneralStep, number>} cumulativeTargetCounts - A map to store cumulative target counts.
+ * @returns {number} - The cumulative target count for the specified step.
  */
 function calculateTargetCountForStep(step, buildOrder, cumulativeTargetCounts) {
-  // Ensure interpretedActions is always an array
-  const stepInterpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : step.interpretedAction ? [step.interpretedAction] : [];
-
   if (cumulativeTargetCounts.has(step)) {
-    return cumulativeTargetCounts.get(step) ?? 0;
+    return cumulativeTargetCounts.get(step) || 0;
   }
 
   let cumulativeCount = 0;
+  let reachedCurrentStep = false;
 
-  buildOrder.steps.forEach(currentStep => {
-    if (currentStep === step) {
-      return;
+  // Ensure interpretedActions is always treated as an array
+  const interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : step.interpretedAction ? [step.interpretedAction] : [];
+  const unitTypesInCurrentStep = new Set(interpretedActions.map(action => action.unitType));
+
+  for (const currentStep of buildOrder.steps) {
+    if (reachedCurrentStep) {
+      break;
     }
 
-    const currentStepInterpretedActions = Array.isArray(currentStep.interpretedAction) ? currentStep.interpretedAction : currentStep.interpretedAction ? [currentStep.interpretedAction] : [];
+    reachedCurrentStep = currentStep === step;
 
-    currentStepInterpretedActions.forEach(interpretedAction => {
-      if (interpretedAction.isUpgrade === false) {
-        stepInterpretedActions.forEach(action => {
-          if (action.unitType === interpretedAction.unitType) {
-            cumulativeCount += interpretedAction.count;
-          }
-        });
+    // Apply the same array check for currentStepActions
+    const currentStepActions = Array.isArray(currentStep.interpretedAction) ? currentStep.interpretedAction : currentStep.interpretedAction ? [currentStep.interpretedAction] : [];
+
+    for (const action of currentStepActions) {
+      if (!action.isUpgrade && unitTypesInCurrentStep.has(action.unitType)) {
+        cumulativeCount += action.count;
       }
-    });
-  });
-
-  const stepCount = stepInterpretedActions.reduce((acc, action) => {
-    if (action.isUpgrade === false) {
-      acc += action.count;
     }
-    return acc;
-  }, 0);
+  }
 
+  const stepCount = interpretedActions.reduce((acc, action) => action.isUpgrade ? acc : acc + action.count, 0);
   const totalCumulativeCount = cumulativeCount + stepCount;
+
   cumulativeTargetCounts.set(step, totalCumulativeCount);
 
   return totalCumulativeCount;
