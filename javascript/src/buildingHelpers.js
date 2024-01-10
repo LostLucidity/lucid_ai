@@ -42,6 +42,16 @@ module.exports = {
 
     // Check if the unitType is a gas collector
     if (isGasCollector(unitType)) {
+      // Check if a position is already set for the gas collector
+      if (buildingPositionFn) {
+        const validPosition = keepPosition(world, unitType, buildingPositionFn, module.exports.isPlaceableAtGasGeyser);
+        if (validPosition) {
+          setBuildingPositionFn(unitType, buildingPositionFn);
+          return buildingPositionFn;
+        }
+      }
+
+      // Find new positions if no position is already set
       candidatePositions = findPlacementsFn(world, unitType);
       candidatePositions = candidatePositions.filter(pos => isGeyserFree(world, pos));
 
