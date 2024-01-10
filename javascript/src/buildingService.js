@@ -7,7 +7,7 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 const { commandPlaceBuilding } = require("./builderUtils");
-const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition, isPlaceableAtGasGeyser } = require("./buildingHelpers");
+const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition } = require("./buildingHelpers");
 const BuildingPlacement = require("./buildingPlacement");
 const { findBestPositionForAddOn } = require("./buildingUnitHelpers");
 const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction } = require("./constructionUtils");
@@ -18,6 +18,7 @@ const { getNextSafeExpansions } = require("./mapUtils");
 const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("./resourceManagement");
 const { addEarmark } = require("./resourceUtils");
 const { prepareUnitToBuildAddon } = require("./unitActions");
+const { isPlaceableAtGasGeyser } = require("./utils");
 const { addAddOn, getUnitsCapableToAddOn } = require("./utils/addonUtils");
 const { getTimeUntilUnitCanBuildAddon } = require("./utils/unitCapabilityUtils");
 const config = require("../config/config");

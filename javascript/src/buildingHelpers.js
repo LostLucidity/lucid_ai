@@ -4,11 +4,11 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
+const { logNoFreeGeysers } = require("./builderUtils");
 const { keepPosition, getBuilderInformation } = require("./buildingCommons");
 const { isGasCollector, isGeyserFree } = require("./buildingUtils");
 const { getTimeToTargetTech } = require("./gameData");
 const GameState = require("./gameState");
-const { getDistance } = require("./geometryUtils");
 const { getClosestUnitByPath, getClosestPositionByPath } = require("./pathfinding");
 const { getPathCoordinates, getMapPath } = require("./pathUtils");
 const { calculateBaseTimeToPosition } = require("./placementAndConstructionUtils");
@@ -16,9 +16,8 @@ const { earmarkThresholdReached } = require("./resourceUtils");
 const { handleNonRallyBase } = require("./sharedBuildingUtils");
 const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require("./sharedUtils");
 const { unitTypeTrainingAbilities } = require("./unitConfig");
-const { getPathablePositionsForStructure, getDistanceByPath, createUnitCommand } = require("./utils");
+const { getPathablePositionsForStructure, getDistanceByPath, createUnitCommand, isPlaceableAtGasGeyser } = require("./utils");
 const { getPendingOrders } = require("./utils/commonGameUtils");
-const { logMessageStorage } = require("./utils/loggingUtils");
 const { handleRallyBase, rallyWorkerToTarget, getOrderTargetPosition } = require("./workerUtils");
 
 // src/buildingHelpers.js
@@ -35,52 +34,21 @@ module.exports = {
    * @returns {false | Point2D}
    */
   determineBuildingPosition(world, unitType, candidatePositions, buildingPositionFn, findPlacementsFn, findPositionFn, setBuildingPositionFn) {
-    // Use an external storage for logged messages
-    if (!logMessageStorage.noFreeGeysers) {
-      logMessageStorage.noFreeGeysers = false;
+    if (buildingPositionFn && keepPosition(world, unitType, buildingPositionFn, isPlaceableAtGasGeyser)) {
+      setBuildingPositionFn(unitType, buildingPositionFn);
+      return buildingPositionFn;
     }
 
-    // Check if the unitType is a gas collector
     if (isGasCollector(unitType)) {
-      // Check if a position is already set for the gas collector
-      if (buildingPositionFn) {
-        const validPosition = keepPosition(world, unitType, buildingPositionFn, module.exports.isPlaceableAtGasGeyser);
-        if (validPosition) {
-          setBuildingPositionFn(unitType, buildingPositionFn);
-          return buildingPositionFn;
-        }
-      }
-
-      // Find new positions if no position is already set
-      candidatePositions = findPlacementsFn(world, unitType);
-      candidatePositions = candidatePositions.filter(pos => isGeyserFree(world, pos));
-
+      candidatePositions = findPlacementsFn(world, unitType).filter(pos => isGeyserFree(world, pos));
       if (candidatePositions.length === 0) {
-        if (!logMessageStorage.noFreeGeysers) {
-          console.error('No free geysers available for gas collector');
-          logMessageStorage.noFreeGeysers = true;
-        }
+        logNoFreeGeysers();
         return false;
-      } else {
-        logMessageStorage.noFreeGeysers = false;
       }
-    } else {
-      // For other unit types, follow the existing logic
-      if (!buildingPositionFn) {
-        if (candidatePositions.length === 0) {
-          candidatePositions = findPlacementsFn(world, unitType);
-        }
-      } else {
-        // Check if the initial position is valid
-        const validPosition = keepPosition(world, unitType, buildingPositionFn, module.exports.isPlaceableAtGasGeyser);
-        if (validPosition) {
-          setBuildingPositionFn(unitType, buildingPositionFn);
-          return buildingPositionFn;
-        }
-      }
+    } else if (candidatePositions.length === 0) {
+      candidatePositions = findPlacementsFn(world, unitType);
     }
 
-    // Find the best position from candidate positions
     let position = findPositionFn(world, unitType, candidatePositions);
     if (!position) {
       console.error(`No valid position found for building type ${unitType}`);
@@ -190,15 +158,4 @@ module.exports = {
     }
     return collectedActions;
   },
-  /**
-   * Determines if a position is suitable for placing a building near a gas geyser.
-   * 
-   * @param {MapResource} map 
-   * @param {UnitTypeId} unitType
-   * @param {Point2D} position
-   * @returns {boolean}
-   */  
-  isPlaceableAtGasGeyser: function (map, unitType, position) {
-    return groupTypes.gasMineTypes.includes(unitType) && map.freeGasGeysers().some(gasGeyser => gasGeyser.pos && getDistance(gasGeyser.pos, position) <= 1);
-  }
 };

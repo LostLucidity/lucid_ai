@@ -18,6 +18,7 @@ const { addEarmark } = require("./resourceUtils");
 const { calculateMovingOrConstructingNonDronesTimeToPosition } = require("./sharedBuildingUtils");
 const { findUnitTypesWithAbilityCached } = require("./utils");
 const { calculateClosestConstructingWorker } = require("./utils/coreUtils");
+const { logMessageStorage } = require("./utils/loggingUtils");
 const { getBuilders, gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters } = require("./workerUtils");
 
 /**
@@ -150,6 +151,15 @@ function handleSpecialUnits(world, collectedActions, premoveBuilderToPosition, g
   }
 }
 
+function logNoFreeGeysers() {
+  if (!logMessageStorage.noFreeGeysers) {
+    console.error('No free geysers available for gas collector');
+    logMessageStorage.noFreeGeysers = true;
+  } else {
+    logMessageStorage.noFreeGeysers = false;
+  }
+}
+
 /**
  * Prepares a builder for construction and earmarks resources.
  * @param {World} world 
@@ -181,5 +191,6 @@ function prepareBuilderForConstruction(world, unitType, position) {
 module.exports = {
   commandPlaceBuilding,
   getBuilder,
+  logNoFreeGeysers,
   prepareBuilderForConstruction,
 };

@@ -19,7 +19,6 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
 // Internal module imports
 const { getCurrentlyEnrouteConstructionGrids } = require('./buildingCommons');
-const { isPlaceableAtGasGeyser } = require('./buildingHelpers');
 const GameState = require('./gameState');
 const { buildingPositions } = require('./gameStateResources');
 const { getDistance, getClosestPosition, intersectionOfPoints } = require('./geometryUtils');
@@ -30,7 +29,7 @@ const { getBuildTimeLeft } = require('./sharedUtils');
 const StrategyManager = require('./strategyManager');
 const { seigeTanksSiegedGrids } = require('./unitActions');
 const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require('./unitConfig');
-const { getTimeInSeconds, getStringNameOfConstant } = require('./utils');
+const { getTimeInSeconds, getStringNameOfConstant, isPlaceableAtGasGeyser } = require('./utils');
 const { calculateDistance } = require('./utils/coreUtils');
 const config = require('../config/config');
 
@@ -840,13 +839,19 @@ class BuildingPlacement {
       return null;
     }
 
-    // Remove additional details and format the action
-    const cleanedAction = action.replace(/\s+\(.*?\)|\sx\d+/g, '');
-    const formattedAction = cleanedAction.toUpperCase().replace(/\s+/g, '');
+    // Split the action into segments based on commas
+    const actionSegments = action.split(',');
 
-    // Check if the formatted action is in UnitType
-    if (formattedAction in UnitType) {
-      return UnitType[formattedAction];
+    // Process each segment
+    for (let segment of actionSegments) {
+      // Clean the segment
+      const cleanedSegment = segment.trim().replace(/\s+\(.*?\)|\sx\d+/g, '');
+      const formattedSegment = cleanedSegment.toUpperCase().replace(/\s+/g, '');
+
+      // Check if the formatted segment is in UnitType
+      if (formattedSegment in UnitType) {
+        return UnitType[formattedSegment];
+      }
     }
 
     return null;
