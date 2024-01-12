@@ -22,18 +22,15 @@ function calculateTargetCountForStep(step, buildOrder, cumulativeTargetCounts) {
   let cumulativeCount = 0;
   let reachedCurrentStep = false;
 
-  // Ensure interpretedActions is always treated as an array
   const interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : step.interpretedAction ? [step.interpretedAction] : [];
   const unitTypesInCurrentStep = new Set(interpretedActions.map(action => action.unitType));
 
   for (const currentStep of buildOrder.steps) {
-    if (reachedCurrentStep) {
+    if (currentStep === step) {
+      reachedCurrentStep = true;
       break;
     }
 
-    reachedCurrentStep = currentStep === step;
-
-    // Apply the same array check for currentStepActions
     const currentStepActions = Array.isArray(currentStep.interpretedAction) ? currentStep.interpretedAction : currentStep.interpretedAction ? [currentStep.interpretedAction] : [];
 
     for (const action of currentStepActions) {
@@ -43,13 +40,14 @@ function calculateTargetCountForStep(step, buildOrder, cumulativeTargetCounts) {
     }
   }
 
-  const stepCount = interpretedActions.reduce((acc, action) => action.isUpgrade ? acc : acc + action.count, 0);
+  const stepCount = reachedCurrentStep ? interpretedActions.reduce((acc, action) => action.isUpgrade ? acc : acc + action.count, 0) : 0;
   const totalCumulativeCount = cumulativeCount + stepCount;
 
   cumulativeTargetCounts.set(step, totalCumulativeCount);
 
   return totalCumulativeCount;
 }
+
 
 // Export the shared data and functions
 module.exports = {
