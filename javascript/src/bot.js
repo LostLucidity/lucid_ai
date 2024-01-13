@@ -109,6 +109,12 @@ const bot = createAgent({
     // Perform initial map analysis based on the bot's race
     performInitialMapAnalysis(world);
 
+    // Initialize starting unit counts
+    gameState.initializeStartingUnitCounts(botRace);
+
+    // Verify if the hardcoded starting unit counts match the actual game state
+    gameState.verifyStartingUnitCounts(world);
+
     // Initialize an array to collect actions
     const actionCollection = [];
 

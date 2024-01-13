@@ -161,7 +161,6 @@ class StrategyManager {
 
     let interpretedActions;
     if (step.interpretedAction) {
-      // Ensure interpretedActions is always an array
       interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : [step.interpretedAction];
     } else {
       let comment = '';
@@ -175,7 +174,11 @@ class StrategyManager {
       if (interpretedAction.isUpgrade === false && interpretedAction.unitType !== null) {
         const currentUnitCount = gameState.getUnitCount(world, interpretedAction.unitType);
         const buildOrder = this.getBuildOrderForCurrentStrategy(world);
-        const targetCountForStep = calculateTargetCountForStep(step, buildOrder, sharedData.cumulativeTargetCounts);
+
+        // Assuming calculateTargetCountForStep now includes logic for initial unit count
+        const startingUnitCount = gameState.getStartingUnitCount(interpretedAction.unitType);
+        const targetCountForStep = calculateTargetCountForStep(step, buildOrder, sharedData.cumulativeTargetCounts, startingUnitCount);
+
         return currentUnitCount >= targetCountForStep;
       } else if (interpretedAction.isUpgrade === true && interpretedAction.upgradeType !== null) {
         return agent.upgradeIds ? agent.upgradeIds.includes(interpretedAction.upgradeType) : false;

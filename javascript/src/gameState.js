@@ -69,6 +69,13 @@ class GameState {
   setEarmark = false;
 
   /**
+   * Stores the starting unit counts. The keys are unit type identifiers (numbers),
+   * and the values are counts (numbers) for each unit type at the start of the game.
+   * @type {Record<number, number>}
+   */
+  startingUnitCounts = {};
+
+  /**
    * A map of unit types to their corresponding units and frame information.
    * @type {Map<number, { units: Unit[]; frame: number; }>}
    */
@@ -183,6 +190,15 @@ class GameState {
    */
   static getInstance() {
     return getSingletonInstance(GameState);
+  }
+
+  /**
+   * Get the starting unit count for a given unit type.
+   * @param {number} unitType - The type of unit.
+   * @returns {number} - The starting count of units of the specified type.
+   */
+  getStartingUnitCount(unitType) {
+    return this.startingUnitCounts[unitType] || 0;
   }  
 
   /**
@@ -214,6 +230,40 @@ class GameState {
       const newWorkers = resources.get().units.getById(workerType);
       cacheManager.updateCache(workerType, newWorkers, currentFrame);
       return newWorkers;
+    }
+  }
+
+  /**
+   * Initialize the starting unit counts based on the player's race.
+   * @param {SC2APIProtocol.Race} race - The player's race.
+   */
+  initializeStartingUnitCounts(race) {
+    switch (race) {
+      case Race.TERRAN:
+        this.startingUnitCounts = {
+          [UnitType.SCV]: 12,
+          [UnitType.COMMANDCENTER]: 1,
+          // Add other Terran-specific unit types if necessary
+        };
+        break;
+      case Race.PROTOSS:
+        this.startingUnitCounts = {
+          [UnitType.PROBE]: 12,
+          [UnitType.NEXUS]: 1,
+          // Add other Protoss-specific unit types if necessary
+        };
+        break;
+      case Race.ZERG:
+        this.startingUnitCounts = {
+          [UnitType.DRONE]: 12,
+          [UnitType.HATCHERY]: 1,
+          [UnitType.OVERLORD]: 1,
+          // Add other Zerg-specific unit types if necessary
+        };
+        break;
+      default:
+        this.startingUnitCounts = {};
+        console.warn(`Unknown race: ${race}`);
     }
   }
 
@@ -495,6 +545,43 @@ class GameState {
     return willHaveEnoughMineralsByArrival;
   }
 
+  /**
+   * Verify if the starting unit counts match the actual game state.
+   * @param {World} world - The game world context.
+   */
+  verifyStartingUnitCounts(world) {
+    // Access the current game frame
+    const currentFrame = world.resources.get().frame.getGameLoop();
+
+    // Check if it's the first frame
+    if (currentFrame !== 0) {
+      console.warn('verifyStartingUnitCounts called after the first frame');
+      return;
+    }
+
+    /** @type {{ [key: number]: number }} */
+    const actualUnitCounts = {};
+    const units = world.resources.get().units.getAll();
+
+    // Count actual units in the first game frame
+    units.forEach(unit => {
+      const unitTypeId = unit.unitType;
+      if (typeof unitTypeId !== 'undefined') {
+        actualUnitCounts[unitTypeId] = (actualUnitCounts[unitTypeId] || 0) + 1;
+      }
+    });
+
+    // Compare actualUnitCounts with the hardcoded startingUnitCounts
+    Object.keys(this.startingUnitCounts).forEach(unitTypeKey => {
+      const unitType = parseInt(unitTypeKey, 10); // Convert string key back to number
+      const expectedCount = this.startingUnitCounts[unitType];
+      const actualCount = actualUnitCounts[unitType] || 0;
+
+      if (actualCount !== expectedCount) {
+        console.warn(`Discrepancy for unit type ${unitType}: Expected ${expectedCount}, Found ${actualCount}`);
+      }
+    });
+  }
 }
 
 module.exports = GameState;
