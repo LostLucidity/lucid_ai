@@ -725,7 +725,7 @@ function trainCombatUnits(world) {
 }
 
 /**
- * Implement direct worker training logic here.
+ * Implement direct worker training logic here, including support for Zerg race.
  * @param {World} world
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
@@ -739,13 +739,24 @@ function trainWorkersDirectly(world) {
   const { abilityId } = workerTypeData;
   if (!abilityId) return [];
 
-  const bases = resources.get().units.getBases();
   const collectedActions = [];
 
-  for (const base of bases) {
-    if (base.isIdle() && (base.buildProgress ?? 0) >= 1) {
-      const unitCommand = createUnitCommand(abilityId, [base]);
-      collectedActions.push(unitCommand);
+  if (race === Race.ZERG) {
+    const larvae = resources.get().units.getById(UnitType.LARVA);
+    for (const larva of larvae) {
+      if (larva.isIdle()) {
+        const unitCommand = createUnitCommand(abilityId, [larva]);
+        collectedActions.push(unitCommand);
+      }
+    }
+  } else {
+    // For Terran and Protoss, train workers at bases.
+    const bases = resources.get().units.getBases();
+    for (const base of bases) {
+      if (base.isIdle() && (base.buildProgress ?? 0) >= 1) {
+        const unitCommand = createUnitCommand(abilityId, [base]);
+        collectedActions.push(unitCommand);
+      }
     }
   }
 
