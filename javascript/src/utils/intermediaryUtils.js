@@ -17,40 +17,37 @@ let sharedData = {
  */
 function calculateTargetCountForStep(step, buildOrder, cumulativeTargetCounts, startingUnitCount) {
   if (cumulativeTargetCounts.has(step)) {
-    // Add startingUnitCount to the total cumulative count stored in the map
-    return (cumulativeTargetCounts.get(step) || 0) + startingUnitCount;
+    return cumulativeTargetCounts.get(step) || 0;
   }
 
   let cumulativeCount = 0;
-  let reachedCurrentStep = false;
 
-  const interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : step.interpretedAction ? [step.interpretedAction] : [];
-  const unitTypesInCurrentStep = new Set(interpretedActions.map(action => action.unitType));
+  /**
+ * Get interpreted actions from a step.
+ * @param {GeneralStep} step - The step from which to get interpreted actions.
+ * @returns {import('./globalTypes').InterpretedAction[]} - The interpreted actions.
+ */
+  const getInterpretedActions = (step) => Array.isArray(step.interpretedAction) ? step.interpretedAction : step.interpretedAction ? [step.interpretedAction] : [];
+
+  const unitTypesInCurrentStep = new Set(getInterpretedActions(step).map(action => action.unitType));
 
   for (const currentStep of buildOrder.steps) {
-    if (currentStep === step) {
-      reachedCurrentStep = true;
-      break;
-    }
+    if (currentStep === step) break;
 
-    const currentStepActions = Array.isArray(currentStep.interpretedAction) ? currentStep.interpretedAction : currentStep.interpretedAction ? [currentStep.interpretedAction] : [];
-
-    for (const action of currentStepActions) {
+    for (const action of getInterpretedActions(currentStep)) {
       if (!action.isUpgrade && unitTypesInCurrentStep.has(action.unitType)) {
         cumulativeCount += action.count;
       }
     }
   }
 
-  const stepCount = reachedCurrentStep ? interpretedActions.reduce((acc, action) => action.isUpgrade ? acc : acc + action.count, 0) : 0;
-  const totalCumulativeCount = cumulativeCount + stepCount;
+  const stepCount = getInterpretedActions(step).reduce((acc, action) => action.isUpgrade ? acc : acc + action.count, 0);
+  const totalCumulativeCount = cumulativeCount + stepCount + startingUnitCount;
 
-  // Include startingUnitCount in the total cumulative count
-  cumulativeTargetCounts.set(step, totalCumulativeCount + startingUnitCount);
+  cumulativeTargetCounts.set(step, totalCumulativeCount);
 
-  return totalCumulativeCount + startingUnitCount;
+  return totalCumulativeCount;
 }
-
 
 // Export the shared data and functions
 module.exports = {
