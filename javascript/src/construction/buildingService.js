@@ -6,22 +6,22 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
-const { commandPlaceBuilding } = require("./builderUtils");
 const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition } = require("./buildingHelpers");
 const BuildingPlacement = require("./buildingPlacement");
 const { findBestPositionForAddOn } = require("./buildingUnitHelpers");
 const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction } = require("./constructionUtils");
-const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("./gameData");
-const GameState = require("./gameState");
-const MapResources = require("./mapResources");
-const { getNextSafeExpansions } = require("./mapUtils");
-const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("./resourceManagement");
-const { addEarmark } = require("./resourceUtils");
-const { prepareUnitToBuildAddon } = require("./unitActions");
-const { isPlaceableAtGasGeyser } = require("./utils");
-const { addAddOn, getUnitsCapableToAddOn } = require("./utils/addonUtils");
-const { getTimeUntilUnitCanBuildAddon } = require("./utils/unitCapabilityUtils");
-const config = require("../config/config");
+const config = require("../../config/config");
+const { commandPlaceBuilding } = require("../builderUtils");
+const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../gameData");
+const GameState = require("../gameState");
+const MapResources = require("../mapResources");
+const { getNextSafeExpansions } = require("../mapUtils");
+const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("../resourceManagement");
+const { addEarmark } = require("../resourceUtils");
+const { prepareUnitToBuildAddon } = require("../unitActions");
+const { isPlaceableAtGasGeyser } = require("../utils");
+const { addAddOn, getUnitsCapableToAddOn } = require("../utils/addonUtils");
+const { getTimeUntilUnitCanBuildAddon } = require("../utils/unitCapabilityUtils");
 
 /**
  * @param {World} world

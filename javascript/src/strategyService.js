@@ -5,7 +5,7 @@
 const { Upgrade } = require('@node-sc2/core/constants');
 const { Attribute } = require('@node-sc2/core/constants/enums');
 
-const { build } = require('./buildingService');
+const { build } = require('./construction/buildingService');
 const { interpretBuildOrderAction } = require('./buildOrders/buildOrderUtils');
 const { setFoodUsed, balanceResources } = require('./economyManagement');
 const GameState = require('./gameState');

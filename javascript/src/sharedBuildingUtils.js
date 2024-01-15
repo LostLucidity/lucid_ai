@@ -10,7 +10,7 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 // Internal module imports
-const { stopOverlappingBuilders } = require("./buildingSharedUtils");
+const { stopOverlappingBuilders } = require("./construction/buildingSharedUtils");
 const GameState = require("./gameState");
 const { getStructureAtPosition, getDistance, getAwayPosition, areApproximatelyEqual } = require("./geometryUtils");
 const MapResources = require("./mapResources");

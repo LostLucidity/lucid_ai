@@ -14,14 +14,14 @@ const { isPendingContructing } = require('./buildingCommons');
 const BuildingPlacement = require('./buildingPlacement');
 const { stopOverlappingBuilders } = require('./buildingSharedUtils');
 // eslint-disable-next-line no-unused-vars
-const GameState = require('./gameState');
-const { addEarmark } = require('./resourceUtils');
-const { setBuilderLabel } = require('./sharedBuildingUtils');
-const { getClosestPathWithGasGeysers, ability } = require('./sharedUtils');
-const { setPendingOrders } = require('./unitOrders');
-const { createUnitCommand } = require('./utils');
-const { getMovementSpeed } = require('./utils/coreUtils');
-const { isIdleOrAlmostIdle } = require('./workerUtils');
+const GameState = require('../gameState');
+const { addEarmark } = require('../resourceUtils');
+const { setBuilderLabel } = require('../sharedBuildingUtils');
+const { getClosestPathWithGasGeysers, ability } = require('../sharedUtils');
+const { setPendingOrders } = require('../unitOrders');
+const { createUnitCommand } = require('../utils');
+const { getMovementSpeed } = require('../utils/coreUtils');
+const { isIdleOrAlmostIdle } = require('../workerUtils');
 
 /**
  * Gathers candidate workers based on their time to reach a specified position.

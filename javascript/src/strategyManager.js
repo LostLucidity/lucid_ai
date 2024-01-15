@@ -8,7 +8,7 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const buildOrders = require('./buildOrders');
 const { interpretBuildOrderAction } = require("./buildOrders/buildOrderUtils");
 const GameState = require("./gameState");
-const { calculateTargetCountForStep, sharedData } = require("./utils/intermediaryUtils");
+const { calculateTargetCountForStep } = require("./utils/intermediaryUtils");
 const { getSingletonInstance } = require("./utils/singletonFactory");
 const { isBuildOrderStep } = require("./utils/typeGuards");
 
@@ -177,7 +177,7 @@ class StrategyManager {
 
         // Assuming calculateTargetCountForStep now includes logic for initial unit count
         const startingUnitCount = gameState.getStartingUnitCount(interpretedAction.unitType);
-        const targetCountForStep = calculateTargetCountForStep(step, buildOrder, sharedData.cumulativeTargetCounts, startingUnitCount);
+        const targetCountForStep = calculateTargetCountForStep(step, buildOrder, startingUnitCount);
 
         return currentUnitCount >= targetCountForStep;
       } else if (interpretedAction.isUpgrade === true && interpretedAction.upgradeType !== null) {

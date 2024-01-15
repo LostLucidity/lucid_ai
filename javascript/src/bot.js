@@ -6,8 +6,8 @@ const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Race } = require('@node-sc2/core/constants/enums');
 
 // Internal module imports
-const BuildingPlacement = require('./buildingPlacement');
-const { buildSupply } = require('./buildingService');
+const BuildingPlacement = require('./construction/buildingPlacement');
+const { buildSupply } = require('./construction/buildingService');
 const { shouldTrainMoreWorkers, trainAdditionalWorkers, calculateMaxWorkers } = require('./economyManagement');
 const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');

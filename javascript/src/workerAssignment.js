@@ -8,7 +8,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 
 // Internal module imports
-const { isPendingContructing } = require("./buildingCommons");
+const { isPendingContructing } = require("./construction/buildingCommons");
 const { getClosestUnitFromUnit } = require("./distance");
 const { getDistance } = require("./geometryUtils");
 const { findEnemyUnitsNear } = require("./scoutingUtils");

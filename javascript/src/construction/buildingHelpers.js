@@ -4,21 +4,21 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
-const { logNoFreeGeysers } = require("./builderUtils");
 const { keepPosition, getBuilderInformation } = require("./buildingCommons");
 const { isGasCollector, isGeyserFree } = require("./buildingUtils");
-const { getTimeToTargetTech } = require("./gameData");
-const GameState = require("./gameState");
-const { getClosestUnitByPath, getClosestPositionByPath } = require("./pathfinding");
-const { getPathCoordinates, getMapPath } = require("./pathUtils");
-const { calculateBaseTimeToPosition } = require("./placementAndConstructionUtils");
-const { earmarkThresholdReached } = require("./resourceUtils");
-const { handleNonRallyBase } = require("./sharedBuildingUtils");
-const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require("./sharedUtils");
-const { unitTypeTrainingAbilities } = require("./unitConfig");
-const { getPathablePositionsForStructure, getDistanceByPath, createUnitCommand, isPlaceableAtGasGeyser } = require("./utils");
-const { getPendingOrders } = require("./utils/commonGameUtils");
-const { handleRallyBase, rallyWorkerToTarget, getOrderTargetPosition } = require("./workerUtils");
+const { logNoFreeGeysers } = require("../builderUtils");
+const { getTimeToTargetTech } = require("../gameData");
+const GameState = require("../gameState");
+const { getClosestUnitByPath, getClosestPositionByPath } = require("../pathfinding");
+const { getPathCoordinates, getMapPath } = require("../pathUtils");
+const { calculateBaseTimeToPosition } = require("../placementAndConstructionUtils");
+const { earmarkThresholdReached } = require("../resourceUtils");
+const { handleNonRallyBase } = require("../sharedBuildingUtils");
+const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require("../sharedUtils");
+const { unitTypeTrainingAbilities } = require("../unitConfig");
+const { getPathablePositionsForStructure, getDistanceByPath, createUnitCommand, isPlaceableAtGasGeyser } = require("../utils");
+const { getPendingOrders } = require("../utils/commonGameUtils");
+const { handleRallyBase, rallyWorkerToTarget, getOrderTargetPosition } = require("../workerUtils");
 
 // src/buildingHelpers.js
 module.exports = {

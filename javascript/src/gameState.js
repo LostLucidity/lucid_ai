@@ -7,7 +7,7 @@ const { Alliance, Attribute, Race } = require('@node-sc2/core/constants/enums');
 const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
-const { calculateTimeToFinishStructure } = require('./buildingUtils');
+const { calculateTimeToFinishStructure } = require('./construction/buildingUtils');
 const cacheManager = require('./cacheManager');
 const { missingUnits } = require('./gameDataStore');
 const { foodData } = require('./gameStateResources');

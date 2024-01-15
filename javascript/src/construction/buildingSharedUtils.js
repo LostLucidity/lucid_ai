@@ -5,9 +5,9 @@
 const { Ability } = require("@node-sc2/core/constants");
 
 // Internal module imports
-const { getDistance } = require("./geometryUtils");
-const { createUnitCommand } = require("./utils");
-const { getBuilders, getOrderTargetPosition } = require("./workerUtils");
+const { getDistance } = require("../geometryUtils");
+const { createUnitCommand } = require("../utils");
+const { getBuilders, getOrderTargetPosition } = require("../workerUtils");
 
 /**
  * Checks if a unit has an add-on.

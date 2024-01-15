@@ -9,9 +9,9 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 // Internal Dependencies
-const { keepPosition } = require("./buildingCommons");
-const BuildingPlacement = require("./buildingPlacement");
-const { gatherCandidateWorkersTimeToPosition } = require("./constructionUtils");
+const { keepPosition } = require("./construction/buildingCommons");
+const BuildingPlacement = require("./construction/buildingPlacement");
+const { gatherCandidateWorkersTimeToPosition } = require("./construction/constructionUtils");
 const GameState = require("./gameState");
 const { getClosestBuilderCandidate } = require("./pathfinding");
 const { addEarmark } = require("./resourceUtils");

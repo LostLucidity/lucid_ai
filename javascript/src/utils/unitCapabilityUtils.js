@@ -2,8 +2,8 @@
 
 "use strict";
 
-const { hasAddOn } = require("../buildingSharedUtils");
-const { findBestPositionForAddOn } = require("../buildingUnitHelpers");
+const { hasAddOn } = require("../construction/buildingSharedUtils");
+const { findBestPositionForAddOn } = require("../construction/buildingUnitHelpers");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../unitConfig");
 const { calculateLiftLandAndMoveTime } = require("../unitHelpers");
 const { getTimeInSeconds } = require("../utils");

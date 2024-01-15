@@ -10,11 +10,11 @@ const { createPoint2D } = require('@node-sc2/core/utils/geometry/point');
 const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
 
 // Local File Imports
-const { buildUnitTypeMap } = require('./gameData');
-const GameState = require('./gameState');
-const { buildingPositions } = require('./gameStateResources');
-const { getDistance } = require('./geometryUtils');
-const { getPendingOrders } = require('./utils/commonGameUtils');
+const { buildUnitTypeMap } = require('../gameData');
+const GameState = require('../gameState');
+const { buildingPositions } = require('../gameStateResources');
+const { getDistance } = require('../geometryUtils');
+const { getPendingOrders } = require('../utils/commonGameUtils');
 
 /**
  * Retrieves detailed information about a builder unit.

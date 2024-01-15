@@ -7,8 +7,8 @@ const { UnitType } = require("@node-sc2/core/constants");
 // Internal module imports
 const BuildingPlacement = require("./buildingPlacement");
 const { hasAddOn } = require("./buildingSharedUtils");
-const { getAddOnPlacement } = require("./placementUtils");
-const { canLiftOff } = require("./unitConfig");
+const { getAddOnPlacement } = require("../placementUtils");
+const { canLiftOff } = require("../unitConfig");
 
 
 /**

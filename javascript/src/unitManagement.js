@@ -12,8 +12,8 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal dependencies
-const BuildingPlacement = require("./buildingPlacement");
-const { buildSupply } = require("./buildingService");
+const BuildingPlacement = require("./construction/buildingPlacement");
+const { buildSupply } = require("./construction/buildingService");
 const { getTimeToTargetTech } = require("./gameData");
 const { missingUnits } = require("./gameDataStore");
 const GameState = require("./gameState");

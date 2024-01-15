@@ -6,7 +6,7 @@
 
 // External library imports
 
-/** @type {import('./common').UnitTypeMap} */
+/** @type {import('../common').UnitTypeMap} */
 const UnitType = require('@node-sc2/core/constants').UnitType;
 const { Race, Alliance } = require('@node-sc2/core/constants/enums');
 const groupTypes = require('@node-sc2/core/constants/groups');
@@ -19,19 +19,19 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
 // Internal module imports
 const { getCurrentlyEnrouteConstructionGrids } = require('./buildingCommons');
-const GameState = require('./gameState');
-const { buildingPositions } = require('./gameStateResources');
-const { getDistance, getClosestPosition, intersectionOfPoints } = require('./geometryUtils');
-const MapResources = require('./mapResources');
-const { getOccupiedExpansions, existsInMap, pointsOverlap, getAdjacentToRampGrids } = require('./mapUtils');
-const { getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable } = require('./placementUtils');
-const { getBuildTimeLeft } = require('./sharedUtils');
-const StrategyManager = require('./strategyManager');
-const { seigeTanksSiegedGrids } = require('./unitActions');
-const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require('./unitConfig');
-const { getTimeInSeconds, getStringNameOfConstant, isPlaceableAtGasGeyser } = require('./utils');
-const { calculateDistance } = require('./utils/coreUtils');
-const config = require('../config/config');
+const config = require('../../config/config');
+const GameState = require('../gameState');
+const { buildingPositions } = require('../gameStateResources');
+const { getDistance, getClosestPosition, intersectionOfPoints } = require('../geometryUtils');
+const MapResources = require('../mapResources');
+const { getOccupiedExpansions, existsInMap, pointsOverlap, getAdjacentToRampGrids } = require('../mapUtils');
+const { getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable } = require('../placementUtils');
+const { getBuildTimeLeft } = require('../sharedUtils');
+const StrategyManager = require('../strategyManager');
+const { seigeTanksSiegedGrids } = require('../unitActions');
+const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require('../unitConfig');
+const { getTimeInSeconds, getStringNameOfConstant, isPlaceableAtGasGeyser } = require('../utils');
+const { calculateDistance } = require('../utils/coreUtils');
 
 const PYLON_POWER_RANGE = 6.5;
 

@@ -8,7 +8,7 @@
 // Import necessary constants or modules
 const { UnitType, UnitTypeId } = require('@node-sc2/core/constants');
 
-const BuildingPlacement = require('../buildingPlacement');
+const BuildingPlacement = require('../construction/buildingPlacement');
 const { addEarmark } = require('../resourceUtils');
 const { flyingTypesMapping } = require('../unitConfig');
 const { setPendingOrders } = require('../unitOrders');

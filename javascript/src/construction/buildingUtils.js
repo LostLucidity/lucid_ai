@@ -5,7 +5,7 @@
 const { gasMineTypes } = require('@node-sc2/core/constants/groups');
 const groupTypes = require('@node-sc2/core/constants/groups');
 
-const { getTimeInSeconds, positionIsEqual } = require('./utils');
+const { getTimeInSeconds, positionIsEqual } = require('../utils');
 
 /**
  * Calculates the remaining time to finish a structure's construction.
