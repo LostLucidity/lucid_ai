@@ -15,7 +15,7 @@ const { calculateAdjacentToRampGrids } = require('./mapUtils');
 const StrategyManager = require('./strategyManager');
 const { runPlan } = require('./strategyService');
 const { refreshProductionUnitsCache, manageZergSupply } = require('./unitManagement');
-const { convertToPlanSteps } = require('./utils/strategyUtils');
+const { convertToPlanSteps, getMaxSupplyFromPlan } = require('./utils/strategyUtils');
 const { assignWorkers, balanceWorkerDistribution, reassignIdleWorkers } = require('./workerAssignment');
 const config = require('../config/config');
 
@@ -96,8 +96,32 @@ const bot = createAgent({
     const strategyManager = StrategyManager.getInstance(botRace);
 
     // Ensure currentStrategy is properly loaded
-    if (!strategyManager.currentStrategy) {
+    if (!strategyManager.getCurrentStrategy()) {
       strategyManager.initializeStrategy(botRace);
+    }
+
+    // Get the build order for the current strategy
+    try {
+      const buildOrder = strategyManager.getBuildOrderForCurrentStrategy(world);
+
+      // Calculate the maximum supply from the build order steps
+      const maxSupply = getMaxSupplyFromPlan(buildOrder.steps, botRace);
+
+      // Include gasMine when setting config.planMax
+      // Replace `defaultGasMineValue` with the actual value or logic to determine it
+      const defaultGasMineValue = 0; // Example default value
+      config.planMax = {
+        supply: maxSupply,
+        gasMine: defaultGasMineValue
+      };
+    } catch (error) {
+      // Check if error is an instance of Error
+      if (error instanceof Error) {
+        logError('Error loading build order:', error);
+      } else {
+        // Handle cases where the error is not an Error instance
+        logError('An unknown error occurred during initial setup');
+      }
     }
 
     const currentStrategy = strategyManager.getCurrentStrategy();
