@@ -19,7 +19,7 @@ function getCumulativeTargetCount(step) {
 
 /**
  * A type that includes both BuildOrderStep and StrategyStep.
- * @typedef {import('./globalTypes').BuildOrderStep | import('../strategyManager').StrategyStep} GeneralStep
+ * @typedef {import('./globalTypes').BuildOrderStep | import('../buildOrders/strategy/strategyManager').StrategyStep} GeneralStep
  */
 
 /**

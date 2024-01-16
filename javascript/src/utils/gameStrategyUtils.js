@@ -1,11 +1,11 @@
 // src/utils/gameStrategyUtils.js
 
 const { getSingletonInstance } = require("./singletonFactory");
-const StrategyManager = require("../strategyManager");
+const StrategyManager = require("../buildOrders/strategy/strategyManager");
 
 /**
  * @typedef {Object} GameState
- * @property {import("../strategyService").PlanStep[]} plan - An array representing the game plan
+ * @property {import("../buildOrders/strategy/strategyService").PlanStep[]} plan - An array representing the game plan
  */
 
 const gameStrategyUtils = {

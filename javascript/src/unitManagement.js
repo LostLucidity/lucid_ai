@@ -12,6 +12,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal dependencies
+const StrategyManager = require("./buildOrders/strategy/strategyManager");
 const BuildingPlacement = require("./construction/buildingPlacement");
 const { buildSupply } = require("./construction/buildingService");
 const { getTimeToTargetTech } = require("./gameData");
@@ -26,7 +27,6 @@ const { addEarmark, getEarmarkedFood } = require("./resourceUtils");
 const { mappedEnemyUnits } = require("./scoutingUtils");
 const { earmarkResourcesIfNeeded } = require("./sharedEconomicFunctions");
 const { getBuildTimeLeft } = require("./sharedUtils");
-const StrategyManager = require("./strategyManager");
 const { flyingTypesMapping, unitTypeTrainingAbilities, liftAndLandingTime } = require("./unitConfig");
 const { getUnitTypeCount, potentialCombatants, calculateTimeToKillUnits, isTrainingUnit } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
@@ -43,7 +43,7 @@ let unitProductionAvailable = true;
 /**
  * @description build supply or train units
  * @param {World} world
- * @param {import("./strategyService").PlanStep} step
+ * @param {import("./buildOrders/strategy/strategyService").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function buildSupplyOrTrain(world, step) {

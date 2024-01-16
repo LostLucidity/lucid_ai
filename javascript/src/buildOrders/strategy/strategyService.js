@@ -5,16 +5,16 @@
 const { Upgrade } = require('@node-sc2/core/constants');
 const { Attribute } = require('@node-sc2/core/constants/enums');
 
-const { build } = require('./construction/buildingService');
-const { interpretBuildOrderAction } = require('./buildOrders/buildOrderUtils');
-const { setFoodUsed, balanceResources } = require('./economyManagement');
-const GameState = require('./gameState');
-const { resetEarmarks } = require('./resourceData');
-const { hasEarmarks } = require('./resourceManagement');
 const StrategyManager = require('./strategyManager');
-const { performScoutingWithSCV } = require('./unitActions');
-const { buildSupplyOrTrain, train, upgrade } = require('./unitManagement');
-const { isBuildOrderStep } = require('./utils/typeGuards');
+const { build } = require('../../construction/buildingService');
+const { setFoodUsed, balanceResources } = require('../../economyManagement');
+const GameState = require('../../gameState');
+const { resetEarmarks } = require('../../resourceData');
+const { hasEarmarks } = require('../../resourceManagement');
+const { performScoutingWithSCV } = require('../../unitActions');
+const { buildSupplyOrTrain, train, upgrade } = require('../../unitManagement');
+const { isBuildOrderStep } = require('../../utils/typeGuards');
+const { interpretBuildOrderAction } = require('../buildOrderUtils');
 
 /**
  * @typedef {Object} PlanStep

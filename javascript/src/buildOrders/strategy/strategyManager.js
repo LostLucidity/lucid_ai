@@ -4,20 +4,20 @@
 const { Race } = require("@node-sc2/core/constants/enums");
 
 // Import build orders for each race
-/** @type {import("./utils/globalTypes").BuildOrders} */
-const buildOrders = require('./buildOrders');
-const { interpretBuildOrderAction } = require("./buildOrders/buildOrderUtils");
-const GameState = require("./gameState");
-const { calculateTargetCountForStep } = require("./utils/intermediaryUtils");
-const { getSingletonInstance } = require("./utils/singletonFactory");
-const { isBuildOrderStep } = require("./utils/typeGuards");
+/** @type {import("../../utils/globalTypes").BuildOrders} */
+const buildOrders = require('..');
+const GameState = require("../../gameState");
+const { calculateTargetCountForStep } = require("../../utils/intermediaryUtils");
+const { getSingletonInstance } = require("../../utils/singletonFactory");
+const { isBuildOrderStep } = require("../../utils/typeGuards");
+const { interpretBuildOrderAction } = require("../buildOrderUtils");
 
 /**
  * @typedef {Object} StrategyStep
  * @property {string} supply
  * @property {string} time
  * @property {string} action
- * @property {import("./utils/globalTypes").InterpretedAction} [interpretedAction] - Optional property for interpreted action details
+ * @property {import("../../utils/globalTypes").InterpretedAction} [interpretedAction] - Optional property for interpreted action details
  */
 
 /**
@@ -58,7 +58,7 @@ class StrategyManager {
       const buildOrderKey = this.selectBuildOrderKey(race);
 
       // Dynamically load the strategy
-      /** @type {import("./utils/globalTypes").BuildOrder | Strategy | undefined} */
+      /** @type {import("../../utils/globalTypes").BuildOrder | Strategy | undefined} */
       this.currentStrategy = this.loadStrategy(race, buildOrderKey);
     } catch (error) {
       console.error(`Error loading strategy for ${race}:`, error);
@@ -92,7 +92,7 @@ class StrategyManager {
   /**
    * Get the current strategy's build order.
    * @param {World} world
-   * @returns {import('./utils/globalTypes').BuildOrder}
+   * @returns {import('../../utils/globalTypes').BuildOrder}
    */
   getBuildOrderForCurrentStrategy(world) {
     const strategyManager = StrategyManager.getInstance(world.agent.race);
@@ -152,7 +152,7 @@ class StrategyManager {
   /**
    * Check if the step conditions are satisfied.
    * @param {World} world
-   * @param {import('./utils/globalTypes').BuildOrderStep | StrategyStep} step
+   * @param {import('../../utils/globalTypes').BuildOrderStep | StrategyStep} step
    * @returns {boolean}
    */
   isStepSatisfied(world, step) {
@@ -192,7 +192,7 @@ class StrategyManager {
    * Dynamically loads a strategy based on race and build order key.
    * @param {SC2APIProtocol.Race | undefined} race
    * @param {string} buildOrderKey
-   * @returns {import("./utils/globalTypes").BuildOrder | undefined}
+   * @returns {import("../../utils/globalTypes").BuildOrder | undefined}
    */
   loadStrategy(race, buildOrderKey) {
     switch (race) {
@@ -210,7 +210,7 @@ class StrategyManager {
   /**
    * Maps SC2APIProtocol.Race to a specific race key.
    * @param {SC2APIProtocol.Race} race - The race to map.
-   * @returns {keyof import("./utils/globalTypes").BuildOrders}
+   * @returns {keyof import("../../utils/globalTypes").BuildOrders}
    */
   mapRaceToKey(race) {
     switch (race) {

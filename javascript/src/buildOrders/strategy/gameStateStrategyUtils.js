@@ -1,8 +1,8 @@
 // src/utils/gameStateStrategyUtils.js
-const { getSingletonInstance } = require("./singletonFactory");
+const StrategyManager = require("./strategyManager");
 /* eslint-disable-next-line no-unused-vars */
-const GameState = require("../gameState"); // Import the GameState class
-const StrategyManager = require("../strategyManager");
+const GameState = require("../../gameState"); // Import the GameState class
+const { getSingletonInstance } = require("../../utils/singletonFactory");
 
 const gameStateStrategyUtils = {
   /**

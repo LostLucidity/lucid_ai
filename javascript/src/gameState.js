@@ -7,8 +7,8 @@ const { Alliance, Attribute, Race } = require('@node-sc2/core/constants/enums');
 const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
-const { calculateTimeToFinishStructure } = require('./construction/buildingUtils');
 const cacheManager = require('./cacheManager');
+const { calculateTimeToFinishStructure } = require('./construction/buildingUtils');
 const { missingUnits } = require('./gameDataStore');
 const { foodData } = require('./gameStateResources');
 const { defaultResources } = require('./resourceTypes');
@@ -46,7 +46,7 @@ class GameState {
 
   /**
    * The plan consisting of a sequence of PlanStep objects.
-   * @type {import('./strategyService').PlanStep[]}
+   * @type {import('./buildOrders/strategy/strategyService').PlanStep[]}
    */
   plan = [];
 
@@ -380,7 +380,7 @@ class GameState {
 
   /**
    * Sets the building plan.
-   * @param {import('./strategyService').PlanStep[]} newPlan - The new building plan.
+   * @param {import('./buildOrders/strategy/strategyService').PlanStep[]} newPlan - The new building plan.
    */
   setPlan(newPlan) {
     this.plan = newPlan;
