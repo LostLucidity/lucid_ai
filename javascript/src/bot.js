@@ -85,79 +85,38 @@ const bot = createAgent({
   async onGameStart(world) {
     logMessage('Game Started', 1);
 
-    // Determine the bot's race at the start of the game (default to Terran if undefined)
     const botRace = world.agent.race || Race.TERRAN;
-
-    // Update the GameState with the determined race
     const gameState = GameState.getInstance();
     gameState.setRace(botRace);
 
-    // Initialize StrategyManager with the determined race
     const strategyManager = StrategyManager.getInstance(botRace);
-
-    // Ensure currentStrategy is properly loaded
     if (!strategyManager.getCurrentStrategy()) {
       strategyManager.initializeStrategy(botRace);
     }
 
-    // Get the build order for the current strategy
     try {
       const buildOrder = strategyManager.getBuildOrderForCurrentStrategy(world);
-
-      // Calculate the maximum supply from the build order steps
       const maxSupply = getMaxSupplyFromPlan(buildOrder.steps, botRace);
+      config.planMax = { supply: maxSupply, gasMine: 0 }; // Assuming 0 is a sensible default for gasMine
 
-      // Include gasMine when setting config.planMax
-      // Replace `defaultGasMineValue` with the actual value or logic to determine it
-      const defaultGasMineValue = 0; // Example default value
-      config.planMax = {
-        supply: maxSupply,
-        gasMine: defaultGasMineValue
-      };
-    } catch (error) {
-      // Check if error is an instance of Error
-      if (error instanceof Error) {
-        logError('Error loading build order:', error);
-      } else {
-        // Handle cases where the error is not an Error instance
-        logError('An unknown error occurred during initial setup');
+      const currentStrategy = strategyManager.getCurrentStrategy();
+      if (currentStrategy?.steps) {
+        gameState.setPlan(convertToPlanSteps(currentStrategy.steps));
       }
+    } catch (error) {
+      logError('Error during strategy setup:', error instanceof Error ? error : new Error('Unknown error'));
     }
 
-    const currentStrategy = strategyManager.getCurrentStrategy();
-    if (currentStrategy && currentStrategy.steps) {
-      const planSteps = convertToPlanSteps(currentStrategy.steps);
-      gameState.setPlan(planSteps);
-    }
-
-    // Perform initial map analysis based on the bot's race
     performInitialMapAnalysis(world);
-
-    // Initialize starting unit counts
     gameState.initializeStartingUnitCounts(botRace);
-
-    // Verify if the hardcoded starting unit counts match the actual game state
     gameState.verifyStartingUnitCounts(world);
 
-    // Initialize an array to collect actions
-    const actionCollection = [];
-
     try {
-      // Assign workers and prepare for scouting
-      const initialActions = assignInitialWorkers(world);
-      actionCollection.push(...initialActions);
-
-      // Send all collected actions in a batch
+      const actionCollection = assignInitialWorkers(world);
       const { actions } = world.resources.get();
       await actions.sendAction(actionCollection);
     } catch (error) {
-      // Check if error is an instance of Error
-      if (error instanceof Error) {
-        logError('Error during initial setup:', error);
-      } else {
-        // Handle cases where the error is not an Error instance
-        logError('An unknown error occurred during initial setup');
-      }
+      logError('Error during initial worker assignment:', error instanceof Error ? error : new Error('Unknown error'));
     }
   },
 
