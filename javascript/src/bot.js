@@ -15,15 +15,13 @@ const { calculateAdjacentToRampGrids } = require('./mapUtils');
 const StrategyManager = require('./strategyManager');
 const { runPlan } = require('./strategyService');
 const { refreshProductionUnitsCache, manageZergSupply } = require('./unitManagement');
+const { determineBotRace } = require('./utils/gameStateHelpers');
 const { convertToPlanSteps, getMaxSupplyFromPlan } = require('./utils/strategyUtils');
 const { assignWorkers, balanceWorkerDistribution, reassignIdleWorkers } = require('./workerAssignment');
 const config = require('../config/config');
 
 // Instantiate the game state manager
 const gameState = new GameState();
-
-/** @type {number} Variable to store the bot's race */
-let botRace;
 
 /** @type {number} Maximum number of workers */
 let maxWorkers = 0;
@@ -34,23 +32,6 @@ let maxWorkers = 0;
  */
 function updateMaxWorkers(units) {
   maxWorkers = calculateMaxWorkers(units);
-}
-
-/**
- * Performs initial map analysis based on the bot's race.
- * @param {World} world - The game world context.
- */
-function performInitialMapAnalysis(world) {
-  botRace = world.agent.race || Race.TERRAN;
-  const map = world.resources.get().map;
-  StrategyManager.getInstance(botRace);
-  if (botRace === Race.TERRAN) {
-    // First calculate the grids adjacent to ramps
-    calculateAdjacentToRampGrids(map);
-
-    // Then calculate wall-off positions using the calculated ramp grids
-    BuildingPlacement.calculateWallOffPositions(world);
-  }
 }
 
 /**
@@ -73,6 +54,23 @@ function assignInitialWorkers(world) {
   return actionCollection;
 }
 
+/**
+ * Performs initial map analysis based on the bot's race.
+ * @param {World} world - The game world context.
+ */
+function performInitialMapAnalysis(world) {
+  const botRace = determineBotRace(world);
+  const map = world.resources.get().map;
+  StrategyManager.getInstance(botRace);
+  if (botRace === Race.TERRAN) {
+    // First calculate the grids adjacent to ramps
+    calculateAdjacentToRampGrids(map);
+
+    // Then calculate wall-off positions using the calculated ramp grids
+    BuildingPlacement.calculateWallOffPositions(world);
+  }
+}
+
 // Create a new StarCraft II bot agent with event handlers.
 const bot = createAgent({
   interface: {
@@ -85,7 +83,7 @@ const bot = createAgent({
   async onGameStart(world) {
     logMessage('Game Started', 1);
 
-    const botRace = world.agent.race || Race.TERRAN;
+    const botRace = determineBotRace(world);
     const gameState = GameState.getInstance();
     gameState.setRace(botRace);
 

@@ -1,7 +1,18 @@
 // gameStateHelpers.js
 
+const { Race } = require("@node-sc2/core/constants/enums");
+
 const { getDistance } = require("../geometryUtils");
 const { calculateTimeToKillUnits } = require("../unitHelpers");
+
+/**
+ * Determines the bot's race, defaulting to Terran if undefined.
+ * @param {World} world - The game world context.
+ * @returns {SC2APIProtocol.Race} The determined race of the bot.
+ */
+function determineBotRace(world) {
+  return world.agent.race || Race.TERRAN;
+}
 
 /**
  * Determines if a townhall is in danger based on nearby enemy units.
@@ -25,6 +36,6 @@ function isTownhallInDanger(world, townhall, nearbyEnemies) {
 }
 
 module.exports = {
+  determineBotRace,
   isTownhallInDanger,
-  // Export other functions as they are added
 };
