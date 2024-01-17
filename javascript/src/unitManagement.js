@@ -26,12 +26,13 @@ const { haveSupplyForUnit, getTimeToTargetCost } = require("./resourceManagement
 const { addEarmark, getEarmarkedFood } = require("./resourceUtils");
 const { mappedEnemyUnits } = require("./scoutingUtils");
 const { earmarkResourcesIfNeeded } = require("./sharedEconomicFunctions");
-const { getBuildTimeLeft } = require("./sharedUtils");
-const { flyingTypesMapping, unitTypeTrainingAbilities, liftAndLandingTime } = require("./unitConfig");
+const { flyingTypesMapping, liftAndLandingTime } = require("./unitConfig");
 const { getUnitTypeCount, potentialCombatants, calculateTimeToKillUnits, isTrainingUnit } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand, findKeysForValue, canBuild } = require("./utils");
 const { getPendingOrders } = require("./utils/commonGameUtils");
+const { checkTechRequirement } = require("./utils/techRequirementUtils");
+const { isTrainingOrder } = require("./utils/unitCapabilityUtils");
 const { shortOnWorkers } = require("./workerUtils");
 
 /** @type {Map<UnitTypeId, Unit[]>} */
@@ -94,45 +95,25 @@ function buildSupplyOrTrain(world, step) {
  * @returns {boolean}
  */
 const canTrainNow = (world, unit, unitType) => {
-  const { data, resources } = world;
-  const { orders } = unit;
-  if (orders === undefined || unit.buildProgress === undefined) return false;
+  if (!unit.orders || unit.buildProgress === undefined) return false;
 
-  const allOrders = orders.filter(order => {
-    const { abilityId, progress } = order;
-    if (abilityId === undefined || progress === undefined) return false;
-    const trainingUnitType = unitTypeTrainingAbilities.get(abilityId);
-    if (trainingUnitType === undefined) return false;
-    const { buildTime } = data.getUnitTypeData(trainingUnitType);
-    if (buildTime === undefined) return false;
-    const buildTimeLeft = getBuildTimeLeft(unit, buildTime, progress);
-    return buildTimeLeft > 8;
-  });
-
-  const filteredPendingOrders = getPendingOrders(unit).filter(order => {
-    // Assuming SMART abilityId is for rally orders and should be ignored
-    return order.abilityId !== Ability.SMART;
-  });
-
-  const currentAndPendingOrders = allOrders.concat(filteredPendingOrders);
+  // Calculate the max orders and get the tech requirement once
   const maxOrders = unit.hasReactor() ? 2 : 1;
-  const conditions = [currentAndPendingOrders.length < maxOrders];
+  const { techRequirement } = world.data.getUnitTypeData(unitType);
 
-  const { techRequirement } = data.getUnitTypeData(unitType);
-  if (techRequirement) {
-    if (techRequirement === UnitType.TECHLAB) {
-      conditions.push(unit.hasTechLab());
-    } else {
-      conditions.push(
-        getById(resources, [techRequirement]).some(unit => {
-          return unit.buildProgress !== undefined && unit.buildProgress >= 1;
-        })
-      );
-    }
+  // Check for tech requirements
+  if (techRequirement && !checkTechRequirement(world.resources, techRequirement, unit)) {
+    return false;
   }
 
-  return conditions.every(condition => condition);
-};
+  // Combine and filter orders in one go
+  const currentAndPendingOrders = unit.orders
+    .concat(getPendingOrders(unit))
+    .filter(order => isTrainingOrder(order, world.data))
+    .length;
+
+  return currentAndPendingOrders < maxOrders;
+}
 
 /**
  * @param {World} world

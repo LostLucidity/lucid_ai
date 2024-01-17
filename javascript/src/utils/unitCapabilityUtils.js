@@ -65,6 +65,19 @@ function getTimeUntilUnitCanBuildAddon(world, unit) {
   return Infinity;
 }
 
+/**
+ * Check if an order is a training order.
+ * @param {SC2APIProtocol.ActionRawUnitCommand} order
+ * @param {DataStorage} data
+ * @returns {boolean}
+ */
+function isTrainingOrder(order, data) {
+  if (!order.abilityId) return false;
+  const trainingUnitType = unitTypeTrainingAbilities.get(order.abilityId);
+  return trainingUnitType !== undefined && data.getUnitTypeData(trainingUnitType) !== undefined;
+}
+
 module.exports = {
   getTimeUntilUnitCanBuildAddon,
+  isTrainingOrder,
 };
