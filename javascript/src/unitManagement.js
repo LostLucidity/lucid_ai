@@ -97,16 +97,27 @@ const canTrainNow = (world, unit, unitType) => {
   const { data, resources } = world;
   const { orders } = unit;
   if (orders === undefined || unit.buildProgress === undefined) return false;
+
   const allOrders = orders.filter(order => {
-    const { abilityId, progress } = order; if (abilityId === undefined || progress === undefined) return false;
-    const unitType = unitTypeTrainingAbilities.get(abilityId); if (unitType === undefined) return false;
-    const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return false;
+    const { abilityId, progress } = order;
+    if (abilityId === undefined || progress === undefined) return false;
+    const trainingUnitType = unitTypeTrainingAbilities.get(abilityId);
+    if (trainingUnitType === undefined) return false;
+    const { buildTime } = data.getUnitTypeData(trainingUnitType);
+    if (buildTime === undefined) return false;
     const buildTimeLeft = getBuildTimeLeft(unit, buildTime, progress);
     return buildTimeLeft > 8;
   });
-  const currentAndPendingOrders = allOrders.concat(getPendingOrders(unit));
+
+  const filteredPendingOrders = getPendingOrders(unit).filter(order => {
+    // Assuming SMART abilityId is for rally orders and should be ignored
+    return order.abilityId !== Ability.SMART;
+  });
+
+  const currentAndPendingOrders = allOrders.concat(filteredPendingOrders);
   const maxOrders = unit.hasReactor() ? 2 : 1;
   const conditions = [currentAndPendingOrders.length < maxOrders];
+
   const { techRequirement } = data.getUnitTypeData(unitType);
   if (techRequirement) {
     if (techRequirement === UnitType.TECHLAB) {
@@ -119,6 +130,7 @@ const canTrainNow = (world, unit, unitType) => {
       );
     }
   }
+
   return conditions.every(condition => condition);
 };
 
