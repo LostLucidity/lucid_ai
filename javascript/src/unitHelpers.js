@@ -370,6 +370,16 @@ function potentialCombatants(unit) {
 }
 
 /**
+ * Sets a reposition label on a unit with a specified position.
+ * @param {Unit} unit The unit to set the label on.
+ * @param {Point2D} position The position to set as the label.
+ */
+const setRepositionLabel = (unit, position) => {
+  unit.labels.set('reposition', position);
+  console.log('reposition', position);
+};
+
+/**
  * Returns updated addOnType using countTypes.
  * @param {UnitTypeId} addOnType 
  * @param {Map<UnitTypeId, UnitTypeId[]>} countTypes 
@@ -395,5 +405,6 @@ module.exports = {
   isStructureLifted,
   isTrainingUnit,
   potentialCombatants,
+  setRepositionLabel,
   updateAddOnType,
 };

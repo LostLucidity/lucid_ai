@@ -2,7 +2,7 @@
 "use strict";
 
 // External library imports
-const { Ability } = require("@node-sc2/core/constants");
+const { Ability, UnitType } = require("@node-sc2/core/constants");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
@@ -12,15 +12,13 @@ const { pointsOverlap } = require("./mapUtils");
 const { getAddOnPlacement } = require("./placementUtils");
 const { addEarmark } = require("./resourceUtils");
 const { determineScoutingLocations, selectSCVForScouting } = require("./scoutingUtils");
-const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff } = require("./unitHelpers");
+const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff, setRepositionLabel } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
 const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");
 const { getPendingOrders } = require("./utils/commonGameUtils");
 const { getPlanFoodValue } = require("./utils/gameStrategyUtils");
+const { checkAddOnPlacement, seigeTanksSiegedGrids } = require("./utils/sharedUnitPlacement");
 const { getSingletonInstance } = require("./utils/singletonFactory");
-
-/** @type {Point2D[]} */
-const seigeTanksSiegedGrids = [];
 
 /**
  * Attempt to build addOn
@@ -93,6 +91,56 @@ function createMoveCommand(unitId, location) {
     unitTags: [unitId.toString()], // Converting unitId to a string
     queueCommand: false
   };
+}
+
+
+/**
+ * @param {World} world
+ * @param {Unit[]} trainers
+ * @param {SC2APIProtocol.UnitTypeData} unitTypeData
+ */
+function createTrainingCommands(world, trainers, unitTypeData) {
+  /**
+   * @type {any[]}
+   */
+  const collectedActions = [];
+  trainers.forEach(trainer => {
+    if (trainer.unitType !== UnitType.WARPGATE) {
+      const trainerActions = handleNonWarpgateTrainer(world, trainer, unitTypeData);
+      collectedActions.push(...trainerActions);
+    } else {
+      // Handle WARPGATE case, potentially collecting actions
+    }
+  });
+  return collectedActions;
+}
+
+/**
+ * @param {World} world
+ * @param {Unit} trainer
+ * @param {SC2APIProtocol.UnitTypeData} unitTypeData
+ */
+function handleNonWarpgateTrainer(world, trainer, unitTypeData) {
+  const actions = [];
+  if (trainer.isFlying) {
+    const landingPosition = checkAddOnPlacement(world, trainer);
+    if (landingPosition) {
+      setRepositionLabel(trainer, landingPosition);
+      const landCommand = createUnitCommand(Ability.LAND, [trainer], false, landingPosition);
+      actions.push(landCommand);
+    }
+  } else {
+    // Ensure that abilityId is defined before using it
+    const abilityId = unitTypeData.abilityId;
+    if (typeof abilityId !== 'undefined') {
+      const trainCommand = createUnitCommand(abilityId, [trainer]);
+      actions.push(trainCommand);
+    } else {
+      // Handle the undefined case, e.g., log an error or skip the action
+      console.error('Ability ID is undefined for unit type', unitTypeData);
+    }
+  }
+  return actions;
 }
 
 /**
@@ -181,6 +229,7 @@ function performScoutingWithSCV(world) {
 module.exports = {
   attemptBuildAddOn,
   attemptLiftOff,
+  createTrainingCommands,
   mine,
   performScoutingWithSCV,
   prepareUnitToBuildAddon,

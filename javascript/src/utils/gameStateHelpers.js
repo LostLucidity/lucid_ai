@@ -1,9 +1,75 @@
 // gameStateHelpers.js
 
-const { Race } = require("@node-sc2/core/constants/enums");
+const { UnitType } = require("@node-sc2/core/constants");
+const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 
+const { getPendingOrders } = require("./commonGameUtils");
+const { missingUnits } = require("../gameDataStore");
+const GameState = require("../gameState");
+const { getById } = require("../gameUtils");
 const { getDistance } = require("../geometryUtils");
 const { calculateTimeToKillUnits } = require("../unitHelpers");
+
+/**
+ * Analyzes the game state and determines if the current count of a 
+ * specific unit type matches the target count.
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @param {number} targetCount
+ * @returns {boolean}
+ */
+function checkUnitCount(world, unitType, targetCount) {
+  const { data, resources } = world;
+  const { units } = resources.get();
+  const orders = [];
+  /** @type {UnitTypeId[]} */
+  let unitTypes = []; // Assign an empty array as default
+
+  const gameState = GameState.getInstance();
+  if (gameState.morphMapping?.has(unitType)) {
+    const mappingValue = gameState.morphMapping.get(unitType);
+    if (mappingValue) {
+      unitTypes = mappingValue;
+    }
+  } else {
+    unitTypes = [unitType];
+  }
+  let abilityId = data.getUnitTypeData(unitType).abilityId;
+
+  if (typeof abilityId === 'undefined') {
+    // Ability ID for the unit type is not defined, so return false
+    return false;
+  }
+  units.withCurrentOrders(abilityId).forEach(unit => {
+    if (unit.orders) {
+      unit.orders.forEach(order => {
+        if (order.abilityId === abilityId) {
+          // Check if the unitType is zergling and account for the pair
+          const orderCount = (unitType === UnitType.ZERGLING) ? 2 : 1;
+          for (let i = 0; i < orderCount; i++) {
+            orders.push(order);
+          }
+        }
+      });
+    }
+  });
+
+  const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => {
+    const unitPendingOrders = getPendingOrders(u);
+    return unitPendingOrders && unitPendingOrders.some(o => o.abilityId === abilityId);
+  });
+
+  let adjustedTargetCount = targetCount;
+  if (unitType === UnitType.ZERGLING) {
+    const existingZerglings = getById(resources, [UnitType.ZERGLING]).length;
+    const oddZergling = existingZerglings % 2;
+    adjustedTargetCount += oddZergling;
+  }
+
+  const unitCount = getById(resources, unitTypes).length + orders.length + unitsWithPendingOrders.length + missingUnits.filter(unit => unit.unitType === unitType).length;
+
+  return unitCount === adjustedTargetCount;
+}
 
 /**
  * Determines the bot's race, defaulting to Terran if undefined.
@@ -36,6 +102,7 @@ function isTownhallInDanger(world, townhall, nearbyEnemies) {
 }
 
 module.exports = {
+  checkUnitCount,
   determineBotRace,
   isTownhallInDanger,
 };

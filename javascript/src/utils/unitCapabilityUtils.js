@@ -2,11 +2,23 @@
 
 "use strict";
 
+const { checkUnitCount } = require("./gameStateHelpers");
 const { hasAddOn } = require("../construction/buildingSharedUtils");
 const { findBestPositionForAddOn } = require("../construction/buildingUnitHelpers");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../unitConfig");
 const { calculateLiftLandAndMoveTime } = require("../unitHelpers");
 const { getTimeInSeconds } = require("../utils");
+
+/**
+ * Determines if a unit can be trained based on the target count.
+ * @param {World} world The current game world.
+ * @param {number} unitTypeId Type of the unit.
+ * @param {number | null} targetCount Target number of units.
+ * @returns {boolean}
+ */
+const canTrainUnit = (world, unitTypeId, targetCount) => {
+  return targetCount === null || checkUnitCount(world, unitTypeId, targetCount);
+};
 
 /**
  * @param {World} world
@@ -78,6 +90,7 @@ function isTrainingOrder(order, data) {
 }
 
 module.exports = {
+  canTrainUnit,
   getTimeUntilUnitCanBuildAddon,
   isTrainingOrder,
 };
