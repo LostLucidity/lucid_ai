@@ -8,11 +8,11 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
 const cacheManager = require('./cacheManager');
-const { calculateTimeToFinishStructure } = require('./construction/buildingUtils');
 const { missingUnits } = require('./gameDataStore');
 const { foodData } = require('./gameStateResources');
 const { defaultResources } = require('./resourceTypes');
 const { getPendingOrders } = require('./utils/commonGameUtils');
+const { calculateTimeToFinishStructure } = require('./utils/gameStateCalculations');
 const { getSingletonInstance } = require('./utils/singletonFactory');
 
 /**

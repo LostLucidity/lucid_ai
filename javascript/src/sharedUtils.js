@@ -15,7 +15,7 @@ const { flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand } = require("./utils");
 const { getPendingOrders } = require("./utils/commonGameUtils");
-const { getClosestPathablePositionsBetweenPositions } = require("./utils/constructionHelper");
+const { getClosestPathablePositionsBetweenPositions } = require("./utils/sharedPathfindingUtils");
 
 /** @type {(unit: Unit, gameState: GameState) => number} */
 const zealotModifier = (unit, gameState) => (

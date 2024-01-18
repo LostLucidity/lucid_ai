@@ -6,9 +6,7 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
-const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition } = require("./buildingHelpers");
 const BuildingPlacement = require("./buildingPlacement");
-const { findBestPositionForAddOn } = require("./buildingUnitHelpers");
 const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction } = require("./constructionUtils");
 const config = require("../../config/config");
 const { commandPlaceBuilding } = require("../builderUtils");
@@ -21,6 +19,8 @@ const { addEarmark } = require("../resourceUtils");
 const { prepareUnitToBuildAddon } = require("../unitActions");
 const { isPlaceableAtGasGeyser } = require("../utils");
 const { addAddOn, getUnitsCapableToAddOn } = require("../utils/addonUtils");
+const { findPosition, findPlacements } = require("../utils/buildingPlacementHelpers");
+const { determineBuildingPosition, getInTheMain, premoveBuilderToPosition, findBestPositionForAddOn } = require("../utils/constructionAndBuildingUtils");
 const { getTimeUntilUnitCanBuildAddon } = require("../utils/unitCapabilityUtils");
 
 /**
@@ -70,8 +70,8 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
               unitType,
               candidatePositions,
               BuildingPlacement.buildingPosition,
-              BuildingPlacement.findPlacements,
-              BuildingPlacement.findPosition,
+              findPlacements,
+              findPosition,
               BuildingPlacement.setBuildingPosition
             );
             if (position === false) {
@@ -89,8 +89,8 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
                 unitType,
                 candidatePositions,
                 BuildingPlacement.buildingPosition,
-                BuildingPlacement.findPlacements,
-                BuildingPlacement.findPosition,
+                findPlacements,
+                findPosition,
                 BuildingPlacement.setBuildingPosition
               );
 
@@ -169,8 +169,8 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
             unitType,
             candidatePositions,
             BuildingPlacement.buildingPosition,
-            BuildingPlacement.findPlacements,
-            BuildingPlacement.findPosition,
+            findPlacements,
+            findPosition,
             BuildingPlacement.setBuildingPosition
           );
           if (position === false) {
@@ -220,7 +220,7 @@ function buildSupply(world) {
   if (automateSupplyCondition) {
     switch (agent.race) {
       case Race.TERRAN: {
-        const candidatePositionsTerran = BuildingPlacement.findPlacements(world, UnitType.SUPPLYDEPOT);
+        const candidatePositionsTerran = findPlacements(world, UnitType.SUPPLYDEPOT);
         actions.push(...candidatePositionsTerran.map(pos => commandPlaceBuilding(
           world,
           UnitType.SUPPLYDEPOT,
@@ -234,7 +234,7 @@ function buildSupply(world) {
         break;
       }
       case Race.PROTOSS: {
-        const candidatePositionsProtoss = BuildingPlacement.findPlacements(world, UnitType.PYLON);
+        const candidatePositionsProtoss = findPlacements(world, UnitType.PYLON);
         actions.push(...candidatePositionsProtoss.map(pos => commandPlaceBuilding(
           world,
           UnitType.PYLON,

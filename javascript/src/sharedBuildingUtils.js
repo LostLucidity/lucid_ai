@@ -3,25 +3,21 @@
 // Import necessary constants, types, and other modules
 
 // External library imports
-const { UnitType, Ability } = require("@node-sc2/core/constants");
-const { Alliance, Race } = require("@node-sc2/core/constants/enums");
+const { UnitType } = require("@node-sc2/core/constants");
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 // Internal module imports
-const { stopOverlappingBuilders } = require("./construction/buildingSharedUtils");
 const GameState = require("./gameState");
-const { getStructureAtPosition, getDistance, getAwayPosition, areApproximatelyEqual } = require("./geometryUtils");
+const { getStructureAtPosition, getDistance } = require("./geometryUtils");
 const MapResources = require("./mapResources");
 const { getClosestUnitPositionByPath } = require("./pathfinding");
-const { isMoving, getBuildTimeLeft, getUnitsFromClustering } = require("./sharedUtils");
+const { getBuildTimeLeft } = require("./sharedUtils");
 const { unitTypeTrainingAbilities } = require("./unitConfig");
-const { setPendingOrders } = require("./unitOrders");
-const { createUnitCommand, getDistanceByPath, getTimeInSeconds } = require("./utils");
+const { getDistanceByPath, getTimeInSeconds } = require("./utils");
 const { getPendingOrders } = require("./utils/commonGameUtils");
 const { getMovementSpeed } = require("./utils/coreUtils");
-const { rallyWorkerToTarget } = require("./workerUtils");
 
 /**
  * @param {World} world
@@ -120,73 +116,6 @@ function getContructionTimeLeft(world, unit, inSeconds = true) {
 }
 
 /**
- * @param {World} world
- * @param {Unit} unit
- * @param {Point2D} position
- * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand
- * @param {UnitTypeId} unitType
- * @param {(units: UnitResource, unit: Unit) => Point2D | undefined} getOrderTargetPosition - Injected dependency from workerUtils.js
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
-function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrderTargetPosition) {
-  const { agent, data, resources } = world;
-  const { units } = resources.get();
-  const { pos } = unit; if (pos === undefined) return [];
-  let actions = [];
-
-  const orderTargetPosition = getOrderTargetPosition(units, unit);
-  const movingButNotToPosition = isMoving(unit) && orderTargetPosition && getDistance(orderTargetPosition, position) > 1;
-
-  // check for units near the building position
-  const unitsNearPosition = units.getAlive(Alliance.SELF).filter(u => u.pos && getDistance(u.pos, position) <= 2);
-
-  unitsNearPosition.forEach(u => {
-    if (u.pos) { // only consider units where pos is defined
-      const moveAwayCommand = createUnitCommand(Ability.MOVE, [u]);
-      moveAwayCommand.targetWorldSpacePos = getAwayPosition(u.pos, position);
-      actions.push(moveAwayCommand);
-    }
-  });
-
-  actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering, true));
-
-  // check for a current unit that is heading towards position
-  const currentUnitMovingToPosition = units.getWorkers().find(u => {
-    const orderTargetPosition = getOrderTargetPosition(units, u); if (orderTargetPosition === undefined) return false;
-    return isMoving(u) && areApproximatelyEqual(orderTargetPosition, position);
-  });
-
-  // if there is a unit already moving to position, check if current unit is closer
-  if (currentUnitMovingToPosition) {
-    const { pos: currentUnitMovingToPositionPos } = currentUnitMovingToPosition; if (currentUnitMovingToPositionPos === undefined) return [];
-    const distanceOfCurrentUnit = getDistanceByPath(resources, pos, position);
-    const distanceOfMovingUnit = getDistanceByPath(resources, currentUnitMovingToPositionPos, position);
-
-    if (distanceOfCurrentUnit >= distanceOfMovingUnit) {
-      // if current unit is not closer, return early
-      return actions;
-    }
-  }
-
-  if (!unit.isConstructing() && !movingButNotToPosition) {
-    unitCommand.targetWorldSpacePos = position;
-    setBuilderLabel(unit);
-    actions.push(unitCommand, ...stopOverlappingBuilders(units, unit, position));
-    setPendingOrders(unit, unitCommand);
-    if (agent.race === Race.ZERG) {
-      const { foodRequired } = data.getUnitTypeData(unitType);
-      if (foodRequired !== undefined) {
-        const gameState = GameState.getInstance();
-        gameState.pendingFood -= foodRequired; 
-      }
-    }
-  }
-  actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering, true));
-
-  return actions;
-}
-
-/**
  * @param {Unit} builder
  */
 function setBuilderLabel(builder) {
@@ -203,6 +132,5 @@ function setBuilderLabel(builder) {
 // Export the shared functions
 module.exports = {
   calculateMovingOrConstructingNonDronesTimeToPosition,
-  handleNonRallyBase,
   setBuilderLabel,
 };

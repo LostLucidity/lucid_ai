@@ -4,7 +4,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const BuildingPlacement = require("../construction/buildingPlacement");
+const { findPosition } = require("./buildingPlacementHelpers");
 const { existsInMap, pointsOverlap } = require("../mapUtils");
 const { getAddOnPlacement, getAddOnBuildingPlacement } = require("../placementUtils");
 const { canUnitBuildAddOn, flyingTypesMapping } = require("../unitConfig");
@@ -65,10 +65,10 @@ function checkAddOnPlacement(world, building, addOnType = UnitType.REACTOR) {
           position = getAddOnBuildingPlacement(addOnPosition);
           console.log(`isPlaceableAt for ${getStringNameOfConstant(UnitType, building.unitType)}`, position);
         } else {
-          addOnPosition = BuildingPlacement.findPosition(world, addOnType, nearPoints);
+          addOnPosition = findPosition(world, addOnType, nearPoints);
           if (addOnPosition) {
             if (typeof building.unitType === 'number') {
-              position = BuildingPlacement.findPosition(world, building.unitType, [getAddOnBuildingPlacement(addOnPosition)]);
+              position = findPosition(world, building.unitType, [getAddOnBuildingPlacement(addOnPosition)]);
             } else {
               console.error('checkAddOnPlacement: building.unitType is undefined');
             }

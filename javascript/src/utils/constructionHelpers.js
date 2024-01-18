@@ -1,32 +1,16 @@
-//@ts-check
-"use strict";
+// constructionHelpers.js
+const { Ability } = require("@node-sc2/core/constants");
+const groupTypes = require("@node-sc2/core/constants/groups");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
+const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-// External Libraries/Modules
-const { UnitType, Ability } = require('@node-sc2/core/constants');
-const { Race } = require('@node-sc2/core/constants/enums');
-const groupTypes = require('@node-sc2/core/constants/groups');
-const { cellsInFootprint } = require('@node-sc2/core/utils/geometry/plane');
-const { createPoint2D } = require('@node-sc2/core/utils/geometry/point');
-const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
-
-// Local File Imports
-const { buildUnitTypeMap } = require('../gameData');
-const GameState = require('../gameState');
-const { buildingPositions } = require('../gameStateResources');
-const { getDistance } = require('../geometryUtils');
-const { getPendingOrders } = require('../utils/commonGameUtils');
-
-/**
- * Retrieves detailed information about a builder unit.
- * @param {{unit: Unit, timeToPosition: number}} builder The builder object with unit and time to position.
- * @returns {{unit: Unit, timeToPosition: number, movementSpeedPerSecond: number}} Information about the builder.
- */
-function getBuilderInformation(builder) {
-  let { unit, timeToPosition } = builder;
-  const { movementSpeed } = unit.data();
-  const movementSpeedPerSecond = movementSpeed ? movementSpeed * 1.4 : 0;
-  return { unit, timeToPosition, movementSpeedPerSecond };
-}
+const { getPendingOrders } = require("./commonGameUtils");
+const { isPendingContructing } = require("./workerAssignmentHelpers");
+const { buildUnitTypeMap } = require("../gameData");
+const GameState = require("../gameState");
+const { buildingPositions } = require("../gameStateResources");
+const { getDistance } = require("../geometryUtils");
 
 /**
  * @param {World} world
@@ -107,46 +91,7 @@ function getCurrentlyEnrouteConstructionGrids(world) {
   return constructionGrids;
 }
 
-/**
- * Determines if a unit has pending construction orders.
- * @param {Unit & { pendingOrders?: SC2APIProtocol.UnitOrder[] }} unit - The unit to check.
- * @returns {boolean}
- */
-function isPendingContructing(unit) {
-  // Safely check if 'pendingOrders' exists and is an array before proceeding
-  return Array.isArray(unit.pendingOrders) && unit.pendingOrders.some(o => {
-    // Ensure that o.abilityId is defined and is a number before using it in the includes check
-    return typeof o.abilityId === 'number' && groupTypes.constructionAbilities.includes(o.abilityId);
-  });
-}
-
-/**
- * Determines if a position should be kept for building construction.
- * @param {World} world - The game world context.
- * @param {UnitTypeId} unitType - The unit type ID for the building.
- * @param {Point2D} position - The position to evaluate.
- * @param {(map: MapResource, unitType: number, position: Point2D) => boolean} isPlaceableAtGasGeyser - Dependency for gas geyser placement.
- * @returns {boolean} - Whether the position should be kept.
- */
-function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
-  const { race } = world.agent;
-  if (race === undefined) return false;
-
-  const { map, units } = world.resources.get();
-  let isPositionValid = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
-
-  if (race === Race.PROTOSS && unitType !== UnitType.PYLON) {
-    let pylons = units.getById(UnitType.PYLON);
-    let pylonExists = pylons.some(pylon => pylon.isPowered || (pylon.buildProgress && pylon.buildProgress < 1));
-    isPositionValid = isPositionValid && pylonExists;
-  }
-
-  return isPositionValid;
-}
-
+// Export the functions to make them available to other modules
 module.exports = {
   getCurrentlyEnrouteConstructionGrids,
-  isPendingContructing,
-  getBuilderInformation,
-  keepPosition,
 };

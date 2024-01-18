@@ -17,7 +17,7 @@ const { getUnitsTrainingTargetUnitType } = require("./unitWorkerService");
 const { createUnitCommand, getDistanceByPath } = require("./utils");
 const { getPendingOrders } = require("./utils/commonGameUtils");
 const { getWorkerSourceByPath } = require("./utils/coreUtils");
-const { getWithLabelAvailable, getNeediestMineralField } = require("./workerAssignment");
+const { getNeediestMineralField } = require("./utils/mineralFieldUtils");
 const { stopUnitFromMovingToPosition } = require("./workerHelpers");
 
 /** 
@@ -46,23 +46,6 @@ const handleRallyBase = (world, unit, position) => {
  */
 function isWorkersTrainingTendedTo() {
   return workersTrainingTendedTo;
-}
-
-/**
- * 
- * @param {UnitResource} units 
- * @returns {Unit[]}
- */
-function getBuilders(units) {
-  let builders = [
-    ...units.withLabel('builder').filter(builder => getWithLabelAvailable(units, builder)),
-    ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(units, proxy)),
-  ].filter(worker => {
-    const gatheringAndMining = worker.isGathering() && isMining(units, worker);
-    const isConstructingDrone = worker.isConstructing() && worker.unitType === UnitType.DRONE;
-    return !worker.isReturning() && !gatheringAndMining && !isConstructingDrone;
-  });
-  return builders;
 }
 
 /**
@@ -339,7 +322,6 @@ function shortOnWorkers(world) {
 }
 
 module.exports = {
-  getBuilders,
   gatherBuilderCandidates,
   isConstructing,
   isMining,

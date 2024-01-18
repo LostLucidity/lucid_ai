@@ -8,7 +8,7 @@
 // Import necessary constants or modules
 const { UnitType, UnitTypeId } = require('@node-sc2/core/constants');
 
-const BuildingPlacement = require('../construction/buildingPlacement');
+const { checkAddOnPlacement } = require('./sharedUnitPlacement');
 const { addEarmark } = require('../resourceUtils');
 const { flyingTypesMapping } = require('../unitConfig');
 const { setPendingOrders } = require('../unitOrders');
@@ -26,7 +26,7 @@ function attemptLand(world, unit, addOnType) {
   if (tag === undefined || unitType === undefined) return [];
   const collectedActions = [];
 
-  const foundPosition = BuildingPlacement.checkAddOnPlacement(world, unit, addOnType);
+  const foundPosition = checkAddOnPlacement(world, unit, addOnType);
 
   if (foundPosition) {
     unit.labels.set('addAddOn', foundPosition);

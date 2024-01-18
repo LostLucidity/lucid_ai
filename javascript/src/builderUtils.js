@@ -9,7 +9,6 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 // Internal Dependencies
-const { keepPosition } = require("./construction/buildingCommons");
 const BuildingPlacement = require("./construction/buildingPlacement");
 const { gatherCandidateWorkersTimeToPosition } = require("./construction/constructionUtils");
 const GameState = require("./gameState");
@@ -17,9 +16,10 @@ const { getClosestBuilderCandidate } = require("./pathfinding");
 const { addEarmark } = require("./resourceUtils");
 const { calculateMovingOrConstructingNonDronesTimeToPosition } = require("./sharedBuildingUtils");
 const { findUnitTypesWithAbilityCached } = require("./utils");
+const { keepPosition } = require("./utils/constructionAndBuildingUtils");
 const { calculateClosestConstructingWorker } = require("./utils/coreUtils");
-const { logMessageStorage } = require("./utils/loggingUtils");
-const { getBuilders, gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters } = require("./workerUtils");
+const { getBuilders } = require("./utils/sharedWorkerUtils");
+const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters } = require("./workerUtils");
 
 /**
  * Command to place a building at the specified position.
@@ -151,15 +151,6 @@ function handleSpecialUnits(world, collectedActions, premoveBuilderToPosition, g
   }
 }
 
-function logNoFreeGeysers() {
-  if (!logMessageStorage.noFreeGeysers) {
-    console.error('No free geysers available for gas collector');
-    logMessageStorage.noFreeGeysers = true;
-  } else {
-    logMessageStorage.noFreeGeysers = false;
-  }
-}
-
 /**
  * Prepares a builder for construction and earmarks resources.
  * @param {World} world 
@@ -191,6 +182,5 @@ function prepareBuilderForConstruction(world, unitType, position) {
 module.exports = {
   commandPlaceBuilding,
   getBuilder,
-  logNoFreeGeysers,
   prepareBuilderForConstruction,
 };

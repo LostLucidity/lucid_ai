@@ -10,9 +10,7 @@ const { GasMineRace } = require('@node-sc2/core/constants/race-map');
 const getRandom = require('@node-sc2/core/utils/get-random');
 
 // Internal module imports from './'
-const { isPendingContructing } = require('./buildingCommons');
 const BuildingPlacement = require('./buildingPlacement');
-const { stopOverlappingBuilders } = require('./buildingSharedUtils');
 // eslint-disable-next-line no-unused-vars
 const GameState = require('../gameState');
 const { addEarmark } = require('../resourceUtils');
@@ -20,7 +18,9 @@ const { setBuilderLabel } = require('../sharedBuildingUtils');
 const { getClosestPathWithGasGeysers, ability } = require('../sharedUtils');
 const { setPendingOrders } = require('../unitOrders');
 const { createUnitCommand } = require('../utils');
+const { stopOverlappingBuilders } = require('../utils/buildingWorkerInteractions');
 const { getMovementSpeed } = require('../utils/coreUtils');
+const { isPendingContructing } = require('../utils/workerAssignmentHelpers');
 const { isIdleOrAlmostIdle } = require('../workerUtils');
 
 /**

@@ -2,9 +2,8 @@
 
 "use strict";
 
+const { hasAddOn, findBestPositionForAddOn } = require("./constructionAndBuildingUtils");
 const { checkUnitCount } = require("./gameStateHelpers");
-const { hasAddOn } = require("../construction/buildingSharedUtils");
-const { findBestPositionForAddOn } = require("../construction/buildingUnitHelpers");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../unitConfig");
 const { calculateLiftLandAndMoveTime } = require("../unitHelpers");
 const { getTimeInSeconds } = require("../utils");

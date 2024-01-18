@@ -17,7 +17,8 @@ const { logMessage, logError } = require('./logger');
 const { calculateAdjacentToRampGrids } = require('./mapUtils');
 const { refreshProductionUnitsCache, manageZergSupply } = require('./unitManagement');
 const { determineBotRace } = require('./utils/gameStateHelpers');
-const { assignWorkers, balanceWorkerDistribution, reassignIdleWorkers } = require('./workerAssignment');
+const { assignWorkers } = require('./utils/sharedWorkerUtils');
+const { balanceWorkerDistribution, reassignIdleWorkers } = require('./workerAssignment');
 const config = require('../config/config');
 
 // Instantiate the game state manager
