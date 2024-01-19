@@ -6,20 +6,20 @@ const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Race } = require('@node-sc2/core/constants/enums');
 
 // Internal module imports
-const StrategyManager = require('./buildOrders/strategy/strategyManager');
-const { runPlan } = require('./buildOrders/strategy/strategyService');
-const { convertToPlanSteps, getMaxSupplyFromPlan } = require('./buildOrders/strategy/strategyUtils');
-const BuildingPlacement = require('./construction/buildingPlacement');
-const { buildSupply } = require('./construction/buildingService');
-const { shouldTrainMoreWorkers, trainAdditionalWorkers, calculateMaxWorkers } = require('./economyManagement');
 const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
-const { calculateAdjacentToRampGrids } = require('./mapUtils');
-const { refreshProductionUnitsCache, manageZergSupply } = require('./unitManagement');
-const { determineBotRace } = require('./utils/gameStateHelpers');
-const { assignWorkers } = require('./utils/sharedWorkerUtils');
-const { balanceWorkerDistribution, reassignIdleWorkers } = require('./workerAssignment');
-const config = require('../config/config');
+const config = require('../../config/config');
+const StrategyManager = require('../buildOrders/strategy/strategyManager');
+const { runPlan } = require('../buildOrders/strategy/strategyService');
+const { convertToPlanSteps, getMaxSupplyFromPlan } = require('../buildOrders/strategy/strategyUtils');
+const BuildingPlacement = require('../construction/buildingPlacement');
+const { buildSupply } = require('../construction/buildingService');
+const { shouldTrainMoreWorkers, trainAdditionalWorkers, calculateMaxWorkers } = require('../economyManagement');
+const { calculateAdjacentToRampGrids } = require('../mapUtils');
+const { refreshProductionUnitsCache, manageZergSupply } = require('../unitManagement');
+const { determineBotRace } = require('../utils/gameStateHelpers');
+const { assignWorkers } = require('../utils/sharedWorkerUtils');
+const { balanceWorkerDistribution, reassignIdleWorkers } = require('../workerAssignment');
 
 // Instantiate the game state manager
 const gameState = new GameState();

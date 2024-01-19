@@ -6,8 +6,8 @@ const { Race } = require('@node-sc2/core/constants/enums');
 const { GasMineRace } = require('@node-sc2/core/constants/race-map');
 
 // Import necessary constants and modules
+const GameState = require('./core/gameState');
 const { getTimeToTargetTech } = require('./gameData');
-const GameState = require('./gameState');
 const { addEarmark, getEarmarkedFood } = require('./resourceUtils');
 const { planMax } = require('../config/config');
 

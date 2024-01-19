@@ -6,7 +6,7 @@ const { Ability, UnitType } = require("@node-sc2/core/constants");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const GameState = require("./gameState");
+const GameState = require("./core/gameState");
 const { getDistance } = require("./geometryUtils");
 const { pointsOverlap } = require("./mapUtils");
 const { getAddOnPlacement } = require("./placementUtils");

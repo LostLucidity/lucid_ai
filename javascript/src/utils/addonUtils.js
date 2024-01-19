@@ -5,7 +5,7 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 
 const { getPendingOrders } = require("./commonGameUtils");
 const { attemptLand } = require("./landingUtils");
-const GameState = require("../gameState");
+const GameState = require("../core/gameState");
 const { addEarmark } = require("../resourceUtils");
 const { attemptBuildAddOn, attemptLiftOff } = require("../unitActions");
 const { canUnitBuildAddOn, flyingTypesMapping } = require("../unitConfig");

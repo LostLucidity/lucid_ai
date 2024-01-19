@@ -7,9 +7,9 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { getPendingOrders } = require("./commonGameUtils");
 const { isPendingContructing } = require("./workerAssignmentHelpers");
+const GameState = require("../core/gameState");
 const { buildUnitTypeMap } = require("../gameData");
-const GameState = require("../gameState");
-const { buildingPositions } = require("../gameStateResources");
+const { buildingPositions } = require("../core/gameStateResources");
 const { getDistance } = require("../geometryUtils");
 
 /**

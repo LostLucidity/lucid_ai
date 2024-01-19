@@ -9,9 +9,9 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 // Internal module imports
-const GameState = require("./gameState");
+const GameState = require("./core/gameState");
 const { getStructureAtPosition, getDistance } = require("./geometryUtils");
-const MapResources = require("./mapResources");
+const MapResources = require("./core/mapResources");
 const { getClosestUnitPositionByPath } = require("./pathfinding");
 const { getBuildTimeLeft } = require("./sharedUtils");
 const { unitTypeTrainingAbilities } = require("./unitConfig");

@@ -7,13 +7,13 @@ const { Alliance, Attribute, Race } = require('@node-sc2/core/constants/enums');
 const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
-const cacheManager = require('./cacheManager');
-const { missingUnits } = require('./gameDataStore');
 const { foodData } = require('./gameStateResources');
-const { defaultResources } = require('./resourceTypes');
-const { getPendingOrders } = require('./utils/commonGameUtils');
-const { calculateTimeToFinishStructure } = require('./utils/gameStateCalculations');
-const { getSingletonInstance } = require('./utils/singletonFactory');
+const cacheManager = require('../cacheManager');
+const { missingUnits } = require('../gameDataStore');
+const { defaultResources } = require('../resourceTypes');
+const { getPendingOrders } = require('../utils/commonGameUtils');
+const { calculateTimeToFinishStructure } = require('../utils/gameStateCalculations');
+const { getSingletonInstance } = require('../utils/singletonFactory');
 
 /**
  * Class representing the game state.
@@ -46,7 +46,7 @@ class GameState {
 
   /**
    * The plan consisting of a sequence of PlanStep objects.
-   * @type {import('./buildOrders/strategy/strategyService').PlanStep[]}
+   * @type {import('../buildOrders/strategy/strategyService').PlanStep[]}
    */
   plan = [];
 
@@ -56,7 +56,7 @@ class GameState {
   race = null;
 
   /**
-   * @type {import('./resourceTypes').Resources} - Typing the resources property using JSDoc comment
+   * @type {import('../resourceTypes').Resources} - Typing the resources property using JSDoc comment
    */
   resources = defaultResources;
 
@@ -380,7 +380,7 @@ class GameState {
 
   /**
    * Sets the building plan.
-   * @param {import('./buildOrders/strategy/strategyService').PlanStep[]} newPlan - The new building plan.
+   * @param {import('../buildOrders/strategy/strategyService').PlanStep[]} newPlan - The new building plan.
    */
   setPlan(newPlan) {
     this.plan = newPlan;

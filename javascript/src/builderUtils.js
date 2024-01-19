@@ -11,7 +11,7 @@ const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 // Internal Dependencies
 const BuildingPlacement = require("./construction/buildingPlacement");
 const { gatherCandidateWorkersTimeToPosition } = require("./construction/constructionUtils");
-const GameState = require("./gameState");
+const GameState = require("./core/gameState");
 const { getClosestBuilderCandidate } = require("./pathfinding");
 const { addEarmark } = require("./resourceUtils");
 const { calculateMovingOrConstructingNonDronesTimeToPosition } = require("./sharedBuildingUtils");

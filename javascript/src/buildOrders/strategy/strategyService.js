@@ -7,8 +7,8 @@ const { Attribute } = require('@node-sc2/core/constants/enums');
 
 const StrategyManager = require('./strategyManager');
 const { build } = require('../../construction/buildingService');
+const GameState = require('../../core/gameState');
 const { setFoodUsed, balanceResources } = require('../../economyManagement');
-const GameState = require('../../gameState');
 const { resetEarmarks } = require('../../resourceData');
 const { hasEarmarks } = require('../../resourceManagement');
 const { performScoutingWithSCV } = require('../../unitActions');

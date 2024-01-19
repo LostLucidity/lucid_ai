@@ -5,7 +5,7 @@
 
 // Shared utility functions
 const { getDistance } = require('./geometryUtils');
-const MapResources = require('./mapResources');
+const MapResources = require('./core/mapResources');
 
 /**
  * Array to keep track of mapped enemy units.

@@ -6,7 +6,7 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
 // eslint-disable-next-line no-unused-vars
-const GameState = require("../gameState");
+const GameState = require("../core/gameState");
 const { getDistance } = require("../geometryUtils");
 const { getClosestUnitByPath } = require("../pathfinding");
 const { SPEED_MODIFIERS } = require("../sharedUtils");

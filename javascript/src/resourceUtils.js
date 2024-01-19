@@ -9,8 +9,8 @@ const { Race, Attribute } = require('@node-sc2/core/constants/enums');
 
 // Internal module imports
 const StrategyManager = require('./buildOrders/strategy/strategyManager');
+const GameState = require('./core/gameState');
 const { upgradeTypes } = require('./gameData');
-const GameState = require('./gameState');
 const { foodEarmarks, earmarks } = require('./resourceData');
 const { calculateDistance } = require('./utils/coreUtils');
 

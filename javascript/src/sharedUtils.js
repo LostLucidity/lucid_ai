@@ -8,7 +8,7 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal utility function imports
 // eslint-disable-next-line no-unused-vars
-const GameState = require("./gameState");
+const GameState = require("./core/gameState");
 const { getDistance } = require("./geometryUtils");
 const { dbscan, getGasGeysers } = require("./mapUtils");
 const { flyingTypesMapping } = require("./unitConfig");

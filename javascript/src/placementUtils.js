@@ -11,9 +11,9 @@ const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 // Internal module imports
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const GameState = require("./gameState");
+const GameState = require("./core/gameState");
 const { getDistance, getClosestPosition } = require("./geometryUtils");
-const MapResources = require("./mapResources");
+const MapResources = require("./core/mapResources");
 const { getNextSafeExpansions, dbscan } = require("./mapUtils");
 
 // Destructured import from MapResources

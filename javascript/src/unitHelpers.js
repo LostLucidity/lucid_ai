@@ -7,8 +7,8 @@ const { Race, Alliance, WeaponTargetType } = require('@node-sc2/core/constants/e
 const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports for utility functions and configurations
+const GameState = require('./core/gameState');
 const { getAbilityIdsForAddons, unitTypeData, saveAndGetUnitTypeData } = require('./gameData');
-const GameState = require('./gameState');
 const { getDistance } = require('./geometryUtils');
 const { unitTypeTrainingAbilities, liftAndLandingTime, flyingTypesMapping, getUpgradeBonus } = require('./unitConfig');
 

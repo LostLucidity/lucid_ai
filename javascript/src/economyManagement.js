@@ -11,7 +11,7 @@ const { WorkerRace, GasMineRace } = require('@node-sc2/core/constants/race-map')
 const getRandom = require('@node-sc2/core/utils/get-random');
 
 const StrategyManager = require('./buildOrders/strategy/strategyManager');
-const GameState = require('./gameState');
+const GameState = require('./core/gameState');
 const { getById } = require('./gameUtils');
 const { gasMineCheckAndBuild } = require('./resourceManagement');
 const { getMineralFieldsNearby, getGasGeysersNearby } = require('./resourceUtils');
