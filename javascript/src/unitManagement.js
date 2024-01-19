@@ -42,47 +42,17 @@ const productionUnitsCache = new Map();
 let unitProductionAvailable = true;
 
 /**
- * @description build supply or train units
+ * Build supply or train units based on the game world state and strategy step.
  * @param {World} world
  * @param {import("./buildOrders/strategy/strategyService").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function buildSupplyOrTrain(world, step) {
-  const { agent, data } = world;
-
   let collectedActions = [];
-  const gameState = GameState.getInstance();
-  let foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
-  const foodUsedLessThanNextStepFoodTarget = step && foodUsed < step.food;
 
-  if (!step || foodUsedLessThanNextStepFoodTarget) {
-    if (agent.race === Race.ZERG) {
-      const zergSupplyActions = manageZergSupply(world);
-      collectedActions.push(...zergSupplyActions);
-    } else {
-      let supplyActions = buildSupply(world);
-      collectedActions.push(...supplyActions);
-    }
-
-    let trainingOrders = shouldTrainWorkers(world) ? trainWorkersDirectly(world) : [];
-    if (trainingOrders.length === 0) {
-      trainingOrders = trainCombatUnits(world);
-    }
-    collectedActions.push(...trainingOrders);
-
-    if (trainingOrders.length === 0) {
-      foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
-      const foodDifference = step ? step.food - foodUsed : 0;
-
-      if (agent.race !== undefined && WorkerRace[agent.race]) { // Check if agent.race is defined
-        for (let i = 0; i < foodDifference; i++) {
-          addEarmark(data, data.getUnitTypeData(WorkerRace[agent.race]));
-        }
-      }
-    }
-  }
-
-  gameState.setFoodUsed(world);
+  collectedActions.push(...handleSupplyBuilding(world, step));
+  collectedActions.push(...handleUnitTraining(world, step));
+  updateFoodUsed(world);
 
   return collectedActions;
 }
@@ -260,6 +230,29 @@ function getTrainer(world, unitTypeId) {
 }
 
 /**
+ * Handles the building of supply units.
+ * @param {World} world
+ * @param {import("./buildOrders/strategy/strategyService").PlanStep} step
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function handleSupplyBuilding(world, step) {
+  const actions = [];
+  const gameState = GameState.getInstance();
+  const foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
+  const shouldBuildSupply = !step || foodUsed < step.food;
+
+  if (shouldBuildSupply) {
+    if (world.agent.race === Race.ZERG) {
+      actions.push(...manageZergSupply(world));
+    } else {
+      actions.push(...buildSupply(world));
+    }
+  }
+
+  return actions;
+}
+
+/**
  * @param {World} world
  * @param {number} unitTypeId
  * @param {SC2APIProtocol.UnitTypeData} unitTypeData
@@ -268,6 +261,33 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
   const trainers = getTrainer(world, unitTypeId);
   const safeTrainers = filterSafeTrainers(world, trainers);
   return createTrainingCommands(world, safeTrainers, unitTypeData);
+}
+
+/**
+ * Handles the training of units.
+ * @param {World} world
+ * @param {import("./buildOrders/strategy/strategyService").PlanStep} step
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function handleUnitTraining(world, step) {
+  const actions = [];
+  const gameState = GameState.getInstance();
+  let foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
+  const foodDifference = step ? step.food - foodUsed : 0;
+
+  let trainingOrders = shouldTrainWorkers(world) ? trainWorkersDirectly(world) : [];
+  if (trainingOrders.length === 0) {
+    trainingOrders = trainCombatUnits(world);
+  }
+  actions.push(...trainingOrders);
+
+  if (trainingOrders.length === 0 && world.agent.race !== undefined && WorkerRace[world.agent.race]) {
+    for (let i = 0; i < foodDifference; i++) {
+      addEarmark(world.data, world.data.getUnitTypeData(WorkerRace[world.agent.race]));
+    }
+  }
+
+  return actions;
 }
 
 /**
@@ -674,6 +694,14 @@ function trainWorkersDirectly(world) {
   return collectedActions;
 }
 
+/**
+ * Update the food used in the game state.
+ * @param {World} world 
+ */
+function updateFoodUsed(world) {
+  const gameState = GameState.getInstance();
+  gameState.setFoodUsed(world);
+}
 
 /**
  * Refactored to return a list of actions instead of sending them directly.
