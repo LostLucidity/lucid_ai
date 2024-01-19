@@ -650,6 +650,7 @@ function trainWorkersDirectly(world) {
         const unitCommand = createUnitCommand(abilityId, [larva]);
         collectedActions.push(unitCommand);
         setPendingOrders(larva, unitCommand);
+        break;
       }
     }
   } else {
@@ -664,6 +665,7 @@ function trainWorkersDirectly(world) {
           const unitCommand = createUnitCommand(abilityId, [base]);
           collectedActions.push(unitCommand);
           setPendingOrders(base, unitCommand);
+          break;
         }
       }
     }
@@ -671,6 +673,7 @@ function trainWorkersDirectly(world) {
 
   return collectedActions;
 }
+
 
 /**
  * Refactored to return a list of actions instead of sending them directly.
