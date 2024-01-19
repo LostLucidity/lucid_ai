@@ -649,15 +649,22 @@ function trainWorkersDirectly(world) {
       if (larva.isIdle()) {
         const unitCommand = createUnitCommand(abilityId, [larva]);
         collectedActions.push(unitCommand);
+        setPendingOrders(larva, unitCommand);
       }
     }
   } else {
-    // For Terran and Protoss, train workers at bases.
+    // For Terran and Protoss, train workers at bases, ensuring no duplicate orders.
     const bases = resources.get().units.getBases();
     for (const base of bases) {
       if (base.isIdle() && (base.buildProgress ?? 0) >= 1) {
-        const unitCommand = createUnitCommand(abilityId, [base]);
-        collectedActions.push(unitCommand);
+        const pendingOrders = getPendingOrders(base);
+        const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
+
+        if (!isAlreadyTraining) {
+          const unitCommand = createUnitCommand(abilityId, [base]);
+          collectedActions.push(unitCommand);
+          setPendingOrders(base, unitCommand);
+        }
       }
     }
   }
