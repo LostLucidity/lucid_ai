@@ -7,19 +7,19 @@ const { Race } = require('@node-sc2/core/constants/enums');
 
 // Internal module imports
 const GameState = require('./gameState');
-const { logMessage, logError } = require('./logger');
+const logger = require('./logger');
 const config = require('../../config/config');
 const StrategyManager = require('../buildOrders/strategy/strategyManager');
 const StrategyService = require('../buildOrders/strategy/strategyService');
-const { convertToPlanSteps, getMaxSupplyFromPlan } = require('../buildOrders/strategy/strategyUtils');
+const strategyUtils = require('../buildOrders/strategy/strategyUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
-const { buildSupply } = require('../construction/buildingService');
-const { shouldTrainMoreWorkers, trainAdditionalWorkers, calculateMaxWorkers } = require('../economyManagement');
-const { calculateAdjacentToRampGrids } = require('../mapUtils');
-const { refreshProductionUnitsCache, manageZergSupply } = require('../unitManagement');
-const { determineBotRace } = require('../utils/gameStateHelpers');
-const { assignWorkers } = require('../utils/sharedWorkerUtils');
-const { balanceWorkerDistribution, reassignIdleWorkers } = require('../workerAssignment');
+const buildingService = require('../construction/buildingService');
+const economyManagement = require('../economyManagement');
+const mapUtils = require('../mapUtils');
+const unitManagement = require('../unitManagement');
+const gameStateHelpers = require('../utils/gameStateHelpers');
+const sharedWorkerUtils = require('../utils/sharedWorkerUtils');
+const workerAssignment = require('../workerAssignment');
 
 // Instantiate the game state manager
 const gameState = new GameState();
@@ -32,7 +32,7 @@ let maxWorkers = 0;
  * @param {UnitResource} units - The units resource object from the bot.
  */
 function updateMaxWorkers(units) {
-  maxWorkers = calculateMaxWorkers(units);
+  maxWorkers = economyManagement.calculateMaxWorkers(units);
 }
 
 /**
@@ -48,7 +48,7 @@ function assignInitialWorkers(world) {
   const actionCollection = [];
 
   // Assign workers to mineral fields
-  const workerActions = assignWorkers(resourceManager); // Pass the ResourceManager object
+  const workerActions = sharedWorkerUtils.assignWorkers(resourceManager); // Pass the ResourceManager object
   actionCollection.push(...workerActions);
 
   // Return the collection of actions
@@ -60,12 +60,12 @@ function assignInitialWorkers(world) {
  * @param {World} world - The game world context.
  */
 function performInitialMapAnalysis(world) {
-  const botRace = determineBotRace(world);
+  const botRace = gameStateHelpers.determineBotRace(world);
   const map = world.resources.get().map;
   StrategyManager.getInstance(botRace);
   if (botRace === Race.TERRAN) {
     // First calculate the grids adjacent to ramps
-    calculateAdjacentToRampGrids(map);
+    mapUtils.calculateAdjacentToRampGrids(map);
 
     // Then calculate wall-off positions using the calculated ramp grids
     BuildingPlacement.calculateWallOffPositions(world);
@@ -75,16 +75,12 @@ function performInitialMapAnalysis(world) {
 // Create a new StarCraft II bot agent with event handlers.
 const bot = createAgent({
   interface: {
-      raw: true,
-      rawCropToPlayableArea: true,
-      score: true,
-      showBurrowedShadows: true,
-      showCloaked: true
+    raw: true, rawCropToPlayableArea: true, score: true, showBurrowedShadows: true, showCloaked: true
   },
   async onGameStart(world) {
-    logMessage('Game Started', 1);
+    logger.logMessage('Game Started', 1);
 
-    const botRace = determineBotRace(world);
+    const botRace = gameStateHelpers.determineBotRace(world);
     const gameState = GameState.getInstance();
     gameState.setRace(botRace);
 
@@ -95,15 +91,15 @@ const bot = createAgent({
 
     try {
       const buildOrder = strategyManager.getBuildOrderForCurrentStrategy(world);
-      const maxSupply = getMaxSupplyFromPlan(buildOrder.steps, botRace);
+      const maxSupply = strategyUtils.getMaxSupplyFromPlan(buildOrder.steps, botRace);
       config.planMax = { supply: maxSupply, gasMine: 0 }; // Assuming 0 is a sensible default for gasMine
 
       const currentStrategy = strategyManager.getCurrentStrategy();
       if (currentStrategy?.steps) {
-        gameState.setPlan(convertToPlanSteps(currentStrategy.steps));
+        gameState.setPlan(strategyUtils.convertToPlanSteps(currentStrategy.steps));
       }
     } catch (error) {
-      logError('Error during strategy setup:', error instanceof Error ? error : new Error('Unknown error'));
+      logger.logError('Error during strategy setup:', error instanceof Error ? error : new Error('Unknown error'));
     }
 
     performInitialMapAnalysis(world);
@@ -115,49 +111,29 @@ const bot = createAgent({
       const { actions } = world.resources.get();
       await actions.sendAction(actionCollection);
     } catch (error) {
-      logError('Error during initial worker assignment:', error instanceof Error ? error : new Error('Unknown error'));
+      logger.logError('Error during initial worker assignment:', error instanceof Error ? error : new Error('Unknown error'));
     }
   },
 
   async onStep(world) {
     // Refresh production units cache
-    refreshProductionUnitsCache();
+    unitManagement.refreshProductionUnitsCache();
 
     const { units, actions } = world.resources.get();
     const { agent } = world;
 
-    // Update worker counts
-    let totalWorkers = units.getWorkers().length;
+    // Update maximum worker count
     updateMaxWorkers(units);
 
-    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-    let actionCollection = [];
-
-    // Execute the game plan and collect actions
-    const strategyService = StrategyService.getInstance();
-    const planActions = strategyService.runPlan(world);
-    if (planActions && planActions.length > 0) {
-      actionCollection = actionCollection.concat(planActions);
-    }
-
-    // Collect worker and supply management actions
-    actionCollection = actionCollection.concat(
-      balanceWorkerDistribution(world, units, world.resources),
-      buildSupply(world)
-    );
-
-    // Manage Zerg race specific actions
-    if (agent.race === Race.ZERG) {
-      actionCollection = actionCollection.concat(manageZergSupply(world));
-    }
-
-    // Additional worker training
-    if (shouldTrainMoreWorkers(totalWorkers, maxWorkers)) {
-      actionCollection = actionCollection.concat(trainAdditionalWorkers(world, agent, units.getBases()));
-    }
-
-    // Reassign idle workers
-    actionCollection = actionCollection.concat(reassignIdleWorkers(world));
+    // Initialize an array to collect all actions
+    let actionCollection = [
+      ...StrategyService.getInstance().runPlan(world),
+      ...workerAssignment.balanceWorkerDistribution(world, units, world.resources),
+      ...buildingService.buildSupply(world),
+      ...(agent.race === Race.ZERG ? unitManagement.manageZergSupply(world) : []),
+      ...(economyManagement.shouldTrainMoreWorkers(units.getWorkers().length, maxWorkers) ? economyManagement.trainAdditionalWorkers(world, agent, units.getBases()) : []),
+      ...workerAssignment.reassignIdleWorkers(world)
+    ];
 
     // Send collected actions in a batch
     try {
@@ -173,7 +149,7 @@ const bot = createAgent({
    * Handler for game end events.
    */
   async onGameEnd() {
-    logMessage('Game has ended', 1);
+    logger.logMessage('Game has ended', 1);
     gameState.reset();
   }
 });
@@ -188,7 +164,7 @@ engine.connect().then(() => {
     createPlayer({ race: config.defaultRace, difficulty: config.defaultDifficulty }),
   ]);
 }).catch(err => {
-  logError('Error in connecting to the engine or starting the game:', err);
+  logger.logError('Error in connecting to the engine or starting the game:', err);
 });
 
 module.exports = bot;

@@ -46,6 +46,23 @@ function convertToPlanSteps(strategySteps) {
     // Ensure 'supply' is always a number
     let supplyValue = typeof step.supply === 'number' ? step.supply : parseInt(step.supply, 10) || 0;
 
+    // Determine orderType based on the type of step
+    let orderType;
+    if ('isUpgrade' in step) {
+      // This block will execute if step is of a type that has an isUpgrade property
+      orderType = step.isUpgrade ? 'Upgrade' : 'UnitType';
+    } else {
+      // Define logic for steps that do not have the isUpgrade property
+      // For example, set a default value or derive it based on other properties
+      orderType = 'UnitType'; // or some other default logic
+    }
+
+    let targetCount = count; // Assuming count is the same as targetCount
+    /**
+     * @type {Point2D[]}
+     */
+    let candidatePositions = []; // Default to empty array
+
     return {
       unitType: unitType,
       upgrade: upgrade,
@@ -54,7 +71,10 @@ function convertToPlanSteps(strategySteps) {
       food: food,
       supply: supplyValue,
       time: step.time || '00:00',
-      action: step.action || 'none'
+      action: step.action || 'none',
+      orderType: orderType, // Newly added
+      targetCount: targetCount, // Newly added
+      candidatePositions: candidatePositions // Newly added
     };
   });
 }
