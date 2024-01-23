@@ -10,7 +10,7 @@ const GameState = require('./gameState');
 const { logMessage, logError } = require('./logger');
 const config = require('../../config/config');
 const StrategyManager = require('../buildOrders/strategy/strategyManager');
-const { runPlan } = require('../buildOrders/strategy/strategyService');
+const StrategyService = require('../buildOrders/strategy/strategyService');
 const { convertToPlanSteps, getMaxSupplyFromPlan } = require('../buildOrders/strategy/strategyUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
 const { buildSupply } = require('../construction/buildingService');
@@ -134,7 +134,8 @@ const bot = createAgent({
     let actionCollection = [];
 
     // Execute the game plan and collect actions
-    const planActions = runPlan(world);
+    const strategyService = StrategyService.getInstance();
+    const planActions = strategyService.runPlan(world);
     if (planActions && planActions.length > 0) {
       actionCollection = actionCollection.concat(planActions);
     }

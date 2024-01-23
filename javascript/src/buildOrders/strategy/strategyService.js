@@ -32,7 +32,21 @@ const { interpretBuildOrderAction } = require('../buildOrderUtils');
  * Represents the strategy service responsible for managing the bot's strategy.
  */
 class StrategyService {
-  constructor() { } 
+  /**
+   * @private
+   * @static
+   * @type {StrategyService|null}
+   */
+  static instance = null;
+
+  // Private constructor
+  constructor() {
+    if (StrategyService.instance) {
+      return StrategyService.instance;
+    }
+    StrategyService.instance = this;
+    // Initialize your service here
+  }
 
   /**
    * Handles special actions identified in build order steps.
@@ -57,6 +71,16 @@ class StrategyService {
 
     return actions;
   }
+
+  /**
+   * Static method to get the singleton instance
+   */
+  static getInstance() {
+    if (StrategyService.instance === null) {
+      StrategyService.instance = new StrategyService();
+    }
+    return StrategyService.instance;
+  }  
 
   /**
    * Execute the game plan and return the actions to be performed.
@@ -173,5 +197,5 @@ class StrategyService {
   }
 }
 
-// Export an instance of the strategy service
-module.exports = new StrategyService();
+// Export the StrategyService class
+module.exports = StrategyService;
