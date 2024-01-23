@@ -2,15 +2,15 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
+const StrategyManager = require("../../buildOrders/strategy/strategyManager");
+const { getDistance } = require("../../geometryUtils");
+const { mappedEnemyUnits } = require("../../scoutingUtils");
+const { potentialCombatants, calculateTimeToKillUnits } = require("../../unitHelpers");
 const { getSingletonInstance } = require("./singletonFactory");
-const StrategyManager = require("../buildOrders/strategy/strategyManager");
-const { getDistance } = require("../geometryUtils");
-const { mappedEnemyUnits } = require("../scoutingUtils");
-const { potentialCombatants, calculateTimeToKillUnits } = require("../unitHelpers");
 
 /**
  * @typedef {Object} GameState
- * @property {import("../buildOrders/strategy/strategyService").PlanStep[]} plan - An array representing the game plan
+ * @property {import("../../buildOrders/strategy/strategyService").PlanStep[]} plan - An array representing the game plan
  */
 
 const gameStrategyUtils = {

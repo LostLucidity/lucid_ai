@@ -14,8 +14,8 @@ const { dbscan, getGasGeysers } = require("./mapUtils");
 const { flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand } = require("./utils");
-const { getPendingOrders } = require("./utils/commonGameUtils");
-const { getClosestPathablePositionsBetweenPositions } = require("./utils/sharedPathfindingUtils");
+const { getPendingOrders } = require("./utils/gameLogic/commonGameUtils");
+const { getClosestPathablePositionsBetweenPositions } = require("./utils/gameLogic/sharedPathfindingUtils");
 
 /** @type {(unit: Unit, gameState: GameState) => number} */
 const zealotModifier = (unit, gameState) => (

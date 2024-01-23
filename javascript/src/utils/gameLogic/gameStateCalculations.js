@@ -1,6 +1,6 @@
 // utils/gameStateCalculations.js
 
-const { getTimeInSeconds } = require("../utils");
+const { getTimeInSeconds } = require("../../utils");
 
 /**
  * Calculates the remaining time to finish a structure's construction.

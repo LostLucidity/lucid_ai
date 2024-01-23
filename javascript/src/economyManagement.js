@@ -13,13 +13,13 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 const StrategyManager = require('./buildOrders/strategy/strategyManager');
 const GameState = require('./core/gameState');
 const { getById } = require('./gameUtils');
-const { gasMineCheckAndBuild } = require('./resourceManagement');
-const { getMineralFieldsNearby, getGasGeysersNearby } = require('./resourceUtils');
 const { mine } = require('./unitActions');
 const { getProductionUnits, getFoodDifference, haveAvailableProductionUnitsFor, unitProductionAvailable } = require('./unitManagement');
 const { createUnitCommand, canBuild } = require('./utils');
-const { getPendingOrders } = require('./utils/commonGameUtils');
-const { calculateDistance } = require('./utils/coreUtils');
+const { getPendingOrders } = require('./utils/gameLogic/commonGameUtils');
+const { calculateDistance } = require('./utils/gameLogic/coreUtils');
+const { gasMineCheckAndBuild } = require('./utils/resourceManagement/resourceManagement');
+const { getMineralFieldsNearby, getGasGeysersNearby } = require('./utils/resourceManagement/resourceUtils');
 const { getGatheringWorkers, gather } = require('./workerAssignment');
 const { shortOnWorkers, setWorkersTrainingTendedTo, isMining } = require('./workerUtils');
 

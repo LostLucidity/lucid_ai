@@ -8,11 +8,11 @@ const { UnitType } = require('@node-sc2/core/constants');
 const { Race, Attribute } = require('@node-sc2/core/constants/enums');
 
 // Internal module imports
-const StrategyManager = require('./buildOrders/strategy/strategyManager');
-const GameState = require('./core/gameState');
-const { upgradeTypes } = require('./gameData');
 const { foodEarmarks, earmarks } = require('./resourceData');
-const { calculateDistance } = require('./utils/coreUtils');
+const StrategyManager = require('../../buildOrders/strategy/strategyManager');
+const GameState = require('../../core/gameState');
+const { upgradeTypes } = require('../../gameData');
+const { calculateDistance } = require('../gameLogic/coreUtils');
 
 /**
  * @param {DataStorage} data 

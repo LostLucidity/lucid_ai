@@ -11,17 +11,17 @@ const { handleNonRallyBase } = require('./buildingWorkerInteractions');
 const { getPendingOrders } = require('./commonGameUtils');
 const { logNoFreeGeysers } = require('./sharedConstructionUtils');
 const { checkAddOnPlacement } = require('./sharedUnitPlacement');
-const GameState = require('../core/gameState');
-const { getTimeToTargetTech } = require('../gameData');
-const { getClosestUnitByPath, getClosestPositionByPath } = require('../pathfinding');
-const { getPathCoordinates, getMapPath } = require('../pathUtils');
-const { calculateBaseTimeToPosition } = require('../placementAndConstructionUtils');
-const { getAddOnPlacement } = require('../placementUtils');
-const { earmarkThresholdReached } = require('../resourceUtils');
-const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../sharedUtils');
-const { unitTypeTrainingAbilities, canLiftOff } = require('../unitConfig');
-const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../utils');
-const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../workerUtils');
+const GameState = require('../../core/gameState');
+const { getTimeToTargetTech } = require('../../gameData');
+const { getClosestUnitByPath, getClosestPositionByPath } = require('../../pathfinding');
+const { getPathCoordinates, getMapPath } = require('../../pathUtils');
+const { calculateBaseTimeToPosition } = require('../../placementAndConstructionUtils');
+const { getAddOnPlacement } = require('../../placementUtils');
+const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../../sharedUtils');
+const { unitTypeTrainingAbilities, canLiftOff } = require('../../unitConfig');
+const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../../utils');
+const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../../workerUtils');
+const { earmarkThresholdReached } = require('../resourceManagement/resourceUtils');
 
 /**
  * Determines a valid position for placing a building.

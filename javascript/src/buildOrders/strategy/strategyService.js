@@ -9,11 +9,11 @@ const StrategyManager = require('./strategyManager');
 const { build } = require('../../construction/buildingService');
 const GameState = require('../../core/gameState');
 const { setFoodUsed, balanceResources } = require('../../economyManagement');
-const { resetEarmarks } = require('../../resourceData');
-const { hasEarmarks } = require('../../resourceManagement');
 const { performScoutingWithSCV } = require('../../unitActions');
 const { buildSupplyOrTrain, train, upgrade } = require('../../unitManagement');
-const { isBuildOrderStep } = require('../../utils/typeGuards');
+const { isBuildOrderStep } = require('../../utils/gameLogic/typeGuards');
+const { resetEarmarks } = require('../../utils/resourceManagement/resourceData');
+const { hasEarmarks } = require('../../utils/resourceManagement/resourceManagement');
 const { interpretBuildOrderAction } = require('../buildOrderUtils');
 
 /**
@@ -74,7 +74,7 @@ class StrategyService {
 
   /**
    * Creates a plan step from the given raw step and interpreted action.
-   * @param {import('../../utils/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step from the build order.
+   * @param {import('../../utils/gameLogic/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step from the build order.
    * @param {{ specialAction?: string | null | undefined; isUpgrade?: any; unitType?: any; count?: any; isChronoBoosted?: any; }} interpretedAction - The interpreted action for the step.
    * @returns {PlanStep} The created plan step.
    */
@@ -97,7 +97,7 @@ class StrategyService {
   /**
    * Executes the given strategy plan.
    * @param {World} world - The game world context.
-   * @param {import("../../utils/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan - The strategy plan to execute.
+   * @param {import("../../utils/gameLogic/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan - The strategy plan to execute.
    * @param {StrategyManager} strategyManager - The strategy manager.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
    */
@@ -158,7 +158,7 @@ class StrategyService {
   }
 
   /**
-   * @param {import("../../utils/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
+   * @param {import("../../utils/gameLogic/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
    */
   getInterpretedActions(rawStep) {
     if (rawStep.interpretedAction) {
@@ -217,7 +217,7 @@ class StrategyService {
   }  
 
   /**
-   * @param {import("../../utils/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan
+   * @param {import("../../utils/gameLogic/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan
    */
   isValidPlan(plan) {
     return plan && Array.isArray(plan.steps);

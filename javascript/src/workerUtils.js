@@ -15,9 +15,9 @@ const { unitTypeTrainingAbilities } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { getUnitsTrainingTargetUnitType } = require("./unitWorkerService");
 const { createUnitCommand, getDistanceByPath } = require("./utils");
-const { getPendingOrders } = require("./utils/commonGameUtils");
-const { getWorkerSourceByPath } = require("./utils/coreUtils");
-const { getNeediestMineralField } = require("./utils/mineralFieldUtils");
+const { getWorkerSourceByPath } = require("./utils/gameLogic/coreUtils");
+const { getPendingOrders } = require("./utils/gameLogic/commonGameUtils");
+const { getNeediestMineralField } = require("./utils/gameLogic/mineralFieldUtils");
 const { stopUnitFromMovingToPosition } = require("./workerHelpers");
 
 /** 

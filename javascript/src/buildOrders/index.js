@@ -4,7 +4,7 @@ const protossBuildOrders = loadBuildOrdersFromDirectory('protoss');
 const terranBuildOrders = loadBuildOrdersFromDirectory('terran');
 const zergBuildOrders = loadBuildOrdersFromDirectory('zerg');
 
-/** @type {import('../utils/globalTypes').BuildOrders} */
+/** @type {import('../utils/gameLogic/globalTypes').BuildOrders} */
 const buildOrders = {
   protoss: protossBuildOrders,
   terran: terranBuildOrders,

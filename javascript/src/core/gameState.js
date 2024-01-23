@@ -10,10 +10,10 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const { foodData } = require('./gameStateResources');
 const cacheManager = require('../cacheManager');
 const { missingUnits } = require('../gameDataStore');
-const { defaultResources } = require('../resourceTypes');
-const { getPendingOrders } = require('../utils/commonGameUtils');
-const { calculateTimeToFinishStructure } = require('../utils/gameStateCalculations');
-const { getSingletonInstance } = require('../utils/singletonFactory');
+const { getPendingOrders } = require('../utils/gameLogic/commonGameUtils');
+const { calculateTimeToFinishStructure } = require('../utils/gameLogic/gameStateCalculations');
+const { getSingletonInstance } = require('../utils/gameLogic/singletonFactory');
+const { defaultResources } = require('../utils/resourceManagement/resourceTypes');
 
 /**
  * Class representing the game state.
@@ -56,7 +56,7 @@ class GameState {
   race = null;
 
   /**
-   * @type {import('../resourceTypes').Resources} - Typing the resources property using JSDoc comment
+   * @type {import('../utils/resourceManagement/resourceTypes').Resources} - Typing the resources property using JSDoc comment
    */
   resources = defaultResources;
 

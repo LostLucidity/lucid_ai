@@ -22,7 +22,7 @@ const { getDistance, getClosestPosition, intersectionOfPoints } = require('../ge
 const { getAdjacentToRampGrids } = require('../mapUtils');
 const { getAddOnPlacement, getAddOnBuildingPlacement, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable } = require('../placementUtils');
 const { addOnTypesMapping } = require('../unitConfig');
-const { calculateDistance } = require('../utils/coreUtils');
+const { calculateDistance } = require('../utils/gameLogic/coreUtils');
 
 const PYLON_POWER_RANGE = 6.5;
 

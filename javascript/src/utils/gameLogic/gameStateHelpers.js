@@ -4,11 +4,11 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 
 const { getPendingOrders } = require("./commonGameUtils");
-const GameState = require("../core/gameState");
-const { missingUnits } = require("../gameDataStore");
-const { getById } = require("../gameUtils");
-const { getDistance } = require("../geometryUtils");
-const { calculateTimeToKillUnits } = require("../unitHelpers");
+const GameState = require("../../core/gameState");
+const { missingUnits } = require("../../gameDataStore");
+const { getById } = require("../../gameUtils");
+const { getDistance } = require("../../geometryUtils");
+const { calculateTimeToKillUnits } = require("../../unitHelpers");
 
 /**
  * Analyzes the game state and determines if the current count of a 

@@ -11,17 +11,17 @@ const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction }
 const config = require("../../config/config");
 const { commandPlaceBuilding } = require("../builderUtils");
 const GameState = require("../core/gameState");
-const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../gameData");
 const MapResources = require("../core/mapResources");
+const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../gameData");
 const { getNextSafeExpansions } = require("../mapUtils");
-const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("../resourceManagement");
-const { addEarmark } = require("../resourceUtils");
 const { prepareUnitToBuildAddon } = require("../unitActions");
 const { isPlaceableAtGasGeyser } = require("../utils");
-const { addAddOn, getUnitsCapableToAddOn } = require("../utils/addonUtils");
-const { findPosition, findPlacements } = require("../utils/buildingPlacementHelpers");
-const { determineBuildingPosition, getInTheMain, premoveBuilderToPosition, findBestPositionForAddOn } = require("../utils/constructionAndBuildingUtils");
-const { getTimeUntilUnitCanBuildAddon } = require("../utils/unitCapabilityUtils");
+const { addAddOn, getUnitsCapableToAddOn } = require("../utils/gameLogic/addonUtils");
+const { findPosition, findPlacements } = require("../utils/gameLogic/buildingPlacementHelpers");
+const { determineBuildingPosition, getInTheMain, premoveBuilderToPosition, findBestPositionForAddOn } = require("../utils/gameLogic/constructionAndBuildingUtils");
+const { getTimeUntilUnitCanBuildAddon } = require("../utils/gameLogic/unitCapabilityUtils");
+const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("../utils/resourceManagement/resourceManagement");
+const { addEarmark } = require("../utils/resourceManagement/resourceUtils");
 
 /**
  * @param {World} world

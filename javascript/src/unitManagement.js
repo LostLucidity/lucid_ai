@@ -21,18 +21,18 @@ const { getById } = require("./gameUtils");
 const { getDistance } = require("./geometryUtils");
 const { pointsOverlap } = require("./mapUtils");
 const { getAddOnBuildingPlacement, landingGrids } = require("./placementUtils");
-const { haveSupplyForUnit, getTimeToTargetCost } = require("./resourceManagement");
-const { addEarmark, getEarmarkedFood } = require("./resourceUtils");
 const { earmarkResourcesIfNeeded } = require("./sharedEconomicFunctions");
 const { createTrainingCommands } = require("./unitActions");
 const { flyingTypesMapping, liftAndLandingTime } = require("./unitConfig");
 const { getUnitTypeCount, isTrainingUnit } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand, findKeysForValue } = require("./utils");
-const { getPendingOrders } = require("./utils/commonGameUtils");
-const { filterSafeTrainers } = require("./utils/gameStrategyUtils");
-const { checkTechRequirement } = require("./utils/techRequirementUtils");
-const { isTrainingOrder, canTrainUnit } = require("./utils/unitCapabilityUtils");
+const { getPendingOrders } = require("./utils/gameLogic/commonGameUtils");
+const { filterSafeTrainers } = require("./utils/gameLogic/gameStrategyUtils");
+const { checkTechRequirement } = require("./utils/gameLogic/techRequirementUtils");
+const { isTrainingOrder, canTrainUnit } = require("./utils/gameLogic/unitCapabilityUtils");
+const { haveSupplyForUnit, getTimeToTargetCost } = require("./utils/resourceManagement/resourceManagement");
+const { addEarmark, getEarmarkedFood } = require("./utils/resourceManagement/resourceUtils");
 const { shortOnWorkers } = require("./workerUtils");
 
 /** @type {Map<UnitTypeId, Unit[]>} */

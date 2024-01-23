@@ -10,15 +10,15 @@ const GameState = require("./core/gameState");
 const { getDistance } = require("./geometryUtils");
 const { pointsOverlap } = require("./mapUtils");
 const { getAddOnPlacement } = require("./placementUtils");
-const { addEarmark } = require("./resourceUtils");
 const { determineScoutingLocations, selectSCVForScouting } = require("./scoutingUtils");
 const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff, setRepositionLabel } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
 const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");
-const { getPendingOrders } = require("./utils/commonGameUtils");
-const { getPlanFoodValue } = require("./utils/gameStrategyUtils");
-const { checkAddOnPlacement, seigeTanksSiegedGrids } = require("./utils/sharedUnitPlacement");
-const { getSingletonInstance } = require("./utils/singletonFactory");
+const { getPendingOrders } = require("./utils/gameLogic/commonGameUtils");
+const { getPlanFoodValue } = require("./utils/gameLogic/gameStrategyUtils");
+const { checkAddOnPlacement, seigeTanksSiegedGrids } = require("./utils/gameLogic/sharedUnitPlacement");
+const { getSingletonInstance } = require("./utils/gameLogic/singletonFactory");
+const { addEarmark } = require("./utils/resourceManagement/resourceUtils");
 
 /**
  * Attempt to build addOn

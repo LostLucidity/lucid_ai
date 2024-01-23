@@ -5,10 +5,10 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { findPosition } = require("./buildingPlacementHelpers");
-const { existsInMap, pointsOverlap } = require("../mapUtils");
-const { getAddOnPlacement, getAddOnBuildingPlacement } = require("../placementUtils");
-const { canUnitBuildAddOn, flyingTypesMapping } = require("../unitConfig");
-const { getStringNameOfConstant } = require("../utils");
+const { existsInMap, pointsOverlap } = require("../../mapUtils");
+const { getAddOnPlacement, getAddOnBuildingPlacement } = require("../../placementUtils");
+const { canUnitBuildAddOn, flyingTypesMapping } = require("../../unitConfig");
+const { getStringNameOfConstant } = require("../../utils");
 
 /** @type {Point2D[]} */
 const seigeTanksSiegedGrids = [];

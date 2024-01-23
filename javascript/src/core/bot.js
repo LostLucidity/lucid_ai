@@ -17,8 +17,8 @@ const buildingService = require('../construction/buildingService');
 const economyManagement = require('../economyManagement');
 const mapUtils = require('../mapUtils');
 const unitManagement = require('../unitManagement');
-const gameStateHelpers = require('../utils/gameStateHelpers');
-const sharedWorkerUtils = require('../utils/sharedWorkerUtils');
+const gameStateHelpers = require('../utils/gameLogic/gameStateHelpers');
+const sharedWorkerUtils = require('../utils/gameLogic/sharedWorkerUtils');
 const workerAssignment = require('../workerAssignment');
 
 // Instantiate the game state manager

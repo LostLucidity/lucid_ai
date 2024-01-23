@@ -3,8 +3,8 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
-const { getWithLabelAvailable, getGatheringWorkers, handleWorkerAssignment } = require("../workerAssignment");
-const { isMining } = require("../workerUtils");
+const { getWithLabelAvailable, getGatheringWorkers, handleWorkerAssignment } = require("../../workerAssignment");
+const { isMining } = require("../../workerUtils");
 
 /**
  * Assigns workers to mineral fields for optimal resource gathering.
