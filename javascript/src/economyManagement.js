@@ -7,21 +7,19 @@
 const { UnitType } = require('@node-sc2/core/constants');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
 const { gatheringAbilities, mineralFieldTypes } = require('@node-sc2/core/constants/groups');
-const { WorkerRace, GasMineRace } = require('@node-sc2/core/constants/race-map');
+const { WorkerRace } = require('@node-sc2/core/constants/race-map');
 const getRandom = require('@node-sc2/core/utils/get-random');
 
-const StrategyManager = require('./buildOrders/strategy/strategyManager');
 const GameState = require('./core/gameState');
-const { getById } = require('./gameUtils');
 const { mine } = require('./unitActions');
-const { getProductionUnits, getFoodDifference, haveAvailableProductionUnitsFor, unitProductionAvailable } = require('./unitManagement');
+const { getProductionUnits } = require('./unitManagement');
 const { createUnitCommand, canBuild } = require('./utils');
 const { getPendingOrders } = require('./utils/gameLogic/commonGameUtils');
 const { calculateDistance } = require('./utils/gameLogic/coreUtils');
 const { gasMineCheckAndBuild } = require('./utils/resourceManagement/resourceManagement');
 const { getMineralFieldsNearby, getGasGeysersNearby } = require('./utils/resourceManagement/resourceUtils');
 const { getGatheringWorkers, gather } = require('./workerAssignment');
-const { shortOnWorkers, setWorkersTrainingTendedTo, isMining } = require('./workerUtils');
+const { isMining } = require('./workerUtils');
 
 /**
  * Balances the resources based on the target ratio.
@@ -294,41 +292,6 @@ function trainWorker(world, limit = 1) {
   return collectedActions;
 }
 
-/**
- * Trains workers based on the conditions of the world and agent.
- * @param {World} world 
- * @param {Function} buildWorkersFunction - The function from training service to build workers.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
-const trainWorkers = (world, buildWorkersFunction) => {
-  const { agent: { minerals, race }, resources } = world;
-
-  if (minerals === undefined || race === undefined) return [];
-
-  const workerCount = getById(resources, [WorkerRace[race]]).length;
-  const assignedWorkerCount = [...resources.get().units.getBases(), ...getById(resources, [GasMineRace[race]])]
-    .reduce((acc, base) => (base.assignedHarvesters || 0) + acc, 0);
-  const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
-  const foodDifference = getFoodDifference(world);
-  const sufficientMinerals = minerals < 512 || minimumWorkerCount <= 36;
-  const productionPossible = race ? haveAvailableProductionUnitsFor(world, WorkerRace[race]) : false;
-  const strategyManager = StrategyManager.getInstance(race);
-  const notOutpoweredOrNoUnits = !strategyManager.getOutpowered() || (strategyManager.getOutpowered() && !unitProductionAvailable);
-
-  let shouldTrainWorkers = sufficientMinerals && (shortOnWorkers(world) || foodDifference > 0)
-    && notOutpoweredOrNoUnits && productionPossible;
-
-  // Update the workersTrainingTendedTo flag and potentially add actions to train workers.
-  if (shouldTrainWorkers) {
-    setWorkersTrainingTendedTo(false);
-    return buildWorkersFunction(world, foodDifference, true);
-  } else {
-    setWorkersTrainingTendedTo(true);
-    return [];
-  }
-};
-
-
 module.exports = {
   balanceResources,
   calculateMaxWorkers,
@@ -336,5 +299,4 @@ module.exports = {
   trainAdditionalWorkers,
   trainWorker,
   shouldTrainMoreWorkers,
-  trainWorkers,
 };
