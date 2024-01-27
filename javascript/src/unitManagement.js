@@ -466,18 +466,20 @@ function trainCombatUnits(world) {
 }
 
 /**
- * Implement direct worker training logic here, including support for Zerg race.
- * @param {World} world
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ * Train workers for all races, considering the unique Zerg training mechanism and ability availability.
+ * @param {World} world - The game world context, containing all necessary game state information.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be sent to the game.
  */
 function trainWorkers(world) {
   const { agent, data, resources } = world;
   const { minerals, race } = agent;
+
   if (minerals === undefined || race === undefined) return [];
 
-  const workerTypeId = WorkerRace[race];
+  const workerTypeId = WorkerRace[race]; // Assuming WorkerRace is a predefined mapping
   const workerTypeData = data.getUnitTypeData(workerTypeId);
   const { abilityId } = workerTypeData;
+
   if (!abilityId) return [];
 
   const collectedActions = [];
@@ -485,18 +487,18 @@ function trainWorkers(world) {
   if (race === Race.ZERG) {
     const larvae = resources.get().units.getById(UnitType.LARVA);
     for (const larva of larvae) {
-      if (larva.isIdle()) {
+      if (larva.isIdle() && larva.abilityAvailable(abilityId)) {
         const unitCommand = createUnitCommand(abilityId, [larva]);
         collectedActions.push(unitCommand);
         setPendingOrders(larva, unitCommand);
-        break;
+        break; // Only issue one command per function call to manage resources efficiently
       }
     }
   } else {
-    // For Terran and Protoss, train workers at bases, ensuring no duplicate orders.
+    // For Terran and Protoss, train workers at bases, ensuring the ability is currently available
     const bases = resources.get().units.getBases();
     for (const base of bases) {
-      if (base.isIdle() && (base.buildProgress ?? 0) >= 1) {
+      if (base.isIdle() && base.isFinished() && base.abilityAvailable(abilityId)) {
         const pendingOrders = getPendingOrders(base);
         const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
 
@@ -504,7 +506,7 @@ function trainWorkers(world) {
           const unitCommand = createUnitCommand(abilityId, [base]);
           collectedActions.push(unitCommand);
           setPendingOrders(base, unitCommand);
-          break;
+          break; // Issue command to the first eligible base only
         }
       }
     }
