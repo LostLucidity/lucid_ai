@@ -119,26 +119,31 @@ const bot = createAgent({
     // Refresh production units cache
     unitManagement.refreshProductionUnitsCache();
 
-    const { units, actions } = world.resources.get();
-    const { agent } = world;
+    const { units } = world.resources.get();
+    const strategyService = StrategyService.getInstance();
 
     // Update maximum worker count
     updateMaxWorkers(units);
 
     // Initialize an array to collect all actions
     let actionCollection = [
-      ...StrategyService.getInstance().runPlan(world),
-      ...workerAssignment.balanceWorkerDistribution(world, units, world.resources),
-      ...buildingService.buildSupply(world),
-      ...(agent.race === Race.ZERG ? unitManagement.manageZergSupply(world) : []),
-      ...(economyManagement.shouldTrainMoreWorkers(units.getWorkers().length, maxWorkers) ? economyManagement.trainAdditionalWorkers(world, agent, units.getBases()) : []),
-      ...workerAssignment.reassignIdleWorkers(world)
+      ...StrategyService.getInstance().runPlan(world)
     ];
+
+    // Check if it's appropriate to train additional workers without interfering with the plan
+    if (!strategyService.isActivePlan()) {
+      actionCollection.push(...workerAssignment.balanceWorkerDistribution(world, units, world.resources));
+      actionCollection.push(...buildingService.buildSupply(world));
+      if (economyManagement.shouldTrainMoreWorkers(units.getWorkers().length, maxWorkers)) {
+        actionCollection.push(...economyManagement.trainAdditionalWorkers(world, world.agent, units.getBases()));
+      }
+      actionCollection.push(...workerAssignment.reassignIdleWorkers(world));
+    }
 
     // Send collected actions in a batch
     try {
       if (actionCollection.length > 0) {
-        await actions.sendAction(actionCollection);
+        await world.resources.get().actions.sendAction(actionCollection);
       }
     } catch (error) {
       console.error('Error sending actions in onStep:', error);

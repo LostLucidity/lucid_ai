@@ -2,11 +2,11 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
+const { getSingletonInstance } = require("./singletonFactory");
 const StrategyManager = require("../../buildOrders/strategy/strategyManager");
 const { getDistance } = require("../../geometryUtils");
 const { mappedEnemyUnits } = require("../../scoutingUtils");
 const { potentialCombatants, calculateTimeToKillUnits } = require("../../unitHelpers");
-const { getSingletonInstance } = require("./singletonFactory");
 
 /**
  * @typedef {Object} GameState

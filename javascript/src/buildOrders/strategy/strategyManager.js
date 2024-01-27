@@ -44,6 +44,11 @@ class StrategyManager {
   race;
 
   /**
+   * @type {number} The current step index in the strategy, initialized to -1 indicating no current step.
+   */
+  currentStep = -1;  
+
+  /**
    * @param {SC2APIProtocol.Race | undefined} race
    */
   constructor(race) {
@@ -147,6 +152,20 @@ class StrategyManager {
     } catch (error) {
       console.error(`Error loading strategy for ${race}:`, error);
     }
+  }
+
+  /**
+   * Determines if the current strategy plan has been completed.
+   * @returns {boolean} True if the plan is completed, false otherwise.
+   */
+  isPlanCompleted() {
+    if (!this.currentStrategy || !this.currentStrategy.steps || this.currentStrategy.steps.length === 0) {
+      // If there's no current strategy, or it has no steps, consider the plan not completed.
+      return false;
+    }
+
+    // Check if the current step index is beyond the last step in the strategy steps array.
+    return this.currentStep >= this.currentStrategy.steps.length;
   }
 
   /**

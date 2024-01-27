@@ -63,7 +63,6 @@ class StrategyService {
     return balanceResources(world, mineralsNeeded / vespeneNeeded, build);
   }
 
-
   /**
    * @typedef {Object} RawStep
    * @property {number} supply - The supply count for the step.
@@ -146,7 +145,6 @@ class StrategyService {
     return actionsToPerform;
   }
 
-
   /**
    * Static method to get the singleton instance
    */
@@ -214,7 +212,18 @@ class StrategyService {
   handleUpgradeAction(world, planStep) {
     if (planStep.upgrade === undefined || planStep.upgrade === null) return [];
     return upgrade(world, planStep.upgrade);
-  }  
+  }
+
+  /**
+  * Checks if there's an active strategy plan.
+  * @returns {boolean} True if there's an active plan, false otherwise.
+  */
+  isActivePlan() {
+    const strategyManager = StrategyManager.getInstance();
+    const plan = strategyManager.getCurrentStrategy();
+    // Coerce the result to a boolean to ensure the return type is strictly boolean
+    return !!plan && !strategyManager.isPlanCompleted();
+  } 
 
   /**
    * @param {import("../../utils/gameLogic/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan
@@ -273,114 +282,6 @@ class StrategyService {
     return !(minerals === undefined || vespene === undefined);
   }
 
-  // runPlan(world) {
-  //   const { agent, data } = world;
-  //   const { minerals, vespene } = agent;
-  //   if (minerals === undefined || vespene === undefined) return [];
-
-  //   const strategyManager = StrategyManager.getInstance();
-  //   if (!strategyManager) {
-  //     console.error('StrategyManager instance is undefined.');
-  //     return [];
-  //   }
-
-  //   resetEarmarks(data);
-  //   const gameState = GameState.getInstance();
-  //   gameState.pendingFood = 0;
-
-  //   const plan = strategyManager.getCurrentStrategy();
-  //   if (!plan || !Array.isArray(plan.steps)) {
-  //     console.error('Invalid or undefined strategy plan');
-  //     return [];
-  //   }
-
-  //   let actionsToPerform = [];
-  //   let firstEarmarkSet = false;
-
-  //   for (let step = 0; step < plan.steps.length; step++) {
-  //     const rawStep = plan.steps[step];
-
-  //     if (strategyManager.isStepSatisfied(world, rawStep)) continue;
-
-  //     let interpretedActions;
-  //     if (rawStep.interpretedAction) {
-  //       // Ensure interpretedActions is always an array
-  //       interpretedActions = Array.isArray(rawStep.interpretedAction) ? rawStep.interpretedAction : [rawStep.interpretedAction];
-  //     } else {
-  //       let comment = '';
-  //       if (isBuildOrderStep(rawStep)) {
-  //         comment = rawStep.comment || '';
-  //       }
-  //       interpretedActions = interpretBuildOrderAction(rawStep.action, comment);
-  //     }
-
-  //     if (!interpretedActions || interpretedActions.length === 0) {
-  //       console.error("Interpreted actions are undefined or empty for step:", rawStep);
-  //       continue;
-  //     }
-
-  //     interpretedActions.forEach(interpretedAction => {
-  //       const planStep = {
-  //         supply: parseInt(rawStep.supply, 10),
-  //         time: rawStep.time,
-  //         action: rawStep.action,
-  //         orderType: interpretedAction.isUpgrade ? 'Upgrade' : 'UnitType', // This now refers to a single InterpretedAction
-  //         unitType: interpretedAction.unitType || 0,
-  //         targetCount: interpretedAction.count,
-  //         upgrade: interpretedAction.isUpgrade ? (interpretedAction.unitType || 0) : Upgrade.NULL,
-  //         isChronoBoosted: interpretedAction.isChronoBoosted,
-  //         count: interpretedAction.count,
-  //         candidatePositions: [],
-  //         food: parseInt(rawStep.supply, 10)
-  //       };
-
-  //       if (interpretedAction.specialAction) {
-  //         const specialActions = this.handleSpecialAction(interpretedAction.specialAction, world);
-  //         actionsToPerform.push(...specialActions);
-  //         return;
-  //       }
-
-  //       strategyManager.setCurrentStep(step);
-  //       actionsToPerform.push(...buildSupplyOrTrain(world, planStep));
-
-  //       if (planStep.orderType === 'UnitType') {
-  //         if (planStep.unitType === undefined || planStep.unitType === null) return;
-  //         const { attributes } = data.getUnitTypeData(planStep.unitType);
-  //         if (attributes === undefined) return;
-
-
-  //         const isStructure = attributes.includes(Attribute.STRUCTURE);
-  //         if (!isStructure) {
-  //           actionsToPerform.push(...train(world, planStep.unitType, planStep.targetCount));
-  //         } else {
-  //           actionsToPerform.push(...build(world, planStep.unitType, planStep.targetCount, planStep.candidatePositions));
-  //         }
-  //       } else if (planStep.orderType === 'Upgrade') {
-  //         if (planStep.upgrade === undefined || planStep.upgrade === null) return;
-  //         actionsToPerform.push(...upgrade(world, planStep.upgrade));
-  //       }
-
-  //       setFoodUsed(world);
-
-  //       if (hasEarmarks(data) && !firstEarmarkSet) {
-  //         firstEarmarkSet = true;
-  //         const earmarkTotals = data.getEarmarkTotals('');
-  //         const { minerals: mineralsEarmarked, vespene: vespeneEarmarked } = earmarkTotals;
-  //         const mineralsNeeded = mineralsEarmarked - minerals > 0 ? mineralsEarmarked - minerals : 0;
-  //         const vespeneNeeded = vespeneEarmarked - vespene > 0 ? vespeneEarmarked - vespene : 0;
-  //         actionsToPerform.push(...balanceResources(world, mineralsNeeded / vespeneNeeded, build));
-  //       }
-  //     });
-  //   }
-
-  //   strategyManager.setCurrentStep(-1);
-  //   if (!hasEarmarks(data)) {
-  //     const targetRatio = undefined;
-  //     actionsToPerform.push(...balanceResources(world, targetRatio, build));
-  //   }
-
-  //   return actionsToPerform;
-  // }
 }
 
 // Export the StrategyService class
