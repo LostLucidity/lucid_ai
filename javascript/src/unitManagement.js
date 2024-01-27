@@ -487,27 +487,27 @@ function trainWorkers(world) {
   if (race === Race.ZERG) {
     const larvae = resources.get().units.getById(UnitType.LARVA);
     for (const larva of larvae) {
-      if (larva.isIdle() && larva.abilityAvailable(abilityId)) {
+      const pendingOrders = getPendingOrders(larva);
+      const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
+
+      if (larva.isIdle() && larva.abilityAvailable(abilityId) && !isAlreadyTraining) {
         const unitCommand = createUnitCommand(abilityId, [larva]);
         collectedActions.push(unitCommand);
-        setPendingOrders(larva, unitCommand);
+        setPendingOrders(larva, unitCommand); // Update local state to reflect new order
         break; // Only issue one command per function call to manage resources efficiently
       }
     }
   } else {
-    // For Terran and Protoss, train workers at bases, ensuring the ability is currently available
     const bases = resources.get().units.getBases();
     for (const base of bases) {
-      if (base.isIdle() && base.isFinished() && base.abilityAvailable(abilityId)) {
-        const pendingOrders = getPendingOrders(base);
-        const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
+      const pendingOrders = getPendingOrders(base);
+      const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
 
-        if (!isAlreadyTraining) {
-          const unitCommand = createUnitCommand(abilityId, [base]);
-          collectedActions.push(unitCommand);
-          setPendingOrders(base, unitCommand);
-          break; // Issue command to the first eligible base only
-        }
+      if (base.isIdle() && base.isFinished() && base.abilityAvailable(abilityId) && !isAlreadyTraining) {
+        const unitCommand = createUnitCommand(abilityId, [base]);
+        collectedActions.push(unitCommand);
+        setPendingOrders(base, unitCommand); // Update local state to reflect new order
+        break; // Issue command to the first eligible base only
       }
     }
   }
