@@ -79,7 +79,6 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
   return actions;
 }
 
-
 /**
  * Returns an array of unitCommands to prevent multiple builders on the same task. 
  * @param {UnitResource} units 

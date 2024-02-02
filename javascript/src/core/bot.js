@@ -19,6 +19,7 @@ const mapUtils = require('../mapUtils');
 const unitManagement = require('../unitManagement');
 const gameStateHelpers = require('../utils/gameLogic/gameStateHelpers');
 const sharedWorkerUtils = require('../utils/gameLogic/sharedWorkerUtils');
+const { clearAllPendingOrders } = require('../utils/gameLogic/unitOrderUtils');
 const workerAssignment = require('../workerAssignment');
 
 // Instantiate the game state manager
@@ -115,6 +116,10 @@ const bot = createAgent({
     }
   },
 
+  /**
+   * Main game loop function called on each step of the game.
+   * @param {World} world - The current game world state.
+   */
   async onStep(world) {
     // Refresh production units cache
     unitManagement.refreshProductionUnitsCache();
@@ -122,12 +127,12 @@ const bot = createAgent({
     const { units } = world.resources.get();
     const strategyService = StrategyService.getInstance();
 
-    // Update maximum worker count
+    // Update maximum worker count based on current game state
     updateMaxWorkers(units);
 
-    // Initialize an array to collect all actions
+    // Initialize an array to collect all actions to be executed this step
     let actionCollection = [
-      ...StrategyService.getInstance().runPlan(world)
+      ...strategyService.runPlan(world)
     ];
 
     // Check if it's appropriate to train additional workers without interfering with the plan
@@ -148,6 +153,9 @@ const bot = createAgent({
     } catch (error) {
       console.error('Error sending actions in onStep:', error);
     }
+
+    // Clear pending orders after actions have been sent
+    clearAllPendingOrders(units.getAll()); // Adjusted to use the getAll method
   },
 
   /**
