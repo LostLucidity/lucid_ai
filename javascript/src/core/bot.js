@@ -130,32 +130,33 @@ const bot = createAgent({
     // Update maximum worker count based on current game state
     updateMaxWorkers(units);
 
-    // Initialize an array to collect all actions to be executed this step
-    let actionCollection = [
-      ...strategyService.runPlan(world)
-    ];
+    let actionCollection = strategyService.runPlan(world); // Start with strategy plan actions
 
-    // Check if it's appropriate to train additional workers without interfering with the plan
+    // Only add additional actions if the strategy plan is not active
     if (!strategyService.isActivePlan()) {
-      actionCollection.push(...workerAssignment.balanceWorkerDistribution(world, units, world.resources));
-      actionCollection.push(...buildingService.buildSupply(world));
-      if (economyManagement.shouldTrainMoreWorkers(units.getWorkers().length, maxWorkers)) {
-        actionCollection.push(...economyManagement.trainAdditionalWorkers(world, world.agent, units.getBases()));
-      }
-      actionCollection.push(...workerAssignment.reassignIdleWorkers(world));
+      const additionalActions = [
+        ...workerAssignment.balanceWorkerDistribution(world, units, world.resources),
+        ...buildingService.buildSupply(world),
+        ...(economyManagement.shouldTrainMoreWorkers(units.getWorkers().length, maxWorkers)
+          ? economyManagement.trainAdditionalWorkers(world, world.agent, units.getBases())
+          : []),
+        ...workerAssignment.reassignIdleWorkers(world)
+      ];
+
+      // Combine the initial actions with the additional ones
+      actionCollection = actionCollection.concat(additionalActions);
     }
 
-    // Send collected actions in a batch
-    try {
-      if (actionCollection.length > 0) {
+    // Send collected actions in a batch if there are any
+    if (actionCollection.length > 0) {
+      try {
         await world.resources.get().actions.sendAction(actionCollection);
+        // Clear pending orders after actions have been sent
+        clearAllPendingOrders(units.getAll()); // Ensure getAll is defined and retrieves all relevant units
+      } catch (error) {
+        console.error('Error sending actions in onStep:', error);
       }
-    } catch (error) {
-      console.error('Error sending actions in onStep:', error);
     }
-
-    // Clear pending orders after actions have been sent
-    clearAllPendingOrders(units.getAll()); // Adjusted to use the getAll method
   },
 
   /**
