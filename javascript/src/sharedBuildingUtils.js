@@ -16,8 +16,8 @@ const { getClosestUnitPositionByPath } = require("./pathfinding");
 const { getBuildTimeLeft } = require("./sharedUtils");
 const { unitTypeTrainingAbilities } = require("./unitConfig");
 const { getDistanceByPath, getTimeInSeconds } = require("./utils");
-const { getPendingOrders } = require("./utils/gameLogic/commonGameUtils");
 const { getMovementSpeed } = require("./utils/gameLogic/coreUtils");
+const { getPendingOrders } = require("./utils/gameLogic/stateManagement");
 
 /**
  * @param {World} world

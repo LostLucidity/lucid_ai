@@ -8,9 +8,9 @@ const { WorkerRace } = require('@node-sc2/core/constants/race-map');
 const { avgPoints } = require('@node-sc2/core/utils/geometry/point');
 
 const { handleNonRallyBase } = require('./buildingWorkerInteractions');
-const { getPendingOrders } = require('./commonGameUtils');
 const { logNoFreeGeysers } = require('./sharedConstructionUtils');
 const { checkAddOnPlacement } = require('./sharedUnitPlacement');
+const { getPendingOrders } = require('./stateManagement');
 const GameState = require('../../core/gameState');
 const { getTimeToTargetTech } = require('../../gameData');
 const { getClosestUnitByPath, getClosestPositionByPath } = require('../../pathfinding');

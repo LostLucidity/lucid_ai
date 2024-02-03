@@ -1,6 +1,6 @@
 // Utility functions related to mineral field assignments and selection
 
-const { getPendingOrders } = require("./commonGameUtils");
+const { getPendingOrders } = require("./stateManagement");
 
 /**
  * @param {UnitResource} units

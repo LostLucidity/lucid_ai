@@ -2,7 +2,7 @@
 "use strict"
 
 // External library imports from @node-sc2/core
-const { Ability, Buff, UnitType } = require("@node-sc2/core/constants");
+const { Ability, Buff } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
@@ -14,25 +14,8 @@ const { dbscan, getGasGeysers } = require("./mapUtils");
 const { flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand } = require("./utils");
-const { getPendingOrders } = require("./utils/gameLogic/commonGameUtils");
 const { getClosestPathablePositionsBetweenPositions } = require("./utils/gameLogic/sharedPathfindingUtils");
-
-/** @type {(unit: Unit, gameState: GameState) => number} */
-const zealotModifier = (unit, gameState) => (
-  unit.alliance === Alliance.ENEMY && gameState.enemyCharge
-) ? 0.5 : 0;
-
-/** @type {(unit: Unit, gameState: GameState) => number} */
-const zerglingModifier = (unit, gameState) => {
-  const enemyMetabolicBoost = gameState.getEnemyMetabolicBoostState(); // Assuming this method exists in GameState
-  return (unit.alliance === Alliance.ENEMY && enemyMetabolicBoost) ? (4.69921875 / 2.9351) - 1 : 0;
-};
-
-/** @type Map<UnitTypeId, (unit: Unit, gameState: GameState) => number> */
-const SPEED_MODIFIERS = new Map([
-  [UnitType.ZEALOT, (/** @type {Unit} */ unit, /** @type {GameState} */ gameState) => zealotModifier(unit, gameState)],
-  [UnitType.ZERGLING, zerglingModifier],
-]);
+const { getPendingOrders } = require("./utils/gameLogic/stateManagement");
 
 /**
  * @param {World} world 
@@ -252,7 +235,6 @@ function getBuildTimeLeft(unit, buildTime, progress) {
 
 // Export the shared functions
 module.exports = {
-  SPEED_MODIFIERS,
   ability,
   dbscanWithUnits,
   getClosestExpansion,

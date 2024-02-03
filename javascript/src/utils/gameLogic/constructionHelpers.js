@@ -5,7 +5,7 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { getPendingOrders } = require("./commonGameUtils");
+const { getPendingOrders } = require("./stateManagement");
 const { isPendingContructing } = require("./workerAssignmentHelpers");
 const GameState = require("../../core/gameState");
 const { buildingPositions } = require("../../core/gameStateResources");

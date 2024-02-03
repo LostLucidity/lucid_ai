@@ -14,10 +14,9 @@ const { findEnemyUnitsNear } = require("./scoutingUtils");
 const { getClosestExpansion, isMoving } = require("./sharedUtils");
 const { setPendingOrders } = require("./unitOrders");
 const { getUnitsWithinDistance, createUnitCommand } = require("./utils");
-const { getPendingOrders } = require("./utils/gameLogic/commonGameUtils");
 const { findClosestMineralField } = require("./utils/gameLogic/coreUtils");
-const { isTownhallInDanger } = require("./utils/gameLogic/gameStateHelpers");
 const { getMineralFieldAssignments, getNeediestMineralField } = require("./utils/gameLogic/mineralFieldUtils");
+const { isTownhallInDanger, getPendingOrders } = require("./utils/gameLogic/stateManagement");
 const { isPendingContructing } = require("./utils/gameLogic/workerAssignmentHelpers");
 
 /**

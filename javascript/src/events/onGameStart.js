@@ -8,8 +8,8 @@ const BuildingPlacement = require('../construction/buildingPlacement');
 const GameState = require('../core/gameState');
 const logger = require('../core/logger');
 const mapUtils = require('../mapUtils');
-const gameStateHelpers = require('../utils/gameLogic/gameStateHelpers');
 const sharedWorkerUtils = require('../utils/gameLogic/sharedWorkerUtils');
+const stateManagement = require('../utils/gameLogic/stateManagement');
 
 
 /**
@@ -18,7 +18,7 @@ const sharedWorkerUtils = require('../utils/gameLogic/sharedWorkerUtils');
 async function onGameStart(world) {
   logger.logMessage('Game Started', 1);
 
-  const botRace = gameStateHelpers.determineBotRace(world);
+  const botRace = stateManagement.determineBotRace(world);
   const gameState = GameState.getInstance();
   gameState.setRace(botRace);
 
@@ -80,7 +80,7 @@ function assignInitialWorkers(world) {
  * @param {World} world - The game world context.
  */
 function performInitialMapAnalysis(world) {
-  const botRace = gameStateHelpers.determineBotRace(world);
+  const botRace = stateManagement.determineBotRace(world);
   const map = world.resources.get().map;
   StrategyManager.getInstance(botRace);
   if (botRace === Race.TERRAN) {

@@ -10,8 +10,6 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const { foodData } = require('./gameStateResources');
 const cacheManager = require('../cacheManager');
 const { missingUnits } = require('../gameDataStore');
-const { getPendingOrders } = require('../utils/gameLogic/commonGameUtils');
-const { calculateTimeToFinishStructure } = require('../utils/gameLogic/gameStateCalculations');
 const { getSingletonInstance } = require('../utils/gameLogic/singletonFactory');
 const { defaultResources } = require('../utils/resourceManagement/resourceTypes');
 
@@ -86,6 +84,12 @@ class GameState {
    * Initializes various game state properties.
    */
   constructor() {
+    this.calculateTimeToFinishStructureFn = (/** @type {DataStorage} */ _data, /** @type {Unit} */ _unit) => {
+      // Since '_data' and '_unit' are unused in this default implementation, they are prefixed with an underscore.
+      // Return a safe default value that suits the expected functionality of the real implementation.
+      return 0;
+    };
+
     /**
      * A map of unit types to arrays of related unit types.
      * This is used for grouping together related unit types, such as a building and its flying version.
@@ -96,7 +100,11 @@ class GameState {
      * The attack upgrade level for the enemy alliance.
      * @type {number}
      */
-    this.enemyAttackUpgradeLevel = 0;    
+    this.enemyAttackUpgradeLevel = 0;
+
+    /** @type {(unit: Unit) => SC2APIProtocol.UnitOrder[]} */
+    this.getPendingOrdersFn = (_) => [];
+
     this.pendingFood = 0;
     this.resources = defaultResources;
     /**
@@ -265,6 +273,17 @@ class GameState {
         this.startingUnitCounts = {};
         console.warn(`Unknown race: ${race}`);
     }
+  }
+
+  /**
+   * Injects external functionalities into the GameState.
+   * @param {Object} dependencies - The external functionalities to inject.
+   * @param {(unit: Unit) => SC2APIProtocol.UnitOrder[]} dependencies.getPendingOrders - Function to get pending orders.
+   * @param {(_data: DataStorage, _unit: Unit) => number} dependencies.calculateTimeToFinishStructure - Function to calculate time to finish a structure.
+   */
+  injectDependencies({ getPendingOrders, calculateTimeToFinishStructure }) {
+    this.getPendingOrdersFn = getPendingOrders;
+    this.calculateTimeToFinishStructureFn = calculateTimeToFinishStructure;
   }
 
   /**
@@ -475,8 +494,8 @@ class GameState {
         });
         return matchingOrders;
       }, []);
-      const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => getPendingOrders(u).some(o => o.abilityId === abilityId));
-      const pendingOrders = unitsWithPendingOrders.map(u => getPendingOrders(u)).flat();
+      const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => this.getPendingOrdersFn(u).some(o => o.abilityId === abilityId));
+      const pendingOrders = unitsWithPendingOrders.map(u => this.getPendingOrdersFn(u)).flat();
       const ordersLength = orders.some(order => order.abilityId === Ability.TRAIN_ZERGLING) ? orders.length * 2 : orders.length;
       let pendingOrdersLength = pendingOrders.some(order => order.abilityId === Ability.TRAIN_ZERGLING) ? pendingOrders.length * 2 : pendingOrders.length;
       let totalOrdersLength = ordersLength + pendingOrdersLength;
@@ -537,7 +556,7 @@ class GameState {
         const [pylon] = pylons;
         // Check if buildProgress is defined before comparing
         if (pylon.buildProgress !== undefined && pylon.buildProgress < 1) {
-          const timeToFinish = calculateTimeToFinishStructure(data, pylon);
+          const timeToFinish = this.calculateTimeToFinishStructureFn(data, pylon);
           return willHaveEnoughMineralsByArrival && timeToFinish <= timeToPosition;
         }
       }

@@ -1,14 +1,36 @@
-// gameStateHelpers.js
+// src/utils/gameLogic/stateManagement.js
+// Import necessary dependencies, if any
 
 const { UnitType } = require("@node-sc2/core/constants");
-const { Race, Alliance } = require("@node-sc2/core/constants/enums");
+const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
-const { getPendingOrders } = require("./commonGameUtils");
 const GameState = require("../../core/gameState");
 const { missingUnits } = require("../../gameDataStore");
 const { getById } = require("../../gameUtils");
 const { getDistance } = require("../../geometryUtils");
 const { calculateTimeToKillUnits } = require("../../unitHelpers");
+const { unitPendingOrders } = require("../../unitOrders");
+const { getTimeInSeconds } = require("../../utils");
+
+/**
+ * Calculates the remaining time to finish a structure's construction.
+ * @param {DataStorage} data
+ * @param {Unit} unit 
+ * @returns {number} Time left in seconds
+ */
+function calculateTimeToFinishStructure(data, unit) {
+  // Check if unitType is defined
+  if (typeof unit.unitType === 'number') {
+    const { buildTime } = data.getUnitTypeData(unit.unitType);
+    // Check if both buildTime and buildProgress are defined
+    if (typeof buildTime === 'number' && typeof unit.buildProgress === 'number') {
+      const timeElapsed = buildTime * unit.buildProgress;
+      const timeLeft = getTimeInSeconds(buildTime - timeElapsed);
+      return timeLeft;
+    }
+  }
+  return 0; // Return 0 if unitType, buildTime, or buildProgress is undefined
+}
 
 /**
  * Analyzes the game state and determines if the current count of a 
@@ -81,6 +103,15 @@ function determineBotRace(world) {
 }
 
 /**
+ * Retrieves pending orders for a unit.
+ * @param {Unit} unit - The unit to retrieve pending orders for.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of pending orders.
+ */
+function getPendingOrders(unit) {
+  return unitPendingOrders.get(unit) || [];
+}
+
+/**
  * Determines if a townhall is in danger based on nearby enemy units.
  * @param {World} world - The current world context.
  * @param {Unit} townhall - The townhall unit.
@@ -102,7 +133,9 @@ function isTownhallInDanger(world, townhall, nearbyEnemies) {
 }
 
 module.exports = {
+  calculateTimeToFinishStructure,
   checkUnitCount,
   determineBotRace,
+  getPendingOrders,
   isTownhallInDanger,
 };

@@ -14,10 +14,10 @@ const { determineScoutingLocations, selectSCVForScouting } = require("./scouting
 const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff, setRepositionLabel } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
 const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");
-const { getPendingOrders } = require("./utils/gameLogic/commonGameUtils");
 const { getPlanFoodValue } = require("./utils/gameLogic/gameStrategyUtils");
 const { checkAddOnPlacement, seigeTanksSiegedGrids } = require("./utils/gameLogic/sharedUnitPlacement");
 const { getSingletonInstance } = require("./utils/gameLogic/singletonFactory");
+const { getPendingOrders } = require("./utils/gameLogic/stateManagement");
 const { addEarmark } = require("./utils/resourceManagement/resourceUtils");
 
 /**
