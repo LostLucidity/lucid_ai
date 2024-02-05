@@ -15,10 +15,10 @@ const { unitTypeTrainingAbilities } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { getUnitsTrainingTargetUnitType } = require("./unitWorkerService");
 const { createUnitCommand, getDistanceByPath } = require("./utils");
-const { getWorkerSourceByPath } = require("./utils/gameLogic/coreUtils");
-const { getNeediestMineralField } = require("./utils/gameLogic/mineralFieldUtils");
-const { getPendingOrders } = require("./utils/gameLogic/stateManagement");
 const { stopUnitFromMovingToPosition } = require("./workerHelpers");
+const { getWorkerSourceByPath } = require("../gameLogic/coreUtils");
+const { getNeediestMineralField } = require("../gameLogic/mineralFieldUtils");
+const { getPendingOrders } = require("../gameLogic/stateManagement");
 
 /** 
  * Flag to track if workers training is tended to.

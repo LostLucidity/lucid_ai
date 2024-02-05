@@ -11,7 +11,7 @@ const { getGasGeysers } = require("./mapUtils");
 const { getPathablePositions } = require("./pathUtils");
 const { getStructureCells } = require("./placementPathfindingUtils");
 const { getDistanceByPath } = require("./utils");
-const { getClosestPathablePositionsBetweenPositions } = require("./utils/gameLogic/sharedPathfindingUtils");
+const { getClosestPathablePositionsBetweenPositions } = require("../gameLogic/sharedPathfindingUtils");
 
 /**
  *

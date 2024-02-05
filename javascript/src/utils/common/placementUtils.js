@@ -11,10 +11,10 @@ const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 // Internal module imports
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const GameState = require("./core/gameState");
-const MapResources = require("./core/mapResources");
 const { getDistance, getClosestPosition } = require("./geometryUtils");
 const { getNextSafeExpansions, dbscan } = require("./mapUtils");
+const GameState = require("../../core/gameState");
+const MapResources = require("../../core/mapResources");
 
 // Destructured import from MapResources
 const { getAvailableExpansions } = MapResources;

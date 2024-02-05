@@ -9,7 +9,7 @@ const { GasMineRace } = require('@node-sc2/core/constants/race-map');
 const { addEarmark, getEarmarkedFood } = require('./resourceUtils');
 const { planMax } = require('../../../config/config');
 const GameState = require('../../core/gameState');
-const { getTimeToTargetTech } = require('../../gameData');
+const { getTimeToTargetTech } = require('../common/gameData');
 
 /**
  * Check for gas mine construction conditions and initiate building if criteria are met.

@@ -9,15 +9,15 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 // Internal module imports
-const GameState = require("./core/gameState");
-const MapResources = require("./core/mapResources");
 const { getStructureAtPosition, getDistance } = require("./geometryUtils");
 const { getClosestUnitPositionByPath } = require("./pathfinding");
 const { getBuildTimeLeft } = require("./sharedUtils");
 const { unitTypeTrainingAbilities } = require("./unitConfig");
 const { getDistanceByPath, getTimeInSeconds } = require("./utils");
-const { getMovementSpeed } = require("./utils/gameLogic/coreUtils");
-const { getPendingOrders } = require("./utils/gameLogic/stateManagement");
+const GameState = require("../../core/gameState");
+const MapResources = require("../../core/mapResources");
+const { getMovementSpeed } = require("../gameLogic/coreUtils");
+const { getPendingOrders } = require("../gameLogic/stateManagement");
 
 /**
  * @param {World} world

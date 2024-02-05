@@ -12,15 +12,15 @@ const { logNoFreeGeysers } = require('./sharedConstructionUtils');
 const { checkAddOnPlacement } = require('./sharedUnitPlacement');
 const { getPendingOrders } = require('./stateManagement');
 const GameState = require('../../core/gameState');
-const { getTimeToTargetTech } = require('../../gameData');
-const { getClosestUnitByPath, getClosestPositionByPath } = require('../../pathfinding');
-const { getPathCoordinates, getMapPath } = require('../../pathUtils');
-const { calculateBaseTimeToPosition } = require('../../placementAndConstructionUtils');
-const { getAddOnPlacement } = require('../../placementUtils');
-const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../../sharedUtils');
-const { unitTypeTrainingAbilities, canLiftOff } = require('../../unitConfig');
-const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../../utils');
-const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../../workerUtils');
+const { getTimeToTargetTech } = require('../common/gameData');
+const { getClosestUnitByPath, getClosestPositionByPath } = require('../common/pathfinding');
+const { getPathCoordinates, getMapPath } = require('../common/pathUtils');
+const { calculateBaseTimeToPosition } = require('../common/placementAndConstructionUtils');
+const { getAddOnPlacement } = require('../common/placementUtils');
+const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../common/sharedUtils');
+const { unitTypeTrainingAbilities, canLiftOff } = require('../common/unitConfig');
+const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../common/utils');
+const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../common/workerUtils');
 const { earmarkThresholdReached } = require('../resourceManagement/resourceUtils');
 
 /**

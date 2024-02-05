@@ -8,8 +8,8 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
 const { foodData } = require('./gameStateResources');
-const cacheManager = require('../cacheManager');
-const { missingUnits } = require('../gameDataStore');
+const cacheManager = require('../utils/common/cacheManager');
+const { missingUnits } = require('../utils/common/gameDataStore');
 const { getSingletonInstance } = require('../utils/gameLogic/singletonFactory');
 const { defaultResources } = require('../utils/resourceManagement/resourceTypes');
 

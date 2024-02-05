@@ -8,10 +8,10 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { SPEED_MODIFIERS } = require("./contants");
 // eslint-disable-next-line no-unused-vars
 const GameState = require("../../core/gameState");
-const { getDistance } = require("../../geometryUtils");
-const { getClosestUnitByPath } = require("../../pathfinding");
-const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../../unitConfig");
-const { getTimeInSeconds, getDistanceByPath } = require("../../utils");
+const { getDistance } = require("../common/geometryUtils");
+const { getClosestUnitByPath } = require("../common/pathfinding");
+const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../common/unitConfig");
+const { getTimeInSeconds, getDistanceByPath } = require("../common/utils");
 
 
 /**

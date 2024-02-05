@@ -14,10 +14,10 @@ const { findEnemyUnitsNear } = require("./scoutingUtils");
 const { getClosestExpansion, isMoving } = require("./sharedUtils");
 const { setPendingOrders } = require("./unitOrders");
 const { getUnitsWithinDistance, createUnitCommand } = require("./utils");
-const { findClosestMineralField } = require("./utils/gameLogic/coreUtils");
-const { getMineralFieldAssignments, getNeediestMineralField } = require("./utils/gameLogic/mineralFieldUtils");
-const { isTownhallInDanger, getPendingOrders } = require("./utils/gameLogic/stateManagement");
-const { isPendingContructing } = require("./utils/gameLogic/workerAssignmentHelpers");
+const { findClosestMineralField } = require("../gameLogic/coreUtils");
+const { getMineralFieldAssignments, getNeediestMineralField } = require("../gameLogic/mineralFieldUtils");
+const { isTownhallInDanger, getPendingOrders } = require("../gameLogic/stateManagement");
+const { isPendingContructing } = require("../gameLogic/workerAssignmentHelpers");
 
 /**
  * Balances the worker distribution across all bases.

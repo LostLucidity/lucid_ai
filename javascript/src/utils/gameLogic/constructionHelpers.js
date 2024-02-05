@@ -9,8 +9,8 @@ const { getPendingOrders } = require("./stateManagement");
 const { isPendingContructing } = require("./workerAssignmentHelpers");
 const GameState = require("../../core/gameState");
 const { buildingPositions } = require("../../core/gameStateResources");
-const { buildUnitTypeMap } = require("../../gameData");
-const { getDistance } = require("../../geometryUtils");
+const { buildUnitTypeMap } = require("../common/gameData");
+const { getDistance } = require("../common/geometryUtils");
 
 /**
  * @param {World} world

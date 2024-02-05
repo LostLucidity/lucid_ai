@@ -7,7 +7,7 @@ const strategyUtils = require('../buildOrders/strategy/strategyUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
 const GameState = require('../core/gameState');
 const logger = require('../core/logger');
-const mapUtils = require('../mapUtils');
+const mapUtils = require('../utils/common/mapUtils');
 const sharedWorkerUtils = require('../utils/gameLogic/sharedWorkerUtils');
 const stateManagement = require('../utils/gameLogic/stateManagement');
 

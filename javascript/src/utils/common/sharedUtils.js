@@ -7,15 +7,15 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal utility function imports
-// eslint-disable-next-line no-unused-vars
-const GameState = require("./core/gameState");
 const { getDistance } = require("./geometryUtils");
 const { dbscan, getGasGeysers } = require("./mapUtils");
 const { flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand } = require("./utils");
-const { getClosestPathablePositionsBetweenPositions } = require("./utils/gameLogic/sharedPathfindingUtils");
-const { getPendingOrders } = require("./utils/gameLogic/stateManagement");
+// eslint-disable-next-line no-unused-vars
+const GameState = require("../../core/gameState");
+const { getClosestPathablePositionsBetweenPositions } = require("../gameLogic/sharedPathfindingUtils");
+const { getPendingOrders } = require("../gameLogic/stateManagement");
 
 /**
  * @param {World} world 

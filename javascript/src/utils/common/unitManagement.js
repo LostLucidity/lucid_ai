@@ -12,10 +12,6 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal dependencies
-const StrategyManager = require("./buildOrders/strategy/strategyManager");
-const BuildingPlacement = require("./construction/buildingPlacement");
-const { buildSupply } = require("./construction/buildingService");
-const GameState = require("./core/gameState");
 const { getTimeToTargetTech } = require("./gameData");
 const { getById } = require("./gameUtils");
 const { getDistance } = require("./geometryUtils");
@@ -27,13 +23,17 @@ const { flyingTypesMapping, liftAndLandingTime } = require("./unitConfig");
 const { getUnitTypeCount, isTrainingUnit } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand, findKeysForValue } = require("./utils");
-const { filterSafeTrainers } = require("./utils/gameLogic/gameStrategyUtils");
-const { getPendingOrders } = require("./utils/gameLogic/stateManagement");
-const { checkTechRequirement } = require("./utils/gameLogic/techRequirementUtils");
-const { isTrainingOrder, canTrainUnit } = require("./utils/gameLogic/unitCapabilityUtils");
-const { haveSupplyForUnit, getTimeToTargetCost } = require("./utils/resourceManagement/resourceManagement");
-const { addEarmark, getEarmarkedFood } = require("./utils/resourceManagement/resourceUtils");
 const { shortOnWorkers } = require("./workerUtils");
+const StrategyManager = require("../../buildOrders/strategy/strategyManager");
+const BuildingPlacement = require("../../construction/buildingPlacement");
+const { buildSupply } = require("../../construction/buildingService");
+const GameState = require("../../core/gameState");
+const { filterSafeTrainers } = require("../gameLogic/gameStrategyUtils");
+const { getPendingOrders } = require("../gameLogic/stateManagement");
+const { checkTechRequirement } = require("../gameLogic/techRequirementUtils");
+const { isTrainingOrder, canTrainUnit } = require("../gameLogic/unitCapabilityUtils");
+const { haveSupplyForUnit, getTimeToTargetCost } = require("../resourceManagement/resourceManagement");
+const { addEarmark, getEarmarkedFood } = require("../resourceManagement/resourceUtils");
 
 /** @type {Map<UnitTypeId, Unit[]>} */
 const productionUnitsCache = new Map();
@@ -48,7 +48,7 @@ let unitProductionAvailable = true;
 /**
  * Build supply or train units based on the game world state and strategy step.
  * @param {World} world
- * @param {import("./buildOrders/strategy/strategyService").PlanStep} step
+ * @param {import("../../buildOrders/strategy/strategyService").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function buildSupplyOrTrain(world, step) {
@@ -271,7 +271,7 @@ function getTrainer(world, unitTypeId) {
 /**
  * Handles the building of supply units.
  * @param {World} world
- * @param {import("./buildOrders/strategy/strategyService").PlanStep} step
+ * @param {import("../../buildOrders/strategy/strategyService").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function handleSupplyBuilding(world, step) {
@@ -305,7 +305,7 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
 /**
  * Handles the training of units.
  * @param {World} world
- * @param {import("./buildOrders/strategy/strategyService").PlanStep} step
+ * @param {import("../../buildOrders/strategy/strategyService").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function handleUnitTraining(world, step) {
