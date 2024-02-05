@@ -38,6 +38,10 @@ const { shortOnWorkers } = require("./workerUtils");
 /** @type {Map<UnitTypeId, Unit[]>} */
 const productionUnitsCache = new Map();
 
+// At the top of your file, initialize a cache for unit type data
+/** @type {Map<number, SC2APIProtocol.UnitTypeData>} */
+const unitTypeDataCache = new Map();
+
 /** @type {boolean} */
 let unitProductionAvailable = true;
 
@@ -65,21 +69,21 @@ function buildSupplyOrTrain(world, step) {
  * @returns {number} The number of affordable units with available supply.
  */
 function calculateAffordableUnits(world, workerRaceData, maxUnits) {
-  const { agent, data } = world; // Destructure data from world here
+  const { agent } = world; // Destructure data from world here
   let affordableUnits = 0;
 
   for (let i = 0; i < maxUnits; i++) {
     if (agent.canAfford(workerRaceData) && haveSupplyForUnit(world, workerRaceData)) {
       affordableUnits++;
 
-      // Retrieve the UnitTypeData using the workerRaceData ID
-      const unitTypeData = data.getUnitTypeData(workerRaceData);
+      // Use the cached version of getUnitTypeData
+      const unitTypeData = getCachedUnitTypeData(world, workerRaceData);
       if (!unitTypeData) {
         console.error(`No unit type data found for ID: ${workerRaceData}`);
         break; // Exit the loop if the unit data cannot be found
       }
 
-      addEarmark(data, unitTypeData); // Pass the UnitTypeData to addEarmark
+      addEarmark(world.data, unitTypeData); // Pass the UnitTypeData to addEarmark
     } else {
       break; // Exit loop if a unit cannot be afforded or there's no supply
     }
@@ -128,6 +132,27 @@ function checkProductionAvailability(world, unitType) {
   const haveAvailableProductionUnits = haveAvailableProductionUnitsFor(world, unitType);
   gameState.availableProductionUnits.set(unitType, haveAvailableProductionUnits);
   return haveAvailableProductionUnits;
+}
+
+/**
+ * Retrieves unit type data, using cache to avoid repeated lookups.
+ * @param {World} world The game world context.
+ * @param {number} unitTypeId The ID of the unit type to retrieve.
+ * @returns {SC2APIProtocol.UnitTypeData | undefined} The unit type data, or undefined if not found.
+ */
+function getCachedUnitTypeData(world, unitTypeId) {
+  // Check if the data is already in the cache
+  if (unitTypeDataCache.has(unitTypeId)) {
+    return unitTypeDataCache.get(unitTypeId);
+  }
+
+  // If not in the cache, retrieve it and add to the cache
+  const unitTypeData = world.data.getUnitTypeData(unitTypeId);
+  if (unitTypeData) {
+    unitTypeDataCache.set(unitTypeId, unitTypeData);
+  }
+
+  return unitTypeData;
 }
 
 /**
