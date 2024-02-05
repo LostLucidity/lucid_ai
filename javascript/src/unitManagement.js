@@ -58,6 +58,37 @@ function buildSupplyOrTrain(world, step) {
 }
 
 /**
+ * Calculates how many units can be afforded and have supply for, up to a maximum.
+ * @param {World} world The game world context.
+ * @param {UnitTypeId} workerRaceData The data for the worker race.
+ * @param {number} maxUnits The maximum number of units to check.
+ * @returns {number} The number of affordable units with available supply.
+ */
+function calculateAffordableUnits(world, workerRaceData, maxUnits) {
+  const { agent, data } = world; // Destructure data from world here
+  let affordableUnits = 0;
+
+  for (let i = 0; i < maxUnits; i++) {
+    if (agent.canAfford(workerRaceData) && haveSupplyForUnit(world, workerRaceData)) {
+      affordableUnits++;
+
+      // Retrieve the UnitTypeData using the workerRaceData ID
+      const unitTypeData = data.getUnitTypeData(workerRaceData);
+      if (!unitTypeData) {
+        console.error(`No unit type data found for ID: ${workerRaceData}`);
+        break; // Exit the loop if the unit data cannot be found
+      }
+
+      addEarmark(data, unitTypeData); // Pass the UnitTypeData to addEarmark
+    } else {
+      break; // Exit loop if a unit cannot be afforded or there's no supply
+    }
+  }
+
+  return affordableUnits;
+}
+
+/**
  * Check if unit can train now.
  * @param {World} world
  * @param {Unit} unit 
@@ -114,52 +145,36 @@ function getExistingTrainingTypes(units) {
 }
 
 /**
- * Calculates the difference in food supply needed for the next step of the build plan.
- * @param {World} world
- * @returns {number}
+ * Calculates the affordable food difference based on the next step in the build plan.
+ * @param {World} world The game world context.
+ * @returns {number} The number of affordable units based on food supply.
  */
-function getFoodDifference(world) {
+function getAffordableFoodDifference(world) {
   const { agent, data } = world;
   const race = agent.race;
 
-  // Check if race is defined
-  if (race === undefined || !WorkerRace[race]) {
-    return 0; // Return early or handle the undefined case
-  }
+  // Validate race
+  if (!race || !WorkerRace[race]) return 0;
 
-  const workerRaceData = WorkerRace[race]; // Cache the value
-  const { abilityId } = data.getUnitTypeData(workerRaceData);
-  if (abilityId === undefined) {
+  const workerRaceData = WorkerRace[race];
+  const unitData = data.getUnitTypeData(workerRaceData);
+  if (!unitData || !unitData.abilityId) return 0;
+
+  const foodUsed = GameState.getInstance().getFoodUsed();
+  const plan = StrategyManager.getInstance().getCurrentStrategy();
+  if (!plan || !plan.steps) {
+    console.error('Current strategy plan is undefined or invalid.');
     return 0;
   }
 
-  const gameState = GameState.getInstance();
-  const foodUsed = gameState.getFoodUsed();
+  const nextStep = plan.steps.find(step => parseInt(step.supply, 10) >= foodUsed);
+  if (!nextStep) return 0; // No further steps or already at the last step
 
-  const strategyManager = StrategyManager.getInstance();
-  const plan = strategyManager.getCurrentStrategy();
+  const foodDifference = parseInt(nextStep.supply, 10) - foodUsed;
+  const productionUnits = getProductionUnits(world, workerRaceData).length;
+  const potentialUnits = Math.min(foodDifference, productionUnits);
 
-  // Check if plan is defined
-  if (!plan) {
-    console.error('Current strategy plan is undefined.');
-    return 0;
-  }
-
-  const step = plan.steps.find(step => parseInt(step.supply, 10) >= foodUsed);
-  const foodDifference = step ? parseInt(step.supply, 10) - foodUsed : 0;
-  const productionUnitsCount = getProductionUnits(world, workerRaceData).length;
-  const lowerOfFoodDifferenceAndProductionUnitsCount = Math.min(foodDifference, productionUnitsCount);
-
-  let affordableFoodDifference = 0;
-  for (let i = 0; i < lowerOfFoodDifferenceAndProductionUnitsCount; i++) {
-    if (agent.canAfford(workerRaceData) && haveSupplyForUnit(world, workerRaceData)) {
-      affordableFoodDifference++;
-      addEarmark(data, data.getUnitTypeData(workerRaceData))
-    } else {
-      break;
-    }
-  }
-  return affordableFoodDifference;
+  return calculateAffordableUnits(world, workerRaceData, potentialUnits);
 }
 
 /**
@@ -366,7 +381,7 @@ function shouldTrainWorkers(world) {
   const assignedWorkerCount = [...resources.get().units.getBases(), ...getById(resources, [gasMineRaceData])]
     .reduce((acc, base) => (base.assignedHarvesters || 0) + acc, 0);
   const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
-  const foodDifference = getFoodDifference(world);
+  const foodDifference = getAffordableFoodDifference(world);
   const sufficientMinerals = minerals < 512 || minimumWorkerCount <= 36;
   const productionPossible = haveAvailableProductionUnitsFor(world, workerRaceData);
   const strategyManager = StrategyManager.getInstance();
@@ -910,7 +925,7 @@ function upgrade(world, upgradeId) {
 module.exports = {
   unitProductionAvailable,
   buildSupplyOrTrain,
-  getFoodDifference,
+  getAffordableFoodDifference,
   getProductionUnits,
   haveAvailableProductionUnitsFor,
   manageZergSupply,
