@@ -145,7 +145,7 @@ function getFoodDifference(world) {
     return 0;
   }
 
-  const step = plan.steps.find(step => parseInt(step.supply, 10) > foodUsed);
+  const step = plan.steps.find(step => parseInt(step.supply, 10) >= foodUsed);
   const foodDifference = step ? parseInt(step.supply, 10) - foodUsed : 0;
   const productionUnitsCount = getProductionUnits(world, workerRaceData).length;
   const lowerOfFoodDifferenceAndProductionUnitsCount = Math.min(foodDifference, productionUnitsCount);
@@ -161,7 +161,6 @@ function getFoodDifference(world) {
   }
   return affordableFoodDifference;
 }
-
 
 /**
  * Retrieves units capable of producing a specific unit type.
