@@ -35,7 +35,7 @@ let workersTrainingTendedTo = false;
  */
 const handleRallyBase = (world, unit, position) => {
   let actions = [];
-  actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering));
+  actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering, false));
   actions.push(...stopUnitFromMovingToPosition(unit, position));
   return actions;
 };
@@ -211,7 +211,7 @@ function isIdleOrAlmostIdle(data, unit) {
  * @param {boolean} mineralTarget
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
-const rallyWorkerToTarget = (world, position, getUnitsFromClustering, mineralTarget = false) => {
+const rallyWorkerToTarget = (world, position, getUnitsFromClustering, mineralTarget = true) => {
   const { rallyWorkersAbilities } = groupTypes;
   const { data, resources } = world;
   const { units } = resources.get();

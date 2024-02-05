@@ -41,7 +41,7 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
     }
   });
 
-  actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering, true));
+  actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering));
 
   // check for a current unit that is heading towards position
   const currentUnitMovingToPosition = units.getWorkers().find(u => {
@@ -74,7 +74,7 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
       }
     }
   }
-  actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering, true));
+  actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering));
 
   return actions;
 }
