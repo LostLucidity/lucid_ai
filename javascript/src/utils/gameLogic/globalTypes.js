@@ -43,7 +43,6 @@
  * @property {string | null} [specialAction] - An optional special action indicated by the step.
  */
 
-
 /**
  * @typedef {{ [key: string]: BuildOrder | undefined }} RaceBuildOrders
  */

@@ -135,6 +135,47 @@ function checkProductionAvailability(world, unitType) {
 }
 
 /**
+ * Filters candidate unit types for training based on current strategy and game state.
+ * @param {World} world The game world context.
+ * @param {StrategyManager} strategyManager The current strategy manager.
+ * @returns {UnitTypeId[]} An array of unit types that are candidates for training.
+ */
+function filterCandidateTypes(world, strategyManager) {
+  const { data } = world;
+  const gameState = GameState.getInstance();
+  const currentStrategy = strategyManager.getCurrentStrategy();
+
+  if (!currentStrategy || !currentStrategy.steps) {
+    console.error('No current strategy or strategy steps defined.');
+    return [];
+  }
+
+  const currentStepIndex = strategyManager.getCurrentStep();
+  const currentPlanStep = currentStrategy.steps[currentStepIndex];
+
+  return strategyManager.getTrainingTypes().filter(type => {
+    const unitTypeData = data.getUnitTypeData(type);
+    const attributes = unitTypeData.attributes || []; // Provide a default empty array if attributes are undefined
+    const foodRequired = unitTypeData.foodRequired || 0; // Provide a default value of 0 if foodRequired is undefined
+    const supply = currentPlanStep ? parseInt(currentPlanStep.supply, 10) : 0;
+
+    const isPlannedType = currentStrategy.steps.some(step => {
+      // Normalize interpretedAction to an array
+      const interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : [step.interpretedAction];
+
+      // Check if any interpretedAction matches the unit type
+      return interpretedActions.some(action => action && action.unitType === type);
+    });
+
+    return isPlannedType &&
+      (!attributes.includes(Attribute.STRUCTURE)) && // Now safe to use includes() since attributes has a default value
+      foodRequired <= supply - gameState.getFoodUsed() &&
+      gameState.checkTechFor(world.agent, type) &&
+      checkProductionAvailability(world, type);
+  });
+}
+
+/**
  * Retrieves unit type data, using cache to avoid repeated lookups.
  * @param {World} world The game world context.
  * @param {number} unitTypeId The ID of the unit type to retrieve.
@@ -153,20 +194,6 @@ function getCachedUnitTypeData(world, unitTypeId) {
   }
 
   return unitTypeData;
-}
-
-/**
- * @param {UnitResource} units
- * @returns {UnitTypeId[]}
- */
-function getExistingTrainingTypes(units) {
-  return units.getAlive().reduce((/** @type {UnitTypeId[]} */ types, unit) => {
-    const { unitType } = unit; if (unitType === undefined) { return types; }
-    if (types.includes(unitType)) {
-      return types;
-    }
-    return [...types, unitType];
-  }, []);
 }
 
 /**
@@ -435,6 +462,17 @@ function refreshProductionUnitsCache() {
 }
 
 /**
+ * Selects a unit type to build from the list of candidate types.
+ * @param {World} world The game world context.
+ * @param {StrategyManager} strategyManager The current strategy manager.
+ * @param {UnitTypeId[]} candidateTypes The candidate unit types for training.
+ * @returns {UnitTypeId | null} The selected unit type to build, or null if none is selected.
+ */
+function selectUnitTypeToBuild(world, strategyManager, candidateTypes) {
+  return strategyManager.selectTypeToBuild(world, candidateTypes);
+}
+
+/**
  * Analyzes the game state and decides if workers should be trained.
  * @param {World} world - The current game world context.
  * @returns {boolean} - True if conditions are met for training workers, false otherwise.
@@ -486,69 +524,27 @@ function train(world, unitTypeId, targetCount = null) {
 }
 
 /**
- * @param {World} world 
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ * Trains combat units based on the current strategy and game state.
+ * @param {World} world The game world context.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
  */
 function trainCombatUnits(world) {
-  const { OVERLORD } = UnitType;
-  const { agent, data, resources } = world;
-  const { minerals, vespene } = agent;
-  if (minerals === undefined || vespene === undefined) return [];
-  const { units } = resources.get();
-  const collectedActions = [];
+  const { agent } = world;
+  if (!agent.minerals || !agent.vespene) return [];
 
   const strategyManager = StrategyManager.getInstance();
-  const currentStrategy = strategyManager.getCurrentStrategy();
-
-  // Check if currentStrategy is defined
-  if (!currentStrategy) {
+  if (!strategyManager.getCurrentStrategy()) {
     console.error('Current strategy is undefined.');
     return [];
   }
 
-  const plannedTrainingTypes = strategyManager.getTrainingTypes().length > 0
-    ? strategyManager.getTrainingTypes()
-    : getExistingTrainingTypes(units);
+  const candidateTypesToBuild = filterCandidateTypes(world, strategyManager);
+  if (candidateTypesToBuild.length === 0) return [];
 
-  const currentStep = strategyManager.getCurrentStep();
-  const currentPlanStep = currentStrategy.steps[currentStep];
+  const selectedType = selectUnitTypeToBuild(world, strategyManager, candidateTypesToBuild);
+  if (!selectedType) return [];
 
-  const gameState = GameState.getInstance();
-
-  const candidateTypesToBuild = plannedTrainingTypes.filter(type => {
-    const { attributes, foodRequired } = data.getUnitTypeData(type);
-    if (attributes === undefined || foodRequired === undefined) return false;
-    const supply = currentPlanStep ? parseInt(currentPlanStep.supply, 10) : 0;
-
-    // Convert type to string for indexing UnitTypeId
-    const unitTypeIdKey = String(type);
-    const planMinForType = strategyManager.getPlanMin()[unitTypeIdKey];
-
-    return (!attributes.includes(Attribute.STRUCTURE) && type !== OVERLORD) &&
-      foodRequired <= supply - gameState.getFoodUsed() &&
-      (strategyManager.getOutpowered()
-        ? strategyManager.getOutpowered()
-        : (planMinForType !== undefined ? planMinForType <= gameState.getFoodUsed() : true)) &&
-      (!strategyManager.getUnitMax()[unitTypeIdKey]
-        || (getUnitTypeCount(world, type) < strategyManager.getUnitMax()[unitTypeIdKey])) &&
-      gameState.checkTechFor(agent, type) &&
-      checkProductionAvailability(world, type);
-  });
-
-  if (candidateTypesToBuild.length > 0) {
-    let selectedType = strategyManager.getSelectedTypeToBuild() !== null
-      ? strategyManager.getSelectedTypeToBuild()
-      : strategyManager.selectTypeToBuild(world, candidateTypesToBuild);
-
-    if (selectedType !== undefined && selectedType !== null) {
-      if (strategyManager.getOutpowered() || agent.canAfford(selectedType)) {
-        collectedActions.push(...train(world, selectedType));
-      }
-    }
-    strategyManager.setSelectedTypeToBuild(selectedType);
-  }
-
-  return collectedActions;
+  return strategyManager.getOutpowered() || agent.canAfford(selectedType) ? train(world, selectedType) : [];
 }
 
 /**
