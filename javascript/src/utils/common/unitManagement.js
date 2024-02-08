@@ -309,38 +309,41 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function handleUnitTraining(world, step) {
-  const actions = [];
+  // Early return if there's no agent race or unit type defined in the step
+  if (world.agent.race === undefined || !step.unitType) {
+    return [];
+  }
+
   const gameState = GameState.getInstance();
-  let foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
-  const foodDifference = step ? step.food - foodUsed : 0;
+  const foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
+  const foodDifference = (step.food || 0) - foodUsed;
 
-  const data = world.data;
+  // Early return if the step is a building step or there's no need for additional units
+  if (isBuildStep(step, world.data) || foodDifference <= 0) {
+    return [];
+  }
 
-  const agentRace = world.agent.race;
+  const actions = [];
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+  let trainingOrders = [];
 
-  if (agentRace !== undefined) {
-    // Check if the current step is not about building and requires specific unit training
-    if (!isBuildStep(step, data) && step.unitType && foodDifference > 0) {
-      /**
-       * @type {SC2APIProtocol.ActionRawUnitCommand[]}
-       */
-      let trainingOrders = [];
+  // Determine whether to train workers or combat units
+  if (isWorkerStep(step, world.agent.race)) {
+    if (shouldTrainWorkers(world)) {
+      trainingOrders = trainWorkers(world);
+    }
+  } else {
+    trainingOrders = trainCombatUnits(world);
+  }
 
-      // Check if the step requires worker training and conditions are met
-      if (isWorkerStep(step, agentRace) && shouldTrainWorkers(world)) {
-        trainingOrders = trainWorkers(world);
-      } else if (!isWorkerStep(step, agentRace)) { // For non-worker steps, handle combat unit training or specific unit training
-        trainingOrders = trainCombatUnits(world);
-      }
+  // Add training orders to actions
+  actions.push(...trainingOrders);
 
-      actions.push(...trainingOrders);
-
-      // If no training orders were created and we need workers, earmark them for future training
-      if (trainingOrders.length === 0 && WorkerRace[agentRace]) {
-        for (let i = 0; i < foodDifference; i++) {
-          addEarmark(world.data, world.data.getUnitTypeData(WorkerRace[agentRace]));
-        }
-      }
+  // Earmark workers for future training if no training orders were created
+  if (trainingOrders.length === 0 && WorkerRace[world.agent.race]) {
+    const workerUnitTypeData = world.data.getUnitTypeData(WorkerRace[world.agent.race]);
+    for (let i = 0; i < foodDifference; i++) {
+      addEarmark(world.data, workerUnitTypeData);
     }
   }
 
