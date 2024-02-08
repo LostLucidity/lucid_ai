@@ -5,7 +5,7 @@ const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
 const { getClosestPosition } = require("../common/geometryUtils");
 const { getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath } = require("../common/pathUtils");
-const { getStructureCells } = require("../common/placementPathfindingUtils");
+const { getStructureCells } = require("../common/placementUtils");
 const { getDistanceByPath } = require("../common/utils");
 
 /**

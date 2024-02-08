@@ -9,7 +9,7 @@
 const { getDistance } = require("./geometryUtils"); // combined utils from geometryUtils and utils
 const { getGasGeysers } = require("./mapUtils");
 const { getPathablePositions } = require("./pathUtils");
-const { getStructureCells } = require("./placementPathfindingUtils");
+const { getStructureCells } = require("./placementUtils");
 const { getDistanceByPath } = require("./utils");
 const { getClosestPathablePositionsBetweenPositions } = require("../gameLogic/sharedPathfindingUtils");
 

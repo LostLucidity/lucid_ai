@@ -13,6 +13,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { getDistance, getClosestPosition } = require("./geometryUtils");
 const { getNextSafeExpansions, dbscan } = require("./mapUtils");
+const { getTimeInSeconds } = require("./utils");
 const GameState = require("../../core/gameState");
 const MapResources = require("../../core/mapResources");
 
@@ -29,6 +30,18 @@ let landingGrids = [];
 function addLandingGrid(grid) {
   landingGrids.push(grid);
 }
+
+/**
+ * Calculates the time it will take for a unit or building to reach a certain position.
+ * 
+ * @param {number} baseDistanceToPosition - The base distance to the position.
+ * @param {number} buildTimeLeft - The remaining build time.
+ * @param {number} movementSpeedPerSecond - The movement speed per second.
+ * @returns {number} - The calculated time to position.
+ */
+const calculateBaseTimeToPosition = (baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond) => {
+  return (baseDistanceToPosition / movementSpeedPerSecond) + getTimeInSeconds(buildTimeLeft) + movementSpeedPerSecond;
+};
 
 /**
  * Calculates the placement for an add-on structure based on the main building's position.
@@ -154,6 +167,25 @@ function findZergPlacements(world, unitType) {
 }
 
 /**
+ * Retrieves cell positions occupied by given structures.
+ * @param {Point2D} position - The position to check around.
+ * @param {Unit[]} structures - The structures to consider.
+ * @returns {Point2D[]} - Array of cells occupied by the structures.
+ */
+function getStructureCells(position, structures) {
+  return structures.reduce((/** @type {Point2D[]} */ acc, structure) => {
+    const { pos, unitType } = structure;
+    if (pos === undefined || unitType === undefined) return acc;
+    if (getDistance(pos, position) <= 1) {
+      const footprint = getFootprint(unitType);
+      if (footprint === undefined) return acc;
+      acc.push(...cellsInFootprint(createPoint2D(pos), footprint));
+    }
+    return acc;
+  }, []);
+}
+
+/**
  * Checks if a building and its associated add-on are placeable at a given grid location.
  * @param {MapResource} map - The map resource.
  * @param {UnitTypeId} unitType - The unit type of the building.
@@ -168,11 +200,13 @@ function isBuildingAndAddonPlaceable(map, unitType, grid) {
 module.exports = {
   landingGrids,
   addLandingGrid,
+  calculateBaseTimeToPosition,
   getAddOnPlacement,
   getAddOnBuildingPlacement,
   getAllLandingGrids,
   getBuildingAndAddonGrids,
   getBuildingFootprintOfOrphanAddons,
   findZergPlacements,
+  getStructureCells,
   isBuildingAndAddonPlaceable,
 };
