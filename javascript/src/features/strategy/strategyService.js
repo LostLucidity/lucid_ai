@@ -6,7 +6,6 @@ const { Upgrade } = require('@node-sc2/core/constants');
 const { Attribute } = require('@node-sc2/core/constants/enums');
 
 const StrategyManager = require('./strategyManager');
-const { build } = require('../../construction/buildingService');
 const GameState = require('../../core/gameState');
 const { setFoodUsed, balanceResources } = require('../../utils/common/economyManagement');
 const { performScoutingWithSCV } = require('../../utils/common/unitActions');
@@ -14,7 +13,8 @@ const { buildSupplyOrTrain, train, upgrade } = require('../../utils/common/unitM
 const { isBuildOrderStep } = require('../../utils/gameLogic/typeGuards');
 const { resetEarmarks } = require('../../utils/resourceManagement/resourceData');
 const { hasEarmarks } = require('../../utils/resourceManagement/resourceManagement');
-const { interpretBuildOrderAction } = require('../buildOrderUtils');
+const { interpretBuildOrderAction } = require('../buildOrders/buildOrderUtils');
+const { build } = require('../construction/buildingService');
 
 /**
  * @typedef {Object} PlanStep

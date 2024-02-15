@@ -1,15 +1,15 @@
 // src/events/onGameStart.js
 const { Race } = require('@node-sc2/core/constants/enums');
 
-const config = require('../../config/config');
-const StrategyManager = require('../buildOrders/strategy/strategyManager');
-const strategyUtils = require('../buildOrders/strategy/strategyUtils');
-const BuildingPlacement = require('../construction/buildingPlacement');
-const GameState = require('../core/gameState');
-const logger = require('../core/logger');
-const mapUtils = require('../utils/common/mapUtils');
-const sharedWorkerUtils = require('../utils/gameLogic/sharedWorkerUtils');
-const stateManagement = require('../utils/gameLogic/stateManagement');
+const config = require('../../../config/config');
+const BuildingPlacement = require('../../features/construction/buildingPlacement');
+const StrategyManager = require('../../features/strategy/strategyManager');
+const strategyUtils = require('../../features/strategy/strategyUtils');
+const mapUtils = require('../../utils/common/mapUtils');
+const sharedWorkerUtils = require('../../utils/gameLogic/sharedWorkerUtils');
+const stateManagement = require('../../utils/gameLogic/stateManagement');
+const GameState = require('../gameState');
+const logger = require('../logger');
 
 
 /**

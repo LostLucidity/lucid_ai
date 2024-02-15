@@ -1,6 +1,6 @@
 /**
  * Determines if the given step is a BuildOrderStep.
- * @param {import('./globalTypes').BuildOrderStep | import('../../buildOrders/strategy/strategyManager').StrategyStep} step
+ * @param {import('./globalTypes').BuildOrderStep | import('../../features/strategy/strategyManager').StrategyStep} step
  * @returns {step is import('./globalTypes').BuildOrderStep}
  */
 function isBuildOrderStep(step) {

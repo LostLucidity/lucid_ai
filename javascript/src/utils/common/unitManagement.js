@@ -24,10 +24,10 @@ const { getUnitTypeCount, isTrainingUnit } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand, findKeysForValue } = require("./utils");
 const { shortOnWorkers } = require("./workerUtils");
-const StrategyManager = require("../../buildOrders/strategy/strategyManager");
-const BuildingPlacement = require("../../construction/buildingPlacement");
-const { buildSupply } = require("../../construction/buildingService");
 const GameState = require("../../core/gameState");
+const BuildingPlacement = require("../../features/construction/buildingPlacement");
+const { buildSupply } = require("../../features/construction/buildingService");
+const StrategyManager = require("../../features/strategy/strategyManager");
 const { filterSafeTrainers } = require("../gameLogic/gameStrategyUtils");
 const { getPendingOrders } = require("../gameLogic/stateManagement");
 const { checkTechRequirement } = require("../gameLogic/techRequirementUtils");
@@ -48,7 +48,7 @@ let unitProductionAvailable = true;
 /**
  * Build supply or train units based on the game world state and strategy step.
  * @param {World} world
- * @param {import("../../buildOrders/strategy/strategyService").PlanStep} step
+ * @param {import("../../features/strategy/strategyService").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function buildSupplyOrTrain(world, step) {
@@ -298,7 +298,7 @@ function getTrainer(world, unitTypeId) {
 /**
  * Handles the building of supply units.
  * @param {World} world
- * @param {import("../../buildOrders/strategy/strategyService").PlanStep} step
+ * @param {import("../../features/strategy/strategyService").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function handleSupplyBuilding(world, step) {
@@ -332,7 +332,7 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
 /**
  * Handles the training of units.
  * @param {World} world
- * @param {import("../../buildOrders/strategy/strategyService").PlanStep} step
+ * @param {import("../../features/strategy/strategyService").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function handleUnitTraining(world, step) {
@@ -401,7 +401,7 @@ function haveAvailableProductionUnitsFor(world, unitType) {
 
 /**
  * Determines if the current step is a building step.
- * @param {import("../../buildOrders/strategy/strategyService").PlanStep} step
+ * @param {import("../../features/strategy/strategyService").PlanStep} step
  * @param {{ getUnitTypeData: (arg0: any) => { attributes?: any[]; }; }} data - Game data context
  * @returns {boolean}
  */
@@ -417,7 +417,7 @@ function isBuildStep(step, data) {
 
 /**
  * Determines if the current step involves worker training.
- * @param {import("../../buildOrders/strategy/strategyService").PlanStep} step
+ * @param {import("../../features/strategy/strategyService").PlanStep} step
  * @param {Race} race - The race of the agent to determine the worker unit type.
  * @returns {boolean}
  */

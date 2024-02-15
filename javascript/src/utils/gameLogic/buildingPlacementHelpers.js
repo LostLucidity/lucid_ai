@@ -10,10 +10,10 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 
 const { getCurrentlyEnrouteConstructionGrids } = require("./constructionHelpers");
 const config = require("../../../config/config");
-const BuildingPlacement = require("../../construction/buildingPlacement");
 const GameState = require("../../core/gameState");
 const { buildingPositions } = require("../../core/gameStateResources");
 const MapResources = require("../../core/mapResources");
+const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { getDistance } = require("../common/geometryUtils");
 const { getOccupiedExpansions, existsInMap, pointsOverlap } = require("../common/mapUtils");
 const { getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../common/placementUtils");

@@ -5,12 +5,12 @@
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 
 // Internal module imports
+const onGameStart = require('./events/onGameStart');
 const GameState = require('./gameState');
 const logger = require('./logger');
 const config = require('../../config/config');
-const StrategyService = require('../buildOrders/strategy/strategyService');
-const buildingService = require('../construction/buildingService');
-const onGameStart = require('../events/onGameStart');
+const buildingService = require('../features/construction/buildingService');
+const StrategyService = require('../features/strategy/strategyService');
 const economyManagement = require('../utils/common/economyManagement');
 const unitManagement = require('../utils/common/unitManagement');
 const workerAssignment = require('../utils/common/workerAssignment');

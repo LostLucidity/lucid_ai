@@ -8,20 +8,20 @@ const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 const BuildingPlacement = require("./buildingPlacement");
 const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction } = require("./constructionUtils");
-const config = require("../../config/config");
-const GameState = require("../core/gameState");
-const MapResources = require("../core/mapResources");
-const { commandPlaceBuilding } = require("../utils/common/builderUtils");
-const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../utils/common/gameData");
-const { getNextSafeExpansions } = require("../utils/common/mapUtils");
-const { prepareUnitToBuildAddon } = require("../utils/common/unitActions");
-const { isPlaceableAtGasGeyser } = require("../utils/common/utils");
-const { addAddOn, getUnitsCapableToAddOn } = require("../utils/gameLogic/addonUtils");
-const { findPosition, findPlacements } = require("../utils/gameLogic/buildingPlacementHelpers");
-const { determineBuildingPosition, getInTheMain, premoveBuilderToPosition, findBestPositionForAddOn } = require("../utils/gameLogic/constructionAndBuildingUtils");
-const { getTimeUntilUnitCanBuildAddon } = require("../utils/gameLogic/unitCapabilityUtils");
-const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("../utils/resourceManagement/resourceManagement");
-const { addEarmark } = require("../utils/resourceManagement/resourceUtils");
+const config = require("../../../config/config");
+const GameState = require("../../core/gameState");
+const MapResources = require("../../core/mapResources");
+const { commandPlaceBuilding } = require("../../utils/common/builderUtils");
+const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../../utils/common/gameData");
+const { getNextSafeExpansions } = require("../../utils/common/mapUtils");
+const { prepareUnitToBuildAddon } = require("../../utils/common/unitActions");
+const { isPlaceableAtGasGeyser } = require("../../utils/common/utils");
+const { getUnitsCapableToAddOn, addAddOn } = require("../../utils/gameLogic/addonUtils");
+const { findPlacements, findPosition } = require("../../utils/gameLogic/buildingPlacementHelpers");
+const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition, findBestPositionForAddOn } = require("../../utils/gameLogic/constructionAndBuildingUtils");
+const { getTimeUntilUnitCanBuildAddon } = require("../../utils/gameLogic/unitCapabilityUtils");
+const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("../../utils/resourceManagement/resourceManagement");
+const { addEarmark } = require("../../utils/resourceManagement/resourceUtils");
 
 /**
  * @param {World} world
