@@ -45,38 +45,36 @@ const bot = createAgent({
    * @param {World} world - The current game world state.
    */
   async onStep(world) {
-    // Refresh production units cache
+    // Refresh production units cache and other routine tasks
     unitManagement.refreshProductionUnitsCache();
-
     const { units } = world.resources.get();
-    const strategyService = StrategyService.getInstance();
-
-    // Update maximum worker count based on current game state
     updateMaxWorkers(units);
 
-    let actionCollection = strategyService.runPlan(world); // Start with strategy plan actions
+    // Strategic or other planned actions
+    const strategyService = StrategyService.getInstance();
+    let actionCollection = strategyService.isActivePlan() ? strategyService.runPlan(world) : [];
 
-    // Only add additional actions if the strategy plan is not active
+    // Always reassign idle workers, ensuring continuous economic activity
+    const idleWorkerActions = workerAssignment.reassignIdleWorkers(world);
+    actionCollection = actionCollection.concat(idleWorkerActions);
+
+    // Additional actions based on current game state and needs
     if (!strategyService.isActivePlan()) {
       const additionalActions = [
         ...workerAssignment.balanceWorkerDistribution(world, units, world.resources),
         ...buildingService.buildSupply(world),
         ...(economyManagement.shouldTrainMoreWorkers(units.getWorkers().length, maxWorkers)
           ? economyManagement.trainAdditionalWorkers(world, world.agent, units.getBases())
-          : []),
-        ...workerAssignment.reassignIdleWorkers(world)
+          : [])
       ];
-
-      // Combine the initial actions with the additional ones
       actionCollection = actionCollection.concat(additionalActions);
     }
 
-    // Send collected actions in a batch if there are any
+    // Execute collected actions
     if (actionCollection.length > 0) {
       try {
         await world.resources.get().actions.sendAction(actionCollection);
-        // Clear pending orders after actions have been sent
-        clearAllPendingOrders(units.getAll()); // Ensure getAll is defined and retrieves all relevant units
+        clearAllPendingOrders(units.getAll());
       } catch (error) {
         console.error('Error sending actions in onStep:', error);
       }
