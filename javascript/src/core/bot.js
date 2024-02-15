@@ -23,6 +23,55 @@ const gameState = new GameState();
 let maxWorkers = 0;
 
 /**
+ * Collects additional actions necessary for maintaining the economy and infrastructure.
+ * @param {World} world - The current game world state.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - A collection of additional actions.
+ */
+function collectAdditionalActions(world) {
+  const { units } = world.resources.get();
+  const actions = [];
+
+  // Balance worker distribution across bases for optimal resource gathering
+  const workerDistributionActions = workerAssignment.balanceWorkerDistribution(world, units, world.resources);
+  actions.push(...workerDistributionActions);
+
+  // Ensure sufficient supply to support unit production
+  const supplyBuildingActions = buildingService.buildSupply(world);
+  actions.push(...supplyBuildingActions);
+
+  // Train additional workers to maximize resource collection, if under the maximum worker limit
+  if (economyManagement.shouldTrainMoreWorkers(units.getWorkers().length, maxWorkers)) {
+    const workerTrainingActions = economyManagement.trainAdditionalWorkers(world, world.agent, units.getBases());
+    actions.push(...workerTrainingActions);
+  }
+
+  // Reassign any idle workers to ensure continuous resource collection
+  const idleWorkerReassignmentActions = workerAssignment.reassignIdleWorkers(world);
+  actions.push(...idleWorkerReassignmentActions);
+
+  return actions;
+}
+
+/**
+ * Handles strategic actions based on the bot's current plan.
+ * @param {World} world - The current game world state.
+ * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>} - A collection of strategic actions.
+ */
+async function handleStrategicActions(world) {
+  const strategyService = StrategyService.getInstance();
+
+  // Check if there is an active strategic plan.
+  if (strategyService.isActivePlan()) {
+    // If there is an active plan, execute it and return the resulting actions.
+    return strategyService.runPlan(world);
+  } else {
+    // If there is no active plan, return an empty array indicating no actions.
+    return [];
+  }
+}
+
+
+/**
  * Updates the maximum number of workers based on current game conditions.
  * @param {UnitResource} units - The units resource object from the bot.
  */
@@ -45,29 +94,16 @@ const bot = createAgent({
    * @param {World} world - The current game world state.
    */
   async onStep(world) {
-    // Refresh production units cache and other routine tasks
     unitManagement.refreshProductionUnitsCache();
     const { units } = world.resources.get();
     updateMaxWorkers(units);
 
-    // Strategic or other planned actions
-    const strategyService = StrategyService.getInstance();
-    let actionCollection = strategyService.isActivePlan() ? strategyService.runPlan(world) : [];
+    let actionCollection = await handleStrategicActions(world);
 
-    // Always reassign idle workers, ensuring continuous economic activity
-    const idleWorkerActions = workerAssignment.reassignIdleWorkers(world);
-    actionCollection = actionCollection.concat(idleWorkerActions);
-
-    // Additional actions based on current game state and needs
-    if (!strategyService.isActivePlan()) {
-      const additionalActions = [
-        ...workerAssignment.balanceWorkerDistribution(world, units, world.resources),
-        ...buildingService.buildSupply(world),
-        ...(economyManagement.shouldTrainMoreWorkers(units.getWorkers().length, maxWorkers)
-          ? economyManagement.trainAdditionalWorkers(world, world.agent, units.getBases())
-          : [])
-      ];
-      actionCollection = actionCollection.concat(additionalActions);
+    // Collect additional actions if the strategic plan is not fully occupying the bot's capacity
+    if (!StrategyService.getInstance().isActivePlan()) {
+      const additionalActions = collectAdditionalActions(world);
+      actionCollection = [...actionCollection, ...additionalActions];
     }
 
     // Execute collected actions
