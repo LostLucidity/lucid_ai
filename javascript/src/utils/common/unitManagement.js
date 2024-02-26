@@ -14,8 +14,7 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 // Internal dependencies
 const { getTimeToTargetTech } = require("./gameData");
 const { getById } = require("./gameUtils");
-const { getDistance } = require("./geometryUtils");
-const { pointsOverlap } = require("./mapUtils");
+const { getDistance, pointsOverlap } = require("./geometryUtils");
 const { getAddOnBuildingPlacement, landingGrids } = require("./placementUtils");
 const { earmarkResourcesIfNeeded } = require("./sharedEconomicFunctions");
 const { createTrainingCommands } = require("./unitActions");
@@ -432,26 +431,18 @@ function isWorkerStep(step, race) {
  */
 function manageZergSupply(world) {
   const { agent, data, resources } = world;
-  const { foodCap, foodUsed } = agent;
-  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-  const actions = [];
 
-  if (foodCap !== undefined && foodUsed !== undefined && (foodCap - foodUsed < 8) && agent.canAfford(UnitType.OVERLORD)) {
-    const overlordData = data.getUnitTypeData(UnitType.OVERLORD);
-    if (overlordData && overlordData.abilityId !== undefined) {
-      const larva = resources.get().units.getById(UnitType.LARVA);
-      const abilityId = overlordData.abilityId; // Define abilityId here
-      larva.forEach(larvaUnit => {
-        if (larvaUnit.isIdle() && abilityId !== undefined) {
-          // Ensure abilityId is defined before calling createUnitCommand
-          const unitCommand = createUnitCommand(abilityId, [larvaUnit]);
-          actions.push(unitCommand);
-        }
-      });
-    }
-  }
+  // Early exit if food capacity is sufficient or Overlords are unaffordable
+  // Use nullish coalescing operator (??) to provide a default value of 0
+  if (((agent.foodCap ?? 0) - (agent.foodUsed ?? 0) >= 8) || !agent.canAfford(UnitType.OVERLORD)) return [];
 
-  return actions;
+  const overlordAbilityId = data.getUnitTypeData(UnitType.OVERLORD)?.abilityId;
+  if (!overlordAbilityId) return []; // Exit if Overlord data or ability ID is unavailable
+
+  // Filter for idle Larvae and map them to Overlord training commands
+  return resources.get().units.getById(UnitType.LARVA)
+    .filter(larva => larva.isIdle() && larva.abilityAvailable(overlordAbilityId))
+    .map(larva => createUnitCommand(overlordAbilityId, [larva]));
 }
 
 /**

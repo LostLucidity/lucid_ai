@@ -11,7 +11,7 @@ const { getFootprint } = require('@node-sc2/core/utils/geometry/units');
 
 // Internal module imports
 const { getGasGeysersCache, setGasGeysersCache } = require('./cacheModule');
-const { getDistance } = require('./geometryUtils');
+const { getDistance, pointsOverlap } = require('./geometryUtils');
 const { getPathCoordinates } = require('./pathUtils');
 
 
@@ -226,66 +226,9 @@ const mapUtils = {
             return footprint ? coverage.concat(cellsInFootprint(pos, footprint)) : coverage;
           }
         }, []);
-      return map.isPlaceableAt(townhallType, townhallPosition) && !mapUtils.pointsOverlap(enemyUnitCoverage, cellsInFootprint(townhallPosition, footprint));
+      return map.isPlaceableAt(townhallType, townhallPosition) && !pointsOverlap(enemyUnitCoverage, cellsInFootprint(townhallPosition, footprint));
     });
     return placeableExpansions.map(expansion => expansion.townhallPosition);
-  },
-
-  /**
-   * Checks if any points in two arrays are within a specified range of each other.
-   * 
-   * @param {Point2D[]} firstArray - The first array of points.
-   * @param {Point2D[]} secondArray - The second array of points.
-   * @param {number} [range=1] - The range within which points are considered to overlap.
-   * @returns {boolean} - Returns true if any point in the first array is within the specified range of any point in the second array, otherwise false.
-   */
-  pointsOverlap: (firstArray, secondArray, range = 1) => {
-    const cellSize = range;
-
-    /**
-     * Grid to store points, mapped to their corresponding cells.
-     * Each cell is identified by a string key in the format 'x,y', 
-     * and contains an array of points that fall into that cell.
-     * @type {Map<string, Point2D[]>}
-     */
-    const grid = new Map();
-
-    for (const point of secondArray) {
-      if (point.x === undefined || point.y === undefined) {
-        continue; // Skip the point if x or y is undefined
-      }
-
-      const xCell = Math.floor(point.x / cellSize);
-      const yCell = Math.floor(point.y / cellSize);
-      const key = `${xCell},${yCell}`;
-
-      // Directly initialize the array if it doesn't exist, then push the point
-      const cell = grid.get(key) || [];
-      cell.push(point);
-      grid.set(key, cell);
-    }
-
-    return firstArray.some(first => {
-      if (first.x === undefined || first.y === undefined) {
-        return false; // Skip the point if x or y is undefined
-      }
-
-      const xCell = Math.floor(first.x / cellSize);
-      const yCell = Math.floor(first.y / cellSize);
-
-      for (let i = -1; i <= 1; i++) {
-        for (let j = -1; j <= 1; j++) {
-          const key = `${xCell + i},${yCell + j}`;
-          const pointsInCell = grid.get(key);
-
-          if (pointsInCell && pointsInCell.some(second => getDistance(first, second) < range)) {
-            return true;
-          }
-        }
-      }
-
-      return false;
-    });
   },
 
   /**

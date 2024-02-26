@@ -1,11 +1,10 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
-const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { findPosition } = require("./buildingPlacementHelpers");
-const { existsInMap, pointsOverlap } = require("../common/mapUtils");
+const { pointsOverlap, getFootprint, cellsInFootprint } = require("../common/geometryUtils");
+const { existsInMap } = require("../common/mapUtils");
 const { getAddOnPlacement, getAddOnBuildingPlacement } = require("../common/placementUtils");
 const { canUnitBuildAddOn, flyingTypesMapping } = require("../common/unitConfig");
 const { getStringNameOfConstant } = require("../common/utils");
