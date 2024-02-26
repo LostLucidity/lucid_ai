@@ -478,25 +478,50 @@ function selectUnitTypeToBuild(world, strategyManager, candidateTypes) {
  * @returns {boolean} - True if conditions are met for training workers, false otherwise.
  */
 function shouldTrainWorkers(world) {
-  const { agent: { minerals, race }, resources } = world;
+  const { agent, resources } = world;
 
-  // Check if race and minerals are defined
-  if (race === undefined || minerals === undefined) {
-    return false; // Exit the function if race or minerals are undefined
+  // Check if race is defined
+  if (agent.race === undefined) {
+    return false; // Exit the function if race is undefined
   }
 
-  const workerRaceData = WorkerRace[race]; // Cache the worker race data
+  // Cache the worker race data
+  const workerRaceData = WorkerRace[agent.race];
+
+  // Don't train workers if they cannot be afforded considering earmarks
+  if (!agent.canAfford(workerRaceData)) {
+    return false;
+  }
+
+  // Get the current worker count
   const workerCount = getById(resources, [workerRaceData]).length;
-  const gasMineRaceData = GasMineRace[race]; // Cache the gas mine race data
+
+  // Cache the gas mine race data
+  const gasMineRaceData = GasMineRace[agent.race];
+
+  // Calculate the total number of assigned workers across all bases and gas mines
   const assignedWorkerCount = [...resources.get().units.getBases(), ...getById(resources, [gasMineRaceData])]
     .reduce((acc, base) => (base.assignedHarvesters || 0) + acc, 0);
+
+  // Determine the minimum worker count between current workers and assigned workers
   const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
+
+  // Calculate the food difference available for worker training
   const foodDifference = getAffordableFoodDifference(world);
-  const sufficientMinerals = minerals < 512 || minimumWorkerCount <= 36;
+
+  // Ensure there are sufficient minerals for worker training, considering the minimum worker count
+  const sufficientMinerals = (typeof agent.minerals === 'number' && agent.minerals < 512) || minimumWorkerCount <= 36;
+
+  // Check if production of workers is possible
   const productionPossible = haveAvailableProductionUnitsFor(world, workerRaceData);
+
+  // Access the strategy manager instance
   const strategyManager = StrategyManager.getInstance();
+
+  // Determine if the bot is not outpowered or if there are no units even if outpowered
   const notOutpoweredOrNoUnits = !strategyManager.getOutpowered() || (strategyManager.getOutpowered() && !unitProductionAvailable);
 
+  // Return true if all conditions are met for training workers
   return sufficientMinerals && (shortOnWorkers(world) || foodDifference > 0)
     && notOutpoweredOrNoUnits && productionPossible;
 }
