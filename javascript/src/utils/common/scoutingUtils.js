@@ -4,7 +4,7 @@
 // scoutingUtils.js
 
 // Shared utility functions
-const { getDistance } = require('./geometryUtils');
+const { getDistance } = require('./spatialUtils');
 const MapResources = require('../../core/mapResources');
 
 /**

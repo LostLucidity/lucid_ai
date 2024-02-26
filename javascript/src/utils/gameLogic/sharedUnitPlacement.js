@@ -3,9 +3,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
 const { findPosition } = require("./buildingPlacementHelpers");
-const { pointsOverlap, getFootprint, cellsInFootprint } = require("../common/geometryUtils");
-const { existsInMap } = require("../common/mapUtils");
-const { getAddOnPlacement, getAddOnBuildingPlacement } = require("../common/placementUtils");
+const { getAddOnPlacement, getFootprint, cellsInFootprint, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../common/geometry");
 const { canUnitBuildAddOn, flyingTypesMapping } = require("../common/unitConfig");
 const { getStringNameOfConstant } = require("../common/utils");
 

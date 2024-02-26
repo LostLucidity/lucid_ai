@@ -10,7 +10,7 @@ const { isPendingContructing } = require("./workerAssignmentHelpers");
 const GameState = require("../../core/gameState");
 const { buildingPositions } = require("../../core/gameStateResources");
 const { buildUnitTypeMap } = require("../common/gameData");
-const { getDistance } = require("../common/geometryUtils");
+const { getDistance } = require("../common/spatialUtils");
 
 /**
  * @param {World} world

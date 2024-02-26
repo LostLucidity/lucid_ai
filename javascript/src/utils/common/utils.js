@@ -12,9 +12,9 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 // Internal module imports
 const cacheManager = require("./cacheManager");
 const { areEqual, getClosestPathablePositions } = require("./common");
-const { getDistance } = require("./geometryUtils");
-const { isLineTraversable } = require("./mapUtils");
+const { isLineTraversable } = require("./pathfindingUtils");
 const { getMapPath, getPathCoordinates } = require("./pathUtils");
+const { getDistance } = require("./spatialUtils");
 
 /**
  * Creates a unit command action.
@@ -238,14 +238,6 @@ function canBuild(world, unitTypeId) {
 }
 
 /**
- * @param {number} frames 
- * @returns {number}
- */
-function getTimeInSeconds(frames) {
-  return frames / 22.4;
-}
-
-/**
  * Determines if a position is suitable for placing a building near a gas geyser.
  * 
  * @param {MapResource} map 
@@ -330,6 +322,5 @@ module.exports = {
   isPlaceableAtGasGeyser,
   isSupplyNeeded,
   canBuild,
-  getTimeInSeconds,
   positionIsEqual,
 };

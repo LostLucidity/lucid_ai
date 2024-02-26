@@ -5,7 +5,7 @@
 const { Ability } = require('@node-sc2/core/constants');
 
 // Internal module imports
-const { getDistance } = require('./geometryUtils');
+const { getDistance } = require('./spatialUtils');
 const { createUnitCommand } = require('./utils');
 
 /**

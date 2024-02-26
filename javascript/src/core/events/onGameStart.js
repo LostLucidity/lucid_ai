@@ -5,7 +5,7 @@ const config = require('../../../config/config');
 const BuildingPlacement = require('../../features/construction/buildingPlacement');
 const StrategyManager = require('../../features/strategy/strategyManager');
 const strategyUtils = require('../../features/strategy/strategyUtils');
-const mapUtils = require('../../utils/common/mapUtils');
+const { calculateAdjacentToRampGrids } = require('../../utils/common/geometry');
 const sharedWorkerUtils = require('../../utils/gameLogic/sharedWorkerUtils');
 const stateManagement = require('../../utils/gameLogic/stateManagement');
 const GameState = require('../gameState');
@@ -85,7 +85,7 @@ function performInitialMapAnalysis(world) {
   StrategyManager.getInstance(botRace);
   if (botRace === Race.TERRAN) {
     // First calculate the grids adjacent to ramps
-    mapUtils.calculateAdjacentToRampGrids(map);
+    calculateAdjacentToRampGrids(map);
 
     // Then calculate wall-off positions using the calculated ramp grids
     BuildingPlacement.calculateWallOffPositions(world);

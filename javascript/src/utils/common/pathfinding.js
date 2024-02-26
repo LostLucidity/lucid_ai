@@ -6,10 +6,9 @@
 // External library imports
 
 // Internal module imports
-const { getDistance } = require("./geometryUtils"); // combined utils from geometryUtils and utils
-const { getGasGeysers } = require("./mapUtils");
+const { getGasGeysers, getStructureCells } = require("./geometry");
 const { getPathablePositions } = require("./pathUtils");
-const { getStructureCells } = require("./placementUtils");
+const { getDistance } = require("./spatialUtils");
 const { getDistanceByPath } = require("./utils");
 const { getClosestPathablePositionsBetweenPositions } = require("../gameLogic/sharedPathfindingUtils");
 

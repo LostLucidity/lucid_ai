@@ -9,9 +9,9 @@ const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 
 // Internal module imports
 const { getClosestUnitFromUnit } = require("./distance");
-const { getDistance } = require("./geometryUtils");
 const { findEnemyUnitsNear } = require("./scoutingUtils");
 const { getClosestExpansion, isMoving } = require("./sharedUtils");
+const { getDistance } = require("./spatialUtils");
 const { setPendingOrders } = require("./unitOrders");
 const { getUnitsWithinDistance, createUnitCommand } = require("./utils");
 const { findClosestMineralField } = require("../gameLogic/coreUtils");

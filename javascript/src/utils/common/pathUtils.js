@@ -3,7 +3,7 @@
 
 const { getPathCache, clearPathCache, setPathCache } = require("./cacheModule");
 const { getClosestPathablePositions, areEqual } = require("./common");
-const { getGridsInCircleWithinMap, getDistance } = require("./geometryUtils");
+const { getGridsInCircleWithinMap, getDistance } = require("./spatialUtils");
 
 const pathUtils = {
   /**

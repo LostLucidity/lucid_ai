@@ -6,9 +6,9 @@ const { Ability, UnitType } = require("@node-sc2/core/constants");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { getDistance, pointsOverlap } = require("./geometryUtils");
-const { getAddOnPlacement } = require("./placementUtils");
+const { getAddOnPlacement, pointsOverlap } = require("./geometry");
 const { determineScoutingLocations, selectSCVForScouting } = require("./scoutingUtils");
+const { getDistance } = require("./spatialUtils");
 const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff, setRepositionLabel } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
 const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");

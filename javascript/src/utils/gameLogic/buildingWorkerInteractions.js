@@ -5,9 +5,10 @@ const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
 const { getBuilders } = require("./sharedWorkerUtils");
 const GameState = require("../../core/gameState");
-const { getDistance, getAwayPosition, areApproximatelyEqual } = require("../common/geometryUtils");
+const { getAwayPosition, areApproximatelyEqual } = require("../common/geometry");
 const { setBuilderLabel } = require("../common/sharedBuildingUtils");
 const { isMoving, getUnitsFromClustering } = require("../common/sharedUtils");
+const { getDistance } = require("../common/spatialUtils");
 const { setPendingOrders } = require("../common/unitOrders");
 const { createUnitCommand, getDistanceByPath } = require("../common/utils");
 const { rallyWorkerToTarget, getOrderTargetPosition } = require("../common/workerUtils");

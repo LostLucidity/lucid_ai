@@ -14,9 +14,9 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 // Internal dependencies
 const { getTimeToTargetTech } = require("./gameData");
 const { getById } = require("./gameUtils");
-const { getDistance, pointsOverlap } = require("./geometryUtils");
-const { getAddOnBuildingPlacement, landingGrids } = require("./placementUtils");
+const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("./geometry");
 const { earmarkResourcesIfNeeded } = require("./sharedEconomicFunctions");
+const { getDistance } = require("./spatialUtils");
 const { createTrainingCommands } = require("./unitActions");
 const { flyingTypesMapping, liftAndLandingTime } = require("./unitConfig");
 const { getUnitTypeCount, isTrainingUnit } = require("./unitHelpers");

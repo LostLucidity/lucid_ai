@@ -14,12 +14,12 @@ const GameState = require("../../core/gameState");
 const { buildingPositions } = require("../../core/gameStateResources");
 const MapResources = require("../../core/mapResources");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
-const { getDistance, pointsOverlap } = require("../common/geometryUtils");
-const { getOccupiedExpansions, existsInMap } = require("../common/mapUtils");
-const { getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../common/placementUtils");
+const { getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../common/geometry");
+const { getTimeInSeconds } = require("../common/pathfindingUtils");
 const { getBuildTimeLeft } = require("../common/sharedUtils");
+const { getDistance } = require("../common/spatialUtils");
 const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../common/unitConfig");
-const { isPlaceableAtGasGeyser, getTimeInSeconds } = require("../common/utils");
+const { isPlaceableAtGasGeyser } = require("../common/utils");
 
 /**
  * @typedef {Object} FootprintType

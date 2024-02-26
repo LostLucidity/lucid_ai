@@ -7,8 +7,8 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal utility function imports
-const { getDistance } = require("./geometryUtils");
-const { dbscan, getGasGeysers } = require("./mapUtils");
+const { dbscan, getGasGeysers } = require("./geometry");
+const { getDistance } = require("./spatialUtils");
 const { flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand } = require("./utils");

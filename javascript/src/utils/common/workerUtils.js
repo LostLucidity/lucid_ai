@@ -9,8 +9,8 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
 const { getById } = require("./gameUtils");
-const { getDistance } = require("./geometryUtils");
 const { isMoving, dbscanWithUnits, getBuildTimeLeft, getUnitsFromClustering, getClosestPathWithGasGeysers } = require("./sharedUtils");
+const { getDistance } = require("./spatialUtils");
 const { unitTypeTrainingAbilities } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { getUnitsTrainingTargetUnitType } = require("./unitWorkerService");

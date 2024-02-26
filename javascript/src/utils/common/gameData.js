@@ -19,7 +19,7 @@ const { UnitType } = require('@node-sc2/core/constants');
 const { reactorTypes, techLabTypes } = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
-const { getTimeInSeconds } = require('./utils');
+const { getTimeInSeconds } = require('./pathfindingUtils');
 const GameState = require('../../core/gameState');
 
 /**

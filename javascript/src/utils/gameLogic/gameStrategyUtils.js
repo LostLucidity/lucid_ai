@@ -4,8 +4,8 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 
 const { getSingletonInstance } = require("./singletonFactory");
 const StrategyManager = require("../../features/strategy/strategyManager");
-const { getDistance } = require("../common/geometryUtils");
 const { mappedEnemyUnits } = require("../common/scoutingUtils");
+const { getDistance } = require("../common/spatialUtils");
 const { potentialCombatants, calculateTimeToKillUnits } = require("../common/unitHelpers");
 
 /**

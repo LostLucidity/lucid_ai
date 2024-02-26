@@ -3,9 +3,8 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
-const { getClosestPosition } = require("../common/geometryUtils");
+const { getStructureCells, getClosestPosition } = require("../common/geometry");
 const { getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath } = require("../common/pathUtils");
-const { getStructureCells } = require("../common/placementUtils");
 const { getDistanceByPath } = require("../common/utils");
 
 /**

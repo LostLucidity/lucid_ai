@@ -18,9 +18,8 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 // Internal module imports
 const { buildingPositions } = require('../../core/gameStateResources');
 const StrategyManager = require('../../features/strategy/strategyManager');
-const { getDistance, getClosestPosition, intersectionOfPoints } = require('../../utils/common/geometryUtils');
-const { getAdjacentToRampGrids } = require('../../utils/common/mapUtils');
-const { getAddOnPlacement, getAddOnBuildingPlacement, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable } = require('../../utils/common/placementUtils');
+const { getAdjacentToRampGrids, getClosestPosition, intersectionOfPoints, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable, getAddOnPlacement, getAddOnBuildingPlacement } = require('../../utils/common/geometry');
+const { getDistance } = require('../../utils/common/spatialUtils');
 const { addOnTypesMapping } = require('../../utils/common/unitConfig');
 const { calculateDistance } = require('../../utils/gameLogic/coreUtils');
 
