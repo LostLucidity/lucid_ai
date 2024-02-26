@@ -5,7 +5,7 @@
 const { UnitType, Ability, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { Alliance, Attribute, Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
-const { WorkerRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
+const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const UnitAbilityMap = require("@node-sc2/core/constants/unit-ability-map");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -480,50 +480,21 @@ function selectUnitTypeToBuild(world, strategyManager, candidateTypes) {
 function shouldTrainWorkers(world) {
   const { agent, resources } = world;
 
-  // Check if race is defined
-  if (agent.race === undefined) {
-    return false; // Exit the function if race is undefined
-  }
-
-  // Cache the worker race data
-  const workerRaceData = WorkerRace[agent.race];
-
-  // Don't train workers if they cannot be afforded considering earmarks
-  if (!agent.canAfford(workerRaceData)) {
+  if (agent.race === undefined || !agent.canAfford(WorkerRace[agent.race])) {
     return false;
   }
 
-  // Get the current worker count
-  const workerCount = getById(resources, [workerRaceData]).length;
-
-  // Cache the gas mine race data
-  const gasMineRaceData = GasMineRace[agent.race];
-
-  // Calculate the total number of assigned workers across all bases and gas mines
-  const assignedWorkerCount = [...resources.get().units.getBases(), ...getById(resources, [gasMineRaceData])]
-    .reduce((acc, base) => (base.assignedHarvesters || 0) + acc, 0);
-
-  // Determine the minimum worker count between current workers and assigned workers
+  const workerCount = getById(resources, [WorkerRace[agent.race]]).length;
+  const bases = resources.get().units.getBases();
+  const gasMines = resources.get().units.getGasMines();
+  const assignedWorkerCount = [...bases, ...gasMines].reduce((acc, unit) => acc + (unit.assignedHarvesters || 0), 0);
   const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
-
-  // Calculate the food difference available for worker training
-  const foodDifference = getAffordableFoodDifference(world);
-
-  // Ensure there are sufficient minerals for worker training, considering the minimum worker count
-  const sufficientMinerals = (typeof agent.minerals === 'number' && agent.minerals < 512) || minimumWorkerCount <= 36;
-
-  // Check if production of workers is possible
-  const productionPossible = haveAvailableProductionUnitsFor(world, workerRaceData);
-
-  // Access the strategy manager instance
+  const sufficientMinerals = typeof agent.minerals === 'number' && (agent.minerals < 512 || minimumWorkerCount <= 36);
+  const productionPossible = haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]);
   const strategyManager = StrategyManager.getInstance();
+  const notOutpowered = !strategyManager.getOutpowered();
 
-  // Determine if the bot is not outpowered or if there are no units even if outpowered
-  const notOutpoweredOrNoUnits = !strategyManager.getOutpowered() || (strategyManager.getOutpowered() && !unitProductionAvailable);
-
-  // Return true if all conditions are met for training workers
-  return sufficientMinerals && (shortOnWorkers(world) || foodDifference > 0)
-    && notOutpoweredOrNoUnits && productionPossible;
+  return sufficientMinerals && (shortOnWorkers(world) || getAffordableFoodDifference(world) > 0) && notOutpowered && productionPossible;
 }
 
 /**
