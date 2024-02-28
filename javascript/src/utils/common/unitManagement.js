@@ -335,7 +335,6 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function handleUnitTraining(world, step) {
-  // Early return if there's no agent race or unit type defined in the step
   if (world.agent.race === undefined || !step.unitType) {
     return [];
   }
@@ -344,28 +343,25 @@ function handleUnitTraining(world, step) {
   const foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
   const foodDifference = (step.food || 0) - foodUsed;
 
-  // Early return if the step is a building step or there's no need for additional units
-  if (isBuildStep(step, world.data) || foodDifference <= 0) {
+  if (foodDifference <= 0) {
     return [];
   }
 
-  const actions = [];
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   let trainingOrders = [];
 
-  // Determine whether to train workers or combat units
-  if (isWorkerStep(step, world.agent.race)) {
-    if (shouldTrainWorkers(world)) {
-      trainingOrders = trainWorkers(world);
-    }
-  } else {
+  // Always check if we should train workers, regardless of the step type
+  if (shouldTrainWorkers(world)) {
+    trainingOrders = trainWorkers(world);
+  }
+
+  // If no workers are to be trained and it's not a worker step, try training combat units
+  if (trainingOrders.length === 0) {
     trainingOrders = trainCombatUnits(world);
   }
 
-  // Add training orders to actions
-  actions.push(...trainingOrders);
-
   // Earmark workers for future training if no training orders were created
+  // and the agent's race matches a known worker race
   if (trainingOrders.length === 0 && WorkerRace[world.agent.race]) {
     const workerUnitTypeData = world.data.getUnitTypeData(WorkerRace[world.agent.race]);
     for (let i = 0; i < foodDifference; i++) {
@@ -373,8 +369,9 @@ function handleUnitTraining(world, step) {
     }
   }
 
-  return actions;
+  return trainingOrders;
 }
+
 
 /**
  * Check if unitType has prerequisites to build when minerals are available.
@@ -396,32 +393,6 @@ function haveAvailableProductionUnitsFor(world, unitType) {
       canTrainNow(world, unit, unitType)
     )
   );
-}
-
-/**
- * Determines if the current step is a building step.
- * @param {import("../../features/strategy/strategyService").PlanStep} step
- * @param {{ getUnitTypeData: (arg0: any) => { attributes?: any[]; }; }} data - Game data context
- * @returns {boolean}
- */
-function isBuildStep(step, data) {
-  if (step.orderType === 'UnitType') {
-    const unitData = data.getUnitTypeData(step.unitType);
-    if (unitData && unitData.attributes) {
-      return unitData.attributes.includes(Attribute.STRUCTURE);
-    }
-  }
-  return false;
-}
-
-/**
- * Determines if the current step involves worker training.
- * @param {import("../../features/strategy/strategyService").PlanStep} step
- * @param {Race} race - The race of the agent to determine the worker unit type.
- * @returns {boolean}
- */
-function isWorkerStep(step, race) {
-  return step.unitType === WorkerRace[race];
 }
 
 /**
