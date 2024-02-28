@@ -134,6 +134,20 @@ function checkProductionAvailability(world, unitType) {
 }
 
 /**
+ * Earmarks workers for future training based on available food capacity.
+ * @param {World} world The game world context.
+ * @param {number} foodAvailable The amount of food capacity available for training workers.
+ */
+function earmarkWorkersForTraining(world, foodAvailable) {
+  if (world.agent.race !== undefined) {
+    const workerUnitTypeData = world.data.getUnitTypeData(WorkerRace[world.agent.race]);
+    for (let i = 0; i < foodAvailable; i++) {
+      addEarmark(world.data, workerUnitTypeData);
+    }
+  }
+}
+
+/**
  * Filters candidate unit types for training based on current strategy and game state.
  * @param {World} world The game world context.
  * @param {StrategyManager} strategyManager The current strategy manager.
@@ -329,49 +343,33 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
 }
 
 /**
- * Handles the training of units.
- * @param {World} world
- * @param {import("../../features/strategy/strategyService").PlanStep} step
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ * Optimizes the training of units based on the current game state and strategic needs.
+ * @param {World} world The game world context.
+ * @param {import("../../features/strategy/strategyService").PlanStep} step The current strategy step.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of unit training commands.
  */
 function handleUnitTraining(world, step) {
-  if (world.agent.race === undefined || !step.unitType) {
-    return [];
-  }
+  if (!world.agent.race || !step.unitType) return [];
 
   const gameState = GameState.getInstance();
   const foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
-  const foodDifference = (step.food || 0) - foodUsed;
+  const foodAvailable = (step.food || 0) - foodUsed;
+  if (foodAvailable <= 0) return [];
 
-  if (foodDifference <= 0) {
-    return [];
-  }
+  let trainingOrders = shouldTrainWorkers(world) ? trainWorkers(world) : [];
 
-  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-  let trainingOrders = [];
-
-  // Always check if we should train workers, regardless of the step type
-  if (shouldTrainWorkers(world)) {
-    trainingOrders = trainWorkers(world);
-  }
-
-  // If no workers are to be trained and it's not a worker step, try training combat units
+  // Proceed to train combat units if no worker training orders are created
   if (trainingOrders.length === 0) {
     trainingOrders = trainCombatUnits(world);
   }
 
   // Earmark workers for future training if no training orders were created
-  // and the agent's race matches a known worker race
   if (trainingOrders.length === 0 && WorkerRace[world.agent.race]) {
-    const workerUnitTypeData = world.data.getUnitTypeData(WorkerRace[world.agent.race]);
-    for (let i = 0; i < foodDifference; i++) {
-      addEarmark(world.data, workerUnitTypeData);
-    }
+    earmarkWorkersForTraining(world, foodAvailable);
   }
 
   return trainingOrders;
 }
-
 
 /**
  * Check if unitType has prerequisites to build when minerals are available.
