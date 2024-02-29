@@ -2,10 +2,9 @@
 "use strict";
 
 // External library imports
-const { UnitType, Ability, WarpUnitAbility } = require("@node-sc2/core/constants");
-const { Alliance, Attribute, Race } = require("@node-sc2/core/constants/enums");
+const { UnitType, Ability } = require("@node-sc2/core/constants");
+const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
-const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const UnitAbilityMap = require("@node-sc2/core/constants/unit-ability-map");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -13,36 +12,20 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal dependencies
 const { getTimeToTargetTech } = require("./gameData");
-const { getById } = require("./gameUtils");
 const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("./geometry");
-const { earmarkResourcesIfNeeded } = require("./sharedEconomicFunctions");
 const { getDistance } = require("./spatialUtils");
-const { createTrainingCommands } = require("./unitActions");
-const { flyingTypesMapping, liftAndLandingTime } = require("./unitConfig");
-const { getUnitTypeCount, isTrainingUnit } = require("./unitHelpers");
+const { liftAndLandingTime } = require("./unitConfig");
+const { isTrainingUnit } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
-const { createUnitCommand, findKeysForValue } = require("./utils");
-const { shortOnWorkers } = require("./workerUtils");
+const { handleUnitTraining } = require("./unitTraining");
+const { productionUnitsCache } = require("./unitUtils");
+const { createUnitCommand } = require("./utils");
 const GameState = require("../../core/gameState");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { buildSupply } = require("../../features/construction/buildingService");
-const StrategyManager = require("../../features/strategy/strategyManager");
-const { filterSafeTrainers } = require("../gameLogic/gameStrategyUtils");
 const { getPendingOrders } = require("../gameLogic/stateManagement");
-const { checkTechRequirement } = require("../gameLogic/techRequirementUtils");
-const { isTrainingOrder, canTrainUnit } = require("../gameLogic/unitCapabilityUtils");
-const { haveSupplyForUnit, getTimeToTargetCost } = require("../resourceManagement/resourceManagement");
+const { getTimeToTargetCost } = require("../resourceManagement/resourceManagement");
 const { addEarmark, getEarmarkedFood } = require("../resourceManagement/resourceUtils");
-
-/** @type {Map<UnitTypeId, Unit[]>} */
-const productionUnitsCache = new Map();
-
-// At the top of your file, initialize a cache for unit type data
-/** @type {Map<number, SC2APIProtocol.UnitTypeData>} */
-const unitTypeDataCache = new Map();
-
-/** @type {boolean} */
-let unitProductionAvailable = true;
 
 /**
  * Build supply or train units based on the game world state and strategy step.
@@ -58,188 +41,6 @@ function buildSupplyOrTrain(world, step) {
   updateFoodUsed(world);
 
   return collectedActions;
-}
-
-/**
- * Calculates how many units can be afforded and have supply for, up to a maximum.
- * @param {World} world The game world context.
- * @param {UnitTypeId} workerRaceData The data for the worker race.
- * @param {number} maxUnits The maximum number of units to check.
- * @returns {number} The number of affordable units with available supply.
- */
-function calculateAffordableUnits(world, workerRaceData, maxUnits) {
-  const { agent } = world; // Destructure data from world here
-  let affordableUnits = 0;
-
-  for (let i = 0; i < maxUnits; i++) {
-    if (agent.canAfford(workerRaceData) && haveSupplyForUnit(world, workerRaceData)) {
-      affordableUnits++;
-
-      // Use the cached version of getUnitTypeData
-      const unitTypeData = getCachedUnitTypeData(world, workerRaceData);
-      if (!unitTypeData) {
-        console.error(`No unit type data found for ID: ${workerRaceData}`);
-        break; // Exit the loop if the unit data cannot be found
-      }
-
-      addEarmark(world.data, unitTypeData); // Pass the UnitTypeData to addEarmark
-    } else {
-      break; // Exit loop if a unit cannot be afforded or there's no supply
-    }
-  }
-
-  return affordableUnits;
-}
-
-/**
- * Check if unit can train now.
- * @param {World} world
- * @param {Unit} unit 
- * @param {UnitTypeId} unitType
- * @returns {boolean}
- */
-const canTrainNow = (world, unit, unitType) => {
-  if (!unit.orders || unit.buildProgress === undefined) return false;
-
-  // Calculate the max orders and get the tech requirement once
-  const maxOrders = unit.hasReactor() ? 2 : 1;
-  const { techRequirement } = world.data.getUnitTypeData(unitType);
-
-  // Check for tech requirements
-  if (techRequirement && !checkTechRequirement(world.resources, techRequirement, unit)) {
-    return false;
-  }
-
-  // Combine and filter orders in one go
-  const currentAndPendingOrders = unit.orders
-    .concat(getPendingOrders(unit))
-    .filter(order => isTrainingOrder(order, world.data))
-    .length;
-
-  return currentAndPendingOrders < maxOrders;
-}
-
-/**
- * @param {World} world
- * @param {number} unitType
- */
-function checkProductionAvailability(world, unitType) {
-  const gameState = GameState.getInstance();
-  if (gameState.availableProductionUnits.has(unitType)) {
-    return gameState.availableProductionUnits.get(unitType) || false;
-  }
-  const haveAvailableProductionUnits = haveAvailableProductionUnitsFor(world, unitType);
-  gameState.availableProductionUnits.set(unitType, haveAvailableProductionUnits);
-  return haveAvailableProductionUnits;
-}
-
-/**
- * Earmarks workers for future training based on available food capacity.
- * @param {World} world The game world context.
- * @param {number} foodAvailable The amount of food capacity available for training workers.
- */
-function earmarkWorkersForTraining(world, foodAvailable) {
-  if (world.agent.race !== undefined) {
-    const workerUnitTypeData = world.data.getUnitTypeData(WorkerRace[world.agent.race]);
-    for (let i = 0; i < foodAvailable; i++) {
-      addEarmark(world.data, workerUnitTypeData);
-    }
-  }
-}
-
-/**
- * Filters candidate unit types for training based on current strategy and game state.
- * @param {World} world The game world context.
- * @param {StrategyManager} strategyManager The current strategy manager.
- * @returns {UnitTypeId[]} An array of unit types that are candidates for training.
- */
-function filterCandidateTypes(world, strategyManager) {
-  const { data } = world;
-  const gameState = GameState.getInstance();
-  const currentStrategy = strategyManager.getCurrentStrategy();
-
-  if (!currentStrategy || !currentStrategy.steps) {
-    console.error('No current strategy or strategy steps defined.');
-    return [];
-  }
-
-  const currentStepIndex = strategyManager.getCurrentStep();
-  const currentPlanStep = currentStrategy.steps[currentStepIndex];
-
-  return strategyManager.getTrainingTypes().filter(type => {
-    const unitTypeData = data.getUnitTypeData(type);
-    const attributes = unitTypeData.attributes || []; // Provide a default empty array if attributes are undefined
-    const foodRequired = unitTypeData.foodRequired || 0; // Provide a default value of 0 if foodRequired is undefined
-    const supply = currentPlanStep ? parseInt(currentPlanStep.supply, 10) : 0;
-
-    const isPlannedType = currentStrategy.steps.some(step => {
-      // Normalize interpretedAction to an array
-      const interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : [step.interpretedAction];
-
-      // Check if any interpretedAction matches the unit type
-      return interpretedActions.some(action => action && action.unitType === type);
-    });
-
-    return isPlannedType &&
-      (!attributes.includes(Attribute.STRUCTURE)) && // Now safe to use includes() since attributes has a default value
-      foodRequired <= supply - gameState.getFoodUsed() &&
-      gameState.checkTechFor(world.agent, type) &&
-      checkProductionAvailability(world, type);
-  });
-}
-
-/**
- * Retrieves unit type data, using cache to avoid repeated lookups.
- * @param {World} world The game world context.
- * @param {number} unitTypeId The ID of the unit type to retrieve.
- * @returns {SC2APIProtocol.UnitTypeData | undefined} The unit type data, or undefined if not found.
- */
-function getCachedUnitTypeData(world, unitTypeId) {
-  // Check if the data is already in the cache
-  if (unitTypeDataCache.has(unitTypeId)) {
-    return unitTypeDataCache.get(unitTypeId);
-  }
-
-  // If not in the cache, retrieve it and add to the cache
-  const unitTypeData = world.data.getUnitTypeData(unitTypeId);
-  if (unitTypeData) {
-    unitTypeDataCache.set(unitTypeId, unitTypeData);
-  }
-
-  return unitTypeData;
-}
-
-/**
- * Calculates the affordable food difference based on the next step in the build plan.
- * @param {World} world The game world context.
- * @returns {number} The number of affordable units based on food supply.
- */
-function getAffordableFoodDifference(world) {
-  const { agent, data } = world;
-  const race = agent.race;
-
-  // Validate race
-  if (!race || !WorkerRace[race]) return 0;
-
-  const workerRaceData = WorkerRace[race];
-  const unitData = data.getUnitTypeData(workerRaceData);
-  if (!unitData || !unitData.abilityId) return 0;
-
-  const foodUsed = GameState.getInstance().getFoodUsed();
-  const plan = StrategyManager.getInstance().getCurrentStrategy();
-  if (!plan || !plan.steps) {
-    console.error('Current strategy plan is undefined or invalid.');
-    return 0;
-  }
-
-  const nextStep = plan.steps.find(step => parseInt(step.supply, 10) >= foodUsed);
-  if (!nextStep) return 0; // No further steps or already at the last step
-
-  const foodDifference = parseInt(nextStep.supply, 10) - foodUsed;
-  const productionUnits = getProductionUnits(world, workerRaceData).length;
-  const potentialUnits = Math.min(foodDifference, productionUnits);
-
-  return calculateAffordableUnits(world, workerRaceData, potentialUnits);
 }
 
 /**
@@ -272,43 +73,6 @@ function getProductionUnits(world, unitTypeId) {
 }
 
 /**
- * @param {World} world
- * @param {UnitTypeId} unitTypeId
- * @returns {Unit[]}
- */
-function getTrainer(world, unitTypeId) {
-  const { WARPGATE } = UnitType;
-  const { data, resources } = world;
-  const { units } = resources.get();
-  let { abilityId } = data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return [];
-
-  const unitFilter = (/** @type {Unit} */ unit) => {
-    const { orders } = unit;
-    const pendingOrders = getPendingOrders(unit);
-    if (abilityId === undefined || orders === undefined || pendingOrders === undefined) return false;
-    const allOrders = [...orders, ...pendingOrders];
-    const spaceToTrain = allOrders.length === 0 || (unit.hasReactor() && allOrders.length < 2);
-    return spaceToTrain && unit.abilityAvailable(abilityId) && !unit.labels.has('reposition');
-  };
-
-  let productionUnits = getProductionUnits(world, unitTypeId).filter(unitFilter);
-
-  if (productionUnits.length === 0) {
-    const abilityId = WarpUnitAbility[unitTypeId];
-    productionUnits = units.getById(WARPGATE).filter(warpgate => abilityId && warpgate.abilityAvailable(abilityId));
-  }
-
-  // Check for flying units
-  const unitTypesWithAbility = data.findUnitTypesWithAbility(abilityId);
-  const flyingTypes = unitTypesWithAbility.flatMap(value => findKeysForValue(flyingTypesMapping, value));
-  const flyingUnits = units.getById(flyingTypes).filter(unit => unit.isIdle());
-
-  productionUnits = [...productionUnits, ...flyingUnits];
-
-  return productionUnits;
-}
-
-/**
  * Handles the building of supply units.
  * @param {World} world
  * @param {import("../../features/strategy/strategyService").PlanStep} step
@@ -329,68 +93,6 @@ function handleSupplyBuilding(world, step) {
   }
 
   return actions;
-}
-
-/**
- * @param {World} world
- * @param {number} unitTypeId
- * @param {SC2APIProtocol.UnitTypeData} unitTypeData
- */
-function handleTrainingActions(world, unitTypeId, unitTypeData) {
-  const trainers = getTrainer(world, unitTypeId);
-  const safeTrainers = filterSafeTrainers(world, trainers);
-  return createTrainingCommands(world, safeTrainers, unitTypeData);
-}
-
-/**
- * Optimizes the training of units based on the current game state and strategic needs.
- * @param {World} world The game world context.
- * @param {import("../../features/strategy/strategyService").PlanStep} step The current strategy step.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of unit training commands.
- */
-function handleUnitTraining(world, step) {
-  if (!world.agent.race || !step.unitType) return [];
-
-  const gameState = GameState.getInstance();
-  const foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
-  const foodAvailable = (step.food || 0) - foodUsed;
-  if (foodAvailable <= 0) return [];
-
-  let trainingOrders = shouldTrainWorkers(world) ? trainWorkers(world) : [];
-
-  // Proceed to train combat units if no worker training orders are created
-  if (trainingOrders.length === 0) {
-    trainingOrders = trainCombatUnits(world);
-  }
-
-  // Earmark workers for future training if no training orders were created
-  if (trainingOrders.length === 0 && WorkerRace[world.agent.race]) {
-    earmarkWorkersForTraining(world, foodAvailable);
-  }
-
-  return trainingOrders;
-}
-
-/**
- * Check if unitType has prerequisites to build when minerals are available.
- * @param {World} world 
- * @param {UnitTypeId} unitType 
- * @returns {boolean}
- */
-function haveAvailableProductionUnitsFor(world, unitType) {
-  const { resources } = world;
-  const { units } = resources.get();
-  const warpInAbilityId = WarpUnitAbility[unitType];
-  const productionUnits = getProductionUnits(world, unitType);
-  return (
-    units.getById(UnitType.WARPGATE).some(warpgate => warpgate.abilityAvailable(warpInAbilityId)) ||
-    productionUnits.some(unit =>
-      unit.buildProgress !== undefined &&
-      unit.buildProgress >= 1 &&
-      !unit.isEnemy() &&
-      canTrainNow(world, unit, unitType)
-    )
-  );
 }
 
 /**
@@ -419,138 +121,6 @@ function manageZergSupply(world) {
  */
 function refreshProductionUnitsCache() {
   productionUnitsCache.clear();
-}
-
-/**
- * Selects a unit type to build from the list of candidate types.
- * @param {World} world The game world context.
- * @param {StrategyManager} strategyManager The current strategy manager.
- * @param {UnitTypeId[]} candidateTypes The candidate unit types for training.
- * @returns {UnitTypeId | null} The selected unit type to build, or null if none is selected.
- */
-function selectUnitTypeToBuild(world, strategyManager, candidateTypes) {
-  return strategyManager.selectTypeToBuild(world, candidateTypes);
-}
-
-/**
- * Analyzes the game state and decides if workers should be trained.
- * @param {World} world - The current game world context.
- * @returns {boolean} - True if conditions are met for training workers, false otherwise.
- */
-function shouldTrainWorkers(world) {
-  const { agent, resources } = world;
-
-  if (agent.race === undefined || !agent.canAfford(WorkerRace[agent.race])) {
-    return false;
-  }
-
-  const workerCount = getById(resources, [WorkerRace[agent.race]]).length;
-  const bases = resources.get().units.getBases();
-  const gasMines = resources.get().units.getGasMines();
-  const assignedWorkerCount = [...bases, ...gasMines].reduce((acc, unit) => acc + (unit.assignedHarvesters || 0), 0);
-  const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
-  const sufficientMinerals = typeof agent.minerals === 'number' && (agent.minerals < 512 || minimumWorkerCount <= 36);
-  const productionPossible = haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]);
-  const strategyManager = StrategyManager.getInstance();
-  const notOutpowered = !strategyManager.getOutpowered();
-
-  return sufficientMinerals && (shortOnWorkers(world) || getAffordableFoodDifference(world) > 0) && notOutpowered && productionPossible;
-}
-
-/**
- * Train a unit.
- * @param {World} world The current game world.
- * @param {UnitTypeId} unitTypeId Type of the unit to train.
- * @param {number | null} targetCount Target number of units.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
-function train(world, unitTypeId, targetCount = null) {
-  const unitTypeData = world.data.getUnitTypeData(unitTypeId);
-  if (!unitTypeData.abilityId) return [];
-
-  let earmarkNeeded = targetCount && getUnitTypeCount(world, unitTypeId) < targetCount;
-
-  if (!canTrainUnit(world, unitTypeId, targetCount)) return [];
-  earmarkNeeded = earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
-
-  const collectedActions = handleTrainingActions(world, unitTypeId, unitTypeData);
-  earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
-
-  return collectedActions;
-}
-
-/**
- * Trains combat units based on the current strategy and game state.
- * @param {World} world The game world context.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
- */
-function trainCombatUnits(world) {
-  const { agent } = world;
-  if (!agent.minerals || !agent.vespene) return [];
-
-  const strategyManager = StrategyManager.getInstance();
-  if (!strategyManager.getCurrentStrategy()) {
-    console.error('Current strategy is undefined.');
-    return [];
-  }
-
-  const candidateTypesToBuild = filterCandidateTypes(world, strategyManager);
-  if (candidateTypesToBuild.length === 0) return [];
-
-  const selectedType = selectUnitTypeToBuild(world, strategyManager, candidateTypesToBuild);
-  if (!selectedType) return [];
-
-  return strategyManager.getOutpowered() || agent.canAfford(selectedType) ? train(world, selectedType) : [];
-}
-
-/**
- * Train workers for all races, considering the unique Zerg training mechanism and ability availability.
- * @param {World} world - The game world context, containing all necessary game state information.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be sent to the game.
- */
-function trainWorkers(world) {
-  const { agent, data, resources } = world;
-  const { minerals, race } = agent;
-
-  if (minerals === undefined || race === undefined) return [];
-
-  const workerTypeId = WorkerRace[race]; // Assuming WorkerRace is a predefined mapping
-  const workerTypeData = data.getUnitTypeData(workerTypeId);
-  const { abilityId } = workerTypeData;
-
-  if (!abilityId) return [];
-
-  const collectedActions = [];
-
-  if (race === Race.ZERG) {
-    const larvae = resources.get().units.getById(UnitType.LARVA);
-    for (const larva of larvae) {
-      const pendingOrders = getPendingOrders(larva);
-      const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
-
-      if (larva.isIdle() && larva.abilityAvailable(abilityId) && !isAlreadyTraining) {
-        const unitCommand = createUnitCommand(abilityId, [larva]);
-        collectedActions.push(unitCommand);
-        setPendingOrders(larva, unitCommand); // Update local state to reflect new order
-        break; // Only issue one command per function call to manage resources efficiently
-      }
-    }
-  } else {
-    const bases = resources.get().units.getBases();
-    for (const base of bases) {
-      const pendingOrders = getPendingOrders(base);
-      const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
-
-      if (base.isIdle() && base.isFinished() && base.abilityAvailable(abilityId) && !isAlreadyTraining) {
-        const unitCommand = createUnitCommand(abilityId, [base]);
-        collectedActions.push(unitCommand);
-        setPendingOrders(base, unitCommand); // Update local state to reflect new order
-        break; // Issue command to the first eligible base only
-      }
-    }
-  }
-
-  return collectedActions;
 }
 
 /**
@@ -947,13 +517,9 @@ function upgrade(world, upgradeId) {
 }
 
 module.exports = {
-  unitProductionAvailable,
   buildSupplyOrTrain,
-  getAffordableFoodDifference,
   getProductionUnits,
-  haveAvailableProductionUnitsFor,
   manageZergSupply,
   refreshProductionUnitsCache,
-  train,
   upgrade,
 };
