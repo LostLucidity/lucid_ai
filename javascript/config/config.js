@@ -14,9 +14,10 @@ const maps = require('./maps');
  *   defaultDifficulty: Difficulty,
  *   defaultMap: string,
  *   loggingLevel: number,
- *   planMax: { supply: number, gasMine: number }, // Add this line
+ *   planMax: { supply: number, gasMine: number },
  *   automateSupply: boolean,
- *   naturalWallPylon: boolean
+ *   naturalWallPylon: boolean,
+ *   debugBuildOrderKey: string | null // Add this property
  * }}
  */
 module.exports = {
@@ -32,15 +33,18 @@ module.exports = {
   // Logging level: 0 for no logs, 1 for standard logs, 2 for debug logs
   loggingLevel: 1,
 
-  // Maximum supply threshold
+  // Configuration for maximum plan thresholds
   planMax: {
-    supply: 0,
-    gasMine: 0, // Add this line
+    supply: 200,
+    gasMine: 2,
   },
 
-  // Whether to automate the building of supply units (true to automate, false to disable)
+  // Whether to automate the building of supply units
   automateSupply: true,
 
-  // Prioritize Pylon placement at natural walls for Protoss (true to prioritize, false to not)
+  // Prioritize Pylon placement at natural walls for Protoss
   naturalWallPylon: true,
+
+  // Debug-specific build order key (set to null or specific key as needed)
+  debugBuildOrderKey: 'null',
 };

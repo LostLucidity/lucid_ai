@@ -4,6 +4,7 @@
 const { Race } = require("@node-sc2/core/constants/enums");
 
 // Import build orders for each race
+const config = require("../../../config/config");
 const GameState = require("../../core/gameState");
 const { calculateTargetCountForStep } = require("../../utils/gameLogic/intermediaryUtils");
 const { getSingletonInstance } = require("../../utils/gameLogic/singletonFactory");
@@ -50,39 +51,17 @@ class StrategyManager {
 
   /**
    * @param {SC2APIProtocol.Race | undefined} race
+   * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    */
-  constructor(race) {
+  constructor(race, specificBuildOrderKey = undefined) {
     if (StrategyManager.instance) {
       return StrategyManager.instance;
     }
     StrategyManager.instance = this;
     this.race = race;
+    this.specificBuildOrderKey = specificBuildOrderKey; // Store the specific build order key
 
-    try {
-      // Select a build order based on some criteria
-      const buildOrderKey = this.selectBuildOrderKey(race);
-
-      // Dynamically load the strategy
-      /** @type {import("../../utils/gameLogic/globalTypes").BuildOrder | Strategy | undefined} */
-      this.currentStrategy = this.loadStrategy(race, buildOrderKey);
-    } catch (error) {
-      console.error(`Error loading strategy for ${race}:`, error);
-    }
-
-    this.currentStep = -1;
-    /** @type {boolean} Indicates whether the bot is currently outpowered by the opponent. */
-    this.outpowered = false;
-    /** @type {{ [key: string]: number }} Minimum thresholds or requirements for the plan. */
-    this.planMin = {}; // Initialize planMin as an empty object or with default values
-    /**
-     * The type of unit currently selected for training.
-     * @type {number|null}
-     */    
-    this.selectedTypeToBuild = null;
-    /** @type {number[]} Types of units currently being trained. */
-    this.trainingTypes = [];
-    /** @type {{ [key: string]: number }} Maximum thresholds or limits for unit types. */
-    this.unitMax = {}; // Initialize unitMax as an empty object or with default values
+    this.initializeStrategy(race); // Refactor strategy initialization to its own method
   }
 
   /**
@@ -143,16 +122,31 @@ class StrategyManager {
    * @param {SC2APIProtocol.Race | undefined} race - The race for which to initialize the strategy.
    */
   initializeStrategy(race) {
-    if (this.race === undefined) {
-      this.race = race;
+    if (!race) {
+      throw new Error("Race must be provided for strategy initialization");
     }
+    this.race = race;
+
     try {
-      const buildOrderKey = this.selectBuildOrderKey(race);
+      // Use the debug build order key from configuration if available, otherwise select randomly
+      const buildOrderKey = config.debugBuildOrderKey || this.selectBuildOrderKey(race);
+
       this.currentStrategy = this.loadStrategy(race, buildOrderKey);
     } catch (error) {
       console.error(`Error loading strategy for ${race}:`, error);
     }
+
+    this.currentStep = -1;
+    this.outpowered = false;
+    this.planMin = {};
+    this.selectedTypeToBuild = null;
+    /**
+     * @type {number[]}
+     */
+    this.trainingTypes = [];
+    this.unitMax = {};
   }
+
 
   /**
    * Determines if the current strategy plan has been completed.
@@ -246,30 +240,42 @@ class StrategyManager {
 
   /**
    * Selects a build order key based on race and possibly other criteria.
+   * If a specific build order key is provided, it uses that key; otherwise, it selects randomly.
    * @param {SC2APIProtocol.Race | undefined} race
+   * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    * @returns {string}
    */
-  selectBuildOrderKey(race) {
+  selectBuildOrderKey(race, specificBuildOrderKey = undefined) {
     if (race === undefined) {
       throw new Error('Race must be provided');
     }
+    // Directly use the specific build order key if provided
+    if (specificBuildOrderKey !== undefined) {
+      return specificBuildOrderKey;
+    }
+    // Otherwise, proceed to select a key randomly
     return this.selectRandomBuildOrderKey(race);
   }
 
   /**
    * Selects a random build order key for a given race.
    * @param {SC2APIProtocol.Race} race - The race for which to select a build order.
-   * @returns {string} A randomly selected build order key.
+   * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
+   * @returns {string} A randomly selected or specified build order key.
    */
-  selectRandomBuildOrderKey(race) {
+  selectRandomBuildOrderKey(race, specificBuildOrderKey = undefined) {
+    if (specificBuildOrderKey) {
+      return specificBuildOrderKey;
+    }
     const raceKey = this.mapRaceToKey(race);
     const raceBuildOrders = buildOrders[raceKey];
 
     if (!raceBuildOrders) {
-      // Handle the case where the raceBuildOrders is undefined
-      // This could be throwing an error or choosing a default behavior
       throw new Error(`Build orders for race ${raceKey} not found`);
     }
+
+    // Log available build orders for insight
+    console.log(`Available build order keys for ${raceKey}:`, Object.keys(raceBuildOrders));
 
     const buildOrderKeys = Object.keys(raceBuildOrders);
     const randomIndex = Math.floor(Math.random() * buildOrderKeys.length);
