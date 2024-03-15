@@ -1,50 +1,39 @@
-//@ts-check
-"use strict"
-
-// Core constants from the Node-SC2 library
+require('dotenv').config();
 const { Difficulty, Race } = require('@node-sc2/core/constants/enums');
 
-// Local module imports
 const maps = require('./maps');
 
-/**
- * Configuration settings for the StarCraft 2 bot.
- * @type {{
- *   defaultRace: Race,
- *   defaultDifficulty: Difficulty,
- *   defaultMap: string,
- *   loggingLevel: number,
- *   planMax: { supply: number, gasMine: number },
- *   automateSupply: boolean,
- *   naturalWallPylon: boolean,
- *   debugBuildOrderKey: string | null // Add this property
- * }}
- */
-module.exports = {
-  // Default race of the bot
-  defaultRace: Race.RANDOM,
-
-  // Default difficulty level for the AI opponent
-  defaultDifficulty: Difficulty.EASY,
-
-  // Default map to play on
-  defaultMap: maps.MAP_JAGANNATHA_LE,
-
-  // Logging level: 0 for no logs, 1 for standard logs, 2 for debug logs
-  loggingLevel: 1,
-
-  // Configuration for maximum plan thresholds
-  planMax: {
+// Default configuration values
+const DEFAULTS = {
+  RACE: Race.RANDOM,
+  DIFFICULTY: Difficulty.EASY,
+  MAP: maps.MAP_JAGANNATHA_LE,
+  LOGGING_LEVEL: 1,
+  PLAN_MAX: {
     supply: 200,
     gasMine: 2,
   },
+  AUTOMATE_SUPPLY: true,
+  NATURAL_WALL_PYLON: true,
+};
 
-  // Whether to automate the building of supply units
-  automateSupply: true,
+/**
+ * Validate and return the logging level, ensuring it falls within the expected range.
+ * @param {number} level The provided logging level.
+ * @returns {number} The validated logging level.
+ */
+function getValidatedLoggingLevel(level) {
+  const validLevels = [0, 1, 2]; // Example of expected logging levels
+  return validLevels.includes(level) ? level : DEFAULTS.LOGGING_LEVEL;
+}
 
-  // Prioritize Pylon placement at natural walls for Protoss
-  naturalWallPylon: true,
-
-  // Debug-specific build order key (set to null or specific key as needed)
-  debugBuildOrderKey: 'null',
+module.exports = {
+  defaultRace: process.env.DEFAULT_RACE || DEFAULTS.RACE,
+  defaultDifficulty: process.env.DEFAULT_DIFFICULTY || DEFAULTS.DIFFICULTY,
+  defaultMap: process.env.DEFAULT_MAP || DEFAULTS.MAP,
+  loggingLevel: getValidatedLoggingLevel(parseInt(process.env.LOGGING_LEVEL || '0', 10)),
+  planMax: DEFAULTS.PLAN_MAX,
+  automateSupply: process.env.AUTOMATE_SUPPLY === 'true' || DEFAULTS.AUTOMATE_SUPPLY,
+  naturalWallPylon: process.env.NATURAL_WALL_PYLON === 'true' || DEFAULTS.NATURAL_WALL_PYLON,
+  debugBuildOrderKey: process.env.DEBUG_BUILD_ORDER_KEY || null,
 };

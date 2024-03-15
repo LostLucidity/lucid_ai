@@ -208,34 +208,38 @@ class StrategyManager {
    * @returns {import("../../utils/gameLogic/globalTypes").BuildOrder | undefined}
    */
   loadStrategy(race, buildOrderKey) {
-    switch (race) {
-      case Race.TERRAN:
-        return buildOrders.terran[buildOrderKey];
-      case Race.PROTOSS:
-        return buildOrders.protoss[buildOrderKey];
-      case Race.ZERG:
-        return buildOrders.zerg[buildOrderKey];
-      default:
-        throw new Error('Unknown race');
+    if (!race) {
+      console.error('Race must be provided to load strategy');
+      return;
     }
+
+    const raceKey = this.mapRaceToKey(race);
+
+    if (!raceKey || !buildOrders[raceKey]) {
+      console.error(`Build orders for race ${race} not found`);
+      return;
+    }
+
+    const raceBuildOrders = buildOrders[raceKey];
+
+    return raceBuildOrders[buildOrderKey];
   }
 
   /**
    * Maps SC2APIProtocol.Race to a specific race key.
    * @param {SC2APIProtocol.Race} race - The race to map.
-   * @returns {keyof import("../../utils/gameLogic/globalTypes").BuildOrders}
+   * @returns {'protoss' | 'terran' | 'zerg' | undefined} - Corresponding race key or undefined
    */
   mapRaceToKey(race) {
-    switch (race) {
-      case Race.PROTOSS:
-        return 'protoss';
-      case Race.TERRAN:
-        return 'terran';
-      case Race.ZERG:
-        return 'zerg';
-      default:
-        throw new Error('Unknown race');
-    }
+    const raceMapping = {
+      [Race.PROTOSS]: 'protoss',
+      [Race.TERRAN]: 'terran',
+      [Race.ZERG]: 'zerg'
+    };
+
+    // Ensure the return value matches one of the specific strings or undefined
+    const key = raceMapping[race];
+    return key === 'protoss' || key === 'terran' || key === 'zerg' ? key : undefined;
   }
 
   /**
@@ -268,8 +272,13 @@ class StrategyManager {
       return specificBuildOrderKey;
     }
     const raceKey = this.mapRaceToKey(race);
-    const raceBuildOrders = buildOrders[raceKey];
 
+    // Ensure raceKey is not undefined before proceeding
+    if (!raceKey) {
+      throw new Error(`Race key for race ${race} not found`);
+    }
+
+    const raceBuildOrders = buildOrders[raceKey];
     if (!raceBuildOrders) {
       throw new Error(`Build orders for race ${raceKey} not found`);
     }
