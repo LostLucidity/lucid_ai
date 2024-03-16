@@ -18,17 +18,32 @@ const DEFAULTS = {
 };
 
 /**
- * Validate and return the logging level, ensuring it falls within the expected range.
- * @param {number} level The provided logging level.
- * @returns {number} The validated logging level.
+ * @param {number} level
  */
 function getValidatedLoggingLevel(level) {
-  const validLevels = [0, 1, 2]; // Example of expected logging levels
+  const validLevels = [0, 1, 2];
   return validLevels.includes(level) ? level : DEFAULTS.LOGGING_LEVEL;
 }
 
+// Function to convert race name to its enum value
+/**
+ * @param {string | undefined} raceName
+ */
+function getRaceEnumValue(raceName) {
+  switch ((raceName ?? '').toUpperCase()) {
+    case 'TERRAN':
+      return Race.TERRAN;
+    case 'ZERG':
+      return Race.ZERG;
+    case 'PROTOSS':
+      return Race.PROTOSS;
+    default:
+      return DEFAULTS.RACE;  // Fallback to default race (e.g., Race.RANDOM)
+  }
+}
+
 module.exports = {
-  defaultRace: process.env.DEFAULT_RACE || DEFAULTS.RACE,
+  defaultRace: getRaceEnumValue(process.env.DEFAULT_RACE),
   defaultDifficulty: process.env.DEFAULT_DIFFICULTY || DEFAULTS.DIFFICULTY,
   defaultMap: process.env.DEFAULT_MAP || DEFAULTS.MAP,
   loggingLevel: getValidatedLoggingLevel(parseInt(process.env.LOGGING_LEVEL || '0', 10)),
