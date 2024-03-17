@@ -5,6 +5,7 @@
 const { UnitType, Ability } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
+const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const UnitAbilityMap = require("@node-sc2/core/constants/unit-ability-map");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
@@ -36,7 +37,7 @@ const { addEarmark, getEarmarkedFood } = require("../resourceManagement/resource
 function buildSupplyOrTrain(world, step) {
   let collectedActions = [];
 
-  collectedActions.push(...handleSupplyBuilding(world, step));
+  collectedActions.push(...handleSupplyBuilding(world));
   collectedActions.push(...handleUnitTraining(world, step));
   updateFoodUsed(world);
 
@@ -75,24 +76,40 @@ function getProductionUnits(world, unitTypeId) {
 /**
  * Handles the building of supply units.
  * @param {World} world
- * @param {import("../../features/strategy/strategyService").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
-function handleSupplyBuilding(world, step) {
-  const actions = [];
-  const gameState = GameState.getInstance();
-  const foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
-  const shouldBuildSupply = !step || foodUsed < step.food;
+function handleSupplyBuilding(world) {
+  const { agent, data, resources } = world;
 
-  if (shouldBuildSupply) {
-    if (world.agent.race === Race.ZERG) {
-      actions.push(...manageZergSupply(world));
-    } else {
-      actions.push(...buildSupply(world));
-    }
+  // Ensure race is defined and has a corresponding supply unit type.
+  if (typeof agent.race === 'undefined' || !SupplyUnitRace[agent.race]) {
+    console.error("Race is undefined or does not have a supply unit type.");
+    return [];
   }
 
-  return actions;
+  const supplyUnitId = SupplyUnitRace[agent.race];
+
+  const supplyUnitData = data.getUnitTypeData(supplyUnitId);
+  if (!supplyUnitData?.abilityId) {
+    console.error("Build ability ID is undefined for the supply unit.");
+    return [];
+  }
+
+  const units = resources.get().units;
+  const pendingSupply = (
+    units.inProgress(supplyUnitId).length + units.withCurrentOrders(supplyUnitData.abilityId).length
+  ) * (supplyUnitData.foodProvided || 0);
+
+  const totalExpectedFoodCap = (agent.foodCap || 0) + pendingSupply;
+
+  // Calculate the current food demand, including earmarked food, with a default of 0 if undefined
+  const currentFoodDemand = (agent.foodUsed || 0) + getEarmarkedFood();
+
+  if (currentFoodDemand > totalExpectedFoodCap) {
+    return agent.race === Race.ZERG ? manageZergSupply(world) : buildSupply(world);
+  }
+
+  return [];
 }
 
 /**
