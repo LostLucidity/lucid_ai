@@ -128,7 +128,7 @@ class StrategyService {
         }
 
         strategyManager.setCurrentStep(step);
-        actionsToPerform.push(...this.performPlanStepActions(world, planStep, world.data));
+        actionsToPerform.push(...this.performPlanStepActions(world, planStep));
 
         setFoodUsed(world);
         if (!firstEarmarkSet && hasEarmarks(world.data)) {
@@ -195,9 +195,9 @@ class StrategyService {
   /**
    * @param {World} world
    * @param {{ supply?: number | undefined; time?: string | undefined; action?: string | undefined; orderType?: any; unitType: any; targetCount: any; upgrade?: any; isChronoBoosted?: any; count?: any; candidatePositions: any; food?: number | undefined; }} planStep
-   * @param {{ getUnitTypeData: (arg0: any) => { attributes: any; }; }} data
    */
-  handleUnitTypeAction(world, planStep, data) {
+  handleUnitTypeAction(world, planStep) {
+    const { data } = world;
     if (planStep.unitType === undefined || planStep.unitType === null) return [];
     const { attributes } = data.getUnitTypeData(planStep.unitType);
     if (attributes === undefined) return [];
@@ -234,22 +234,39 @@ class StrategyService {
   }
 
   /**
-   * @param {World} world
-   * @param {PlanStep} planStep
-   * @param {any} data
+   * Perform the necessary actions for the current plan step based on the available resources.
+   * @param {World} world - The current game world context.
+   * @param {PlanStep} planStep - The current step in the plan to be executed.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be performed.
    */
-  performPlanStepActions(world, planStep, data) {
+  performPlanStepActions(world, planStep) {
+    const { agent } = world;
     let actions = [];
+
+    // Build supply or train workers if necessary and can be afforded
     actions.push(...buildSupplyOrTrain(world, planStep));
 
-    if (planStep.orderType === 'UnitType') {
-      actions.push(...this.handleUnitTypeAction(world, planStep, data));
-    } else if (planStep.orderType === 'Upgrade') {
-      actions.push(...this.handleUpgradeAction(world, planStep));
+    // Check if resources are sufficient for the current plan step
+    if (!agent.canAfford(planStep.unitType)) {
+      return actions; // Exit early if we cannot afford the action
+    }
+
+    // Execute actions based on the order type
+    switch (planStep.orderType) {
+      case 'UnitType':
+        actions.push(...this.handleUnitTypeAction(world, planStep));
+        break;
+      case 'Upgrade':
+        actions.push(...this.handleUpgradeAction(world, planStep));
+        break;
+      // Add cases for other order types as needed
+      default:
+        // Optionally handle unknown order types or log a warning
+        break;
     }
 
     return actions;
-  }  
+  }
 
   /**
    * Execute the game plan and return the actions to be performed.
