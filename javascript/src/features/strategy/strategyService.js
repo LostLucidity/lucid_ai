@@ -36,6 +36,13 @@ const { build } = require('../construction/buildingService');
  * Represents the strategy service responsible for managing the bot's strategy.
  */
 class StrategyService {
+  
+  /**
+   * @private
+   * @type {Object<string, number>}
+   */
+  cumulativeCounts = {};
+
   /**
    * @private
    * @static
@@ -75,7 +82,7 @@ class StrategyService {
   /**
    * Creates a plan step from the given raw step and interpreted action.
    * @param {import('../../utils/gameLogic/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step from the build order.
-   * @param {{ specialAction?: string | null | undefined; isUpgrade?: any; unitType?: any; count?: any; isChronoBoosted?: any; }} interpretedAction - The interpreted action for the step.
+   * @param {import('../../utils/gameLogic/globalTypes').InterpretedAction} interpretedAction - The interpreted action for the step.
    * @param {number} cumulativeCount - The cumulative count of the unitType up to this step in the plan.
    * @returns {PlanStep} The created plan step.
    */
@@ -86,10 +93,10 @@ class StrategyService {
       action: rawStep.action,
       orderType: interpretedAction.isUpgrade ? 'Upgrade' : 'UnitType',
       unitType: interpretedAction.unitType || 0,
-      targetCount: cumulativeCount, // Directly use the cumulative count
-      upgrade: interpretedAction.isUpgrade ? (interpretedAction.unitType || 0) : Upgrade.NULL,
-      isChronoBoosted: interpretedAction.isChronoBoosted,
-      count: interpretedAction.count,
+      targetCount: cumulativeCount,
+      upgrade: interpretedAction.isUpgrade ? (interpretedAction.unitType || Upgrade.NULL) : Upgrade.NULL,
+      isChronoBoosted: !!interpretedAction.isChronoBoosted,
+      count: interpretedAction.count || 0,
       candidatePositions: [],
       food: parseInt(rawStep.supply, 10)
     };
@@ -108,58 +115,33 @@ class StrategyService {
       return [];
     }
 
-    let actionsToPerform = [];
-    let firstEarmarkSet = false;
-
-    // Initialize cumulativeCounts with the starting unit counts based on the player's race
+    /**
+     * @type {SC2APIProtocol.ActionRawUnitCommand[]}
+     */
+    const actionsToPerform = [];
+    this.firstEarmarkSet = false;
     const gameState = GameState.getInstance();
-    /** @type {Object<string, number>} Keeps track of cumulative counts for each unit type */
-    let cumulativeCounts = { ...gameState.startingUnitCounts };
+    this.cumulativeCounts = { ...gameState.startingUnitCounts };
 
-    plan.steps.forEach((rawStep, step) => {
-      const interpretedActions = this.getInterpretedActions(rawStep);
-      if (!interpretedActions) return;
+    for (const [step, rawStep] of plan.steps.entries()) {
+      this.processStep(world, rawStep, step, strategyManager, actionsToPerform);
+    }
 
-      interpretedActions.forEach((interpretedAction) => {
-        let unitType = interpretedAction.unitType || 'default';
+    this.finalizeStrategyExecution(strategyManager, actionsToPerform, world);
+    return actionsToPerform;
+  }
 
-        if (strategyManager.isStepSatisfied(world, rawStep)) {
-          // Update cumulativeCounts even if the step is satisfied to ensure accuracy
-          cumulativeCounts[unitType] = (cumulativeCounts[unitType] || 0) + (interpretedAction.count || 0);
-          return;
-        }
-
-        interpretedAction.specialAction = interpretedAction.specialAction || undefined;
-
-        // Get the current cumulative count for creating the plan step
-        const currentCumulativeCount = cumulativeCounts[unitType] || 0;
-        const planStep = this.createPlanStep(rawStep, interpretedAction, currentCumulativeCount);
-
-        // Now increment the cumulativeCounts after using it for the current step
-        cumulativeCounts[unitType] = currentCumulativeCount + (interpretedAction.count || 0);
-
-        if (interpretedAction.specialAction) {
-          actionsToPerform.push(...this.handleSpecialAction(interpretedAction.specialAction, world));
-          return;
-        }
-
-        strategyManager.setCurrentStep(step);
-        actionsToPerform.push(...this.performPlanStepActions(world, planStep));
-
-        setFoodUsed(world);
-        if (!firstEarmarkSet && hasEarmarks(world.data)) {
-          firstEarmarkSet = true;
-          actionsToPerform.push(...this.balanceEarmarkedResources(world));
-        }
-      });
-    });
-
+  /**
+   * Finalizes the execution of the strategy plan, handling any end-of-plan logic.
+   * @param {StrategyManager} strategyManager
+   * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
+   * @param {World} world
+   */
+  finalizeStrategyExecution(strategyManager, actionsToPerform, world) {
     strategyManager.setCurrentStep(-1);
     if (!hasEarmarks(world.data)) {
       actionsToPerform.push(...balanceResources(world, undefined, build));
     }
-
-    return actionsToPerform;
   }
 
   /**
@@ -282,6 +264,62 @@ class StrategyService {
     }
 
     return actions;
+  }
+
+  /**
+   * Processes each step of the strategy plan.
+   * @param {World} world
+   * @param {import("../../utils/gameLogic/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
+   * @param {number} step
+   * @param {StrategyManager} strategyManager
+   * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
+   */
+  processStep(world, rawStep, step, strategyManager, actionsToPerform) {
+    const interpretedActions = this.getInterpretedActions(rawStep);
+    if (!interpretedActions) return;
+
+    for (const interpretedAction of interpretedActions) {
+      this.processInterpretedAction(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform);
+    }
+  }
+  
+  /**
+   * Processes an interpreted action from the current strategy step.
+   * @param {World} world
+   * @param {import("../../utils/gameLogic/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
+   * @param {number} step
+   * @param {import('../../utils/gameLogic/globalTypes').InterpretedAction} interpretedAction
+   * @param {StrategyManager} strategyManager
+   * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
+   */
+  processInterpretedAction(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform) {
+    const unitType = interpretedAction.unitType?.toString() || 'default';
+
+    // Now `this.cumulativeCounts` is correctly typed, and `unitType` is ensured to be a string
+    const currentCumulativeCount = this.cumulativeCounts[unitType] || 0;
+
+    if (strategyManager.isStepSatisfied(world, rawStep)) {
+      this.cumulativeCounts[unitType] = currentCumulativeCount + (interpretedAction.count || 0);
+      return;
+    }
+
+    const planStep = this.createPlanStep(rawStep, interpretedAction, currentCumulativeCount);
+    this.cumulativeCounts[unitType] = currentCumulativeCount + (interpretedAction.count || 0);
+
+    if (interpretedAction.specialAction) {
+      actionsToPerform.push(...this.handleSpecialAction(interpretedAction.specialAction, world));
+      return;
+    }
+
+    strategyManager.setCurrentStep(step);
+    actionsToPerform.push(...this.performPlanStepActions(world, planStep));
+
+    setFoodUsed(world);
+
+    if (!this.firstEarmarkSet && hasEarmarks(world.data)) {
+      this.firstEarmarkSet = true;
+      actionsToPerform.push(...this.balanceEarmarkedResources(world));
+    }
   }
 
   /**
