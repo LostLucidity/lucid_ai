@@ -76,23 +76,24 @@ class StrategyService {
    * Creates a plan step from the given raw step and interpreted action.
    * @param {import('../../utils/gameLogic/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step from the build order.
    * @param {{ specialAction?: string | null | undefined; isUpgrade?: any; unitType?: any; count?: any; isChronoBoosted?: any; }} interpretedAction - The interpreted action for the step.
+   * @param {number} cumulativeCount - The cumulative count of the unitType up to this step in the plan.
    * @returns {PlanStep} The created plan step.
    */
-  createPlanStep(rawStep, interpretedAction) {
+  createPlanStep(rawStep, interpretedAction, cumulativeCount) {
     return {
       supply: parseInt(rawStep.supply, 10),
       time: rawStep.time,
       action: rawStep.action,
       orderType: interpretedAction.isUpgrade ? 'Upgrade' : 'UnitType',
       unitType: interpretedAction.unitType || 0,
-      targetCount: interpretedAction.count,
+      targetCount: cumulativeCount, // Directly use the cumulative count
       upgrade: interpretedAction.isUpgrade ? (interpretedAction.unitType || 0) : Upgrade.NULL,
       isChronoBoosted: interpretedAction.isChronoBoosted,
       count: interpretedAction.count,
       candidatePositions: [],
       food: parseInt(rawStep.supply, 10)
     };
-  }  
+  }
 
   /**
    * Executes the given strategy plan.
@@ -102,7 +103,6 @@ class StrategyService {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
    */
   executeStrategyPlan(world, plan, strategyManager) {
-    // Check if the plan is undefined
     if (!plan) {
       console.error("Strategy plan is undefined.");
       return [];
@@ -111,17 +111,33 @@ class StrategyService {
     let actionsToPerform = [];
     let firstEarmarkSet = false;
 
-    plan.steps.forEach((rawStep, step) => {
-      if (strategyManager.isStepSatisfied(world, rawStep)) return;
+    // Initialize cumulativeCounts with the starting unit counts based on the player's race
+    const gameState = GameState.getInstance();
+    /** @type {Object<string, number>} Keeps track of cumulative counts for each unit type */
+    let cumulativeCounts = { ...gameState.startingUnitCounts };
 
+    plan.steps.forEach((rawStep, step) => {
       const interpretedActions = this.getInterpretedActions(rawStep);
       if (!interpretedActions) return;
 
       interpretedActions.forEach((interpretedAction) => {
-        // Adjust specialAction to be either a string or undefined
+        let unitType = interpretedAction.unitType || 'default';
+
+        if (strategyManager.isStepSatisfied(world, rawStep)) {
+          // Update cumulativeCounts even if the step is satisfied to ensure accuracy
+          cumulativeCounts[unitType] = (cumulativeCounts[unitType] || 0) + (interpretedAction.count || 0);
+          return;
+        }
+
         interpretedAction.specialAction = interpretedAction.specialAction || undefined;
 
-        const planStep = this.createPlanStep(rawStep, interpretedAction);
+        // Get the current cumulative count for creating the plan step
+        const currentCumulativeCount = cumulativeCounts[unitType] || 0;
+        const planStep = this.createPlanStep(rawStep, interpretedAction, currentCumulativeCount);
+
+        // Now increment the cumulativeCounts after using it for the current step
+        cumulativeCounts[unitType] = currentCumulativeCount + (interpretedAction.count || 0);
+
         if (interpretedAction.specialAction) {
           actionsToPerform.push(...this.handleSpecialAction(interpretedAction.specialAction, world));
           return;
