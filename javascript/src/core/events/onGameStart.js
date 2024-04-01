@@ -1,4 +1,4 @@
-// src/events/onGameStart.js
+// src/core/events/onGameStart.js
 const { Race } = require('@node-sc2/core/constants/enums');
 
 const config = require('../../../config/config');
@@ -6,11 +6,11 @@ const BuildingPlacement = require('../../features/construction/buildingPlacement
 const StrategyManager = require('../../features/strategy/strategyManager');
 const strategyUtils = require('../../features/strategy/strategyUtils');
 const { calculateAdjacentToRampGrids } = require('../../utils/common/geometry');
+const { setUnitTypeTrainingAbilityMapping } = require('../../utils/common/unitConfig');
 const sharedWorkerUtils = require('../../utils/gameLogic/sharedWorkerUtils');
 const stateManagement = require('../../utils/gameLogic/stateManagement');
 const GameState = require('../gameState');
 const logger = require('../logger');
-
 
 /**
  * @param {World} world
@@ -21,6 +21,9 @@ async function onGameStart(world) {
   const botRace = stateManagement.determineBotRace(world);
   const gameState = GameState.getInstance();
   gameState.setRace(botRace);
+
+  // Initialize the unit type training ability mapping
+  setUnitTypeTrainingAbilityMapping(world.data); // Call the function with the game data
 
   const strategyManager = StrategyManager.getInstance(botRace);
   if (!strategyManager.getCurrentStrategy()) {

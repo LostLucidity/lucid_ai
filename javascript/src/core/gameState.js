@@ -49,6 +49,12 @@ class GameState {
   plan = [];
 
   /**
+   * Stores the previous game loop number to calculate the frames per step.
+   * @type {number}
+   */
+  previousGameLoop = 0;  
+
+  /**
    * @type {SC2APIProtocol.Race | null}
    */
   race = null;
@@ -117,6 +123,23 @@ class GameState {
     this.initMorphMapping();
     this.enemyMetabolicBoost = false;
   }
+
+  /**
+   * Dynamically calculates the number of frames per step based on the change in game loop number.
+   * 
+   * @param {World} world - The game world context.
+   * @returns {number} The number of frames processed in each game step.
+   */
+  calculateFramesPerStep(world) {
+    const currentGameLoop = world.resources.get().frame.getGameLoop();
+    const framesPerStep = currentGameLoop - this.previousGameLoop;
+
+    // Update previousGameLoop for the next cycle
+    this.previousGameLoop = currentGameLoop;
+
+    // Ensure we return a positive number and avoid negative values
+    return Math.max(1, framesPerStep);
+  }  
 
   /**
    * @description Cache the result of agent.hasTechFor() to avoid unnecessary calls to the game.

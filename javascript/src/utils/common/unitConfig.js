@@ -2,7 +2,7 @@
 'use strict';
 
 // Core library imports
-const { UnitType } = require('@node-sc2/core/constants');
+const { UnitType, WarpUnitAbility } = require('@node-sc2/core/constants');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 
 // Internal module imports
@@ -121,6 +121,29 @@ function getUpgradeBonus(alliance, damage) {
   return 0; // Or any other default value you deem appropriate
 }
 
+/**
+ * Initializes the mapping of unit type training abilities.
+ * This function populates the `unitTypeTrainingAbilities` map with mappings from unit ability IDs to unit type IDs.
+ * It iterates over all unit types, retrieves their associated ability ID from the game data,
+ * and sets the mapping in the `unitTypeTrainingAbilities` map.
+ * Additionally, it checks and sets mappings for WarpUnitAbility if available.
+ * 
+ * @param {DataStorage} data - The game data storage, containing unit type data and abilities.
+ */
+function setUnitTypeTrainingAbilityMapping(data) {
+  Array.from(Object.values(UnitType)).forEach(unitTypeId => {
+    const unitData = data.getUnitTypeData(unitTypeId);
+    if (unitData && unitData.abilityId !== undefined) {
+      unitTypeTrainingAbilities.set(unitData.abilityId, unitTypeId);
+    }
+
+    // Assume WarpUnitAbility is defined elsewhere in the context
+    if (WarpUnitAbility[unitTypeId]) {
+      unitTypeTrainingAbilities.set(WarpUnitAbility[unitTypeId], unitTypeId);
+    }
+  });
+}
+
 // Export the mappings, configurations, and functions
 module.exports = {
   addOnTypesMapping,
@@ -132,4 +155,5 @@ module.exports = {
   canUnitBuildAddOn,
   canLiftOff,
   getUpgradeBonus,
+  setUnitTypeTrainingAbilityMapping,
 };
