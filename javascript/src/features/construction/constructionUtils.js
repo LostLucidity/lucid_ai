@@ -19,8 +19,8 @@ const { setPendingOrders } = require('../../utils/common/unitOrders');
 const { createUnitCommand } = require('../../utils/common/utils');
 const { isIdleOrAlmostIdle } = require('../../utils/common/workerUtils');
 const { stopOverlappingBuilders } = require('../../utils/gameLogic/buildingWorkerInteractions');
-const { getMovementSpeed } = require('../../utils/gameLogic/coreUtils');
-const { isPendingContructing } = require('../../utils/gameLogic/workerAssignmentHelpers');
+const { getMovementSpeed } = require('../../gameLogic/coreUtils');
+const { isPendingContructing } = require('../../gameLogic/workerAssignmentHelpers');
 const { addEarmark } = require('../../utils/resourceManagement/resourceUtils');
 
 /**

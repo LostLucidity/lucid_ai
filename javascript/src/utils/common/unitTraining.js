@@ -3,7 +3,6 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Race, Attribute } = require("@node-sc2/core/constants/enums");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
-const { getById } = require("./gameUtils");
 const { train } = require("./trainingUtils");
 const { setPendingOrders } = require("./unitOrders");
 const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("./unitUtils");
@@ -11,7 +10,8 @@ const { createUnitCommand } = require("./utils");
 const { shortOnWorkers } = require("./workerUtils");
 const GameState = require("../../core/gameState");
 const StrategyManager = require("../../features/strategy/strategyManager");
-const { getPendingOrders } = require("../gameLogic/stateManagement");
+const { getPendingOrders } = require("../../gameLogic/stateManagement");
+const { getById } = require("../gameLogic/gameUtils");
 const { getEarmarkedFood, addEarmark } = require("../resourceManagement/resourceUtils");
 
 /**
@@ -61,22 +61,25 @@ function filterCandidateTypes(world, strategyManager) {
   const currentStepIndex = strategyManager.getCurrentStep();
   const currentPlanStep = currentStrategy.steps[currentStepIndex];
 
-  return strategyManager.getTrainingTypes().filter(type => {
+  const trainingTypes = strategyManager.getTrainingTypes();
+  if (!trainingTypes) {
+    console.error('Training types are undefined.');
+    return [];
+  }
+
+  return trainingTypes.filter(type => {
     const unitTypeData = data.getUnitTypeData(type);
-    const attributes = unitTypeData.attributes || []; // Provide a default empty array if attributes are undefined
-    const foodRequired = unitTypeData.foodRequired || 0; // Provide a default value of 0 if foodRequired is undefined
+    const attributes = unitTypeData.attributes || [];
+    const foodRequired = unitTypeData.foodRequired || 0;
     const supply = currentPlanStep ? parseInt(currentPlanStep.supply, 10) : 0;
 
     const isPlannedType = currentStrategy.steps.some(step => {
-      // Normalize interpretedAction to an array
       const interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : [step.interpretedAction];
-
-      // Check if any interpretedAction matches the unit type
       return interpretedActions.some(action => action && action.unitType === type);
     });
 
     return isPlannedType &&
-      (!attributes.includes(Attribute.STRUCTURE)) && // Now safe to use includes() since attributes has a default value
+      (!attributes.includes(Attribute.STRUCTURE)) &&
       foodRequired <= supply - gameState.getFoodUsed() &&
       gameState.checkTechFor(world.agent, type) &&
       checkProductionAvailability(world, type);

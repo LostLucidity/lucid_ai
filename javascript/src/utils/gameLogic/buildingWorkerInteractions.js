@@ -3,7 +3,7 @@
 const { Ability } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
-const { getBuilders } = require("./sharedWorkerUtils");
+const { getBuilders } = require("../../gameLogic/sharedWorkerUtils");
 const GameState = require("../../core/gameState");
 const { getAwayPosition, areApproximatelyEqual } = require("../common/geometry");
 const { setBuilderLabel } = require("../common/sharedBuildingUtils");

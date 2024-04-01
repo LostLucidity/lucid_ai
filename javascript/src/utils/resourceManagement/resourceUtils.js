@@ -11,8 +11,8 @@ const { Race, Attribute } = require('@node-sc2/core/constants/enums');
 const { foodEarmarks, earmarks } = require('./resourceData');
 const GameState = require('../../core/gameState');
 const StrategyManager = require('../../features/strategy/strategyManager');
-const { upgradeTypes } = require('../common/gameData');
-const { calculateDistance } = require('../gameLogic/coreUtils');
+const { upgradeTypes } = require('../gameLogic/gameData');
+const { calculateDistance } = require('../../gameLogic/coreUtils');
 
 /**
  * @param {DataStorage} data 

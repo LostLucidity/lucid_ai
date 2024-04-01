@@ -7,20 +7,20 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const { WorkerRace } = require('@node-sc2/core/constants/race-map');
 const { avgPoints } = require('@node-sc2/core/utils/geometry/point');
 
-const { handleNonRallyBase } = require('./buildingWorkerInteractions');
 const { logNoFreeGeysers } = require('./sharedConstructionUtils');
 const { checkAddOnPlacement } = require('./sharedUnitPlacement');
 const { getPendingOrders } = require('./stateManagement');
-const GameState = require('../../core/gameState');
-const { getTimeToTargetTech } = require('../common/gameData');
-const { getAddOnPlacement, calculateBaseTimeToPosition } = require('../common/geometry');
-const { getClosestUnitByPath, getClosestPositionByPath } = require('../common/pathfinding');
-const { getPathCoordinates, getMapPath } = require('../common/pathUtils');
-const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../common/sharedUtils');
-const { unitTypeTrainingAbilities, canLiftOff } = require('../common/unitConfig');
-const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../common/utils');
-const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../common/workerUtils');
-const { earmarkThresholdReached } = require('../resourceManagement/resourceUtils');
+const GameState = require('../core/gameState');
+const { getTimeToTargetTech } = require('../utils/gameLogic/gameData');
+const { getAddOnPlacement, calculateBaseTimeToPosition } = require('../utils/common/geometry');
+const { getClosestUnitByPath, getClosestPositionByPath } = require('../utils/common/pathfinding');
+const { getPathCoordinates, getMapPath } = require('../utils/common/pathUtils');
+const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../utils/common/sharedUtils');
+const { unitTypeTrainingAbilities, canLiftOff } = require('../utils/common/unitConfig');
+const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../utils/common/utils');
+const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../utils/common/workerUtils');
+const { handleNonRallyBase } = require('../utils/gameLogic/buildingWorkerInteractions');
+const { earmarkThresholdReached } = require('../utils/resourceManagement/resourceUtils');
 
 /**
  * Determines a valid position for placing a building.

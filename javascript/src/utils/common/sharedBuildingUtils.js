@@ -18,8 +18,8 @@ const { unitTypeTrainingAbilities } = require("./unitConfig");
 const { getDistanceByPath } = require("./utils");
 const GameState = require("../../core/gameState");
 const MapResources = require("../../core/mapResources");
-const { getMovementSpeed } = require("../gameLogic/coreUtils");
-const { getPendingOrders } = require("../gameLogic/stateManagement");
+const { getMovementSpeed } = require("../../gameLogic/coreUtils");
+const { getPendingOrders } = require("../../gameLogic/stateManagement");
 
 /**
  * @param {World} world

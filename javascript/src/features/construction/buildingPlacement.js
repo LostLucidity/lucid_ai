@@ -21,7 +21,7 @@ const StrategyManager = require('../../features/strategy/strategyManager');
 const { getAdjacentToRampGrids, getClosestPosition, intersectionOfPoints, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable, getAddOnPlacement, getAddOnBuildingPlacement } = require('../../utils/common/geometry');
 const { getDistance } = require('../../utils/common/spatialUtils');
 const { addOnTypesMapping } = require('../../utils/common/unitConfig');
-const { calculateDistance } = require('../../utils/gameLogic/coreUtils');
+const { calculateDistance } = require('../../gameLogic/coreUtils');
 
 const PYLON_POWER_RANGE = 6.5;
 

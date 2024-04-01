@@ -8,9 +8,9 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
 const { foodData } = require('./gameStateResources');
+const { getSingletonInstance } = require('../gameLogic/singletonFactory');
 const cacheManager = require('../utils/common/cacheManager');
-const { missingUnits } = require('../utils/common/gameDataStore');
-const { getSingletonInstance } = require('../utils/gameLogic/singletonFactory');
+const { missingUnits } = require('../utils/gameLogic/gameDataStore');
 const { defaultResources } = require('../utils/resourceManagement/resourceTypes');
 
 /**
@@ -35,6 +35,8 @@ class GameState {
    * @type {boolean}
    */
   enemyCharge = false;
+
+  framesPerStep = 1
 
   /**
    * A map to cache the results of tech availability checks.
@@ -112,6 +114,7 @@ class GameState {
     this.getPendingOrdersFn = (_) => [];
 
     this.pendingFood = 0;
+    this.previousGameLoop = 0;
     this.resources = defaultResources;
     /**
      * The attack upgrade level for the self alliance.
@@ -132,7 +135,7 @@ class GameState {
    */
   calculateFramesPerStep(world) {
     const currentGameLoop = this.getCurrentGameLoop(world);
-    const framesPerStep = this.getFramesPerStep(currentGameLoop);
+    const framesPerStep = this.getFramesPerStep();
 
     this.previousGameLoop = currentGameLoop;
     return framesPerStep;
@@ -224,14 +227,13 @@ class GameState {
   }
 
   /**
-   * Calculates the number of frames per step based on the current and previous game loop numbers.
+   * Gets the latest calculated frames per step value.
    * 
-   * @param {number} currentGameLoop - The current game loop number.
-   * @returns {number} The calculated number of frames per step.
+   * @returns {number} The number of frames processed in the last game step.
    */
-  getFramesPerStep(currentGameLoop) {
-    return Math.max(1, currentGameLoop - this.previousGameLoop);
-  }  
+  getFramesPerStep() {
+    return this.framesPerStep;
+  } 
 
   /**
    * Singleton instance accessor.
@@ -603,6 +605,22 @@ class GameState {
     }
     return willHaveEnoughMineralsByArrival;
   }
+
+  /**
+   * Updates the game state for each game loop, including calculating frames per step.
+   * 
+   * @param {World} world - The game world context.
+   */
+  updateGameState(world) {
+    const currentGameLoop = world.resources.get().frame.getGameLoop();
+    this.framesPerStep = currentGameLoop - this.previousGameLoop;
+
+    // Update previousGameLoop for the next cycle
+    this.previousGameLoop = currentGameLoop;
+
+    // Ensure framesPerStep is always at least 1
+    this.framesPerStep = Math.max(1, this.framesPerStep);
+  }  
 
   /**
    * Verify if the starting unit counts match the actual game state.

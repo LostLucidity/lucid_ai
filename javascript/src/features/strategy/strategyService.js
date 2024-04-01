@@ -7,11 +7,11 @@ const { Attribute } = require('@node-sc2/core/constants/enums');
 
 const StrategyManager = require('./strategyManager');
 const GameState = require('../../core/gameState');
+const { isBuildOrderStep } = require('../../gameLogic/typeGuards');
 const { setFoodUsed, balanceResources } = require('../../utils/common/economyManagement');
 const { train } = require('../../utils/common/trainingUtils');
 const { performScoutingWithSCV } = require('../../utils/common/unitActions');
 const { buildSupplyOrTrain, upgrade } = require('../../utils/common/unitManagement');
-const { isBuildOrderStep } = require('../../utils/gameLogic/typeGuards');
 const { resetEarmarks } = require('../../utils/resourceManagement/resourceData');
 const { hasEarmarks } = require('../../utils/resourceManagement/resourceManagement');
 const { interpretBuildOrderAction } = require('../buildOrders/buildOrderUtils');
@@ -238,24 +238,16 @@ class StrategyService {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be performed.
    */
   performPlanStepActions(world, planStep) {
-    const { agent } = world;
-    let actions = [];
-
     // Build supply or train workers if necessary and can be afforded
-    actions.push(...buildSupplyOrTrain(world, planStep));
-
-    // Check if resources are sufficient for the current plan step
-    if (!agent.canAfford(planStep.unitType)) {
-      return actions; // Exit early if we cannot afford the action
-    }
+    let actions = buildSupplyOrTrain(world, planStep);
 
     // Execute actions based on the order type
     switch (planStep.orderType) {
       case 'UnitType':
-        actions.push(...this.handleUnitTypeAction(world, planStep));
+        actions = actions.concat(this.handleUnitTypeAction(world, planStep));
         break;
       case 'Upgrade':
-        actions.push(...this.handleUpgradeAction(world, planStep));
+        actions = actions.concat(this.handleUpgradeAction(world, planStep));
         break;
       // Add cases for other order types as needed
       default:
@@ -282,7 +274,7 @@ class StrategyService {
       this.processInterpretedAction(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform);
     }
   }
-  
+
   /**
    * Processes an interpreted action from the current strategy step.
    * @param {World} world

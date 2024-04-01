@@ -11,13 +11,13 @@ const logger = require('./logger');
 const config = require('../../config/config');
 const buildingService = require('../features/construction/buildingService');
 const StrategyService = require('../features/strategy/strategyService');
+const { clearAllPendingOrders } = require('../gameLogic/unitOrderUtils');
 const economyManagement = require('../utils/common/economyManagement');
 const unitManagement = require('../utils/common/unitManagement');
 const workerAssignment = require('../utils/common/workerAssignment');
-const { clearAllPendingOrders } = require('../utils/gameLogic/unitOrderUtils');
 
 // Instantiate the game state manager
-const gameState = new GameState();
+const gameState = GameState.getInstance();
 
 /** @type {number} Maximum number of workers */
 let maxWorkers = 0;
@@ -94,6 +94,9 @@ const bot = createAgent({
    * @param {World} world - The current game world state.
    */
   async onStep(world) {
+    // Update the game state with the current world, this will calculate frames per step
+    gameState.updateGameState(world);
+
     unitManagement.refreshProductionUnitsCache();
     const { units } = world.resources.get();
     updateMaxWorkers(units);

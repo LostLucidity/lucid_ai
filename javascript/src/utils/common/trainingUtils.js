@@ -4,13 +4,13 @@ const { earmarkResourcesIfNeeded } = require("./sharedEconomicFunctions");
 const { getBuildTimeLeft } = require("./sharedUtils");
 const { getBasicProductionUnits } = require("./trainingHelpers");
 const { createTrainingCommands } = require("./unitActions");
-const { flyingTypesMapping } = require("./unitConfig");
+const { flyingTypesMapping, unitTypeTrainingAbilities } = require("./unitConfig");
 const { getUnitTypeCount } = require("./unitHelpers");
 const { findKeysForValue } = require("./utils");
 const GameState = require("../../core/gameState");
-const { filterSafeTrainers } = require("../gameLogic/gameStrategyUtils");
-const { getPendingOrders } = require("../gameLogic/stateManagement");
-const { canTrainUnit } = require("../gameLogic/unitCapabilityUtils");
+const { filterSafeTrainers } = require("../../gameLogic/gameStrategyUtils");
+const { getPendingOrders } = require("../../gameLogic/stateManagement");
+const { canTrainUnit } = require("../../gameLogic/unitCapabilityUtils");
 
 /**
  * Gets trainers that can produce a specific unit type, including those nearly finished training other units.
@@ -43,11 +43,14 @@ function getTrainer(world, unitTypeId, threshold) {
     const currentAbilityId = unit.unitType === WARPGATE ? warpgateAbilityId : abilityId;
     if (firstOrder.abilityId !== currentAbilityId) return false;
 
-    const unitTypeData = data.getUnitTypeData(firstOrder.abilityId);
+    const unitTypeTraining = unitTypeTrainingAbilities.get(firstOrder.abilityId);
+    if (!unitTypeTraining) return false;
+
+    const unitTypeData = data.getUnitTypeData(unitTypeTraining);
     if (!firstOrder.progress || !unitTypeData || unitTypeData.buildTime === undefined) return false;
 
     const buildTimeLeft = getBuildTimeLeft(unit, unitTypeData.buildTime, firstOrder.progress);
-    return buildTimeLeft <= threshold && pendingOrders.length === 0;
+    return buildTimeLeft <= threshold && orders.length === 1 && getPendingOrders(unit).length === 0;
   };
 
   let productionUnits = getBasicProductionUnits(world, unitTypeId)

@@ -3,9 +3,9 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
-const { getStructureCells, getClosestPosition } = require("../common/geometry");
-const { getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath } = require("../common/pathUtils");
-const { getDistanceByPath } = require("../common/utils");
+const { getStructureCells, getClosestPosition } = require("../utils/common/geometry");
+const { getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath } = require("../utils/common/pathUtils");
+const { getDistanceByPath } = require("../utils/common/utils");
 
 /**
  * Get the closest pathable positions between two positions considering various obstacles.

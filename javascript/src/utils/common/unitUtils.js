@@ -4,9 +4,9 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { getBasicProductionUnits } = require("./trainingHelpers");
 const GameState = require("../../core/gameState");
 const StrategyManager = require("../../features/strategy/strategyManager");
-const { getPendingOrders } = require("../gameLogic/stateManagement");
-const { checkTechRequirement } = require("../gameLogic/techRequirementUtils");
-const { isTrainingOrder } = require("../gameLogic/unitCapabilityUtils");
+const { getPendingOrders } = require("../../gameLogic/stateManagement");
+const { checkTechRequirement } = require("../../gameLogic/techRequirementUtils");
+const { isTrainingOrder } = require("../../gameLogic/unitCapabilityUtils");
 const { haveSupplyForUnit } = require("../resourceManagement/resourceManagement");
 const { addEarmark } = require("../resourceManagement/resourceUtils");
 

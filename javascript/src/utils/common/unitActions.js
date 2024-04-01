@@ -13,10 +13,10 @@ const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff, setRepositi
 const { setPendingOrders } = require("./unitOrders");
 const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");
 const GameState = require("../../core/gameState");
-const { getPlanFoodValue } = require("../gameLogic/gameStrategyUtils");
-const { checkAddOnPlacement, seigeTanksSiegedGrids } = require("../gameLogic/sharedUnitPlacement");
-const { getSingletonInstance } = require("../gameLogic/singletonFactory");
-const { getPendingOrders } = require("../gameLogic/stateManagement");
+const { getPlanFoodValue } = require("../../gameLogic/gameStrategyUtils");
+const { checkAddOnPlacement, seigeTanksSiegedGrids } = require("../../gameLogic/sharedUnitPlacement");
+const { getSingletonInstance } = require("../../gameLogic/singletonFactory");
+const { getPendingOrders } = require("../../gameLogic/stateManagement");
 const { addEarmark } = require("../resourceManagement/resourceUtils");
 
 /**

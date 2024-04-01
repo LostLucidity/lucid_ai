@@ -4,9 +4,9 @@
 
 const { hasAddOn, findBestPositionForAddOn } = require("./constructionAndBuildingUtils");
 const { checkUnitCount } = require("./stateManagement");
-const { getTimeInSeconds } = require("../common/pathfindingUtils");
-const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../common/unitConfig");
-const { calculateLiftLandAndMoveTime } = require("../common/unitHelpers");
+const { getTimeInSeconds } = require("../utils/common/pathfindingUtils");
+const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../utils/common/unitConfig");
+const { calculateLiftLandAndMoveTime } = require("../utils/common/unitHelpers");
 
 /**
  * Determines if a unit can be trained based on the target count.

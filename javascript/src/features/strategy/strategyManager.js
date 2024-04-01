@@ -6,9 +6,9 @@ const { Race } = require("@node-sc2/core/constants/enums");
 // Import build orders for each race
 const config = require("../../../config/config");
 const GameState = require("../../core/gameState");
-const { calculateTargetCountForStep } = require("../../utils/gameLogic/intermediaryUtils");
-const { getSingletonInstance } = require("../../utils/gameLogic/singletonFactory");
-const { isBuildOrderStep } = require("../../utils/gameLogic/typeGuards");
+const { calculateTargetCountForStep } = require("../../gameLogic/intermediaryUtils");
+const { getSingletonInstance } = require("../../gameLogic/singletonFactory");
+const { isBuildOrderStep } = require("../../gameLogic/typeGuards");
 /** @type {import("../../utils/gameLogic/globalTypes").BuildOrders} */
 const buildOrders = require('../buildOrders');
 const { interpretBuildOrderAction } = require("../buildOrders/buildOrderUtils");

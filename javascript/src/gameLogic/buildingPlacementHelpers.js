@@ -8,18 +8,18 @@ const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
-const { getCurrentlyEnrouteConstructionGrids } = require("./constructionHelpers");
-const config = require("../../../config/config");
-const GameState = require("../../core/gameState");
-const { buildingPositions } = require("../../core/gameStateResources");
-const MapResources = require("../../core/mapResources");
-const BuildingPlacement = require("../../features/construction/buildingPlacement");
-const { getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../common/geometry");
-const { getTimeInSeconds } = require("../common/pathfindingUtils");
-const { getBuildTimeLeft } = require("../common/sharedUtils");
-const { getDistance } = require("../common/spatialUtils");
-const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../common/unitConfig");
-const { isPlaceableAtGasGeyser } = require("../common/utils");
+const config = require("../../config/config");
+const GameState = require("../core/gameState");
+const { buildingPositions } = require("../core/gameStateResources");
+const MapResources = require("../core/mapResources");
+const BuildingPlacement = require("../features/construction/buildingPlacement");
+const { getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../utils/common/geometry");
+const { getTimeInSeconds } = require("../utils/common/pathfindingUtils");
+const { getBuildTimeLeft } = require("../utils/common/sharedUtils");
+const { getDistance } = require("../utils/common/spatialUtils");
+const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../utils/common/unitConfig");
+const { isPlaceableAtGasGeyser } = require("../utils/common/utils");
+const { getCurrentlyEnrouteConstructionGrids } = require("../utils/gameLogic/constructionHelpers");
 
 /**
  * @typedef {Object} FootprintType

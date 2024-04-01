@@ -16,8 +16,8 @@ const { createUnitCommand, canBuild } = require('./utils');
 const { getGatheringWorkers, gather } = require('./workerAssignment');
 const { isMining } = require('./workerUtils');
 const GameState = require('../../core/gameState');
-const { calculateDistance } = require('../gameLogic/coreUtils');
-const { getPendingOrders } = require('../gameLogic/stateManagement');
+const { calculateDistance } = require('../../gameLogic/coreUtils');
+const { getPendingOrders } = require('../../gameLogic/stateManagement');
 const { gasMineCheckAndBuild } = require('../resourceManagement/resourceManagement');
 const { getMineralFieldsNearby, getGasGeysersNearby } = require('../resourceManagement/resourceUtils');
 

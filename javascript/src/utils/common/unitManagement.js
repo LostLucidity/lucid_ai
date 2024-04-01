@@ -12,7 +12,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal dependencies
-const { getTimeToTargetTech } = require("./gameData");
+const { getTimeToTargetTech } = require("../gameLogic/gameData");
 const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("./geometry");
 const { getDistance } = require("./spatialUtils");
 const { liftAndLandingTime } = require("./unitConfig");
@@ -24,7 +24,7 @@ const { createUnitCommand } = require("./utils");
 const GameState = require("../../core/gameState");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { buildSupply } = require("../../features/construction/buildingService");
-const { getPendingOrders } = require("../gameLogic/stateManagement");
+const { getPendingOrders } = require("../../gameLogic/stateManagement");
 const { getTimeToTargetCost } = require("../resourceManagement/resourceManagement");
 const { addEarmark, getEarmarkedFood } = require("../resourceManagement/resourceUtils");
 

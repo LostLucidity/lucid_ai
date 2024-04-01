@@ -5,14 +5,14 @@ const Buff = require("@node-sc2/core/constants/buff");
 const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
-const { SPEED_MODIFIERS } = require("./contants");
 // eslint-disable-next-line no-unused-vars
-const GameState = require("../../core/gameState");
-const { getClosestUnitByPath } = require("../common/pathfinding");
-const { getTimeInSeconds } = require("../common/pathfindingUtils");
-const { getDistance } = require("../common/spatialUtils");
-const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../common/unitConfig");
-const { getDistanceByPath } = require("../common/utils");
+const GameState = require("../core/gameState");
+const { getClosestUnitByPath } = require("../utils/common/pathfinding");
+const { getTimeInSeconds } = require("../utils/common/pathfindingUtils");
+const { getDistance } = require("../utils/common/spatialUtils");
+const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../utils/common/unitConfig");
+const { getDistanceByPath } = require("../utils/common/utils");
+const { SPEED_MODIFIERS } = require("../utils/gameLogic/contants");
 
 
 /**

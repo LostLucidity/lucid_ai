@@ -9,9 +9,9 @@
 const { UnitType, UnitTypeId } = require('@node-sc2/core/constants');
 
 const { checkAddOnPlacement } = require('./sharedUnitPlacement');
-const { flyingTypesMapping } = require('../common/unitConfig');
-const { setPendingOrders } = require('../common/unitOrders');
-const { addEarmark } = require('../resourceManagement/resourceUtils');
+const { flyingTypesMapping } = require('../utils/common/unitConfig');
+const { setPendingOrders } = require('../utils/common/unitOrders');
+const { addEarmark } = require('../utils/resourceManagement/resourceUtils');
 
 /**
  * Attempts to land the unit at a suitable location.

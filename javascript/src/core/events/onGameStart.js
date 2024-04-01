@@ -5,10 +5,10 @@ const config = require('../../../config/config');
 const BuildingPlacement = require('../../features/construction/buildingPlacement');
 const StrategyManager = require('../../features/strategy/strategyManager');
 const strategyUtils = require('../../features/strategy/strategyUtils');
+const sharedWorkerUtils = require('../../gameLogic/sharedWorkerUtils');
+const stateManagement = require('../../gameLogic/stateManagement');
 const { calculateAdjacentToRampGrids } = require('../../utils/common/geometry');
 const { setUnitTypeTrainingAbilityMapping } = require('../../utils/common/unitConfig');
-const sharedWorkerUtils = require('../../utils/gameLogic/sharedWorkerUtils');
-const stateManagement = require('../../utils/gameLogic/stateManagement');
 const GameState = require('../gameState');
 const logger = require('../logger');
 
