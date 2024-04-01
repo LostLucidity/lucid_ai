@@ -62,13 +62,20 @@ const ZERG_UNITS_ON_CREEP_BONUS = new Map([
  */
 const getMovementSpeedByType = (unit) => {
   const { unitType } = unit;
-  if (unitType === undefined) return;
-  if (!movementSpeedByType.has(unitType)) {
-    const { movementSpeed } = unit.data();
-    if (movementSpeed === undefined) return;
+  if (unitType === undefined) return undefined;
+
+  // Use cached value if available to avoid repeated calculations
+  if (movementSpeedByType.has(unitType)) {
+    return movementSpeedByType.get(unitType);
+  }
+
+  // Retrieve and cache movement speed if it's not already done
+  const movementSpeed = unit.data()?.movementSpeed;
+  if (movementSpeed !== undefined) {
     movementSpeedByType.set(unitType, movementSpeed);
   }
-  return movementSpeedByType.get(unitType);
+
+  return movementSpeed;
 };
 
 /**

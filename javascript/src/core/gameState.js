@@ -131,14 +131,11 @@ class GameState {
    * @returns {number} The number of frames processed in each game step.
    */
   calculateFramesPerStep(world) {
-    const currentGameLoop = world.resources.get().frame.getGameLoop();
-    const framesPerStep = currentGameLoop - this.previousGameLoop;
+    const currentGameLoop = this.getCurrentGameLoop(world);
+    const framesPerStep = this.getFramesPerStep(currentGameLoop);
 
-    // Update previousGameLoop for the next cycle
     this.previousGameLoop = currentGameLoop;
-
-    // Ensure we return a positive number and avoid negative values
-    return Math.max(1, framesPerStep);
+    return framesPerStep;
   }  
 
   /**
@@ -208,6 +205,16 @@ class GameState {
   }
 
   /**
+   * Retrieves the current game loop number from the world context.
+   * 
+   * @param {World} world - The game world context.
+   * @returns {number} The current game loop number.
+   */
+  getCurrentGameLoop(world) {
+    return world.resources.get().frame.getGameLoop();
+  }  
+
+  /**
    * Get the amount of food used.
    * @returns {number}
    */
@@ -215,6 +222,16 @@ class GameState {
     // Assuming 'this.resources' has a property 'foodUsed' that keeps track of the food used.
     return this.resources.foodUsed;
   }
+
+  /**
+   * Calculates the number of frames per step based on the current and previous game loop numbers.
+   * 
+   * @param {number} currentGameLoop - The current game loop number.
+   * @returns {number} The calculated number of frames per step.
+   */
+  getFramesPerStep(currentGameLoop) {
+    return Math.max(1, currentGameLoop - this.previousGameLoop);
+  }  
 
   /**
    * Singleton instance accessor.

@@ -219,17 +219,22 @@ function getClosestPathWithGasGeysers(resources, position, targetPosition) {
 }
 
 /**
- * @param {Unit} unit
- * @param {number} buildTime
- * @param {number} progress
- * @returns {number}
- **/
+ * Calculates the remaining build time for a unit, considering buffs like Chrono Boost.
+ * 
+ * @param {Unit} unit - The unit being trained or constructed.
+ * @param {number | undefined} buildTime - The base build time of the unit or structure.
+ * @param {number} progress - The current build progress of the unit or structure.
+ * @returns {number} - The remaining build time in game frames.
+ */
 function getBuildTimeLeft(unit, buildTime, progress) {
+  // Handle undefined buildTime by returning a large number, indicating the build is not close to finishing
+  if (buildTime === undefined) return Number.MAX_SAFE_INTEGER;
+
   const { buffIds } = unit;
-  if (buffIds === undefined) return buildTime;
-  if (buffIds.includes(Buff.CHRONOBOOSTENERGYCOST)) {
-    buildTime = buildTime * 2 / 3;
+  if (buffIds && buffIds.includes(Buff.CHRONOBOOSTENERGYCOST)) {
+    buildTime = buildTime * 2 / 3;  // Chrono Boost accelerates construction/training time
   }
+
   return Math.round(buildTime * (1 - progress));
 }
 

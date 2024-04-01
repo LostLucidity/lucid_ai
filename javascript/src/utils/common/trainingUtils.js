@@ -4,7 +4,7 @@ const { earmarkResourcesIfNeeded } = require("./sharedEconomicFunctions");
 const { getBuildTimeLeft } = require("./sharedUtils");
 const { getBasicProductionUnits } = require("./trainingHelpers");
 const { createTrainingCommands } = require("./unitActions");
-const { flyingTypesMapping, unitTypeTrainingAbilities } = require("./unitConfig");
+const { flyingTypesMapping } = require("./unitConfig");
 const { getUnitTypeCount } = require("./unitHelpers");
 const { findKeysForValue } = require("./utils");
 const GameState = require("../../core/gameState");
@@ -24,57 +24,47 @@ function getTrainer(world, unitTypeId, threshold) {
   const { WARPGATE } = UnitType;
   const { data, resources } = world;
   const { units } = resources.get();
-  let { abilityId } = data.getUnitTypeData(unitTypeId);
-  if (abilityId === undefined) return [];
+  const abilityId = data.getUnitTypeData(unitTypeId)?.abilityId;
+  const warpgateAbilityId = WarpUnitAbility[unitTypeId];
+
+  if (!abilityId) return [];
 
   const idleOrAlmostIdleFilter = (/** @type {Unit} */ unit) => {
-    const { buildProgress, orders } = unit;
+    const buildProgress = unit.buildProgress;
     if (!buildProgress || buildProgress < 1) return false;
 
-    // If no visible orders and no pending orders, the unit is idle
-    if ((!orders || orders.length === 0) && getPendingOrders(unit).length === 0) return true;
-
-    const order = orders?.[0];
-    if (!order || order.abilityId === undefined) return false;
-
-    const unitTypeTraining = unitTypeTrainingAbilities.get(order.abilityId);
-    if (!unitTypeTraining) return false;
-
-    const unitTypeData = data.getUnitTypeData(unitTypeTraining);
-    if (!order.progress || !unitTypeData || unitTypeData.buildTime === undefined) return false;
-
-    const buildTimeLeft = getBuildTimeLeft(unit, unitTypeData.buildTime, order.progress);
-
-    // Unit is almost idle if the build time left for the first order is within the threshold,
-    // there are no further orders in the queue, and no pending orders
-    return buildTimeLeft <= threshold && orders.length === 1 && getPendingOrders(unit).length === 0;
-  };
-
-  const unitFilter = (/** @type {Unit} */ unit) => {
-    const { orders } = unit;
+    const orders = unit.orders || [];
     const pendingOrders = getPendingOrders(unit);
-    if (!abilityId || !orders || !pendingOrders) return false;
+    if (orders.length + pendingOrders.length === 0) return true;
 
-    const allOrders = [...orders, ...pendingOrders];
-    const spaceToTrain = allOrders.length === 0 || (unit.hasReactor() && allOrders.length < 2);
-    return (spaceToTrain && unit.abilityAvailable(abilityId) && !unit.labels.has('reposition')) || idleOrAlmostIdleFilter(unit);
+    const [firstOrder] = orders;
+    if (!firstOrder) return false;
+
+    const currentAbilityId = unit.unitType === WARPGATE ? warpgateAbilityId : abilityId;
+    if (firstOrder.abilityId !== currentAbilityId) return false;
+
+    const unitTypeData = data.getUnitTypeData(firstOrder.abilityId);
+    if (!firstOrder.progress || !unitTypeData || unitTypeData.buildTime === undefined) return false;
+
+    const buildTimeLeft = getBuildTimeLeft(unit, unitTypeData.buildTime, firstOrder.progress);
+    return buildTimeLeft <= threshold && pendingOrders.length === 0;
   };
 
-  let productionUnits = getBasicProductionUnits(world, unitTypeId).filter(unitFilter);
+  let productionUnits = getBasicProductionUnits(world, unitTypeId)
+    .filter(unit => unit.abilityAvailable(abilityId) && !unit.labels.has('reposition'))
+    .filter(idleOrAlmostIdleFilter);
 
-  if (productionUnits.length === 0) {
-    const warpgateAbilityId = WarpUnitAbility[unitTypeId];
-    productionUnits = units.getById(WARPGATE).filter(warpgate => warpgateAbilityId && warpgate.abilityAvailable(warpgateAbilityId));
-  }
+  const warpgateUnits = units.getById(WARPGATE)
+    .filter(warpgate => warpgate.abilityAvailable(warpgateAbilityId) && idleOrAlmostIdleFilter(warpgate));
 
-  // Check for flying units
+  productionUnits = [...productionUnits, ...warpgateUnits];
+
+  // Reintroduce flying units handling
   const unitTypesWithAbility = data.findUnitTypesWithAbility(abilityId);
   const flyingTypes = unitTypesWithAbility.flatMap(value => findKeysForValue(flyingTypesMapping, value));
-  const flyingUnits = units.getById(flyingTypes).filter(unit => unit.isIdle());
+  const flyingUnits = units.getById(flyingTypes).filter(unit => unit.isIdle() && idleOrAlmostIdleFilter(unit));
 
-  productionUnits = [...new Set([...productionUnits, ...flyingUnits])]; // Remove duplicates
-
-  return productionUnits;
+  return [...new Set([...productionUnits, ...flyingUnits])]; // Remove duplicates
 }
 
 /**

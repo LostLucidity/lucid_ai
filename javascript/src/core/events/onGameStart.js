@@ -13,53 +13,9 @@ const GameState = require('../gameState');
 const logger = require('../logger');
 
 /**
- * @param {World} world
- */
-async function onGameStart(world) {
-  logger.logMessage('Game Started', 1);
-
-  const botRace = stateManagement.determineBotRace(world);
-  const gameState = GameState.getInstance();
-  gameState.setRace(botRace);
-
-  // Initialize the unit type training ability mapping
-  setUnitTypeTrainingAbilityMapping(world.data); // Call the function with the game data
-
-  const strategyManager = StrategyManager.getInstance(botRace);
-  if (!strategyManager.getCurrentStrategy()) {
-    strategyManager.initializeStrategy(botRace);
-  }
-
-  try {
-    const buildOrder = strategyManager.getBuildOrderForCurrentStrategy(world);
-    const maxSupply = strategyUtils.getMaxSupplyFromPlan(buildOrder.steps, botRace);
-    config.planMax = { supply: maxSupply, gasMine: 0 }; // Assuming 0 is a sensible default for gasMine
-
-    const currentStrategy = strategyManager.getCurrentStrategy();
-    if (currentStrategy?.steps) {
-      gameState.setPlan(strategyUtils.convertToPlanSteps(currentStrategy.steps));
-    }
-  } catch (error) {
-    logger.logError('Error during strategy setup:', error instanceof Error ? error : new Error('Unknown error'));
-  }
-
-  performInitialMapAnalysis(world);
-  gameState.initializeStartingUnitCounts(botRace);
-  gameState.verifyStartingUnitCounts(world);
-
-  try {
-    const actionCollection = assignInitialWorkers(world);
-    const { actions } = world.resources.get();
-    await actions.sendAction(actionCollection);
-  } catch (error) {
-    logger.logError('Error during initial worker assignment:', error instanceof Error ? error : new Error('Unknown error'));
-  }
-}
-
-module.exports = onGameStart;
-
-/**
- * Assigns initial workers to mineral fields and prepares for scouting.
+ * Prepares the initial worker assignments to mineral fields.
+ * Returns the actions to be executed, without directly sending them.
+ * 
  * @param {World} world - The game world context, including resources and actions.
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The collection of actions to be executed.
  */
@@ -67,30 +23,89 @@ function assignInitialWorkers(world) {
   // Retrieve the resource manager from the world object
   const resourceManager = world.resources;
 
-  // Initialize an array to collect actions
-  const actionCollection = [];
+  // Generate actions for assigning workers
+  const workerActions = sharedWorkerUtils.assignWorkers(resourceManager);
 
-  // Assign workers to mineral fields
-  const workerActions = sharedWorkerUtils.assignWorkers(resourceManager); // Pass the ResourceManager object
-  actionCollection.push(...workerActions);
+  // Return the collection of actions without sending them
+  return workerActions;
+}
 
-  // Return the collection of actions
-  return actionCollection;
+/**
+ * Initializes the game state, setting the race, and mapping unit types.
+ * 
+ * @param {World} world - The game world context.
+ * @param {Race} botRace - The race of the bot.
+ */
+function initializeGameState(world, botRace) {
+  const gameState = GameState.getInstance();
+  gameState.setRace(botRace);
+  setUnitTypeTrainingAbilityMapping(world.data);
+  gameState.initializeStartingUnitCounts(botRace);
+  gameState.verifyStartingUnitCounts(world);
+}
+
+/**
+ * Initializes the strategy manager and assigns initial workers.
+ * 
+ * @param {World} world - The game world context.
+ * @param {Race} botRace - The race of the bot.
+ */
+function initializeStrategyAndAssignWorkers(world, botRace) {
+  const strategyManager = StrategyManager.getInstance(botRace);
+  if (!strategyManager.getCurrentStrategy()) {
+    strategyManager.initializeStrategy(botRace);
+  }
+
+  const buildOrder = strategyManager.getBuildOrderForCurrentStrategy(world);
+  if (buildOrder && buildOrder.steps) {
+    const maxSupply = strategyUtils.getMaxSupplyFromPlan(buildOrder.steps, botRace);
+    config.planMax = { supply: maxSupply, gasMine: 0 };
+    GameState.getInstance().setPlan(strategyUtils.convertToPlanSteps(buildOrder.steps));
+  }
+
+  // Return worker actions for the caller to execute
+  return assignInitialWorkers(world);
+}
+
+/**
+ * Handles the initial actions to be taken when the game starts.
+ * Initializes game state, strategy, and performs initial map analysis.
+ * 
+ * @param {World} world - The game world context.
+ */
+async function onGameStart(world) {
+  logger.logMessage('Game Started', 1);
+
+  try {
+    const botRace = stateManagement.determineBotRace(world);
+    initializeGameState(world, botRace);
+    const workerActions = initializeStrategyAndAssignWorkers(world, botRace);
+    await world.resources.get().actions.sendAction(workerActions);
+    performInitialMapAnalysis(world, botRace);
+    // Execute any other necessary actions based on the results from performInitialMapAnalysis
+  } catch (error) {
+    logger.logError('Error during game start initialization:', error instanceof Error ? error : new Error('Unknown error'));
+  }
 }
 
 /**
  * Performs initial map analysis based on the bot's race.
+ * This includes calculating grid positions adjacent to ramps and determining wall-off positions.
+ * 
  * @param {World} world - The game world context.
+ * @param {Race} botRace - The race of the bot, used to determine specific actions like wall-off positions for Terran.
  */
-function performInitialMapAnalysis(world) {
-  const botRace = stateManagement.determineBotRace(world);
-  const map = world.resources.get().map;
-  StrategyManager.getInstance(botRace);
+function performInitialMapAnalysis(world, botRace) {
+  // This function should only calculate data and return it if necessary
   if (botRace === Race.TERRAN) {
-    // First calculate the grids adjacent to ramps
-    calculateAdjacentToRampGrids(map);
-
-    // Then calculate wall-off positions using the calculated ramp grids
-    BuildingPlacement.calculateWallOffPositions(world);
+    const map = world.resources.get().map;
+    // Possibly return calculated positions or other relevant data
+    return {
+      rampGrids: calculateAdjacentToRampGrids(map),
+      wallOffPositions: BuildingPlacement.calculateWallOffPositions(world)
+    };
   }
+  return null; // Return null or appropriate value if no analysis is performed
 }
+
+module.exports = onGameStart;
