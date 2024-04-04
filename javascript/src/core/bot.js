@@ -45,10 +45,6 @@ function collectAdditionalActions(world) {
     actions.push(...workerTrainingActions);
   }
 
-  // Reassign any idle workers to ensure continuous resource collection
-  const idleWorkerReassignmentActions = workerAssignment.reassignIdleWorkers(world);
-  actions.push(...idleWorkerReassignmentActions);
-
   return actions;
 }
 
@@ -94,22 +90,25 @@ const bot = createAgent({
    * @param {World} world - The current game world state.
    */
   async onStep(world) {
-    // Update the game state with the current world, this will calculate frames per step
     gameState.updateGameState(world);
-
     unitManagement.refreshProductionUnitsCache();
+
     const { units } = world.resources.get();
     updateMaxWorkers(units);
 
     let actionCollection = await handleStrategicActions(world);
 
-    // Collect additional actions if the strategic plan is not fully occupying the bot's capacity
-    if (!StrategyService.getInstance().isActivePlan()) {
-      const additionalActions = collectAdditionalActions(world);
-      actionCollection = [...actionCollection, ...additionalActions];
+    // Reassign idle workers only if needed, avoiding redundant actions
+    if (units.getIdleWorkers().length > 0) {
+      actionCollection = actionCollection.concat(workerAssignment.reassignIdleWorkers(world));
     }
 
-    // Execute collected actions
+    // Add additional actions only if there is no active strategic plan
+    if (!StrategyService.getInstance().isActivePlan()) {
+      actionCollection = actionCollection.concat(collectAdditionalActions(world));
+    }
+
+    // Execute actions if there are any
     if (actionCollection.length > 0) {
       try {
         await world.resources.get().actions.sendAction(actionCollection);
