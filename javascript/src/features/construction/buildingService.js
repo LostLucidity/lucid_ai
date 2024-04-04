@@ -15,13 +15,13 @@ const { getUnitsCapableToAddOn, addAddOn } = require("../../gameLogic/addonUtils
 const { findPlacements, findPosition } = require("../../gameLogic/buildingPlacementHelpers");
 const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition, findBestPositionForAddOn } = require("../../gameLogic/constructionAndBuildingUtils");
 const { getTimeUntilUnitCanBuildAddon } = require("../../gameLogic/unitCapabilityUtils");
-const { commandPlaceBuilding } = require("../../utils/common/builderUtils");
-const { getNextSafeExpansions } = require("../../utils/common/geometry");
-const { prepareUnitToBuildAddon } = require("../../utils/common/unitActions");
-const { isPlaceableAtGasGeyser } = require("../../utils/common/utils");
-const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../../utils/gameLogic/gameData");
-const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("../../utils/resourceManagement/resourceManagement");
-const { addEarmark } = require("../../utils/resourceManagement/resourceUtils");
+const { commandPlaceBuilding } = require("../../utils/builderUtils");
+const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../../utils/gameData");
+const { getNextSafeExpansions } = require("../../utils/geometry");
+const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("../../utils/resourceManagement");
+const { addEarmark } = require("../../utils/resourceUtils");
+const { prepareUnitToBuildAddon } = require("../../utils/unitActions");
+const { isPlaceableAtGasGeyser } = require("../../utils/utils");
 
 /**
  * @param {World} world

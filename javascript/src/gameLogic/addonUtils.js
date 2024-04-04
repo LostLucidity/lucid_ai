@@ -3,13 +3,13 @@
 
 const groupTypes = require("@node-sc2/core/constants/groups");
 
-const GameState = require("../core/gameState");
-const { attemptBuildAddOn, attemptLiftOff } = require("../utils/common/unitActions");
-const { canUnitBuildAddOn, flyingTypesMapping } = require("../utils/common/unitConfig");
-const { updateAddOnType, getUnitTypeToBuild } = require("../utils/common/unitHelpers");
 const { attemptLand } = require("./landingUtils");
 const { getPendingOrders } = require("./stateManagement");
-const { addEarmark } = require("../utils/resourceManagement/resourceUtils");
+const GameState = require("../core/gameState");
+const { addEarmark } = require("../utils/resourceUtils");
+const { attemptBuildAddOn, attemptLiftOff } = require("../utils/unitActions");
+const { canUnitBuildAddOn, flyingTypesMapping } = require("../utils/unitConfig");
+const { updateAddOnType, getUnitTypeToBuild } = require("../utils/unitHelpers");
 
 /**
  * Adds addon, with placement checks and relocating logic.

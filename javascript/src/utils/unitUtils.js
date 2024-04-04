@@ -1,14 +1,14 @@
 const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
+const { haveSupplyForUnit } = require("./resourceManagement");
+const { addEarmark } = require("./resourceUtils");
 const { getBasicProductionUnits } = require("./trainingHelpers");
-const GameState = require("../../core/gameState");
-const StrategyManager = require("../../features/strategy/strategyManager");
-const { getPendingOrders } = require("../../gameLogic/stateManagement");
-const { checkTechRequirement } = require("../../gameLogic/techRequirementUtils");
-const { isTrainingOrder } = require("../../gameLogic/unitCapabilityUtils");
-const { haveSupplyForUnit } = require("../resourceManagement/resourceManagement");
-const { addEarmark } = require("../resourceManagement/resourceUtils");
+const GameState = require("../core/gameState");
+const StrategyManager = require("../features/strategy/strategyManager");
+const { getPendingOrders } = require("../gameLogic/stateManagement");
+const { checkTechRequirement } = require("../gameLogic/techRequirementUtils");
+const { isTrainingOrder } = require("../gameLogic/unitCapabilityUtils");
 
 /** @type {Map<UnitTypeId, Unit[]>} */
 const productionUnitsCache = new Map();

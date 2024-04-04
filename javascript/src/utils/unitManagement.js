@@ -12,8 +12,10 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal dependencies
-const { getTimeToTargetTech } = require("../gameLogic/gameData");
+const { getTimeToTargetTech } = require("./gameData");
 const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("./geometry");
+const { getTimeToTargetCost } = require("./resourceManagement");
+const { addEarmark, getEarmarkedFood } = require("./resourceUtils");
 const { getDistance } = require("./spatialUtils");
 const { liftAndLandingTime } = require("./unitConfig");
 const { isTrainingUnit } = require("./unitHelpers");
@@ -21,17 +23,15 @@ const { setPendingOrders } = require("./unitOrders");
 const { handleUnitTraining } = require("./unitTraining");
 const { productionUnitsCache } = require("./unitUtils");
 const { createUnitCommand } = require("./utils");
-const GameState = require("../../core/gameState");
-const BuildingPlacement = require("../../features/construction/buildingPlacement");
-const { buildSupply } = require("../../features/construction/buildingService");
-const { getPendingOrders } = require("../../gameLogic/stateManagement");
-const { getTimeToTargetCost } = require("../resourceManagement/resourceManagement");
-const { addEarmark, getEarmarkedFood } = require("../resourceManagement/resourceUtils");
+const GameState = require("../core/gameState");
+const BuildingPlacement = require("../features/construction/buildingPlacement");
+const { buildSupply } = require("../features/construction/buildingService");
+const { getPendingOrders } = require("../gameLogic/stateManagement");
 
 /**
  * Build supply or train units based on the game world state and strategy step.
  * @param {World} world
- * @param {import("../../features/strategy/strategyService").PlanStep} step
+ * @param {import("../features/strategy/strategyService").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function buildSupplyOrTrain(world, step) {

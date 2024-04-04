@@ -13,9 +13,9 @@ const { flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { createUnitCommand } = require("./utils");
 // eslint-disable-next-line no-unused-vars
-const GameState = require("../../core/gameState");
-const { getClosestPathablePositionsBetweenPositions } = require("../../gameLogic/sharedPathfindingUtils");
-const { getPendingOrders } = require("../../gameLogic/stateManagement");
+const GameState = require("../core/gameState");
+const { getClosestPathablePositionsBetweenPositions } = require("../gameLogic/sharedPathfindingUtils");
+const { getPendingOrders } = require("../gameLogic/stateManagement");
 
 /**
  * @param {World} world 

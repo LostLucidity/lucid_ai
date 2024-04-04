@@ -19,8 +19,8 @@ const { UnitType } = require('@node-sc2/core/constants');
 const { reactorTypes, techLabTypes } = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
-const { getTimeInSeconds } = require('../common/pathfindingUtils');
-const GameState = require('../../core/gameState');
+const { getTimeInSeconds } = require('./pathfindingUtils');
+const GameState = require('../core/gameState');
 
 /**
  * A map of unit types to their possible upgrades.
@@ -44,10 +44,10 @@ const unitTypeData = {};
 /**
  * Builds a map from unit names to their ability IDs.
  * @param {DataStorage} dataStorage
- * @returns {import('../common/common').UnitTypeMap}
+ * @returns {import('./common').UnitTypeMap}
  */
 function buildUnitTypeMap(dataStorage) {
-  /** @type {import('../common/common').UnitTypeMap} */
+  /** @type {import('./common').UnitTypeMap} */
   const map = {};
 
   const allUnitTypeIds = getAllUnitTypeIds(); // Implement this function

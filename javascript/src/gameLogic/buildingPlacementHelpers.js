@@ -13,13 +13,13 @@ const GameState = require("../core/gameState");
 const { buildingPositions } = require("../core/gameStateResources");
 const MapResources = require("../core/mapResources");
 const BuildingPlacement = require("../features/construction/buildingPlacement");
-const { getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../utils/common/geometry");
-const { getTimeInSeconds } = require("../utils/common/pathfindingUtils");
-const { getBuildTimeLeft } = require("../utils/common/sharedUtils");
-const { getDistance } = require("../utils/common/spatialUtils");
-const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../utils/common/unitConfig");
-const { isPlaceableAtGasGeyser } = require("../utils/common/utils");
-const { getCurrentlyEnrouteConstructionGrids } = require("../utils/gameLogic/constructionHelpers");
+const { getCurrentlyEnrouteConstructionGrids } = require("../utils/constructionHelpers");
+const { getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../utils/geometry");
+const { getTimeInSeconds } = require("../utils/pathfindingUtils");
+const { getBuildTimeLeft } = require("../utils/sharedUtils");
+const { getDistance } = require("../utils/spatialUtils");
+const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../utils/unitConfig");
+const { isPlaceableAtGasGeyser } = require("../utils/utils");
 
 /**
  * @typedef {Object} FootprintType

@@ -8,12 +8,12 @@ const { Attribute } = require('@node-sc2/core/constants/enums');
 const StrategyManager = require('./strategyManager');
 const GameState = require('../../core/gameState');
 const { isBuildOrderStep } = require('../../gameLogic/typeGuards');
-const { setFoodUsed, balanceResources } = require('../../utils/common/economyManagement');
-const { train } = require('../../utils/common/trainingUtils');
-const { performScoutingWithSCV } = require('../../utils/common/unitActions');
-const { buildSupplyOrTrain, upgrade } = require('../../utils/common/unitManagement');
-const { resetEarmarks } = require('../../utils/resourceManagement/resourceData');
-const { hasEarmarks } = require('../../utils/resourceManagement/resourceManagement');
+const { setFoodUsed, balanceResources } = require('../../utils/economyManagement');
+const { resetEarmarks } = require('../../utils/resourceData');
+const { hasEarmarks } = require('../../utils/resourceManagement');
+const { train } = require('../../utils/trainingUtils');
+const { performScoutingWithSCV } = require('../../utils/unitActions');
+const { buildSupplyOrTrain, upgrade } = require('../../utils/unitManagement');
 const { interpretBuildOrderAction } = require('../buildOrders/buildOrderUtils');
 const { build } = require('../construction/buildingService');
 
@@ -81,8 +81,8 @@ class StrategyService {
 
   /**
    * Creates a plan step from the given raw step and interpreted action.
-   * @param {import('../../utils/gameLogic/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step from the build order.
-   * @param {import('../../utils/gameLogic/globalTypes').InterpretedAction} interpretedAction - The interpreted action for the step.
+   * @param {import('../../utils/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step from the build order.
+   * @param {import('../../utils/globalTypes').InterpretedAction} interpretedAction - The interpreted action for the step.
    * @param {number} cumulativeCount - The cumulative count of the unitType up to this step in the plan.
    * @returns {PlanStep} The created plan step.
    */
@@ -105,7 +105,7 @@ class StrategyService {
   /**
    * Executes the given strategy plan.
    * @param {World} world - The game world context.
-   * @param {import("../../utils/gameLogic/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan - The strategy plan to execute.
+   * @param {import("../../utils/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan - The strategy plan to execute.
    * @param {StrategyManager} strategyManager - The strategy manager.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
    */
@@ -155,7 +155,7 @@ class StrategyService {
   }
 
   /**
-   * @param {import("../../utils/gameLogic/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
+   * @param {import("../../utils/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
    */
   getInterpretedActions(rawStep) {
     if (rawStep.interpretedAction) {
@@ -225,7 +225,7 @@ class StrategyService {
   } 
 
   /**
-   * @param {import("../../utils/gameLogic/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan
+   * @param {import("../../utils/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan
    */
   isValidPlan(plan) {
     return plan && Array.isArray(plan.steps);
@@ -261,7 +261,7 @@ class StrategyService {
   /**
    * Processes each step of the strategy plan.
    * @param {World} world
-   * @param {import("../../utils/gameLogic/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
+   * @param {import("../../utils/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
    * @param {number} step
    * @param {StrategyManager} strategyManager
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
@@ -278,9 +278,9 @@ class StrategyService {
   /**
    * Processes an interpreted action from the current strategy step.
    * @param {World} world
-   * @param {import("../../utils/gameLogic/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
+   * @param {import("../../utils/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
    * @param {number} step
-   * @param {import('../../utils/gameLogic/globalTypes').InterpretedAction} interpretedAction
+   * @param {import('../../utils/globalTypes').InterpretedAction} interpretedAction
    * @param {StrategyManager} strategyManager
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
    */

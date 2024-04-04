@@ -7,12 +7,12 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 
 // eslint-disable-next-line no-unused-vars
 const GameState = require("../core/gameState");
-const { getClosestUnitByPath } = require("../utils/common/pathfinding");
-const { getTimeInSeconds } = require("../utils/common/pathfindingUtils");
-const { getDistance } = require("../utils/common/spatialUtils");
-const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../utils/common/unitConfig");
-const { getDistanceByPath } = require("../utils/common/utils");
-const { SPEED_MODIFIERS } = require("../utils/gameLogic/contants");
+const { SPEED_MODIFIERS } = require("../utils/contants");
+const { getClosestUnitByPath } = require("../utils/pathfinding");
+const { getTimeInSeconds } = require("../utils/pathfindingUtils");
+const { getDistance } = require("../utils/spatialUtils");
+const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../utils/unitConfig");
+const { getDistanceByPath } = require("../utils/utils");
 
 
 /**

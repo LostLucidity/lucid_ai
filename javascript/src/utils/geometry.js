@@ -14,8 +14,8 @@ const { getGasGeysersCache, setGasGeysersCache } = require("./cacheModule");
 const { getTimeInSeconds } = require("./pathfindingUtils");
 const { getPathCoordinates } = require("./pathUtils");
 const { getDistance } = require("./spatialUtils");
-const GameState = require("../../core/gameState");
-const MapResources = require("../../core/mapResources");
+const GameState = require("../core/gameState");
+const MapResources = require("../core/mapResources");
 
 /** @type {Point2D[]} */
 let adjacentToRampGrids = [];

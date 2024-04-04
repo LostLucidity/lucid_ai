@@ -3,15 +3,15 @@
 const { Ability } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
-const { getBuilders } = require("../../gameLogic/sharedWorkerUtils");
-const GameState = require("../../core/gameState");
-const { getAwayPosition, areApproximatelyEqual } = require("../common/geometry");
-const { setBuilderLabel } = require("../common/sharedBuildingUtils");
-const { isMoving, getUnitsFromClustering } = require("../common/sharedUtils");
-const { getDistance } = require("../common/spatialUtils");
-const { setPendingOrders } = require("../common/unitOrders");
-const { createUnitCommand, getDistanceByPath } = require("../common/utils");
-const { rallyWorkerToTarget, getOrderTargetPosition } = require("../common/workerUtils");
+const { getAwayPosition, areApproximatelyEqual } = require("./geometry");
+const { setBuilderLabel } = require("./sharedBuildingUtils");
+const { isMoving, getUnitsFromClustering } = require("./sharedUtils");
+const { getDistance } = require("./spatialUtils");
+const { setPendingOrders } = require("./unitOrders");
+const { createUnitCommand, getDistanceByPath } = require("./utils");
+const { rallyWorkerToTarget, getOrderTargetPosition } = require("./workerUtils");
+const GameState = require("../core/gameState");
+const { getBuilders } = require("../gameLogic/sharedWorkerUtils");
 
 /**
  * @param {World} world

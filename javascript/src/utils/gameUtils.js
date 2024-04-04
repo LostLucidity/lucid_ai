@@ -1,8 +1,8 @@
 // gameUtils.js
 "use strict";
 
-const GameState = require("../../core/gameState");
-const { isCurrent } = require("../resourceManagement/resourceUtils");
+const { isCurrent } = require("./resourceUtils");
+const GameState = require("../core/gameState");
 
 /**
  * @param {ResourceManager} resources

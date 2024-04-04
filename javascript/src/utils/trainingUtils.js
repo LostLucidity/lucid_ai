@@ -7,10 +7,10 @@ const { createTrainingCommands } = require("./unitActions");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("./unitConfig");
 const { getUnitTypeCount } = require("./unitHelpers");
 const { findKeysForValue } = require("./utils");
-const GameState = require("../../core/gameState");
-const { filterSafeTrainers } = require("../../gameLogic/gameStrategyUtils");
-const { getPendingOrders } = require("../../gameLogic/stateManagement");
-const { canTrainUnit } = require("../../gameLogic/unitCapabilityUtils");
+const GameState = require("../core/gameState");
+const { filterSafeTrainers } = require("../gameLogic/gameStrategyUtils");
+const { getPendingOrders } = require("../gameLogic/stateManagement");
+const { canTrainUnit } = require("../gameLogic/unitCapabilityUtils");
 
 /**
  * Gets trainers that can produce a specific unit type, including those nearly finished training other units.

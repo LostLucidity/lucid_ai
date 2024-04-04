@@ -7,17 +7,17 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { getAddOnPlacement, pointsOverlap } = require("./geometry");
+const { addEarmark } = require("./resourceUtils");
 const { determineScoutingLocations, selectSCVForScouting } = require("./scoutingUtils");
 const { getDistance } = require("./spatialUtils");
 const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff, setRepositionLabel } = require("./unitHelpers");
 const { setPendingOrders } = require("./unitOrders");
 const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");
-const GameState = require("../../core/gameState");
-const { getPlanFoodValue } = require("../../gameLogic/gameStrategyUtils");
-const { checkAddOnPlacement, seigeTanksSiegedGrids } = require("../../gameLogic/sharedUnitPlacement");
-const { getSingletonInstance } = require("../../gameLogic/singletonFactory");
-const { getPendingOrders } = require("../../gameLogic/stateManagement");
-const { addEarmark } = require("../resourceManagement/resourceUtils");
+const GameState = require("../core/gameState");
+const { getPlanFoodValue } = require("../gameLogic/gameStrategyUtils");
+const { checkAddOnPlacement, seigeTanksSiegedGrids } = require("../gameLogic/sharedUnitPlacement");
+const { getSingletonInstance } = require("../gameLogic/singletonFactory");
+const { getPendingOrders } = require("../gameLogic/stateManagement");
 
 /**
  * Attempt to build addOn

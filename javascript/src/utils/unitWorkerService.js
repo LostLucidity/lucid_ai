@@ -5,7 +5,7 @@
  */
 
 // Import necessary dependencies
-const GameState = require('../../core/gameState');
+const GameState = require('../core/gameState');
 
 /**
  * Retrieves units that are currently training a specific unit type.

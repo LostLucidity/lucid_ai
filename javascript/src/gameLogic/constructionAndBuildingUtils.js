@@ -11,16 +11,16 @@ const { logNoFreeGeysers } = require('./sharedConstructionUtils');
 const { checkAddOnPlacement } = require('./sharedUnitPlacement');
 const { getPendingOrders } = require('./stateManagement');
 const GameState = require('../core/gameState');
-const { getTimeToTargetTech } = require('../utils/gameLogic/gameData');
-const { getAddOnPlacement, calculateBaseTimeToPosition } = require('../utils/common/geometry');
-const { getClosestUnitByPath, getClosestPositionByPath } = require('../utils/common/pathfinding');
-const { getPathCoordinates, getMapPath } = require('../utils/common/pathUtils');
-const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../utils/common/sharedUtils');
-const { unitTypeTrainingAbilities, canLiftOff } = require('../utils/common/unitConfig');
-const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../utils/common/utils');
-const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../utils/common/workerUtils');
-const { handleNonRallyBase } = require('../utils/gameLogic/buildingWorkerInteractions');
-const { earmarkThresholdReached } = require('../utils/resourceManagement/resourceUtils');
+const { handleNonRallyBase } = require('../utils/buildingWorkerInteractions');
+const { getTimeToTargetTech } = require('../utils/gameData');
+const { getAddOnPlacement, calculateBaseTimeToPosition } = require('../utils/geometry');
+const { getClosestUnitByPath, getClosestPositionByPath } = require('../utils/pathfinding');
+const { getPathCoordinates, getMapPath } = require('../utils/pathUtils');
+const { earmarkThresholdReached } = require('../utils/resourceUtils');
+const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../utils/sharedUtils');
+const { unitTypeTrainingAbilities, canLiftOff } = require('../utils/unitConfig');
+const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../utils/utils');
+const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../utils/workerUtils');
 
 /**
  * Determines a valid position for placing a building.

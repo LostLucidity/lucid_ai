@@ -3,16 +3,16 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Race, Attribute } = require("@node-sc2/core/constants/enums");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
+const { getById } = require("./gameUtils");
+const { getEarmarkedFood, addEarmark } = require("./resourceUtils");
 const { train } = require("./trainingUtils");
 const { setPendingOrders } = require("./unitOrders");
 const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("./unitUtils");
 const { createUnitCommand } = require("./utils");
 const { shortOnWorkers } = require("./workerUtils");
-const GameState = require("../../core/gameState");
-const StrategyManager = require("../../features/strategy/strategyManager");
-const { getPendingOrders } = require("../../gameLogic/stateManagement");
-const { getById } = require("../gameLogic/gameUtils");
-const { getEarmarkedFood, addEarmark } = require("../resourceManagement/resourceUtils");
+const GameState = require("../core/gameState");
+const StrategyManager = require("../features/strategy/strategyManager");
+const { getPendingOrders } = require("../gameLogic/stateManagement");
 
 /**
  * @param {World} world
@@ -89,7 +89,7 @@ function filterCandidateTypes(world, strategyManager) {
 /**
  * Optimizes the training of units based on the current game state and strategic needs.
  * @param {World} world The game world context.
- * @param {import("../../features/strategy/strategyService").PlanStep} step The current strategy step.
+ * @param {import("../features/strategy/strategyService").PlanStep} step The current strategy step.
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of unit training commands.
  */
 function handleUnitTraining(world, step) {

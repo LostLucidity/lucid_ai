@@ -1,7 +1,7 @@
 // sharedConstructionUtils.js
 
 // Import necessary dependencies and constants
-const { logMessageStorage } = require("../utils/gameLogic/loggingUtils");
+const { logMessageStorage } = require("../utils/loggingUtils");
 
 function logNoFreeGeysers() {
   if (!logMessageStorage.noFreeGeysers) {
