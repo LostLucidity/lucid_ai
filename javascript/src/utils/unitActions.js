@@ -15,7 +15,7 @@ const { setPendingOrders } = require("./unitOrders");
 const { getFoodUsedByUnitType, createUnitCommand } = require("./utils");
 const GameState = require("../core/gameState");
 const { getPlanFoodValue } = require("../gameLogic/gameStrategyUtils");
-const { checkAddOnPlacement, seigeTanksSiegedGrids } = require("../gameLogic/sharedUnitPlacement");
+const { checkAddOnPlacement, seigeTanksSiegedGrids } = require("../features/construction/sharedUnitPlacement");
 const { getSingletonInstance } = require("../gameLogic/singletonFactory");
 const { getPendingOrders } = require("../gameLogic/stateManagement");
 

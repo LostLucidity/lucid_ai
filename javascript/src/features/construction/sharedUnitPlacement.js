@@ -2,10 +2,10 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
-const { findPosition } = require("./buildingPlacementHelpers");
-const { getAddOnPlacement, getFootprint, cellsInFootprint, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../utils/geometry");
-const { canUnitBuildAddOn, flyingTypesMapping } = require("../utils/unitConfig");
-const { getStringNameOfConstant } = require("../utils/utils");
+const { findPosition } = require("../../gameLogic/buildingPlacementHelpers");
+const { getAddOnPlacement, getFootprint, cellsInFootprint, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../../utils/geometry");
+const { canUnitBuildAddOn, flyingTypesMapping } = require("../../utils/unitConfig");
+const { getStringNameOfConstant } = require("../../utils/utils");
 
 /** @type {Point2D[]} */
 const seigeTanksSiegedGrids = [];

@@ -17,7 +17,7 @@ const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuil
 const GameState = require("../core/gameState");
 const BuildingPlacement = require("../features/construction/buildingPlacement");
 const { gatherCandidateWorkersTimeToPosition } = require("../features/construction/constructionUtils");
-const { keepPosition } = require("../gameLogic/constructionAndBuildingUtils");
+const { keepPosition } = require("../features/construction/constructionAndBuildingUtils");
 const { calculateClosestConstructingWorker } = require("../gameLogic/coreUtils");
 const { getBuilders } = require("../gameLogic/sharedWorkerUtils");
 

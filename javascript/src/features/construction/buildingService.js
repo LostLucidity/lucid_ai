@@ -7,13 +7,13 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 const BuildingPlacement = require("./buildingPlacement");
+const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition, findBestPositionForAddOn } = require("./constructionAndBuildingUtils");
 const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction } = require("./constructionUtils");
 const config = require("../../../config/config");
 const GameState = require("../../core/gameState");
 const MapResources = require("../../core/mapResources");
 const { getUnitsCapableToAddOn, addAddOn } = require("../../gameLogic/addonUtils");
 const { findPlacements, findPosition } = require("../../gameLogic/buildingPlacementHelpers");
-const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition, findBestPositionForAddOn } = require("../../gameLogic/constructionAndBuildingUtils");
 const { getTimeUntilUnitCanBuildAddon } = require("../../gameLogic/unitCapabilityUtils");
 const { commandPlaceBuilding } = require("../../utils/builderUtils");
 const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../../utils/gameData");
