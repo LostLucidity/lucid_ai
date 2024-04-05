@@ -225,12 +225,13 @@ function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
   const { race } = world.agent;
   if (race === undefined) return false;
 
-  const { map, units } = world.resources.get();
+  const { map } = world.resources.get();
   let isPositionValid = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
 
+  // Only fetch and process pylons if the race is Protoss and the unit to be placed is not a Pylon
   if (race === Race.PROTOSS && unitType !== UnitType.PYLON) {
-    let pylons = units.getById(UnitType.PYLON);
-    let pylonExists = pylons.some(pylon => pylon.isPowered || (pylon.buildProgress && pylon.buildProgress < 1));
+    const pylons = world.resources.get().units.getById(UnitType.PYLON);
+    const pylonExists = pylons.some(pylon => pylon.isPowered || (pylon.buildProgress !== undefined && pylon.buildProgress <= 1));
     isPositionValid = isPositionValid && pylonExists;
   }
 
