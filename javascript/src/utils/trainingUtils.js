@@ -5,7 +5,6 @@ const { getBuildTimeLeft } = require("./sharedUtils");
 const { getBasicProductionUnits } = require("./trainingHelpers");
 const { createTrainingCommands } = require("./unitActions");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("./unitConfig");
-const { getUnitTypeCount } = require("./unitHelpers");
 const { findKeysForValue } = require("./utils");
 const GameState = require("../core/gameState");
 const { filterSafeTrainers } = require("../gameLogic/gameStrategyUtils");
@@ -99,15 +98,20 @@ function train(world, unitTypeId, targetCount = null) {
   const unitTypeData = world.data.getUnitTypeData(unitTypeId);
   if (!unitTypeData.abilityId) return [];
 
-  let earmarkNeeded = targetCount && getUnitTypeCount(world, unitTypeId) < targetCount;
-
+  // Check if we can train the unit considering the target count
   if (!canTrainUnit(world, unitTypeId, targetCount)) return [];
-  earmarkNeeded = earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
 
-  const collectedActions = handleTrainingActions(world, unitTypeId, unitTypeData);
-  earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded);
+  // First check affordability before earmarking resources
+  const canAffordNow = world.agent.canAfford(unitTypeId);
+  earmarkResourcesIfNeeded(world, unitTypeData, true);
 
-  return collectedActions;
+  // Only proceed with training if we can afford the unit after checking affordability
+  if (canAffordNow) {
+    return handleTrainingActions(world, unitTypeId, unitTypeData);
+  }
+
+  // Can't afford now, but resources are earmarked for future
+  return [];
 }
 
 module.exports = {
