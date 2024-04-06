@@ -125,6 +125,12 @@ function findClosestMineralField(worker, mineralFields, bases) {
 }
 
 /**
+ * Constants defined outside the function to avoid reinitialization on every call.
+ */
+const NO_CREEP_BONUS_TYPES = new Set([UnitType.DRONE, UnitType.BROODLING, UnitType.CHANGELING /* and any burrowed unit type */]);
+const DEFAULT_CREEP_SPEED_BONUS = 1.3;
+
+/**
  * Calculates the movement speed of a unit based on various factors.
  * @param {MapResource} map The map resource object.
  * @param {Unit} unit The unit for which to calculate movement speed.
@@ -139,22 +145,18 @@ function getMovementSpeed(map, unit, gameState, adjustForRealSeconds = false) {
   let movementSpeed = getMovementSpeedByType(unit);
   if (!movementSpeed) return 0;
 
-  // Apply speed modifier specific to the unit type, if any.
-  const speedModifierFunc = SPEED_MODIFIERS.get(unitType);
-  if (speedModifierFunc) {
-    movementSpeed += speedModifierFunc(unit, gameState);
-  }
-
+  // Start with a base multiplier and conditionally modify it
   let multiplier = adjustForRealSeconds ? 1.4 : 1;
-
-  // Apply stimpack buff speed multiplier.
   if (unit.buffIds?.includes(Buff.STIMPACK)) {
     multiplier *= 1.5;
   }
+  if (map.hasCreep(pos) && !NO_CREEP_BONUS_TYPES.has(unitType)) {
+    multiplier *= ZERG_UNITS_ON_CREEP_BONUS.get(unitType) || DEFAULT_CREEP_SPEED_BONUS;
+  }
 
-  // Apply speed bonus for Zerg units on creep.
-  if (map.hasCreep(pos)) {
-    multiplier *= ZERG_UNITS_ON_CREEP_BONUS.get(unitType) || 1.3;
+  const speedModifierFunc = SPEED_MODIFIERS.get(unitType);
+  if (speedModifierFunc) {
+    movementSpeed += speedModifierFunc(unit, gameState);
   }
 
   return movementSpeed * multiplier;
