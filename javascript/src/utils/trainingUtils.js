@@ -22,51 +22,49 @@ const { canTrainUnit } = require("../gameLogic/unitCapabilityUtils");
 function getTrainer(world, unitTypeId, threshold) {
   const { WARPGATE } = UnitType;
   const { data, resources } = world;
-  const { units } = resources.get();
   const abilityId = data.getUnitTypeData(unitTypeId)?.abilityId;
+
+  // Ensure abilityId is defined before proceeding
+  if (abilityId === undefined) return [];
+
   const warpgateAbilityId = WarpUnitAbility[unitTypeId];
+  const unitTypesWithAbility = data.findUnitTypesWithAbility(abilityId);
 
-  if (!abilityId) return [];
+  const units = resources.get().units;
 
-  const idleOrAlmostIdleFilter = (/** @type {Unit} */ unit) => {
-    const buildProgress = unit.buildProgress;
-    if (!buildProgress || buildProgress < 1) return false;
-
-    const orders = unit.orders || [];
-    const pendingOrders = getPendingOrders(unit);
-    if (orders.length + pendingOrders.length === 0) return true;
-
-    const [firstOrder] = orders;
-    if (!firstOrder) return false;
+  const canTrain = (/** @type {Unit} */ unit) => {
+    if (!unit.buildProgress || unit.buildProgress < 1 || unit.labels.has('reposition')) {
+      return false;
+    }
 
     const currentAbilityId = unit.unitType === WARPGATE ? warpgateAbilityId : abilityId;
-    if (firstOrder.abilityId !== currentAbilityId) return false;
+    const orders = unit.orders || [];
+    const pendingOrders = getPendingOrders(unit);
+
+    if ((orders.length + pendingOrders.length) === 0) return true;
+    if (orders.length === 0 || orders[0].abilityId !== currentAbilityId) return false;
+
+    const firstOrder = orders[0];
+    if (firstOrder.abilityId === undefined) return false; // Ensure abilityId is defined
 
     const unitTypeTraining = unitTypeTrainingAbilities.get(firstOrder.abilityId);
     if (!unitTypeTraining) return false;
 
     const unitTypeData = data.getUnitTypeData(unitTypeTraining);
-    if (!firstOrder.progress || !unitTypeData || unitTypeData.buildTime === undefined) return false;
+    if (!unitTypeData || unitTypeData.buildTime === undefined) return false;
 
-    const buildTimeLeft = getBuildTimeLeft(unit, unitTypeData.buildTime, firstOrder.progress);
-    return buildTimeLeft <= threshold && orders.length === 1 && getPendingOrders(unit).length === 0;
+    const buildTimeLeft = getBuildTimeLeft(unit, unitTypeData.buildTime, firstOrder.progress || 0);
+    return buildTimeLeft <= threshold && pendingOrders.length === 0;
   };
 
-  let productionUnits = getBasicProductionUnits(world, unitTypeId)
-    .filter(unit => unit.abilityAvailable(abilityId) && !unit.labels.has('reposition'))
-    .filter(idleOrAlmostIdleFilter);
+  const productionUnits = getBasicProductionUnits(world, unitTypeId).filter(canTrain);
+  const warpgateUnits = units.getById(WARPGATE).filter(canTrain);
 
-  const warpgateUnits = units.getById(WARPGATE)
-    .filter(warpgate => warpgate.abilityAvailable(warpgateAbilityId) && idleOrAlmostIdleFilter(warpgate));
+  // Handle flying units if applicable
+  const flyingTypes = unitTypesWithAbility.flatMap(type => findKeysForValue(flyingTypesMapping, type));
+  const flyingUnits = units.getById(flyingTypes).filter(canTrain);
 
-  productionUnits = [...productionUnits, ...warpgateUnits];
-
-  // Reintroduce flying units handling
-  const unitTypesWithAbility = data.findUnitTypesWithAbility(abilityId);
-  const flyingTypes = unitTypesWithAbility.flatMap(value => findKeysForValue(flyingTypesMapping, value));
-  const flyingUnits = units.getById(flyingTypes).filter(unit => unit.isIdle() && idleOrAlmostIdleFilter(unit));
-
-  return [...new Set([...productionUnits, ...flyingUnits])]; // Remove duplicates
+  return [...new Set([...productionUnits, ...warpgateUnits, ...flyingUnits])]; // Remove duplicates
 }
 
 /**
