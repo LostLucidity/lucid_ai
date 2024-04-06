@@ -15,13 +15,13 @@ const MapResources = require("../../core/mapResources");
 const { getUnitsCapableToAddOn, addAddOn } = require("../../gameLogic/addonUtils");
 const { findPlacements, findPosition } = require("../../gameLogic/buildingPlacementHelpers");
 const { getTimeUntilUnitCanBuildAddon } = require("../../gameLogic/unitCapabilityUtils");
-const { commandPlaceBuilding } = require("../../utils/builderUtils");
-const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../../utils/gameData");
-const { getNextSafeExpansions } = require("../../utils/geometry");
-const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("../../utils/resourceManagement");
-const { addEarmark } = require("../../utils/resourceUtils");
-const { prepareUnitToBuildAddon } = require("../../utils/unitActions");
-const { isPlaceableAtGasGeyser } = require("../../utils/utils");
+const { isPlaceableAtGasGeyser } = require("../../utils/common/utils");
+const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("../../utils/construction/resourceManagement");
+const { addEarmark } = require("../../utils/construction/resourceUtils");
+const { commandPlaceBuilding } = require("../../utils/misc/builderUtils");
+const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../../utils/misc/gameData");
+const { getNextSafeExpansions } = require("../../utils/pathfinding/geometry");
+const { prepareUnitToBuildAddon } = require("../../utils/training/unitActions");
 
 /**
  * @param {World} world

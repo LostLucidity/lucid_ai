@@ -1,5 +1,5 @@
 // Import necessary dependencies
-const { unitPendingOrders } = require('../utils/unitOrders');
+const { unitPendingOrders } = require('../utils/training/unitOrders');
 
 /**
  * Clears pending orders for all units to ensure they are ready for new commands.

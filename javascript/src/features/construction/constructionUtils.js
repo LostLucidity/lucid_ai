@@ -12,16 +12,16 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 // Internal module imports from './'
 const BuildingPlacement = require('./buildingPlacement');
 // eslint-disable-next-line no-unused-vars
+const { stopOverlappingBuilders } = require('./buildingWorkerInteractions');
 const GameState = require('../../core/gameState');
 const { getMovementSpeed } = require('../../gameLogic/coreUtils');
 const { isPendingContructing } = require('../../gameLogic/workerAssignmentHelpers');
-const { stopOverlappingBuilders } = require('./buildingWorkerInteractions');
-const { addEarmark } = require('../../utils/resourceUtils');
-const { setBuilderLabel } = require('../../utils/sharedBuildingUtils');
-const { getClosestPathWithGasGeysers, ability } = require('../../utils/sharedUtils');
-const { setPendingOrders } = require('../../utils/unitOrders');
-const { createUnitCommand } = require('../../utils/utils');
-const { isIdleOrAlmostIdle } = require('../../utils/workerUtils');
+const { createUnitCommand } = require('../../utils/common/utils');
+const { addEarmark } = require('../../utils/construction/resourceUtils');
+const { setPendingOrders } = require('../../utils/training/unitOrders');
+const { setBuilderLabel } = require('../../utils/worker/sharedBuildingUtils');
+const { getClosestPathWithGasGeysers, ability } = require('../../utils/worker/sharedUtils');
+const { isIdleOrAlmostIdle } = require('../../utils/worker/workerUtils');
 
 /**
  * Gathers candidate workers based on their time to reach a specified position.

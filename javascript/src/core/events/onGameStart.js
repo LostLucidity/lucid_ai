@@ -7,8 +7,8 @@ const StrategyManager = require('../../features/strategy/strategyManager');
 const strategyUtils = require('../../features/strategy/strategyUtils');
 const sharedWorkerUtils = require('../../gameLogic/sharedWorkerUtils');
 const stateManagement = require('../../gameLogic/stateManagement');
-const { calculateAdjacentToRampGrids } = require('../../utils/geometry');
-const { setUnitTypeTrainingAbilityMapping } = require('../../utils/unitConfig');
+const { calculateAdjacentToRampGrids } = require('../../utils/pathfinding/geometry');
+const { setUnitTypeTrainingAbilityMapping } = require('../../utils/training/unitConfig');
 const GameState = require('../gameState');
 const logger = require('../logger');
 

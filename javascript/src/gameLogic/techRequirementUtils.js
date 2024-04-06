@@ -2,7 +2,7 @@
 
 const { UnitType } = require("@node-sc2/core/constants");
 
-const { getById } = require("../utils/gameUtils");
+const { getById } = require("../utils/misc/gameUtils");
 
 /**
  * Check tech requirements for a given unit.

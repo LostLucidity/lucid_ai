@@ -6,7 +6,7 @@
 
 // External library imports
 
-/** @type {import('../../utils/common').UnitTypeMap} */
+/** @type {import('../../utils/common/common').UnitTypeMap} */
 const UnitType = require('@node-sc2/core/constants').UnitType;
 const groupTypes = require('@node-sc2/core/constants/groups');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
@@ -19,9 +19,9 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { buildingPositions } = require('../../core/gameStateResources');
 const StrategyManager = require('../../features/strategy/strategyManager');
 const { calculateDistance } = require('../../gameLogic/coreUtils');
-const { getAdjacentToRampGrids, getClosestPosition, intersectionOfPoints, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable, getAddOnPlacement, getAddOnBuildingPlacement } = require('../../utils/geometry');
-const { getDistance } = require('../../utils/spatialUtils');
-const { addOnTypesMapping } = require('../../utils/unitConfig');
+const { getDistance } = require('../../utils/misc/spatialUtils');
+const { getAdjacentToRampGrids, getClosestPosition, intersectionOfPoints, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable, getAddOnPlacement, getAddOnBuildingPlacement } = require('../../utils/pathfinding/geometry');
+const { addOnTypesMapping } = require('../../utils/training/unitConfig');
 
 const PYLON_POWER_RANGE = 6.5;
 

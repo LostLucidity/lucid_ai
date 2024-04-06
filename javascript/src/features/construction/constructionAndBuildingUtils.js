@@ -9,18 +9,18 @@ const { avgPoints } = require('@node-sc2/core/utils/geometry/point');
 
 const { handleNonRallyBase } = require('./buildingWorkerInteractions');
 const { logNoFreeGeysers } = require('./sharedConstructionUtils');
-const GameState = require('../../core/gameState');
 const { checkAddOnPlacement } = require('./sharedUnitPlacement');
+const GameState = require('../../core/gameState');
 const { getPendingOrders } = require('../../gameLogic/stateManagement');
-const { getTimeToTargetTech } = require('../../utils/gameData');
-const { getAddOnPlacement, calculateBaseTimeToPosition } = require('../../utils/geometry');
-const { getClosestUnitByPath, getClosestPositionByPath } = require('../../utils/pathfinding');
-const { getPathCoordinates, getMapPath } = require('../../utils/pathUtils');
-const { earmarkThresholdReached } = require('../../utils/resourceUtils');
-const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../../utils/sharedUtils');
-const { unitTypeTrainingAbilities, canLiftOff } = require('../../utils/unitConfig');
-const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../../utils/utils');
-const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../../utils/workerUtils');
+const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../../utils/common/utils');
+const { earmarkThresholdReached } = require('../../utils/construction/resourceUtils');
+const { getTimeToTargetTech } = require('../../utils/misc/gameData');
+const { getAddOnPlacement, calculateBaseTimeToPosition } = require('../../utils/pathfinding/geometry');
+const { getClosestUnitByPath, getClosestPositionByPath } = require('../../utils/pathfinding/pathfinding');
+const { getPathCoordinates, getMapPath } = require('../../utils/pathfinding/pathUtils');
+const { unitTypeTrainingAbilities, canLiftOff } = require('../../utils/training/unitConfig');
+const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../../utils/worker/sharedUtils');
+const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../../utils/worker/workerUtils');
 
 /**
  * Determines a valid position for placing a building.
