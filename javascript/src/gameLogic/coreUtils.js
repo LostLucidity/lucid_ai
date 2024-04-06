@@ -78,23 +78,15 @@ function calculateClosestConstructingWorker(world, constructingWorkers, position
  * Finds the closest base to a mineral field.
  * @param {Unit} mineralField - The mineral field unit.
  * @param {Unit[]} bases - An array of base units.
- * @returns {Unit | undefined} The closest base, or undefined if none are found.
+ * @returns {Unit | undefined} The closest base to the mineral field, or undefined if none are found.
  */
 function findClosestBase(mineralField, bases) {
-  let closestBase = undefined;
-  let minDistance = Number.MAX_VALUE;
+  // Ensure that the position of the mineral field is defined
+  if (!mineralField.pos) {
+    return undefined;
+  }
 
-  bases.forEach(base => {
-    if (base.pos) {
-      const distance = getDistance(mineralField.pos, base.pos);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestBase = base;
-      }
-    }
-  });
-
-  return closestBase;
+  return findClosestUnit(mineralField.pos, bases);
 }
 
 /**
@@ -102,26 +94,43 @@ function findClosestBase(mineralField, bases) {
  * @param {Unit} worker - The worker unit.
  * @param {Unit[]} mineralFields - An array of mineral field units.
  * @param {Unit[]} bases - An array of base units.
- * @returns {Unit | undefined} The closest mineral field, or undefined if none are found.
+ * @returns {Unit | undefined} The closest mineral field to the worker, or undefined if none are found.
  */
 function findClosestMineralField(worker, mineralFields, bases) {
   if (!worker.pos) return undefined;
 
-  let closestMineralField = undefined;
+  const closestMineralField = findClosestUnit(worker.pos, mineralFields);
+  if (closestMineralField && closestMineralField.pos) {
+    const closestBase = findClosestBase(closestMineralField, bases);
+    if (closestBase && closestBase.pos && getDistance(closestMineralField.pos, closestBase.pos) <= 20) {
+      return closestMineralField;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Generic function to find the closest unit from a list to a given position.
+ * @param {Point2D} position - The position to find the closest unit to.
+ * @param {Unit[]} units - The list of units to search.
+ * @returns {Unit | undefined} The closest unit, or undefined if none are found.
+ */
+function findClosestUnit(position, units) {
+  let closestUnit = undefined;
   let minDistance = Number.MAX_VALUE;
 
-  mineralFields.forEach(mineralField => {
-    if (mineralField.pos) {
-      const distanceToWorker = getDistance(worker.pos, mineralField.pos);
-      const closestBase = findClosestBase(mineralField, bases);
-      if (closestBase && distanceToWorker < minDistance && getDistance(mineralField.pos, closestBase.pos) <= 20) { // Assuming 20 is the max distance to base
-        minDistance = distanceToWorker;
-        closestMineralField = mineralField;
+  units.forEach(unit => {
+    if (unit.pos) {
+      const distance = getDistance(position, unit.pos);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestUnit = unit;
       }
     }
   });
 
-  return closestMineralField;
+  return closestUnit;
 }
 
 /**
