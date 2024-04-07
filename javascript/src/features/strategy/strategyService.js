@@ -8,12 +8,10 @@ const { Attribute } = require('@node-sc2/core/constants/enums');
 const StrategyManager = require('./strategyManager');
 const GameState = require('../../core/gameState');
 const { isBuildOrderStep } = require('../../gameLogic/typeGuards');
-const { resetEarmarks } = require('../../utils/construction/resourceData');
-const { hasEarmarks } = require('../../utils/construction/resourceManagement');
+const { hasEarmarks, resetEarmarks } = require('../../utils/construction/resourceManagement');
 const { setFoodUsed, balanceResources } = require('../../utils/economy/economyManagement');
-const { train } = require('../../utils/training/trainingUtils');
-const { performScoutingWithSCV } = require('../../utils/training/unitActions');
-const { buildSupplyOrTrain, upgrade } = require('../../utils/training/unitManagement');
+const { performScoutingWithSCV, train } = require('../../utils/training/training');
+const { buildSupplyOrTrain, upgrade } = require('../../utils/unit/unitManagement');
 const { interpretBuildOrderAction } = require('../buildOrders/buildOrderUtils');
 const { build } = require('../construction/buildingService');
 

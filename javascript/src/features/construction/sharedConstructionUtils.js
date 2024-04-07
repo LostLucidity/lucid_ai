@@ -1,7 +1,7 @@
 // sharedConstructionUtils.js
 
 // Import necessary dependencies and constants
-const { logMessageStorage } = require("../../utils/common/loggingUtils");
+const { logMessageStorage } = require("../../utils/common/logging");
 
 function logNoFreeGeysers() {
   if (!logMessageStorage.noFreeGeysers) {

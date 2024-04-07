@@ -2,14 +2,98 @@
 "use strict";
 
 // src/resourceManagement.js
-const { Race } = require('@node-sc2/core/constants/enums');
+const { UnitType } = require('@node-sc2/core/constants');
+const { Race, Attribute } = require('@node-sc2/core/constants/enums');
 const { GasMineRace } = require('@node-sc2/core/constants/race-map');
 
 // Import necessary constants and modules
-const { addEarmark, getEarmarkedFood } = require('./resourceUtils');
 const { planMax } = require('../../../config/config');
 const GameState = require('../../core/gameState');
-const { getTimeToTargetTech } = require('../misc/gameData');
+const StrategyManager = require('../../features/strategy/strategyManager');
+const { calculateDistance } = require('../../gameLogic/coreUtils');
+const { getTimeToTargetTech, upgradeTypes } = require('../misc/gameData');
+
+const earmarks = [];
+
+const foodEarmarks = new Map();
+
+/**
+ * @param {DataStorage} data 
+ * @param {SC2APIProtocol.UnitTypeData|SC2APIProtocol.UpgradeData} orderData 
+ */
+function addEarmark(data, orderData) {
+  const gameState = GameState.getInstance();
+  const race = gameState.getRace();
+
+  // If race information is not available, exit the function
+  if (race === null) {
+    console.warn("Race information not available in addEarmark.");
+    return;
+  }
+
+  const strategyManager = StrategyManager.getInstance(race);
+  const foodUsed = gameState.getFoodUsed(); // Use the getFoodUsed method
+
+  const { ZERGLING } = UnitType;
+
+  const { name, mineralCost, vespeneCost } = orderData;
+
+  if (earmarkThresholdReached(data) || name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
+
+  const foodKey = `${foodUsed + getEarmarkedFood()}`;
+  const stepKey = `${strategyManager.getCurrentStep()}`;
+  const fullKey = `${stepKey}_${foodKey}`;
+
+  let minerals = 0;
+  let foodEarmark = foodEarmarks.get(fullKey) || 0;
+
+  if ('unitId' in orderData) {
+    const isZergling = orderData.unitId === ZERGLING;
+    const { attributes, foodRequired, race, unitId } = orderData;
+
+    if (attributes !== undefined && foodRequired !== undefined && race !== undefined && unitId !== undefined) {
+      const adjustedFoodRequired = isZergling ? foodRequired * 2 : foodRequired;
+      foodEarmarks.set(fullKey, foodEarmark + adjustedFoodRequired);
+
+      // Check for town hall upgrades
+      for (let [base, upgrades] of upgradeTypes.entries()) {
+        if (upgrades.includes(unitId)) {
+          const baseTownHallData = data.getUnitTypeData(base);
+          minerals = -(baseTownHallData?.mineralCost ?? 400); // defaulting to 400 if not found
+          break;
+        }
+      }
+
+      if (race === Race.ZERG && attributes.includes(Attribute.STRUCTURE)) {
+        foodEarmarks.set(fullKey, foodEarmark - 1);
+      }
+    }
+
+    minerals += isZergling ? mineralCost * 2 : mineralCost;
+  } else if ('upgradeId' in orderData) {
+    // This is an upgrade
+    minerals += mineralCost;
+  }
+
+  // set earmark name to include step number and food used plus food earmarked
+  const earmarkName = `${name}_${fullKey}`;
+  const earmark = {
+    name: earmarkName,
+    minerals,
+    vespene: vespeneCost,
+  }
+  data.addEarmark(earmark);
+  earmarks.push(earmark);
+}
+
+/**
+ * @param {DataStorage} data 
+ * @returns {boolean}
+ */
+function earmarkThresholdReached(data) {
+  const { minerals: earmarkedTotalMinerals, vespene: earmarkedTotalVespene } = data.getEarmarkTotals('');
+  return earmarkedTotalMinerals > 512 && earmarkedTotalVespene > 512 || earmarkedTotalMinerals > 1024;
+}
 
 /**
  * Check for gas mine construction conditions and initiate building if criteria are met.
@@ -43,6 +127,44 @@ const gasMineCheckAndBuild = (world, targetRatio = 2.4, buildFunction) => {
 
   return [];
 };
+
+/**
+   * @description Get total food earmarked for all steps
+   * @returns {number}
+   */
+function getEarmarkedFood() {
+  return Array.from(foodEarmarks.values()).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+}
+
+/**
+ * Retrieves gas geysers near a given position.
+ * @param {UnitResource} units - The units resource object.
+ * @param {Point2D} pos - The position to check near.
+ * @param {number} [radius=8] - The radius within which to search for gas geysers.
+ * @returns {Unit[]} - Array of gas geyser units near the given position.
+ */
+function getGasGeysersNearby(units, pos, radius = 8) {
+  const gasGeysers = units.getGasGeysers();
+  return gasGeysers.filter(geyser => {
+    if (!geyser.pos) return false;
+    return calculateDistance(pos, geyser.pos) <= radius;
+  });
+}
+
+/**
+ * Retrieves mineral fields near a given position.
+ * @param {UnitResource} units - The units resource object.
+ * @param {Point2D} pos - The position to check near.
+ * @param {number} [radius=8] - The radius within which to search for mineral fields.
+ * @returns {Unit[]} - Array of mineral field units near the given position.
+ */
+function getMineralFieldsNearby(units, pos, radius = 8) {
+  const mineralFields = units.getMineralFields();
+  return mineralFields.filter(field => {
+    if (!field.pos) return false;
+    return calculateDistance(pos, field.pos) <= radius;
+  });
+}
 
 /**
  * @param {World} world
@@ -134,10 +256,47 @@ function haveSupplyForUnit(world, unitType) {
   return supplyLeft >= 0;
 }
 
+/**
+ * Check if the frame stored in the map matches the current frame
+ * @param {number} unitType 
+ * @param {number} currentFrame 
+ * @returns {boolean}
+ */
+function isCurrent(unitType, currentFrame) {
+  const gameState = GameState.getInstance();
+  const entry = gameState.unitsById.get(unitType);
+  return entry ? entry.frame === currentFrame : false;
+}
+
+/**
+ * Resets all earmarks.
+ * 
+ * Assuming `data` is an object that has a method `get` which returns an array,
+ * and a method `settleEarmark` which takes a string.
+ * This function clears both general and food earmarks.
+ * 
+ * @param {{ get: (key: string) => Earmark[], settleEarmark: (name: string) => void }} data The data object
+ */
+function resetEarmarks(data) {
+  // Clear general earmarks
+  earmarks.length = 0;
+  data.get('earmarks').forEach((earmark) => data.settleEarmark(earmark.name));
+
+  // Clear food earmarks
+  foodEarmarks.clear();
+}
+
 module.exports = {
+  addEarmark,
+  earmarkThresholdReached,
   gasMineCheckAndBuild,
+  getEarmarkedFood,
+  getGasGeysersNearby,
+  getMineralFieldsNearby,
   getTimeToTargetCost,
   getTimeUntilCanBeAfforded,
   hasEarmarks,
   haveSupplyForUnit,
+  isCurrent,
+  resetEarmarks,
 };

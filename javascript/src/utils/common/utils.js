@@ -10,11 +10,9 @@ const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
 // Internal module imports
-const cacheManager = require("./cacheManager");
-const { areEqual, getClosestPathablePositions } = require("./common");
-const { getDistance } = require("../misc/spatialUtils");
-const { isLineTraversable } = require("../pathfinding/pathfindingUtils");
-const { getMapPath, getPathCoordinates } = require("../pathfinding/pathUtils");
+const cacheManager = require("./cache");
+const { areEqual } = require("./common");
+const { getDistance } = require("../spatial/spatialCoreUtils");
 
 /**
  * Creates a unit command action.
@@ -146,65 +144,6 @@ function getUnitsWithinDistance(pos, units, maxDistance) {
 }
 
 /**
-  * @param {ResourceManager} resources
-  * @param {Point2D} position
-  * @param {Point2D|SC2APIProtocol.Point} targetPosition
-  * @returns {number}
-  */
-function getDistanceByPath(resources, position, targetPosition) {
-  const { map } = resources.get();
-  try {
-    const line = getLine(position, targetPosition);
-    let distance = 0;
-    const everyLineIsPathable = line.every((point, index) => {
-      if (index > 0) {
-        const previousPoint = line[index - 1];
-        const heightDifference = map.getHeight(point) - map.getHeight(previousPoint);
-        return Math.abs(heightDifference) <= 1;
-      }
-      const [closestPathablePosition] = getClosestPathablePositions(map, point);
-      return closestPathablePosition !== undefined && map.isPathable(closestPathablePosition);
-    });
-    if (everyLineIsPathable) {
-      return getDistance(position, targetPosition) || 0;
-    } else {
-      let path = getMapPath(map, position, targetPosition);
-      const pathCoordinates = getPathCoordinates(path);
-
-      let straightLineSegments = [];
-      let currentSegmentStart = pathCoordinates[0];
-
-      for (let i = 1; i < pathCoordinates.length; i++) {
-        const point = pathCoordinates[i];
-        const previousPoint = pathCoordinates[i - 1];
-
-        // Corrected usage of isLineTraversable with required three arguments
-        if (!isLineTraversable(map, previousPoint, point)) {
-          straightLineSegments.push([currentSegmentStart, previousPoint]);
-          currentSegmentStart = point;
-        }
-      }
-
-      straightLineSegments.push([currentSegmentStart, pathCoordinates[pathCoordinates.length - 1]]);
-
-      distance = straightLineSegments.reduce((acc, segment) => {
-        const segmentDistance = getDistance(segment[0], segment[1]) || 0;
-        return acc + segmentDistance;
-      }, 0);
-
-      const calculatedZeroPath = path.length === 0;
-      const zeroPathDistance = calculatedZeroPath ? getDistance(position, targetPosition) || 0 : 0;
-      const isZeroPathDistance = calculatedZeroPath && zeroPathDistance <= 2;
-      const isNotPathable = calculatedZeroPath && !isZeroPathDistance;
-      const pathLength = isZeroPathDistance ? 0 : isNotPathable ? Infinity : distance;
-      return pathLength;
-    }
-  } catch (error) {
-    return Infinity;
-  }
-}
-
-/**
  * @param {Point2D} start 
  * @param {Point2D} end 
  * @param {Number} steps
@@ -235,6 +174,53 @@ function getLine(start, end, steps = 0) {
 function canBuild(world, unitTypeId) {
   const { agent } = world;
   return agent.canAfford(unitTypeId) && agent.hasTechFor(unitTypeId) && (!isSupplyNeeded(world) || unitTypeId === UnitType.OVERLORD)
+}
+
+/**
+ * Checks if a line between two points is traversable on the map.
+ * @param {MapResource} map - The map object.
+ * @param {Point2D} start - The start point of the line.
+ * @param {Point2D} end - The end point of the line.
+ * @returns {boolean} - True if the line is traversable, false otherwise.
+ */
+function isLineTraversable(map, start, end) {
+  // Ensure both points have defined x and y values
+  if (typeof start.x !== 'number' || typeof start.y !== 'number' ||
+    typeof end.x !== 'number' || typeof end.y !== 'number') {
+    throw new Error("Start or end points are not properly defined.");
+  }
+
+  let x0 = start.x;
+  let y0 = start.y;
+  const x1 = end.x;
+  const y1 = end.y;
+
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+
+  const sx = (x0 < x1) ? 1 : -1;
+  const sy = (y0 < y1) ? 1 : -1;
+
+  let err = dx + dy;
+
+  // Use the coordinates comparison as the loop condition
+  while (!(x0 === x1 && y0 === y1)) {
+    if (!map.isPathable({ x: x0, y: y0 })) {
+      return false;
+    }
+
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -317,8 +303,8 @@ module.exports = {
   getPathablePositionsForStructure,
   getStringNameOfConstant,
   getUnitsWithinDistance,
-  getDistanceByPath,
   getLine,
+  isLineTraversable,
   isPlaceableAtGasGeyser,
   isSupplyNeeded,
   canBuild,

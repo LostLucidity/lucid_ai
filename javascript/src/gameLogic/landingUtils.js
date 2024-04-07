@@ -9,7 +9,7 @@
 const { UnitType, UnitTypeId } = require('@node-sc2/core/constants');
 
 const { checkAddOnPlacement } = require('../features/construction/sharedUnitPlacement');
-const { addEarmark } = require('../utils/construction/resourceUtils');
+const { addEarmark } = require('../utils/construction/resourceManagement');
 const { flyingTypesMapping } = require('../utils/training/unitConfig');
 const { setPendingOrders } = require('../utils/training/unitOrders');
 

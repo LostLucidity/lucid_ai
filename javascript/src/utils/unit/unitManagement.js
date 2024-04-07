@@ -12,21 +12,19 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal dependencies
-const { liftAndLandingTime } = require("./unitConfig");
-const { isTrainingUnit } = require("./unitHelpers");
-const { setPendingOrders } = require("./unitOrders");
-const { handleUnitTraining } = require("./unitTraining");
-const { productionUnitsCache } = require("./unitUtils");
 const GameState = require("../../core/gameState");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
-const { buildSupply } = require("../../features/construction/buildingService");
-const { getPendingOrders } = require("../../gameLogic/stateManagement");
+const { getPendingOrders } = require("../../sharedServices");
 const { createUnitCommand } = require("../common/utils");
-const { getTimeToTargetCost } = require("../construction/resourceManagement");
-const { addEarmark, getEarmarkedFood } = require("../construction/resourceUtils");
+const { buildSupply } = require("../construction/constructionService");
+const { getTimeToTargetCost, getEarmarkedFood, addEarmark } = require("../construction/resourceManagement");
 const { getTimeToTargetTech } = require("../misc/gameData");
-const { getDistance } = require("../misc/spatialUtils");
-const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../pathfinding/geometry");
+const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../pathfinding/pathfinding");
+const { getDistance } = require("../spatial/spatialCoreUtils");
+const { handleUnitTraining } = require("../training/training");
+const { liftAndLandingTime } = require("../training/unitConfig");
+const { setPendingOrders } = require("../training/unitOrders");
+const { productionUnitsCache } = require("../training/unitUtils");
 
 /**
  * Build supply or train units based on the game world state and strategy step.
@@ -111,6 +109,26 @@ function handleSupplyBuilding(world) {
 
   return [];
 }
+
+/**
+ * Checks if a unit is currently training another unit.
+ * @param {DataStorage} data
+ * @param {Unit} unit 
+ * @returns {boolean}
+ */
+const isTrainingUnit = (data, unit) => {
+  // Return false if unit.orders is undefined
+  if (!unit.orders) {
+    return false;
+  }
+
+  /** @type {{ [key: string]: number }} */
+  const castedUnitType = /** @type {*} */ (UnitType);
+
+  return unit.orders.some(order => {
+    return Object.keys(castedUnitType).some(key => order.abilityId === data.getUnitTypeData(castedUnitType[key]).abilityId);
+  });
+};
 
 /**
  * Manages Zerg supply by training Overlords as needed.

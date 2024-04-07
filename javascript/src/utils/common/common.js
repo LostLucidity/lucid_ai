@@ -1,7 +1,8 @@
 //@ts-check
 "use strict"
 
-const { getDistance } = require("../misc/spatialUtils");
+const { getDistance } = require("../spatial/spatialCoreUtils");
+
 
 /**
  * @typedef {Object.<string, number>} UnitTypeMap

@@ -11,16 +11,14 @@ const { handleNonRallyBase } = require('./buildingWorkerInteractions');
 const { logNoFreeGeysers } = require('./sharedConstructionUtils');
 const { checkAddOnPlacement } = require('./sharedUnitPlacement');
 const GameState = require('../../core/gameState');
-const { getPendingOrders } = require('../../gameLogic/stateManagement');
-const { getDistanceByPath, isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../../utils/common/utils');
-const { earmarkThresholdReached } = require('../../utils/construction/resourceUtils');
+const { getPendingOrders } = require('../../sharedServices');
+const { isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../../utils/common/utils');
+const { earmarkThresholdReached } = require('../../utils/construction/resourceManagement');
 const { getTimeToTargetTech } = require('../../utils/misc/gameData');
-const { getAddOnPlacement, calculateBaseTimeToPosition } = require('../../utils/pathfinding/geometry');
-const { getClosestUnitByPath, getClosestPositionByPath } = require('../../utils/pathfinding/pathfinding');
-const { getPathCoordinates, getMapPath } = require('../../utils/pathfinding/pathUtils');
+const { getClosestUnitByPath, getClosestPositionByPath, getAddOnPlacement, calculateBaseTimeToPosition } = require('../../utils/pathfinding/pathfinding');
+const { getPathCoordinates, getMapPath, getDistanceByPath } = require('../../utils/pathfinding/pathfindingCommon');
 const { unitTypeTrainingAbilities, canLiftOff } = require('../../utils/training/unitConfig');
-const { getClosestPathWithGasGeysers, getBuildTimeLeft, getUnitsFromClustering } = require('../../utils/worker/sharedUtils');
-const { handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget } = require('../../utils/worker/workerUtils');
+const { getClosestPathWithGasGeysers, getBuildTimeLeft, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../utils/worker/workerService');
 
 /**
  * Determines a valid position for placing a building.

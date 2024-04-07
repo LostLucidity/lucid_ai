@@ -1,3 +1,4 @@
+
 /**
  * Retrieves units capable of producing a specific unit type, without relying on cached data.
  * This function is a simplified version meant to reduce dependencies and avoid circular references.

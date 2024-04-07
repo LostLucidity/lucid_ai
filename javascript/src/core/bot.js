@@ -9,12 +9,12 @@ const onGameStart = require('./events/onGameStart');
 const GameState = require('./gameState');
 const logger = require('./logger');
 const config = require('../../config/config');
-const buildingService = require('../features/construction/buildingService');
 const StrategyService = require('../features/strategy/strategyService');
 const { clearAllPendingOrders } = require('../gameLogic/unitOrderUtils');
+const { buildSupply } = require('../utils/construction/constructionService');
 const economyManagement = require('../utils/economy/economyManagement');
 const workerAssignment = require('../utils/economy/workerAssignment');
-const unitManagement = require('../utils/training/unitManagement');
+const unitManagement = require('../utils/unit/unitManagement');
 
 // Instantiate the game state manager
 const gameState = GameState.getInstance();
@@ -36,7 +36,7 @@ function collectAdditionalActions(world) {
   actions.push(...workerDistributionActions);
 
   // Ensure sufficient supply to support unit production
-  const supplyBuildingActions = buildingService.buildSupply(world);
+  const supplyBuildingActions = buildSupply(world);
   actions.push(...supplyBuildingActions);
 
   // Train additional workers to maximize resource collection, if under the maximum worker limit

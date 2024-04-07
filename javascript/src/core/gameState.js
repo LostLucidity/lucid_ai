@@ -7,10 +7,10 @@ const { Alliance, Attribute, Race } = require('@node-sc2/core/constants/enums');
 const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
+const { defaultResources } = require('./gameData');
 const { foodData } = require('./gameStateResources');
 const { getSingletonInstance } = require('../gameLogic/singletonFactory');
-const cacheManager = require('../utils/common/cacheManager');
-const { defaultResources } = require('../utils/construction/resourceTypes');
+const cacheManager = require('../utils/common/cache');
 const { missingUnits } = require('../utils/misc/gameDataStore');
 
 /**
@@ -62,7 +62,7 @@ class GameState {
   race = null;
 
   /**
-   * @type {import('../utils/construction/resourceTypes').Resources} - Typing the resources property using JSDoc comment
+   * @type {import('./gameData').Resources} - Typing the resources property using JSDoc comment
    */
   resources = defaultResources;
 

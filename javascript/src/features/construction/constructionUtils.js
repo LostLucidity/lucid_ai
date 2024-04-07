@@ -11,17 +11,15 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 
 // Internal module imports from './'
 const BuildingPlacement = require('./buildingPlacement');
-// eslint-disable-next-line no-unused-vars
 const { stopOverlappingBuilders } = require('./buildingWorkerInteractions');
+// eslint-disable-next-line no-unused-vars
 const GameState = require('../../core/gameState');
 const { getMovementSpeed } = require('../../gameLogic/coreUtils');
 const { isPendingContructing } = require('../../gameLogic/workerAssignmentHelpers');
 const { createUnitCommand } = require('../../utils/common/utils');
-const { addEarmark } = require('../../utils/construction/resourceUtils');
+const { addEarmark } = require('../../utils/construction/resourceManagement');
 const { setPendingOrders } = require('../../utils/training/unitOrders');
-const { setBuilderLabel } = require('../../utils/worker/sharedBuildingUtils');
-const { getClosestPathWithGasGeysers, ability } = require('../../utils/worker/sharedUtils');
-const { isIdleOrAlmostIdle } = require('../../utils/worker/workerUtils');
+const { getClosestPathWithGasGeysers, ability, isIdleOrAlmostIdle, setBuilderLabel } = require('../../utils/worker/workerService');
 
 /**
  * Gathers candidate workers based on their time to reach a specified position.

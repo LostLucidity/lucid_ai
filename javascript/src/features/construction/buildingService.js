@@ -9,19 +9,18 @@ const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const BuildingPlacement = require("./buildingPlacement");
 const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition, findBestPositionForAddOn } = require("./constructionAndBuildingUtils");
 const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction } = require("./constructionUtils");
-const config = require("../../../config/config");
 const GameState = require("../../core/gameState");
 const MapResources = require("../../core/mapResources");
-const { getUnitsCapableToAddOn, addAddOn } = require("../../gameLogic/addonUtils");
-const { findPlacements, findPosition } = require("../../gameLogic/buildingPlacementHelpers");
+const { getUnitsCapableToAddOn } = require("../../gameLogic/addonUtils");
 const { getTimeUntilUnitCanBuildAddon } = require("../../gameLogic/unitCapabilityUtils");
 const { isPlaceableAtGasGeyser } = require("../../utils/common/utils");
-const { getTimeToTargetCost, getTimeUntilCanBeAfforded } = require("../../utils/construction/resourceManagement");
-const { addEarmark } = require("../../utils/construction/resourceUtils");
+const { addAddOn } = require("../../utils/construction/constructionService");
+const { getTimeToTargetCost, getTimeUntilCanBeAfforded, addEarmark } = require("../../utils/construction/resourceManagement");
 const { commandPlaceBuilding } = require("../../utils/misc/builderUtils");
 const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../../utils/misc/gameData");
-const { getNextSafeExpansions } = require("../../utils/pathfinding/geometry");
-const { prepareUnitToBuildAddon } = require("../../utils/training/unitActions");
+const { getNextSafeExpansions } = require("../../utils/pathfinding/pathfinding");
+const { findPlacements, findPosition } = require("../../utils/spatial/spatialUtils");
+const { prepareUnitToBuildAddon } = require("../../utils/training/training");
 
 /**
  * @param {World} world
@@ -186,80 +185,8 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
   return collectedActions;
 }
 
-/**
- * @param {World} world
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
- */
-function buildSupply(world) {
-  const { agent } = world;
-  const { foodUsed, minerals } = agent;
-
-  // Explicitly define the type of actions
-  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-  const actions = [];
-
-  if (foodUsed === undefined || minerals === undefined) return actions;
-
-  const isSupplyNeeded = (/** @type {World} */ world, /** @type {number} */ threshold) => {
-    const { foodCap, foodUsed } = world.agent;
-
-    // Check if foodCap or foodUsed is undefined before proceeding
-    if (foodCap === undefined || foodUsed === undefined) {
-      console.error('foodCap or foodUsed is undefined');
-      return false;
-    }
-
-    return foodCap - foodUsed < threshold;
-  };
-
-  const greaterThanPlanSupply = foodUsed > config.planMax.supply;
-  const automateSupplyCondition = isSupplyNeeded(world, 0.2) &&
-    (greaterThanPlanSupply || minerals > 512) &&
-    config.automateSupply;
-
-  if (automateSupplyCondition) {
-    switch (agent.race) {
-      case Race.TERRAN: {
-        const candidatePositionsTerran = findPlacements(world, UnitType.SUPPLYDEPOT);
-        actions.push(...candidatePositionsTerran.map(pos => commandPlaceBuilding(
-          world,
-          UnitType.SUPPLYDEPOT,
-          pos,
-          commandBuilderToConstruct,
-          buildWithNydusNetwork,
-          premoveBuilderToPosition,
-          isPlaceableAtGasGeyser,
-          getTimeToTargetCost
-        )).flat());
-        break;
-      }
-      case Race.PROTOSS: {
-        const candidatePositionsProtoss = findPlacements(world, UnitType.PYLON);
-        actions.push(...candidatePositionsProtoss.map(pos => commandPlaceBuilding(
-          world,
-          UnitType.PYLON,
-          pos,
-          commandBuilderToConstruct,
-          buildWithNydusNetwork,
-          premoveBuilderToPosition,
-          isPlaceableAtGasGeyser,
-          getTimeToTargetCost
-        )).flat());
-        break;
-      }
-      case Race.ZERG: {
-        // Zerg supply logic...
-        break;
-      }
-    }
-  }
-
-  return actions;
-}
-
 // Export the functions to be used by other modules
 module.exports = {
-  buildSupply,
   build
 };
 

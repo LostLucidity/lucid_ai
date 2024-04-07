@@ -7,10 +7,10 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const GameState = require("../../core/gameState");
 const { buildingPositions } = require("../../core/gameStateResources");
-const { getPendingOrders } = require("../../gameLogic/stateManagement");
 const { isPendingContructing } = require("../../gameLogic/workerAssignmentHelpers");
+const { getPendingOrders } = require("../../sharedServices");
 const { buildUnitTypeMap } = require("../misc/gameData");
-const { getDistance } = require("../misc/spatialUtils");
+const { getDistance } = require("../spatial/spatialCoreUtils");
 
 /**
  * @param {World} world

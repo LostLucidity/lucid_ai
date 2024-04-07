@@ -2,11 +2,11 @@
 
 "use strict";
 
-const { hasAddOn, findBestPositionForAddOn } = require("../features/construction/constructionAndBuildingUtils");
 const { checkUnitCount } = require("./stateManagement");
-const { getTimeInSeconds } = require("../utils/pathfinding/pathfindingUtils");
+const { hasAddOn, findBestPositionForAddOn } = require("../features/construction/constructionAndBuildingUtils");
+const { getTimeInSeconds } = require("../utils/pathfinding/pathfinding");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../utils/training/unitConfig");
-const { calculateLiftLandAndMoveTime } = require("../utils/training/unitHelpers");
+const { calculateLiftLandAndMoveTime } = require("../utils/unit/unitUtils");
 
 /**
  * Determines if a unit can be trained based on the target count.

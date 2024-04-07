@@ -1,7 +1,7 @@
-// src/utils/loggingUtils.js
+// src/utils/common/logging.js
 
 const logMessageStorage = {
-  noFreeGeysers: false
+  noFreeGeysers: false,
 };
 
 module.exports = {

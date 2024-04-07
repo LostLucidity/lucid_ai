@@ -19,8 +19,9 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 const { buildingPositions } = require('../../core/gameStateResources');
 const StrategyManager = require('../../features/strategy/strategyManager');
 const { calculateDistance } = require('../../gameLogic/coreUtils');
-const { getDistance } = require('../../utils/misc/spatialUtils');
-const { getAdjacentToRampGrids, getClosestPosition, intersectionOfPoints, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable, getAddOnPlacement, getAddOnBuildingPlacement } = require('../../utils/pathfinding/geometry');
+const { getAdjacentToRampGrids, intersectionOfPoints, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable, getAddOnPlacement, getAddOnBuildingPlacement } = require('../../utils/pathfinding/pathfinding');
+const { getClosestPosition } = require('../../utils/pathfinding/pathfindingCommon');
+const { getDistance } = require('../../utils/spatial/spatialCoreUtils');
 const { addOnTypesMapping } = require('../../utils/training/unitConfig');
 
 const PYLON_POWER_RANGE = 6.5;

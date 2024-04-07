@@ -16,10 +16,9 @@ const { gatherCandidateWorkersTimeToPosition } = require("../../features/constru
 const { calculateClosestConstructingWorker } = require("../../gameLogic/coreUtils");
 const { getBuilders } = require("../../gameLogic/sharedWorkerUtils");
 const { findUnitTypesWithAbilityCached } = require("../common/utils");
-const { addEarmark } = require("../construction/resourceUtils");
+const { addEarmark } = require("../construction/resourceManagement");
 const { getClosestBuilderCandidate } = require("../pathfinding/pathfinding");
-const { calculateMovingOrConstructingNonDronesTimeToPosition } = require("../worker/sharedBuildingUtils");
-const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters } = require("../worker/workerUtils");
+const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters, calculateMovingOrConstructingNonDronesTimeToPosition } = require("../worker/workerService");
 
 /**
  * Command to place a building at the specified position.

@@ -4,9 +4,11 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 
 const { getSingletonInstance } = require("./singletonFactory");
 const StrategyManager = require("../features/strategy/strategyManager");
-const { getDistance } = require("../utils/misc/spatialUtils");
 const { mappedEnemyUnits } = require("../utils/scouting/scoutingUtils");
-const { potentialCombatants, calculateTimeToKillUnits } = require("../utils/training/unitHelpers");
+const { potentialCombatants } = require("../utils/sharedUnitOperations");
+const { calculateTimeToKillUnits } = require("../utils/sharedUtils");
+const { getDistance } = require("../utils/spatial/spatialCoreUtils");
+const { getWeaponDPS } = require("../utils/unitCalculations");
 
 /**
  * @typedef {Object} GameState
@@ -82,7 +84,7 @@ const gameStrategyUtils = {
       return true;  // Modify as per your game's logic
     }
 
-    const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, selfUnits, enemyUnits);
+    const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, selfUnits, enemyUnits, getWeaponDPS);
 
     // Engage if self units can eliminate enemy units faster than they can be eliminated
     return timeToKill <= timeToBeKilled;

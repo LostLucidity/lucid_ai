@@ -13,13 +13,12 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 const { getGatheringWorkers, gather } = require('./workerAssignment');
 const GameState = require('../../core/gameState');
 const { calculateDistance } = require('../../gameLogic/coreUtils');
-const { getPendingOrders } = require('../../gameLogic/stateManagement');
+const { getPendingOrders } = require('../../sharedServices');
 const { createUnitCommand, canBuild } = require('../common/utils');
-const { gasMineCheckAndBuild } = require('../construction/resourceManagement');
-const { getMineralFieldsNearby, getGasGeysersNearby } = require('../construction/resourceUtils');
-const { mine } = require('../training/unitActions');
-const { getProductionUnits } = require('../training/unitManagement');
-const { isMining } = require('../worker/workerUtils');
+const { gasMineCheckAndBuild, getMineralFieldsNearby, getGasGeysersNearby } = require('../construction/resourceManagement');
+const { mine } = require('../training/training');
+const { getProductionUnits } = require('../unit/unitManagement');
+const { isMining } = require('../worker/workerService');
 
 /**
  * Balances the resources based on the target ratio.

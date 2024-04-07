@@ -1,10 +1,12 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
+const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
+const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { findPosition } = require("../../gameLogic/buildingPlacementHelpers");
 const { getStringNameOfConstant } = require("../../utils/common/utils");
-const { getAddOnPlacement, getFootprint, cellsInFootprint, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../../utils/pathfinding/geometry");
+const { getAddOnPlacement, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../../utils/pathfinding/pathfinding");
+const { findPosition } = require("../../utils/spatial/spatialUtils");
 const { canUnitBuildAddOn, flyingTypesMapping } = require("../../utils/training/unitConfig");
 
 /** @type {Point2D[]} */

@@ -10,14 +10,15 @@ const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 // Internal module imports
 const { findClosestMineralField } = require("../../gameLogic/coreUtils");
 const { getMineralFieldAssignments, getNeediestMineralField } = require("../../gameLogic/mineralFieldUtils");
-const { isTownhallInDanger, getPendingOrders } = require("../../gameLogic/stateManagement");
+const { isTownhallInDanger } = require("../../gameLogic/stateManagement");
 const { isPendingContructing } = require("../../gameLogic/workerAssignmentHelpers");
+const { getPendingOrders } = require("../../sharedServices");
 const { getUnitsWithinDistance, createUnitCommand } = require("../common/utils");
-const { getDistance } = require("../misc/spatialUtils");
-const { getClosestUnitFromUnit } = require("../pathfinding/distance");
+const { getClosestUnitFromUnit } = require("../pathfinding/pathfinding");
 const { findEnemyUnitsNear } = require("../scouting/scoutingUtils");
+const { getDistance } = require("../spatial/spatialCoreUtils");
 const { setPendingOrders } = require("../training/unitOrders");
-const { getClosestExpansion, isMoving } = require("../worker/sharedUtils");
+const { getClosestExpansion, isMoving } = require("../worker/workerService");
 
 /**
  * Balances the worker distribution across all bases.

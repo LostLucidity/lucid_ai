@@ -5,12 +5,13 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
 const GameState = require("../core/gameState");
+const { getPendingOrders } = require("../sharedServices");
 const { missingUnits } = require("../utils/misc/gameDataStore");
 const { getById } = require("../utils/misc/gameUtils");
-const { getDistance } = require("../utils/misc/spatialUtils");
-const { getTimeInSeconds } = require("../utils/pathfinding/pathfindingUtils");
-const { calculateTimeToKillUnits } = require("../utils/training/unitHelpers");
-const { unitPendingOrders } = require("../utils/training/unitOrders");
+const { getTimeInSeconds } = require("../utils/pathfinding/pathfinding");
+const { calculateTimeToKillUnits } = require("../utils/sharedUtils");
+const { getDistance } = require("../utils/spatial/spatialCoreUtils");
+const { getWeaponDPS } = require("../utils/unitCalculations");
 
 /**
  * Calculates the remaining time to finish a structure's construction.
@@ -103,15 +104,6 @@ function determineBotRace(world) {
 }
 
 /**
- * Retrieves pending orders for a unit.
- * @param {Unit} unit - The unit to retrieve pending orders for.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of pending orders.
- */
-function getPendingOrders(unit) {
-  return unitPendingOrders.get(unit) || [];
-}
-
-/**
  * Determines if a townhall is in danger based on nearby enemy units.
  * @param {World} world - The current world context.
  * @param {Unit} townhall - The townhall unit.
@@ -126,7 +118,7 @@ function isTownhallInDanger(world, townhall, nearbyEnemies) {
   });
 
   // Calculate time to kill and time to be killed
-  const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, selfDefenseUnits, nearbyEnemies);
+  const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, selfDefenseUnits, nearbyEnemies, getWeaponDPS);
 
   // Townhall is in danger if it can be killed faster than the threats can be eliminated
   return timeToBeKilled <= timeToKill;
@@ -136,6 +128,5 @@ module.exports = {
   calculateTimeToFinishStructure,
   checkUnitCount,
   determineBotRace,
-  getPendingOrders,
   isTownhallInDanger,
 };
