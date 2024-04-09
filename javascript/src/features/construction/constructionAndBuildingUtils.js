@@ -13,7 +13,7 @@ const { checkAddOnPlacement } = require('./sharedUnitPlacement');
 const GameState = require('../../core/gameState');
 const { getPendingOrders } = require('../../sharedServices');
 const { isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../../utils/common/utils');
-const { earmarkThresholdReached } = require('../../utils/construction/resourceManagement');
+const { earmarkThresholdReached, addEarmark } = require('../../utils/construction/resourceManagement');
 const { getTimeToTargetTech } = require('../../utils/misc/gameData');
 const { getClosestUnitByPath, getClosestPositionByPath, getAddOnPlacement, calculateBaseTimeToPosition } = require('../../utils/pathfinding/pathfinding');
 const { getPathCoordinates, getMapPath, getDistanceByPath } = require('../../utils/pathfinding/pathfindingCommon');
@@ -249,12 +249,22 @@ function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
 function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, getMiddleOfStructureFn, getTimeToTargetCostFn) {
   const { constructionAbilities, gasMineTypes, workerTypes } = groupTypes;
   const { agent, data, resources } = world;
-  if (earmarkThresholdReached(data)) return [];
   const { debug, map, units } = resources.get();
 
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
   position = getMiddleOfStructureFn(position, unitType);
+
+  // Calculate time to target cost before earmarking
+  const timeToTargetCost = getTimeToTargetCostFn(world, unitType);
+
+  // Only earmark resources if it is necessary to proceed with the construction
+  if (!earmarkThresholdReached(data)) {
+    addEarmark(data, data.getUnitTypeData(unitType));
+  } else {
+    return [];
+  }
+
   const builder = getBuilderFunc(world, position);
   if (builder) {
     let { unit, timeToPosition, movementSpeedPerSecond } = getBuilderInformation(builder);
@@ -295,7 +305,6 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
     }
     const pendingConstructionOrder = getPendingOrders(unit).some(order => order.abilityId && constructionAbilities.includes(order.abilityId));
     const unitCommand = builder ? createUnitCommand(Ability.MOVE, [unit], pendingConstructionOrder) : {};
-    const timeToTargetCost = getTimeToTargetCostFn(world, unitType);
     const timeToTargetTech = getTimeToTargetTech(world, unitType);
     const timeToTargetCostOrTech = timeToTargetTech > timeToTargetCost ? timeToTargetTech : timeToTargetCost;
     const gameState = GameState.getInstance();
