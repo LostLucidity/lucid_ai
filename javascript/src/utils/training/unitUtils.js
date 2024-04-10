@@ -3,11 +3,11 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
 const { getBasicProductionUnits } = require("./basicUnitUtils");
 const GameState = require("../../core/gameState");
+const { haveSupplyForUnit, addEarmark } = require("../../features/construction/resourceManagement");
 const StrategyManager = require("../../features/strategy/strategyManager");
 const { checkTechRequirement } = require("../../gameLogic/techRequirementUtils");
 const { isTrainingOrder } = require("../../gameLogic/unitCapabilityUtils");
 const { getPendingOrders } = require("../../sharedServices");
-const { haveSupplyForUnit, addEarmark } = require("../construction/resourceManagement");
 
 /** @type {Map<UnitTypeId, Unit[]>} */
 const productionUnitsCache = new Map();

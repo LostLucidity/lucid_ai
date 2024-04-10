@@ -4,9 +4,9 @@ const { UnitType } = require("@node-sc2/core/constants");
 // eslint-disable-next-line no-unused-vars
 const { WeaponTargetType, Alliance } = require("@node-sc2/core/constants/enums");
 
-const { getUpgradeBonus } = require("./training/unitConfig");
+const GameState = require("./gameState");
 const { getUnitTypeData } = require("./unitDataUtils");
-const GameState = require("../core/gameState");
+const { getUpgradeBonus } = require("../utils/training/unitConfig");
 
 /**
  * Calculates the potential splash damage of a unit against a set of target unit types.

@@ -13,11 +13,11 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 const BuildingPlacement = require('./buildingPlacement');
 const { stopOverlappingBuilders } = require('./buildingWorkerInteractions');
 // eslint-disable-next-line no-unused-vars
+const { addEarmark } = require('./resourceManagement');
 const GameState = require('../../core/gameState');
 const { getMovementSpeed } = require('../../gameLogic/coreUtils');
 const { isPendingContructing } = require('../../gameLogic/workerAssignmentHelpers');
 const { createUnitCommand } = require('../../utils/common/utils');
-const { addEarmark } = require('../../utils/construction/resourceManagement');
 const { setPendingOrders } = require('../../utils/training/unitOrders');
 const { getClosestPathWithGasGeysers, ability, isIdleOrAlmostIdle, setBuilderLabel } = require('../../utils/worker/workerService');
 

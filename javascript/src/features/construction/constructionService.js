@@ -7,16 +7,17 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { getTimeToTargetCost, addEarmark } = require("./resourceManagement");
 const config = require("../../../config/config");
 const GameState = require("../../core/gameState");
+const { attemptBuildAddOn, attemptLiftOff } = require("../../core/sharedUnitConstruction");
 const { premoveBuilderToPosition } = require("../../features/construction/constructionAndBuildingUtils");
 const { commandBuilderToConstruct, buildWithNydusNetwork } = require("../../features/construction/constructionUtils");
 const { attemptLand } = require("../../gameLogic/landingUtils");
 const { getPendingOrders } = require("../../sharedServices");
-const { isPlaceableAtGasGeyser } = require("../common/utils");
-const { commandPlaceBuilding } = require("../misc/builderUtils");
-const { attemptBuildAddOn, attemptLiftOff } = require("../sharedUnitConstruction");
-const { findPlacements } = require("../spatial/spatialUtils");
-const { flyingTypesMapping } = require("../training/unitConfig");
-const { getUnitTypeToBuild, updateAddOnType } = require("../unit/unitHelpers");
+const { isPlaceableAtGasGeyser } = require("../../utils/common/utils");
+const { commandPlaceBuilding } = require("../../utils/misc/builderUtils");
+const { findPlacements } = require("../../utils/spatial/spatialUtils");
+const { flyingTypesMapping } = require("../../utils/training/unitConfig");
+const { updateAddOnType, getUnitTypeToBuild } = require("../../utils/unit/unitHelpers");
+
 
 /**
  * @param {World} world

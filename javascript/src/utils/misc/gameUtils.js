@@ -2,7 +2,7 @@
 "use strict";
 
 const GameState = require("../../core/gameState");
-const { isCurrent } = require("../construction/resourceManagement");
+const { isCurrent } = require("../../features/construction/resourceManagement");
 
 /**
  * @param {ResourceManager} resources

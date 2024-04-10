@@ -8,8 +8,8 @@
 // Import necessary constants or modules
 const { UnitType, UnitTypeId } = require('@node-sc2/core/constants');
 
+const { addEarmark } = require('../features/construction/resourceManagement');
 const { checkAddOnPlacement } = require('../features/construction/sharedUnitPlacement');
-const { addEarmark } = require('../utils/construction/resourceManagement');
 const { flyingTypesMapping } = require('../utils/training/unitConfig');
 const { setPendingOrders } = require('../utils/training/unitOrders');
 

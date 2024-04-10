@@ -8,12 +8,12 @@ const { WorkerRace } = require('@node-sc2/core/constants/race-map');
 const { avgPoints } = require('@node-sc2/core/utils/geometry/point');
 
 const { handleNonRallyBase } = require('./buildingWorkerInteractions');
+const { earmarkThresholdReached, addEarmark } = require('./resourceManagement');
 const { logNoFreeGeysers } = require('./sharedConstructionUtils');
 const { checkAddOnPlacement } = require('./sharedUnitPlacement');
 const GameState = require('../../core/gameState');
 const { getPendingOrders } = require('../../sharedServices');
 const { isPlaceableAtGasGeyser, getPathablePositionsForStructure, createUnitCommand, positionIsEqual } = require('../../utils/common/utils');
-const { earmarkThresholdReached, addEarmark } = require('../../utils/construction/resourceManagement');
 const { getTimeToTargetTech } = require('../../utils/misc/gameData');
 const { getClosestUnitByPath, getClosestPositionByPath, getAddOnPlacement, calculateBaseTimeToPosition } = require('../../utils/pathfinding/pathfinding');
 const { getPathCoordinates, getMapPath, getDistanceByPath } = require('../../utils/pathfinding/pathfindingCommon');

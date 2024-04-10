@@ -1,7 +1,7 @@
 //@ts-check
 "use strict";
 
-const { addEarmark } = require("../construction/resourceManagement");
+const { addEarmark } = require("../../features/construction/resourceManagement");
 
 /**
  * Earmark resources if needed.

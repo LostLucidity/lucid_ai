@@ -3,12 +3,12 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
 const { getSingletonInstance } = require("./singletonFactory");
+const { potentialCombatants } = require("../core/sharedUnitOperations");
+const { calculateTimeToKillUnits } = require("../core/sharedUtils");
+const { getWeaponDPS } = require("../core/unitCalculations");
 const StrategyManager = require("../features/strategy/strategyManager");
 const { mappedEnemyUnits } = require("../utils/scouting/scoutingUtils");
-const { potentialCombatants } = require("../utils/sharedUnitOperations");
-const { calculateTimeToKillUnits } = require("../utils/sharedUtils");
 const { getDistance } = require("../utils/spatial/spatialCoreUtils");
-const { getWeaponDPS } = require("../utils/unitCalculations");
 
 /**
  * @typedef {Object} GameState

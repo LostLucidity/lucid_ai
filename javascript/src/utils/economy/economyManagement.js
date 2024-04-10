@@ -12,10 +12,10 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 
 const { getGatheringWorkers, gather } = require('./workerAssignment');
 const GameState = require('../../core/gameState');
+const { gasMineCheckAndBuild, getMineralFieldsNearby, getGasGeysersNearby } = require('../../features/construction/resourceManagement');
 const { calculateDistance } = require('../../gameLogic/coreUtils');
 const { getPendingOrders } = require('../../sharedServices');
 const { createUnitCommand, canBuild } = require('../common/utils');
-const { gasMineCheckAndBuild, getMineralFieldsNearby, getGasGeysersNearby } = require('../construction/resourceManagement');
 const { mine } = require('../training/training');
 const { getProductionUnits } = require('../unit/unitManagement');
 const { isMining } = require('../worker/workerService');

@@ -8,14 +8,14 @@ const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 const BuildingPlacement = require("./buildingPlacement");
 const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition, findBestPositionForAddOn } = require("./constructionAndBuildingUtils");
+const { addAddOn } = require("./constructionService");
 const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction } = require("./constructionUtils");
+const { getTimeToTargetCost, getTimeUntilCanBeAfforded, addEarmark } = require("./resourceManagement");
 const GameState = require("../../core/gameState");
 const MapResources = require("../../core/mapResources");
 const { getUnitsCapableToAddOn } = require("../../gameLogic/addonUtils");
 const { getTimeUntilUnitCanBuildAddon } = require("../../gameLogic/unitCapabilityUtils");
 const { isPlaceableAtGasGeyser } = require("../../utils/common/utils");
-const { addAddOn } = require("../../utils/construction/constructionService");
-const { getTimeToTargetCost, getTimeUntilCanBeAfforded, addEarmark } = require("../../utils/construction/resourceManagement");
 const { commandPlaceBuilding } = require("../../utils/misc/builderUtils");
 const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../../utils/misc/gameData");
 const { getNextSafeExpansions } = require("../../utils/pathfinding/pathfinding");

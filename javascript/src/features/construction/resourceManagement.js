@@ -9,9 +9,9 @@ const { GasMineRace } = require('@node-sc2/core/constants/race-map');
 // Import necessary constants and modules
 const { planMax } = require('../../../config/config');
 const GameState = require('../../core/gameState');
-const StrategyManager = require('../../features/strategy/strategyManager');
 const { calculateDistance } = require('../../gameLogic/coreUtils');
-const { getTimeToTargetTech, upgradeTypes } = require('../misc/gameData');
+const { getTimeToTargetTech, upgradeTypes } = require('../../utils/misc/gameData');
+const StrategyManager = require('../strategy/strategyManager');
 
 const earmarks = [];
 

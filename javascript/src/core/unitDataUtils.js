@@ -1,6 +1,6 @@
 // src/utils/unitDataUtils.js
 
-const { unitTypeData, saveAndGetUnitTypeData } = require("./misc/gameData");
+const { unitTypeData, saveAndGetUnitTypeData } = require("../utils/misc/gameData");
 
 /**
  * Retrieves detailed data for a specific unit type.

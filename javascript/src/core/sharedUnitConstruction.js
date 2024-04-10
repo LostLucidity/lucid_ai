@@ -4,11 +4,11 @@ const { Ability } = require("@node-sc2/core/constants");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { addEarmark } = require("./construction/resourceManagement");
-const { getAddOnPlacement, pointsOverlap } = require("./pathfinding/pathfinding");
-const { getDistance } = require("./spatial/spatialCoreUtils");
-const { setPendingOrders } = require("./training/unitOrders");
+const { addEarmark } = require("../features/construction/resourceManagement");
 const { seigeTanksSiegedGrids } = require("../features/construction/sharedUnitPlacement");
+const { getAddOnPlacement, pointsOverlap } = require("../utils/pathfinding/pathfinding");
+const { getDistance } = require("../utils/spatial/spatialCoreUtils");
+const { setPendingOrders } = require("../utils/training/unitOrders");
 
 /**
  * Attempt to build addOn

@@ -14,10 +14,10 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 // Internal dependencies
 const GameState = require("../../core/gameState");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
+const { buildSupply } = require("../../features/construction/constructionService");
+const { getTimeToTargetCost, getEarmarkedFood, addEarmark } = require("../../features/construction/resourceManagement");
 const { getPendingOrders } = require("../../sharedServices");
 const { createUnitCommand } = require("../common/utils");
-const { buildSupply } = require("../construction/constructionService");
-const { getTimeToTargetCost, getEarmarkedFood, addEarmark } = require("../construction/resourceManagement");
 const { getTimeToTargetTech } = require("../misc/gameData");
 const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../pathfinding/pathfinding");
 const { getDistance } = require("../spatial/spatialCoreUtils");
