@@ -85,18 +85,21 @@ class StrategyService {
    * @returns {PlanStep} The created plan step.
    */
   createPlanStep(rawStep, interpretedAction, cumulativeCount) {
+    const { supply, time, action } = rawStep;
+    const { isUpgrade, unitType, count } = interpretedAction;
+
     return {
-      supply: parseInt(rawStep.supply, 10),
-      time: rawStep.time,
-      action: rawStep.action,
-      orderType: interpretedAction.isUpgrade ? 'Upgrade' : 'UnitType',
-      unitType: interpretedAction.unitType || 0,
-      targetCount: cumulativeCount,
-      upgrade: interpretedAction.isUpgrade ? (interpretedAction.unitType || Upgrade.NULL) : Upgrade.NULL,
-      isChronoBoosted: !!interpretedAction.isChronoBoosted,
-      count: interpretedAction.count || 0,
+      supply: parseInt(supply, 10),
+      time,
+      action,
+      orderType: isUpgrade ? 'Upgrade' : 'UnitType',
+      unitType: unitType || 0,
+      targetCount: cumulativeCount + (count || 0),
+      upgrade: isUpgrade ? (unitType || Upgrade.NULL) : Upgrade.NULL,
+      isChronoBoosted: Boolean(interpretedAction.isChronoBoosted),
+      count: count || 0,
       candidatePositions: [],
-      food: parseInt(rawStep.supply, 10)
+      food: parseInt(supply, 10)
     };
   }
 

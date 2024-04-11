@@ -43,55 +43,32 @@ function calculateTimeToFinishStructure(data, unit) {
  */
 function checkUnitCount(world, unitType, targetCount) {
   const { data, resources } = world;
-  const { units } = resources.get();
-  const orders = [];
-  /** @type {UnitTypeId[]} */
-  let unitTypes = []; // Assign an empty array as default
+  const units = resources.get().units;
+  const abilityId = data.getUnitTypeData(unitType).abilityId;
 
-  const gameState = GameState.getInstance();
-  if (gameState.morphMapping?.has(unitType)) {
-    const mappingValue = gameState.morphMapping.get(unitType);
-    if (mappingValue) {
-      unitTypes = mappingValue;
-    }
-  } else {
-    unitTypes = [unitType];
-  }
-  let abilityId = data.getUnitTypeData(unitType).abilityId;
-
-  if (typeof abilityId === 'undefined') {
-    // Ability ID for the unit type is not defined, so return false
+  if (!abilityId) {
     return false;
   }
-  units.withCurrentOrders(abilityId).forEach(unit => {
-    if (unit.orders) {
-      unit.orders.forEach(order => {
-        if (order.abilityId === abilityId) {
-          // Check if the unitType is zergling and account for the pair
-          const orderCount = (unitType === UnitType.ZERGLING) ? 2 : 1;
-          for (let i = 0; i < orderCount; i++) {
-            orders.push(order);
-          }
-        }
-      });
-    }
-  });
 
-  const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => {
-    const unitPendingOrders = getPendingOrders(u);
-    return unitPendingOrders && unitPendingOrders.some(o => o.abilityId === abilityId);
-  });
+  const unitTypes = GameState.getInstance().morphMapping?.get(unitType) || [unitType];
+  const allUnits = units.getAlive(Alliance.SELF);
 
-  let adjustedTargetCount = targetCount;
-  if (unitType === UnitType.ZERGLING) {
-    const existingZerglings = getById(resources, [UnitType.ZERGLING]).length;
-    const oddZergling = existingZerglings % 2;
-    adjustedTargetCount += oddZergling;
-  }
+  const orderedUnits = allUnits.filter(u => u.orders?.some(o => o.abilityId === abilityId)).length;
+  const unitsWithPendingOrders = allUnits.filter(u => getPendingOrders(u)?.some(o => o.abilityId === abilityId)).length;
 
-  const unitCount = getById(resources, unitTypes).length + orders.length + unitsWithPendingOrders.length + missingUnits.filter(unit => unit.unitType === unitType).length;
+  // For Zerglings, count each unit as 2 due to them being trained in pairs
+  const actualUnitCount = getById(resources, unitTypes).length +
+    (unitType === UnitType.ZERGLING ? 2 * orderedUnits : orderedUnits) +
+    unitsWithPendingOrders;
 
-  return unitCount === adjustedTargetCount;
+  const missingUnitCount = missingUnits.filter(unit => unit.unitType === unitType).length;
+  const totalUnitCount = actualUnitCount + missingUnitCount;
+
+  const adjustedTargetCount = unitType === UnitType.ZERGLING
+    ? targetCount + (getById(resources, [UnitType.ZERGLING]).length % 2)
+    : targetCount;
+
+  return totalUnitCount < adjustedTargetCount;
 }
 
 /**
