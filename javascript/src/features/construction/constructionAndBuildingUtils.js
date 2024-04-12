@@ -21,6 +21,34 @@ const { unitTypeTrainingAbilities, canLiftOff } = require('../../utils/training/
 const { getClosestPathWithGasGeysers, getBuildTimeLeft, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../utils/worker/workerService');
 
 /**
+ * Adjusts the time to position based on whether the unit should rally to the base or not.
+ * Includes calculation of the base distance to the position as required by calculateBaseTimeToPosition.
+ * @param {boolean} rallyBase
+ * @param {number} buildTimeLeft
+ * @param {number} movementSpeedPerSecond
+ * @param {number} originalTimeToPosition
+ * @param {number} baseDistanceToPosition - The distance from the base to the target position.
+ * @returns {number}
+ */
+function adjustTimeToPosition(rallyBase, buildTimeLeft, movementSpeedPerSecond, originalTimeToPosition, baseDistanceToPosition) {
+  if (rallyBase) {
+    return calculateBaseTimeToPosition(baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond);
+  }
+  return originalTimeToPosition;
+}
+
+/**
+ * Calculates the movement speed per second from the unit's data.
+ * @param {Unit} unit
+ * @returns {number} Movement speed per second
+ */
+function calculateMovementSpeed(unit) {
+  const movementSpeed = unit.data().movementSpeed || 0;
+  return movementSpeed * 1.4; // Apply any necessary conversion factor
+}
+
+/**
+ * Retrieves pathable positions from start to target, ensuring the closest base and paths are found.
  * @param {ResourceManager} resources
  * @param {Point2D} startPos
  * @param {Point2D} targetPos
@@ -29,17 +57,32 @@ const { getClosestPathWithGasGeysers, getBuildTimeLeft, handleRallyBase, getOrde
  * @returns {{ closestBaseByPath: Unit, pathCoordinates: Point2D[], pathableTargetPosition: Point2D }}
  */
 function calculatePathablePositions(resources, startPos, targetPos, map, units) {
-  const closestPathablePositionBetweenPositions = getClosestPathWithGasGeysers(resources, startPos, targetPos);
-  const { pathCoordinates, pathableTargetPosition } = closestPathablePositionBetweenPositions;
-  const completedBases = units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1);
-  const [closestBaseByPath] = getClosestUnitByPath(resources, pathableTargetPosition, completedBases);
+  const pathableInfo = getClosestPathWithGasGeysers(resources, startPos, targetPos);
+  const basesWithProgress = units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1);
+  const closestBaseByPath = getClosestBaseByPath(resources, pathableInfo.pathableTargetPosition, basesWithProgress);
   const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
 
   return {
     closestBaseByPath,
-    pathCoordinates,
+    pathCoordinates: pathableInfo.pathCoordinates,
     pathableTargetPosition: getClosestPositionByPath(resources, targetPos, pathablePositions)[0]
   };
+}
+
+/**
+ * Calculates the maximum of time to target cost or time to target technology from unit data.
+ * @param {World} world
+ * @param {Unit} unit
+ * @param {number} timeToTargetCost Pre-calculated time to target cost.
+ * @returns {number}
+ */
+function calculateTimeToTargetCostOrTech(world, unit, timeToTargetCost) {
+  if (!unit.unitType) {
+    console.error("Unit type is undefined, cannot calculate time to target tech.");
+    return timeToTargetCost; // Return the already known cost as the maximum.
+  }
+  const timeToTargetTech = getTimeToTargetTech(world, unit.unitType);
+  return Math.max(timeToTargetCost, timeToTargetTech);
 }
 
 /**
@@ -238,6 +281,17 @@ function getBuilderInformation(builder) {
 }
 
 /**
+ * Finds the closest base by path to a given position from a list of bases.
+ * @param {ResourceManager} resources 
+ * @param {Point2D} targetPos 
+ * @param {Unit[]} bases 
+ * @returns {Unit}
+ */
+function getClosestBaseByPath(resources, targetPos, bases) {
+  return getClosestUnitByPath(resources, targetPos, bases)[0];
+}
+
+/**
  * Find potential building placements within the main base.
  * @param {World} world
  * @param {UnitTypeId} unitType
@@ -432,7 +486,7 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
   const { pathCoordinates, pathableTargetPosition } = pathablePositionsInfo;
   drawDebugPath(debug, map, unit.pos, pathableTargetPosition);
 
-  const buildContext = prepareBuildContext(world, pathablePositionsInfo.closestBaseByPath, position, timeToPosition, unit, unitType, timeToTargetCost, getTimeToTargetTech);
+  const buildContext = prepareBuildContext(world, pathablePositionsInfo.closestBaseByPath, position, timeToPosition, unit, timeToTargetCost);
   const gameState = GameState.getInstance();
   if (gameState.shouldPremoveNow(world, buildContext.timeToTargetCostOrTech, buildContext.timeToPosition)) {
     const pendingConstructionOrder = getPendingOrders(unit).some(order => order.abilityId && constructionAbilities.includes(order.abilityId));
@@ -466,17 +520,14 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
  * @param {Point2D} position
  * @param {number} timeToPosition
  * @param {Unit} unit
- * @param {UnitTypeId} unitType
  * @param {number} timeToTargetCost
- * @param {(world: World, unitType: UnitTypeId) => number} getTimeToTargetTech
  * @returns {{ rallyBase: boolean, buildTimeLeft: number, timeToPosition: number, timeToTargetCostOrTech: number }}
  */
-function prepareBuildContext(world, base, position, timeToPosition, unit, unitType, timeToTargetCost, getTimeToTargetTech) {
+function prepareBuildContext(world, base, position, timeToPosition, unit, timeToTargetCost) {
   const { resources } = world;
   const { map } = resources.get();
 
-  const movementSpeed = unit.data().movementSpeed || 0;
-  const movementSpeedPerSecond = movementSpeed * 1.4;
+  const movementSpeedPerSecond = calculateMovementSpeed(unit)
 
   const { pos } = unit;
   if (pos === undefined) return { rallyBase: false, buildTimeLeft: 0, timeToPosition, timeToTargetCostOrTech: 0 };
@@ -489,15 +540,12 @@ function prepareBuildContext(world, base, position, timeToPosition, unit, unitTy
 
   const { rallyBase, buildTimeLeft } = checkWorkerTraining(world, base, position, timeToPosition, movementSpeedPerSecond);
 
-  const timeToTargetTech = getTimeToTargetTech(world, unitType);
-  const timeToTargetCostOrTech = Math.max(timeToTargetTech, timeToTargetCost);
-
-  const adjustedTimeToPosition = rallyBase ? calculateBaseTimeToPosition(baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond) : timeToPosition;
+  const timeToTargetCostOrTech = calculateTimeToTargetCostOrTech(world, unit, timeToTargetCost);
 
   return {
     rallyBase,
     buildTimeLeft,
-    timeToPosition: adjustedTimeToPosition,
+    timeToPosition: adjustTimeToPosition(rallyBase, buildTimeLeft, movementSpeedPerSecond, timeToPosition, baseDistanceToPosition),
     timeToTargetCostOrTech
   };
 }
