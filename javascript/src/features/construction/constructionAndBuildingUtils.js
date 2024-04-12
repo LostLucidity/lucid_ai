@@ -21,31 +21,57 @@ const { unitTypeTrainingAbilities, canLiftOff } = require('../../utils/training/
 const { getClosestPathWithGasGeysers, getBuildTimeLeft, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../utils/worker/workerService');
 
 /**
+ * Checks if a worker is currently training and calculates if rallying to a base is needed based on timing.
+ * Adjusts the calculation to ensure positions are pathable before computing distance.
  * @param {World} world
- * @param {Unit} unit
  * @param {Unit} base
+ * @param {Point2D} targetPosition - The target position to move towards.
+ * @param {number} timeToPosition - Current estimated time to the target position.
+ * @param {number} movementSpeedPerSecond - Speed of the worker unit.
+ * @returns {{rallyBase: boolean, buildTimeLeft: number}}
  */
-function checkWorkerTraining(world, unit, base) {
-  const { data } = world;
-  const { workerTypes } = groupTypes;
+function checkWorkerTraining(world, base, targetPosition, timeToPosition, movementSpeedPerSecond) {
+  const { data, resources, agent } = world;
+  const { map } = resources.get();
+
+  // Ensure the base has a position before proceeding
+  if (!base.pos) {
+    console.error("Base position is undefined.");
+    return { rallyBase: false, buildTimeLeft: 0 };
+  }
+
   const workerCurrentlyTraining = base.orders?.some(order => {
     const abilityId = order.abilityId;
     if (abilityId === undefined) {
       return false;
     }
     const unitTypeForAbility = unitTypeTrainingAbilities.get(abilityId);
-    return unitTypeForAbility !== undefined && workerTypes.includes(unitTypeForAbility);
+    return unitTypeForAbility !== undefined && groupTypes.workerTypes.includes(unitTypeForAbility);
   });
 
-  if (!workerCurrentlyTraining) {
-    return { rallyBase: false, buildTimeLeft: 0 }; // Ensure buildTimeLeft is 0 if not training
+  let buildTimeLeft = 0;
+  if (workerCurrentlyTraining) {
+    const buildTime = data.getUnitTypeData(WorkerRace[agent.race || Race.TERRAN]).buildTime || 0;
+    const progress = base.orders?.[0]?.progress || 0;
+    buildTimeLeft = getBuildTimeLeft(base, buildTime, progress);
   }
 
-  const buildTime = data.getUnitTypeData(WorkerRace[world.agent.race || Race.TERRAN]).buildTime || 0;
-  const progress = base.orders?.[0]?.progress || 0;
-  const buildTimeLeft = getBuildTimeLeft(base, buildTime, progress);
+  const pathablePositions = getPathablePositionsForStructure(map, base);
+  const [pathableBasePosition] = getClosestPositionByPath(resources, base.pos, pathablePositions);
+  const [pathableTargetPosition] = getClosestPositionByPath(resources, targetPosition, pathablePositions);
 
-  return { rallyBase: true, buildTimeLeft };
+  if (!pathableBasePosition || !pathableTargetPosition) {
+    console.error("Pathable positions are undefined.");
+    return { rallyBase: false, buildTimeLeft };
+  }
+
+  const baseDistanceToPosition = getDistanceByPath(resources, pathableBasePosition, pathableTargetPosition);
+  const baseTimeToPosition = calculateBaseTimeToPosition(baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond);
+
+  return {
+    rallyBase: timeToPosition > baseTimeToPosition,
+    buildTimeLeft
+  };
 }
 
 /**
@@ -318,7 +344,13 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
   const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
   const [pathableStructurePosition] = getClosestPositionByPath(resources, pathableTargetPosition, pathablePositions);
   const baseDistanceToPosition = getDistanceByPath(resources, pathableStructurePosition, pathableTargetPosition);
-  const { rallyBase, buildTimeLeft } = checkWorkerTraining(world, unit, closestBaseByPath);
+  const { rallyBase, buildTimeLeft } = checkWorkerTraining(
+    world,
+    closestBaseByPath,
+    position,
+    timeToPosition,
+    movementSpeedPerSecond
+  );
   const { buildTime } = data.getUnitTypeData(WorkerRace[agent.race || Race.TERRAN]);
   if (buildTime === undefined) return collectedActions;
   let baseTimeToPosition = calculateBaseTimeToPosition(baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond);
