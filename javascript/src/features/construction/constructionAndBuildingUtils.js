@@ -31,41 +31,15 @@ const { getClosestPathWithGasGeysers, getBuildTimeLeft, handleRallyBase, getOrde
  * @returns {{rallyBase: boolean, buildTimeLeft: number}}
  */
 function checkWorkerTraining(world, base, targetPosition, timeToPosition, movementSpeedPerSecond) {
-  const { data, resources, agent } = world;
-  const { map } = resources.get();
-
-  // Ensure the base has a position before proceeding
-  if (!base.pos) {
-    console.error("Base position is undefined.");
-    return { rallyBase: false, buildTimeLeft: 0 };
-  }
-
-  const workerCurrentlyTraining = base.orders?.some(order => {
-    const abilityId = order.abilityId;
-    if (abilityId === undefined) {
-      return false;
-    }
-    const unitTypeForAbility = unitTypeTrainingAbilities.get(abilityId);
-    return unitTypeForAbility !== undefined && groupTypes.workerTypes.includes(unitTypeForAbility);
-  });
-
-  let buildTimeLeft = 0;
-  if (workerCurrentlyTraining) {
-    const buildTime = data.getUnitTypeData(WorkerRace[agent.race || Race.TERRAN]).buildTime || 0;
-    const progress = base.orders?.[0]?.progress || 0;
-    buildTimeLeft = getBuildTimeLeft(base, buildTime, progress);
-  }
-
-  const pathablePositions = getPathablePositionsForStructure(map, base);
-  const [pathableBasePosition] = getClosestPositionByPath(resources, base.pos, pathablePositions);
-  const [pathableTargetPosition] = getClosestPositionByPath(resources, targetPosition, pathablePositions);
+  const buildTimeLeft = getCurrentWorkerBuildTimeLeft(base, world);
+  const { pathableBasePosition, pathableTargetPosition } = findPathablePositions(world, base, targetPosition);
 
   if (!pathableBasePosition || !pathableTargetPosition) {
     console.error("Pathable positions are undefined.");
     return { rallyBase: false, buildTimeLeft };
   }
 
-  const baseDistanceToPosition = getDistanceByPath(resources, pathableBasePosition, pathableTargetPosition);
+  const baseDistanceToPosition = getDistanceByPath(world.resources, pathableBasePosition, pathableTargetPosition);
   const baseTimeToPosition = calculateBaseTimeToPosition(baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond);
 
   return {
@@ -196,6 +170,28 @@ function findBestPositionForAddOn(world, unit, logCondition = false) {
 }
 
 /**
+ * Finds and returns the closest pathable positions for a base and a target position within the game map.
+ * If the base position is undefined, it will handle the error by returning undefined positions.
+ * @param {World} world - The game world containing all data and state.
+ * @param {Unit} base - The base unit from which the positions are to be pathed. The position may be undefined.
+ * @param {Point2D} targetPosition - The target position to check for pathability.
+ * @returns {{pathableBasePosition: Point2D | undefined, pathableTargetPosition: Point2D | undefined}} - The closest pathable positions for both base and target, or undefined if base position is not available.
+ */
+function findPathablePositions(world, base, targetPosition) {
+  const { map } = world.resources.get();
+  if (!base.pos) {
+    console.error("Base position is undefined, cannot determine pathable positions.");
+    return { pathableBasePosition: undefined, pathableTargetPosition: undefined };
+  }
+
+  const pathablePositions = getPathablePositionsForStructure(map, base);
+  const pathableBasePosition = getClosestPositionByPath(world.resources, base.pos, pathablePositions)[0];
+  const pathableTargetPosition = getClosestPositionByPath(world.resources, targetPosition, pathablePositions)[0];
+
+  return { pathableBasePosition, pathableTargetPosition };
+}
+
+/**
  * Retrieves detailed information about a builder unit.
  * @param {{unit: Unit, timeToPosition: number}} builder The builder object with unit and time to position.
  * @returns {{unit: Unit, timeToPosition: number, movementSpeedPerSecond: number}} Information about the builder.
@@ -223,6 +219,22 @@ function getInTheMain(world, unitType) {
 
   // Filter the placement grid to find suitable positions
   return mainBase.areas.placementGrid.filter(grid => map.isPlaceableAt(unitType, grid));
+}
+
+/**
+ * Determines the current build time left for a worker that is being trained at a base.
+ * @param {Unit} base - The base unit to check for ongoing worker training.
+ * @param {World} world - The game world context.
+ * @returns {number} - The remaining build time for the worker, or 0 if no worker is being trained.
+ */
+function getCurrentWorkerBuildTimeLeft(base, world) {
+  const { data, agent } = world;
+  if (base.orders?.some(order => isWorkerTrainingOrder(order))) {
+    const buildTime = data.getUnitTypeData(WorkerRace[agent.race || Race.TERRAN]).buildTime || 0;
+    const progress = base.orders[0]?.progress || 0;
+    return getBuildTimeLeft(base, buildTime, progress);
+  }
+  return 0;
 }
 
 /**
@@ -263,6 +275,21 @@ function isGeyserFree(world, position) {
 
   // If no gas collector is found at 'position', the geyser is free
   return true;
+}
+
+
+/**
+ * Checks if the given order is for training a worker.
+ * @param {SC2APIProtocol.UnitOrder} order
+ * @returns {boolean} - True if the order is for training a worker, false otherwise.
+ */
+function isWorkerTrainingOrder(order) {
+  const abilityId = order.abilityId;
+  if (abilityId === undefined) {
+    return false;
+  }
+  const unitTypeForAbility = unitTypeTrainingAbilities.get(abilityId);
+  return unitTypeForAbility !== undefined && groupTypes.workerTypes.includes(unitTypeForAbility);
 }
 
 /**
