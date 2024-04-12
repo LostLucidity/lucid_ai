@@ -21,6 +21,28 @@ const { unitTypeTrainingAbilities, canLiftOff } = require('../../utils/training/
 const { getClosestPathWithGasGeysers, getBuildTimeLeft, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../utils/worker/workerService');
 
 /**
+ * @param {ResourceManager} resources
+ * @param {Point2D} startPos
+ * @param {Point2D} targetPos
+ * @param {MapResource} map
+ * @param {UnitResource} units
+ * @returns {{ closestBaseByPath: Unit, pathCoordinates: Point2D[], pathableTargetPosition: Point2D }}
+ */
+function calculatePathablePositions(resources, startPos, targetPos, map, units) {
+  const closestPathablePositionBetweenPositions = getClosestPathWithGasGeysers(resources, startPos, targetPos);
+  const { pathCoordinates, pathableTargetPosition } = closestPathablePositionBetweenPositions;
+  const completedBases = units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1);
+  const [closestBaseByPath] = getClosestUnitByPath(resources, pathableTargetPosition, completedBases);
+  const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
+
+  return {
+    closestBaseByPath,
+    pathCoordinates,
+    pathableTargetPosition: getClosestPositionByPath(resources, targetPos, pathablePositions)[0]
+  };
+}
+
+/**
  * Checks if a worker is currently training and calculates if rallying to a base is needed based on timing.
  * Adjusts the calculation to ensure positions are pathable before computing distance.
  * @param {World} world
@@ -83,6 +105,18 @@ function determineBuildingPosition(world, unitType, candidatePositions, building
 
   setBuildingPositionFn(unitType, position);
   return position;
+}
+
+/**
+ * @param {Debugger | undefined} debug
+ * @param {MapResource} map
+ * @param {Point2D} startPos
+ * @param {Point2D} targetPos
+ */
+function drawDebugPath(debug, map, startPos, targetPos) {
+  if (debug) {
+    debug.setDrawCells('prmv', getPathCoordinates(getMapPath(map, startPos, targetPos)).map(point => ({ pos: point })), { size: 1, cube: false });
+  }
 }
 
 /**
@@ -238,6 +272,40 @@ function getCurrentWorkerBuildTimeLeft(base, world) {
 }
 
 /**
+ * Handles specific building actions based on the unit's race, position adjustments,
+ * and whether the unit should rally or proceed with non-rally tasks.
+ * @param {World} world - The game world context.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - The array to collect actions to be executed.
+ * @param {{
+    rallyBase: boolean;
+    buildTimeLeft: number;
+    timeToPosition: number;
+    timeToTargetCostOrTech: number;
+}} buildContext - Context containing flags and timings for building.
+ * @param {Unit} unit - The unit object to manipulate.
+ * @param {Point2D} position - The position to use for operations.
+ * @param {SC2APIProtocol.Race | undefined} race - The race of the unit.
+ * @param {Point2D[]} pathCoordinates - Array of positions forming the path.
+ * @param {number[]} constructionAbilities - List of construction abilities relevant to the unit.
+ * @param {number} unitType - The type of the unit to check against specific conditions.
+ * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand - The unit command to execute.
+ * @param {(world: World, unit: Unit, position: Point2D) => SC2APIProtocol.ActionRawUnitCommand[]} handleRallyBase - Function to handle rally base logic.
+ * @param {(world: World, unit: Unit, position: Point2D, unitCommand: SC2APIProtocol.ActionRawUnitCommand, unitType: UnitTypeId, getOrderTargetPosition: (units: UnitResource, unit: Unit) => Point2D | undefined) => SC2APIProtocol.ActionRawUnitCommand[]} handleNonRallyBase - Function to handle non-rally base logic.
+ * @param {(units: UnitResource, unit: Unit) => Point2D | undefined} getOrderTargetPosition - Function to get the target position for orders.
+ */
+function handleBuildingActions(world, collectedActions, buildContext, unit, position, race, pathCoordinates, constructionAbilities, unitType, unitCommand, handleRallyBase, handleNonRallyBase, getOrderTargetPosition) {
+  if (race === Race.PROTOSS && !groupTypes.gasMineTypes.includes(unitType) && pathCoordinates.length >= 2) {
+    const secondToLastPosition = pathCoordinates[pathCoordinates.length - 2];
+    position = avgPoints([secondToLastPosition, position, position]);
+  }
+  if (buildContext.rallyBase) {
+    collectedActions.push(...handleRallyBase(world, unit, position));
+  } else {
+    collectedActions.push(...handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrderTargetPosition));
+  }
+}
+
+/**
  * Checks if a unit has an add-on.
  * @param {Unit} unit
  * @returns {boolean}
@@ -328,7 +396,7 @@ function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, getMiddleOfStructureFn, getTimeToTargetCostFn) {
-  const { constructionAbilities, gasMineTypes } = groupTypes;
+  const { constructionAbilities } = groupTypes;
   const { agent, data, resources } = world;
   const { debug, map, units } = resources.get();
 
@@ -342,68 +410,98 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
     return collectedActions;
   }
 
+  // Earmark resources now that we've checked thresholds
   addEarmark(data, data.getUnitTypeData(unitType));
-
   const adjustedPosition = getMiddleOfStructureFn(position, unitType);
   const builderInfo = getBuilderFunc(world, adjustedPosition);
+
   if (!builderInfo || !builderInfo.unit.orders || !builderInfo.unit.pos) {
     return collectedActions;
   }
 
-  let { unit, timeToPosition, movementSpeedPerSecond } = getBuilderInformation(builderInfo);
+  const { unit, timeToPosition } = builderInfo;
   if (!unit.orders || !unit.pos) {
     return collectedActions;
   }
 
-  const { orders, pos } = unit; if (orders === undefined || pos === undefined) return collectedActions;
-  const closestPathablePositionBetweenPositions = getClosestPathWithGasGeysers(resources, pos, position);
-  const { pathCoordinates, pathableTargetPosition } = closestPathablePositionBetweenPositions;
-
-  if (debug !== undefined) {
-    debug.setDrawCells('prmv', getPathCoordinates(getMapPath(map, pos, pathableTargetPosition)).map(point => ({ pos: point })), { size: 1, cube: false });
-  }
-
-  const completedBases = units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1);
-  const [closestBaseByPath] = getClosestUnitByPath(resources, pathableTargetPosition, completedBases);
-  if (!closestBaseByPath) {
+  const pathablePositionsInfo = calculatePathablePositions(resources, unit.pos, position, map, units);
+  if (!pathablePositionsInfo.closestBaseByPath) {
     return collectedActions;
   }
-  const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
-  const [pathableStructurePosition] = getClosestPositionByPath(resources, pathableTargetPosition, pathablePositions);
-  const baseDistanceToPosition = getDistanceByPath(resources, pathableStructurePosition, pathableTargetPosition);
-  const { rallyBase, buildTimeLeft } = checkWorkerTraining(
-    world,
-    closestBaseByPath,
-    position,
-    timeToPosition,
-    movementSpeedPerSecond
-  );
-  const { buildTime } = data.getUnitTypeData(WorkerRace[agent.race || Race.TERRAN]);
-  if (buildTime === undefined) return collectedActions;
-  let baseTimeToPosition = calculateBaseTimeToPosition(baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond);
-  timeToPosition = rallyBase ? baseTimeToPosition : timeToPosition;
-  const pendingConstructionOrder = getPendingOrders(unit).some(order => order.abilityId && constructionAbilities.includes(order.abilityId));
-  const unitCommand = builderInfo ? createUnitCommand(Ability.MOVE, [unit], pendingConstructionOrder) : {};
-  const timeToTargetTech = getTimeToTargetTech(world, unitType);
-  const timeToTargetCostOrTech = timeToTargetTech > timeToTargetCost ? timeToTargetTech : timeToTargetCost;
+
+  const { pathCoordinates, pathableTargetPosition } = pathablePositionsInfo;
+  drawDebugPath(debug, map, unit.pos, pathableTargetPosition);
+
+  const buildContext = prepareBuildContext(world, pathablePositionsInfo.closestBaseByPath, position, timeToPosition, unit, unitType, timeToTargetCost, getTimeToTargetTech);
   const gameState = GameState.getInstance();
-  if (gameState.shouldPremoveNow(world, timeToTargetCostOrTech, timeToPosition)) {
-    if (agent.race === Race.PROTOSS && !gasMineTypes.includes(unitType)) {
-      if (pathCoordinates.length >= 2) {
-        const secondToLastPosition = pathCoordinates[pathCoordinates.length - 2];
-        position = avgPoints([secondToLastPosition, position, position]);
-      }
-    }
-    if (rallyBase) {
-      collectedActions.push(...handleRallyBase(world, unit, position));
-    } else {
-      collectedActions.push(...handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrderTargetPosition));
-    }
+  if (gameState.shouldPremoveNow(world, buildContext.timeToTargetCostOrTech, buildContext.timeToPosition)) {
+    const pendingConstructionOrder = getPendingOrders(unit).some(order => order.abilityId && constructionAbilities.includes(order.abilityId));
+    const unitCommand = builderInfo ? createUnitCommand(Ability.MOVE, [unit], pendingConstructionOrder) : {};
+    handleBuildingActions(
+      world,
+      collectedActions,
+      buildContext,
+      unit,
+      position,
+      agent.race,
+      pathCoordinates,
+      constructionAbilities,
+      unitType,
+      unitCommand,
+      handleRallyBase,
+      handleNonRallyBase,
+      getOrderTargetPosition
+    );
   } else {
     collectedActions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering));
   }
+
   return collectedActions;
 }
+
+/**
+ * Prepares the building context for a given unit and target position.
+ * @param {World} world
+ * @param {Unit} base
+ * @param {Point2D} position
+ * @param {number} timeToPosition
+ * @param {Unit} unit
+ * @param {UnitTypeId} unitType
+ * @param {number} timeToTargetCost
+ * @param {(world: World, unitType: UnitTypeId) => number} getTimeToTargetTech
+ * @returns {{ rallyBase: boolean, buildTimeLeft: number, timeToPosition: number, timeToTargetCostOrTech: number }}
+ */
+function prepareBuildContext(world, base, position, timeToPosition, unit, unitType, timeToTargetCost, getTimeToTargetTech) {
+  const { resources } = world;
+  const { map } = resources.get();
+
+  const movementSpeed = unit.data().movementSpeed || 0;
+  const movementSpeedPerSecond = movementSpeed * 1.4;
+
+  const { pos } = unit;
+  if (pos === undefined) return { rallyBase: false, buildTimeLeft: 0, timeToPosition, timeToTargetCostOrTech: 0 };
+
+  const closestPathablePositionBetweenPositions = getClosestPathWithGasGeysers(resources, pos, position);
+  const { pathableTargetPosition } = closestPathablePositionBetweenPositions;
+  const pathablePositions = getPathablePositionsForStructure(map, base);
+  const [pathableStructurePosition] = getClosestPositionByPath(resources, pathableTargetPosition, pathablePositions);
+  const baseDistanceToPosition = getDistanceByPath(resources, pathableStructurePosition, pathableTargetPosition);
+
+  const { rallyBase, buildTimeLeft } = checkWorkerTraining(world, base, position, timeToPosition, movementSpeedPerSecond);
+
+  const timeToTargetTech = getTimeToTargetTech(world, unitType);
+  const timeToTargetCostOrTech = Math.max(timeToTargetTech, timeToTargetCost);
+
+  const adjustedTimeToPosition = rallyBase ? calculateBaseTimeToPosition(baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond) : timeToPosition;
+
+  return {
+    rallyBase,
+    buildTimeLeft,
+    timeToPosition: adjustedTimeToPosition,
+    timeToTargetCostOrTech
+  };
+}
+
 
 // Export all the consolidated functions
 module.exports = {
