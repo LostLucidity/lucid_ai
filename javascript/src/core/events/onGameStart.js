@@ -10,7 +10,7 @@ const stateManagement = require('../../gameLogic/stateManagement');
 const { calculateAdjacentToRampGrids } = require('../../utils/pathfinding/pathfinding');
 const { setUnitTypeTrainingAbilityMapping } = require('../../utils/training/unitConfig');
 const GameState = require('../gameState');
-const logger = require('../logger');
+const logger = require('../../utils/core/logger');
 
 /**
  * Prepares the initial worker assignments to mineral fields.

@@ -11,7 +11,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
 // Internal module imports
 const cacheManager = require("./cache");
-const { areEqual } = require("./common");
+const { areEqual } = require("../core/common");
 const { getDistance } = require("../spatial/spatialCoreUtils");
 
 /**

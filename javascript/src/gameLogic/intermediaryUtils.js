@@ -19,13 +19,13 @@ function getCumulativeTargetCount(step) {
 
 /**
  * A type that includes both BuildOrderStep and StrategyStep.
- * @typedef {import('../utils/common/globalTypes').BuildOrderStep | import('../features/strategy/strategyManager').StrategyStep} GeneralStep
+ * @typedef {import('../utils/core/globalTypes').BuildOrderStep | import('../features/strategy/strategyManager').StrategyStep} GeneralStep
  */
 
 /**
  * Calculate the target count for a specific step in the build order.
  * @param {GeneralStep} step - The step to calculate the target count for.
- * @param {import('../utils/common/globalTypes').BuildOrder} buildOrder - The build order containing the steps.
+ * @param {import('../utils/core/globalTypes').BuildOrder} buildOrder - The build order containing the steps.
  * @param {number} [startingUnitCount=0] - The starting count of units for the unit type in question.
  * @returns {number} - The cumulative target count for the specified step.
  */
@@ -57,7 +57,7 @@ function calculateTargetCountForStep(step, buildOrder, startingUnitCount = 0) {
 /**
  * Get interpreted actions from a step.
  * @param {GeneralStep} step - The step from which to get interpreted actions.
- * @returns {import('../utils/common/globalTypes').InterpretedAction[]} - The interpreted actions.
+ * @returns {import('../utils/core/globalTypes').InterpretedAction[]} - The interpreted actions.
  */
 function getInterpretedActions(step) {
   return Array.isArray(step.interpretedAction) ? step.interpretedAction : step.interpretedAction ? [step.interpretedAction] : [];

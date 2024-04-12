@@ -8,14 +8,14 @@ const { interpretBuildOrderAction } = require('./buildOrderUtils');
 /**
  * Fetches the detailed steps of a build order from its URL.
  * @param {string} buildOrderUrl - The URL of the detailed build order page.
- * @returns {Promise<import('../../utils/common/globalTypes').BuildOrderStep[]>} A promise that resolves to an array of build order steps.
+ * @returns {Promise<import('../../utils/core/globalTypes').BuildOrderStep[]>} A promise that resolves to an array of build order steps.
  */
 async function fetchBuildOrderSteps(buildOrderUrl) {
   try {
     const { data } = await axios.get(buildOrderUrl);
     const $ = cheerio.load(data);
 
-    /** @type {import('../../utils/common/globalTypes').BuildOrderStep[]} */
+    /** @type {import('../../utils/core/globalTypes').BuildOrderStep[]} */
     const steps = [];
 
     $('tbody > tr').each((i, stepElem) => {
@@ -51,7 +51,7 @@ async function scrapeBuildOrders(url) {
     const { data } = await axios.get(url);
     const $ = cheerio.load(data);
 
-    /** @type {import('../../utils/common/globalTypes').BuildOrder[]} */
+    /** @type {import('../../utils/core/globalTypes').BuildOrder[]} */
     let buildOrders = [];
 
     $('tbody > tr').each((i, element) => {

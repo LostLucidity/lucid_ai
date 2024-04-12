@@ -4,7 +4,7 @@ const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 
 /**
  * Converts strategy steps (from BuildOrderStep or StrategyStep format) to PlanStep format.
- * @param {(import("../../utils/common/globalTypes").BuildOrderStep[] | import("./strategyManager").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
+ * @param {(import("../../utils/core/globalTypes").BuildOrderStep[] | import("./strategyManager").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
  * @returns {import("./strategyService").PlanStep[]} Array of PlanStep objects.
  */
 function convertToPlanSteps(strategySteps) {
@@ -81,7 +81,7 @@ function convertToPlanSteps(strategySteps) {
 
 /**
  * Calculates the maximum supply from an array of build order steps, focusing on the last supply unit.
- * @param {import('../../utils/common/globalTypes').BuildOrderStep[]} steps - The steps in the build order.
+ * @param {import('../../utils/core/globalTypes').BuildOrderStep[]} steps - The steps in the build order.
  * @param {SC2APIProtocol.Race} race - The race of the bot.
  * @returns {number} The maximum supply value.
  */

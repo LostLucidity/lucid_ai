@@ -5,7 +5,7 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
 const GameState = require("../core/gameState");
-const { calculateTimeToKillUnits } = require("../core/sharedUtils");
+const { calculateTimeToKillUnits } = require("../utils/core/sharedUtils");
 const { getWeaponDPS } = require("../core/unitCalculations");
 const { getPendingOrders } = require("../sharedServices");
 const { missingUnits } = require("../utils/misc/gameDataStore");

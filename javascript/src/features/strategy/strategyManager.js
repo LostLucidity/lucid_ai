@@ -9,7 +9,7 @@ const GameState = require("../../core/gameState");
 const { calculateTargetCountForStep } = require("../../gameLogic/intermediaryUtils");
 const { getSingletonInstance } = require("../../gameLogic/singletonFactory");
 const { isBuildOrderStep } = require("../../gameLogic/typeGuards");
-/** @type {import("../../utils/common/globalTypes").BuildOrders} */
+/** @type {import("../../utils/core/globalTypes").BuildOrders} */
 const buildOrders = require('../buildOrders');
 const { interpretBuildOrderAction } = require("../buildOrders/buildOrderUtils");
 
@@ -18,7 +18,7 @@ const { interpretBuildOrderAction } = require("../buildOrders/buildOrderUtils");
  * @property {string} supply
  * @property {string} time
  * @property {string} action
- * @property {import("../../utils/common/globalTypes").InterpretedAction} [interpretedAction] - Optional property for interpreted action details
+ * @property {import("../../utils/core/globalTypes").InterpretedAction} [interpretedAction] - Optional property for interpreted action details
  */
 
 /**
@@ -76,7 +76,7 @@ class StrategyManager {
   /**
    * Get the current strategy's build order.
    * @param {World} world
-   * @returns {import('../../utils/common/globalTypes').BuildOrder}
+   * @returns {import('../../utils/core/globalTypes').BuildOrder}
    */
   getBuildOrderForCurrentStrategy(world) {
     const strategyManager = StrategyManager.getInstance(world.agent.race);
@@ -165,7 +165,7 @@ class StrategyManager {
   /**
    * Check if the step conditions are satisfied.
    * @param {World} world
-   * @param {import('../../utils/common/globalTypes').BuildOrderStep | StrategyStep} step
+   * @param {import('../../utils/core/globalTypes').BuildOrderStep | StrategyStep} step
    * @returns {boolean}
    */
   isStepSatisfied(world, step) {
@@ -205,7 +205,7 @@ class StrategyManager {
    * Dynamically loads a strategy based on race and build order key.
    * @param {SC2APIProtocol.Race | undefined} race
    * @param {string} buildOrderKey
-   * @returns {import("../../utils/common/globalTypes").BuildOrder | undefined}
+   * @returns {import("../../utils/core/globalTypes").BuildOrder | undefined}
    */
   loadStrategy(race, buildOrderKey) {
     if (!race) {

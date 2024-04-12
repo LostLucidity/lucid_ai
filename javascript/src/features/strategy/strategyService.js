@@ -79,8 +79,8 @@ class StrategyService {
 
   /**
    * Creates a plan step from the given raw step and interpreted action.
-   * @param {import('../../utils/common/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step from the build order.
-   * @param {import('../../utils/common/globalTypes').InterpretedAction} interpretedAction - The interpreted action for the step.
+   * @param {import('../../utils/core/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step from the build order.
+   * @param {import('../../utils/core/globalTypes').InterpretedAction} interpretedAction - The interpreted action for the step.
    * @param {number} cumulativeCount - The cumulative count of the unitType up to this step in the plan.
    * @returns {PlanStep} The created plan step.
    */
@@ -106,7 +106,7 @@ class StrategyService {
   /**
    * Executes the given strategy plan.
    * @param {World} world - The game world context.
-   * @param {import("../../utils/common/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan - The strategy plan to execute.
+   * @param {import("../../utils/core/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan - The strategy plan to execute.
    * @param {StrategyManager} strategyManager - The strategy manager.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
    */
@@ -156,7 +156,7 @@ class StrategyService {
   }  
 
   /**
-   * @param {import("../../utils/common/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
+   * @param {import("../../utils/core/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
    */
   getInterpretedActions(rawStep) {
     if (rawStep.interpretedAction) {
@@ -184,9 +184,9 @@ class StrategyService {
   /**
    * Processes the plan step, handling special actions and regular actions.
    * @param {World} world The game world context.
-   * @param {import('../../utils/common/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
+   * @param {import('../../utils/core/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
    * @param {number} step The current step number in the strategy.
-   * @param {import('../../utils/common/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
+   * @param {import('../../utils/core/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
    * @param {StrategyManager} strategyManager The strategy manager instance.
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform The array of actions to be performed.
    * @param {number} currentCumulativeCount The current cumulative count of the unit type up to this step.
@@ -231,10 +231,10 @@ class StrategyService {
   /**
    * Handles the completion of a strategy step, updating cumulative counts if necessary.
    * @param {World} world The game world context.
-   * @param {import('../../utils/common/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
+   * @param {import('../../utils/core/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
    * @param {string} unitType The unit type identifier.
    * @param {number} currentCumulativeCount The current cumulative count for the unit type.
-   * @param {import('../../utils/common/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
+   * @param {import('../../utils/core/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
    * @param {StrategyManager} strategyManager The strategy manager instance.
    * @returns {boolean} True if the step is completed, false otherwise.
    */
@@ -292,7 +292,7 @@ class StrategyService {
   } 
 
   /**
-   * @param {import("../../utils/common/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan
+   * @param {import("../../utils/core/globalTypes").BuildOrder | StrategyManager.Strategy | undefined} plan
    */
   isValidPlan(plan) {
     return plan && Array.isArray(plan.steps);
@@ -328,7 +328,7 @@ class StrategyService {
   /**
    * Processes all steps in the strategy plan.
    * @param {World} world - The game world context.
-   * @param {import("../../utils/common/globalTypes").BuildOrder | StrategyManager.Strategy} plan - The strategy plan to execute.
+   * @param {import("../../utils/core/globalTypes").BuildOrder | StrategyManager.Strategy} plan - The strategy plan to execute.
    * @param {StrategyManager} strategyManager - The strategy manager.
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform - The array of actions to be performed.
    */
@@ -355,7 +355,7 @@ class StrategyService {
   /**
    * Processes each step of the strategy plan.
    * @param {World} world
-   * @param {import("../../utils/common/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
+   * @param {import("../../utils/core/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
    * @param {number} step
    * @param {StrategyManager} strategyManager
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
@@ -372,9 +372,9 @@ class StrategyService {
   /**
    * Processes an interpreted action from the current strategy step.
    * @param {World} world
-   * @param {import("../../utils/common/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
+   * @param {import("../../utils/core/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
    * @param {number} step
-   * @param {import('../../utils/common/globalTypes').InterpretedAction} interpretedAction
+   * @param {import('../../utils/core/globalTypes').InterpretedAction} interpretedAction
    * @param {StrategyManager} strategyManager
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
    */

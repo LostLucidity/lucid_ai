@@ -3,7 +3,7 @@ const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { clearPathCache, getPathCache, setPathCache } = require("../common/cache");
-const { getClosestPathablePositions, areEqual } = require("../common/common");
+const { getClosestPathablePositions, areEqual } = require("../core/common");
 const { getLine, isLineTraversable } = require("../common/utils");
 const { getGridsInCircleWithinMap } = require("../spatial/spatialCore");
 const { getDistance } = require("../spatial/spatialCoreUtils");
