@@ -50,11 +50,15 @@ class StrategyService {
 
   // Private constructor
   constructor() {
-    if (StrategyService.instance) {
-      return StrategyService.instance;
+    if (!StrategyService.instance) {
+      // Initialize the instance if it doesn't exist
+      this.loggedDelays = new Map();
+      StrategyService.instance = this;
+    } else if (!StrategyService.instance.loggedDelays) {
+      // Ensure loggedDelays is initialized for existing instances
+      StrategyService.instance.loggedDelays = new Map();
     }
-    StrategyService.instance = this;
-    // Initialize your service here
+    return StrategyService.instance;
   }
 
   /**
@@ -68,6 +72,16 @@ class StrategyService {
     const vespeneNeeded = Math.max(earmarkTotals.vespene - vespene, 0);
     return balanceResources(world, mineralsNeeded / vespeneNeeded, build);
   }
+
+  /**
+   * Converts a time string formatted as 'm:ss' to the total number of seconds.
+   * @param {string} timeString - The time string to convert.
+   * @returns {number} The total seconds.
+   */
+  convertTimeStringToSeconds(timeString) {
+    const [minutes, seconds] = timeString.split(':').map(Number);
+    return minutes * 60 + seconds;
+  }  
 
   /**
    * @typedef {Object} RawStep
@@ -192,12 +206,12 @@ class StrategyService {
    * @param {number} currentCumulativeCount The current cumulative count of the unit type up to this step.
    */
   handlePlanStep(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform, currentCumulativeCount) {
-    const unitType = interpretedAction.unitType?.toString() || 'default';
+    const effectiveUnitType = interpretedAction.unitType?.toString() || 'default';
     const planStep = this.createPlanStep(rawStep, interpretedAction, currentCumulativeCount);
-    this.cumulativeCounts[unitType] = currentCumulativeCount + (interpretedAction.count || 0);
+    this.cumulativeCounts[effectiveUnitType] = currentCumulativeCount + (interpretedAction.count || 0);
 
     if (interpretedAction.specialAction) {
-      actionsToPerform.push(...this.handleSpecialAction(interpretedAction.specialAction, world));
+      actionsToPerform.push(...this.handleSpecialAction(interpretedAction.specialAction, world, rawStep));
       return;
     }
 
@@ -208,19 +222,34 @@ class StrategyService {
    * Handles special actions identified in build order steps.
    * @param {string} specialAction - The special action to handle.
    * @param {World} world - The current world state.
+   * @param {import('../../utils/core/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step data containing timing and other contextual information.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed for the special action.
    */
-  handleSpecialAction(specialAction, world) {
+  handleSpecialAction(specialAction, world, rawStep) {
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-    let actions = []; // Explicitly typed as an array of SC2APIProtocol.ActionRawUnitCommand
+    let actions = [];
+    const targetTime = this.convertTimeStringToSeconds(rawStep.time);
+    const currentTime = world.resources.get().frame.timeInSeconds();
+
+    if (currentTime < targetTime) {
+      const delayKey = `${specialAction}-${rawStep.time}`;
+      // Ensure that loggedDelays is not undefined before accessing it
+      if (this.loggedDelays && !this.loggedDelays.has(delayKey)) {
+        console.log(`Delaying action: ${specialAction} until ${rawStep.time}`);
+        this.loggedDelays.set(delayKey, true);
+      }
+      return actions;  // Return an empty array to indicate no action performed at this time
+    }
+
+    // Reset the log flag once the action is executed or the time condition is no longer true
+    if (this.loggedDelays) {
+      this.loggedDelays.delete(`${specialAction}-${rawStep.time}`);
+    }
 
     switch (specialAction) {
       case 'Scouting with SCV':
-        // Implement the logic for the specific special action
         actions = performScoutingWithSCV(world);
         break;
-      // Add more cases for other special actions
-
       default:
         console.warn(`Unhandled special action: ${specialAction}`);
     }
