@@ -363,6 +363,20 @@ function getWithLabelAvailable(units, unit) {
 }
 
 /**
+ * Precomputes mineral fields that are close to any base.
+ * @param {Unit[]} mineralFields - An array of mineral field units.
+ * @param {Unit[]} bases - An array of base units.
+ * @returns {Unit[]} A filtered array of mineral fields that are close to any base.
+ */
+function precomputeValidMineralFields(mineralFields, bases) {
+  return mineralFields.filter(mineralField => {
+    return bases.some(base => {
+      return base.pos && getDistance(mineralField.pos, base.pos) <= 20;
+    });
+  });
+}
+
+/**
  * Reassign idle workers to mineral fields, ensuring there's a nearby base.
  * @param {World} world - The game context, including resources and actions.
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of actions for reassigning workers.
@@ -374,14 +388,16 @@ function reassignIdleWorkers(world) {
   const mineralFields = units.getMineralFields();
   const bases = units.getBases({ alliance: Alliance.SELF, buildProgress: 1 });
 
+  // Precompute valid mineral fields
+  const validMineralFields = precomputeValidMineralFields(mineralFields, bases);
+
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const actionsToReturn = [];
 
-  if (idleWorkers.length && mineralFields.length && bases.length) {
+  if (idleWorkers.length && validMineralFields.length && bases.length) {
     idleWorkers.forEach(worker => {
-      const closestMineralField = findClosestMineralField(worker, mineralFields, bases);
+      const closestMineralField = findClosestMineralField(worker, validMineralFields);
       if (closestMineralField) {
-        // Use the gather function to create a gather action
         const gatherActions = gather(resources, worker, closestMineralField);
         actionsToReturn.push(...gatherActions);
       }

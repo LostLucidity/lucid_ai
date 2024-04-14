@@ -89,24 +89,16 @@ function findClosestBase(mineralField, bases) {
 }
 
 /**
- * Finds the closest mineral field to a worker.
+ * Finds the closest mineral field to a worker using precomputed valid mineral fields.
  * @param {Unit} worker - The worker unit.
- * @param {Unit[]} mineralFields - An array of mineral field units.
- * @param {Unit[]} bases - An array of base units.
+ * @param {Unit[]} validMineralFields - An array of precomputed valid mineral field units.
  * @returns {Unit | undefined} The closest mineral field to the worker, or undefined if none are found.
  */
-function findClosestMineralField(worker, mineralFields, bases) {
-  if (!worker.pos) return undefined;
+function findClosestMineralField(worker, validMineralFields) {
+  if (!worker.pos || !validMineralFields.length) return undefined;
 
-  const closestMineralField = findClosestUnit(worker.pos, mineralFields);
-  if (closestMineralField && closestMineralField.pos) {
-    const closestBase = findClosestBase(closestMineralField, bases);
-    if (closestBase && closestBase.pos && getDistance(closestMineralField.pos, closestBase.pos) <= 20) {
-      return closestMineralField;
-    }
-  }
-
-  return undefined;
+  // Find the closest valid mineral field to the worker
+  return findClosestUnit(worker.pos, validMineralFields);
 }
 
 /**
