@@ -3,14 +3,17 @@
 
 // Import necessary modules and build orders
 const { Upgrade } = require('@node-sc2/core/constants');
-const { Attribute } = require('@node-sc2/core/constants/enums');
 
+// eslint-disable-next-line no-unused-vars
+const ActionStrategy = require('./actionStrategy');
 const StrategyManager = require('./strategyManager');
+const UnitActionStrategy = require('./unitActionStrategy');
+const { UpgradeActionStrategy } = require('./upgradeActionStrategy');
 const GameState = require('../../core/gameState');
 const { isBuildOrderStep } = require('../../gameLogic/typeGuards');
 const { setFoodUsed, balanceResources } = require('../../utils/economy/economyManagement');
-const { performScoutingWithSCV, train } = require('../../utils/training/training');
-const { buildSupplyOrTrain, upgrade } = require('../../utils/unit/unitManagement');
+const { performScoutingWithSCV } = require('../../utils/training/training');
+const { buildSupplyOrTrain } = require('../../utils/unit/unitManagement');
 const { interpretBuildOrderAction } = require('../buildOrders/buildOrderUtils');
 const { build } = require('../construction/buildingService');
 const { hasEarmarks, resetEarmarks } = require('../construction/resourceManagement');
@@ -32,6 +35,9 @@ const { hasEarmarks, resetEarmarks } = require('../construction/resourceManageme
 
 /**
  * Represents the strategy service responsible for managing the bot's strategy.
+ * @property {Map} loggedDelays - Stores delays for actions based on certain conditions.
+ * @property {UnitActionStrategy} actionStrategy - Handles actions related to unit management.
+ * @property {UpgradeActionStrategy} upgradeStrategy - Handles actions related to upgrades.
  */
 class StrategyService {
   
@@ -48,15 +54,28 @@ class StrategyService {
    */
   static instance = null;
 
-  // Private constructor
+  /**
+   * Private constructor to enforce singleton pattern.
+   */
   constructor() {
     if (!StrategyService.instance) {
-      // Initialize the instance if it doesn't exist
       this.loggedDelays = new Map();
+      /** @type {UnitActionStrategy} */
+      this.actionStrategy = new UnitActionStrategy(); // default unit action strategy
+      /** @type {UpgradeActionStrategy} */
+      this.upgradeStrategy = new UpgradeActionStrategy(); // default upgrade action strategy
       StrategyService.instance = this;
-    } else if (!StrategyService.instance.loggedDelays) {
-      // Ensure loggedDelays is initialized for existing instances
-      StrategyService.instance.loggedDelays = new Map();
+    } else {
+      // Ensure all properties are initialized
+      if (!StrategyService.instance.loggedDelays) {
+        StrategyService.instance.loggedDelays = new Map();
+      }
+      if (!StrategyService.instance.actionStrategy) {
+        StrategyService.instance.actionStrategy = new UnitActionStrategy();
+      }
+      if (!StrategyService.instance.upgradeStrategy) {
+        StrategyService.instance.upgradeStrategy = new UpgradeActionStrategy();
+      }
     }
     return StrategyService.instance;
   }
@@ -116,6 +135,22 @@ class StrategyService {
       food: parseInt(supply, 10)
     };
   }
+
+  /**
+   * Executes the specified special action.
+   * @param {string} specialAction - The action to execute.
+   * @param {World} world - The current world state.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
+   */
+  executeSpecialAction(specialAction, world) {
+    switch (specialAction) {
+      case 'Scouting with SCV':
+        return performScoutingWithSCV(world);
+      default:
+        console.warn(`Unhandled special action: ${specialAction}`);
+        return [];
+    }
+  }  
 
   /**
    * Executes the given strategy plan.
@@ -226,35 +261,10 @@ class StrategyService {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed for the special action.
    */
   handleSpecialAction(specialAction, world, rawStep) {
-    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-    let actions = [];
-    const targetTime = this.convertTimeStringToSeconds(rawStep.time);
-    const currentTime = world.resources.get().frame.timeInSeconds();
-
-    if (currentTime < targetTime) {
-      const delayKey = `${specialAction}-${rawStep.time}`;
-      // Ensure that loggedDelays is not undefined before accessing it
-      if (this.loggedDelays && !this.loggedDelays.has(delayKey)) {
-        console.log(`Delaying action: ${specialAction} until ${rawStep.time}`);
-        this.loggedDelays.set(delayKey, true);
-      }
-      return actions;  // Return an empty array to indicate no action performed at this time
+    if (this.shouldDelayAction(specialAction, world, rawStep)) {
+      return [];  // Return an empty array to indicate no action performed at this time
     }
-
-    // Reset the log flag once the action is executed or the time condition is no longer true
-    if (this.loggedDelays) {
-      this.loggedDelays.delete(`${specialAction}-${rawStep.time}`);
-    }
-
-    switch (specialAction) {
-      case 'Scouting with SCV':
-        actions = performScoutingWithSCV(world);
-        break;
-      default:
-        console.warn(`Unhandled special action: ${specialAction}`);
-    }
-
-    return actions;
+    return this.executeSpecialAction(specialAction, world);
   }
 
   /**
@@ -274,29 +284,6 @@ class StrategyService {
     }
     return false;
   } 
-
-  /**
-   * @param {World} world
-   * @param {{ supply?: number | undefined; time?: string | undefined; action?: string | undefined; orderType?: any; unitType: any; targetCount: any; upgrade?: any; isChronoBoosted?: any; count?: any; candidatePositions: any; food?: number | undefined; }} planStep
-   */
-  handleUnitTypeAction(world, planStep) {
-    const { data } = world;
-    if (planStep.unitType === undefined || planStep.unitType === null) return [];
-    const { attributes } = data.getUnitTypeData(planStep.unitType);
-    if (attributes === undefined) return [];
-
-    const isStructure = attributes.includes(Attribute.STRUCTURE);
-    return isStructure ? build(world, planStep.unitType, planStep.targetCount, planStep.candidatePositions) : train(world, planStep.unitType, planStep.targetCount);
-  }
-
-  /**
-   * @param {World} world
-   * @param {PlanStep} planStep
-   */
-  handleUpgradeAction(world, planStep) {
-    if (planStep.upgrade === undefined || planStep.upgrade === null) return [];
-    return upgrade(world, planStep.upgrade);
-  }
 
   /**
    * Initializes the execution of the strategy plan.
@@ -334,20 +321,17 @@ class StrategyService {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be performed.
    */
   performPlanStepActions(world, planStep) {
-    // Build supply or train workers if necessary and can be afforded
     let actions = buildSupplyOrTrain(world, planStep);
 
-    // Execute actions based on the order type
     switch (planStep.orderType) {
       case 'UnitType':
-        actions = actions.concat(this.handleUnitTypeAction(world, planStep));
+        actions = actions.concat(this.actionStrategy.handleUnitTypeAction(world, planStep));
         break;
       case 'Upgrade':
-        actions = actions.concat(this.handleUpgradeAction(world, planStep));
+        // Using non-null assertion operator in TypeScript, or ensure your JSDoc/environment knows it's always initialized
+        actions = actions.concat(this.upgradeStrategy.handleUpgradeAction(world, planStep));
         break;
-      // Add cases for other order types as needed
       default:
-        // Optionally handle unknown order types or log a warning
         break;
     }
 
@@ -441,6 +425,42 @@ class StrategyService {
 
     return this.executeStrategyPlan(world, plan, strategyManager);
   }
+
+  /**
+   * Sets a new action strategy.
+   * @param {UnitActionStrategy} strategy - The new strategy to use for unit actions.
+   */
+  setActionStrategy(strategy) {
+    /** @type {UnitActionStrategy} */
+    this.actionStrategy = strategy;
+  }
+
+  /**
+   * Checks if an action should be delayed based on the current time and target time.
+   * @param {string} specialAction - The special action to check.
+   * @param {World} world - The world context.
+   * @param {import('../../utils/core/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The step data.
+   * @returns {boolean} True if the action should be delayed, false otherwise.
+   */
+  shouldDelayAction(specialAction, world, rawStep) {
+    const targetTime = this.convertTimeStringToSeconds(rawStep.time);
+    const currentTime = world.resources.get().frame.timeInSeconds();
+    const delayKey = `${specialAction}-${rawStep.time}`;
+
+    if (currentTime < targetTime) {
+      if (this.loggedDelays && !this.loggedDelays.has(delayKey)) {
+        console.log(`Delaying action: ${specialAction} until ${rawStep.time}`);
+        this.loggedDelays.set(delayKey, true);
+      }
+      return true;
+    }
+
+    // Reset the log flag once the action is executed
+    if (this.loggedDelays) {
+      this.loggedDelays.delete(delayKey);
+    }
+    return false;
+  }  
 
   /**
    * @param {Agent} agent
