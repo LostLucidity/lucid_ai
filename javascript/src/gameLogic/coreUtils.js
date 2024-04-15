@@ -102,26 +102,64 @@ function findClosestMineralField(worker, validMineralFields) {
 }
 
 /**
- * Generic function to find the closest unit from a list to a given position.
- * @param {Point2D} position - The position to find the closest unit to.
+ * Generic function to find the closest unit from a list to a given position with pre-filtering and memoization.
+ * If no units are found within the initial radius, the search radius is expanded.
+ * @param {Point2D} position - The position to find the closest unit to, must have non-undefined 'x' and 'y' properties.
  * @param {Unit[]} units - The list of units to search.
+ * @param {number} initialRadius - The initial search radius.
  * @returns {Unit | undefined} The closest unit, or undefined if none are found.
  */
-function findClosestUnit(position, units) {
-  let closestUnit = undefined;
-  let minDistance = Number.MAX_VALUE;
+function findClosestUnit(position, units, initialRadius = 16) {
+  const memoizedResults = new Map();
+  let searchRadius = initialRadius;
 
-  units.forEach(unit => {
-    if (unit.pos) {
-      const distance = getDistance(position, unit.pos);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestUnit = unit;
+  // Ensure position is properly defined with defaults to avoid undefined access
+  const safeX = position?.x ?? 0;
+  const safeY = position?.y ?? 0;
+
+  if (typeof safeX !== 'number' || typeof safeY !== 'number') {
+    console.error('Invalid or incomplete position coordinates');
+    return undefined;
+  }
+
+  while (searchRadius <= 200) { // Let's assume a maximum radius of 200 for this example
+    let closestUnit = undefined;
+    let minDistance = Number.MAX_VALUE;
+
+    // Pre-filtering: Only consider units within the current search radius
+    const filteredUnits = units.filter(unit => {
+      if (unit.pos && typeof unit.pos.x === 'number' && typeof unit.pos.y === 'number') {
+        const roughDistance = Math.abs(unit.pos.x - safeX) + Math.abs(unit.pos.y - safeY);
+        return roughDistance < searchRadius;
       }
-    }
-  });
+      return false;
+    });
 
-  return closestUnit;
+    // Find the closest unit using detailed distance calculation
+    filteredUnits.forEach(unit => {
+      if (unit.pos) {
+        const distanceKey = `${unit.pos.x},${unit.pos.y},${position.x},${position.y}`;
+        let distance;
+        if (memoizedResults.has(distanceKey)) {
+          distance = memoizedResults.get(distanceKey);
+        } else {
+          distance = calculateDistance(position, unit.pos);
+          memoizedResults.set(distanceKey, distance);
+        }
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestUnit = unit;
+        }
+      }
+    });
+
+    if (closestUnit) return closestUnit; // Return the closest unit if one is found
+
+    searchRadius += 50; // Increase the search radius for the next iteration
+  }
+
+  console.error('No units found within the maximum search radius');
+  return undefined; // Return undefined if no units are found within the maximum radius
 }
 
 /**
