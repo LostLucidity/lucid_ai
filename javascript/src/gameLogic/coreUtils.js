@@ -6,12 +6,12 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
 // eslint-disable-next-line no-unused-vars
-const GameState = require("../core/gameState");
+const { GameState } = require("../core/gameState");
 const { SPEED_MODIFIERS } = require("../utils/core/contants");
-const { getClosestUnitByPath, getTimeInSeconds } = require("../utils/pathfinding/pathfinding");
-const { getDistanceByPath } = require("../utils/pathfinding/pathfindingCommon");
+const { getClosestUnitByPath, getTimeInSeconds } = require("../utils/spatial/pathfinding");
+const { getDistanceByPath } = require("../utils/spatial/pathfindingCommon");
 const { getDistance } = require("../utils/spatial/spatialCoreUtils");
-const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../utils/training/unitConfig");
+const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../utils/unitManagement/unitConfig");
 
 
 /**

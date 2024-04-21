@@ -3,14 +3,15 @@ const { Race } = require('@node-sc2/core/constants/enums');
 
 const config = require('../../../config/config');
 const BuildingPlacement = require('../../features/construction/buildingPlacement');
+const StrategyContext = require('../../features/strategy/strategyContext');
 const StrategyManager = require('../../features/strategy/strategyManager');
 const strategyUtils = require('../../features/strategy/strategyUtils');
-const sharedWorkerUtils = require('../../gameLogic/sharedWorkerUtils');
-const stateManagement = require('../../gameLogic/stateManagement');
-const { calculateAdjacentToRampGrids } = require('../../utils/pathfinding/pathfinding');
-const { setUnitTypeTrainingAbilityMapping } = require('../../utils/training/unitConfig');
-const GameState = require('../gameState');
+const stateManagement = require('../../gameLogic/resources/stateManagement');
+const { assignWorkers } = require('../../gameLogic/unit/workerUtils');
 const logger = require('../../utils/core/logger');
+const { calculateAdjacentToRampGrids } = require('../../utils/spatial/pathfinding');
+const { setUnitTypeTrainingAbilityMapping } = require('../../utils/unitManagement/unitConfig');
+const { GameState } = require('../gameState');
 
 /**
  * Prepares the initial worker assignments to mineral fields.
@@ -24,7 +25,7 @@ function assignInitialWorkers(world) {
   const resourceManager = world.resources;
 
   // Generate actions for assigning workers
-  const workerActions = sharedWorkerUtils.assignWorkers(resourceManager);
+  const workerActions = assignWorkers(resourceManager);
 
   // Return the collection of actions without sending them
   return workerActions;
@@ -52,11 +53,11 @@ function initializeGameState(world, botRace) {
  */
 function initializeStrategyAndAssignWorkers(world, botRace) {
   const strategyManager = StrategyManager.getInstance(botRace);
-  if (!strategyManager.getCurrentStrategy()) {
+  if (!StrategyContext.getInstance().getCurrentStrategy()) {
     strategyManager.initializeStrategy(botRace);
   }
 
-  const buildOrder = strategyManager.getBuildOrderForCurrentStrategy(world);
+  const buildOrder = strategyManager.getBuildOrderForCurrentStrategy();
   if (buildOrder && buildOrder.steps) {
     const maxSupply = strategyUtils.getMaxSupplyFromPlan(buildOrder.steps, botRace);
     config.planMax = { supply: maxSupply, gasMine: 0 };

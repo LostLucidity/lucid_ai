@@ -4,7 +4,7 @@ const { UnitType } = require("@node-sc2/core/constants");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
 const { getDistance } = require("../spatial/spatialCoreUtils");
-const { unitTypeTrainingAbilities, flyingTypesMapping, liftAndLandingTime } = require("../training/unitConfig");
+const { unitTypeTrainingAbilities, flyingTypesMapping, liftAndLandingTime } = require("../unitManagement/unitConfig");
 
 /**
  * Calculate the time it takes for a unit with an add-on to lift off (if not already flying), move, and land.

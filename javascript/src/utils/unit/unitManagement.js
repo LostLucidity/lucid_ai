@@ -12,24 +12,25 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal dependencies
-const GameState = require("../../core/gameState");
+const { addEarmark } = require("../../core/common/buildUtils");
+const { getEarmarkedFood } = require("../../core/common/EarmarkManager");
+const { GameState } = require('../../core/gameState');
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
-const { buildSupply } = require("../../features/construction/constructionService");
-const { getTimeToTargetCost, getEarmarkedFood, addEarmark } = require("../../features/construction/resourceManagement");
+const { buildSupply, getTimeToTargetCost } = require("../../features/construction/buildingService");
 const { getPendingOrders } = require("../../sharedServices");
-const { createUnitCommand } = require("../common/utils");
+const { createUnitCommand } = require("../common/common");
 const { getTimeToTargetTech } = require("../misc/gameData");
-const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../pathfinding/pathfinding");
+const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../spatial/pathfinding");
 const { getDistance } = require("../spatial/spatialCoreUtils");
-const { handleUnitTraining } = require("../training/training");
-const { liftAndLandingTime } = require("../training/unitConfig");
-const { setPendingOrders } = require("../training/unitOrders");
-const { productionUnitsCache } = require("../training/unitUtils");
+const { setPendingOrders } = require("../unitManagement/unitOrders");
+const { productionUnitsCache } = require("../unitManagement/unitUtils");
+const { handleUnitTraining } = require("../unitManagement/training");
+const { liftAndLandingTime } = require("../unitManagement/unitConfig");
 
 /**
  * Build supply or train units based on the game world state and strategy step.
  * @param {World} world
- * @param {import("../../features/strategy/strategyService").PlanStep} step
+ * @param {import("../../features/strategy/strategyManager").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function buildSupplyOrTrain(world, step) {

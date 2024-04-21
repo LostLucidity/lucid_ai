@@ -2,10 +2,14 @@
 
 const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 
+const StrategyContext = require("./strategyContext");
+/* eslint-disable-next-line no-unused-vars */
+const { GameState } = require('../../core/gameState');
+
 /**
  * Converts strategy steps (from BuildOrderStep or StrategyStep format) to PlanStep format.
  * @param {(import("../../utils/core/globalTypes").BuildOrderStep[] | import("./strategyManager").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
- * @returns {import("./strategyService").PlanStep[]} Array of PlanStep objects.
+ * @returns {import("./strategyManager").PlanStep[]} Array of PlanStep objects.
  */
 function convertToPlanSteps(strategySteps) {
   return strategySteps.map(step => {
@@ -103,7 +107,22 @@ function getMaxSupplyFromPlan(steps, race) {
   return maxSupply;
 }
 
+/**
+ * Gets the food value of the current step in the strategy plan.
+ * @param {GameState} gameState - The GameState instance
+ * @returns {number}
+ */
+function getPlanFoodValue(gameState) {
+  const strategyContext = StrategyContext.getInstance();
+  if (gameState.plan.length === 0 || strategyContext.getCurrentStep() >= gameState.plan.length) {
+    console.error('Plan is empty or current step is out of range.');
+    return 0;
+  }
+  return gameState.plan[strategyContext.getCurrentStep()].food;
+}
+
 module.exports = {
   convertToPlanSteps,
-  getMaxSupplyFromPlan
+  getMaxSupplyFromPlan,
+  getPlanFoodValue
 };

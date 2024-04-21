@@ -6,7 +6,7 @@
 
 // External library imports
 
-/** @type {import('../../utils/core/common').UnitTypeMap} */
+/** @type {import('../../utils/common/common').UnitTypeMap} */
 const UnitType = require('@node-sc2/core/constants').UnitType;
 const groupTypes = require('@node-sc2/core/constants/groups');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
@@ -16,13 +16,13 @@ const { getFootprint, twoByTwoUnits } = require('@node-sc2/core/utils/geometry/u
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
 // Internal module imports
-const { buildingPositions } = require('../../core/gameStateResources');
-const StrategyManager = require('../../features/strategy/strategyManager');
+const { buildingPositions } = require('../../core/gameState');
 const { calculateDistance } = require('../../gameLogic/coreUtils');
-const { getAdjacentToRampGrids, intersectionOfPoints, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable, getAddOnPlacement, getAddOnBuildingPlacement } = require('../../utils/pathfinding/pathfinding');
-const { getClosestPosition } = require('../../utils/pathfinding/pathfindingCommon');
+const { getAdjacentToRampGrids, intersectionOfPoints, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable, getAddOnPlacement, getAddOnBuildingPlacement } = require('../../utils/spatial/pathfinding');
+const { getClosestPosition } = require('../../utils/spatial/pathfindingCommon');
 const { getDistance } = require('../../utils/spatial/spatialCoreUtils');
-const { addOnTypesMapping } = require('../../utils/training/unitConfig');
+const { addOnTypesMapping } = require('../../utils/unitManagement/unitConfig');
+const StrategyContext = require('../strategy/strategyContext');
 
 const PYLON_POWER_RANGE = 6.5;
 
@@ -57,8 +57,7 @@ class BuildingPlacement {
   /** @type {false | Point2D | undefined} */
   static get buildingPosition() {
     // Attempt to retrieve the position for the current step
-    const strategyManager = StrategyManager.getInstance();
-    const position = buildingPositions.get(strategyManager.getCurrentStep());
+    const position = buildingPositions.get(StrategyContext.getInstance().getCurrentStep());
     // Return the position if it exists, or undefined otherwise
     return position !== undefined ? position : undefined;
   }
@@ -68,13 +67,13 @@ class BuildingPlacement {
    * @param {false | Point2D} value
    */
   static set buildingPosition(value) {
-    const strategyManager = StrategyManager.getInstance();
+    const strategyContext = StrategyContext.getInstance();
     if (value) {
       // If value is a valid position, set it for the current step
-      buildingPositions.set(strategyManager.getCurrentStep(), value);
+      buildingPositions.set(strategyContext.getCurrentStep(), value);
     } else {
       // If value is false, remove the entry for the current step
-      buildingPositions.delete(strategyManager.getCurrentStep());
+      buildingPositions.delete(strategyContext.getCurrentStep());
     }
   }
 
@@ -500,9 +499,9 @@ class BuildingPlacement {
    * @param {Point2D | false} position
    */
   static setBuildingPosition(unitType, position) {
-    const strategyManager = StrategyManager.getInstance();
-    const currentStep = strategyManager.getCurrentStep();
-    const currentStrategy = strategyManager.getCurrentStrategy();
+    const strategyContext = StrategyContext.getInstance();
+    const currentStep = strategyContext.getCurrentStep();
+    const currentStrategy = strategyContext.getCurrentStrategy();
 
     // Check if currentStrategy is defined
     if (!currentStrategy) {

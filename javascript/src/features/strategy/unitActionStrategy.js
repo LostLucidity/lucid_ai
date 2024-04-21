@@ -1,7 +1,7 @@
 const { Attribute } = require("@node-sc2/core/constants/enums");
 
 const ActionStrategy = require("./actionStrategy");
-const { train } = require("../../utils/training/training");
+const { train } = require("../../utils/unitManagement/training");
 const { build } = require("../construction/buildingService");
 
 // Concrete strategy for handling unit type actions
@@ -9,7 +9,7 @@ class UnitActionStrategy extends ActionStrategy {
   /**
    * Executes unit type actions based on the provided world and plan step.
    * @param {World} world - The game world context, used for action decisions.
-   * @param {import("./strategyService").PlanStep} planStep - The plan step to execute.
+   * @param {import("./strategyManager").PlanStep} planStep - The plan step to execute.
    * @returns {any} Result of the unit type action.
    */
   execute(world, planStep) {

@@ -6,7 +6,7 @@ class UpgradeActionStrategy extends ActionStrategy {
   /**
    * Execute action strategy for upgrading.
    * @param {World} _world World context, unused but required for interface compatibility.
-   * @param {import("./strategyService").PlanStep} planStep Details of the plan step to execute.
+   * @param {import("./strategyManager").PlanStep} planStep Details of the plan step to execute.
    * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} Array of actions to be performed.
    */
   execute(_world, planStep) {
@@ -18,7 +18,7 @@ class UpgradeActionStrategy extends ActionStrategy {
   /**
    * Handles the actual upgrade action.
    * @param {World} world The game world context.
-   * @param {import("./strategyService").PlanStep} planStep Details of the plan step.
+   * @param {import("./strategyManager").PlanStep} planStep Details of the plan step.
    * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} Array of actions to be performed.
    */
   handleUpgradeAction(world, planStep) {

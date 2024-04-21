@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const { unitPendingOrders } = require("./utils/training/unitOrders");
+const { unitPendingOrders } = require("./utils/unitManagement/unitOrders");
 
 // Shared data structures
 /** @type {Map<string, number>} */

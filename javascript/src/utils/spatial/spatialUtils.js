@@ -7,17 +7,17 @@ const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
+const { getTimeInSeconds, getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("./pathfinding");
 const { getDistance } = require("./spatialCoreUtils");
 const config = require("../../../config/config");
-const GameState = require("../../core/gameState");
-const { buildingPositions } = require("../../core/gameStateResources");
-const MapResources = require("../../core/mapResources");
+const { GameState } = require('../../core/gameState');
+const { buildingPositions } = require("../../core/gameState");
+const MapResources = require("../../core/gameState/mapResources");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
-const { getCurrentlyEnrouteConstructionGrids } = require("../../features/construction/constructionHelpers");
-const { isPlaceableAtGasGeyser } = require("../../utils/common/utils");
-const { getTimeInSeconds, getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../../utils/pathfinding/pathfinding");
-const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../../utils/training/unitConfig");
-const { getBuildTimeLeft } = require("../../utils/worker/workerService");
+const { getCurrentlyEnrouteConstructionGrids } = require("../../features/construction/constructionDataUtils");
+const { getBuildTimeLeft } = require("../economy/workerService");
+const { isPlaceableAtGasGeyser } = require("../common/common");
+const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../unitManagement/unitConfig");
 
 /**
  * @typedef {Object} FootprintType

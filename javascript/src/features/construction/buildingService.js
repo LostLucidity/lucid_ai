@@ -4,23 +4,89 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
-const { TownhallRace } = require("@node-sc2/core/constants/race-map");
+const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 
 const BuildingPlacement = require("./buildingPlacement");
-const { getInTheMain, determineBuildingPosition, premoveBuilderToPosition, findBestPositionForAddOn } = require("./constructionAndBuildingUtils");
-const { addAddOn } = require("./constructionService");
-const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction } = require("./constructionUtils");
-const { getTimeToTargetCost, getTimeUntilCanBeAfforded, addEarmark } = require("./resourceManagement");
-const GameState = require("../../core/gameState");
-const MapResources = require("../../core/mapResources");
-const { getUnitsCapableToAddOn } = require("../../gameLogic/addonUtils");
-const { getTimeUntilUnitCanBuildAddon } = require("../../gameLogic/unitCapabilityUtils");
-const { isPlaceableAtGasGeyser } = require("../../utils/common/utils");
+const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction, getInTheMain, findBestPositionForAddOn, premoveBuilderToPosition, determineBuildingPosition } = require("./constructionUtils");
+const { getUnitsCapableToAddOn } = require("./utils/addonUtils");
+const config = require("../../../config/config");
+const { attemptBuildAddOn, addEarmark, attemptLiftOff } = require("../../core/common/buildUtils");
+const { getEarmarkedFood, earmarks } = require("../../core/common/EarmarkManager");
+const { GameState } = require("../../core/gameState");
+const MapResources = require("../../core/gameState/mapResources");
+const { attemptLand } = require("../../gameLogic/building/buildingUtils");
+const { calculateDistance } = require("../../gameLogic/coreUtils");
+const { getTimeUntilUnitCanBuildAddon } = require("../../gameLogic/unit/unitUtils");
+const { getPendingOrders } = require("../../sharedServices");
+const { isPlaceableAtGasGeyser } = require("../../utils/common/common");
 const { commandPlaceBuilding } = require("../../utils/misc/builderUtils");
-const { getAbilityIdsForAddons, getUnitTypesWithAbilities } = require("../../utils/misc/gameData");
-const { getNextSafeExpansions } = require("../../utils/pathfinding/pathfinding");
+const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../../utils/misc/gameData");
+const { prepareUnitToBuildAddon } = require("../../utils/shared/unitPreparationUtils");
+const { getNextSafeExpansions } = require("../../utils/spatial/pathfinding");
 const { findPlacements, findPosition } = require("../../utils/spatial/spatialUtils");
-const { prepareUnitToBuildAddon } = require("../../utils/training/training");
+const { updateAddOnType, getUnitTypeToBuild } = require("../../utils/unit/unitHelpers");
+const { flyingTypesMapping } = require("../../utils/unitManagement/unitConfig");
+
+const foodEarmarks = new Map();
+
+/**
+ * Adds addon, with placement checks and relocating logic.
+ * @param {World} world 
+ * @param {Unit} unit 
+ * @param {UnitTypeId} addOnType 
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function addAddOn(world, unit, addOnType) {
+  const { landingAbilities, liftingAbilities } = groupTypes;
+  const { data } = world;
+  const { tag } = unit;
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+  const collectedActions = [];
+
+  if (tag === undefined) return collectedActions;
+
+  const gameState = GameState.getInstance();
+  addOnType = updateAddOnType(addOnType, gameState.countTypes);
+  const unitTypeToBuild = getUnitTypeToBuild(unit, flyingTypesMapping, addOnType);
+
+  // Check if unitTypeToBuild is defined and retrieve abilityId
+  if (unitTypeToBuild === undefined) return collectedActions;
+  const unitTypeData = data.getUnitTypeData(unitTypeToBuild);
+  if (!unitTypeData || unitTypeData.abilityId === undefined) return collectedActions;
+  const abilityId = unitTypeData.abilityId;
+
+  const unitCommand = { abilityId, unitTags: [tag] };
+
+  if (!unit.noQueue || unit.labels.has('swapBuilding') || getPendingOrders(unit).length > 0) {
+    return collectedActions;
+  }
+
+  const availableAbilities = unit.availableAbilities();
+
+  if (unit.abilityAvailable(abilityId)) {
+    const buildAddOnActions = attemptBuildAddOn(world, unit, addOnType, unitCommand);
+    if (buildAddOnActions && buildAddOnActions.length > 0) {
+      addEarmark(data, unitTypeData);
+      collectedActions.push(...buildAddOnActions);
+      return collectedActions;
+    }
+  }
+
+  if (availableAbilities.some(ability => liftingAbilities.includes(ability))) {
+    const liftOffActions = attemptLiftOff(unit);
+    if (liftOffActions && liftOffActions.length > 0) {
+      collectedActions.push(...liftOffActions);
+      return collectedActions;
+    }
+  }
+
+  if (availableAbilities.some(ability => landingAbilities.includes(ability))) {
+    const landActions = attemptLand(world, unit, addOnType);
+    collectedActions.push(...landActions);
+  }
+
+  return collectedActions;
+}
 
 /**
  * @param {World} world
@@ -185,9 +251,259 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
   return collectedActions;
 }
 
+/**
+ * @param {World} world
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+function buildSupply(world) {
+  const { agent } = world;
+  const { foodUsed, minerals } = agent;
+
+  // Explicitly define the type of actions
+  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
+  const actions = [];
+
+  if (foodUsed === undefined || minerals === undefined) return actions;
+
+  const isSupplyNeeded = (/** @type {World} */ world, /** @type {number} */ threshold) => {
+    const { foodCap, foodUsed } = world.agent;
+
+    // Check if foodCap or foodUsed is undefined before proceeding
+    if (foodCap === undefined || foodUsed === undefined) {
+      console.error('foodCap or foodUsed is undefined');
+      return false;
+    }
+
+    return foodCap - foodUsed < threshold;
+  };
+
+  const greaterThanPlanSupply = foodUsed > config.planMax.supply;
+  const automateSupplyCondition = isSupplyNeeded(world, 0.2) &&
+    (greaterThanPlanSupply || minerals > 512) &&
+    config.automateSupply;
+
+  if (automateSupplyCondition) {
+    switch (agent.race) {
+      case Race.TERRAN: {
+        const candidatePositionsTerran = findPlacements(world, UnitType.SUPPLYDEPOT);
+        actions.push(...candidatePositionsTerran.map(pos => commandPlaceBuilding(
+          world,
+          UnitType.SUPPLYDEPOT,
+          pos,
+          commandBuilderToConstruct,
+          buildWithNydusNetwork,
+          premoveBuilderToPosition,
+          isPlaceableAtGasGeyser,
+          getTimeToTargetCost
+        )).flat());
+        break;
+      }
+      case Race.PROTOSS: {
+        const candidatePositionsProtoss = findPlacements(world, UnitType.PYLON);
+        actions.push(...candidatePositionsProtoss.map(pos => commandPlaceBuilding(
+          world,
+          UnitType.PYLON,
+          pos,
+          commandBuilderToConstruct,
+          buildWithNydusNetwork,
+          premoveBuilderToPosition,
+          isPlaceableAtGasGeyser,
+          getTimeToTargetCost
+        )).flat());
+        break;
+      }
+      case Race.ZERG: {
+        // Zerg supply logic...
+        break;
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * Check for gas mine construction conditions and initiate building if criteria are met.
+ * @param {World} world - The game world context.
+ * @param {number} targetRatio - Optional ratio of minerals to vespene gas to maintain.
+ * @param {(world: World, unitType: number, targetCount?: number | undefined, candidatePositions?: Point2D[] | undefined) => SC2APIProtocol.ActionRawUnitCommand[]} buildFunction - The function to build the gas mine.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ */
+const gasMineCheckAndBuild = (world, targetRatio = 2.4, buildFunction) => {
+  const { agent, data, resources } = world;
+  const { map, units } = resources.get();
+  const { minerals, vespene } = agent;
+  const resourceRatio = (minerals ?? 0) / (vespene ?? 1);
+  const gasUnitId = GasMineRace[agent.race || Race.TERRAN];
+  const buildAbilityId = data.getUnitTypeData(gasUnitId).abilityId;
+  if (buildAbilityId === undefined) return [];
+
+  const [geyser] = map.freeGasGeysers();
+  const conditions = [
+    resourceRatio > targetRatio,
+    agent.canAfford(gasUnitId),
+    units.getById(gasUnitId).filter(unit => (unit.buildProgress ?? 0) < 1).length < 1,
+    config.planMax && config.planMax.gasMine ? (agent.foodUsed ?? 0) > config.planMax.gasMine : units.getById(gasUnitId).length > 2,
+    units.withCurrentOrders(buildAbilityId).length <= 0,
+    geyser,
+  ];
+
+  if (conditions.every(c => c)) {
+    return buildFunction(world, gasUnitId);
+  }
+
+  return [];
+};
+
+/**
+ * Retrieves gas geysers near a given position.
+ * @param {UnitResource} units - The units resource object.
+ * @param {Point2D} pos - The position to check near.
+ * @param {number} [radius=8] - The radius within which to search for gas geysers.
+ * @returns {Unit[]} - Array of gas geyser units near the given position.
+ */
+function getGasGeysersNearby(units, pos, radius = 8) {
+  const gasGeysers = units.getGasGeysers();
+  return gasGeysers.filter(geyser => {
+    if (!geyser.pos) return false;
+    return calculateDistance(pos, geyser.pos) <= radius;
+  });
+}
+
+/**
+ * Retrieves mineral fields near a given position.
+ * @param {UnitResource} units - The units resource object.
+ * @param {Point2D} pos - The position to check near.
+ * @param {number} [radius=8] - The radius within which to search for mineral fields.
+ * @returns {Unit[]} - Array of mineral field units near the given position.
+ */
+function getMineralFieldsNearby(units, pos, radius = 8) {
+  const mineralFields = units.getMineralFields();
+  return mineralFields.filter(field => {
+    if (!field.pos) return false;
+    return calculateDistance(pos, field.pos) <= radius;
+  });
+}
+
+/**
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @returns {number}
+ **/
+function getTimeToTargetCost(world, unitType) {
+  const { agent, data, resources } = world;
+  const { minerals } = agent;
+  if (minerals === undefined) return Infinity;
+
+  const { frame } = resources.get();
+  const observation = frame.getObservation();
+  if (!observation) return Infinity;
+
+  const { score } = observation;
+  if (!score) return Infinity;
+
+  const { scoreDetails } = score;
+  if (!scoreDetails) return Infinity;
+
+  const collectionRunup = frame.getGameLoop() < 292;
+  let { collectionRateMinerals, collectionRateVespene } = scoreDetails;
+  if (collectionRateMinerals === undefined || collectionRateVespene === undefined) return Infinity;
+
+  if (collectionRunup) {
+    collectionRateMinerals = 615;
+    collectionRateVespene = 0;
+  }
+
+  addEarmark(data, data.getUnitTypeData(unitType));
+  let earmarkTotals = data.getEarmarkTotals('');
+  const { minerals: earmarkMinerals, vespene: earmarkVespene } = earmarkTotals;
+  const mineralsLeft = earmarkMinerals - minerals;
+  const vespeneLeft = earmarkVespene - (agent.vespene ?? 0);
+  const mineralCollectionRate = collectionRateMinerals / 60;
+  if (mineralCollectionRate === 0) return Infinity;
+
+  const timeToTargetMinerals = mineralsLeft / mineralCollectionRate;
+  const { vespeneCost } = data.getUnitTypeData(unitType);
+  if (vespeneCost === undefined) return Infinity;
+
+  const vespeneCollectionRate = collectionRateVespene / 60;
+  let timeToTargetVespene = 0;
+  if (vespeneCost > 0) {
+    if (vespeneCollectionRate === 0) return Infinity;
+    timeToTargetVespene = vespeneLeft / vespeneCollectionRate;
+  }
+
+  return Math.max(timeToTargetMinerals, timeToTargetVespene);
+}
+
+/**
+ * Calculates the time in seconds until the agent can afford the specified unit type.
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @returns {number} The time in seconds until the unit can be afforded.
+ */
+function getTimeUntilCanBeAfforded(world, unitType) {
+  const timeToTargetCost = getTimeToTargetCost(world, unitType);
+  const timeToTargetTech = getTimeToTargetTech(world, unitType);
+
+  // The time until the unit can be afforded is the maximum of the two times
+  return Math.max(timeToTargetCost, timeToTargetTech);
+}
+
+/**
+ * Checks if there are any earmarked resources.
+ * @param {DataStorage} data
+ * @returns {boolean}
+ */
+const hasEarmarks = (data) => {
+  const earmarkTotals = data.getEarmarkTotals('');
+  return earmarkTotals.minerals > 0 || earmarkTotals.vespene > 0;
+};
+
+/**
+ * @param {World} world 
+ * @param {UnitTypeId} unitType
+ */
+function haveSupplyForUnit(world, unitType) {
+  const { agent, data } = world;
+  const { foodCap } = agent; if (foodCap === undefined) return false;
+  const gameState = GameState.getInstance();
+  const foodUsed = gameState.getFoodUsed();
+  const earmarkedFood = getEarmarkedFood();
+  const { foodRequired } = data.getUnitTypeData(unitType); if (foodRequired === undefined) return false;
+  const supplyLeft = foodCap - foodUsed - earmarkedFood - foodRequired;
+  return supplyLeft >= 0;
+}
+
+/**
+ * Resets all earmarks.
+ * 
+ * Assuming `data` is an object that has a method `get` which returns an array,
+ * and a method `settleEarmark` which takes a string.
+ * This function clears both general and food earmarks.
+ * 
+ * @param {{ get: (key: string) => Earmark[], settleEarmark: (name: string) => void }} data The data object
+ */
+function resetEarmarks(data) {
+  // Clear general earmarks
+  earmarks.length = 0;
+  data.get('earmarks').forEach((earmark) => data.settleEarmark(earmark.name));
+
+  // Clear food earmarks
+  foodEarmarks.clear();
+}
+
 // Export the functions to be used by other modules
 module.exports = {
-  build
+  build,
+  buildSupply,
+  gasMineCheckAndBuild,
+  getGasGeysersNearby,
+  getMineralFieldsNearby,
+  getTimeToTargetCost,
+  hasEarmarks,
+  haveSupplyForUnit,
+  resetEarmarks,
 };
 
 /**

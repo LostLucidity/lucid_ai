@@ -6,12 +6,12 @@ const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 
 // Internal module imports
 const onGameStart = require('./events/onGameStart');
-const GameState = require('./gameState');
-const logger = require('../utils/core/logger');
+const { GameState } = require('./gameState');
 const config = require('../../config/config');
-const { buildSupply } = require('../features/construction/constructionService');
-const StrategyService = require('../features/strategy/strategyService');
-const { clearAllPendingOrders } = require('../gameLogic/unitOrderUtils');
+const { buildSupply } = require('../features/construction/buildingService');
+const StrategyManager = require('../features/strategy/strategyManager');
+const { clearAllPendingOrders } = require('../gameLogic/unit/unitUtils');
+const logger = require('../utils/core/logger');
 const economyManagement = require('../utils/economy/economyManagement');
 const workerAssignment = require('../utils/economy/workerAssignment');
 const unitManagement = require('../utils/unit/unitManagement');
@@ -54,12 +54,12 @@ function collectAdditionalActions(world) {
  * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>} - A collection of strategic actions.
  */
 async function handleStrategicActions(world) {
-  const strategyService = StrategyService.getInstance();
+  const strategyManager = StrategyManager.getInstance();
 
   // Check if there is an active strategic plan.
-  if (strategyService.isActivePlan()) {
+  if (strategyManager.isActivePlan()) {
     // If there is an active plan, execute it and return the resulting actions.
-    return strategyService.runPlan(world);
+    return strategyManager.runPlan(world);
   } else {
     // If there is no active plan, return an empty array indicating no actions.
     return [];
@@ -104,7 +104,7 @@ const bot = createAgent({
     }
 
     // Add additional actions only if there is no active strategic plan
-    if (!StrategyService.getInstance().isActivePlan()) {
+    if (!StrategyManager.getInstance().isActivePlan()) {
       actionCollection = actionCollection.concat(collectAdditionalActions(world));
     }
 
