@@ -2,9 +2,9 @@
 
 const { hasAddOn, findBestPositionForAddOn } = require("../../features/construction/constructionUtils");
 const { getTimeInSeconds } = require("../../utils/spatial/pathfinding");
-const { unitPendingOrders } = require("../../utils/unitManagement/unitOrders");
 const { calculateLiftLandAndMoveTime } = require("../../utils/unit/unitUtils");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../../utils/unitManagement/unitConfig");
+const { unitPendingOrders } = require("../../utils/unitManagement/unitOrders");
 const { checkUnitCount } = require("../resources/stateManagement");
 
 /**

@@ -22,10 +22,10 @@ const { createUnitCommand } = require("../common/common");
 const { getTimeToTargetTech } = require("../misc/gameData");
 const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../spatial/pathfinding");
 const { getDistance } = require("../spatial/spatialCoreUtils");
-const { setPendingOrders } = require("../unitManagement/unitOrders");
-const { productionUnitsCache } = require("../unitManagement/unitUtils");
 const { handleUnitTraining } = require("../unitManagement/training");
 const { liftAndLandingTime } = require("../unitManagement/unitConfig");
+const { setPendingOrders } = require("../unitManagement/unitOrders");
+const { productionUnitsCache } = require("../unitManagement/unitUtils");
 
 /**
  * Build supply or train units based on the game world state and strategy step.

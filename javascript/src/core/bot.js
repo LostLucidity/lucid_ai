@@ -3,8 +3,9 @@
 
 // External library imports
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
-
 // Internal module imports
+const { UnitType, Ability } = require('@node-sc2/core/constants');
+
 const onGameStart = require('./events/onGameStart');
 const { GameState } = require('./gameState');
 const config = require('../../config/config');
@@ -32,17 +33,14 @@ function collectAdditionalActions(world) {
   const actions = [];
 
   // Balance worker distribution across bases for optimal resource gathering
-  const workerDistributionActions = workerAssignment.balanceWorkerDistribution(world, units, world.resources);
-  actions.push(...workerDistributionActions);
+  actions.push(...workerAssignment.balanceWorkerDistribution(world, units, world.resources));
 
   // Ensure sufficient supply to support unit production
-  const supplyBuildingActions = buildSupply(world);
-  actions.push(...supplyBuildingActions);
+  actions.push(...buildSupply(world));
 
   // Train additional workers to maximize resource collection, if under the maximum worker limit
   if (economyManagement.shouldTrainMoreWorkers(units.getWorkers().length, maxWorkers)) {
-    const workerTrainingActions = economyManagement.trainAdditionalWorkers(world, world.agent, units.getBases());
-    actions.push(...workerTrainingActions);
+    actions.push(...economyManagement.trainAdditionalWorkers(world, world.agent, units.getBases()));
   }
 
   return actions;
@@ -51,9 +49,9 @@ function collectAdditionalActions(world) {
 /**
  * Handles strategic actions based on the bot's current plan.
  * @param {World} world - The current game world state.
- * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>} - A collection of strategic actions.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - A collection of strategic actions.
  */
-async function handleStrategicActions(world) {
+function handleStrategicActions(world) {
   const strategyManager = StrategyManager.getInstance();
 
   // Check if there is an active strategic plan.
@@ -66,6 +64,46 @@ async function handleStrategicActions(world) {
   }
 }
 
+/**
+ * Collects actions to lower SUPPLYDEPOTS that may be blocking paths.
+ * @param {World} world - The current game world state.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of actions to lower SUPPLYDEPOTS.
+ */
+function collectLowerDepotActions(world) {
+  const { units } = world.resources.get();
+  const depots = units.getByType(UnitType.SUPPLYDEPOT).filter(depot => depot.buildProgress !== undefined && depot.buildProgress >= 1);
+
+  return depots.reduce((actions, depot) => {
+    actions.push(...prepareLowerSupplyDepotAction(world, depot));
+    return actions;
+  }, /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */([]));
+}
+
+/**
+ * Prepares an action to lower a SUPPLYDEPOT if it blocks the worker's path.
+ * @param {World} world - The current game world state.
+ * @param {Unit} depot - The SUPPLYDEPOT unit that needs to be lowered.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of actions to lower the SUPPLYDEPOT.
+ */
+function prepareLowerSupplyDepotAction(world, depot) {
+  // Check if the depot is already lowered
+  // We use available abilities to determine if it can be lowered.
+  const depotAbilities = depot.availableAbilities();
+  const canLower = depotAbilities.includes(Ability.MORPH_SUPPLYDEPOT_LOWER);
+
+  if (!canLower || !depot.tag) {
+    return []; // Return empty array as no action is needed, or tag is undefined.
+  }
+
+  // Prepare the lower command action
+  const lowerDepotCommand = {
+    abilityId: Ability.MORPH_SUPPLYDEPOT_LOWER,
+    unitTags: [depot.tag], // Now guaranteed to be defined
+  };
+
+  // Return the action in an array for later execution
+  return [lowerDepotCommand];
+}
 
 /**
  * Updates the maximum number of workers based on current game conditions.
@@ -96,16 +134,22 @@ const bot = createAgent({
     const { units } = world.resources.get();
     updateMaxWorkers(units);
 
-    let actionCollection = await handleStrategicActions(world);
+    let actionCollection = [];
+
+    // Gather strategic actions
+    actionCollection.push(...handleStrategicActions(world));
+
+    // Collect actions to lower any SUPPLYDEPOTS if needed
+    actionCollection.push(...collectLowerDepotActions(world));
 
     // Reassign idle workers only if needed, avoiding redundant actions
     if (units.getIdleWorkers().length > 0) {
-      actionCollection = actionCollection.concat(workerAssignment.reassignIdleWorkers(world));
+      actionCollection.push(...workerAssignment.reassignIdleWorkers(world));
     }
 
     // Add additional actions only if there is no active strategic plan
     if (!StrategyManager.getInstance().isActivePlan()) {
-      actionCollection = actionCollection.concat(collectAdditionalActions(world));
+      actionCollection.push(...collectAdditionalActions(world));
     }
 
     // Execute actions if there are any
