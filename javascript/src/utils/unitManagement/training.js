@@ -53,24 +53,23 @@ function createMoveCommand(unitId, location) {
 }
 
 /**
- * @param {World} world
- * @param {Unit[]} trainers
- * @param {SC2APIProtocol.UnitTypeData} unitTypeData
+ * Creates training commands for a list of trainers.
+ * @param {World} world The game world context.
+ * @param {Unit[]} trainers List of units that can train others.
+ * @param {SC2APIProtocol.UnitTypeData} unitTypeData Data about the unit type being trained.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of training commands.
  */
 function createTrainingCommands(world, trainers, unitTypeData) {
-  /**
-   * @type {any[]}
-   */
-  const collectedActions = [];
-  trainers.forEach(trainer => {
+  return trainers.flatMap(trainer => {
     if (trainer.unitType !== UnitType.WARPGATE) {
-      const trainerActions = handleNonWarpgateTrainer(world, trainer, unitTypeData);
-      collectedActions.push(...trainerActions);
+      // Handle regular trainers
+      return handleNonWarpgateTrainer(world, trainer, unitTypeData);
     } else {
-      // Handle WARPGATE case, potentially collecting actions
+      // Optionally handle WARPGATE specifically, if needed
+      // Placeholder return for illustration, assuming handleWarpGateTrainer function exists
+      return handleWarpGateTrainer(world, trainer, unitTypeData);
     }
   });
-  return collectedActions;
 }
 
 /**
@@ -230,7 +229,31 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
 
   const trainers = getTrainer(world, unitTypeId, framesPerStep);
   const safeTrainers = filterSafeTrainers(world, trainers);
-  return createTrainingCommands(world, safeTrainers, unitTypeData);
+  const trainingCommands = createTrainingCommands(world, safeTrainers, unitTypeData);
+
+  // Collect all valid, non-undefined unit tags
+  const validTags = trainingCommands.flatMap(command => command.unitTags || [])
+    .filter(tag => typeof tag === 'string'); // Ensure only strings are included
+
+  // Fetch units by valid tags
+  const trainerUnits = world.resources.get().units.getByTag(validTags);
+
+  // Create a map from tags to units for quick access
+  const tagToUnitMap = new Map(trainerUnits.map(unit => [unit.tag, unit]));
+
+  // Set pending orders in bulk
+  trainingCommands.forEach(command => {
+    (command.unitTags || []).forEach(tag => {
+      if (tag) { // Ensure tag is not undefined
+        const trainerUnit = tagToUnitMap.get(tag);
+        if (trainerUnit) {
+          setPendingOrders(trainerUnit, command);
+        }
+      }
+    });
+  });
+
+  return trainingCommands;
 }
 
 /**
@@ -260,6 +283,32 @@ function handleUnitTraining(world, step) {
   }
 
   return trainingOrders;
+}
+
+/**
+ * Handles training commands for WARPGATE trainers.
+ * @param {World} world The game world context.
+ * @param {Unit} trainer The WARPGATE training unit.
+ * @param {SC2APIProtocol.UnitTypeData} unitTypeData Data about the unit type being trained.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} Training commands for this trainer.
+ */
+function handleWarpGateTrainer(world, trainer, unitTypeData) {
+  // Ensure we have a valid ability ID to proceed
+  const abilityId = unitTypeData.abilityId;
+  if (!abilityId) return [];
+
+  // Check if the trainer has a defined tag before creating the command
+  if (typeof trainer.tag === 'undefined') {
+    console.error('Undefined trainer tag encountered');
+    return [];
+  }
+
+  // Example placeholder logic for warpgate training
+  return [{
+    abilityId: abilityId,
+    unitTags: [trainer.tag],  // Now safely adding the tag after the check
+    queueCommand: true  // Assuming WARPGATEs also queue commands
+  }];
 }
 
 /**
