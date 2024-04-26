@@ -11,14 +11,14 @@ const { WorkerRace } = require('@node-sc2/core/constants/race-map');
 const getRandom = require('@node-sc2/core/utils/get-random');
 
 const { getGatheringWorkers, gather } = require('./workerAssignment');
+const { isMining } = require('./workerService');
 const { GameState } = require('../../core/gameState');
 const { gasMineCheckAndBuild, getMineralFieldsNearby, getGasGeysersNearby } = require('../../features/construction/buildingService');
 const { calculateDistance } = require('../../gameLogic/coreUtils');
 const { getPendingOrders } = require('../../sharedServices');
 const { canBuild, createUnitCommand } = require('../common/common');
+const { mine } = require('../unit/unitCommands');
 const { getProductionUnits } = require('../unit/unitManagement');
-const { mine } = require('../unitManagement/training');
-const { isMining } = require('./workerService');
 
 /**
  * Balances the resources based on the target ratio.

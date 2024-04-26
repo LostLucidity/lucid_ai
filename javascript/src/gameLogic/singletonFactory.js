@@ -32,7 +32,7 @@ function getSingletonInstance(Class, constructorArgs = []) {
       instances.set(className, new Class(...constructorArgs));
     } catch (error) {
       console.error(`Error creating instance of ${className}: ${error}`);
-      throw error; // or handle more gracefully depending on your error handling strategy
+      throw error;
     }
   }
   return instances.get(className);

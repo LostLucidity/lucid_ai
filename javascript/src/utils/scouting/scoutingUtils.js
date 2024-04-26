@@ -116,6 +116,7 @@ function selectSCVForScouting(world) {
 // Export the function(s)
 module.exports = {
   mappedEnemyUnits,
+  determineScoutingLocation,
   determineScoutingLocations,
   findEnemyUnitsNear,
   isSuitableForScouting,

@@ -1,76 +1,24 @@
-const { UnitType, WarpUnitAbility, Ability } = require("@node-sc2/core/constants");
+const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { Attribute, Race } = require("@node-sc2/core/constants/enums");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
 const { getBasicProductionUnits } = require("./basicUnitUtils");
+const { createTrainingCommands } = require("./trainingCommands");
+const { canTrainUnit, earmarkResourcesIfNeeded } = require("./trainingUtils");
 const { unitTypeTrainingAbilities, flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("./unitUtils");
 const { addEarmark } = require("../../core/common/buildUtils");
 const { getEarmarkedFood } = require("../../core/common/EarmarkManager");
+const { findUnitTypesWithAbility, getUnitTypeData } = require("../../core/data");
 const { GameState } = require('../../core/gameState');
-const { checkAddOnPlacement } = require("../../core/services/ConstructionSpatialService");
 const StrategyContext = require("../../features/strategy/strategyContext");
+const { selectUnitTypeToBuild } = require("../../features/strategy/unitSelection");
 const { filterSafeTrainers } = require("../../gameLogic/strategy/strategyUtils");
-const { canTrainUnit } = require("../../gameLogic/unit/unitUtils");
 const { getPendingOrders } = require("../../sharedServices");
 const { findKeysForValue, createUnitCommand } = require("../common/common");
-const { earmarkResourcesIfNeeded } = require("../economy/sharedEconomicFunctions");
 const { getBuildTimeLeft, shortOnWorkers } = require("../economy/workerService");
-const { selectSCVForScouting, determineScoutingLocations } = require("../scouting/scoutingUtils");
 const { getById } = require("../shared/generalUtils");
-const { setRepositionLabel } = require("../unit/unitUtils");
-
-/**
- * @param {World} world
- * @param {number} unitType
- */
-function checkProductionAvailability(world, unitType) {
-  const gameState = GameState.getInstance();
-  if (gameState.availableProductionUnits.has(unitType)) {
-    return gameState.availableProductionUnits.get(unitType) || false;
-  }
-  const haveAvailableProductionUnits = haveAvailableProductionUnitsFor(world, unitType);
-  gameState.availableProductionUnits.set(unitType, haveAvailableProductionUnits);
-  return haveAvailableProductionUnits;
-}
-
-/**
- * Creates a move command for a unit to go to a specified location.
- * @param {number} unitId - The ID of the unit to move.
- * @param {Point2D} location - The destination location.
- * @returns {SC2APIProtocol.ActionRawUnitCommand} The move command for the unit.
- */
-function createMoveCommand(unitId, location) {
-  const MOVE_ABILITY_ID = Ability.MOVE; // Using the MOVE ability from the Ability module
-
-  return {
-    abilityId: MOVE_ABILITY_ID,
-    targetWorldSpacePos: location,
-    unitTags: [unitId.toString()], // Converting unitId to a string
-    queueCommand: false
-  };
-}
-
-/**
- * Creates training commands for a list of trainers.
- * @param {World} world The game world context.
- * @param {Unit[]} trainers List of units that can train others.
- * @param {SC2APIProtocol.UnitTypeData} unitTypeData Data about the unit type being trained.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of training commands.
- */
-function createTrainingCommands(world, trainers, unitTypeData) {
-  return trainers.flatMap(trainer => {
-    if (trainer.unitType !== UnitType.WARPGATE) {
-      // Handle regular trainers
-      return handleNonWarpgateTrainer(world, trainer, unitTypeData);
-    } else {
-      // Optionally handle WARPGATE specifically, if needed
-      // Placeholder return for illustration, assuming handleWarpGateTrainer function exists
-      return handleWarpGateTrainer(world, trainer, unitTypeData);
-    }
-  });
-}
 
 /**
  * Earmarks workers for future training based on available food capacity.
@@ -96,7 +44,7 @@ function filterCandidateTypes(world) {
   const gameState = GameState.getInstance();
   const strategyContext = StrategyContext.getInstance();
   const currentStrategy = strategyContext.getCurrentStrategy();
-  
+
   if (!currentStrategy || !currentStrategy.steps) {
     console.error('No current strategy or strategy steps defined.');
     return [];
@@ -126,7 +74,7 @@ function filterCandidateTypes(world) {
       (!attributes.includes(Attribute.STRUCTURE)) &&
       foodRequired <= supply - gameState.getFoodUsed() &&
       gameState.checkTechFor(world.agent, type) &&
-      checkProductionAvailability(world, type);
+      gameState.checkProductionAvailability(type);
   });
 }
 
@@ -147,7 +95,7 @@ function getTrainer(world, unitTypeId, threshold) {
   if (abilityId === undefined) return [];
 
   const warpgateAbilityId = WarpUnitAbility[unitTypeId];
-  const unitTypesWithAbility = data.findUnitTypesWithAbility(abilityId);
+  const unitTypesWithAbility = findUnitTypesWithAbility(world, abilityId);
 
   const units = resources.get().units;
 
@@ -184,34 +132,6 @@ function getTrainer(world, unitTypeId, threshold) {
   const flyingUnits = units.getById(flyingTypes).filter(canTrain);
 
   return [...new Set([...productionUnits, ...warpgateUnits, ...flyingUnits])]; // Remove duplicates
-}
-
-/**
- * @param {World} world
- * @param {Unit} trainer
- * @param {SC2APIProtocol.UnitTypeData} unitTypeData
- */
-function handleNonWarpgateTrainer(world, trainer, unitTypeData) {
-  const actions = [];
-  if (trainer.isFlying) {
-    const landingPosition = checkAddOnPlacement(world, trainer);
-    if (landingPosition) {
-      setRepositionLabel(trainer, landingPosition);
-      const landCommand = createUnitCommand(Ability.LAND, [trainer], false, landingPosition);
-      actions.push(landCommand);
-    }
-  } else {
-    // Ensure that abilityId is defined before using it
-    const abilityId = unitTypeData.abilityId;
-    if (typeof abilityId !== 'undefined') {
-      const trainCommand = createUnitCommand(abilityId, [trainer]);
-      actions.push(trainCommand);
-    } else {
-      // Handle the undefined case, e.g., log an error or skip the action
-      console.error('Ability ID is undefined for unit type', unitTypeData);
-    }
-  }
-  return actions;
 }
 
 /**
@@ -283,77 +203,6 @@ function handleUnitTraining(world, step) {
   }
 
   return trainingOrders;
-}
-
-/**
- * Handles training commands for WARPGATE trainers.
- * @param {World} world The game world context.
- * @param {Unit} trainer The WARPGATE training unit.
- * @param {SC2APIProtocol.UnitTypeData} unitTypeData Data about the unit type being trained.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} Training commands for this trainer.
- */
-function handleWarpGateTrainer(world, trainer, unitTypeData) {
-  // Ensure we have a valid ability ID to proceed
-  const abilityId = unitTypeData.abilityId;
-  if (!abilityId) return [];
-
-  // Check if the trainer has a defined tag before creating the command
-  if (typeof trainer.tag === 'undefined') {
-    console.error('Undefined trainer tag encountered');
-    return [];
-  }
-
-  // Example placeholder logic for warpgate training
-  return [{
-    abilityId: abilityId,
-    unitTags: [trainer.tag],  // Now safely adding the tag after the check
-    queueCommand: true  // Assuming WARPGATEs also queue commands
-  }];
-}
-
-/**
- * @param {Unit} worker 
- * @param {Unit} target 
- * @param {boolean} queue 
- * @returns {SC2APIProtocol.ActionRawUnitCommand}
- */
-const mine = (worker, target, queue = true) => {
-  const unitCommand = createUnitCommand(Ability.HARVEST_GATHER, [worker], queue);
-  unitCommand.targetUnitTag = target.tag;
-  setPendingOrders(worker, unitCommand);
-  return unitCommand;
-};
-
-/**
- * Performs the action of scouting with an SCV.
- * @param {World} world - The current world state.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions representing the scouting task.
- */
-function performScoutingWithSCV(world) {
-  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-  let actions = [];
-  const scvId = selectSCVForScouting(world);
-
-  // Determine multiple scouting locations
-  const scoutingLocations = determineScoutingLocations(world);
-
-  // Create move commands for the SCV to scout each location
-  scoutingLocations.forEach(location => {
-    const moveCommand = createMoveCommand(scvId, location);
-    actions.push(moveCommand);
-  });
-
-  return actions;
-}
-
-/**
- * Selects a unit type to build from the list of candidate types.
- * @param {World} world The game world context.
- * @param {UnitTypeId[]} candidateTypes The candidate unit types for training.
- * @returns {UnitTypeId | null} The selected unit type to build, or null if none is selected.
- */
-function selectUnitTypeToBuild(world, candidateTypes) {
-  return StrategyContext.getInstance().selectTypeToBuild(world, candidateTypes);
 }
 
 // Unit training specific functions and data structures
@@ -438,13 +287,13 @@ function trainCombatUnits(world) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be sent to the game.
  */
 function trainWorkers(world) {
-  const { agent, data, resources } = world;
+  const { agent, resources } = world;
   const { minerals, race } = agent;
 
   if (minerals === undefined || race === undefined) return [];
 
   const workerTypeId = WorkerRace[race]; // Assuming WorkerRace is a predefined mapping
-  const workerTypeData = data.getUnitTypeData(workerTypeId);
+  const workerTypeData = getUnitTypeData(world, workerTypeId);
   const { abilityId } = workerTypeData;
 
   if (!abilityId) return [];
@@ -485,8 +334,6 @@ function trainWorkers(world) {
 module.exports = {
   earmarkWorkersForTraining,
   handleUnitTraining,
-  mine,
-  performScoutingWithSCV,
   shouldTrainWorkers,
   train,
   trainCombatUnits,

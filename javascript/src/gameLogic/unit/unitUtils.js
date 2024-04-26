@@ -5,18 +5,6 @@ const { getTimeInSeconds } = require("../../utils/spatial/pathfinding");
 const { calculateLiftLandAndMoveTime } = require("../../utils/unit/unitUtils");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../../utils/unitManagement/unitConfig");
 const { unitPendingOrders } = require("../../utils/unitManagement/unitOrders");
-const { checkUnitCount } = require("../resources/stateManagement");
-
-/**
- * Determines if a unit can be trained based on the target count.
- * @param {World} world The current game world.
- * @param {number} unitTypeId Type of the unit.
- * @param {number | null} targetCount Target number of units.
- * @returns {boolean}
- */
-const canTrainUnit = (world, unitTypeId, targetCount) => {
-  return targetCount === null || checkUnitCount(world, unitTypeId, targetCount);
-};
 
 /**
  * Clears pending orders for all units to ensure they are ready for new commands.
@@ -98,7 +86,6 @@ function isTrainingOrder(order, data) {
 }
 
 module.exports = {
-  canTrainUnit,
   clearAllPendingOrders,
   getTimeUntilUnitCanBuildAddon,
   isTrainingOrder,

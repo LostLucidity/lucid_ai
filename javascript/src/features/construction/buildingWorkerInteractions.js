@@ -6,11 +6,11 @@ const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 const { GameState } = require("../../core/gameState");
 const { getBuilders } = require("../../gameLogic/unit/workerUtils");
 const { createUnitCommand } = require("../../utils/common/common");
+const { isMoving, rallyWorkerToTarget, getUnitsFromClustering, setBuilderLabel, getOrderTargetPosition } = require("../../utils/economy/workerService");
 const { getAwayPosition, areApproximatelyEqual } = require("../../utils/spatial/pathfinding");
 const { getDistanceByPath } = require("../../utils/spatial/pathfindingCommon");
 const { getDistance } = require("../../utils/spatial/spatialCoreUtils");
 const { setPendingOrders } = require("../../utils/unitManagement/unitOrders");
-const { isMoving, rallyWorkerToTarget, getUnitsFromClustering, setBuilderLabel, getOrderTargetPosition } = require("../../utils/economy/workerService");
 
 /**
  * @param {World} world

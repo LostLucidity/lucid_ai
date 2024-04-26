@@ -24,12 +24,12 @@ const { isPendingContructing } = require('../../gameLogic/unit/workerCommonUtils
 const { getPendingOrders } = require('../../sharedServices');
 const { getPathablePositionsForStructure, isPlaceableAtGasGeyser, positionIsEqual, createUnitCommand } = require('../../utils/common/common');
 const { logMessageStorage } = require('../../utils/common/logging');
+const { getClosestPathWithGasGeysers, ability, isIdleOrAlmostIdle, setBuilderLabel, getBuildTimeLeft, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../utils/economy/workerService');
 const { getTimeToTargetTech } = require('../../utils/misc/gameData');
 const { calculateBaseTimeToPosition, getClosestPositionByPath, getAddOnPlacement, getClosestUnitByPath } = require('../../utils/spatial/pathfinding');
 const { getDistanceByPath, getPathCoordinates, getMapPath } = require('../../utils/spatial/pathfindingCommon');
-const { setPendingOrders } = require('../../utils/unitManagement/unitOrders');
 const { canLiftOff, unitTypeTrainingAbilities } = require('../../utils/unitManagement/unitConfig');
-const { getClosestPathWithGasGeysers, ability, isIdleOrAlmostIdle, setBuilderLabel, getBuildTimeLeft, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../utils/economy/workerService');
+const { setPendingOrders } = require('../../utils/unitManagement/unitOrders');
 
 /**
  * Adjusts the time to position based on whether the unit should rally to the base or not.

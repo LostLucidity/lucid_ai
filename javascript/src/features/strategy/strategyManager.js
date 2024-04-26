@@ -14,8 +14,8 @@ const { calculateTargetCountForStep } = require("../../gameLogic/intermediaryUti
 const { getSingletonInstance } = require("../../gameLogic/singletonFactory");
 const { isBuildOrderStep } = require("../../gameLogic/strategy/strategyUtils");
 const { balanceResources, setFoodUsed } = require("../../utils/economy/economyManagement");
+const { performScoutingWithSCV } = require("../../utils/scouting/scouting");
 const { buildSupplyOrTrain } = require("../../utils/unit/unitManagement");
-const { performScoutingWithSCV } = require("../../utils/unitManagement/training");
 const buildOrders = require('../buildOrders');
 const { interpretBuildOrderAction } = require("../buildOrders/buildOrderUtils");
 const { build, hasEarmarks, resetEarmarks } = require("../construction/buildingService");
@@ -59,52 +59,60 @@ const { build, hasEarmarks, resetEarmarks } = require("../construction/buildingS
  */
 class StrategyManager {
   /**
+   * Handles actions related to unit management.
+   * @type {UnitActionStrategy}
+   */
+  actionStrategy = new UnitActionStrategy();
+
+  /**
+   * Stores cumulative counts of units or upgrades.
    * @private
    * @type {Object<string, number>}
    */
   cumulativeCounts = {};
 
   /**
+   * Singleton instance of the StrategyManager.
    * @type {StrategyManager | null}
    * @private
    */
   static instance = null;
 
   /**
+   * The race type, optional for setting up race-specific strategies.
    * @type {SC2APIProtocol.Race | undefined}
    */
   race;
 
   /**
-   * Singleton class to manage strategy settings and operations.
-   * @param {SC2APIProtocol.Race | undefined} race - The race type, optional for setting up race-specific strategies.
+   * Handles actions related to upgrades.
+   * @type {UpgradeActionStrategy}
+   */
+  upgradeStrategy = new UpgradeActionStrategy(); 
+
+  /**
+   * Constructor for StrategyManager.
+   * @param {SC2APIProtocol.Race | undefined} race - The race type, optional.
    * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    */
   constructor(race = undefined, specificBuildOrderKey = undefined) {
     this.strategyContext = StrategyContext.getInstance();
-    // Check if an instance already exists and return it
+
     if (StrategyManager.instance) {
-      // Optional: Initialize any uninitialized properties if necessary
-      StrategyManager.instance.initializeProperties();
-      return StrategyManager.instance;
+      const instance = StrategyManager.instance;
+      instance.initializeProperties();
+      return instance;
     }
 
-    // Create a new instance if one does not exist
     StrategyManager.instance = this;
-
-    // Set up the strategy-related properties
     this.race = race;
     this.specificBuildOrderKey = specificBuildOrderKey;
     this.initializeStrategy(race);
 
-    // Set up default strategies used across different units and upgrades
     this.loggedDelays = new Map();
-    /** @type {UnitActionStrategy} */
-    this.actionStrategy = new UnitActionStrategy(); // default unit action strategy
-    /** @type {UpgradeActionStrategy} */
-    this.upgradeStrategy = new UpgradeActionStrategy(); // default upgrade action strategy
+    this.actionStrategy = new UnitActionStrategy();
+    this.upgradeStrategy = new UpgradeActionStrategy();
 
-    // If needed, you can also handle properties initialization here
     this.initializeProperties();
   }
 
@@ -530,7 +538,11 @@ class StrategyManager {
         break;
       case 'Upgrade':
         // Using non-null assertion operator in TypeScript, or ensure your JSDoc/environment knows it's always initialized
-        actions = actions.concat(this.upgradeStrategy.handleUpgradeAction(world, planStep));
+        if (this.upgradeStrategy) {
+          actions = actions.concat(this.upgradeStrategy.handleUpgradeAction(world, planStep));
+        } else {
+          console.error("upgradeStrategy is not initialized.");
+        }
         break;
       default:
         break;

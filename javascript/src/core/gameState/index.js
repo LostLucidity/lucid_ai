@@ -10,7 +10,7 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const { getSingletonInstance } = require('../../gameLogic/singletonFactory');
 const cacheManager = require('../../utils/common/cache');
 const { missingUnits } = require('../../utils/misc/gameDataStore');
-const { defaultResources } = require('../gameData');
+const { defaultResources } = require('../data/gameData');
 
 /** 
  * This module manages shared game state resources.
@@ -47,7 +47,6 @@ function getBuildingPosition(key) {
   return buildingPositions.get(key);
 }
 
-
 /**
  * Class representing the game state.
  * It maintains and manages various game-related data such as resources, unit statuses, etc.
@@ -71,6 +70,12 @@ class GameState {
    */
   enemyCharge = false;
 
+  /**
+   * @type {number} Tracks the total food used in the game.
+   * Initialized to 0.
+   */
+  foodUsed = 0;
+
   framesPerStep = 1
 
   /**
@@ -78,6 +83,11 @@ class GameState {
    * @type {Map<number, boolean>}
    */
   hasTechFor = new Map();
+
+  /**
+   * @type {GameState | null} Singleton instance of the GameState.
+   */
+  static instance = null;  
 
   /**
    * The plan consisting of a sequence of PlanStep objects.
@@ -97,7 +107,7 @@ class GameState {
   race = null;
 
   /**
-   * @type {import('../gameData').Resources} - Typing the resources property using JSDoc comment
+   * @type {import('../data/gameData').Resources} - Typing the resources property using JSDoc comment
    */
   resources = defaultResources;
 
@@ -127,6 +137,10 @@ class GameState {
    * Initializes various game state properties.
    */
   constructor() {
+    if (GameState.instance) {
+      throw new Error("Error: Instantiation failed: Use GameState.getInstance() instead of new.");
+    }
+
     this.calculateTimeToFinishStructureFn = (/** @type {DataStorage} */ _data, /** @type {Unit} */ _unit) => {
       // Since '_data' and '_unit' are unused in this default implementation, they are prefixed with an underscore.
       // Return a safe default value that suits the expected functionality of the real implementation.
@@ -174,6 +188,15 @@ class GameState {
 
     this.previousGameLoop = currentGameLoop;
     return framesPerStep;
+  }
+
+  /**
+   * Checks if there are available production units for a given unit type.
+   * @param {number} unitType - The type of unit to check.
+   * @returns {boolean} - True if there are available production units.
+   */
+  checkProductionAvailability(unitType) {
+    return this.availableProductionUnits.get(unitType) || false;
   }
 
   /**
@@ -480,6 +503,15 @@ class GameState {
    */
   setPlan(newPlan) {
     this.plan = newPlan;
+  }
+
+  /**
+   * Sets the availability of production units for a given unit type.
+   * @param {number} unitType - The type of unit.
+   * @param {boolean} available - Whether the unit type is available for production.
+   */
+  setProductionAvailability(unitType, available) {
+    this.availableProductionUnits.set(unitType, available);
   }
 
   /**

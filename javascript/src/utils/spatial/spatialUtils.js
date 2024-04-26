@@ -15,8 +15,8 @@ const { buildingPositions } = require("../../core/gameState");
 const MapResources = require("../../core/gameState/mapResources");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { getCurrentlyEnrouteConstructionGrids } = require("../../features/construction/constructionDataUtils");
-const { getBuildTimeLeft } = require("../economy/workerService");
 const { isPlaceableAtGasGeyser } = require("../common/common");
+const { getBuildTimeLeft } = require("../economy/workerService");
 const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../unitManagement/unitConfig");
 
 /**
