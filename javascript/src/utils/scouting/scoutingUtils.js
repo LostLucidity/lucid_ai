@@ -5,6 +5,7 @@
 
 // Shared utility functions
 const MapResources = require('../../core/gameState/mapResources');
+const { isMining } = require('../economy/workerService');
 const { getDistance } = require('../spatial/spatialCoreUtils');
 
 /**
@@ -14,39 +15,27 @@ const { getDistance } = require('../spatial/spatialCoreUtils');
 const mappedEnemyUnits = [];
 
 /**
- * Determines the location for scouting.
+ * Determines the location for scouting based on enemy base location or potential expansion sites.
  * @param {World} world - The world state containing the map resource.
  * @returns {Point2D} The location for scouting.
  */
 function determineScoutingLocation(world) {
-  // Extract the map resource from the world state
-  const mapResource = world.resources.get().map;
+  const mapResource = getMapResource(world);
+  const { enemyMainBase, expansionSites } = getKeyLocations(mapResource);
 
-  // Get the enemy's main base location using the map resource
-  const enemyBaseLocation = MapResources.getEnemyBaseLocation(mapResource);
-
-  // Method to get potential expansion sites, assuming it doesn't require additional parameters
-  const expansionSites = MapResources.getPotentialExpansionSites(mapResource);
-
-  // Choose a location based on the current game situation
-  return enemyBaseLocation || expansionSites[0]; // Fallback to the first expansion site if the main base location is unknown
+  return enemyMainBase || expansionSites[0];
 } 
 
 /**
- * Determines multiple locations for scouting.
+ * Determines multiple locations for scouting, focusing on key enemy locations.
  * @param {World} world - The current world state.
  * @returns {Point2D[]} An array of locations for scouting.
  */
 function determineScoutingLocations(world) {
-  const mapResource = world.resources.get().map;
+  const mapResource = getMapResource(world);
+  const { enemyMainBase, enemyNatural } = getKeyLocations(mapResource);
 
-  // Identify key areas of interest for scouting
-  const enemyMainBase = mapResource.getEnemyMain()?.townhallPosition;
-  const enemyNatural = mapResource.getEnemyNatural()?.townhallPosition;
-
-  // Combine these locations into an array
   let pointsOfInterest = [];
-
   if (enemyMainBase) {
     pointsOfInterest.push(enemyMainBase);
   }
@@ -55,10 +44,10 @@ function determineScoutingLocations(world) {
   }
 
   return pointsOfInterest;
-} 
+}
 
 /**
- * Finds enemy units near a given unit.
+ * Finds enemy units near a given unit within a specified radius.
  * @param {UnitResource} units - The units resource object from the bot.
  * @param {Unit} unit - The unit to check for nearby enemy units.
  * @param {number} radius - The radius to check for enemy units.
@@ -66,7 +55,7 @@ function determineScoutingLocations(world) {
  */
 function findEnemyUnitsNear(units, unit, radius) {
   if (!unit.pos) return [];
-  const enemyUnits = Array.from(units._units[4].values()); // 4 represents Enemy
+  const enemyUnits = Array.from(units._units[4].values());
 
   return enemyUnits.filter(enemyUnit => {
     const distance = getDistance(unit.pos, enemyUnit.pos);
@@ -75,42 +64,52 @@ function findEnemyUnitsNear(units, unit, radius) {
 }
 
 /**
- * Determines if a unit is suitable for scouting.
- * @param {Unit} unit - The unit to evaluate.
- * @returns {boolean} True if the unit is suitable for scouting, false otherwise.
+ * Retrieves key locations such as enemy base and natural from the map resource.
+ * @param {MapResource} mapResource - The map resource object.
+ * @returns {{enemyMainBase: Point2D?, enemyNatural: Point2D?, expansionSites: Point2D[]}} An object containing key locations.
  */
-function isSuitableForScouting(unit) {
-  // Ensure all checks return a boolean value, defaulting to false if undefined
-  const isIdleOrFree = !!unit.noQueue && !unit.isGathering() && !unit.isConstructing();
-  const isNotInCombat = !unit.isAttacking();
-
-  return isIdleOrFree && isNotInCombat;
+function getKeyLocations(mapResource) {
+  return {
+    enemyMainBase: mapResource.getEnemyMain()?.townhallPosition,
+    enemyNatural: mapResource.getEnemyNatural()?.townhallPosition,
+    expansionSites: MapResources.getPotentialExpansionSites(mapResource)
+  };
 }
 
 /**
- * Selects an SCV unit for scouting.
- * @param {World} world - The current world state.
- * @returns {number} The ID of the selected SCV.
+ * Retrieves the map resource object from the world state.
+ * @param {World} world - The world state containing map resources.
+ * @returns {MapResource} The map resource object.
  */
-function selectSCVForScouting(world) {
-  const SCV_TYPE_ID = 45; // Constant ID for an SCV
-  const units = world.resources.get().units; // Accessing the units resource
+function getMapResource(world) {
+  return world.resources.get().map;
+}
 
-  const scoutingLocation = determineScoutingLocation(world);
+/**
+ * Checks if an SCV is currently assigned to scouting duties.
+ * @param {Unit} unit - The SCV to check.
+ * @returns {boolean} True if the SCV is assigned to scouting, false otherwise.
+ */
+function isScvAssignedToScouting(unit) {
+  return unit.hasLabel('scouting');
+}
 
-  let [selectedScv] = units.getClosest(
-    scoutingLocation,
-    units.getById(SCV_TYPE_ID).filter(unit => isSuitableForScouting(unit))
-  );
-
-  // Check if a suitable SCV is found and return its ID
-  if (selectedScv && selectedScv.tag) {
-    // Assuming tag is a string that can be parsed to a number
-    return parseInt(selectedScv.tag);
+/**
+ * Determines if a unit is suitable for scouting based on its current activities.
+ * @param {UnitResource} units - The units resource service to check active mining.
+ * @param {Unit} unit - The unit to evaluate.
+ * @returns {boolean} True if the unit is suitable for scouting, false otherwise.
+ */
+function isSuitableForScouting(units, unit) {
+  if (unit.isConstructing() || unit.isReturning('minerals') || unit.isReturning('vespene') || isScvAssignedToScouting(unit)) {
+    return false;
   }
 
-  // Return a consistent fallback value if no suitable SCV is found
-  return -1;
+  if (unit.isAttacking()) {
+    return false;
+  }
+
+  return !isMining(units, unit);
 }
 
 // Export the function(s)
@@ -120,5 +119,4 @@ module.exports = {
   determineScoutingLocations,
   findEnemyUnitsNear,
   isSuitableForScouting,
-  selectSCVForScouting,
 };
