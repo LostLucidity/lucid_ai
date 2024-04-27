@@ -11,10 +11,10 @@ const { GameState } = require('./gameState');
 const config = require('../../config/config');
 const { buildSupply } = require('../features/construction/buildingService');
 const StrategyManager = require('../features/strategy/strategyManager');
-const { clearAllPendingOrders } = require('../gameLogic/unit/unitUtils');
 const logger = require('../utils/core/logger');
 const economyManagement = require('../utils/economy/economyManagement');
 const workerAssignment = require('../utils/economy/workerAssignment');
+const { clearAllPendingOrders } = require('../utils/gameMechanics/unitUtils');
 const unitManagement = require('../utils/unit/unitManagement');
 
 // Instantiate the game state manager

@@ -14,10 +14,10 @@ const { findUnitTypesWithAbility, getUnitTypeData } = require("../../core/data")
 const { GameState } = require('../../core/gameState');
 const StrategyContext = require("../../features/strategy/strategyContext");
 const { selectUnitTypeToBuild } = require("../../features/strategy/unitSelection");
-const { filterSafeTrainers } = require("../../gameLogic/strategy/strategyUtils");
 const { getPendingOrders } = require("../../sharedServices");
 const { findKeysForValue, createUnitCommand } = require("../common/common");
 const { getBuildTimeLeft, shortOnWorkers } = require("../economy/workerService");
+const { filterSafeTrainers } = require("../gameMechanics/strategyUtils");
 const { getById } = require("../shared/generalUtils");
 
 /**

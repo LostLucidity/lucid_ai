@@ -19,9 +19,9 @@ const { getPathCoordinates, getClosestPosition, getStructureCells, getPathablePo
 const { getDistance } = require("./spatialCoreUtils");
 const { GameState } = require('../../core/gameState');
 const MapResources = require("../../core/gameState/mapResources");
-const { getClosestPathablePositionsBetweenPositions } = require("../../gameLogic/strategy/pathfindingUtils");
 const { getGasGeysersCache, setGasGeysersCache } = require("../common/cache");
 const { getPathablePositionsForStructure } = require("../common/common");
+const { getClosestPathablePositionsBetweenPositions } = require("../gameMechanics/pathfindingUtils");
 
 
 /** @type {Point2D[]} */

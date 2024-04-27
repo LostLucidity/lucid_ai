@@ -6,9 +6,9 @@ const { addEarmark } = require("../../core/common/buildUtils");
 const { GameState } = require('../../core/gameState');
 const { haveSupplyForUnit } = require("../../features/construction/buildingService");
 const StrategyContext = require("../../features/strategy/strategyContext");
-const { checkTechRequirement } = require("../../gameLogic/resources/resourceUtils");
-const { isTrainingOrder } = require("../../gameLogic/unit/unitUtils");
 const { getPendingOrders } = require("../../sharedServices");
+const { checkTechRequirement } = require("../gameMechanics/resourceUtils");
+const { isTrainingOrder } = require("../gameMechanics/unitUtils");
 
 /** @type {Map<UnitTypeId, Unit[]>} */
 const productionUnitsCache = new Map();
