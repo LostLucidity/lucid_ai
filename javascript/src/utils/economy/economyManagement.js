@@ -6,7 +6,7 @@
 // External library imports
 const { UnitType } = require('@node-sc2/core/constants');
 const { Alliance, Race } = require('@node-sc2/core/constants/enums');
-const { gatheringAbilities, mineralFieldTypes } = require('@node-sc2/core/constants/groups');
+const { gatheringAbilities, mineralFieldTypes, vespeneGeyserTypes, gasMineTypes } = require('@node-sc2/core/constants/groups');
 const { WorkerRace } = require('@node-sc2/core/constants/race-map');
 const getRandom = require('@node-sc2/core/utils/get-random');
 
@@ -19,6 +19,7 @@ const { getPendingOrders } = require('../../sharedServices');
 const { canBuild, createUnitCommand } = require('../common/common');
 const { mine } = require('../unit/unitCommands');
 const { getProductionUnits } = require('../unit/unitManagement');
+const { unitTypeTrainingAbilities } = require('../unitManagement/unitConfig');
 
 /**
  * Balances the resources based on the target ratio.
@@ -170,27 +171,59 @@ function getMinerCount(units) {
 }
 
 /**
- * @param {UnitResource} units 
- * @returns {Unit[]}
+ * Gets gas mines that need additional workers, including consideration for those under construction.
+ * @param {UnitResource} units The units resource object from the bot.
+ * @returns {Unit[]} List of gas mines that need more workers.
  */
 function getNeedyGasMines(units) {
+  // Set of ability IDs for constructing gas mines on geysers
+  const gasMineConstructionAbilities = new Set();
+  unitTypeTrainingAbilities.forEach((unitType, abilityId) => {
+    if (gasMineTypes.includes(unitType)) {
+      gasMineConstructionAbilities.add(abilityId);
+    }
+  });
+
   const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
-  return units.getGasMines(readySelfFilter).filter(gasMine => {
+  const gasMines = units.getGasMines(readySelfFilter);
+
+  return gasMines.filter(gasMine => {
     const { assignedHarvesters, idealHarvesters } = gasMine;
     if (assignedHarvesters === undefined || idealHarvesters === undefined) return false;
-    const workers = units.getWorkers().filter(worker => {
-      const pendingOrders = getPendingOrders(worker);
-      return pendingOrders.some(order => {
-        const { abilityId, targetUnitTag } = order;
+
+    const constructingWorkers = units.getWorkers().filter(worker => {
+      const currentOrders = worker.orders || [];
+      const allOrders = currentOrders.concat(getPendingOrders(worker));
+
+      return allOrders.some(order => {
+        const abilityId = order.abilityId;
+        const targetUnitTag = order.targetUnitTag;
         if (abilityId === undefined || targetUnitTag === undefined) return false;
-        return (
-          [...gatheringAbilities].includes(abilityId) &&
-          targetUnitTag === gasMine.tag
-        );
+        const targetUnit = units.getByTag(targetUnitTag);
+        if (targetUnit === undefined) return false;
+
+        const isTargetGeyser = targetUnit.unitType !== undefined && vespeneGeyserTypes.includes(targetUnit.unitType);
+        const isConstructingGasMine = gasMineConstructionAbilities.has(abilityId);
+
+        return isTargetGeyser && isConstructingGasMine;
       });
     });
-    const assignedHarvestersWithWorkers = assignedHarvesters + workers.length;
-    return assignedHarvestersWithWorkers < idealHarvesters;
+
+    // Include workers that are likely to transition from building to harvesting
+    const workersTransitioningToHarvest = constructingWorkers.filter(worker => {
+      const currentOrders = worker.orders || [];
+      const allOrders = currentOrders.concat(getPendingOrders(worker));
+      return allOrders.some(order => {
+        if (order.abilityId !== undefined && gasMine.unitType !== undefined) {
+          const mappedUnitType = unitTypeTrainingAbilities.get(order.abilityId);
+          return mappedUnitType !== undefined && gasMine.unitType === mappedUnitType;
+        }
+        return false;
+      });
+    }).length;
+
+    const totalAssigned = assignedHarvesters + workersTransitioningToHarvest;
+    return totalAssigned < idealHarvesters;
   });
 }
 
