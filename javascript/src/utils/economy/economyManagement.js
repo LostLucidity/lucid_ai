@@ -23,11 +23,6 @@ const { unitTypeTrainingAbilities } = require('../unitManagement/unitConfig');
 
 // Precompute the gasMineConstructionAbilities Set once if it doesn't change frequently
 const gasMineConstructionAbilities = new Set();
-unitTypeTrainingAbilities.forEach((unitType, abilityId) => {
-  if (gasMineTypes.includes(unitType)) {
-    gasMineConstructionAbilities.add(abilityId);
-  }
-});
 
 /**
  * Balances the resources based on the target ratio.
@@ -174,6 +169,16 @@ function calculateMineralWorkerCapacity(units, base) {
   // Safely use buildProgress, defaulting to 0 if undefined
   const buildProgress = base.buildProgress || 0;
   return buildProgress * (mineralFields.length * 2);
+}
+
+function initializeGasMineConstructionAbilities() {
+  // Assuming gasMineTypes is defined and available here
+  gasMineConstructionAbilities.clear(); // Clear previous data if any
+  unitTypeTrainingAbilities.forEach((unitType, abilityId) => {
+    if (gasMineTypes.includes(unitType)) {
+      gasMineConstructionAbilities.add(abilityId);
+    }
+  });
 }
 
 /**
@@ -353,6 +358,7 @@ function trainWorker(world, limit = 1) {
 module.exports = {
   balanceResources,
   calculateMaxWorkers,
+  initializeGasMineConstructionAbilities,
   setFoodUsed,
   trainAdditionalWorkers,
   trainWorker,
