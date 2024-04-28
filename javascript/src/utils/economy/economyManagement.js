@@ -21,6 +21,14 @@ const { mine } = require('../unit/unitCommands');
 const { getProductionUnits } = require('../unit/unitManagement');
 const { unitTypeTrainingAbilities } = require('../unitManagement/unitConfig');
 
+// Precompute the gasMineConstructionAbilities Set once if it doesn't change frequently
+const gasMineConstructionAbilities = new Set();
+unitTypeTrainingAbilities.forEach((unitType, abilityId) => {
+  if (gasMineTypes.includes(unitType)) {
+    gasMineConstructionAbilities.add(abilityId);
+  }
+});
+
 /**
  * Balances the resources based on the target ratio.
  * @param {World} world - The game world context.
@@ -106,40 +114,66 @@ const balanceResources = (world, targetRatio = 16 / 6, buildFunction) => {
 };
 
 /**
- * Calculates the maximum number of workers based on current game conditions, 
- * considering the build progress of the townhalls and gas structures.
+ * Calculate the number of workers that can be supported by the gas mines near a given base.
+ * @param {UnitResource} units 
+ * @param {Unit} base 
+ * @returns {number}
+ */
+function calculateGasWorkerCapacity(units, base) {
+  if (!base.pos) return 0;  // Ensure base.pos is defined
+
+  const gasGeysers = getGasGeysersNearby(units, base.pos);
+  return gasGeysers.reduce((gasWorkerCapacity, gasGeyser) => {
+    if (!gasGeyser.pos) return gasWorkerCapacity;  // Ensure gasGeyser.pos is defined
+
+    const gasMines = units.getGasMines().filter(gasMine => {
+      // Ensure both gasMine.pos and gasGeyser.pos are defined before calculating distance
+      if (!gasMine.pos || !gasGeyser.pos) return false;
+      const distance = calculateDistance(gasGeyser.pos, gasMine.pos);
+      const isGasMineBuilt = gasMine.buildProgress !== undefined && gasMine.buildProgress > 0;
+      return distance <= 1 && gasMine.alliance === Alliance.SELF && isGasMineBuilt;
+    });
+
+    const gasStructure = gasMines.length > 0 ? gasMines[0] : null;
+    // Safely use buildProgress with a default of 0 if undefined
+    const gasBuildProgress = gasStructure ? (gasStructure.buildProgress || 0) : 0;
+    return gasWorkerCapacity + (gasBuildProgress * 3);
+  }, 0);
+}
+
+/**
+ * Calculates the maximum number of workers based on current game conditions.
  * @param {UnitResource} units - The units resource object from the bot.
  * @returns {number} - The calculated maximum number of workers.
  */
 function calculateMaxWorkers(units) {
   const bases = units.getBases();
-  let totalMaxWorkers = 0;
-  const playerAlliance = Alliance.SELF;
-
-  bases.forEach(base => {
+  return bases.reduce((totalMaxWorkers, base) => {
+    // Check if base.pos is defined and base.buildProgress is greater than 0
+    // Defaulting base.buildProgress to 0 if it's undefined
     const baseBuildProgress = base.buildProgress || 0;
-    if (!base.pos) return;
+    if (!base.pos || baseBuildProgress <= 0) return totalMaxWorkers;
 
-    const mineralFields = getMineralFieldsNearby(units, base.pos);
-    const gasGeysers = getGasGeysersNearby(units, base.pos);
+    const mineralWorkerCapacity = calculateMineralWorkerCapacity(units, base);
+    const gasWorkerCapacity = calculateGasWorkerCapacity(units, base);
+    return totalMaxWorkers + mineralWorkerCapacity + gasWorkerCapacity;
+  }, 0);
+}
 
-    let gasWorkerCapacity = 0;
-    gasGeysers.forEach(gasGeyser => {
-      if (!gasGeyser.pos) return;
+/**
+ * Calculate the number of workers that can be supported by the mineral fields near a given base.
+ * @param {UnitResource} units 
+ * @param {Unit} base 
+ * @returns {number}
+ */
+function calculateMineralWorkerCapacity(units, base) {
+  // Check if base.pos is defined before attempting to use it
+  if (!base.pos) return 0;  // Return 0 as no workers can be supported without a position
 
-      const gasMines = units.getGasMines().filter(gasMine =>
-        gasMine.pos && gasGeyser.pos && calculateDistance(gasGeyser.pos, gasMine.pos) <= 1 &&
-        gasMine.alliance === playerAlliance
-      );
-      const gasStructure = gasMines.length > 0 ? gasMines[0] : null;
-      const gasBuildProgress = gasStructure?.buildProgress || 0;
-      gasWorkerCapacity += gasBuildProgress * 3;
-    });
-
-    totalMaxWorkers += baseBuildProgress * (mineralFields.length * 2) + gasWorkerCapacity;
-  });
-
-  return totalMaxWorkers;
+  const mineralFields = getMineralFieldsNearby(units, base.pos);
+  // Safely use buildProgress, defaulting to 0 if undefined
+  const buildProgress = base.buildProgress || 0;
+  return buildProgress * (mineralFields.length * 2);
 }
 
 /**
@@ -176,14 +210,6 @@ function getMinerCount(units) {
  * @returns {Unit[]} List of gas mines that need more workers.
  */
 function getNeedyGasMines(units) {
-  // Set of ability IDs for constructing gas mines on geysers
-  const gasMineConstructionAbilities = new Set();
-  unitTypeTrainingAbilities.forEach((unitType, abilityId) => {
-    if (gasMineTypes.includes(unitType)) {
-      gasMineConstructionAbilities.add(abilityId);
-    }
-  });
-
   const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
   const gasMines = units.getGasMines(readySelfFilter);
 
