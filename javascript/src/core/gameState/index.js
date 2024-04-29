@@ -7,7 +7,6 @@ const { Alliance, Attribute, Race } = require('@node-sc2/core/constants/enums');
 const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
-const { getSingletonInstance } = require('../../gameLogic/singletonFactory');
 const cacheManager = require('../../utils/common/cache');
 const { missingUnits } = require('../../utils/misc/gameDataStore');
 const { defaultResources } = require('../data/gameData');
@@ -52,6 +51,13 @@ function getBuildingPosition(key) {
  * It maintains and manages various game-related data such as resources, unit statuses, etc.
  */
 class GameState {
+  /**
+   * Private static property to hold the Singleton instance.
+   * It should be null initially and set to a GameState instance upon the first call to getInstance.
+   * @type {GameState | null}
+   */
+  static #instance = null;
+
   /**
    * A map to cache the availability of production units.
    * @type {Map<number, boolean>}
@@ -137,10 +143,9 @@ class GameState {
    * Initializes various game state properties.
    */
   constructor() {
-    if (GameState.instance) {
-      throw new Error("Error: Instantiation failed: Use GameState.getInstance() instead of new.");
+    if (GameState.#instance) {
+      throw new Error("Instantiation failed: Use GameState.getInstance() instead of new.");
     }
-
     this.calculateTimeToFinishStructureFn = (/** @type {DataStorage} */ _data, /** @type {Unit} */ _unit) => {
       // Since '_data' and '_unit' are unused in this default implementation, they are prefixed with an underscore.
       // Return a safe default value that suits the expected functionality of the real implementation.
@@ -191,6 +196,34 @@ class GameState {
   }
 
   /**
+   * Calculates the total count of orders and pending orders for a specific unit type based on the given ability ID.
+   * This function checks both current and pending orders across all units and adds to the count based on conditions.
+   * If the unit type is a Zergling and the order relates to training Zerglings, the count is doubled due to how
+   * Zerglings are trained in pairs.
+   * 
+   * @param {Unit[]} units - An array of units to examine for current and pending orders.
+   * @param {number} abilityId - The ability ID to filter orders by. This should correspond to the creation or training of the unit.
+   * @param {UnitTypeId} unitType - The unit type to check, which affects counting (e.g., Zerglings are counted as pairs).
+   * @returns {number} The total number of units including those currently in orders and pending orders adjusted for unit type specifics.
+   */
+  calculateOrderCounts(units, abilityId, unitType) {
+    let ordersCount = 0, pendingOrdersCount = 0;
+    units.forEach(unit => {
+      unit.orders?.forEach(order => {
+        if (order.abilityId === abilityId) {
+          ordersCount += (unitType === UnitType.ZERGLING && order.abilityId === Ability.TRAIN_ZERGLING) ? 2 : 1;
+        }
+      });
+      this.getPendingOrdersFn(unit).forEach(pendingOrder => {
+        if (pendingOrder.abilityId === abilityId) {
+          pendingOrdersCount += (unitType === UnitType.ZERGLING && pendingOrder.abilityId === Ability.TRAIN_ZERGLING) ? 2 : 1;
+        }
+      });
+    });
+    return ordersCount + pendingOrdersCount;
+  }
+
+  /**
    * Checks if there are available production units for a given unit type.
    * @param {number} unitType - The type of unit to check.
    * @returns {boolean} - True if there are available production units.
@@ -212,6 +245,22 @@ class GameState {
     const hasTechFor = agent.hasTechFor(unitType);
     this.hasTechFor.set(unitType, hasTechFor);
     return hasTechFor;
+  }
+
+  /**
+   * Counts workers that are inside gas mines by checking if they are gathering vespene but not currently visible.
+   * @param {World} world - The world context.
+   * @returns {number} Count of workers inside gas mines.
+   */
+  countWorkersInsideGasMines(world) {
+    const { units } = world.resources.get();
+
+    // Filter workers that are gathering vespene and are not currently visible (inside gas mines)
+    const workersInsideGasMines = units.getAll(Alliance.SELF).filter(unit =>
+      unit.isWorker() && unit.isGathering('vespene') && !unit.isCurrent()
+    ).length;
+
+    return workersInsideGasMines;
   }
 
   /**
@@ -294,10 +343,14 @@ class GameState {
   }
 
   /**
-   * Singleton instance accessor.
+   * The static method that controls the access to the singleton instance.
+   * @returns {GameState} The singleton instance of the GameState class.
    */
   static getInstance() {
-    return getSingletonInstance(GameState);
+    if (!GameState.#instance) {
+      GameState.#instance = new GameState();
+    }
+    return GameState.#instance;
   }
 
   /**
@@ -573,47 +626,31 @@ class GameState {
   }
 
   /**
-   * @param {World} world 
-   * @param {UnitTypeId} unitType 
-   * @returns {number}
+   * Calculates the total number of units of a specified type, including those currently in production,
+   * hidden inside structures, or otherwise unaccounted for in standard tracking.
+   * @param {World} world - The world context containing game data and resources.
+   * @param {UnitTypeId} unitType - The type of the unit to count.
+   * @returns {number} Total count of the specified unit type.
    */
   getUnitCount(world, unitType) {
     const { data, resources } = world;
     const { units } = resources.get();
-    const { ZERGLING } = UnitType;
     const { abilityId, attributes } = data.getUnitTypeData(unitType);
+
     if (abilityId === undefined || attributes === undefined) return 0;
+
     if (attributes.includes(Attribute.STRUCTURE)) {
       return this.getUnitTypeCount(world, unitType);
-    } else {
-      let unitTypes = [];
-      if (this.morphMapping && this.morphMapping.has(unitType)) {
-        unitTypes = this.morphMapping.get(unitType) || [];
-      } else {
-        unitTypes = [unitType];
-      }
-      // get orders from units with current orders that match the abilityId
-      const orders = units.withCurrentOrders(abilityId).reduce((/** @type {SC2APIProtocol.UnitOrder[]} */ matchingOrders, unit) => {
-        const { orders } = unit;
-        if (orders === undefined) return matchingOrders;
-        orders.forEach(order => {
-          if (order.abilityId === abilityId) {
-            matchingOrders.push(order);
-          }
-        });
-        return matchingOrders;
-      }, []);
-      const unitsWithPendingOrders = units.getAlive(Alliance.SELF).filter(u => this.getPendingOrdersFn(u).some(o => o.abilityId === abilityId));
-      const pendingOrders = unitsWithPendingOrders.map(u => this.getPendingOrdersFn(u)).flat();
-      const ordersLength = orders.some(order => order.abilityId === Ability.TRAIN_ZERGLING) ? orders.length * 2 : orders.length;
-      let pendingOrdersLength = pendingOrders.some(order => order.abilityId === Ability.TRAIN_ZERGLING) ? pendingOrders.length * 2 : pendingOrders.length;
-      let totalOrdersLength = ordersLength + pendingOrdersLength;
-      if (totalOrdersLength > 0) {
-        totalOrdersLength = unitType === ZERGLING ? totalOrdersLength - 1 : totalOrdersLength;
-      }
-
-      return units.getById(unitTypes).length + totalOrdersLength + missingUnits.filter(unit => unit.unitType === unitType).length;
     }
+
+    // Ensure unitTypes is always an array, never undefined.
+    let unitTypes = (this.morphMapping && this.morphMapping.has(unitType)) ? this.morphMapping.get(unitType) || [] : [unitType];
+
+    let totalOrdersCount = this.calculateOrderCounts(units.getAll(Alliance.SELF), abilityId, unitType);
+    const insideStructureCount = this.countWorkersInsideGasMines(world);
+    const missingUnitsCount = (missingUnits || []).filter(unit => unit.unitType === unitType).length;
+
+    return units.getById(unitTypes).length + totalOrdersCount + insideStructureCount + missingUnitsCount;
   }
 
   /**

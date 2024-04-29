@@ -102,7 +102,7 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
   const collectedActions = [];
   const { agent, data, resources } = world;
   const { units } = resources.get();
-  const gameState = new GameState();
+  const gameState = GameState.getInstance();
   const effectiveTargetCount = targetCount === undefined ? Number.MAX_SAFE_INTEGER : targetCount;
 
   // Check if a Pylon is needed and if it exists for Protoss buildings

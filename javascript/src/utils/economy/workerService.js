@@ -100,7 +100,7 @@ function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrCon
     if (abilityId === undefined || (targetWorldSpacePos === undefined && targetUnitTag === undefined)) return acc;
 
     const movingPosition = targetWorldSpacePos ? targetWorldSpacePos : targetUnitTag ? units.getByTag(targetUnitTag).pos : undefined;
-    const gameState = new GameState();
+    const gameState = GameState.getInstance();
     const movementSpeed = getMovementSpeed(map, movingOrConstructingNonDrone, gameState);
     if (movingPosition === undefined || movementSpeed === undefined) return acc;
 
