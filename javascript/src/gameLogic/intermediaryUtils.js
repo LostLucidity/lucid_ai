@@ -34,20 +34,22 @@ function calculateTargetCountForStep(step, buildOrder, startingUnitCount = 0) {
     return getCumulativeTargetCount(step);
   }
 
+  const stepIndex = buildOrder.steps.findIndex(s => getInterpretedActions(s) === getInterpretedActions(step));
   let cumulativeCount = 0;
-  const unitTypesInCurrentStep = new Set(getInterpretedActions(step).map(action => action.unitType));
 
-  for (const currentStep of buildOrder.steps) {
-    if (currentStep === step) break;
-
-    for (const action of getInterpretedActions(currentStep)) {
-      if (!action.isUpgrade && unitTypesInCurrentStep.has(action.unitType)) {
+  for (let i = 0; i < stepIndex; i++) {
+    const actions = getInterpretedActions(buildOrder.steps[i]);
+    for (const action of actions) {
+      if (!action.isUpgrade && getInterpretedActions(step).some(a => a.unitType === action.unitType) && !action.specialAction) {
         cumulativeCount += action.count;
       }
     }
   }
 
-  const stepCount = getInterpretedActions(step).reduce((acc, action) => action.isUpgrade ? acc : acc + action.count, 0);
+  const stepCount = getInterpretedActions(step).reduce((acc, action) => {
+    return (!action.isUpgrade && !action.specialAction) ? acc + action.count : acc;
+  }, 0);
+
   const totalCumulativeCount = cumulativeCount + stepCount + startingUnitCount;
 
   setCumulativeTargetCount(step, totalCumulativeCount);
@@ -55,7 +57,7 @@ function calculateTargetCountForStep(step, buildOrder, startingUnitCount = 0) {
 }
 
 /**
- * Get interpreted actions from a step.
+ * Get interpreted actions from a step, ensuring the output is always an array.
  * @param {GeneralStep} step - The step from which to get interpreted actions.
  * @returns {import('../utils/core/globalTypes').InterpretedAction[]} - The interpreted actions.
  */
