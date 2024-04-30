@@ -1,14 +1,27 @@
-/node_modules
-/replays
-package-lock.json
-/build
-main-linux
-/data
-/logs
-/systems/q-table/data
-src/buildOrders/protoss/*
-src/buildOrders/terran/*
-src/buildOrders/zerg/*
-src/buildOrders/scrapedBuildOrders.json
+# Dependency directories
+/node_modules/
 
+# Compiled binary files
+/main-linux
+
+# Logs
+/logs/
+
+# Data files that should not be tracked
+/data/
+/systems/q-table/data/
+
+# Environment configuration file
 .env
+
+# Build output directories
+/build/
+
+# Replay files
+/replays/
+
+# Ignore specific directories under src/buildOrders
+/src/features/buildOrders/protoss/
+/src/features/buildOrders/terran/
+/src/features/buildOrders/zerg/
+/src/features/buildOrders/scrapedBuildOrders.json
