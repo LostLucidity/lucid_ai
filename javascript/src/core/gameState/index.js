@@ -2,7 +2,7 @@
 "use strict"
 
 // External library imports from @node-sc2/core
-const { UnitType, Ability } = require('@node-sc2/core/constants');
+const { UnitType } = require('@node-sc2/core/constants');
 const { Alliance, Attribute, Race } = require('@node-sc2/core/constants/enums');
 const groupTypes = require('@node-sc2/core/constants/groups');
 
@@ -211,20 +211,11 @@ class GameState {
    * @returns {number} The total number of units including those currently in orders and pending orders adjusted for unit type specifics.
    */
   calculateOrderCounts(units, abilityId, unitType) {
-    let ordersCount = 0, pendingOrdersCount = 0;
-    units.forEach(unit => {
-      unit.orders?.forEach(order => {
-        if (order.abilityId === abilityId) {
-          ordersCount += (unitType === UnitType.ZERGLING && order.abilityId === Ability.TRAIN_ZERGLING) ? 2 : 1;
-        }
-      });
-      this.getPendingOrdersFn(unit).forEach(pendingOrder => {
-        if (pendingOrder.abilityId === abilityId) {
-          pendingOrdersCount += (unitType === UnitType.ZERGLING && pendingOrder.abilityId === Ability.TRAIN_ZERGLING) ? 2 : 1;
-        }
-      });
-    });
-    return ordersCount + pendingOrdersCount;
+    return units.reduce((count, unit) => {
+      const ordersCount = unit.orders ? unit.orders.filter(order => order.abilityId === abilityId).length : 0;
+      const pendingOrdersCount = this.getPendingOrdersFn(unit).filter(pendingOrder => pendingOrder.abilityId === abilityId).length;
+      return count + ordersCount + pendingOrdersCount * (unitType === UnitType.ZERGLING ? 2 : 1);
+    }, 0);
   }
 
   /**
@@ -623,22 +614,33 @@ class GameState {
   getUnitCount(world, unitType) {
     const { data, resources } = world;
     const { units } = resources.get();
-    const { abilityId, attributes } = data.getUnitTypeData(unitType);
+    const unitData = data.getUnitTypeData(unitType);
 
-    if (abilityId === undefined || attributes === undefined) return 0;
+    if (!unitData || !unitData.abilityId) {
+      return 0; // Exit early if critical unit data is missing
+    }
 
-    if (attributes.includes(Attribute.STRUCTURE)) {
+    if (unitData.attributes && unitData.attributes.includes(Attribute.STRUCTURE)) {
+      // Directly return the count of structural units
       return this.getUnitTypeCount(world, unitType);
     }
 
-    // Ensure unitTypes is always an array, never undefined.
-    let unitTypes = (this.morphMapping && this.morphMapping.has(unitType)) ? this.morphMapping.get(unitType) || [] : [unitType];
+    // Handle morphing efficiently
+    const morphedTypes = this.morphMapping ? this.morphMapping.get(unitType) : undefined;
+    const unitTypes = morphedTypes ? [unitType, ...morphedTypes] : [unitType];
 
-    let totalOrdersCount = this.calculateOrderCounts(units.getAll(Alliance.SELF), abilityId, unitType);
-    const insideStructureCount = gasMineManager.countWorkersInsideGasMines(world);
+    const existingUnits = units.getById(unitTypes).length;
+    const unitsInProduction = this.calculateOrderCounts(units.getAll(Alliance.SELF), unitData.abilityId, unitType);
+
+    // Count only relevant units inside structures
+    const insideStructureCount = (unitType === UnitType.SCV || unitType === UnitType.DRONE || unitType === UnitType.PROBE)
+      ? gasMineManager.countWorkersInsideGasMines(world)
+      : 0;
+
     const missingUnitsCount = (missingUnits || []).filter(unit => unit.unitType === unitType).length;
 
-    return units.getById(unitTypes).length + totalOrdersCount + insideStructureCount + missingUnitsCount;
+    // Sum and return all counts
+    return existingUnits + unitsInProduction + insideStructureCount + missingUnitsCount;
   }
 
   /**

@@ -122,7 +122,6 @@ class GasMineManager {
    * @param {World} world - The current game world state.
    */
   update(world) {
-    console.log('Updating gas mine workers status');
     const { units } = world.resources.get();
     const allWorkers = units.getAll(Alliance.SELF).filter(unit => unit.isWorker());
     const allMines = units.getAll(Alliance.SELF).filter(unit => unit.isGasMine());
