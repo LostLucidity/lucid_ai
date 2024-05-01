@@ -8,6 +8,7 @@ const { UnitType, Ability } = require('@node-sc2/core/constants');
 
 const onGameStart = require('./events/onGameStart');
 const { GameState } = require('./gameState');
+const GasMineManager = require('./gameState/GasMineManager');
 const config = require('../../config/config');
 const { buildSupply } = require('../features/construction/buildingService');
 const StrategyManager = require('../features/strategy/strategyManager');
@@ -19,6 +20,9 @@ const unitManagement = require('../utils/unit/unitManagement');
 
 // Instantiate the game state manager
 const gameState = GameState.getInstance();
+
+// Instantiate the GasMineManager
+const gasMineManager = new GasMineManager();
 
 /** @type {number} Maximum number of workers */
 let maxWorkers = 0;
@@ -44,6 +48,16 @@ function collectAdditionalActions(world) {
   }
 
   return actions;
+}
+
+/**
+ * Enhanced game start function with world initialization.
+ * @param {World} world - The current game world state.
+ */
+async function enhancedOnGameStart(world) {
+  await onGameStart(world);
+  // Initialize GasMineManager here or based on specific game start conditions
+  gasMineManager.initialize(world);
 }
 
 /**
@@ -119,15 +133,16 @@ const bot = createAgent({
     raw: true, rawCropToPlayableArea: true, score: true, showBurrowedShadows: true, showCloaked: true
   },
 
-  async onGameStart(world) {
-    await onGameStart(world);
-  },
+  onGameStart: enhancedOnGameStart,
 
   /**
    * Main game loop function called on each step of the game.
    * @param {World} world - The current game world state.
    */
   async onStep(world) {
+    // Update and use GasMineManager within the game loop
+    gasMineManager.update(world); // Hypothetical method to manage and track gas mine workers
+
     gameState.updateGameState(world);
     unitManagement.refreshProductionUnitsCache();
 

@@ -7,6 +7,7 @@ const { Alliance, Attribute, Race } = require('@node-sc2/core/constants/enums');
 const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
+const GasMineManager = require('./GasMineManager');
 const cacheManager = require('../../utils/common/cache');
 const { missingUnits } = require('../../utils/misc/gameDataStore');
 const { defaultResources } = require('../data/gameData');
@@ -22,6 +23,9 @@ const buildingPositions = new Map();
 const foodData = {
   foodUsed: 12,
 };
+
+// Assuming `gasMineManager` is instantiated and available in this context
+const gasMineManager = new GasMineManager();
 
 /**
  * Function or methods to manipulate buildingPositions and other shared resources
@@ -245,22 +249,6 @@ class GameState {
     const hasTechFor = agent.hasTechFor(unitType);
     this.hasTechFor.set(unitType, hasTechFor);
     return hasTechFor;
-  }
-
-  /**
-   * Counts workers that are inside gas mines by checking if they are gathering vespene but not currently visible.
-   * @param {World} world - The world context.
-   * @returns {number} Count of workers inside gas mines.
-   */
-  countWorkersInsideGasMines(world) {
-    const { units } = world.resources.get();
-
-    // Filter workers that are gathering vespene and are not currently visible (inside gas mines)
-    const workersInsideGasMines = units.getAll(Alliance.SELF).filter(unit =>
-      unit.isWorker() && unit.isGathering('vespene') && !unit.isCurrent()
-    ).length;
-
-    return workersInsideGasMines;
   }
 
   /**
@@ -647,7 +635,7 @@ class GameState {
     let unitTypes = (this.morphMapping && this.morphMapping.has(unitType)) ? this.morphMapping.get(unitType) || [] : [unitType];
 
     let totalOrdersCount = this.calculateOrderCounts(units.getAll(Alliance.SELF), abilityId, unitType);
-    const insideStructureCount = this.countWorkersInsideGasMines(world);
+    const insideStructureCount = gasMineManager.countWorkersInsideGasMines(world);
     const missingUnitsCount = (missingUnits || []).filter(unit => unit.unitType === unitType).length;
 
     return units.getById(unitTypes).length + totalOrdersCount + insideStructureCount + missingUnitsCount;
