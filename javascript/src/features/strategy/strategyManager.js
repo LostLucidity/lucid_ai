@@ -9,13 +9,13 @@ const StrategyContext = require("./strategyContext");
 const UnitActionStrategy = require("./unitActionStrategy");
 const { UpgradeActionStrategy } = require("./upgradeActionStrategy");
 const config = require("../../../config/config");
-const { GameState } = require('../../core/gameState');
-const { calculateTargetCountForStep } = require("../../gameLogic/intermediaryUtils");
 const { performScoutingWithSCV } = require("../../gameLogic/scouting/scoutActions");
-const { getSingletonInstance } = require("../../gameLogic/singletonFactory");
-const { balanceResources, setFoodUsed } = require("../../utils/economy/economyManagement");
-const { isBuildOrderStep } = require("../../utils/gameMechanics/strategyUtils");
-const { buildSupplyOrTrain } = require("../../utils/unit/unitManagement");
+const { calculateTargetCountForStep } = require("../../gameLogic/unit/intermediaryUtils");
+const { getSingletonInstance } = require("../../gameLogic/unit/singletonFactory");
+const { balanceResources, setFoodUsed } = require("../../gameLogic/utils/economy/economyManagement");
+const { isBuildOrderStep } = require("../../gameLogic/utils/gameMechanics/strategyUtils");
+const { GameState } = require('../../gameState');
+const { buildSupplyOrTrain } = require("../../units/management/unitManagement");
 const buildOrders = require('../buildOrders');
 const { interpretBuildOrderAction } = require("../buildOrders/buildOrderUtils");
 const { build, hasEarmarks, resetEarmarks } = require("../construction/buildingService");
@@ -40,7 +40,7 @@ const { build, hasEarmarks, resetEarmarks } = require("../construction/buildingS
  * @property {string} supply
  * @property {string} time
  * @property {string} action
- * @property {import("../../utils/core/globalTypes").InterpretedAction} [interpretedAction] - Optional property for interpreted action details
+ * @property {import("../../core/utils/globalTypes").InterpretedAction} [interpretedAction] - Optional property for interpreted action details
  */
 
 /**
@@ -147,8 +147,8 @@ class StrategyManager {
 
   /**
    * Creates a plan step from the given raw step and interpreted action.
-   * @param {import('../../utils/core/globalTypes').BuildOrderStep | StrategyStep} rawStep - The raw step from the build order.
-   * @param {import('../../utils/core/globalTypes').InterpretedAction} interpretedAction - The interpreted action for the step.
+   * @param {import('../../core/utils/globalTypes').BuildOrderStep | StrategyStep} rawStep - The raw step from the build order.
+   * @param {import('../../core/utils/globalTypes').InterpretedAction} interpretedAction - The interpreted action for the step.
    * @param {number} cumulativeCount - The cumulative count of the unitType up to this step in the plan.
    * @returns {PlanStep} The created plan step.
    */
@@ -200,7 +200,7 @@ class StrategyManager {
   /**
    * Executes the given strategy plan.
    * @param {World} world - The game world context.
-   * @param {import("../../utils/core/globalTypes").BuildOrder | Strategy | undefined} plan - The strategy plan to execute.
+   * @param {import("../../core/utils/globalTypes").BuildOrder | Strategy | undefined} plan - The strategy plan to execute.
    * @param {StrategyManager} strategyManager - The strategy manager.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
    */
@@ -232,7 +232,7 @@ class StrategyManager {
 
   /**
    * Get the current strategy's build order.
-   * @returns {import('../../utils/core/globalTypes').BuildOrder}
+   * @returns {import('../../core/utils/globalTypes').BuildOrder}
    */
   getBuildOrderForCurrentStrategy() {
     const currentStrategy = this.strategyContext.getCurrentStrategy();
@@ -277,7 +277,7 @@ class StrategyManager {
   }
 
   /**
-   * @param {import("../../utils/core/globalTypes").BuildOrderStep | StrategyStep} rawStep
+   * @param {import("../../core/utils/globalTypes").BuildOrderStep | StrategyStep} rawStep
    */
   getInterpretedActions(rawStep) {
     if (rawStep.interpretedAction) {
@@ -305,9 +305,9 @@ class StrategyManager {
   /**
    * Processes the plan step, handling special actions and regular actions.
    * @param {World} world The game world context.
-   * @param {import('../../utils/core/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
+   * @param {import('../../core/utils/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
    * @param {number} step The current step number in the strategy.
-   * @param {import('../../utils/core/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
+   * @param {import('../../core/utils/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
    * @param {StrategyManager} strategyManager The strategy manager instance.
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform The array of actions to be performed.
    * @param {number} currentCumulativeCount The current cumulative count of the unit type up to this step.
@@ -329,7 +329,7 @@ class StrategyManager {
    * Handles special actions identified in build order steps.
    * @param {string} specialAction - The special action to handle.
    * @param {World} world - The current world state.
-   * @param {import('../../utils/core/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step data containing timing and other contextual information.
+   * @param {import('../../core/utils/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The raw step data containing timing and other contextual information.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed for the special action.
    */
   handleSpecialAction(specialAction, world, rawStep) {
@@ -342,10 +342,10 @@ class StrategyManager {
   /**
    * Handles the completion of a strategy step, updating cumulative counts if necessary.
    * @param {World} world The game world context.
-   * @param {import('../../utils/core/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
+   * @param {import('../../core/utils/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
    * @param {string} unitType The unit type identifier.
    * @param {number} currentCumulativeCount The current cumulative count for the unit type.
-   * @param {import('../../utils/core/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
+   * @param {import('../../core/utils/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
    * @param {StrategyManager} strategyManager The strategy manager instance.
    * @returns {boolean} True if the step is completed, false otherwise.
    */
@@ -439,7 +439,7 @@ class StrategyManager {
   /**
    * Check if the step conditions are satisfied.
    * @param {World} world
-   * @param {import('../../utils/core/globalTypes').BuildOrderStep | StrategyStep} step
+   * @param {import('../../core/utils/globalTypes').BuildOrderStep | StrategyStep} step
    * @returns {boolean}
    */
   isStepSatisfied(world, step) {
@@ -476,7 +476,7 @@ class StrategyManager {
   }
 
   /**
-   * @param {import("../../utils/core/globalTypes").BuildOrder | Strategy | undefined} plan
+   * @param {import("../../core/utils/globalTypes").BuildOrder | Strategy | undefined} plan
    */
   isValidPlan(plan) {
     return plan && Array.isArray(plan.steps);
@@ -486,7 +486,7 @@ class StrategyManager {
    * Dynamically loads a strategy based on race and build order key.
    * @param {SC2APIProtocol.Race | undefined} race
    * @param {string} buildOrderKey
-   * @returns {import("../../utils/core/globalTypes").BuildOrder | undefined}
+   * @returns {import("../../core/utils/globalTypes").BuildOrder | undefined}
    */
   loadStrategy(race, buildOrderKey) {
     if (!race) {
@@ -554,7 +554,7 @@ class StrategyManager {
   /**
    * Processes all steps in the strategy plan.
    * @param {World} world - The game world context.
-   * @param {import("../../utils/core/globalTypes").BuildOrder | Strategy} plan - The strategy plan to execute.
+   * @param {import("../../core/utils/globalTypes").BuildOrder | Strategy} plan - The strategy plan to execute.
    * @param {StrategyManager} strategyManager - The strategy manager.
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform - The array of actions to be performed.
    */
@@ -581,7 +581,7 @@ class StrategyManager {
   /**
    * Processes each step of the strategy plan.
    * @param {World} world
-   * @param {import("../../utils/core/globalTypes").BuildOrderStep | StrategyStep} rawStep
+   * @param {import("../../core/utils/globalTypes").BuildOrderStep | StrategyStep} rawStep
    * @param {number} step
    * @param {StrategyManager} strategyManager
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
@@ -598,9 +598,9 @@ class StrategyManager {
   /**
    * Processes an interpreted action from the current strategy step.
    * @param {World} world
-   * @param {import("../../utils/core/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
+   * @param {import("../../core/utils/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
    * @param {number} step
-   * @param {import('../../utils/core/globalTypes').InterpretedAction} interpretedAction
+   * @param {import('../../core/utils/globalTypes').InterpretedAction} interpretedAction
    * @param {StrategyManager} strategyManager
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
    */
@@ -742,7 +742,7 @@ class StrategyManager {
    * Checks if an action should be delayed based on the current time and target time.
    * @param {string} specialAction - The special action to check.
    * @param {World} world - The world context.
-   * @param {import('../../utils/core/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The step data.
+   * @param {import('../../core/utils/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The step data.
    * @returns {boolean} True if the action should be delayed, false otherwise.
    */
   shouldDelayAction(specialAction, world, rawStep) {

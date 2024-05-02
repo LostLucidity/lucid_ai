@@ -6,9 +6,9 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { addEarmark } = require("./EarmarkManager");
 const { seigeTanksSiegedGrids } = require("../../features/construction/sharedUnitPlacement");
-const { getAddOnPlacement, pointsOverlap } = require("../../utils/spatial/pathfinding");
-const { getDistance } = require("../../utils/spatial/spatialCoreUtils");
-const { setPendingOrders } = require("../../utils/unitManagement/unitOrders");
+const { getAddOnPlacement, pointsOverlap } = require("../../gameLogic/spatial/pathfinding");
+const { getDistance } = require("../../gameLogic/spatial/spatialCoreUtils");
+const { setPendingOrders } = require("../../units/management/unitOrders");
 
 /**
  * Attempt to build addOn

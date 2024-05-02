@@ -2,10 +2,10 @@
 
 const StrategyContext = require('./strategyContext');
 const config = require('../../../config/config');
-const { GameState } = require('../../core/gameState');
 const StrategyManager = require('../../features/strategy/strategyManager');
 const strategyUtils = require('../../features/strategy/strategyUtils');
-const { assignWorkers } = require('../../utils/gameMechanics/workerUtils');
+const { assignWorkers } = require('../../gameLogic/utils/gameMechanics/workerUtils');
+const { GameState } = require('../../gameState');
 
 /**
  * Prepares the initial worker assignments to mineral fields.

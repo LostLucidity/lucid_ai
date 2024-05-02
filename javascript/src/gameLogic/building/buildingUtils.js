@@ -9,9 +9,9 @@
 const { UnitType, UnitTypeId } = require('@node-sc2/core/constants');
 
 const { addEarmark } = require('../../core/common/EarmarkManager');
-const { checkAddOnPlacement } = require('../../core/services/ConstructionSpatialService');
-const { flyingTypesMapping } = require('../../utils/unitManagement/unitConfig');
-const { setPendingOrders } = require('../../utils/unitManagement/unitOrders');
+const { checkAddOnPlacement } = require('../../services/ConstructionSpatialService');
+const { flyingTypesMapping } = require('../../units/management/unitConfig');
+const { setPendingOrders } = require('../../units/management/unitOrders');
 
 /**
  * Attempts to land the unit at a suitable location.

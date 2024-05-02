@@ -1,7 +1,7 @@
 const { Attribute } = require("@node-sc2/core/constants/enums");
 
 const ActionStrategy = require("./actionStrategy");
-const { train } = require("../../utils/unitManagement/training");
+const { train } = require("../../units/management/training");
 const { build } = require("../construction/buildingService");
 
 // Concrete strategy for handling unit type actions

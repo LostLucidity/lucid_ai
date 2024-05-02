@@ -29,7 +29,7 @@ function determineRaceDirectory(raceMatchup) {
  */
 function generateBuildOrderFiles(dataFilePath) {
   // Parse the build orders from the file
-  /** @type {import("../../utils/core/globalTypes").BuildOrder[]} */
+  /** @type {import("../../core/utils/globalTypes").BuildOrder[]} */
   const buildOrders = JSON.parse(fs.readFileSync(dataFilePath, 'utf8'));
 
   buildOrders.forEach(buildOrder => {
@@ -51,7 +51,7 @@ function generateBuildOrderFiles(dataFilePath) {
 
 /**
  * Generates the content for a build order file.
- * @param {import("../../utils/core/globalTypes").BuildOrder} buildOrder - The build order object.
+ * @param {import("../../core/utils/globalTypes").BuildOrder} buildOrder - The build order object.
  * @returns {string} The string to be written to the file.
  */
 function generateFileContent(buildOrder) {
@@ -66,7 +66,7 @@ function generateFileContent(buildOrder) {
  * Dynamically interprets build order actions, converting action strings to either UnitType or Upgrade references.
  * @param {string} action - The action string from the build order.
  * @param {string} [comment] - Optional comment associated with the action.
- * @returns {import("../../utils/core/globalTypes").InterpretedAction[]} An array of objects representing the interpreted actions.
+ * @returns {import("../../core/utils/globalTypes").InterpretedAction[]} An array of objects representing the interpreted actions.
  */
 function interpretBuildOrderAction(action, comment = '') {
   /**
@@ -85,7 +85,7 @@ function interpretBuildOrderAction(action, comment = '') {
   }
 
   const actions = action.split(',');
-  /** @type {import("../../utils/core/globalTypes").InterpretedAction[]} */
+  /** @type {import("../../core/utils/globalTypes").InterpretedAction[]} */
   const interpretedActions = [];
   
   actions.forEach(actionPart => {
@@ -135,13 +135,13 @@ function interpretBuildOrderAction(action, comment = '') {
 /**
  * Loads build orders from a specified directory.
  * @param {string} directoryName - Name of the directory (e.g., 'protoss', 'terran', 'zerg').
- * @returns {import('../../utils/core/globalTypes').RaceBuildOrders} Build orders loaded from the directory.
+ * @returns {import('../../core/utils/globalTypes').RaceBuildOrders} Build orders loaded from the directory.
  */
 function loadBuildOrdersFromDirectory(directoryName) {
   const directoryPath = path.join(__dirname, directoryName);
   const buildOrderFiles = fs.readdirSync(directoryPath);
 
-  /** @type {import('../../utils/core/globalTypes').RaceBuildOrders} */
+  /** @type {import('../../core/utils/globalTypes').RaceBuildOrders} */
   const buildOrders = {};
 
   buildOrderFiles.forEach(file => {

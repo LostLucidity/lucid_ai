@@ -1,6 +1,7 @@
 // scoutManager.js
 
-const { determineScoutingLocation, isSuitableForScouting } = require("../../utils/scouting/scoutingUtils");
+const { determineScoutingLocation, isSuitableForScouting } = require("../utils/scouting/scoutingUtils");
+
 
 /** @type {string | null} */
 let activeScoutTag = null;

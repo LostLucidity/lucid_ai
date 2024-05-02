@@ -1,10 +1,10 @@
 const { UnitType, Ability } = require("@node-sc2/core/constants");
 
-const { GameState } = require("../../core/gameState");
-const GasMineManager = require("../../core/gameState/GasMineManager");
-const { shouldTrainMoreWorkers, calculateMaxWorkers, trainAdditionalWorkers } = require("../../utils/economy/economyManagement");
-const { reassignIdleWorkers, balanceWorkerDistribution } = require("../../utils/economy/workerAssignment");
-const { refreshProductionUnitsCache } = require("../../utils/unit/unitManagement");
+const { shouldTrainMoreWorkers, calculateMaxWorkers, trainAdditionalWorkers } = require("../../gameLogic/utils/economy/economyManagement");
+const { reassignIdleWorkers, balanceWorkerDistribution } = require("../../gameLogic/utils/economy/workerAssignment");
+const { GameState } = require("../../gameState");
+const GasMineManager = require("../../gameState/GasMineManager");
+const { refreshProductionUnitsCache } = require("../../units/management/unitManagement");
 const { buildSupply } = require("../construction/buildingService");
 const StrategyManager = require("../strategy/strategyManager");
 

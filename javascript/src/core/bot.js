@@ -5,12 +5,12 @@
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 // Internal module imports
 
-const { GameState } = require('./gameState');
-const GameInitialization = require('./initialization/GameInitialization');
+const logger = require('./utils/logger');
 const config = require('../../config/config');
 const ActionCollector = require('../features/actions/actionCollector');
-const logger = require('../utils/core/logger');
-const { clearAllPendingOrders } = require('../utils/gameMechanics/unitUtils');
+const { clearAllPendingOrders } = require('../gameLogic/utils/gameMechanics/unitUtils');
+const { GameState } = require('../gameState');
+const GameInitialization = require('../initialization/GameInitialization');
 
 // Instantiate the game state manager
 const gameState = GameState.getInstance();

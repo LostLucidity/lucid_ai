@@ -17,19 +17,19 @@ const { stopOverlappingBuilders, handleNonRallyBase } = require('./buildingWorke
 // eslint-disable-next-line no-unused-vars
 const { addEarmark } = require('../../core/common/buildUtils');
 const { earmarkThresholdReached } = require('../../core/common/EarmarkManager');
-const { GameState } = require('../../core/gameState');
-const { checkAddOnPlacement } = require('../../core/services/ConstructionSpatialService');
-const { getMovementSpeed } = require('../../gameLogic/coreUtils');
+const { getPathablePositionsForStructure, isPlaceableAtGasGeyser, positionIsEqual, createUnitCommand } = require('../../core/utils/common');
+const { logMessageStorage } = require('../../core/utils/logging');
+const { calculateBaseTimeToPosition, getClosestPositionByPath, getAddOnPlacement, getClosestUnitByPath } = require('../../gameLogic/spatial/pathfinding');
+const { getDistanceByPath, getPathCoordinates, getMapPath } = require('../../gameLogic/spatial/pathfindingCommon');
+const { getMovementSpeed } = require('../../gameLogic/unit/coreUtils');
 const { isPendingContructing } = require('../../gameLogic/unit/workerCommonUtils');
+const { getClosestPathWithGasGeysers, ability, isIdleOrAlmostIdle, setBuilderLabel, getBuildTimeLeft, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../gameLogic/utils/economy/workerService');
+const { GameState } = require('../../gameState');
+const { checkAddOnPlacement } = require('../../services/ConstructionSpatialService');
 const { getPendingOrders } = require('../../sharedServices');
-const { getPathablePositionsForStructure, isPlaceableAtGasGeyser, positionIsEqual, createUnitCommand } = require('../../utils/common/common');
-const { logMessageStorage } = require('../../utils/common/logging');
-const { getClosestPathWithGasGeysers, ability, isIdleOrAlmostIdle, setBuilderLabel, getBuildTimeLeft, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../utils/economy/workerService');
-const { getTimeToTargetTech } = require('../../utils/misc/gameData');
-const { calculateBaseTimeToPosition, getClosestPositionByPath, getAddOnPlacement, getClosestUnitByPath } = require('../../utils/spatial/pathfinding');
-const { getDistanceByPath, getPathCoordinates, getMapPath } = require('../../utils/spatial/pathfindingCommon');
-const { canLiftOff, unitTypeTrainingAbilities } = require('../../utils/unitManagement/unitConfig');
-const { setPendingOrders } = require('../../utils/unitManagement/unitOrders');
+const { canLiftOff, unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
+const { setPendingOrders } = require('../../units/management/unitOrders');
+const { getTimeToTargetTech } = require('../misc/gameData');
 
 /**
  * Adjusts the time to position based on whether the unit should rally to the base or not.
