@@ -5,8 +5,6 @@ const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff } = require(
 const { getPlanFoodValue } = require("../../../features/strategy/strategyUtils");
 const { GameState } = require("../../../gameState");
 const { getPendingOrders } = require("../../../sharedServices");
-const { getSingletonInstance } = require("../../unit/singletonFactory");
-
 
 /**
  * @param {World} world
@@ -26,7 +24,7 @@ function prepareUnitToBuildAddon(world, unit, targetPosition) {
   const foodUsedByTrainingUnit = unitBeingTrained ? getFoodUsedByUnitType(data, unitBeingTrained) : 0;
 
   // Retrieve the singleton instance of GameState
-  const gameState = getSingletonInstance(GameState);
+  const gameState = GameState.getInstance();
   // Pass the retrieved GameState instance
   const plan = getPlanFoodValue(gameState);
 

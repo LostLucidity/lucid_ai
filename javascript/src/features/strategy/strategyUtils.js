@@ -121,8 +121,40 @@ function getPlanFoodValue(gameState) {
   return gameState.plan[strategyContext.getCurrentStep()].food;
 }
 
+/**
+ * Determines if two steps are similar based on their 'action' and potentially 'unitType'.
+ * This function accounts for differences in structure between BuildOrderStep and StrategyStep.
+ * @param {import("../../gameLogic/unit/intermediaryUtils").GeneralStep} stepA - First step to compare.
+ * @param {import("../../gameLogic/unit/intermediaryUtils").GeneralStep} stepB - Second step to compare.
+ * @returns {boolean} True if the steps are considered similar, false otherwise.
+ */
+function isEqualStep(stepA, stepB) {
+  /**
+   * Extracts the unit type from a step, which could be either a BuildOrderStep or a StrategyStep.
+   * @param {import("../../gameLogic/unit/intermediaryUtils").GeneralStep} step - The step from which to extract the unit type.
+   * @returns {number | null} - The unit type if available, otherwise null.
+   */
+  const getUnitType = (step) => {
+    if (step && step.interpretedAction) {
+      if (Array.isArray(step.interpretedAction)) {
+        return step.interpretedAction.length > 0 ? step.interpretedAction[0].unitType : null;
+      } else {
+        return step.interpretedAction.unitType;
+      }
+    }
+    return null;
+  };
+
+  // Additional checks for time and supply to better differentiate steps
+  return stepA.action === stepB.action &&
+    getUnitType(stepA) === getUnitType(stepB) &&
+    stepA.time === stepB.time &&
+    stepA.supply === stepB.supply;
+}
+
 module.exports = {
   convertToPlanSteps,
   getMaxSupplyFromPlan,
-  getPlanFoodValue
+  getPlanFoodValue,
+  isEqualStep
 };

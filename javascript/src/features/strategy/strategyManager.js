@@ -6,12 +6,12 @@ const { Race } = require("@node-sc2/core/constants/enums");
 
 // Import build orders for each race
 const StrategyContext = require("./strategyContext");
+const { isEqualStep } = require("./strategyUtils");
 const UnitActionStrategy = require("./unitActionStrategy");
 const { UpgradeActionStrategy } = require("./upgradeActionStrategy");
 const config = require("../../../config/config");
 const { performScoutingWithSCV } = require("../../gameLogic/scouting/scoutActions");
 const { calculateTargetCountForStep } = require("../../gameLogic/unit/intermediaryUtils");
-const { getSingletonInstance } = require("../../gameLogic/unit/singletonFactory");
 const { balanceResources, setFoodUsed } = require("../../gameLogic/utils/economy/economyManagement");
 const { isBuildOrderStep } = require("../../gameLogic/utils/gameMechanics/strategyUtils");
 const { GameState } = require('../../gameState');
@@ -96,19 +96,28 @@ class StrategyManager {
    * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    */
   constructor(race = undefined, specificBuildOrderKey = undefined) {
-    this.strategyContext = StrategyContext.getInstance();
-
+    // Ensure singleton instance check is done first
     if (StrategyManager.instance) {
       const instance = StrategyManager.instance;
-      instance.initializeProperties();
-      return instance;
+      instance.initializeProperties(); // Re-initialize properties if necessary
+      return instance; // Return existing instance to prevent further execution
     }
 
+    // Initialize the strategyContext before any method that might use it
+    this.strategyContext = StrategyContext.getInstance();
+
+    // Assign race and initialize strategy only after all dependencies are set up
+    if (race) {
+      this.assignRaceAndInitializeStrategy(race);
+    }
+
+    // Set the instance to this newly created instance
     StrategyManager.instance = this;
+
     this.race = race;
     this.specificBuildOrderKey = specificBuildOrderKey;
-    this.initializeStrategy(race);
 
+    // Initialize other properties
     this.loggedDelays = new Map();
     this.actionStrategy = new UnitActionStrategy();
     this.upgradeStrategy = new UpgradeActionStrategy();
@@ -212,19 +221,22 @@ class StrategyManager {
 
     const actionsToPerform = this.initializeExecution();
     this.processPlanSteps(world, plan, strategyManager, actionsToPerform);
-    this.finalizeStrategyExecution(strategyManager, actionsToPerform, world);
+    this.finalizeStrategyExecution(actionsToPerform, world);
 
     return actionsToPerform;
   }
 
   /**
    * Finalizes the execution of the strategy plan, handling any end-of-plan logic.
-   * @param {StrategyManager} strategyManager
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
    * @param {World} world
    */
-  finalizeStrategyExecution(strategyManager, actionsToPerform, world) {
-    this.strategyContext.setCurrentStep(-1);
+  finalizeStrategyExecution(actionsToPerform, world) {
+    // Safely calling setCurrentStep only if strategyContext is not undefined
+    if (this.strategyContext) {
+      this.strategyContext.setCurrentStep(-1);
+    }
+
     if (!hasEarmarks(world.data)) {
       actionsToPerform.push(...balanceResources(world, undefined, build));
     }
@@ -235,6 +247,11 @@ class StrategyManager {
    * @returns {import('../../core/utils/globalTypes').BuildOrder}
    */
   getBuildOrderForCurrentStrategy() {
+    // Check if strategyContext is not undefined before accessing it
+    if (!this.strategyContext) {
+      throw new Error('strategyContext is undefined');
+    }
+
     const currentStrategy = this.strategyContext.getCurrentStrategy();
 
     if (!currentStrategy) {
@@ -265,15 +282,12 @@ class StrategyManager {
    * @returns {StrategyManager} The singleton instance.
    */
   static getInstance(race = undefined) {
-    // Wrap 'race' in an array
-    const instance = getSingletonInstance(StrategyManager, [race]);
-
-    // Only initialize with race if race is provided
-    if (race !== undefined && instance.race === undefined) {
-      instance.assignRaceAndInitializeStrategy(race);
+    if (!this.instance) {
+      this.instance = new StrategyManager(race);
+    } else if (race !== undefined && this.instance.race === undefined) {
+      this.instance.assignRaceAndInitializeStrategy(race);
     }
-
-    return instance;
+    return this.instance;
   }
 
   /**
@@ -396,10 +410,13 @@ class StrategyManager {
     this.race = race;
 
     try {
-      // Use the debug build order key from configuration if available, otherwise select randomly
-      const buildOrderKey = config.debugBuildOrderKey || this.selectBuildOrderKey(race);
-      
-      this.strategyContext.setCurrentStrategy(this.loadStrategy(race, buildOrderKey));
+      // Ensure the strategyContext is defined before setting the current strategy.
+      if (this.strategyContext) {
+        const buildOrderKey = config.debugBuildOrderKey || this.selectBuildOrderKey(race);
+        this.strategyContext.setCurrentStrategy(this.loadStrategy(race, buildOrderKey));
+      } else {
+        console.error("strategyContext is undefined.");
+      }
     } catch (error) {
       console.error(`Error loading strategy for ${race}:`, error);
     }
@@ -410,29 +427,34 @@ class StrategyManager {
   }
 
   /**
-  * Checks if there's an active strategy plan.
-  * @returns {boolean} True if there's an active plan, false otherwise.
-  */
+   * Checks if there's an active strategy plan.
+   * @returns {boolean} True if there's an active plan, false otherwise.
+   */
   isActivePlan() {
+    // Ensure strategyManager and strategyContext are not undefined before accessing them
     const strategyManager = StrategyManager.getInstance();
+    if (!this.strategyContext) {
+      console.error('strategyContext is undefined');
+      return false;
+    }
+
     const plan = this.strategyContext.getCurrentStrategy();
-    // Coerce the result to a boolean to ensure the return type is strictly boolean
     return !!plan && !strategyManager.isPlanCompleted();
-  } 
+  }
 
   /**
    * Determines if the current strategy plan has been completed.
    * @returns {boolean} True if the plan is completed, false otherwise.
    */
   isPlanCompleted() {
-    const currentStrategy = this.strategyContext.getCurrentStrategy();
+    const currentStrategy = this.strategyContext ? this.strategyContext.getCurrentStrategy() : null;
     if (!currentStrategy || !currentStrategy.steps || currentStrategy.steps.length === 0) {
       // If there's no current strategy, or it has no steps, consider the plan not completed.
       return false;
     }
 
     // Check if the current step index is beyond the last step in the strategy steps array.
-    const currentStep = this.strategyContext.getCurrentStep();
+    const currentStep = this.strategyContext ? this.strategyContext.getCurrentStep() : -1;
     return currentStep >= currentStrategy.steps.length;
   }
 
@@ -445,6 +467,10 @@ class StrategyManager {
   isStepSatisfied(world, step) {
     const gameState = GameState.getInstance();
     const agent = world.agent;
+    const buildOrder = this.getBuildOrderForCurrentStrategy();
+
+    // Calculate stepIndex by finding the index of the current step in the build order
+    const stepIndex = buildOrder.steps.findIndex(s => isEqualStep(s, step));
 
     let interpretedActions;
     if (step.interpretedAction) {
@@ -458,16 +484,16 @@ class StrategyManager {
     }
 
     return interpretedActions.every(interpretedAction => {
-      if (interpretedAction.isUpgrade === false && interpretedAction.unitType !== null) {
+      if (!interpretedAction.isUpgrade && interpretedAction.unitType !== null) {
         const currentUnitCount = gameState.getUnitCount(world, interpretedAction.unitType);
-        const buildOrder = this.getBuildOrderForCurrentStrategy();
+        const startingUnitCounts = {
+          [`unitType_${interpretedAction.unitType}`]: gameState.getStartingUnitCount(interpretedAction.unitType)
+        };
+        const targetCountsForStep = calculateTargetCountForStep(step, buildOrder, startingUnitCounts);
+        const targetCount = targetCountsForStep[`unitType_${interpretedAction.unitType}_step_${stepIndex}`] || 0;
 
-        // Assuming calculateTargetCountForStep now includes logic for initial unit count
-        const startingUnitCount = gameState.getStartingUnitCount(interpretedAction.unitType);
-        const targetCountForStep = calculateTargetCountForStep(step, buildOrder, startingUnitCount);
-
-        return currentUnitCount >= targetCountForStep;
-      } else if (interpretedAction.isUpgrade === true && interpretedAction.upgradeType !== null) {
+        return currentUnitCount >= targetCount;
+      } else if (interpretedAction.isUpgrade && interpretedAction.upgradeType !== null) {
         return agent.upgradeIds ? agent.upgradeIds.includes(interpretedAction.upgradeType) : false;
       }
 
@@ -573,9 +599,13 @@ class StrategyManager {
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform The array of actions to be performed.
    */
   processRegularAction(world, planStep, step, strategyManager, actionsToPerform) {
-    this.strategyContext.setCurrentStep(step);
-    actionsToPerform.push(...this.performPlanStepActions(world, planStep));
-    this.handleEarmarksIfNeeded(world, actionsToPerform);
+    // Ensure that strategyContext is defined before accessing it
+    if (this.strategyContext) {
+      this.strategyContext.setCurrentStep(step);
+      actionsToPerform.push(...this.performPlanStepActions(world, planStep));
+    } else {
+      console.error('strategyContext is undefined, unable to set current step and perform actions.');
+    }
   }
 
   /**
@@ -633,11 +663,18 @@ class StrategyManager {
     resetEarmarks(data);
     GameState.getInstance().pendingFood = 0;
 
+    // Ensure strategyContext is not undefined before accessing it
+    if (!this.strategyContext) {
+      console.error('strategyContext is undefined');
+      return [];
+    }
     const plan = this.strategyContext.getCurrentStrategy();
+
     if (!plan || !this.isValidPlan(plan)) return [];
 
     return this.executeStrategyPlan(world, plan, strategyManager);
   }
+
 
   /**
    * Selects a build order key based on race and possibly other criteria.
