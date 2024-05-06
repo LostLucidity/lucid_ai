@@ -5,15 +5,15 @@ const { Upgrade } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 
 // Import build orders for each race
+const { executeSpecialAction } = require("./actions/SpecialActions");
+const StrategyData = require("./data/strategyData");
 const StrategyContext = require("./strategyContext");
 const { isEqualStep } = require("./strategyUtils");
 const UnitActionStrategy = require("./unitActionStrategy");
 const { UpgradeActionStrategy } = require("./upgradeActionStrategy");
+const { convertTimeStringToSeconds } = require("./utils/timeUtils");
 const config = require("../../../config/config");
-const { performScoutingWithSCV } = require("../../gameLogic/scouting/scoutActions");
-const { calculateTargetCountForStep } = require("../../gameLogic/unit/intermediaryUtils");
 const { balanceResources, setFoodUsed } = require("../../gameLogic/utils/economy/economyManagement");
-const { isBuildOrderStep } = require("../../gameLogic/utils/gameMechanics/strategyUtils");
 const { GameState } = require('../../gameState');
 const { buildSupplyOrTrain } = require("../../units/management/unitManagement");
 const buildOrders = require('../buildOrders');
@@ -92,37 +92,36 @@ class StrategyManager {
 
   /**
    * Constructor for StrategyManager.
+   * Access the instance through StrategyManager.getInstance().
    * @param {SC2APIProtocol.Race | undefined} race - The race type, optional.
    * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    */
-  constructor(race = undefined, specificBuildOrderKey = undefined) {
-    // Ensure singleton instance check is done first
-    if (StrategyManager.instance) {
-      const instance = StrategyManager.instance;
-      instance.initializeProperties(); // Re-initialize properties if necessary
-      return instance; // Return existing instance to prevent further execution
+  constructor(race, specificBuildOrderKey) {
+    // Always initialize strategyData, regardless of singleton instance state
+    this.strategyData = new StrategyData();
+
+    if (!StrategyManager.instance) {
+      this.strategyContext = StrategyContext.getInstance();
+      this.race = race;
+      this.specificBuildOrderKey = specificBuildOrderKey;
+      this.loggedDelays = new Map();
+      this.actionStrategy = new UnitActionStrategy();
+      this.upgradeStrategy = new UpgradeActionStrategy();
+
+      if (race) {
+        this.assignRaceAndInitializeStrategy(race);
+      }
+
+      this.initializeProperties();
+
+      // Set the instance to this newly created instance
+      StrategyManager.instance = this;
+    } else {
+      // Ensure strategyData is available even when returning an existing instance
+      StrategyManager.instance.strategyData = this.strategyData;
     }
 
-    // Initialize the strategyContext before any method that might use it
-    this.strategyContext = StrategyContext.getInstance();
-
-    // Assign race and initialize strategy only after all dependencies are set up
-    if (race) {
-      this.assignRaceAndInitializeStrategy(race);
-    }
-
-    // Set the instance to this newly created instance
-    StrategyManager.instance = this;
-
-    this.race = race;
-    this.specificBuildOrderKey = specificBuildOrderKey;
-
-    // Initialize other properties
-    this.loggedDelays = new Map();
-    this.actionStrategy = new UnitActionStrategy();
-    this.upgradeStrategy = new UpgradeActionStrategy();
-
-    this.initializeProperties();
+    return StrategyManager.instance;
   }
 
   /**
@@ -181,32 +180,6 @@ class StrategyManager {
   }
 
   /**
-   * Converts a time string formatted as 'm:ss' to the total number of seconds.
-   * @param {string} timeString - The time string to convert.
-   * @returns {number} The total seconds.
-   */
-  convertTimeStringToSeconds(timeString) {
-    const [minutes, seconds] = timeString.split(':').map(Number);
-    return minutes * 60 + seconds;
-  }  
-
-  /**
-   * Executes the specified special action.
-   * @param {string} specialAction - The action to execute.
-   * @param {World} world - The current world state.
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
-   */
-  executeSpecialAction(specialAction, world) {
-    switch (specialAction) {
-      case 'Scouting with SCV':
-        return performScoutingWithSCV(world);
-      default:
-        console.warn(`Unhandled special action: ${specialAction}`);
-        return [];
-    }
-  }  
-
-  /**
    * Executes the given strategy plan.
    * @param {World} world - The game world context.
    * @param {import("../../core/utils/globalTypes").BuildOrder | Strategy | undefined} plan - The strategy plan to execute.
@@ -232,14 +205,8 @@ class StrategyManager {
    * @param {World} world
    */
   finalizeStrategyExecution(actionsToPerform, world) {
-    // Safely calling setCurrentStep only if strategyContext is not undefined
-    if (this.strategyContext) {
-      this.strategyContext.setCurrentStep(-1);
-    }
-
-    if (!hasEarmarks(world.data)) {
-      actionsToPerform.push(...balanceResources(world, undefined, build));
-    }
+    this.resetCurrentStep();
+    this.handleEarmarksAndResources(actionsToPerform, world);
   }
 
   /**
@@ -247,24 +214,41 @@ class StrategyManager {
    * @returns {import('../../core/utils/globalTypes').BuildOrder}
    */
   getBuildOrderForCurrentStrategy() {
-    // Check if strategyContext is not undefined before accessing it
     if (!this.strategyContext) {
-      throw new Error('strategyContext is undefined');
+      throw new Error('Strategy context is undefined, which is required to get the current build order.');
     }
 
     const currentStrategy = this.strategyContext.getCurrentStrategy();
-
     if (!currentStrategy) {
-      throw new Error('No current strategy found');
+      throw new Error('No current strategy found in the strategy context.');
     }
 
-    // Check if currentStrategy is a BuildOrder
-    if ('title' in currentStrategy && 'raceMatchup' in currentStrategy && 'steps' in currentStrategy && 'url' in currentStrategy) {
+    if (this.isBuildOrder(currentStrategy)) {
       return currentStrategy;
     }
 
-    // If currentStrategy is not a BuildOrder, handle the error or alternative case
-    throw new Error('Current strategy does not contain a valid build order');
+    throw new Error('The current strategy does not conform to the expected build order structure.');
+  }
+
+  /**
+   * Retrieves the build order key from the current strategy.
+   * @returns {string} - The determined build order key.
+   */
+  getBuildOrderKey() {
+    const strategyContext = StrategyContext.getInstance();
+    const currentStrategy = strategyContext.getCurrentStrategy();
+
+    if (currentStrategy) {
+      // Use 'title' or 'name' as a key, depending on the type of the strategy
+      if ('title' in currentStrategy) {
+        return currentStrategy.title;  // Assuming 'title' can serve as a unique key for BuildOrder
+      } else if ('name' in currentStrategy) {
+        return currentStrategy.name;  // Assuming 'name' can serve as a unique key for Strategy
+      }
+    }
+
+    // Fallback if no strategy is set or if the strategy lacks the necessary properties
+    return 'defaultKey';
   }
 
   /**
@@ -277,30 +261,46 @@ class StrategyManager {
   }  
 
   /**
-   * Retrieves the singleton instance of StrategyManager.
+   * Gets the singleton instance of StrategyManager, creating or updating it if necessary.
+   * This method ensures the instance is never null when returned and handles updates to race or build order key.
    * @param {SC2APIProtocol.Race | undefined} race - The race for the strategy manager.
-   * @returns {StrategyManager} The singleton instance.
+   * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
+   * @returns {StrategyManager}
    */
-  static getInstance(race = undefined) {
+  static getInstance(race = undefined, specificBuildOrderKey = undefined) {
+    // Create a new instance if one does not exist
     if (!this.instance) {
-      this.instance = new StrategyManager(race);
-    } else if (race !== undefined && this.instance.race === undefined) {
-      this.instance.assignRaceAndInitializeStrategy(race);
+      this.instance = new StrategyManager(race, specificBuildOrderKey);
+    } else {
+      // Update the instance's race and build order key if they are provided and different from the current
+      if (race !== undefined && this.instance.race !== race) {
+        this.instance.race = race;
+        // Optionally re-initialize or update race-related configurations
+        this.instance.assignRaceAndInitializeStrategy(race);
+      }
+      if (specificBuildOrderKey !== undefined && this.instance.specificBuildOrderKey !== specificBuildOrderKey) {
+        this.instance.specificBuildOrderKey = specificBuildOrderKey;
+        // Optionally re-initialize or update configurations related to the build order key
+      }
     }
+
     return this.instance;
   }
 
   /**
-   * @param {import("../../core/utils/globalTypes").BuildOrderStep | StrategyStep} rawStep
+   * Handles earmarks and balances resources if necessary.
+   * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
+   * @param {World} world
    */
-  getInterpretedActions(rawStep) {
-    if (rawStep.interpretedAction) {
-      return Array.isArray(rawStep.interpretedAction) ? rawStep.interpretedAction : [rawStep.interpretedAction];
-    } else {
-      const comment = isBuildOrderStep(rawStep) ? rawStep.comment || '' : '';
-      return interpretBuildOrderAction(rawStep.action, comment);
+  handleEarmarksAndResources(actionsToPerform, world) {
+    try {
+      if (!hasEarmarks(world.data)) {
+        actionsToPerform.push(...balanceResources(world, undefined, build));
+      }
+    } catch (error) {
+      console.error("Error handling earmarks and resources:", error);
     }
-  }
+  }  
 
   /**
    * Handles resource earmarks if they have not been set and are necessary.
@@ -350,7 +350,7 @@ class StrategyManager {
     if (this.shouldDelayAction(specialAction, world, rawStep)) {
       return [];  // Return an empty array to indicate no action performed at this time
     }
-    return this.executeSpecialAction(specialAction, world);
+    return executeSpecialAction(specialAction, world);
   }
 
   /**
@@ -383,11 +383,12 @@ class StrategyManager {
   }  
 
   /**
-   * Initializes or ensures that all required properties are properly set up.
-   * This method can help to make sure that every property is initialized, especially 
-   * useful if the instance was created with some properties initially undefined.
+   * Ensures all necessary properties are initialized. Called within the constructor.
    */
   initializeProperties() {
+    if (!this.strategyContext) {
+      this.strategyContext = StrategyContext.getInstance();
+    }
     if (!this.loggedDelays) {
       this.loggedDelays = new Map();
     }
@@ -397,7 +398,7 @@ class StrategyManager {
     if (!this.upgradeStrategy) {
       this.upgradeStrategy = new UpgradeActionStrategy();
     }
-  }  
+  } 
 
   /**
    * Initializes the strategy for the given race.
@@ -409,55 +410,65 @@ class StrategyManager {
     }
     this.race = race;
 
-    try {
-      // Ensure the strategyContext is defined before setting the current strategy.
-      if (this.strategyContext) {
-        const buildOrderKey = config.debugBuildOrderKey || this.selectBuildOrderKey(race);
-        this.strategyContext.setCurrentStrategy(this.loadStrategy(race, buildOrderKey));
-      } else {
-        console.error("strategyContext is undefined.");
-      }
-    } catch (error) {
-      console.error(`Error loading strategy for ${race}:`, error);
+    if (!this.strategyContext) {
+      console.error("strategyContext is undefined.");
+      return; // Early return to prevent further execution if strategyContext is missing
     }
 
-    this.planMin = {};
-    this.selectedTypeToBuild = null;
-    this.unitMax = {};
-  }
+    try {
+      const buildOrderKey = config.debugBuildOrderKey || this.selectBuildOrderKey(race);
+      this.strategyContext.setCurrentStrategy(this.loadStrategy(race, buildOrderKey));
+    } catch (error) {
+      console.error(`Error loading strategy for ${race}:`, error);
+      return; // Early return to prevent further execution if an error occurs
+    }
 
+    // Reset planning variables to their initial state
+    this.resetPlanningVariables();
+  }
   /**
    * Checks if there's an active strategy plan.
    * @returns {boolean} True if there's an active plan, false otherwise.
    */
   isActivePlan() {
-    // Ensure strategyManager and strategyContext are not undefined before accessing them
-    const strategyManager = StrategyManager.getInstance();
     if (!this.strategyContext) {
       console.error('strategyContext is undefined');
       return false;
     }
 
     const plan = this.strategyContext.getCurrentStrategy();
-    return !!plan && !strategyManager.isPlanCompleted();
+    if (!plan) {
+      return false; // Return false immediately if there is no current strategy
+    }
+
+    // Check if the plan is completed only if necessary
+    return !this.isPlanCompleted();
   }
 
+  /**
+   * Type guard to check if a strategy conforms to the BuildOrder type.
+   * @param {any} strategy - The strategy to check.
+   * @returns {strategy is import('../../core/utils/globalTypes').BuildOrder}
+   */
+  isBuildOrder(strategy) {
+    return 'title' in strategy && 'raceMatchup' in strategy && 'steps' in strategy && 'url' in strategy;
+  }
   /**
    * Determines if the current strategy plan has been completed.
    * @returns {boolean} True if the plan is completed, false otherwise.
    */
   isPlanCompleted() {
-    const currentStrategy = this.strategyContext ? this.strategyContext.getCurrentStrategy() : null;
-    if (!currentStrategy || !currentStrategy.steps || currentStrategy.steps.length === 0) {
+    // Utilize optional chaining to simplify null checks
+    const currentStrategy = this.strategyContext?.getCurrentStrategy();
+    if (!currentStrategy?.steps?.length) {
       // If there's no current strategy, or it has no steps, consider the plan not completed.
       return false;
     }
 
-    // Check if the current step index is beyond the last step in the strategy steps array.
-    const currentStep = this.strategyContext ? this.strategyContext.getCurrentStep() : -1;
+    // Use optional chaining to safely access the current step index
+    const currentStep = this.strategyContext?.getCurrentStep() ?? -1;
     return currentStep >= currentStrategy.steps.length;
   }
-
   /**
    * Check if the step conditions are satisfied.
    * @param {World} world
@@ -468,35 +479,29 @@ class StrategyManager {
     const gameState = GameState.getInstance();
     const agent = world.agent;
     const buildOrder = this.getBuildOrderForCurrentStrategy();
-
-    // Calculate stepIndex by finding the index of the current step in the build order
     const stepIndex = buildOrder.steps.findIndex(s => isEqualStep(s, step));
 
-    let interpretedActions;
-    if (step.interpretedAction) {
-      interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : [step.interpretedAction];
-    } else {
-      let comment = '';
-      if (isBuildOrderStep(step)) {
-        comment = step.comment || '';
-      }
-      interpretedActions = interpretBuildOrderAction(step.action, comment);
+    // Retrieve interpreted actions, considering optional properties
+    const interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction :
+      step.interpretedAction ? [step.interpretedAction] :
+        interpretBuildOrderAction(step.action, ('comment' in step) ? step.comment : '');
+
+    if (!this.strategyData) {
+      console.error('Strategy data is not initialized');
+      return false; // Early exit if strategyData is not initialized
     }
 
-    return interpretedActions.every(interpretedAction => {
-      if (!interpretedAction.isUpgrade && interpretedAction.unitType !== null) {
-        const currentUnitCount = gameState.getUnitCount(world, interpretedAction.unitType);
-        const startingUnitCounts = {
-          [`unitType_${interpretedAction.unitType}`]: gameState.getStartingUnitCount(interpretedAction.unitType)
-        };
-        const targetCountsForStep = calculateTargetCountForStep(step, buildOrder, startingUnitCounts);
-        const targetCount = targetCountsForStep[`unitType_${interpretedAction.unitType}_step_${stepIndex}`] || 0;
+    return interpretedActions.every(action => {
+      if (!action.isUpgrade && action.unitType) {
+        const currentUnitCount = gameState.getUnitCount(world, action.unitType);
+        const startingUnitCounts = { [`unitType_${action.unitType}`]: gameState.getStartingUnitCount(action.unitType) };
+        const targetCounts = this.strategyData.calculateTargetCountForStep(step, buildOrder, startingUnitCounts);
+        const targetCount = targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
 
         return currentUnitCount >= targetCount;
-      } else if (interpretedAction.isUpgrade && interpretedAction.upgradeType !== null) {
-        return agent.upgradeIds ? agent.upgradeIds.includes(interpretedAction.upgradeType) : false;
+      } else if (action.isUpgrade && action.upgradeType) {
+        return agent.upgradeIds?.includes(action.upgradeType) ?? false;
       }
-
       return false;
     });
   }
@@ -589,7 +594,6 @@ class StrategyManager {
       this.processStep(world, rawStep, step, strategyManager, actionsToPerform);
     }
   }
-
   /**
    * Processes regular actions for a plan step and handles earmarks if needed.
    * @param {World} world The game world context.
@@ -599,12 +603,21 @@ class StrategyManager {
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform The array of actions to be performed.
    */
   processRegularAction(world, planStep, step, strategyManager, actionsToPerform) {
-    // Ensure that strategyContext is defined before accessing it
-    if (this.strategyContext) {
-      this.strategyContext.setCurrentStep(step);
-      actionsToPerform.push(...this.performPlanStepActions(world, planStep));
-    } else {
+    // Check for necessary context before proceeding
+    if (!this.strategyContext) {
       console.error('strategyContext is undefined, unable to set current step and perform actions.');
+      return; // Early exit to prevent further execution
+    }
+
+    // Set the current strategy step
+    this.strategyContext.setCurrentStep(step);
+
+    // Perform actions specific to the plan step and add to actionsToPerform
+    const stepActions = this.performPlanStepActions(world, planStep);
+    if (stepActions && stepActions.length > 0) {
+      actionsToPerform.push(...stepActions);
+    } else {
+      console.warn(`No actions returned for step ${step}. Ensure that 'performPlanStepActions' is correctly implemented.`);
     }
   }
 
@@ -617,7 +630,7 @@ class StrategyManager {
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
    */
   processStep(world, rawStep, step, strategyManager, actionsToPerform) {
-    const interpretedActions = this.getInterpretedActions(rawStep);
+    const interpretedActions = this.strategyData.getInterpretedActions(rawStep);
     if (!interpretedActions) return;
 
     for (const interpretedAction of interpretedActions) {
@@ -646,35 +659,59 @@ class StrategyManager {
   }
 
   /**
+   * Resets the current step in the strategy context safely.
+   */
+  resetCurrentStep() {
+    if (this.strategyContext) {
+      this.strategyContext.setCurrentStep(-1);
+    } else {
+      console.error("finalizeStrategyExecution: strategyContext is undefined");
+    }
+  }  
+  /**
    * Execute the game plan and return the actions to be performed.
    * @param {World} world 
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
    */
   runPlan(world) {
     const { agent, data } = world;
-    if (!this.validateResources(agent)) return [];
+    const { race } = agent;
+    const specificBuildOrderKey = this.getBuildOrderKey(); // Assume this fetches based on some criteria
 
-    const strategyManager = StrategyManager.getInstance();
-    if (!strategyManager) {
-      console.error('StrategyManager instance is undefined.');
+    // Validate required resources first before continuing
+    if (!this.validateResources(agent)) {
+      console.error('Insufficient resources to run the plan.');
       return [];
     }
 
-    resetEarmarks(data);
-    GameState.getInstance().pendingFood = 0;
+    // Get or initialize the strategy manager instance
+    const strategyManager = StrategyManager.getInstance(race, specificBuildOrderKey);
+    if (!strategyManager) {
+      console.error('Failed to retrieve or initialize StrategyManager.');
+      return [];
+    }
 
-    // Ensure strategyContext is not undefined before accessing it
+    // Reset and prepare game state for the plan execution
+    resetEarmarks(data);
+    const gameState = GameState.getInstance();
+    gameState.pendingFood = 0;  // Example of resetting some game state
+
+    // Ensure strategy context is set up correctly
     if (!this.strategyContext) {
       console.error('strategyContext is undefined');
       return [];
     }
+
+    // Fetch and validate the current strategy plan
     const plan = this.strategyContext.getCurrentStrategy();
+    if (!plan || !this.isValidPlan(plan)) {
+      console.error('Invalid or undefined strategy plan');
+      return [];
+    }
 
-    if (!plan || !this.isValidPlan(plan)) return [];
-
+    // Execute the strategy plan
     return this.executeStrategyPlan(world, plan, strategyManager);
   }
-
 
   /**
    * Selects a build order key based on race and possibly other criteria.
@@ -769,6 +806,15 @@ class StrategyManager {
   }
 
   /**
+   * Resets planning variables to their default values.
+   */
+  resetPlanningVariables() {
+    this.planMin = {};
+    this.selectedTypeToBuild = null;
+    this.unitMax = {};
+  }
+
+  /**
    * @param {number | null} type
    */
   setSelectedTypeToBuild(type) {
@@ -783,7 +829,7 @@ class StrategyManager {
    * @returns {boolean} True if the action should be delayed, false otherwise.
    */
   shouldDelayAction(specialAction, world, rawStep) {
-    const targetTime = this.convertTimeStringToSeconds(rawStep.time);
+    const targetTime = convertTimeStringToSeconds(rawStep.time);
     const currentTime = world.resources.get().frame.timeInSeconds();
     const delayKey = `${specialAction}-${rawStep.time}`;
 
