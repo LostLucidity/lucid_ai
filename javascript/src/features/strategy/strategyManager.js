@@ -616,8 +616,6 @@ class StrategyManager {
     const stepActions = this.performPlanStepActions(world, planStep);
     if (stepActions && stepActions.length > 0) {
       actionsToPerform.push(...stepActions);
-    } else {
-      console.warn(`No actions returned for step ${step}. Ensure that 'performPlanStepActions' is correctly implemented.`);
     }
   }
 

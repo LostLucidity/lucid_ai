@@ -20,7 +20,7 @@ const { earmarkThresholdReached } = require('../../core/common/EarmarkManager');
 const { getPathablePositionsForStructure, isPlaceableAtGasGeyser, positionIsEqual, createUnitCommand } = require('../../core/utils/common');
 const { logMessageStorage } = require('../../core/utils/logging');
 const { calculateBaseTimeToPosition, getClosestPositionByPath, getAddOnPlacement, getClosestUnitByPath } = require('../../gameLogic/spatial/pathfinding');
-const { getDistanceByPath, getPathCoordinates, getMapPath } = require('../../gameLogic/spatial/pathfindingCommon');
+const { getDistanceByPath, getPathCoordinates, getMapPath, getPathablePositions } = require('../../gameLogic/spatial/pathfindingCommon');
 const { getMovementSpeed } = require('../../gameLogic/unit/coreUtils');
 const { isPendingContructing } = require('../../gameLogic/unit/workerCommonUtils');
 const { getClosestPathWithGasGeysers, ability, isIdleOrAlmostIdle, setBuilderLabel, getBuildTimeLeft, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../gameLogic/utils/economy/workerService');
@@ -71,12 +71,11 @@ function calculatePathablePositions(resources, startPos, targetPos, map, units) 
   const pathableInfo = getClosestPathWithGasGeysers(resources, startPos, targetPos);
   const basesWithProgress = units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1);
   const closestBaseByPath = getClosestBaseByPath(resources, pathableInfo.pathableTargetPosition, basesWithProgress);
-  const pathablePositions = getPathablePositionsForStructure(map, closestBaseByPath);
 
   return {
     closestBaseByPath,
     pathCoordinates: pathableInfo.pathCoordinates,
-    pathableTargetPosition: getClosestPositionByPath(resources, targetPos, pathablePositions)[0]
+    pathableTargetPosition: pathableInfo.pathableTargetPosition
   };
 }
 
@@ -267,14 +266,19 @@ function findBestPositionForAddOn(world, unit, logCondition = false) {
  */
 function findPathablePositions(world, base, targetPosition) {
   const { map } = world.resources.get();
+
   if (!base.pos) {
     console.error("Base position is undefined, cannot determine pathable positions.");
     return { pathableBasePosition: undefined, pathableTargetPosition: undefined };
   }
 
-  const pathablePositions = getPathablePositionsForStructure(map, base);
-  const pathableBasePosition = getClosestPositionByPath(world.resources, base.pos, pathablePositions)[0];
-  const pathableTargetPosition = getClosestPositionByPath(world.resources, targetPosition, pathablePositions)[0];
+  // Get pathable positions around the base
+  const basePathablePositions = getPathablePositionsForStructure(map, base);
+  const pathableBasePosition = getClosestPositionByPath(world.resources, base.pos, basePathablePositions)[0];
+
+  // Calculate pathable positions around the target separately
+  const targetPathablePositions = getPathablePositions(map, targetPosition);
+  const pathableTargetPosition = getClosestPositionByPath(world.resources, targetPosition, targetPathablePositions)[0];
 
   return { pathableBasePosition, pathableTargetPosition };
 }
