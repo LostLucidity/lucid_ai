@@ -6,9 +6,10 @@
 class CacheManager {
   constructor() {
     this.cachedData = new Map();
-    this.unitTypeAbilityCache = new Map(); // Cache for unit type abilities
-    this.pathCache = new Map(); // Cache for path data
-    this.gasGeysersCache = new Map(); // Cache for gas geyser data
+    this.unitTypeAbilityCache = new Map();
+    this.pathCache = new Map();
+    this.gasGeysersCache = new Map();
+    this.completedBasesCache = null; // New cache for completed bases
   }
 
   /**
@@ -18,6 +19,13 @@ class CacheManager {
    */
   cacheUnitTypeAbilityData(abilityId, data) {
     this.unitTypeAbilityCache.set(abilityId, data);
+  }
+
+  /**
+   * Clears the completed bases cache.
+   */
+  clearCompletedBasesCache() {
+    this.completedBasesCache = null;
   }
 
   /**
@@ -38,6 +46,14 @@ class CacheManager {
       this.pathCache.clear();
     }
   }  
+
+  /**
+   * Gets the cached completed bases.
+   * @returns {Unit[] | null} - The cached completed bases or null if not cached.
+   */
+  getCompletedBases() {
+    return this.completedBasesCache;
+  }
 
   /**
    * Retrieves data for a given key, if it's current for the specified frame.
@@ -106,6 +122,15 @@ class CacheManager {
    */
   updateCache = (key, data, frame) => {
     this.cachedData.set(key, { data, frame });
+  }
+
+  /**
+   * Updates the cache with completed bases.
+   * @param {Unit[]} bases - The bases to cache.
+   */
+  updateCompletedBasesCache(bases) {
+    console.log("Updating completed bases cache.");
+    this.completedBasesCache = bases;
   }
 }
 

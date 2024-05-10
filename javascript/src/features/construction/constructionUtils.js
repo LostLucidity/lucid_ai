@@ -17,6 +17,7 @@ const { stopOverlappingBuilders, handleNonRallyBase } = require('./buildingWorke
 // eslint-disable-next-line no-unused-vars
 const { addEarmark } = require('../../core/common/buildUtils');
 const { earmarkThresholdReached } = require('../../core/common/EarmarkManager');
+const cacheManager = require('../../core/utils/cache');
 const { getPathablePositionsForStructure, isPlaceableAtGasGeyser, positionIsEqual, createUnitCommand } = require('../../core/utils/common');
 const { logMessageStorage } = require('../../core/utils/logging');
 const { calculateBaseTimeToPosition, getClosestPositionByPath, getAddOnPlacement, getClosestUnitByPath } = require('../../gameLogic/spatial/pathfinding');
@@ -63,13 +64,14 @@ function calculateMovementSpeed(unit) {
  * @param {ResourceManager} resources
  * @param {Point2D} startPos
  * @param {Point2D} targetPos
- * @param {MapResource} map
- * @param {UnitResource} units
  * @returns {{ closestBaseByPath: Unit, pathCoordinates: Point2D[], pathableTargetPosition: Point2D }}
  */
-function calculatePathablePositions(resources, startPos, targetPos, map, units) {
+function calculatePathablePositions(resources, startPos, targetPos) {
   const pathableInfo = getClosestPathWithGasGeysers(resources, startPos, targetPos);
-  const basesWithProgress = units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1);
+  // Ensure we always have an array, use an empty array as a fallback
+  const basesWithProgress = cacheManager.getCompletedBases() || [];
+
+  // Pass the (possibly empty) array to getClosestBaseByPath
   const closestBaseByPath = getClosestBaseByPath(resources, pathableInfo.pathableTargetPosition, basesWithProgress);
 
   return {
@@ -599,7 +601,7 @@ function buildWithNydusNetwork(world, unitType, abilityId) {
 function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, getMiddleOfStructureFn, getTimeToTargetCostFn) {
   const { constructionAbilities } = groupTypes;
   const { agent, data, resources } = world;
-  const { debug, map, units } = resources.get();
+  const { debug, map } = resources.get();
 
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
@@ -625,7 +627,7 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
     return collectedActions;
   }
 
-  const pathablePositionsInfo = calculatePathablePositions(resources, unit.pos, position, map, units);
+  const pathablePositionsInfo = calculatePathablePositions(resources, unit.pos, position);
   if (!pathablePositionsInfo.closestBaseByPath) {
     return collectedActions;
   }

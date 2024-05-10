@@ -5,6 +5,7 @@
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 // Internal module imports
 
+const cacheManager = require('./utils/cache');
 const logger = require('./utils/logger');
 const config = require('../../config/config');
 const ActionCollector = require('../features/actions/actionCollector');
@@ -40,6 +41,7 @@ const bot = createAgent({
   onGameStart: async (world) => {
     const gameInit = new GameInitialization(world);
     await gameInit.enhancedOnGameStart();
+    cacheManager.updateCompletedBasesCache(world.resources.get().units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1));
   },
 
   /**
@@ -47,6 +49,8 @@ const bot = createAgent({
    * @param {World} world - The current game world state.
    */
   onStep: async (world) => {
+    // Optionally update cache here if there are relevant game events
+    cacheManager.updateCompletedBasesCache(world.resources.get().units.getBases().filter(base => base.buildProgress && base.buildProgress >= 1));
     const actionCollector = new ActionCollector(world);
     const actions = actionCollector.collectActions();
     await executeActions(world, actions);
