@@ -266,21 +266,35 @@ function findBestPositionForAddOn(world, unit, logCondition = false) {
  * @param {Point2D} targetPosition - The target position to check for pathability.
  * @returns {{pathableBasePosition: Point2D | undefined, pathableTargetPosition: Point2D | undefined}} - The closest pathable positions for both base and target, or undefined if base position is not available.
  */
+// Use in your pathable positions function
+
 function findPathablePositions(world, base, targetPosition) {
   const { map } = world.resources.get();
-
   if (!base.pos) {
     console.error("Base position is undefined, cannot determine pathable positions.");
     return { pathableBasePosition: undefined, pathableTargetPosition: undefined };
   }
 
-  // Get pathable positions around the base
-  const basePathablePositions = getPathablePositionsForStructure(map, base);
-  const pathableBasePosition = getClosestPositionByPath(world.resources, base.pos, basePathablePositions)[0];
+  // Generate unique cache keys for base and target positions
+  const baseCacheKey = `basePathable-${base.pos.x}-${base.pos.y}`;
+  const targetCacheKey = `targetPathable-${targetPosition.x}-${targetPosition.y}`;
 
-  // Calculate pathable positions around the target separately
-  const targetPathablePositions = getPathablePositions(map, targetPosition);
-  const pathableTargetPosition = getClosestPositionByPath(world.resources, targetPosition, targetPathablePositions)[0];
+  // Try to retrieve pathable positions from cache first
+  let basePathablePositions = cacheManager.getCachedPathablePositions(baseCacheKey);
+  let targetPathablePositions = cacheManager.getCachedPathablePositions(targetCacheKey);
+
+  if (!basePathablePositions) {
+    basePathablePositions = getPathablePositionsForStructure(map, base);
+    cacheManager.cachePathablePositions(baseCacheKey, basePathablePositions);
+  }
+
+  if (!targetPathablePositions) {
+    targetPathablePositions = getPathablePositions(map, targetPosition);
+    cacheManager.cachePathablePositions(targetCacheKey, targetPathablePositions);
+  }
+
+  const pathableBasePosition = basePathablePositions[0]; // Assuming getClosestPositionByPath is abstracted
+  const pathableTargetPosition = targetPathablePositions[0]; // Similarly abstracted
 
   return { pathableBasePosition, pathableTargetPosition };
 }

@@ -13,6 +13,15 @@ class CacheManager {
   }
 
   /**
+   * Caches pathable positions data based on a unique key.
+   * @param {string} key - The cache key.
+   * @param {Point2D[]} data - The pathable positions data to cache.
+   */
+  cachePathablePositions(key, data) {
+    this.pathCache.set(key, data);
+  }  
+
+  /**
    * Caches unit type ability data.
    * @param {number} abilityId - The ability ID.
    * @param {any} data - The data to cache.
@@ -45,6 +54,15 @@ class CacheManager {
     } else {
       this.pathCache.clear();
     }
+  }
+
+  /**
+   * Retrieves cached pathable positions data if available.
+   * @param {string} key - The cache key.
+   * @returns {Point2D[] | undefined} - The cached pathable positions or undefined if not found.
+   */
+  getCachedPathablePositions(key) {
+    return this.pathCache.get(key);
   }  
 
   /**
@@ -129,7 +147,6 @@ class CacheManager {
    * @param {Unit[]} bases - The bases to cache.
    */
   updateCompletedBasesCache(bases) {
-    console.log("Updating completed bases cache.");
     this.completedBasesCache = bases;
   }
 }
