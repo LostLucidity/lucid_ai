@@ -15,9 +15,10 @@ const { getClosestBuilderCandidate } = require("../../gameLogic/spatial/pathfind
 const { calculateClosestConstructingWorker } = require("../../gameLogic/unit/coreUtils");
 const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters, calculateMovingOrConstructingNonDronesTimeToPosition } = require("../../gameLogic/utils/economy/workerService");
 const { getBuilders } = require("../../gameLogic/utils/gameMechanics/workerUtils");
+const { gatherCandidateWorkersTimeToPosition } = require("../../gameLogic/workerManagementUtils");
 const { GameState } = require('../../gameState');
 const BuildingPlacement = require("../construction/buildingPlacement");
-const { gatherCandidateWorkersTimeToPosition, keepPosition } = require("../construction/constructionUtils");
+const { keepPosition } = require("../construction/buildingPlacementUtils");
 
 /**
  * Command to place a building at the specified position.

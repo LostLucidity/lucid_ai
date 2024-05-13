@@ -23,7 +23,6 @@ class ConstructionSpatialService {
    */
   constructor(spatialUtils) {
     this.spatialUtils = spatialUtils;
-    this.constructionUtils = null; // This will be set post instantiation
   }
 
   /**
@@ -117,14 +116,6 @@ class ConstructionSpatialService {
     // Directly access construction grids data
     return getCurrentlyEnrouteConstructionGrids(world);
   }
-
-  /**
-   * Sets the construction utilities module.
-   * @param {import("../features/construction/constructionUtils.js")} constructionUtils - The construction utilities module.
-   */
-  setConstructionUtils(constructionUtils) {
-    this.constructionUtils = constructionUtils;
-  } 
 }
 
 const service = new ConstructionSpatialService(spatialUtils);

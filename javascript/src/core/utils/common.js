@@ -2,7 +2,6 @@
 "use strict"
 
 const { UnitType } = require("@node-sc2/core/constants");
-const groupTypes = require("@node-sc2/core/constants/groups");
 const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
@@ -274,18 +273,6 @@ function isLineTraversable(map, start, end) {
 }
 
 /**
- * Determines if a position is suitable for placing a building near a gas geyser.
- * 
- * @param {MapResource} map 
- * @param {UnitTypeId} unitType
- * @param {Point2D} position
- * @returns {boolean}
- */
-function isPlaceableAtGasGeyser(map, unitType, position) {
-  return groupTypes.gasMineTypes.includes(unitType) && map.freeGasGeysers().some(gasGeyser => gasGeyser.pos && getDistance(gasGeyser.pos, position) <= 1);
-}
-
-/**
  * @typedef {Object} InterpretedStep
  * @property {number} supply - The supply count at this step.
  * @property {string} time - The game time for this step.
@@ -357,6 +344,5 @@ module.exports = {
   getStringNameOfConstant,
   getUnitsWithinDistance,
   isLineTraversable,
-  isPlaceableAtGasGeyser,
   positionIsEqual,
 };

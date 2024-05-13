@@ -15,7 +15,8 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getNeighbors, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { getPathCoordinates, getClosestPosition, getDistanceByPath, getStructureCells, getPathablePositions } = require("./pathfindingCommon");
+const { getPathCoordinates, getClosestPosition, getStructureCells, getPathablePositions } = require("./pathfindingCommon");
+const { getDistanceByPath, getClosestPositionByPath } = require("./pathfindingCore");
 const { getDistance } = require("./spatialCoreUtils");
 const { getGasGeysersCache, setGasGeysersCache } = require("../../core/utils/cache");
 const { getPathablePositionsForStructure } = require("../../core/utils/common");
@@ -421,21 +422,6 @@ function getClosestUnitByPath(resources, position, units, gasGeysers = [], n = 1
 }
 
 /**
- * 
- * @param {ResourceManager} resources 
- * @param {Point2D} position 
- * @param {Point2D[]} points
- * @param {number} n
- * @returns {Point2D[]}
- */
-function getClosestPositionByPath(resources, position, points, n = 1) {
-  return points.map(point => ({ point, distance: getDistanceByPath(resources, position, point) }))
-    .sort((a, b) => a.distance - b.distance)
-    .map(pointObject => pointObject.point)
-    .slice(0, n);
-}
-
-/**
  * @param {ResourceManager} resources
  * @param {{center: Point2D, units: Unit[]}[]} builderCandidateClusters
  * @param {Point2D} position
@@ -732,7 +718,6 @@ module.exports = {
   getBuildingAndAddonGrids,
   getBuildingFootprintOfOrphanAddons,
   getClosestBuilderCandidate,
-  getClosestPositionByPath,
   getClosestUnitByPath,
   getClosestUnitFromUnit,
   getClosestUnitPositionByPath,

@@ -7,9 +7,9 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
-// Internal module imports
 const getRandom = require("@node-sc2/core/utils/get-random");
 
+// Internal module imports
 const { createUnitCommand } = require("../../../core/utils/common");
 const { GameState } = require('../../../gameState');
 const MapResources = require("../../../gameState/mapResources");
@@ -17,7 +17,7 @@ const { getPendingOrders } = require("../../../sharedServices");
 const { unitTypeTrainingAbilities, flyingTypesMapping } = require("../../../units/management/unitConfig");
 const { setPendingOrders } = require("../../../units/management/unitOrders");
 const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, getGasGeysers, dbscan } = require("../../spatial/pathfinding");
-const { getDistanceByPath } = require("../../spatial/pathfindingCommon");
+const { getDistanceByPath } = require("../../spatial/pathfindingCore");
 const { getDistance } = require("../../spatial/spatialCoreUtils");
 const { getMovementSpeed, getWorkerSourceByPath } = require("../../unit/coreUtils");
 const { getClosestPathablePositionsBetweenPositions } = require("../gameMechanics/pathfindingUtils");

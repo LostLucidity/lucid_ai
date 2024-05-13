@@ -1,7 +1,7 @@
 "use strict";
 
 const { calculateLiftLandAndMoveTime } = require("../../../core/utils/baseUnitUtils");
-const { hasAddOn, findBestPositionForAddOn } = require("../../../features/construction/constructionUtils");
+const { hasAddOn, findBestPositionForAddOn } = require("../../../features/construction/buildingPlacementUtils");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../../../units/management/unitConfig");
 const { unitPendingOrders } = require("../../../units/management/unitOrders");
 const { getTimeInSeconds } = require("../../spatial/pathfinding");

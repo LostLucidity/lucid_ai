@@ -10,7 +10,7 @@ const { SPEED_MODIFIERS } = require("../../core/utils/constants");
 const { GameState } = require("../../gameState");
 const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
 const { getClosestUnitByPath, getTimeInSeconds } = require("../spatial/pathfinding");
-const { getDistanceByPath } = require("../spatial/pathfindingCommon");
+const { getDistanceByPath } = require("../spatial/pathfindingCore");
 const { getDistance } = require("../spatial/spatialCoreUtils");
 
 

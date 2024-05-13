@@ -8,22 +8,24 @@ const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map
 
 const { getUnitsCapableToAddOn } = require("./addonUtils");
 const BuildingPlacement = require("./buildingPlacement");
-const { commandBuilderToConstruct, buildWithNydusNetwork, morphStructureAction, getInTheMain, findBestPositionForAddOn, premoveBuilderToPosition, determineBuildingPosition } = require("./constructionUtils");
+const { getInTheMain, determineBuildingPosition, findBestPositionForAddOn, isPlaceableAtGasGeyser } = require("./buildingPlacementUtils");
 const config = require("../../../config/config");
 const { attemptBuildAddOn, addEarmark, attemptLiftOff } = require("../../core/common/buildUtils");
 const { getEarmarkedFood, earmarks } = require("../../core/common/EarmarkManager");
-const { isPlaceableAtGasGeyser } = require("../../core/utils/common");
 const { attemptLand } = require("../../gameLogic/building/buildingUtils");
 const { getNextSafeExpansions } = require("../../gameLogic/spatial/pathfinding");
 const { findPlacements, findPosition } = require("../../gameLogic/spatial/spatialUtils");
 const { calculateDistance } = require("../../gameLogic/unit/coreUtils");
 const { getTimeUntilUnitCanBuildAddon } = require("../../gameLogic/utils/gameMechanics/unitUtils");
 const { prepareUnitToBuildAddon } = require("../../gameLogic/utils/shared/unitPreparationUtils");
+const { commandBuilderToConstruct } = require("../../gameLogic/workerManagementUtils");
 const { GameState } = require("../../gameState");
 const MapResources = require("../../gameState/mapResources");
+const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
 const { getPendingOrders } = require("../../sharedServices");
 const { flyingTypesMapping } = require("../../units/management/unitConfig");
 const { updateAddOnType, getUnitTypeToBuild } = require("../../units/management/unitHelpers");
+const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionsUtils");
 const { commandPlaceBuilding } = require("../misc/builderUtils");
 const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../misc/gameData");
 
@@ -219,7 +221,7 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
           if (fastestAvailableUnit && fastestAvailableTime >= timeUntilCanBeAfforded) {
             // Prepare the fastest available unit to build the addon
             // TODO: Implement a function to prepare the unit to build the addon
-            let targetPosition = findBestPositionForAddOn(world, fastestAvailableUnit);
+            let targetPosition = findBestPositionForAddOn(world, fastestAvailableUnit, checkAddOnPlacement);
             collectedActions.push(...prepareUnitToBuildAddon(world, fastestAvailableUnit, targetPosition));
           }
         }
