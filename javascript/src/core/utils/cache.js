@@ -40,15 +40,15 @@ class CacheManager {
   /**
    * Clears the gas geysers cache.
    */
-  clearGasGeysersCache = () => {
+  clearGasGeysersCache() {
     this.gasGeysersCache.clear();
-  }  
+  }
 
   /**
    * Clears a specific path from the path cache or the entire cache if no key is provided.
    * @param {string} [key] - The key of the path to clear. If not provided, the entire cache is cleared.
    */
-  clearPathCache = (key) => {
+  clearPathCache(key) {
     if (key) {
       this.pathCache.delete(key);
     } else {
@@ -92,7 +92,7 @@ class CacheManager {
    * @param {string} key - The key to retrieve the gas geyser data.
    * @returns {any} - The cached gas geyser data or undefined if not found.
    */
-  getGasGeysersCache = (key) => {
+  getGasGeysersCache(key) {
     return this.gasGeysersCache.get(key);
   } 
 
@@ -101,8 +101,8 @@ class CacheManager {
    * @param {string} key - The key to retrieve the path data.
    * @returns {number[][] | undefined} - The cached path data or undefined if not found.
    */
-  getPathCache = (key) => {
-    return this.pathCache.get(key); // Corrected to use this.pathCache
+  getPathCache(key) {
+    return this.pathCache.get(key);
   }
 
   /**
@@ -119,7 +119,7 @@ class CacheManager {
    * @param {string} key - The key to store the gas geyser data.
    * @param {any} data - The gas geyser data to cache.
    */
-  setGasGeysersCache = (key, data) => {
+  setGasGeysersCache(key, data) {
     this.gasGeysersCache.set(key, data);
   }
 
@@ -128,8 +128,8 @@ class CacheManager {
    * @param {string} key - The key to store the path data.
    * @param {number[][]} data - The path data to cache.
    */
-  setPathCache = (key, data) => {
-    this.pathCache.set(key, data); // Corrected to use this.pathCache
+  setPathCache(key, data) {
+    this.pathCache.set(key, data);
   }
 
   /**
@@ -138,7 +138,7 @@ class CacheManager {
    * @param {Unit[]} data - The data to cache.
    * @param {number} frame - The game loop frame when this data is relevant.
    */
-  updateCache = (key, data, frame) => {
+  updateCache(key, data, frame) {
     this.cachedData.set(key, { data, frame });
   }
 
