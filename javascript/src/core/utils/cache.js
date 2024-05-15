@@ -6,10 +6,11 @@
 class CacheManager {
   constructor() {
     this.cachedData = new Map();
+    this.completedBasesCache = null;
     this.unitTypeAbilityCache = new Map();
     this.pathCache = new Map();
     this.gasGeysersCache = new Map();
-    this.completedBasesCache = null; // New cache for completed bases
+    this.needsUpdate = false;  // Flag to determine if cache needs an update
   }
 
   /**
@@ -114,6 +115,10 @@ class CacheManager {
     return this.unitTypeAbilityCache.get(abilityId);
   }
 
+  isUpdateNeeded() {
+    return this.needsUpdate;
+  }  
+
   /**
    * Sets the gas geyser data in the cache.
    * @param {string} key - The key to store the gas geyser data.
@@ -131,6 +136,10 @@ class CacheManager {
   setPathCache(key, data) {
     this.pathCache.set(key, data);
   }
+
+  resetUpdateNeededFlag() {
+    this.needsUpdate = false;
+  }  
 
   /**
    * Updates the cache with new data.
