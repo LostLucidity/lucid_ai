@@ -9,14 +9,55 @@ const cacheManager = require('./utils/cache');
 const logger = require('./utils/logger');
 const config = require('../../config/config');
 const ActionCollector = require('../features/actions/actionCollector');
+const StrategyManager = require('../features/strategy/strategyManager');
 const { clearAllPendingOrders } = require('../gameLogic/utils/gameMechanics/unitUtils');
 const { GameState } = require('../gameState');
 const GameInitialization = require('../initialization/GameInitialization');
+
+const buildOrderCompletion = new Map();
 
 const completedBasesMap = new Map();
 
 // Instantiate the game state manager
 const gameState = GameState.getInstance();
+
+/**
+ * Checks and updates the build order progress.
+ * @param {World} world - The current game world state.
+ * @param {import('./utils/globalTypes').BuildOrderStep[]} buildOrder - The build order to track and update.
+ */
+async function checkBuildOrderProgress(world, buildOrder) {
+  const currentTime = world.resources.get().frame.getGameLoop();
+  const BUFFER_TIME_SECONDS = 15; // 15 seconds buffer time
+  const BUFFER_TIME_TICKS = BUFFER_TIME_SECONDS * 22.4; // Convert buffer time to game ticks
+
+  buildOrder.forEach(order => {
+    let orderStatus = buildOrderCompletion.get(order);
+
+    // Initialize status if not already present
+    if (!orderStatus) {
+      orderStatus = { completed: false, logged: false };
+      buildOrderCompletion.set(order, orderStatus);
+    }
+
+    if (!orderStatus.completed) {
+      const satisfied = StrategyManager.getInstance().isStepSatisfied(world, order);
+      if (satisfied) {
+        orderStatus.completed = true;
+        console.log(`Build Order Step Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}`);
+      } else {
+        // Convert order.time to game ticks using the utility function
+        const expectedTimeInTicks = timeStringToGameTicks(order.time);
+
+        // Log an alert if the current time has exceeded the expected time plus buffer time for this step and it hasn't been logged yet
+        if (expectedTimeInTicks + BUFFER_TIME_TICKS < currentTime && !orderStatus.logged) {
+          console.warn(`Build Order Step NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${(currentTime / 22.4).toFixed(2)} seconds.`);
+          orderStatus.logged = true;
+        }
+      }
+    }
+  });
+}
 
 /**
  * Executes collected actions and handles any errors.
@@ -33,6 +74,17 @@ async function executeActions(world, actionCollection) {
     }
   }
 }
+
+/**
+ * Converts a time string in "minutes:seconds" format to game ticks.
+ * @param {string} time - The time string to convert.
+ * @returns {number} - The equivalent game ticks.
+ */
+function timeStringToGameTicks(time) {
+  const [minutes, seconds] = time.split(':').map(Number);
+  return (minutes * 60 + seconds) * 22.4;
+}
+
 
 // Create a new StarCraft II bot agent with event handlers.
 const bot = createAgent({
@@ -66,21 +118,22 @@ const bot = createAgent({
    * @param {World} world - The current game world state.
    */
   onStep: async (world) => {
-    let updateNeeded = false;
     const bases = world.resources.get().units.getBases();
+    const completedBases = [];
 
     for (const base of bases) {
       if ((base.buildProgress ?? 0) >= 1 && !completedBasesMap.get(base.tag)) {
         completedBasesMap.set(base.tag, true);
-        updateNeeded = true;
+        completedBases.push(base);
       }
     }
 
-    if (updateNeeded) {
-      const completedBases = bases.filter(base => completedBasesMap.get(base.tag));
+    if (completedBases.length > 0) {
       cacheManager.updateCompletedBasesCache(completedBases);
-      cacheManager.resetUpdateNeededFlag();  // Reset flag after cache update
     }
+
+    const buildOrder = gameState.getBuildOrder();
+    await checkBuildOrderProgress(world, buildOrder);
 
     try {
       const actionCollector = new ActionCollector(world);

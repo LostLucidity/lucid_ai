@@ -15,14 +15,8 @@ const { GameState } = require('../../gameState');
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The collection of actions to be executed.
  */
 function assignInitialWorkers(world) {
-  // Retrieve the resource manager from the world object
   const resourceManager = world.resources;
-
-  // Generate actions for assigning workers
-  const workerActions = assignWorkers(resourceManager);
-
-  // Return the collection of actions without sending them
-  return workerActions;
+  return assignWorkers(resourceManager);
 }
 
 /**
@@ -30,10 +24,14 @@ function assignInitialWorkers(world) {
  * 
  * @param {World} world - The game world context.
  * @param {SC2APIProtocol.Race} botRace - The race of the bot.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} The actions to assign initial workers.
  */
 function initializeStrategyAndAssignWorkers(world, botRace) {
   const strategyManager = StrategyManager.getInstance(botRace);
-  if (!StrategyContext.getInstance().getCurrentStrategy()) {
+  const strategyContext = StrategyContext.getInstance();
+  const gameState = GameState.getInstance();
+
+  if (!strategyContext.getCurrentStrategy()) {
     strategyManager.initializeStrategy(botRace);
   }
 
@@ -41,10 +39,17 @@ function initializeStrategyAndAssignWorkers(world, botRace) {
   if (buildOrder && buildOrder.steps) {
     const maxSupply = strategyUtils.getMaxSupplyFromPlan(buildOrder.steps, botRace);
     config.planMax = { supply: maxSupply, gasMine: 0 };
-    GameState.getInstance().setPlan(strategyUtils.convertToPlanSteps(buildOrder.steps));
+    gameState.setPlan(strategyUtils.convertToPlanSteps(buildOrder.steps));
+
+    // Enhance build order steps with a completed flag
+    const enhancedBuildOrder = buildOrder.steps.map(step => ({
+      ...step,
+      completed: false
+    }));
+
+    gameState.setBuildOrder(enhancedBuildOrder);
   }
 
-  // Return worker actions for the caller to execute
   return assignInitialWorkers(world);
 }
 

@@ -4,7 +4,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { getGridsInCircleWithinMap } = require("./spatialCore");
 const { getDistance } = require("./spatialCoreUtils");
-const { clearPathCache, getPathCache, setPathCache } = require("../../core/utils/cache");
+const cacheManager = require("../../core/utils/cache");
 const { getClosestPathablePositions } = require("../../core/utils/common");
 
 /**
@@ -55,15 +55,15 @@ function getMapPath(map, start, end, options = {}) {
 
   const pathKey = `${start.x},${start.y}-${end.x},${end.y}`;
 
-  if (getPathCache(pathKey)) {
-    const cachedPath = getPathCache(pathKey) || [];
+  if (cacheManager.getPathCache(pathKey)) {
+    const cachedPath = cacheManager.getPathCache(pathKey) || [];
     const pathCoordinates = getPathCoordinates(cachedPath);
 
     if (pathCoordinates.every(coordinate => map.isPathable(coordinate))) {
       return cachedPath;
     }
 
-    clearPathCache(pathKey);
+    cacheManager.clearPathCache(pathKey);
   }
 
   const mapPath = map.path(start, end, options);
@@ -71,13 +71,13 @@ function getMapPath(map, start, end, options = {}) {
     return [];
   }
 
-  setPathCache(pathKey, mapPath);
+  cacheManager.setPathCache(pathKey, mapPath);
 
   for (let i = 1; i < mapPath.length; i++) {
     const subStart = mapPath[i];
     const subPathKey = `${subStart[0]},${subStart[1]}-${end.x},${end.y}`;
-    if (!getPathCache(subPathKey)) {
-      setPathCache(subPathKey, mapPath.slice(i));
+    if (!cacheManager.getPathCache(subPathKey)) {
+      cacheManager.setPathCache(subPathKey, mapPath.slice(i));
     } else {
       // If the path from the current point to the end is already cached, 
       // there's no need to set it for the rest of the points in the current path.

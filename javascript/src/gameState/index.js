@@ -69,6 +69,12 @@ class GameState {
   availableProductionUnits = new Map();
 
   /**
+   * The build order for the current strategy or game.
+   * @type {any[]} // Adjust the type according to your actual build order structure
+   */
+  buildOrder = [];
+
+  /**
    * The armor upgrade level for enemy units.
    * @type {number}
    */
@@ -97,7 +103,7 @@ class GameState {
   /**
    * @type {GameState | null} Singleton instance of the GameState.
    */
-  static instance = null;  
+  static instance = null;
 
   /**
    * The plan consisting of a sequence of PlanStep objects.
@@ -294,6 +300,14 @@ class GameState {
   }
 
   /**
+   * Retrieves the build order.
+   * @returns {any[]} The current build order.
+   */
+  getBuildOrder() {
+    return this.buildOrder;
+  }
+
+  /**
    * Retrieves the current game loop number from the world context.
    * 
    * @param {World} world - The game world context.
@@ -479,6 +493,14 @@ class GameState {
       [UnitType.SUPPLYDEPOT, [UnitType.SUPPLYDEPOT, UnitType.SUPPLYDEPOTLOWERED]],
       [UnitType.TECHLAB, [UnitType.TECHLAB, UnitType.BARRACKSTECHLAB, UnitType.FACTORYTECHLAB, UnitType.STARPORTTECHLAB]],
     ]);
+  }
+
+  /**
+   * Sets the build order.
+   * @param {any[]} newBuildOrder The new build order to set.
+   */
+  setBuildOrder(newBuildOrder) {
+    this.buildOrder = newBuildOrder;
   }
 
   // Method to get the metabolic boost state

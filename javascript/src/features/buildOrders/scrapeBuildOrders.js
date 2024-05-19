@@ -9,25 +9,24 @@ const { interpretBuildOrderAction } = require('./buildOrderUtils');
 /**
  * Extracts build order steps from the page content.
  * @param {string} data - The HTML content of the page.
- * @returns {import('../../core/utils/globalTypes').BuildOrderStep[]} A promise that resolves to an array of build order steps.
+ * @returns {import('../../core/utils/globalTypes').BuildOrderStep[]} An array of build order steps.
  */
 function extractSteps(data) {
   const $ = cheerio.load(data);
-  
+
   /** @type {import('../../core/utils/globalTypes').BuildOrderStep[]} */
   const steps = [];
   $('tbody > tr').each((i, stepElem) => {
-    const supply = $(stepElem).find('td:nth-child(1)').text().trim();
-    const time = $(stepElem).find('td:nth-child(2)').text().trim();
-    const action = $(stepElem).find('td:nth-child(3)').text().trim();
-    const comment = $(stepElem).find('td:nth-child(4)').text().trim();
+    const cells = $(stepElem).find('td').map((i, cell) => $(cell).text().trim()).get();
+    const [supply, time, action, comment] = cells;
     const interpretedActions = interpretBuildOrderAction(action, comment);
     steps.push({
       supply,
       time,
       action,
       interpretedAction: interpretedActions,
-      comment
+      comment,
+      completed: false // Ensure the 'completed' property is included
     });
   });
   return steps;
@@ -71,12 +70,13 @@ async function scrapeBuildOrders(url, maxPages = 10) {
       const buildOrders = [];
 
       $('tbody > tr').each((i, element) => {
-        const title = $(element).find('td > b > a').text().trim();
-        const buildOrderUrl = $(element).find('td > b > a').attr('href');
+        const anchor = $(element).find('td > b > a');
+        const title = anchor.text().trim();
+        const buildOrderUrl = anchor.attr('href');
         const raceMatchup = $(element).find('td:nth-child(3)').text().trim();
 
         if (buildOrderUrl) {
-          const fullUrl = new URL(buildOrderUrl, url).href;  // URL construction moved out of loop
+          const fullUrl = new URL(buildOrderUrl, url).href;
           buildOrders.push({
             title,
             url: fullUrl,

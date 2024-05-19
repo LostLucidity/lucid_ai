@@ -18,10 +18,11 @@
 /**
  * @typedef {Object} BuildOrderStep
  * @property {string} supply
- * @property {string} time
+ * @property {string} time - The expected game time to complete this step.
  * @property {string} action
- * @property {InterpretedAction[]} [interpretedAction] - Optional property for interpreted action details
+ * @property {InterpretedAction[]} [interpretedAction] - Optional property for interpreted action details.
  * @property {string} [comment] - Optional comment for the step.
+ * @property {boolean} completed - Flag to indicate if the step is completed.
  */
 
 /**
@@ -35,23 +36,23 @@
 /**
  * Represents an interpreted action from a build order step.
  * @typedef {Object} InterpretedAction
- * @property {number | null} unitType - The type of unit, if applicable.
- * @property {number | null} upgradeType - The type of upgrade, if applicable.
+ * @property {number|null} unitType - The type of unit, if applicable.
+ * @property {number|null} upgradeType - The type of upgrade, if applicable.
  * @property {number} count - The number of units or upgrades.
  * @property {boolean} isUpgrade - Indicates if the action is an upgrade.
  * @property {boolean} isChronoBoosted - Indicates if the action is chrono boosted.
- * @property {string | null} [specialAction] - An optional special action indicated by the step.
+ * @property {string|null} [specialAction] - An optional special action indicated by the step.
  */
 
 /**
- * @typedef {{ [key: string]: BuildOrder | undefined }} RaceBuildOrders
+ * @typedef {{ [key: string]: BuildOrder|undefined }} RaceBuildOrders
  */
 
 // Dummy exports for JSDoc typedef
 module.exports = {
   BuildOrderStep: null,
   BuildOrder: null,
-  GameState: null, // Dummy export for JSDoc typedef
+  GameState: null,
   InterpretedAction: null,
   RaceBuildOrders: null,
   BuildOrders: null,

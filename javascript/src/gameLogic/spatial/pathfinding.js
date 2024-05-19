@@ -18,7 +18,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getPathCoordinates, getClosestPosition, getStructureCells, getPathablePositions } = require("./pathfindingCommon");
 const { getDistanceByPath, getClosestPositionByPath } = require("./pathfindingCore");
 const { getDistance } = require("./spatialCoreUtils");
-const { getGasGeysersCache, setGasGeysersCache } = require("../../core/utils/cache");
+const cacheManager = require("../../core/utils/cache");
 const { getPathablePositionsForStructure } = require("../../core/utils/common");
 const { GameState } = require('../../gameState');
 const MapResources = require("../../gameState/mapResources");
@@ -526,11 +526,11 @@ function getClosestUnitPositionByPath(resources, unitPosition, position) {
  */
 function getGasGeysers(units) {
   const cacheKey = 'gasGeysers';
-  let gasGeysers = getGasGeysersCache(cacheKey);
+  let gasGeysers = cacheManager.getGasGeysersCache(cacheKey);
 
   if (!gasGeysers) {
     gasGeysers = units.getGasGeysers();
-    setGasGeysersCache(cacheKey, gasGeysers);
+    cacheManager.setGasGeysersCache(cacheKey, gasGeysers);
   }
 
   return gasGeysers;
