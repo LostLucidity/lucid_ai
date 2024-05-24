@@ -106,6 +106,12 @@ class GameState {
   static instance = null;
 
   /**
+   * Stores the last game loop number.
+   * @type {number}
+   */
+  lastGameLoop = 0;
+
+  /**
    * The plan consisting of a sequence of PlanStep objects.
    * @type {import('../features/strategy/strategyManager').PlanStep[]}
    */
@@ -133,6 +139,12 @@ class GameState {
    */
   selfArmorUpgradeLevel = 0;
 
+  /**
+   * The attack upgrade level for the player's (self) units.
+   * @type {number}
+   */
+  selfAttackUpgradeLevel = 0;  
+
   setEarmark = false;
 
   /**
@@ -156,11 +168,12 @@ class GameState {
     if (GameState.#instance) {
       throw new Error("Instantiation failed: Use GameState.getInstance() instead of new.");
     }
-    this.calculateTimeToFinishStructureFn = (/** @type {DataStorage} */ _data, /** @type {Unit} */ _unit) => {
-      // Since '_data' and '_unit' are unused in this default implementation, they are prefixed with an underscore.
-      // Return a safe default value that suits the expected functionality of the real implementation.
-      return 0;
-    };
+
+    /**
+     * Default function to calculate time to finish a structure.
+     * @type {(data: DataStorage, unit: Unit) => number}
+     */
+    this.calculateTimeToFinishStructureFn = (/** @type {DataStorage} */ _data, /** @type {Unit} */ _unit) => 0;
 
     /**
      * A map of unit types to arrays of related unit types.
@@ -168,26 +181,39 @@ class GameState {
      * @type {Map<number, number[]>}
      */
     this.countTypes = new Map();
+
     /**
      * The attack upgrade level for the enemy alliance.
      * @type {number}
      */
     this.enemyAttackUpgradeLevel = 0;
 
-    /** @type {(unit: Unit) => SC2APIProtocol.UnitOrder[]} */
+    /**
+     * Function to get pending orders for a unit.
+     * @type {(unit: Unit) => SC2APIProtocol.UnitOrder[]}
+     */
     this.getPendingOrdersFn = (_) => [];
 
-    this.pendingFood = 0;
-    this.previousGameLoop = 0;
-    this.resources = defaultResources;
     /**
-     * The attack upgrade level for the self alliance.
+     * Tracks the total pending food used.
      * @type {number}
      */
-    this.selfAttackUpgradeLevel = 0;
+    this.pendingFood = 0;
+
+    /**
+     * Tracks unit statuses.
+     * @type {Object.<string, any>}
+     */
     this.unitStatuses = {};
+
+    // Initialize count types and morph mapping
     this.initCountTypes();
     this.initMorphMapping();
+
+    /**
+     * Indicates whether the enemy Zergling has the metabolic boost upgrade.
+     * @type {boolean}
+     */
     this.enemyMetabolicBoost = false;
   }
 
@@ -392,34 +418,28 @@ class GameState {
    * @param {SC2APIProtocol.Race} race - The player's race.
    */
   initializeStartingUnitCounts(race) {
-    switch (race) {
-      case Race.TERRAN:
-        this.startingUnitCounts = {
-          [UnitType.SCV]: 12,
-          [UnitType.COMMANDCENTER]: 1,
-          // Add other Terran-specific unit types if necessary
-        };
-        break;
-      case Race.PROTOSS:
-        this.startingUnitCounts = {
-          [UnitType.PROBE]: 12,
-          [UnitType.NEXUS]: 1,
-          // Add other Protoss-specific unit types if necessary
-        };
-        break;
-      case Race.ZERG:
-        this.startingUnitCounts = {
-          [UnitType.DRONE]: 12,
-          [UnitType.HATCHERY]: 1,
-          [UnitType.OVERLORD]: 1,
-          // Add other Zerg-specific unit types if necessary
-        };
-        break;
-      default:
-        this.startingUnitCounts = {};
-        console.warn(`Unknown race: ${race}`);
+    const unitCounts = {
+      [Race.TERRAN]: {
+        [UnitType.SCV]: 12,
+        [UnitType.COMMANDCENTER]: 1,
+      },
+      [Race.PROTOSS]: {
+        [UnitType.PROBE]: 12,
+        [UnitType.NEXUS]: 1,
+      },
+      [Race.ZERG]: {
+        [UnitType.DRONE]: 12,
+        [UnitType.HATCHERY]: 1,
+        [UnitType.OVERLORD]: 1,
+      }
+    };
+
+    this.startingUnitCounts = unitCounts[race] || {};
+    if (!unitCounts[race]) {
+      console.warn(`Unknown race: ${race}`);
     }
   }
+
 
   /**
    * Injects external functionalities into the GameState.
