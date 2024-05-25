@@ -7,12 +7,12 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const { GasMineRace, WorkerRace } = require('@node-sc2/core/constants/race-map');
 
 // Internal module imports
-const { calculateBaseTimeToPosition } = require('./spatial/pathfinding');
-const { getDistanceByPath, getClosestPositionByPath } = require('./spatial/pathfindingCore');
-const { findPathablePositions } = require('./spatial/pathfindingUtils');
-const { getMovementSpeed } = require('./unit/coreUtils');
-const { isPendingContructing } = require('./unit/workerCommonUtils');
-const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft } = require('./utils/economy/workerService');
+const { getMovementSpeed } = require('./coreUtils');
+const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft } = require('./economy/workerService');
+const { calculateBaseTimeToPosition } = require('./pathfinding');
+const { getDistanceByPath, getClosestPositionByPath } = require('./pathfindingCore');
+const { findPathablePositions } = require('./pathfindingUtils');
+const { isPendingContructing } = require('./workerCommonUtils');
 const { createUnitCommand, getPathablePositionsForStructure } = require('../core/utils/common');
 const { stopOverlappingBuilders } = require('../features/construction/buildingWorkerInteractions');
 const { getTimeToTargetTech } = require('../features/misc/gameData');

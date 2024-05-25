@@ -1,7 +1,7 @@
 // trainingUtils.js
 
 const { EarmarkManager } = require("../../core");
-const { checkUnitCount } = require("../../gameLogic/resources/stateManagement");
+const { checkUnitCount } = require("../../gameLogic/stateManagement");
 
 /**
  * Determines if a unit can be trained based on the target count.

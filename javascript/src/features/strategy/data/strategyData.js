@@ -1,4 +1,4 @@
-const { isBuildOrderStep } = require('../../../gameLogic/utils/gameMechanics/strategyUtils');
+const { isBuildOrderStep } = require('../../../gameLogic/gameMechanics/strategyUtils');
 const { interpretBuildOrderAction } = require('../../buildOrders/buildOrderUtils');
 const { isEqualStep } = require('../strategyUtils');
 

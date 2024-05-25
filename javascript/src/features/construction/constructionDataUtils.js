@@ -4,8 +4,8 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { getDistance } = require("../../gameLogic/spatial/spatialCoreUtils");
-const { isPendingContructing } = require("../../gameLogic/unit/workerCommonUtils");
+const { getDistance } = require("../../gameLogic/spatialCoreUtils");
+const { isPendingContructing } = require("../../gameLogic/workerCommonUtils");
 const { GameState, buildingPositions } = require("../../gameState");
 const { getPendingOrders } = require("../../sharedServices");
 const { buildUnitTypeMap } = require("../misc/gameData");

@@ -2,7 +2,7 @@
 
 const { UnitType } = require("@node-sc2/core/constants");
 
-const { getDistance } = require("../../gameLogic/spatial/spatialCoreUtils");
+const { getDistance } = require("../../gameLogic/spatialCoreUtils");
 const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
 const { flyingTypesMapping, liftAndLandingTime, unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
 

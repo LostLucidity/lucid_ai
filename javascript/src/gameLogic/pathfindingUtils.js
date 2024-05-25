@@ -1,11 +1,11 @@
 // src/core/utils/pathfindingUtils.js
 "use strict";
 
+const { getClosestPathWithGasGeysers } = require("./economy/workerService");
 const { getClosestUnitByPath } = require("./pathfinding");
 const { getPathablePositions } = require("./pathfindingCommon");
-const cacheManager = require("../../core/utils/cache");
-const { getPathablePositionsForStructure } = require("../../core/utils/common");
-const { getClosestPathWithGasGeysers } = require("../utils/economy/workerService");
+const cacheManager = require("../core/utils/cache");
+const { getPathablePositionsForStructure } = require("../core/utils/common");
 
 
 /**

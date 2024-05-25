@@ -9,8 +9,8 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 
 const { positionIsEqual } = require("../../core/utils/common");
 const { logMessageStorage } = require("../../core/utils/logging");
-const { getAddOnPlacement } = require("../../gameLogic/spatial/pathfinding");
-const { getDistance } = require("../../gameLogic/spatial/spatialCoreUtils");
+const { getAddOnPlacement } = require("../../gameLogic/pathfinding");
+const { getDistance } = require("../../gameLogic/spatialCoreUtils");
 const { canLiftOff } = require("../../units/management/unitConfig");
 
 /**

@@ -4,11 +4,11 @@ const { Ability } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
 const { createUnitCommand } = require("../../core/utils/common");
-const { getAwayPosition, areApproximatelyEqual } = require("../../gameLogic/spatial/pathfinding");
-const { getDistanceByPath } = require("../../gameLogic/spatial/pathfindingCore");
-const { getDistance } = require("../../gameLogic/spatial/spatialCoreUtils");
-const { isMoving, rallyWorkerToTarget, getUnitsFromClustering, setBuilderLabel, getOrderTargetPosition } = require("../../gameLogic/utils/economy/workerService");
-const { getBuilders } = require("../../gameLogic/utils/gameMechanics/workerUtils");
+const { isMoving, rallyWorkerToTarget, getUnitsFromClustering, setBuilderLabel, getOrderTargetPosition } = require("../../gameLogic/economy/workerService");
+const { getAwayPosition, areApproximatelyEqual } = require("../../gameLogic/pathfinding");
+const { getDistanceByPath } = require("../../gameLogic/pathfindingCore");
+const { getDistance } = require("../../gameLogic/spatialCoreUtils");
+const { getBuilders } = require("../../gameLogic/gameMechanics/workerUtils");
 const { GameState } = require("../../gameState");
 const { setPendingOrders } = require("../../units/management/unitOrders");
 

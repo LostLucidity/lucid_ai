@@ -11,7 +11,7 @@ const logger = require('./utils/logger');
 const config = require('../../config/config');
 const ActionCollector = require('../features/actions/actionCollector');
 const StrategyManager = require('../features/strategy/strategyManager');
-const { clearAllPendingOrders } = require('../gameLogic/utils/gameMechanics/unitUtils');
+const { clearAllPendingOrders } = require('../gameLogic/gameMechanics/unitUtils');
 const { GameState } = require('../gameState');
 const GameInitialization = require('../initialization/GameInitialization');
 

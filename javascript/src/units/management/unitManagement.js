@@ -21,8 +21,8 @@ const { createUnitCommand } = require("../../core/utils/common");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { buildSupply, getTimeToTargetCost } = require("../../features/construction/buildingService");
 const { getTimeToTargetTech } = require("../../features/misc/gameData");
-const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../../gameLogic/spatial/pathfinding");
-const { getDistance } = require("../../gameLogic/spatial/spatialCoreUtils");
+const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../../gameLogic/pathfinding");
+const { getDistance } = require("../../gameLogic/spatialCoreUtils");
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require("../../sharedServices");
 

@@ -13,9 +13,9 @@ const { findUnitTypesWithAbility, getUnitTypeData } = require("../../core/data")
 const { findKeysForValue, createUnitCommand } = require("../../core/utils/common");
 const StrategyContext = require("../../features/strategy/strategyContext");
 const { selectUnitTypeToBuild } = require("../../features/strategy/unitSelection");
-const { getBuildTimeLeft, shortOnWorkers } = require("../../gameLogic/utils/economy/workerService");
-const { filterSafeTrainers } = require("../../gameLogic/utils/gameMechanics/strategyUtils");
-const { getById } = require("../../gameLogic/utils/shared/generalUtils");
+const { getBuildTimeLeft, shortOnWorkers } = require("../../gameLogic/economy/workerService");
+const { filterSafeTrainers } = require("../../gameLogic/gameMechanics/strategyUtils");
+const { getById } = require("../../gameLogic/shared/generalUtils");
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require("../../sharedServices");
 

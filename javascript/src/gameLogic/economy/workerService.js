@@ -10,19 +10,19 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal module imports
-const { createUnitCommand } = require("../../../core/utils/common");
-const { GameState } = require('../../../gameState');
-const MapResources = require("../../../gameState/mapResources");
-const { getPendingOrders } = require("../../../sharedServices");
-const { unitTypeTrainingAbilities, flyingTypesMapping } = require("../../../units/management/unitConfig");
-const { setPendingOrders } = require("../../../units/management/unitOrders");
-const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, getGasGeysers, dbscan } = require("../../spatial/pathfinding");
-const { getDistanceByPath } = require("../../spatial/pathfindingCore");
-const { getDistance } = require("../../spatial/spatialCoreUtils");
-const { getMovementSpeed, getWorkerSourceByPath } = require("../../unit/coreUtils");
+const { createUnitCommand } = require("../../core/utils/common");
+const { GameState } = require('../../gameState');
+const MapResources = require("../../gameState/mapResources");
+const { getPendingOrders } = require("../../sharedServices");
+const { unitTypeTrainingAbilities, flyingTypesMapping } = require("../../units/management/unitConfig");
+const { setPendingOrders } = require("../../units/management/unitOrders");
+const { getMovementSpeed, getWorkerSourceByPath } = require("../coreUtils");
 const { getClosestPathablePositionsBetweenPositions } = require("../gameMechanics/pathfindingUtils");
 const { getNeediestMineralField } = require("../gameMechanics/resourceUtils");
+const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, getGasGeysers, dbscan } = require("../pathfinding");
+const { getDistanceByPath } = require("../pathfindingCore");
 const { getById } = require("../shared/generalUtils");
+const { getDistance } = require("../spatialCoreUtils");
 
 /**
  * @param {World} world 

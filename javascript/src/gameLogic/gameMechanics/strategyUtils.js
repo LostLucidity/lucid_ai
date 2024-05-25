@@ -2,15 +2,15 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
-const { calculateTimeToKillUnits } = require("../../../core/utils/sharedUtils");
-const { potentialCombatants, getWeaponDPS } = require("../../../units");
-const { getDistance } = require("../../spatial/spatialCoreUtils");
-const { mappedEnemyUnits } = require("../scouting/scoutingUtils");
+const { calculateTimeToKillUnits } = require("../../core/utils/sharedUtils");
+const { potentialCombatants, getWeaponDPS } = require("../../units");
+const { mappedEnemyUnits } = require("../scoutingUtils");
+const { getDistance } = require("../spatialCoreUtils");
 
 
 /**
  * @typedef {Object} GameState
- * @property {import("../../../features/strategy/strategyManager").PlanStep[]} plan - An array representing the game plan
+ * @property {import("../../features/strategy/strategyManager").PlanStep[]} plan - An array representing the game plan
  */
 
 const gameStrategyUtils = {
@@ -24,8 +24,8 @@ const gameStrategyUtils = {
 
   /**
    * Determines if the given step is a BuildOrderStep.
-   * @param {import("../../../core/utils/globalTypes").BuildOrderStep | import("../../../features/strategy/strategyManager").StrategyStep} step
-   * @returns {step is import("../../../core/utils/globalTypes").BuildOrderStep}
+   * @param {import("../../core/utils/globalTypes").BuildOrderStep | import("../../features/strategy/strategyManager").StrategyStep} step
+   * @returns {step is import("../../core/utils/globalTypes").BuildOrderStep}
    */
   isBuildOrderStep(step) {
     return 'uniquePropertyOfBuildOrderStep' in step; // Replace with an actual unique property

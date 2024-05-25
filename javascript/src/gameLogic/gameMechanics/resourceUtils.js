@@ -1,6 +1,6 @@
 const { UnitType } = require("@node-sc2/core/constants");
 
-const { getPendingOrders } = require("../../../sharedServices");
+const { getPendingOrders } = require("../../sharedServices");
 const { getById } = require("../shared/generalUtils");
 
 /**

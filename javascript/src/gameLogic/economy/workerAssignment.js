@@ -9,16 +9,16 @@ const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 
 // Internal module imports
 const { getClosestExpansion, isMoving } = require("./workerService");
-const { getUnitsWithinDistance, createUnitCommand } = require("../../../core/utils/common");
-const { getPendingOrders } = require("../../../sharedServices");
-const { setPendingOrders } = require("../../../units/management/unitOrders");
-const { isTownhallInDanger } = require("../../resources/stateManagement");
-const { getClosestUnitFromUnit } = require("../../spatial/pathfinding");
-const { getDistance } = require("../../spatial/spatialCoreUtils");
-const { findClosestMineralField } = require("../../unit/coreUtils");
-const { isPendingContructing } = require("../../unit/workerCommonUtils");
+const { getUnitsWithinDistance, createUnitCommand } = require("../../core/utils/common");
+const { getPendingOrders } = require("../../sharedServices");
+const { setPendingOrders } = require("../../units/management/unitOrders");
+const { findClosestMineralField } = require("../coreUtils");
 const { getNeediestMineralField, getMineralFieldAssignments } = require("../gameMechanics/resourceUtils");
-const { findEnemyUnitsNear } = require("../scouting/scoutingUtils");
+const { getClosestUnitFromUnit } = require("../pathfinding");
+const { findEnemyUnitsNear } = require("../scoutingUtils");
+const { getDistance } = require("../spatialCoreUtils");
+const { isTownhallInDanger } = require("../stateManagement");
+const { isPendingContructing } = require("../workerCommonUtils");
 
 /**
  * Balances the worker distribution across all bases.

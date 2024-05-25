@@ -3,8 +3,8 @@
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
-const { getStructureCells, getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath, getClosestPosition } = require("../../spatial/pathfindingCommon");
-const { getDistanceByPath } = require("../../spatial/pathfindingCore");
+const { getStructureCells, getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath, getClosestPosition } = require("../pathfindingCommon");
+const { getDistanceByPath } = require("../pathfindingCore");
 
 /**
  * Get the closest pathable positions between two positions considering various obstacles.

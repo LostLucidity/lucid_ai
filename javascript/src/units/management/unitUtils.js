@@ -6,7 +6,7 @@ const { EarmarkManager } = require("../../core");
 const { isTrainingOrder } = require("../../core/utils/baseUnitUtils");
 const { haveSupplyForUnit } = require("../../features/construction/buildingService");
 const StrategyContext = require("../../features/strategy/strategyContext");
-const { checkTechRequirement } = require("../../gameLogic/utils/gameMechanics/resourceUtils");
+const { checkTechRequirement } = require("../../gameLogic/gameMechanics/resourceUtils");
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require("../../sharedServices");
 

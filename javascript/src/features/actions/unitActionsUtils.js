@@ -10,9 +10,9 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 
 const { EarmarkManager } = require('../../core');
 const { createUnitCommand } = require('../../core/utils/common');
-const { getPathCoordinates, getMapPath } = require('../../gameLogic/spatial/pathfindingCommon');
-const { calculatePathablePositions } = require('../../gameLogic/spatial/pathfindingUtils');
-const { ability, isIdleOrAlmostIdle, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../gameLogic/utils/economy/workerService');
+const { ability, isIdleOrAlmostIdle, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../gameLogic/economy/workerService');
+const { getPathCoordinates, getMapPath } = require('../../gameLogic/pathfindingCommon');
+const { calculatePathablePositions } = require('../../gameLogic/pathfindingUtils');
 const { prepareBuildContext } = require('../../gameLogic/workerManagementUtils');
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require('../../sharedServices');

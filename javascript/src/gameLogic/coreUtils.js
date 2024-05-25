@@ -5,13 +5,13 @@ const Buff = require("@node-sc2/core/constants/buff");
 const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
-const { SPEED_MODIFIERS } = require("../../core/utils/constants");
+const { getClosestUnitByPath, getTimeInSeconds } = require("./pathfinding");
+const { getDistanceByPath } = require("./pathfindingCore");
+const { getDistance } = require("./spatialCoreUtils");
+const { SPEED_MODIFIERS } = require("../core/utils/constants");
 // eslint-disable-next-line no-unused-vars
-const { GameState } = require("../../gameState");
-const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
-const { getClosestUnitByPath, getTimeInSeconds } = require("../spatial/pathfinding");
-const { getDistanceByPath } = require("../spatial/pathfindingCore");
-const { getDistance } = require("../spatial/spatialCoreUtils");
+const { GameState } = require("../gameState");
+const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../units/management/unitConfig");
 
 
 /**
@@ -45,28 +45,29 @@ function calculateClosestConstructingWorker(world, constructingWorkers, position
   const { units } = resources.get();
 
   return constructingWorkers.reduce((/** @type {{unit: Unit, timeToPosition: number} | undefined} */closestWorker, worker) => {
-    const { orders, pos } = worker; if (orders === undefined || pos === undefined) return closestWorker;
-    // get unit type of building in construction
-    const constructingOrder = orders.find(order => order.abilityId && groupTypes.constructionAbilities.includes(order.abilityId)); if (constructingOrder === undefined) return closestWorker;
-    const { abilityId } = constructingOrder; if (abilityId === undefined) return closestWorker;
-    const unitType = unitTypeTrainingAbilities.get(abilityId); if (unitType === undefined) return closestWorker;
-    const { buildTime } = data.getUnitTypeData(unitType); if (buildTime === undefined) return closestWorker;
+    const { orders, pos } = worker;
+    if (!orders || !pos) return closestWorker;
 
-    // get closest unit type to worker position if within unit type radius
-    const closestUnitType = units.getClosest(pos, units.getById(unitType)).filter(unit => unit.pos && getDistance(unit.pos, pos) < 3)[0];
+    const constructingOrder = orders.find(order => order.abilityId && groupTypes.constructionAbilities.includes(order.abilityId));
+    if (!constructingOrder || constructingOrder.abilityId === undefined) return closestWorker;
 
-    if (closestUnitType) {
-      const { buildProgress } = closestUnitType; if (buildProgress === undefined) return closestWorker;
-      const buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * buildProgress));
-      const distanceToPositionByPath = getDistanceByPath(resources, pos, position);
-      const { movementSpeed } = worker.data(); if (movementSpeed === undefined) return closestWorker;
-      const movementSpeedPerSecond = movementSpeed * 1.4;
-      const timeToPosition = buildTimeLeft + (distanceToPositionByPath / movementSpeedPerSecond);
+    const unitType = unitTypeTrainingAbilities.get(constructingOrder.abilityId);
+    if (!unitType) return closestWorker;
 
-      // If this is the first worker or if it's closer than the current closest worker, update closestWorker
-      if (!closestWorker || timeToPosition < closestWorker.timeToPosition) {
-        return { unit: worker, timeToPosition };
-      }
+    const { buildTime } = data.getUnitTypeData(unitType) || {};
+    if (buildTime === undefined) return closestWorker;
+
+    const closestUnitType = units.getClosest(pos, units.getById(unitType)).find(unit => unit.pos && getDistance(unit.pos, pos) < 3);
+    if (!closestUnitType || closestUnitType.buildProgress === undefined) return closestWorker;
+
+    const buildTimeLeft = getTimeInSeconds(buildTime - (buildTime * closestUnitType.buildProgress));
+    const distanceToPositionByPath = getDistanceByPath(resources, pos, position);
+    const { movementSpeed } = worker.data() || {};
+    const movementSpeedPerSecond = (movementSpeed || 0) * 1.4;
+    const timeToPosition = buildTimeLeft + (distanceToPositionByPath / movementSpeedPerSecond);
+
+    if (!closestWorker || timeToPosition < closestWorker.timeToPosition) {
+      return { unit: worker, timeToPosition };
     }
 
     return closestWorker;

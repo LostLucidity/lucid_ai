@@ -1,10 +1,10 @@
 "use strict";
 
-const { calculateLiftLandAndMoveTime } = require("../../../core/utils/baseUnitUtils");
-const { hasAddOn, findBestPositionForAddOn } = require("../../../features/construction/buildingPlacementUtils");
-const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../../../units/management/unitConfig");
-const { unitPendingOrders } = require("../../../units/management/unitOrders");
-const { getTimeInSeconds } = require("../../spatial/pathfinding");
+const { calculateLiftLandAndMoveTime } = require("../../core/utils/baseUnitUtils");
+const { hasAddOn, findBestPositionForAddOn } = require("../../features/construction/buildingPlacementUtils");
+const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
+const { unitPendingOrders } = require("../../units/management/unitOrders");
+const { getTimeInSeconds } = require("../pathfinding");
 
 /**
  * Clears pending orders for all units to ensure they are ready for new commands.

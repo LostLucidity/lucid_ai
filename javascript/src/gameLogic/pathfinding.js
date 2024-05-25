@@ -15,14 +15,14 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getNeighbors, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
+const { getClosestPathablePositionsBetweenPositions } = require("./gameMechanics/pathfindingUtils");
 const { getPathCoordinates, getClosestPosition, getStructureCells, getPathablePositions } = require("./pathfindingCommon");
 const { getDistanceByPath, getClosestPositionByPath } = require("./pathfindingCore");
 const { getDistance } = require("./spatialCoreUtils");
-const cacheManager = require("../../core/utils/cache");
-const { getPathablePositionsForStructure } = require("../../core/utils/common");
-const { GameState } = require('../../gameState');
-const MapResources = require("../../gameState/mapResources");
-const { getClosestPathablePositionsBetweenPositions } = require("../utils/gameMechanics/pathfindingUtils");
+const cacheManager = require("../core/utils/cache");
+const { getPathablePositionsForStructure } = require("../core/utils/common");
+const { GameState } = require('../gameState');
+const MapResources = require("../gameState/mapResources");
 
 
 /** @type {Point2D[]} */

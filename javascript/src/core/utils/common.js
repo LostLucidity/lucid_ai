@@ -6,7 +6,7 @@ const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 
 const cacheManager = require("./cache");
-const { getDistance } = require("../../gameLogic/spatial/spatialCoreUtils");
+const { getDistance } = require("../../gameLogic/spatialCoreUtils");
 
 
 /**
