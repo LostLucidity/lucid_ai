@@ -122,8 +122,8 @@ function findClosestUnit(position, units, initialRadius = 16) {
     return undefined;
   }
 
-  while (searchRadius <= 200) { // Let's assume a maximum radius of 200 for this example
-    let closestUnit = undefined;
+  while (searchRadius <= 500) {
+    let closestUnit;
     let minDistance = Number.MAX_VALUE;
 
     // Pre-filtering: Only consider units within the current search radius
@@ -136,9 +136,9 @@ function findClosestUnit(position, units, initialRadius = 16) {
     });
 
     // Find the closest unit using detailed distance calculation
-    filteredUnits.forEach(unit => {
-      if (unit.pos) {
-        const distanceKey = `${unit.pos.x},${unit.pos.y},${position.x},${position.y}`;
+    for (const unit of filteredUnits) {
+      if (unit.pos) {  // Check if unit.pos is defined before accessing its properties
+        const distanceKey = `${unit.pos.x},${unit.pos.y},${safeX},${safeY}`;
         let distance;
         if (memoizedResults.has(distanceKey)) {
           distance = memoizedResults.get(distanceKey);
@@ -151,14 +151,14 @@ function findClosestUnit(position, units, initialRadius = 16) {
           closestUnit = unit;
         }
       }
-    });
+    }
 
     if (closestUnit) return closestUnit; // Return the closest unit if one is found
 
-    searchRadius += 50; // Increase the search radius for the next iteration
+    searchRadius += 50; // Increase the search radius more aggressively
   }
 
-  console.error('No units found within the maximum search radius');
+  console.error('No units found within the maximum search radius after expanding search.');
   return undefined; // Return undefined if no units are found within the maximum radius
 }
 
