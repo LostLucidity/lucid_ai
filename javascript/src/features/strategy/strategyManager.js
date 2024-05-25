@@ -206,7 +206,7 @@ class StrategyManager {
    */
   finalizeStrategyExecution(actionsToPerform, world) {
     this.resetCurrentStep();
-    StrategyManager.handleEarmarksAndResources(actionsToPerform, world);
+    this.handleEarmarksAndResources(actionsToPerform, world);
   }
 
   /**
@@ -292,10 +292,12 @@ class StrategyManager {
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
    * @param {World} world
    */
-  static handleEarmarksAndResources(actionsToPerform, world) {
+  handleEarmarksAndResources(actionsToPerform, world) {
     try {
       if (!hasEarmarks(world.data)) {
         actionsToPerform.push(...balanceResources(world, undefined, build));
+      } else {
+        this.handleEarmarksIfNeeded(world, actionsToPerform);
       }
     } catch (error) {
       console.error("Error handling earmarks and resources:", error);
