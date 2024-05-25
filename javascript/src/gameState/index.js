@@ -658,7 +658,7 @@ class GameState {
     const { units } = resources.get();
     const unitData = data.getUnitTypeData(unitType);
 
-    if (!unitData || !unitData.abilityId) {
+    if (!unitData || unitData.abilityId === undefined || unitData.abilityId === null) {
       return 0; // Exit early if critical unit data is missing
     }
 

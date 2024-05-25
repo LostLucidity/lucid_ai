@@ -87,13 +87,13 @@ function interpretBuildOrderAction(action, comment = '') {
   const actions = action.split(',');
   /** @type {import("../../core/utils/globalTypes").InterpretedAction[]} */
   const interpretedActions = [];
-  
+
   actions.forEach(actionPart => {
     // Remove additional details like "(Chrono Boost)" or "x3"
     const cleanedAction = actionPart.trim().replace(/\s+\(.*?\)|\sx\d+/g, '');
     // Replace spaces with underscores and convert to uppercase
     const formattedAction = cleanedAction.toUpperCase().replace(/\s+/g, '');
-  
+
     let unitType = null;
     let upgradeType = null;
     let specialAction = null;
@@ -101,7 +101,6 @@ function interpretBuildOrderAction(action, comment = '') {
     // Check if the action is an upgrade
     const upgradeKey = getUpgradeKey(cleanedAction);
     if (upgradeKey && upgradeKey in Upgrade) {
-      // Bypass TypeScript strict type checking for Upgrade indexing
       /** @type {{[key: string]: number}} */
       const typedUpgrade = Upgrade;
       upgradeType = typedUpgrade[upgradeKey];
@@ -113,7 +112,10 @@ function interpretBuildOrderAction(action, comment = '') {
 
     // Check if the action should be interpreted based on the comment
     if (unitType === null && upgradeType === null) {
-      if (comment.includes("SCOUT CSV")) {
+      if (comment.includes("CALL DOWN MULES")) {
+        specialAction = 'Call Down MULEs';
+        unitType = UnitType['MULE']; // Replace with the correct enum for MULE
+      } else if (comment.includes("SCOUT SCV") || comment.includes("SCOUT CSV")) { // Handling potential typo "CSV"
         specialAction = 'Scouting with SCV';
         unitType = UnitType['SCV']; // Replace with the correct enum for SCV
       }
@@ -122,13 +124,13 @@ function interpretBuildOrderAction(action, comment = '') {
 
     const countMatch = action.match(/\sx(\d+)/);
     const count = countMatch ? parseInt(countMatch[1], 10) : 1;
-  
+
     const isUpgrade = !!upgradeKey;
     const isChronoBoosted = action.includes("Chrono Boost");
 
     interpretedActions.push({ unitType, upgradeType, count, isUpgrade, isChronoBoosted, specialAction });
   });
-  
+
   return interpretedActions;
 }
 

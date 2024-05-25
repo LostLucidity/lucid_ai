@@ -29,7 +29,7 @@ class StrategyData {
     for (let index = 0; index <= stepIndex; index++) {
       const currentStep = buildOrder.steps[index];
       StrategyData.getInterpretedActions(currentStep).forEach(action => {
-        if (action.unitType !== null && !action.isUpgrade && !action.specialAction) {
+        if (action.unitType !== null && !action.isUpgrade) {
           const unitTypeKey = `unitType_${action.unitType}`;
           const countKey = `${unitTypeKey}_step_${index}`;
           const previousKey = this.getLastStepKeyForUnitType(action.unitType, index - 1);
