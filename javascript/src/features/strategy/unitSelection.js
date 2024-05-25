@@ -8,7 +8,7 @@ const StrategyContext = require('./strategyContext');
  * @returns {UnitTypeId | null} The selected unit type to build, or null if none is selected.
  */
 function selectUnitTypeToBuild(world, candidateTypes) {
-  return StrategyContext.getInstance().selectTypeToBuild(world, candidateTypes);
+  return StrategyContext.selectTypeToBuild(world, candidateTypes);
 }
 
 module.exports = {

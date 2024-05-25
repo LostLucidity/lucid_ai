@@ -276,7 +276,7 @@ function setFoodUsed(world) {
   const gameState = GameState.getInstance();
 
   // Calculate pending food used, specific to Zerg race
-  const pendingFoodUsed = race === Race.ZERG ? gameState.getWorkers(world).filter(worker => worker.isConstructing()).length : 0;
+  const pendingFoodUsed = race === Race.ZERG ? GameState.getWorkers(world).filter(worker => worker.isConstructing()).length : 0;
 
   // Calculate the total food used
   const calculatedFoodUsed = foodUsed + gameState.pendingFood - pendingFoodUsed;

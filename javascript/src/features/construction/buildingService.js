@@ -10,8 +10,8 @@ const { getUnitsCapableToAddOn } = require("./addonUtils");
 const BuildingPlacement = require("./buildingPlacement");
 const { getInTheMain, determineBuildingPosition, findBestPositionForAddOn, isPlaceableAtGasGeyser } = require("./buildingPlacementUtils");
 const config = require("../../../config/config");
-const { attemptBuildAddOn, addEarmark, attemptLiftOff } = require("../../core/common/buildUtils");
-const { getEarmarkedFood, earmarks } = require("../../core/common/EarmarkManager");
+const { EarmarkManager } = require("../../core");
+const { attemptBuildAddOn, attemptLiftOff } = require("../../core/common/buildUtils");
 const { attemptLand } = require("../../gameLogic/building/buildingUtils");
 const { getNextSafeExpansions } = require("../../gameLogic/spatial/pathfinding");
 const { findPlacements, findPosition } = require("../../gameLogic/spatial/spatialUtils");
@@ -68,7 +68,7 @@ function addAddOn(world, unit, addOnType) {
   if (unit.abilityAvailable(abilityId)) {
     const buildAddOnActions = attemptBuildAddOn(world, unit, addOnType, unitCommand);
     if (buildAddOnActions && buildAddOnActions.length > 0) {
-      addEarmark(data, unitTypeData);
+      EarmarkManager.getInstance().addEarmark(data, unitTypeData);
       collectedActions.push(...buildAddOnActions);
       return collectedActions;
     }
@@ -174,7 +174,7 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
           if (agent.canAfford(unitTypeToCheckAfford)) {
             collectedActions.push(...morphStructureAction(world, unitType));
           }
-          addEarmark(data, data.getUnitTypeData(unitType));
+          EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
         }
         break;
       case addonTypes.includes(unitType): {
@@ -199,7 +199,7 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
 
           // If a suitable unit is found, build the add-on with it
           if (fastestAvailableUnit) {
-            addEarmark(data, data.getUnitTypeData(unitType));
+            EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
             collectedActions.push(...addAddOn(world, fastestAvailableUnit, unitType));
           }
         } else {
@@ -416,7 +416,7 @@ function getTimeToTargetCost(world, unitType) {
     collectionRateVespene = 0;
   }
 
-  addEarmark(data, data.getUnitTypeData(unitType));
+  EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
   let earmarkTotals = data.getEarmarkTotals('');
   const { minerals: earmarkMinerals, vespene: earmarkVespene } = earmarkTotals;
   const mineralsLeft = earmarkMinerals - minerals;
@@ -471,7 +471,7 @@ function haveSupplyForUnit(world, unitType) {
   const { foodCap } = agent; if (foodCap === undefined) return false;
   const gameState = GameState.getInstance();
   const foodUsed = gameState.getFoodUsed();
-  const earmarkedFood = getEarmarkedFood();
+  const earmarkedFood = EarmarkManager.getEarmarkedFood();
   const { foodRequired } = data.getUnitTypeData(unitType); if (foodRequired === undefined) return false;
   const supplyLeft = foodCap - foodUsed - earmarkedFood - foodRequired;
   return supplyLeft >= 0;
@@ -488,7 +488,7 @@ function haveSupplyForUnit(world, unitType) {
  */
 function resetEarmarks(data) {
   // Clear general earmarks
-  earmarks.length = 0;
+  EarmarkManager.getInstance().earmarks.length = 0;
   data.get('earmarks').forEach((earmark) => data.settleEarmark(earmark.name));
 
   // Clear food earmarks

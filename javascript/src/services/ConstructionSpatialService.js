@@ -112,7 +112,7 @@ class ConstructionSpatialService {
    * @param {World} world The game world context.
    * @returns {any} The currently en route construction grids.
    */
-  getConstructionGrids(world) {
+  static getConstructionGrids(world) {
     // Directly access construction grids data
     return getCurrentlyEnrouteConstructionGrids(world);
   }

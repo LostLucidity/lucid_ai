@@ -62,7 +62,7 @@ class StrategyContext {
    * @param {UnitTypeId[]} candidateTypesToBuild 
    * @returns {UnitTypeId}
    */
-  selectTypeToBuild(world, candidateTypesToBuild) {
+  static selectTypeToBuild(world, candidateTypesToBuild) {
     const { agent, data } = world;
     const { vespene } = agent;
     if (vespene === undefined) return candidateTypesToBuild[0];

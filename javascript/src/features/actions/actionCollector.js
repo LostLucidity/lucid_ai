@@ -29,8 +29,8 @@ class ActionCollector {
 
     const { units } = this.world.resources.get();
     let actionCollection = [
-      ...this.handleStrategicActions(this.world),
-      ...this.collectLowerDepotActions(this.world)
+      ...ActionCollector.handleStrategicActions(this.world),
+      ...ActionCollector.collectLowerDepotActions(this.world)
     ];
 
     if (units.getIdleWorkers().length > 0) {
@@ -72,12 +72,12 @@ class ActionCollector {
    * @param {World} world - The current game world state.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of actions to lower SUPPLYDEPOTS.
    */
-  collectLowerDepotActions(world) {
+  static collectLowerDepotActions(world) {
     const { units } = world.resources.get();
     const depots = units.getByType(UnitType.SUPPLYDEPOT).filter(depot => depot.buildProgress !== undefined && depot.buildProgress >= 1);
 
     return depots.reduce((actions, depot) => {
-      actions.push(...this.prepareLowerSupplyDepotAction(world, depot));
+      actions.push(...ActionCollector.prepareLowerSupplyDepotAction(world, depot));
       return actions;
     }, /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */([]));
   }
@@ -87,15 +87,12 @@ class ActionCollector {
    * @param {World} world - The current game world state.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - A collection of strategic actions.
    */
-  handleStrategicActions(world) {
+  static handleStrategicActions(world) {
     const strategyManager = StrategyManager.getInstance();
 
-    // Check if there is an active strategic plan.
     if (strategyManager.isActivePlan()) {
-      // If there is an active plan, execute it and return the resulting actions.
       return strategyManager.runPlan(world);
     } else {
-      // If there is no active plan, return an empty array indicating no actions.
       return [];
     }
   }
@@ -106,7 +103,7 @@ class ActionCollector {
    * @param {Unit} depot - The SUPPLYDEPOT unit that needs to be lowered.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - An array of actions to lower the SUPPLYDEPOT.
    */
-  prepareLowerSupplyDepotAction(world, depot) {
+  static prepareLowerSupplyDepotAction(world, depot) {
     // Check if the depot is already lowered
     // We use available abilities to determine if it can be lowered.
     const depotAbilities = depot.availableAbilities();

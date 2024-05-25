@@ -4,7 +4,7 @@ const { Ability } = require("@node-sc2/core/constants");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { addEarmark } = require("./EarmarkManager");
+const EarmarkManager = require("./EarmarkManager");
 const { seigeTanksSiegedGrids } = require("../../features/construction/sharedUnitPlacement");
 const { getAddOnPlacement, pointsOverlap } = require("../../gameLogic/spatial/pathfinding");
 const { getDistance } = require("../../gameLogic/spatial/spatialCoreUtils");
@@ -34,7 +34,7 @@ function attemptBuildAddOn(world, unit, addOnType, unitCommand) {
 
   unitCommand.targetWorldSpacePos = unit.pos;
   setPendingOrders(unit, unitCommand);
-  addEarmark(data, data.getUnitTypeData(addOnType));
+  EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(addOnType));
 
   return [unitCommand];
 }
@@ -67,7 +67,6 @@ function attemptLiftOff(unit) {
 }
 
 module.exports = {
-  addEarmark,
   attemptBuildAddOn,
   attemptLiftOff,
 };

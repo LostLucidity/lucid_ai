@@ -16,8 +16,7 @@ const { handleUnitTraining } = require("./training");
 const { liftAndLandingTime } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { productionUnitsCache } = require("./unitUtils");
-const { addEarmark } = require("../../core/common/buildUtils");
-const { getEarmarkedFood } = require("../../core/common/EarmarkManager");
+const { EarmarkManager } = require("../../core");
 const { createUnitCommand } = require("../../core/utils/common");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { buildSupply, getTimeToTargetCost } = require("../../features/construction/buildingService");
@@ -102,7 +101,7 @@ function handleSupplyBuilding(world) {
   const totalExpectedFoodCap = (agent.foodCap || 0) + pendingSupply;
 
   // Calculate the current food demand, including earmarked food, with a default of 0 if undefined
-  const currentFoodDemand = (agent.foodUsed || 0) + getEarmarkedFood();
+  const currentFoodDemand = (agent.foodUsed || 0) + EarmarkManager.getEarmarkedFood();
 
   if (currentFoodDemand > totalExpectedFoodCap) {
     return agent.race === Race.ZERG ? manageZergSupply(world) : buildSupply(world);
@@ -547,7 +546,7 @@ function upgrade(world, upgradeId) {
       }
     }
   }
-  addEarmark(data, upgradeData);
+  EarmarkManager.getInstance().addEarmark(data, upgradeData);
 
   return actionsToPerform;
 }

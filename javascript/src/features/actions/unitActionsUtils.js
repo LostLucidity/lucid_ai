@@ -8,8 +8,7 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const { avgPoints } = require('@node-sc2/core/utils/geometry/point');
 const getRandom = require('@node-sc2/core/utils/get-random');
 
-const { addEarmark } = require('../../core/common/buildUtils');
-const { earmarkThresholdReached } = require('../../core/common/EarmarkManager');
+const { EarmarkManager } = require('../../core');
 const { createUnitCommand } = require('../../core/utils/common');
 const { getPathCoordinates, getMapPath } = require('../../gameLogic/spatial/pathfindingCommon');
 const { calculatePathablePositions } = require('../../gameLogic/spatial/pathfindingUtils');
@@ -43,7 +42,7 @@ function buildWithNydusNetwork(world, unitType, abilityId) {
         const unitCommand = createUnitCommand(abilityId, [nydusNetwork]);
         unitCommand.targetWorldSpacePos = foundPosition;
         collectedActions.push(unitCommand);
-        addEarmark(data, data.getUnitTypeData(unitType));
+        EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
         BuildingPlacement.updateFoundPosition(null);
       } else {
         BuildingPlacement.updateFoundPosition(null);
@@ -119,7 +118,7 @@ function morphStructureAction(world, unitType) {
       collectedActions.push(...actions);
     }
   }
-  addEarmark(data, data.getUnitTypeData(unitType));
+  EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
   return collectedActions;
 }
 
@@ -144,12 +143,12 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
 
   // Calculate time to target cost before earmarking
   const timeToTargetCost = getTimeToTargetCostFn(world, unitType);
-  if (earmarkThresholdReached(data)) {
+  if (EarmarkManager.earmarkThresholdReached(data)) {
     return collectedActions;
   }
 
   // Earmark resources now that we've checked thresholds
-  addEarmark(data, data.getUnitTypeData(unitType));
+  EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
   const adjustedPosition = getMiddleOfStructureFn(position, unitType);
   const builderInfo = getBuilderFunc(world, adjustedPosition);
 

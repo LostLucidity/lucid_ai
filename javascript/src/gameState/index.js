@@ -224,7 +224,7 @@ class GameState {
    * @returns {number} The number of frames processed in each game step.
    */
   calculateFramesPerStep(world) {
-    const currentGameLoop = this.getCurrentGameLoop(world);
+    const currentGameLoop = GameState.getCurrentGameLoop(world);
     const framesPerStep = this.getFramesPerStep();
 
     this.previousGameLoop = currentGameLoop;
@@ -339,7 +339,7 @@ class GameState {
    * @param {World} world - The game world context.
    * @returns {number} The current game loop number.
    */
-  getCurrentGameLoop(world) {
+  static getCurrentGameLoop(world) {
     return world.resources.get().frame.getGameLoop();
   }
 
@@ -394,7 +394,7 @@ class GameState {
    * @param {World} world
    * @returns {Unit[]}
    */
-  getWorkers(world) {
+  static getWorkers(world) {
     const { agent, resources } = world;
     const { race } = agent;
     if (race === undefined) return [];
@@ -467,7 +467,7 @@ class GameState {
    * @param {AbilityId[]} abilityIds - An array of ability IDs to filter units by.
    * @returns {Unit[]} An array of units with the specified current orders.
    */
-  getUnitsWithCurrentOrders(units, abilityIds) {
+  static getUnitsWithCurrentOrders(units, abilityIds) {
     /** @type {Unit[]} */
     const unitsWithCurrentOrders = [];
 
@@ -533,7 +533,7 @@ class GameState {
    * @param {DataStorage} data 
    * @returns {AbilityId[]}
    */
-  getReactorAbilities(data) {
+  static getReactorAbilities(data) {
     const { reactorTypes } = require("@node-sc2/core/constants/groups");
 
     /** @type {AbilityId[]} */
@@ -555,7 +555,7 @@ class GameState {
    * @param {DataStorage} data 
    * @returns {AbilityId[]}
    */
-  getTechlabAbilities(data) {
+  static getTechlabAbilities(data) {
     const { techLabTypes } = groupTypes;
 
     /** @type {AbilityId[]} */
@@ -611,7 +611,7 @@ class GameState {
     const { agent } = world;
     const { foodUsed, race } = agent;
     if (foodUsed === undefined) { return 0; }
-    const pendingFoodUsed = race === Race.ZERG ? this.getWorkers(world).filter(worker => worker.isConstructing()).length : 0;
+    const pendingFoodUsed = race === Race.ZERG ? GameState.getWorkers(world).filter(worker => worker.isConstructing()).length : 0;
     const calculatedFoodUsed = foodUsed + this.pendingFood - pendingFoodUsed;
     foodData.foodUsed = calculatedFoodUsed;
   }
@@ -631,14 +631,14 @@ class GameState {
    * @param {UnitTypeId} unitType - The unit type ID for which to retrieve ability IDs.
    * @returns {AbilityId[]} An array of ability IDs.
    */
-  getAbilityIdsForAddons(data, unitType) {
+  static getAbilityIdsForAddons(data, unitType) {
     let { abilityId } = data.getUnitTypeData(unitType);
     let abilityIds = [];
 
     if (abilityId === 1674) { // Assuming this is the ID for a reactor
-      abilityIds.push(...this.getReactorAbilities(data));
+      abilityIds.push(...GameState.getReactorAbilities(data));
     } else if (abilityId === 1666) { // Assuming this is the ID for a tech lab
-      abilityIds.push(...this.getTechlabAbilities(data));
+      abilityIds.push(...GameState.getTechlabAbilities(data));
     } else if (abilityId !== undefined) {
       abilityIds.push(abilityId);
     }
@@ -696,8 +696,8 @@ class GameState {
     const { agent, data, resources } = world;
     const unitResource = resources.get().units;
     const unitArray = unitResource.getAll(); // Adjust as needed
-    const abilityIds = this.getAbilityIdsForAddons(data, unitType);
-    const unitsWithCurrentOrders = this.getUnitsWithCurrentOrders(unitArray, abilityIds);
+    const abilityIds = GameState.getAbilityIdsForAddons(data, unitType);
+    const unitsWithCurrentOrders = GameState.getUnitsWithCurrentOrders(unitArray, abilityIds);
     let count = unitsWithCurrentOrders.length;
 
     const unitTypes = this.countTypes.get(unitType) || [unitType];

@@ -8,7 +8,7 @@
 // Import necessary constants or modules
 const { UnitType, UnitTypeId } = require('@node-sc2/core/constants');
 
-const { addEarmark } = require('../../core/common/EarmarkManager');
+const { EarmarkManager } = require('../../core');
 const { checkAddOnPlacement } = require('../../services/ConstructionSpatialService');
 const { flyingTypesMapping } = require('../../units/management/unitConfig');
 const { setPendingOrders } = require('../../units/management/unitOrders');
@@ -49,7 +49,7 @@ function attemptLand(world, unit, addOnType) {
 
       collectedActions.push(unitCommand);
       setPendingOrders(unit, unitCommand);
-      addEarmark(data, data.getUnitTypeData(addOnType));
+      EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(addOnType));
     }
   }
 

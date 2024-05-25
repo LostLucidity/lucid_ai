@@ -435,7 +435,7 @@ function getUnitsTrainingTargetUnitType(world, unitType) {
   // Retrieve the array of units from the UnitResource object
   const unitArray = unitsResource.getAll(); // Assuming 'getAll()' is the method to get unit array from UnitResource
 
-  return GameState.getInstance().getUnitsWithCurrentOrders(unitArray, [abilityId]);
+  return GameState.getUnitsWithCurrentOrders(unitArray, [abilityId]);
 }
 
 /**

@@ -136,7 +136,7 @@ class StrategyManager {
   /**
    * @param {World} world
    */
-  balanceEarmarkedResources(world) {
+  static balanceEarmarkedResources(world) {
     const { agent, data } = world;
     const { minerals = 0, vespene = 0 } = agent;  // Default to 0 if undefined
     const earmarkTotals = data.getEarmarkTotals('');
@@ -160,7 +160,7 @@ class StrategyManager {
    * @param {number} cumulativeCount - The cumulative count of the unitType up to this step in the plan.
    * @returns {PlanStep} The created plan step.
    */
-  createPlanStep(rawStep, interpretedAction, cumulativeCount) {
+  static createPlanStep(rawStep, interpretedAction, cumulativeCount) {
     const { supply, time, action } = rawStep;
     const { isUpgrade, unitType, count } = interpretedAction;
 
@@ -206,7 +206,7 @@ class StrategyManager {
    */
   finalizeStrategyExecution(actionsToPerform, world) {
     this.resetCurrentStep();
-    this.handleEarmarksAndResources(actionsToPerform, world);
+    StrategyManager.handleEarmarksAndResources(actionsToPerform, world);
   }
 
   /**
@@ -223,7 +223,7 @@ class StrategyManager {
       throw new Error('No current strategy found in the strategy context.');
     }
 
-    if (this.isBuildOrder(currentStrategy)) {
+    if (StrategyManager.isBuildOrder(currentStrategy)) {
       return currentStrategy;
     }
 
@@ -234,7 +234,7 @@ class StrategyManager {
    * Retrieves the build order key from the current strategy.
    * @returns {string} - The determined build order key.
    */
-  getBuildOrderKey() {
+  static getBuildOrderKey() {
     const strategyContext = StrategyContext.getInstance();
     const currentStrategy = strategyContext.getCurrentStrategy();
 
@@ -292,7 +292,7 @@ class StrategyManager {
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
    * @param {World} world
    */
-  handleEarmarksAndResources(actionsToPerform, world) {
+  static handleEarmarksAndResources(actionsToPerform, world) {
     try {
       if (!hasEarmarks(world.data)) {
         actionsToPerform.push(...balanceResources(world, undefined, build));
@@ -312,9 +312,9 @@ class StrategyManager {
 
     if (!this.firstEarmarkSet && hasEarmarks(world.data)) {
       this.firstEarmarkSet = true;
-      actionsToPerform.push(...this.balanceEarmarkedResources(world));
+      actionsToPerform.push(...StrategyManager.balanceEarmarkedResources(world));
     }
-  }  
+  }
 
   /**
    * Processes the plan step, handling special actions and regular actions.
@@ -328,7 +328,7 @@ class StrategyManager {
    */
   handlePlanStep(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform, currentCumulativeCount) {
     const effectiveUnitType = interpretedAction.unitType?.toString() || 'default';
-    const planStep = this.createPlanStep(rawStep, interpretedAction, currentCumulativeCount);
+    const planStep = StrategyManager.createPlanStep(rawStep, interpretedAction, currentCumulativeCount);
     this.cumulativeCounts[effectiveUnitType] = currentCumulativeCount + (interpretedAction.count || 0);
 
     if (interpretedAction.specialAction) {
@@ -416,8 +416,8 @@ class StrategyManager {
     }
 
     try {
-      const buildOrderKey = config.debugBuildOrderKey || this.selectBuildOrderKey(race);
-      this.strategyContext.setCurrentStrategy(this.loadStrategy(race, buildOrderKey));
+      const buildOrderKey = config.debugBuildOrderKey || StrategyManager.selectBuildOrderKey(race);
+      this.strategyContext.setCurrentStrategy(StrategyManager.loadStrategy(race, buildOrderKey));
     } catch (error) {
       console.error(`Error loading strategy for ${race}:`, error);
       return; // Early return to prevent further execution if an error occurs
@@ -450,7 +450,7 @@ class StrategyManager {
    * @param {any} strategy - The strategy to check.
    * @returns {strategy is import('../../core/utils/globalTypes').BuildOrder}
    */
-  isBuildOrder(strategy) {
+  static isBuildOrder(strategy) {
     return 'title' in strategy && 'raceMatchup' in strategy && 'steps' in strategy && 'url' in strategy;
   }
   /**
@@ -509,7 +509,7 @@ class StrategyManager {
   /**
    * @param {import("../../core/utils/globalTypes").BuildOrder | Strategy | undefined} plan
    */
-  isValidPlan(plan) {
+  static isValidPlan(plan) {
     return plan && Array.isArray(plan.steps);
   }
 
@@ -519,13 +519,13 @@ class StrategyManager {
    * @param {string} buildOrderKey
    * @returns {import("../../core/utils/globalTypes").BuildOrder | undefined}
    */
-  loadStrategy(race, buildOrderKey) {
+  static loadStrategy(race, buildOrderKey) {
     if (!race) {
       console.error('Race must be provided to load strategy');
       return;
     }
 
-    const raceKey = this.mapRaceToKey(race);
+    const raceKey = StrategyManager.mapRaceToKey(race);
 
     if (!raceKey || !buildOrders[raceKey]) {
       console.error(`Build orders for race ${race} not found`);
@@ -542,7 +542,7 @@ class StrategyManager {
    * @param {SC2APIProtocol.Race} race - The race to map.
    * @returns {'protoss' | 'terran' | 'zerg' | undefined} - Corresponding race key or undefined
    */
-  mapRaceToKey(race) {
+  static mapRaceToKey(race) {
     const raceMapping = {
       [Race.PROTOSS]: 'protoss',
       [Race.TERRAN]: 'terran',
@@ -565,12 +565,12 @@ class StrategyManager {
 
     switch (planStep.orderType) {
       case 'UnitType':
-        actions = actions.concat(this.actionStrategy.handleUnitTypeAction(world, planStep));
+        actions = actions.concat(UnitActionStrategy.handleUnitTypeAction(world, planStep));
         break;
       case 'Upgrade':
         // Using non-null assertion operator in TypeScript, or ensure your JSDoc/environment knows it's always initialized
         if (this.upgradeStrategy) {
-          actions = actions.concat(this.upgradeStrategy.handleUpgradeAction(world, planStep));
+          actions = actions.concat(UpgradeActionStrategy.handleUpgradeAction(world, planStep));
         } else {
           console.error("upgradeStrategy is not initialized.");
         }
@@ -628,7 +628,7 @@ class StrategyManager {
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
    */
   processStep(world, rawStep, step, strategyManager, actionsToPerform) {
-    const interpretedActions = this.strategyData.getInterpretedActions(rawStep);
+    const interpretedActions = StrategyData.getInterpretedActions(rawStep);
     if (!interpretedActions) return;
 
     for (const interpretedAction of interpretedActions) {
@@ -674,10 +674,10 @@ class StrategyManager {
   runPlan(world) {
     const { agent, data } = world;
     const { race } = agent;
-    const specificBuildOrderKey = this.getBuildOrderKey(); // Assume this fetches based on some criteria
+    const specificBuildOrderKey = StrategyManager.getBuildOrderKey(); // Assume this fetches based on some criteria
 
     // Validate required resources first before continuing
-    if (!this.validateResources(agent)) {
+    if (!StrategyManager.validateResources(agent)) {
       console.error('Insufficient resources to run the plan.');
       return [];
     }
@@ -702,7 +702,7 @@ class StrategyManager {
 
     // Fetch and validate the current strategy plan
     const plan = this.strategyContext.getCurrentStrategy();
-    if (!plan || !this.isValidPlan(plan)) {
+    if (!plan || !StrategyManager.isValidPlan(plan)) {
       console.error('Invalid or undefined strategy plan');
       return [];
     }
@@ -718,7 +718,7 @@ class StrategyManager {
    * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    * @returns {string}
    */
-  selectBuildOrderKey(race, specificBuildOrderKey = undefined) {
+  static selectBuildOrderKey(race, specificBuildOrderKey = undefined) {
     if (race === undefined) {
       throw new Error('Race must be provided');
     }
@@ -727,7 +727,7 @@ class StrategyManager {
       return specificBuildOrderKey;
     }
     // Otherwise, proceed to select a key randomly
-    return this.selectRandomBuildOrderKey(race);
+    return StrategyManager.selectRandomBuildOrderKey(race);
   }
 
   /**
@@ -736,11 +736,11 @@ class StrategyManager {
    * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    * @returns {string} A randomly selected or specified build order key.
    */
-  selectRandomBuildOrderKey(race, specificBuildOrderKey = undefined) {
+  static selectRandomBuildOrderKey(race, specificBuildOrderKey = undefined) {
     if (specificBuildOrderKey) {
       return specificBuildOrderKey;
     }
-    const raceKey = this.mapRaceToKey(race);
+    const raceKey = StrategyManager.mapRaceToKey(race);
 
     // Ensure raceKey is not undefined before proceeding
     if (!raceKey) {
@@ -849,7 +849,7 @@ class StrategyManager {
   /**
    * @param {Agent} agent
    */
-  validateResources(agent) {
+  static validateResources(agent) {
     const { minerals, vespene } = agent;
     return !(minerals === undefined || vespene === undefined);
   }

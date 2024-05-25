@@ -9,7 +9,7 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 // Internal Dependencies
-const { addEarmark } = require("../../core/common/buildUtils");
+const { EarmarkManager } = require("../../core");
 const { findUnitTypesWithAbilityCached } = require("../../core/utils/common");
 const { getClosestBuilderCandidate } = require("../../gameLogic/spatial/pathfinding");
 const { calculateClosestConstructingWorker } = require("../../gameLogic/unit/coreUtils");
@@ -166,7 +166,7 @@ function prepareBuilderForConstruction(world, unitType, position) {
 
   if (builder) {
     const { unit } = builder;
-    addEarmark(data, data.getUnitTypeData(unitType));
+    EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
     if (TownhallRace[race].indexOf(unitType) === 0) {
       const gameState = GameState.getInstance();
       gameState.setAvailableExpansions([]);

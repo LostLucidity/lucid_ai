@@ -23,7 +23,7 @@ class GameInitialization {
    */
   async enhancedOnGameStart() {
     try {
-      await this.onGameStart(this.world);
+      await GameInitialization.onGameStart(this.world);
       this.gasMineManager.initialize(this.world);
     } catch (error) {
       // Ensure that error is an instance of Error before handling
@@ -51,7 +51,7 @@ class GameInitialization {
    * Initialization logic specific to your application.
    * @param {World} world - The current game world state.
    */
-  async onGameStart(world) {
+  static async onGameStart(world) {
     logger.logMessage('Game Started', 1);
 
     try {

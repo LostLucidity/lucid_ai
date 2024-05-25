@@ -8,8 +8,7 @@ const { canTrainUnit, earmarkResourcesIfNeeded } = require("./trainingUtils");
 const { unitTypeTrainingAbilities, flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("./unitUtils");
-const { addEarmark } = require("../../core/common/buildUtils");
-const { getEarmarkedFood } = require("../../core/common/EarmarkManager");
+const { EarmarkManager } = require("../../core");
 const { findUnitTypesWithAbility, getUnitTypeData } = require("../../core/data");
 const { findKeysForValue, createUnitCommand } = require("../../core/utils/common");
 const StrategyContext = require("../../features/strategy/strategyContext");
@@ -29,7 +28,7 @@ function earmarkWorkersForTraining(world, foodAvailable) {
   if (world.agent.race !== undefined) {
     const workerUnitTypeData = world.data.getUnitTypeData(WorkerRace[world.agent.race]);
     for (let i = 0; i < foodAvailable; i++) {
-      addEarmark(world.data, workerUnitTypeData);
+      EarmarkManager.getInstance().addEarmark(world.data, workerUnitTypeData);
     }
   }
 }
@@ -186,7 +185,7 @@ function handleUnitTraining(world, step) {
   if (!world.agent.race || !step.unitType) return [];
 
   const gameState = GameState.getInstance();
-  const foodUsed = gameState.getFoodUsed() + getEarmarkedFood();
+  const foodUsed = gameState.getFoodUsed() + EarmarkManager.getEarmarkedFood();
   const foodAvailable = (step.food || 0) - foodUsed;
   if (foodAvailable <= 0) return [];
 

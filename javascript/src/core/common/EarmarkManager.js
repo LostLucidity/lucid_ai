@@ -6,8 +6,13 @@ const StrategyContext = require("../../features/strategy/strategyContext");
 const { GameState } = require("../../gameState");
 const { foodEarmarks } = require("../../sharedServices");
 
-// EarmarkManager.js
 class EarmarkManager {
+  /**
+   * The singleton instance of EarmarkManager.
+   * @type {EarmarkManager | null}
+   */
+  static instance = null;
+
   constructor() {
     /**
      * @type {{
@@ -18,6 +23,17 @@ class EarmarkManager {
     */
     this.earmarks = [];
     this.addEarmark = this.addEarmark.bind(this); // Bind the method to ensure 'this' context
+  }
+
+  /**
+   * Gets the singleton instance of EarmarkManager.
+   * @returns {EarmarkManager} The singleton instance.
+   */
+  static getInstance() {
+    if (!EarmarkManager.instance) {
+      EarmarkManager.instance = new EarmarkManager();
+    }
+    return EarmarkManager.instance;
   }
 
   /**
@@ -40,9 +56,9 @@ class EarmarkManager {
 
     const { name, mineralCost, vespeneCost } = orderData;
 
-    if (this.earmarkThresholdReached(data) || name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
+    if (EarmarkManager.earmarkThresholdReached(data) || name === undefined || mineralCost === undefined || vespeneCost === undefined) return;
 
-    const foodKey = `${foodUsed + this.getEarmarkedFood()}`;
+    const foodKey = `${foodUsed + EarmarkManager.getEarmarkedFood()}`;
     const stepKey = `${StrategyContext.getInstance().getCurrentStep()}`;
     const fullKey = `${stepKey}_${foodKey}`;
 
@@ -92,18 +108,18 @@ class EarmarkManager {
    * @param {DataStorage} data 
    * @returns {boolean}
    */
-  earmarkThresholdReached(data) {
+  static earmarkThresholdReached(data) {
     const { minerals: earmarkedTotalMinerals, vespene: earmarkedTotalVespene } = data.getEarmarkTotals('');
     return earmarkedTotalMinerals > 512 && earmarkedTotalVespene > 512 || earmarkedTotalMinerals > 1024;
   }
 
   /**
-     * @description Get total food earmarked for all steps
-     * @returns {number}
-     */
-  getEarmarkedFood() {
+   * @description Get total food earmarked for all steps
+   * @returns {number}
+   */
+  static getEarmarkedFood() {
     return Array.from(foodEarmarks.values()).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   }
 }
 
-module.exports = new EarmarkManager();
+module.exports = EarmarkManager;

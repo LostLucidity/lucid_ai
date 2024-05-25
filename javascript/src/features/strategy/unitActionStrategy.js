@@ -12,15 +12,15 @@ class UnitActionStrategy extends ActionStrategy {
    * @param {import("./strategyManager").PlanStep} planStep - The plan step to execute.
    * @returns {any} Result of the unit type action.
    */
-  execute(world, planStep) {
-    return this.handleUnitTypeAction(world, planStep);
+  static execute(world, planStep) {
+    return UnitActionStrategy.handleUnitTypeAction(world, planStep);
   }
 
   /**
    * @param {World} world
    * @param {{ supply?: number | undefined; time?: string | undefined; action?: string | undefined; orderType?: any; unitType: any; targetCount: any; upgrade?: any; isChronoBoosted?: any; count?: any; candidatePositions: any; food?: number | undefined; }} planStep
    */
-  handleUnitTypeAction(world, planStep) {
+  static handleUnitTypeAction(world, planStep) {
     const { data } = world;
     if (planStep.unitType === undefined || planStep.unitType === null) return [];
     const { attributes } = data.getUnitTypeData(planStep.unitType);

@@ -104,7 +104,7 @@ class GasMineManager {
    * @param {Unit} mine - The gas mine unit to evaluate.
    * @returns {boolean} - Returns true if the worker is assigned to the mine based on specific orders.
    */
-  shouldAssignWorkerToMine(worker, mine) {
+  static shouldAssignWorkerToMine(worker, mine) {
     // Check the worker's current orders to determine if it is gathering gas from the specific mine
     if (worker.orders && worker.orders.length > 0) {
       return worker.orders.some(order =>

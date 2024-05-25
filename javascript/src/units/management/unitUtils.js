@@ -2,7 +2,7 @@ const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
 const { getBasicProductionUnits } = require("./basicUnitUtils");
-const { addEarmark } = require("../../core/common/buildUtils");
+const { EarmarkManager } = require("../../core");
 const { isTrainingOrder } = require("../../core/utils/baseUnitUtils");
 const { haveSupplyForUnit } = require("../../features/construction/buildingService");
 const StrategyContext = require("../../features/strategy/strategyContext");
@@ -41,7 +41,7 @@ function calculateAffordableUnits(world, workerRaceData, maxUnits) {
         break; // Exit the loop if the unit data cannot be found
       }
 
-      addEarmark(world.data, unitTypeData); // Pass the UnitTypeData to addEarmark
+      EarmarkManager.getInstance().addEarmark(world.data, unitTypeData); // Pass the UnitTypeData to addEarmark
     } else {
       break; // Exit loop if a unit cannot be afforded or there's no supply
     }

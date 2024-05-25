@@ -1,6 +1,6 @@
 // trainingUtils.js
 
-const { addEarmark } = require("../../core/common/EarmarkManager");
+const { EarmarkManager } = require("../../core");
 const { checkUnitCount } = require("../../gameLogic/resources/stateManagement");
 
 /**
@@ -26,7 +26,7 @@ function earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded) {
   const earmarkNeededBool = Boolean(earmarkNeeded);
 
   if (earmarkNeededBool) {
-    addEarmark(world.data, unitTypeData);
+    EarmarkManager.getInstance().addEarmark(world.data, unitTypeData);
   }
 
   return !earmarkNeededBool;

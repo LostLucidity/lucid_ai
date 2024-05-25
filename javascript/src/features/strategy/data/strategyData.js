@@ -28,7 +28,7 @@ class StrategyData {
 
     for (let index = 0; index <= stepIndex; index++) {
       const currentStep = buildOrder.steps[index];
-      this.getInterpretedActions(currentStep).forEach(action => {
+      StrategyData.getInterpretedActions(currentStep).forEach(action => {
         if (action.unitType !== null && !action.isUpgrade && !action.specialAction) {
           const unitTypeKey = `unitType_${action.unitType}`;
           const countKey = `${unitTypeKey}_step_${index}`;
@@ -74,7 +74,7 @@ class StrategyData {
   /**
    * @param {import('../../../core/utils/globalTypes').BuildOrderStep | import('../strategyManager').StrategyStep} rawStep
    */
-  getInterpretedActions(rawStep) {
+  static getInterpretedActions(rawStep) {
     if (rawStep.interpretedAction) {
       return Array.isArray(rawStep.interpretedAction) ? rawStep.interpretedAction : [rawStep.interpretedAction];
     } else {
