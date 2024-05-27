@@ -344,5 +344,6 @@ module.exports = {
   getStringNameOfConstant,
   getUnitsWithinDistance,
   isLineTraversable,
+  isSupplyNeeded,
   positionIsEqual,
 };

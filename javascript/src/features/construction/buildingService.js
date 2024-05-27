@@ -1,17 +1,24 @@
-// buildingService.js
 "use strict";
 
 const { UnitType } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
+const { ORBITALCOMMAND, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 
 const { getUnitsCapableToAddOn } = require("./addonUtils");
 const BuildingPlacement = require("./buildingPlacement");
-const { getInTheMain, determineBuildingPosition, findBestPositionForAddOn, isPlaceableAtGasGeyser } = require("./buildingPlacementUtils");
+const {
+  getInTheMain,
+  determineBuildingPosition,
+  findBestPositionForAddOn,
+  isPlaceableAtGasGeyser,
+  logNoValidPosition
+} = require("./buildingPlacementUtils");
 const config = require("../../../config/config");
 const { EarmarkManager } = require("../../core");
 const { attemptBuildAddOn, attemptLiftOff } = require("../../core/common/buildUtils");
+const { isSupplyNeeded } = require("../../core/utils/common");
 const { attemptLand } = require("../../gameLogic/buildingUtils");
 const { calculateDistance } = require("../../gameLogic/coreUtils");
 const { getTimeUntilUnitCanBuildAddon } = require("../../gameLogic/gameMechanics/unitUtils");
@@ -32,7 +39,7 @@ const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech }
 const foodEarmarks = new Map();
 
 /**
- * Adds addon, with placement checks and relocating logic.
+ * Adds an add-on with placement checks and relocating logic.
  * @param {World} world 
  * @param {Unit} unit 
  * @param {UnitTypeId} addOnType 
@@ -51,12 +58,12 @@ function addAddOn(world, unit, addOnType) {
   addOnType = updateAddOnType(addOnType, gameState.countTypes);
   const unitTypeToBuild = getUnitTypeToBuild(unit, flyingTypesMapping, addOnType);
 
-  // Check if unitTypeToBuild is defined and retrieve abilityId
-  if (unitTypeToBuild === undefined) return collectedActions;
-  const unitTypeData = data.getUnitTypeData(unitTypeToBuild);
-  if (!unitTypeData || unitTypeData.abilityId === undefined) return collectedActions;
-  const abilityId = unitTypeData.abilityId;
+  if (!unitTypeToBuild) return collectedActions;
 
+  const unitTypeData = data.getUnitTypeData(unitTypeToBuild);
+  if (!unitTypeData || !unitTypeData.abilityId) return collectedActions;
+
+  const abilityId = unitTypeData.abilityId;
   const unitCommand = { abilityId, unitTags: [tag] };
 
   if (!unit.noQueue || unit.labels.has('swapBuilding') || getPendingOrders(unit).length > 0) {
@@ -91,6 +98,123 @@ function addAddOn(world, unit, addOnType) {
 }
 
 /**
+ * Handles building add-ons for a given unit type.
+ * @param {World} world - The game world state.
+ * @param {UnitTypeId} unitType - The unit type ID for the add-on.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - Array to collect the resulting actions.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The collected actions after attempting to build the add-on.
+ */
+function handleAddonTypes(world, unitType, collectedActions) {
+  const { agent, data, resources } = world;
+  const { units } = resources.get();
+  const abilityIds = getAbilityIdsForAddons(data, unitType);
+  const canDoTypes = getUnitTypesWithAbilities(data, abilityIds);
+  const canDoTypeUnits = units.getById(canDoTypes);
+
+  if (agent.canAfford(unitType)) {
+    const allUnits = getUnitsCapableToAddOn(canDoTypeUnits);
+    const { fastestAvailableUnit } = findFastestAvailableUnit(world, allUnits);
+
+    if (fastestAvailableUnit) {
+      EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
+      collectedActions.push(...addAddOn(world, fastestAvailableUnit, unitType));
+    }
+  } else {
+    const timeUntilCanBeAfforded = getTimeUntilCanBeAfforded(world, unitType);
+    const allUnits = getUnitsCapableToAddOn(canDoTypeUnits);
+    const { fastestAvailableUnit, fastestAvailableTime } = findFastestAvailableUnit(world, allUnits);
+
+    if (fastestAvailableUnit && fastestAvailableTime >= timeUntilCanBeAfforded) {
+      const targetPosition = findBestPositionForAddOn(world, fastestAvailableUnit, checkAddOnPlacement);
+      collectedActions.push(...prepareUnitToBuildAddon(world, fastestAvailableUnit, targetPosition));
+    }
+  }
+
+  return collectedActions;
+}
+
+/**
+ * Handles the construction logic for townhall races.
+ * @param {World} world - The game world state.
+ * @param {UnitTypeId} unitType - The unit type ID to construct.
+ * @param {Point2D[]} candidatePositions - Array of candidate positions for construction.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} collectedActions - Array to collect the resulting actions.
+ * @param {Race} race - The race of the agent.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The collected actions after attempting to build the townhall.
+ */
+function handleTownhallRace(world, unitType, candidatePositions, collectedActions, race) {
+  const { agent, data, resources } = world;
+  const { units } = resources.get();
+
+  if (TownhallRace[race].indexOf(unitType) === 0) {
+    if (units.getBases().length === 2 && agent.race === Race.TERRAN) {
+      candidatePositions = getInTheMain(world, unitType);
+      const position = determineBuildingPosition(
+        world,
+        unitType,
+        candidatePositions,
+        BuildingPlacement.buildingPosition,
+        findPlacements,
+        findPosition,
+        BuildingPlacement.setBuildingPosition
+      );
+      if (position === false) {
+        logNoValidPosition(unitType);
+        return collectedActions;
+      }
+      collectedActions.push(...commandPlaceBuilding(
+        world,
+        unitType,
+        position,
+        commandBuilderToConstruct,
+        buildWithNydusNetwork,
+        premoveBuilderToPosition,
+        isPlaceableAtGasGeyser,
+        getTimeToTargetCost
+      ));
+    } else {
+      const availableExpansions = MapResources.getAvailableExpansions(resources);
+      const nextSafeExpansions = getNextSafeExpansions(world, availableExpansions);
+      if (nextSafeExpansions.length > 0) {
+        candidatePositions.push(nextSafeExpansions[0]);
+        const position = determineBuildingPosition(
+          world,
+          unitType,
+          candidatePositions,
+          BuildingPlacement.buildingPosition,
+          findPlacements,
+          findPosition,
+          BuildingPlacement.setBuildingPosition
+        );
+        if (position === false) {
+          logNoValidPosition(unitType);
+          return collectedActions;
+        }
+        collectedActions.push(...commandPlaceBuilding(
+          world,
+          unitType,
+          position,
+          commandBuilderToConstruct,
+          buildWithNydusNetwork,
+          premoveBuilderToPosition,
+          isPlaceableAtGasGeyser,
+          getTimeToTargetCost
+        ));
+      }
+    }
+  } else {
+    const unitTypeToCheckAfford = unitType === ORBITALCOMMAND ? BARRACKS : unitType;
+    if (agent.canAfford(unitTypeToCheckAfford)) {
+      collectedActions.push(...morphStructureAction(world, unitType));
+    }
+    EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
+  }
+
+  return collectedActions;
+}
+
+/**
+ * Builds a unit type with a target count and candidate positions.
  * @param {World} world
  * @param {UnitTypeId} unitType
  * @param {number} [targetCount=null]
@@ -99,161 +223,74 @@ function addAddOn(world, unit, addOnType) {
  */
 function build(world, unitType, targetCount = undefined, candidatePositions = []) {
   const { addonTypes } = groupTypes;
-  const { BARRACKS, ORBITALCOMMAND, GREATERSPIRE } = UnitType;
+  const { GREATERSPIRE } = UnitType;
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
-  const { agent, data, resources } = world;
+  const { agent, resources } = world;
   const { units } = resources.get();
   const gameState = GameState.getInstance();
   const effectiveTargetCount = targetCount === undefined ? Number.MAX_SAFE_INTEGER : targetCount;
 
-  // Check if a Pylon is needed and if it exists for Protoss buildings
   if (agent.race === Race.PROTOSS && requiresPylonPower(unitType)) {
     const pylons = units.getByType(UnitType.PYLON);
     if (pylons.length === 0) {
-      // Add logic to handle the situation when there are no Pylons
       return collectedActions;
     }
   }
 
-  if (gameState.getUnitTypeCount(world, unitType) <= effectiveTargetCount &&
-    gameState.getUnitCount(world, unitType) <= effectiveTargetCount) {
-    const { race } = agent;
+  if (gameState.getUnitTypeCount(world, unitType) > effectiveTargetCount ||
+    gameState.getUnitCount(world, unitType) > effectiveTargetCount) {
+    return collectedActions;
+  }
 
-    // Check if race is defined
-    if (race === undefined) {
-      console.error('Race is undefined');
+  const { race } = agent;
+
+  if (!race) {
+    console.error('Race is undefined');
+    return collectedActions;
+  }
+
+  if (TownhallRace[race].includes(unitType)) {
+    return handleTownhallRace(world, unitType, candidatePositions, collectedActions, race);
+  }
+
+  if (addonTypes.includes(unitType)) {
+    return handleAddonTypes(world, unitType, collectedActions);
+  }
+
+  if (unitType === GREATERSPIRE) {
+    collectedActions.push(...morphStructureAction(world, unitType));
+  } else {
+    const position = determineBuildingPosition(
+      world,
+      unitType,
+      candidatePositions,
+      BuildingPlacement.buildingPosition,
+      findPlacements,
+      findPosition,
+      BuildingPlacement.setBuildingPosition
+    );
+    if (position === false) {
+      logNoValidPosition(unitType);
       return collectedActions;
     }
-
-    switch (true) {
-      case TownhallRace[race].includes(unitType):
-        if (TownhallRace[race].indexOf(unitType) === 0) {
-          if (units.getBases().length == 2 && agent.race === Race.TERRAN) {
-            // Await the promise and then assign its value to candidatePositions
-            candidatePositions = getInTheMain(world, unitType);
-            const position = determineBuildingPosition(
-              world,
-              unitType,
-              candidatePositions,
-              BuildingPlacement.buildingPosition,
-              findPlacements,
-              findPosition,
-              BuildingPlacement.setBuildingPosition
-            );
-            if (position === false) {
-              console.error(`No valid position found for building type ${unitType}`);
-              return collectedActions;
-            }
-            collectedActions.push(...commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, premoveBuilderToPosition, isPlaceableAtGasGeyser, getTimeToTargetCost));
-          } else {
-            const availableExpansions = MapResources.getAvailableExpansions(resources);
-            const nextSafeExpansions = getNextSafeExpansions(world, availableExpansions);
-            if (nextSafeExpansions.length > 0) {
-              candidatePositions.push(nextSafeExpansions[0]);
-              const position = determineBuildingPosition(
-                world,
-                unitType,
-                candidatePositions,
-                BuildingPlacement.buildingPosition,
-                findPlacements,
-                findPosition,
-                BuildingPlacement.setBuildingPosition
-              );
-
-              if (position === false) {
-                console.error(`No valid position found for building type ${unitType}`);
-                return collectedActions;
-              }
-
-              collectedActions.push(...commandPlaceBuilding(world, unitType, position || null, commandBuilderToConstruct, buildWithNydusNetwork, premoveBuilderToPosition, isPlaceableAtGasGeyser, getTimeToTargetCost));
-            }
-          }
-        } else {
-          const unitTypeToCheckAfford = unitType === ORBITALCOMMAND ? BARRACKS : unitType;
-          if (agent.canAfford(unitTypeToCheckAfford)) {
-            collectedActions.push(...morphStructureAction(world, unitType));
-          }
-          EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
-        }
-        break;
-      case addonTypes.includes(unitType): {
-        const abilityIds = getAbilityIdsForAddons(data, unitType);
-        const canDoTypes = getUnitTypesWithAbilities(data, abilityIds);
-        const canDoTypeUnits = units.getById(canDoTypes);
-        // First, get the units that can perform the action regardless of affordability
-        if (agent.canAfford(unitType)) {
-          const allUnits = getUnitsCapableToAddOn(canDoTypeUnits);
-
-          let fastestAvailableUnit = null;
-          let fastestAvailableTime = Infinity;
-
-          // Calculate time until each unit can build the add-on
-          for (let unit of allUnits) {
-            let timeUntilAvailable = getTimeUntilUnitCanBuildAddon(world, unit);
-            if (timeUntilAvailable < fastestAvailableTime) {
-              fastestAvailableUnit = unit;
-              fastestAvailableTime = timeUntilAvailable;
-            }
-          }
-
-          // If a suitable unit is found, build the add-on with it
-          if (fastestAvailableUnit) {
-            EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
-            collectedActions.push(...addAddOn(world, fastestAvailableUnit, unitType));
-          }
-        } else {
-          const timeUntilCanBeAfforded = getTimeUntilCanBeAfforded(world, unitType);
-          const allUnits = getUnitsCapableToAddOn(canDoTypeUnits);
-
-          let fastestAvailableUnit = null;
-          let fastestAvailableTime = Infinity;
-
-          // Calculate time until each unit can build the addon
-          for (let unit of allUnits) {
-            let timeUntilAvailable = getTimeUntilUnitCanBuildAddon(world, unit);
-            if (timeUntilAvailable < fastestAvailableTime) {
-              fastestAvailableUnit = unit;
-              fastestAvailableTime = timeUntilAvailable;
-            }
-          }
-          // Check if we have a suitable unit to build the addon soon
-          if (fastestAvailableUnit && fastestAvailableTime >= timeUntilCanBeAfforded) {
-            // Prepare the fastest available unit to build the addon
-            // TODO: Implement a function to prepare the unit to build the addon
-            let targetPosition = findBestPositionForAddOn(world, fastestAvailableUnit, checkAddOnPlacement);
-            collectedActions.push(...prepareUnitToBuildAddon(world, fastestAvailableUnit, targetPosition));
-          }
-        }
-        break;
-      }
-      default:
-        if (unitType === GREATERSPIRE) {
-          collectedActions.push(...morphStructureAction(world, unitType));
-        } else {
-          const position = determineBuildingPosition(
-            world,
-            unitType,
-            candidatePositions,
-            BuildingPlacement.buildingPosition,
-            findPlacements,
-            findPosition,
-            BuildingPlacement.setBuildingPosition
-          );
-          if (position === false) {
-            console.error(`No valid position found for building type ${unitType}`);
-            return collectedActions;
-          } else {
-            collectedActions.push(...commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, premoveBuilderToPosition, isPlaceableAtGasGeyser, getTimeToTargetCost));
-          }
-        }
-    }
+    collectedActions.push(...commandPlaceBuilding(
+      world,
+      unitType,
+      position,
+      commandBuilderToConstruct,
+      buildWithNydusNetwork,
+      premoveBuilderToPosition,
+      isPlaceableAtGasGeyser,
+      getTimeToTargetCost
+    ));
   }
 
   return collectedActions;
 }
 
 /**
+ * Builds supply depots, pylons, or overlords depending on the race.
  * @param {World} world
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
@@ -261,23 +298,10 @@ function buildSupply(world) {
   const { agent } = world;
   const { foodUsed, minerals } = agent;
 
-  // Explicitly define the type of actions
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const actions = [];
 
   if (foodUsed === undefined || minerals === undefined) return actions;
-
-  const isSupplyNeeded = (/** @type {World} */ world, /** @type {number} */ threshold) => {
-    const { foodCap, foodUsed } = world.agent;
-
-    // Check if foodCap or foodUsed is undefined before proceeding
-    if (foodCap === undefined || foodUsed === undefined) {
-      console.error('foodCap or foodUsed is undefined');
-      return false;
-    }
-
-    return foodCap - foodUsed < threshold;
-  };
 
   const greaterThanPlanSupply = foodUsed > config.planMax.supply;
   const automateSupplyCondition = isSupplyNeeded(world, 0.2) &&
@@ -325,6 +349,27 @@ function buildSupply(world) {
 }
 
 /**
+ * Finds the unit that can build an add-on in the shortest time.
+ * @param {World} world - The game world state.
+ * @param {Unit[]} allUnits - The units that can perform the action.
+ * @returns {{ fastestAvailableUnit: Unit | null, fastestAvailableTime: number }} - The unit that can build the add-on the fastest and the time it takes.
+ */
+function findFastestAvailableUnit(world, allUnits) {
+  let fastestAvailableUnit = null;
+  let fastestAvailableTime = Infinity;
+
+  for (let unit of allUnits) {
+    const timeUntilAvailable = getTimeUntilUnitCanBuildAddon(world, unit);
+    if (timeUntilAvailable < fastestAvailableTime) {
+      fastestAvailableUnit = unit;
+      fastestAvailableTime = timeUntilAvailable;
+    }
+  }
+
+  return { fastestAvailableUnit, fastestAvailableTime };
+}
+
+/**
  * Check for gas mine construction conditions and initiate building if criteria are met.
  * @param {World} world - The game world context.
  * @param {number} targetRatio - Optional ratio of minerals to vespene gas to maintain.
@@ -338,7 +383,7 @@ const gasMineCheckAndBuild = (world, targetRatio = 2.4, buildFunction) => {
   const resourceRatio = (minerals ?? 0) / (vespene ?? 1);
   const gasUnitId = GasMineRace[agent.race || Race.TERRAN];
   const buildAbilityId = data.getUnitTypeData(gasUnitId).abilityId;
-  if (buildAbilityId === undefined) return [];
+  if (!buildAbilityId) return [];
 
   const [geyser] = map.freeGasGeysers();
   const conditions = [
@@ -448,7 +493,6 @@ function getTimeUntilCanBeAfforded(world, unitType) {
   const timeToTargetCost = getTimeToTargetCost(world, unitType);
   const timeToTargetTech = getTimeToTargetTech(world, unitType);
 
-  // The time until the unit can be afforded is the maximum of the two times
   return Math.max(timeToTargetCost, timeToTargetTech);
 }
 
@@ -478,6 +522,16 @@ function haveSupplyForUnit(world, unitType) {
 }
 
 /**
+ * Checks if the given Protoss unit type requires Pylon power.
+ * @param {UnitTypeId} unitType The type of the Protoss unit.
+ * @returns {boolean} True if the unit requires Pylon power, false otherwise.
+ */
+function requiresPylonPower(unitType) {
+  const noPylonRequired = [UnitType.NEXUS, UnitType.ASSIMILATOR, UnitType.PYLON];
+  return !noPylonRequired.includes(unitType);
+}
+
+/**
  * Resets all earmarks.
  * 
  * Assuming `data` is an object that has a method `get` which returns an array,
@@ -487,15 +541,12 @@ function haveSupplyForUnit(world, unitType) {
  * @param {{ get: (key: string) => Earmark[], settleEarmark: (name: string) => void }} data The data object
  */
 function resetEarmarks(data) {
-  // Clear general earmarks
   EarmarkManager.getInstance().earmarks.length = 0;
   data.get('earmarks').forEach((earmark) => data.settleEarmark(earmark.name));
 
-  // Clear food earmarks
   foodEarmarks.clear();
 }
 
-// Export the functions to be used by other modules
 module.exports = {
   build,
   buildSupply,
@@ -505,15 +556,6 @@ module.exports = {
   getTimeToTargetCost,
   hasEarmarks,
   haveSupplyForUnit,
+  logNoValidPosition,
   resetEarmarks,
 };
-
-/**
- * Checks if the given Protoss unit type requires Pylon power.
- * @param {UnitTypeId} unitType The type of the Protoss unit.
- * @returns {boolean} True if the unit requires Pylon power, false otherwise.
- */
-function requiresPylonPower(unitType) {
-  const noPylonRequired = [UnitType.NEXUS, UnitType.ASSIMILATOR, UnitType.PYLON];
-  return !noPylonRequired.includes(unitType);
-}
