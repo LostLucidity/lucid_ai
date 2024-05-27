@@ -1,10 +1,11 @@
 "use strict";
 
-// External and internal module imports specific to building placements
+// External module imports
 const { UnitType } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
+// Internal module imports
 const { positionIsEqual } = require("../../core/utils/common");
 const { logMessageStorage } = require("../../core/utils/logging");
 const { getAddOnPlacement } = require("../../gameLogic/pathfinding");
@@ -71,26 +72,22 @@ function findBestPositionForAddOn(world, unit, checkAddOnPlacement, logCondition
   const { map } = world.resources.get();
   const { isFlying, pos } = unit;
 
-  if (isFlying === undefined || pos === undefined) return undefined;
+  if (!isFlying || !pos) return undefined;
 
   if (logCondition) {
     console.log(`findBestPositionForAddOn: ${unit.unitType} ${unit.tag} ${unit.isFlying ? 'is flying' : 'is grounded'} and ${unit.isIdle() ? 'is idle' : 'is busy'} and ${hasAddOn(unit) ? 'has an add-on' : 'does not have an add-on'}`);
   }
 
-  if (unit.isIdle() && !hasAddOn(unit) && isFlying) {
-    return checkAddOnPlacement(world, unit) || undefined;
+  if (unit.isIdle() && !hasAddOn(unit)) {
+    if (isFlying) {
+      return checkAddOnPlacement(world, unit) || undefined;
+    } else {
+      const addonPosition = getAddOnPlacement(pos);
+      return map.isPlaceableAt(UnitType.REACTOR, addonPosition) ? undefined : addonPosition;
+    }
   }
 
-  if (unit.isIdle() && !hasAddOn(unit) && !isFlying) {
-    const addonPosition = getAddOnPlacement(pos);
-    return map.isPlaceableAt(UnitType.REACTOR, addonPosition) ? undefined : undefined;
-  }
-
-  if (!unit.isIdle() && !hasAddOn(unit)) {
-    return undefined;
-  }
-
-  if (unit.buildProgress !== undefined && unit.buildProgress < 1) {
+  if (!unit.isIdle() || (unit.buildProgress !== undefined && unit.buildProgress < 1) || hasAddOn(unit)) {
     return undefined;
   }
 
@@ -108,6 +105,7 @@ function findBestPositionForAddOn(world, unit, checkAddOnPlacement, logCondition
 
   return undefined;
 }
+
 
 /**
  * Find potential building placements within the main base.
@@ -166,23 +164,26 @@ function isPlaceableAtGasGeyser(map, unitType, position) {
 }
 
 /**
- * Determines if a position should be kept for building construction.
- * @param {World} world - The game world context.
- * @param {UnitTypeId} unitType - The unit type ID for the building.
- * @param {Point2D} position - The position to evaluate.
- * @param {(map: MapResource, unitType: number, position: Point2D) => boolean} isPlaceableAtGasGeyser - Dependency for gas geyser placement.
- * @returns {boolean} - Whether the position should be kept.
+ * Checks if the position is valid for building the specified unit type.
+ * @param {World} world - The game world state.
+ * @param {UnitTypeId} unitType - The type of unit to place.
+ * @param {Point2D} position - The position to check.
+ * @param {Function} isPlaceableAtGasGeyser - Function to check if the position is placeable at a gas geyser.
+ * @returns {boolean} - True if the position is valid, false otherwise.
  */
 function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
   const { race } = world.agent;
-  if (race === undefined) return false;
+  if (!race) return false;
 
-  const { map } = world.resources.get();
+  const resources = world.resources.get();
+  const map = resources.map;
+  const units = resources.units;
+
   let isPositionValid = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
 
-  if (race === Race.PROTOSS && unitType !== UnitType.PYLON) {
-    const pylons = world.resources.get().units.getById(UnitType.PYLON);
-    const pylonExists = pylons.some(pylon => pylon.isPowered || (pylon.buildProgress !== undefined && pylon.buildProgress <= 1));
+  if (race === Race.PROTOSS && ![UnitType.PYLON, UnitType.ASSIMILATOR, UnitType.NEXUS].includes(unitType)) {
+    const pylons = units.getById(UnitType.PYLON);
+    const pylonExists = pylons.some(pylon => pylon.isPowered || (pylon.buildProgress !== undefined && pylon.buildProgress < 1) || pylon.buildProgress === 1);
     isPositionValid = isPositionValid && pylonExists;
   }
 

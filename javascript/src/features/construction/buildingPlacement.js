@@ -1,8 +1,7 @@
 //@ts-check
-"use strict"
+"use strict";
 
 // buildingPlacement.js
-
 
 // External library imports
 
@@ -17,7 +16,14 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
 // Internal module imports
 const { calculateDistance } = require('../../gameLogic/coreUtils');
-const { getAdjacentToRampGrids, intersectionOfPoints, getBuildingAndAddonGrids, isBuildingAndAddonPlaceable, getAddOnPlacement, getAddOnBuildingPlacement } = require('../../gameLogic/pathfinding');
+const {
+  getAdjacentToRampGrids,
+  intersectionOfPoints,
+  getBuildingAndAddonGrids,
+  isBuildingAndAddonPlaceable,
+  getAddOnPlacement,
+  getAddOnBuildingPlacement,
+} = require('../../gameLogic/pathfinding');
 const { getClosestPosition } = require('../../gameLogic/pathfindingCommon');
 const { getDistance } = require('../../gameLogic/spatialCoreUtils');
 const { buildingPositions } = require('../../gameState');
@@ -56,9 +62,7 @@ class BuildingPlacement {
 
   /** @type {false | Point2D | undefined} */
   static get buildingPosition() {
-    // Attempt to retrieve the position for the current step
     const position = buildingPositions.get(StrategyContext.getInstance().getCurrentStep());
-    // Return the position if it exists, or undefined otherwise
     return position !== undefined ? position : undefined;
   }
 
@@ -69,10 +73,8 @@ class BuildingPlacement {
   static set buildingPosition(value) {
     const strategyContext = StrategyContext.getInstance();
     if (value) {
-      // If value is a valid position, set it for the current step
       buildingPositions.set(strategyContext.getCurrentStep(), value);
     } else {
-      // If value is false, remove the entry for the current step
       buildingPositions.delete(strategyContext.getCurrentStep());
     }
   }
@@ -82,10 +84,7 @@ class BuildingPlacement {
    * @param {World} world - The world context containing map and other game info.
    */
   static calculateWallOffPositions(world) {
-    // Assuming setWallOffRampPlacements requires map as an argument
     const map = world.resources.get().map;
-
-    // Call existing logic to set wall-off placements
     BuildingPlacement.setWallOffRampPlacements(map);
   }
 
@@ -106,12 +105,9 @@ class BuildingPlacement {
    * @returns {Point2D | undefined} - The calculated position for the add-on building, or undefined if input is invalid.
    */
   static getAddOnBuildingPosition(position) {
-    // Check if both x and y coordinates are defined
     if (typeof position.x === 'number' && typeof position.y === 'number') {
-      // Adjust the x and y coordinates as needed
       return { x: position.x - 2.5, y: position.y + 0.5 };
     } else {
-      // Handle the case where x or y is undefined
       console.error("Invalid position provided to getAddOnBuildingPosition:", position);
       return undefined;
     }
@@ -145,19 +141,16 @@ class BuildingPlacement {
    * @returns {boolean} True if the Pylon is in range and powered, false otherwise.
    */
   static isPylonInRangeAndPowered(pylon, candidatePositions) {
-    if (!pylon.pos) {
-      // If pylon position is undefined, return false as we cannot calculate distance
-      return false;
-    }
+    if (!pylon.pos) return false;
 
-    for (const position of candidatePositions) {
-      const distance = calculateDistance(pylon.pos, position);
-      if (distance <= PYLON_POWER_RANGE && pylon.isPowered) {
-        return true; // Pylon is in range and powered for this position
-      }
-    }
-    return false; // No candidate positions are in range of a powered Pylon
-  }  
+    const { pos } = pylon;
+    if (pos.x === undefined || pos.y === undefined) return false;
+
+    return candidatePositions.some(position => {
+      const distance = calculateDistance(pos, position);
+      return distance <= PYLON_POWER_RANGE && pylon.isPowered;
+    });
+  }
 
   /**
    * Sets the add-on wall-off position based on the map layout.
@@ -166,29 +159,25 @@ class BuildingPlacement {
   static setAddOnWallOffPosition(map) {
     const middleOfAdjacentGrids = avgPoints(getAdjacentToRampGrids());
     const footprint = getFootprint(UnitType.SUPPLYDEPOT);
-    if (footprint === undefined) return;
-    const twoByTwoPlacements = BuildingPlacement.twoByTwoPositions.map(grid => cellsInFootprint(grid, footprint)).flat();
-    const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3).filter(grid => ![...twoByTwoPlacements].some(placement => placement.x === grid.x && placement.y === grid.y));
-    let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle, middleOfAdjacentGridCircle.length).filter(grid => {
-      return intersectionOfPoints(twoByTwoPlacements, getBuildingAndAddonGrids(grid, UnitType.BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, UnitType.BARRACKS, grid);
-    });
+    if (!footprint) return;
+    const twoByTwoPlacements = BuildingPlacement.twoByTwoPositions
+      .flatMap(grid => cellsInFootprint(grid, footprint));
+    const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3)
+      .filter(grid => !twoByTwoPlacements.some(placement => placement.x === grid.x && placement.y === grid.y));
+    let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle)
+      .filter(grid => intersectionOfPoints(twoByTwoPlacements, getBuildingAndAddonGrids(grid, UnitType.BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, UnitType.BARRACKS, grid));
     const [closestRamp] = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle.filter(grid => map.isRamp(grid)));
     if (closestRamp) {
       closestPlaceableGrids = closestPlaceableGrids.map(grid => {
-        if (getDistance(grid, closestRamp) < getDistance(getAddOnPlacement(grid), closestRamp)) {
-          return grid;
-        } else {
-          return getAddOnPlacement(grid);
-        }
+        return getDistance(grid, closestRamp) < getDistance(getAddOnPlacement(grid), closestRamp)
+          ? grid
+          : getAddOnPlacement(grid);
       });
-      const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
+      const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids);
       if (closestPlaceableToRamp) {
-        let position = null;
-        if (intersectionOfPoints(BuildingPlacement.twoByTwoPositions, getBuildingAndAddonGrids(closestPlaceableToRamp, UnitType.BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, UnitType.BARRACKS, closestPlaceableToRamp)) {
-          position = closestPlaceableToRamp;
-        } else {
-          position = getAddOnBuildingPlacement(closestPlaceableToRamp);
-        }
+        const position = intersectionOfPoints(BuildingPlacement.twoByTwoPositions, getBuildingAndAddonGrids(closestPlaceableToRamp, UnitType.BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, UnitType.BARRACKS, closestPlaceableToRamp)
+          ? closestPlaceableToRamp
+          : getAddOnBuildingPlacement(closestPlaceableToRamp);
         BuildingPlacement.addOnPositions = [position];
       }
     }
@@ -199,7 +188,6 @@ class BuildingPlacement {
    * @param {MapResource} map - The map resource for analyzing placement.
    */
   static setThreeByThreePlacements(map) {
-    // Implement the logic for setting three-by-three placements
     BuildingPlacement.setAddOnWallOffPosition(map);
     BuildingPlacement.setThreeByThreePosition(map);
   }
@@ -211,17 +199,20 @@ class BuildingPlacement {
   static setThreeByThreePosition(map) {
     const middleOfAdjacentGrids = avgPoints(getAdjacentToRampGrids());
     const footprint = getFootprint(UnitType.SUPPLYDEPOT);
-    if (footprint === undefined) return;
-    const twoByTwoPlacements = BuildingPlacement.twoByTwoPositions.map(grid => cellsInFootprint(grid, footprint)).flat();
-    const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3).filter(grid => ![...twoByTwoPlacements].some(placement => placement.x === grid.x && placement.y === grid.y));
-    let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle, middleOfAdjacentGridCircle.length).filter(grid => {
-      const footprint = getFootprint(UnitType.ENGINEERINGBAY);
-      if (footprint === undefined) return false;
-      return intersectionOfPoints(twoByTwoPlacements, cellsInFootprint(grid, footprint)).length === 0 && map.isPlaceableAt(UnitType.ENGINEERINGBAY, grid);
-    });
+    if (!footprint) return;
+    const twoByTwoPlacements = BuildingPlacement.twoByTwoPositions
+      .flatMap(grid => cellsInFootprint(grid, footprint));
+    const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3)
+      .filter(grid => !twoByTwoPlacements.some(placement => placement.x === grid.x && placement.y === grid.y));
+    let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle)
+      .filter(grid => {
+        const footprint = getFootprint(UnitType.ENGINEERINGBAY);
+        if (!footprint) return false;
+        return intersectionOfPoints(twoByTwoPlacements, cellsInFootprint(grid, footprint)).length === 0 && map.isPlaceableAt(UnitType.ENGINEERINGBAY, grid);
+      });
     const [closestRamp] = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle.filter(grid => map.isRamp(grid)));
     if (closestRamp) {
-      const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
+      const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids);
       if (closestPlaceableToRamp) {
         BuildingPlacement.threeByThreePositions = [closestPlaceableToRamp];
       }
@@ -237,12 +228,11 @@ class BuildingPlacement {
     const cornerGrids = placeableGrids.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1).filter(point => getDistance(point, grid) <= 1), placeableGrids).length === 2);
     cornerGrids.forEach(cornerGrid => {
       const cornerGridCircle = gridsInCircle(cornerGrid, 3);
-      let closestPlaceableGrids = getClosestPosition(cornerGrid, cornerGridCircle, cornerGridCircle.length).filter(grid => {
-        return map.isPlaceableAt(UnitType.SUPPLYDEPOT, grid);
-      });
+      let closestPlaceableGrids = getClosestPosition(cornerGrid, cornerGridCircle)
+        .filter(grid => map.isPlaceableAt(UnitType.SUPPLYDEPOT, grid));
       const [closestRamp] = getClosestPosition(cornerGrid, cornerGridCircle.filter(grid => map.isRamp(grid)));
       if (closestRamp) {
-        const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids)
+        const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids);
         if (closestPlaceableToRamp) {
           BuildingPlacement.twoByTwoPositions.push(closestPlaceableToRamp);
         }
@@ -255,7 +245,6 @@ class BuildingPlacement {
    * @param {MapResource} map - The map resource to analyze for wall-off placements.
    */
   static setWallOffRampPlacements(map) {
-    // Implement the logic to set two-by-two and three-by-three placements based on the map
     BuildingPlacement.setTwoByTwoPlacements(map);
     BuildingPlacement.setThreeByThreePlacements(map);
   }
@@ -284,15 +273,13 @@ class BuildingPlacement {
     const { map } = resources.get();
     const main = map.getMain();
 
-    // Check if 'main' and 'main.areas' are defined
     if (!main || !main.areas) {
-      return []; // Return an empty array if 'main' or 'main.areas' is undefined
+      return [];
     }
 
-    // get pathable main area within 8 distance of ramp
-    const getMainPositionsByRamp = main.areas.areaFill.filter(point => {
-      return getNeighbors(point).some(neighbor => map.isRamp(neighbor));
-    });
+    const getMainPositionsByRamp = main.areas.areaFill.filter(point =>
+      getNeighbors(point).some(neighbor => map.isRamp(neighbor))
+    );
 
     const pathableMainAreas = main.areas.areaFill.filter(point =>
       map.isPathable(point) && getDistance(avgPoints(getMainPositionsByRamp), point) <= 8
@@ -300,7 +287,6 @@ class BuildingPlacement {
 
     return pathableMainAreas;
   }
-
 
   /**
    * Finds positions where a given unit type can be placed.
@@ -313,20 +299,14 @@ class BuildingPlacement {
     const filteredCandidates = candidates.filter(position => map.isPlaceableAt(unitType, position));
 
     if (filteredCandidates.length === 0) {
-      /** @type {Point2D[]} */
-      let expandedCandidates = [];
-      candidates.forEach(candidate => {
-        expandedCandidates.push(candidate, ...getNeighbors(candidate));
-      });
-      expandedCandidates = expandedCandidates.filter((candidate, index, self) =>
-        self.findIndex(selfCandidate => selfCandidate.x === candidate.x && selfCandidate.y === candidate.y) === index
-      );
+      const expandedCandidates = candidates.flatMap(candidate => [candidate, ...getNeighbors(candidate)])
+        .filter((candidate, index, self) =>
+          self.findIndex(selfCandidate => selfCandidate.x === candidate.x && selfCandidate.y === candidate.y) === index
+        );
 
-      if (expandedCandidates.length > 0) {
-        return BuildingPlacement.getPlaceableAtPositions(expandedCandidates, map, unitType);
-      } else {
-        return [];
-      }
+      return expandedCandidates.length > 0
+        ? BuildingPlacement.getPlaceableAtPositions(expandedCandidates, map, unitType)
+        : [];
     } else {
       return filteredCandidates;
     }
@@ -343,13 +323,13 @@ class BuildingPlacement {
     const naturalWall = map.getNatural().getWall() || BuildingPlacement.wall;
     /** @type {Point2D[]} */
     let candidates = [];
+
     if (naturalWall) {
-      let wallPositions = BuildingPlacement.getPlaceableAtPositions(naturalWall, map, unitType);
-      // Filter placeable positions first to reduce size of array
-      wallPositions = wallPositions.filter(point => map.isPlaceableAt(unitType, point));
-      const middleOfWall = getClosestPosition(avgPoints(wallPositions), wallPositions, 2);
-      candidates = middleOfWall;
+      let wallPositions = BuildingPlacement.getPlaceableAtPositions(naturalWall, map, unitType)
+        .filter(point => map.isPlaceableAt(unitType, point));
+      candidates = getClosestPosition(avgPoints(wallPositions), wallPositions, 2);
     }
+
     return candidates;
   }
 
@@ -382,18 +362,13 @@ class BuildingPlacement {
 
     const possiblePlacements = frontOfGrid(resources, naturalExpansion.areas.areaFill)
       .map(point => {
-        const coverage = naturalWall.filter(wallCell => (
-          (getDistance(wallCell, point) <= 6.5) &&
-          (getDistance(wallCell, point) >= 1) &&
+        const coverage = naturalWall.filter(wallCell =>
+          getDistance(wallCell, point) <= 6.5 &&
+          getDistance(wallCell, point) >= 1 &&
           getDistance(wallCell, naturalTownhallPosition) > getDistance(point, naturalTownhallPosition)
-        )).length;
+        ).length;
 
-        /** @type {ExtendedPoint2D} */
-        return {
-          x: point.x !== undefined ? point.x : 0,
-          y: point.y !== undefined ? point.y : 0,
-          coverage: coverage // coverage is always a number, even if it's 0
-        };
+        return { x: point.x || 0, y: point.y || 0, coverage };
       });
 
     return possiblePlacements
@@ -409,14 +384,13 @@ class BuildingPlacement {
   static getMineralLines(resources) {
     const { map, units } = resources.get();
     const occupiedExpansions = map.getOccupiedExpansions();
-
     /** @type {Point2D[]} */
     const mineralLineCandidates = [];
 
     occupiedExpansions.forEach(expansion => {
       const [base] = units.getClosest(expansion.townhallPosition, units.getBases());
       if (base) {
-        mineralLineCandidates.push(...gridsInCircle(avgPoints([...expansion.cluster.mineralFields.map(field => field.pos), base.pos, base.pos]), 0.6));
+        mineralLineCandidates.push(...gridsInCircle(avgPoints([...expansion.cluster.mineralFields.map(field => field.pos), base.pos]), 0.6));
       }
     });
 
@@ -429,26 +403,15 @@ class BuildingPlacement {
    * @returns {number | null} The extracted unit type ID or null if not found.
    */
   static extractUnitTypeFromAction(action) {
-    // Early return for invalid inputs
-    if (!action || typeof action !== 'string') {
-      return null;
-    }
+    if (!action || typeof action !== 'string') return null;
 
-    // Split the action into segments based on commas
     const actionSegments = action.split(',');
-
-    // Process each segment
-    for (let segment of actionSegments) {
-      // Clean the segment
-      const cleanedSegment = segment.trim().replace(/\s+\(.*?\)|\sx\d+/g, '');
-      const formattedSegment = cleanedSegment.toUpperCase().replace(/\s+/g, '');
-
-      // Check if the formatted segment is in UnitType
-      if (formattedSegment in UnitType) {
-        return UnitType[formattedSegment];
+    for (const segment of actionSegments) {
+      const cleanedSegment = segment.trim().replace(/\s+\(.*?\)|\sx\d+/g, '').toUpperCase().replace(/\s+/g, '');
+      if (cleanedSegment in UnitType) {
+        return UnitType[cleanedSegment];
       }
     }
-
     return null;
   }
 
@@ -484,7 +447,7 @@ class BuildingPlacement {
     if (x === undefined || y === undefined) return position;
 
     const footprint = getFootprint(unitType);
-    if (footprint === undefined) return position;
+    if (!footprint) return position;
 
     if (footprint.h % 2 === 1) {
       x += 0.5;
@@ -503,23 +466,31 @@ class BuildingPlacement {
     const currentStep = strategyContext.getCurrentStep();
     const currentStrategy = strategyContext.getCurrentStrategy();
 
-    // Check if currentStrategy is defined
     if (!currentStrategy) {
       console.error('Current strategy is undefined.');
       return;
     }
 
     const currentPlan = currentStrategy.steps;
+    if (currentPlan.length === 0) return;
 
-    if (currentPlan.length > 0) {
-      const planUnitType = BuildingPlacement.extractUnitTypeFromAction(currentPlan[currentStep].action);
-      if (planUnitType !== unitType) {
-        BuildingPlacement.buildingPosition = BuildingPlacement.buildingPosition || false;
-      } else {
-        BuildingPlacement.buildingPosition = position;
-      }
+    const planUnitType = BuildingPlacement.extractUnitTypeFromAction(currentPlan[currentStep].action);
+    if (planUnitType !== unitType) {
+      BuildingPlacement.buildingPosition = BuildingPlacement.buildingPosition || false;
+    } else if (!BuildingPlacement.buildingPosition || !position || !deepEqual(BuildingPlacement.buildingPosition, position)) {
+      BuildingPlacement.buildingPosition = position;
     }
   }
 }
 
 module.exports = BuildingPlacement;
+
+/**
+ * Deep compares two objects.
+ * @param {Object} obj1 
+ * @param {Object} obj2 
+ * @returns {boolean} - True if objects are equal, false otherwise.
+ */
+function deepEqual(obj1, obj2) {
+  return JSON.stringify(obj1) === JSON.stringify(obj2);
+}
