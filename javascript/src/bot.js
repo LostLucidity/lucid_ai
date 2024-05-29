@@ -37,8 +37,9 @@ let previousValidPositionsCount = 0;
  * @param {import('./core/utils/globalTypes').BuildOrderStep[]} buildOrder - The build order to track and update.
  */
 async function checkBuildOrderProgress(world, buildOrder) {
-  const currentTime = world.resources.get().frame.getGameLoop();
-  const BUFFER_TIME_TICKS = 15 * 22.4;
+  const currentTimeInSeconds = world.resources.get().frame.timeInSeconds();
+  const BASE_BUFFER_TIME_SECONDS = 15;
+  const ADDITIONAL_BUFFER_PER_ACTION_SECONDS = 5;
 
   buildOrder.forEach(order => {
     let orderStatus = buildOrderCompletion.get(order) || { completed: false, logged: false };
@@ -48,11 +49,14 @@ async function checkBuildOrderProgress(world, buildOrder) {
       const satisfied = StrategyManager.getInstance().isStepSatisfied(world, order);
       if (satisfied) {
         orderStatus.completed = true;
-        console.log(`Build Order Step Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}`);
+        console.log(`Build Order Step Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds`);
       } else {
-        const expectedTimeInTicks = timeStringToGameTicks(order.time);
-        if (expectedTimeInTicks + BUFFER_TIME_TICKS < currentTime && !orderStatus.logged) {
-          console.warn(`Build Order Step NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${(currentTime / 22.4).toFixed(2)} seconds.`);
+        const expectedTimeInSeconds = timeStringToSeconds(order.time);
+        const totalActions = order.interpretedAction ? order.interpretedAction.length : 1;
+        const adjustedExpectedTime = expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + totalActions * ADDITIONAL_BUFFER_PER_ACTION_SECONDS;
+
+        if (adjustedExpectedTime < currentTimeInSeconds && !orderStatus.logged) {
+          console.warn(`Build Order Step NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds.`);
           orderStatus.logged = true;
         }
       }
@@ -88,13 +92,13 @@ function getValidPositionsCount(world, unitType) {
 }
 
 /**
- * Converts a time string in "minutes:seconds" format to game ticks.
- * @param {string} time - The time string to convert.
- * @returns {number} - The equivalent game ticks.
+ * Converts a time string in the format "MM:SS" to seconds.
+ * @param {string} timeString - The time string to convert.
+ * @returns {number} The corresponding time in seconds.
  */
-function timeStringToGameTicks(time) {
-  const [minutes, seconds] = time.split(':').map(Number);
-  return (minutes * 60 + seconds) * 22.4;
+function timeStringToSeconds(timeString) {
+  const [minutes, seconds] = timeString.split(':').map(Number);
+  return minutes * 60 + seconds;
 }
 
 const bot = createAgent({
