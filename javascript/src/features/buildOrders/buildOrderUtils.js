@@ -1,6 +1,5 @@
 "use strict";
 
-
 // Import necessary modules or dependencies
 const { UnitType, Upgrade } = require("@node-sc2/core/constants");
 const fs = require("fs");
@@ -12,14 +11,12 @@ const path = require("path");
  * @returns {string|null} The directory name, or null if it cannot be determined.
  */
 function determineRaceDirectory(raceMatchup) {
-  if (raceMatchup.startsWith('Pv')) {
-    return 'protoss';
-  } else if (raceMatchup.startsWith('Tv')) {
-    return 'terran';
-  } else if (raceMatchup.startsWith('Zv')) {
-    return 'zerg';
+  switch (raceMatchup[0]) {
+    case 'P': return 'protoss';
+    case 'T': return 'terran';
+    case 'Z': return 'zerg';
+    default: return null;
   }
-  return null;
 }
 
 /**
@@ -28,25 +25,33 @@ function determineRaceDirectory(raceMatchup) {
  * @param {string} dataFilePath - Path to the JSON file containing the scraped build order data.
  */
 function generateBuildOrderFiles(dataFilePath) {
-  // Parse the build orders from the file
-  /** @type {import("../../core/utils/globalTypes").BuildOrder[]} */
-  const buildOrders = JSON.parse(fs.readFileSync(dataFilePath, 'utf8'));
+  try {
+    // Parse the build orders from the file
+    /** @type {import("../../core/utils/globalTypes").BuildOrder[]} */
+    const buildOrders = JSON.parse(fs.readFileSync(dataFilePath, 'utf8'));
 
-  buildOrders.forEach(buildOrder => {
-    // Determine the directory based on the race matchup
-    const directory = determineRaceDirectory(buildOrder.raceMatchup);
+    buildOrders.forEach(buildOrder => {
+      // Determine the directory based on the race matchup
+      const directory = determineRaceDirectory(buildOrder.raceMatchup);
 
-    if (directory) {
-      // Construct the file path
-      const filePath = path.join(__dirname, directory, sanitizeFileName(buildOrder.title) + '.js');
+      if (directory) {
+        // Construct the file path
+        const filePath = path.join(__dirname, directory, sanitizeFileName(buildOrder.title) + '.js');
 
-      // Generate the content for the file, ensuring the updated interpretBuildOrderAction is used
-      const fileContent = generateFileContent(buildOrder);
+        // Generate the content for the file, ensuring the updated interpretBuildOrderAction is used
+        const fileContent = generateFileContent(buildOrder);
 
-      // Write (or overwrite) the file with the new content
-      fs.writeFileSync(filePath, fileContent);
+        // Write (or overwrite) the file with the new content
+        fs.writeFileSync(filePath, fileContent);
+      }
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Error generating build order files: ${error.message}`);
+    } else {
+      console.error('Unknown error generating build order files');
     }
-  });
+  }
 }
 
 /**
@@ -66,7 +71,7 @@ function generateFileContent(buildOrder) {
  * Dynamically interprets build order actions, converting action strings to either UnitType or Upgrade references.
  * @param {string} action - The action string from the build order.
  * @param {string} [comment] - Optional comment associated with the action.
- * @returns {import("../../core/utils/globalTypes").InterpretedAction[]} An array of objects representing the interpreted actions.
+ * @returns {Array<import("../../core/utils/globalTypes").InterpretedAction>} An array of objects representing the interpreted actions.
  */
 function interpretBuildOrderAction(action, comment = '') {
   /**
@@ -75,7 +80,7 @@ function interpretBuildOrderAction(action, comment = '') {
    * @returns {string | null} - The upgrade key or null if not found.
    */
   function getUpgradeKey(action) {
-    /** @type {Object<string, string>} */
+    /** @type {Record<string, string>} */
     const actionToUpgradeKey = {
       'Blink': 'BLINKTECH',
       // Add other mappings as needed
@@ -84,51 +89,70 @@ function interpretBuildOrderAction(action, comment = '') {
     return actionToUpgradeKey[action] || null;
   }
 
+  /**
+   * @typedef {Object} ActionDetails
+   * @property {string} cleanedAction - The cleaned action string.
+   * @property {number} count - The count of actions.
+   * @property {boolean} isChronoBoosted - Whether the action is chrono boosted.
+   */
+
+  /**
+   * Extracts the core details from an action part string.
+   * @param {string} actionPart - The action part string.
+   * @returns {ActionDetails} - The extracted details including cleaned action, count, and chrono boost status.
+   */
+  const extractActionDetails = (actionPart) => {
+    const match = actionPart.match(/^(.*?)(?:\sx(\d+))?(?:\s\(Chrono Boost\))?$/);
+    if (!match) return { cleanedAction: '', count: 0, isChronoBoosted: false };
+
+    const cleanedAction = match[1].trim();
+    const count = match[2] ? parseInt(match[2], 10) : 1;
+    const isChronoBoosted = actionPart.includes("(Chrono Boost)");
+
+    return { cleanedAction, count, isChronoBoosted };
+  };
+
+  /**
+   * Type guard to check if a key exists in an object.
+   * @param {object} obj - The object to check.
+   * @param {string} key - The key to check.
+   * @returns {boolean} - Whether the key exists in the object.
+   */
+  const isKeyOf = (obj, key) => key in obj;
+
   const actions = action.split(',');
-  /** @type {import("../../core/utils/globalTypes").InterpretedAction[]} */
+  /** @type {Array<import("../../core/utils/globalTypes").InterpretedAction>} */
   const interpretedActions = [];
 
   actions.forEach(actionPart => {
-    // Remove additional details like "(Chrono Boost)" or "x3"
-    const cleanedAction = actionPart.trim().replace(/\s+\(.*?\)|\sx\d+/g, '');
-    // Replace spaces with underscores and convert to uppercase
+    const details = extractActionDetails(actionPart);
+    if (!details.cleanedAction) return;
+
+    const { cleanedAction, count, isChronoBoosted } = details;
     const formattedAction = cleanedAction.toUpperCase().replace(/\s+/g, '');
 
     let unitType = null;
     let upgradeType = null;
     let specialAction = null;
 
-    // Check if the action is an upgrade
     const upgradeKey = getUpgradeKey(cleanedAction);
-    if (upgradeKey && upgradeKey in Upgrade) {
-      /** @type {{[key: string]: number}} */
-      const typedUpgrade = Upgrade;
-      upgradeType = typedUpgrade[upgradeKey];
-    } else if (formattedAction in UnitType) {
-      /** @type {{[key: string]: number}} */
-      const typedUnitType = UnitType;
-      unitType = typedUnitType[formattedAction];
+    if (upgradeKey && isKeyOf(Upgrade, upgradeKey)) {
+      upgradeType = Upgrade[upgradeKey];
+    } else if (isKeyOf(UnitType, formattedAction)) {
+      unitType = UnitType[formattedAction];
     }
 
-    // Check if the action should be interpreted based on the comment
-    if (unitType === null && upgradeType === null) {
+    if (!unitType && !upgradeType) {
       if (comment.includes("CALL DOWN MULES")) {
         specialAction = 'Call Down MULEs';
-        unitType = UnitType['MULE']; // Replace with the correct enum for MULE
-      } else if (comment.includes("SCOUT SCV") || comment.includes("SCOUT CSV")) { // Handling potential typo "CSV"
+        unitType = UnitType['MULE'];
+      } else if (comment.includes("SCOUT SCV") || comment.includes("SCOUT CSV")) {
         specialAction = 'Scouting with SCV';
-        unitType = UnitType['SCV']; // Replace with the correct enum for SCV
+        unitType = UnitType['SCV'];
       }
-      // Add additional else-if blocks for other special comments/actions
     }
 
-    const countMatch = action.match(/\sx(\d+)/);
-    const count = countMatch ? parseInt(countMatch[1], 10) : 1;
-
-    const isUpgrade = !!upgradeKey;
-    const isChronoBoosted = action.includes("Chrono Boost");
-
-    interpretedActions.push({ unitType, upgradeType, count, isUpgrade, isChronoBoosted, specialAction });
+    interpretedActions.push({ unitType, upgradeType, count, isUpgrade: !!upgradeKey, isChronoBoosted, specialAction });
   });
 
   return interpretedActions;
@@ -148,8 +172,16 @@ function loadBuildOrdersFromDirectory(directoryName) {
 
   buildOrderFiles.forEach(file => {
     if (file.endsWith('.js')) {
-      const buildOrder = require(path.join(directoryPath, file));
-      buildOrders[file.replace('.js', '')] = buildOrder;
+      try {
+        const buildOrder = require(path.join(directoryPath, file));
+        buildOrders[file.replace('.js', '')] = buildOrder;
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error(`Error loading build order from file ${file}: ${error.message}`);
+        } else {
+          console.error(`Unknown error loading build order from file ${file}`);
+        }
+      }
     }
   });
 

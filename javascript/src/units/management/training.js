@@ -9,8 +9,8 @@ const { unitTypeTrainingAbilities, flyingTypesMapping } = require("./unitConfig"
 const { setPendingOrders } = require("./unitOrders");
 const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("./unitUtils");
 const { EarmarkManager } = require("../../core");
-const { findUnitTypesWithAbility, getUnitTypeData } = require("../../core/data");
-const { findKeysForValue, createUnitCommand } = require("../../core/utils/common");
+const { getUnitTypeData } = require("../../core/data/gameData");
+const { findKeysForValue, createUnitCommand, findUnitTypesWithAbilityCached } = require("../../core/utils/common");
 const StrategyContext = require("../../features/strategy/strategyContext");
 const { selectUnitTypeToBuild } = require("../../features/strategy/unitSelection");
 const { getBuildTimeLeft, shortOnWorkers } = require("../../gameLogic/economy/workerService");
@@ -94,7 +94,7 @@ function getTrainer(world, unitTypeId, threshold) {
   if (abilityId === undefined) return [];
 
   const warpgateAbilityId = WarpUnitAbility[unitTypeId];
-  const unitTypesWithAbility = findUnitTypesWithAbility(world, abilityId);
+  const unitTypesWithAbility = findUnitTypesWithAbilityCached(data, abilityId);
 
   const units = resources.get().units;
 

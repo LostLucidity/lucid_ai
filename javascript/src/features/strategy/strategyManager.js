@@ -1,6 +1,7 @@
 "use strict";
 
-const { Upgrade } = require("@node-sc2/core/constants");
+const { Upgrade, UnitType } = require("@node-sc2/core/constants");
+const { Ability } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 
 const { executeSpecialAction } = require("./actions/SpecialActions");
@@ -11,9 +12,12 @@ const UnitActionStrategy = require("./unitActionStrategy");
 const { UpgradeActionStrategy } = require("./upgradeActionStrategy");
 const { convertTimeStringToSeconds } = require("./utils/timeUtils");
 const config = require("../../../config/config");
+const { getUnitTypeData } = require("../../core/data/gameData");
 const { balanceResources, setFoodUsed } = require("../../gameLogic/economy/economyManagement");
 const { GameState } = require('../../gameState');
+const { getPendingOrders } = require("../../sharedServices");
 const { buildSupplyOrTrain } = require("../../units/management/unitManagement");
+const { setPendingOrders } = require("../../units/management/unitOrders");
 const buildOrders = require('../buildOrders');
 const { interpretBuildOrderAction } = require("../buildOrders/buildOrderUtils");
 const { build, hasEarmarks, resetEarmarks } = require("../construction/buildingService");
@@ -283,6 +287,73 @@ class StrategyManager {
   }
 
   /**
+   * Get units by type.
+   * @param {World} world - The current game world context.
+   * @param {number} unitType - The unit type to find.
+   * @returns {Unit[]} A list of units matching the specified type.
+   */
+  static getUnitsById(world, unitType) {
+    // Adjust this according to how you can access units within the world object
+    return world.resources.get().units.getById(unitType);
+  }
+
+  /**
+   * Handle the chrono boost action for the current plan step.
+   * @param {World} world - The current game world context.
+   * @param {PlanStep} planStep - The current step in the plan to be executed.
+   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to perform the chrono boost.
+   */
+  static handleChronoBoostAction(world, planStep) {
+    const chronoBoostActions = [];
+    const nexusUnits = StrategyManager.getUnitsById(world, UnitType.NEXUS);
+
+    if (nexusUnits.length > 0) {
+      const nexus = nexusUnits[0];
+
+      /** @type {string[]} */
+      const unitTags = [nexus.tag].reduce((acc, tag) => {
+        if (typeof tag === 'string') {
+          acc.push(tag);
+        }
+        return acc;
+      }, /** @type {string[]} */([]));
+
+      // Use the appropriate getUnitTypeData function
+      const unitTypeData = getUnitTypeData(world, planStep.unitType);
+      const abilityId = unitTypeData ? unitTypeData.abilityId : undefined;
+
+      if (abilityId) {
+        // Find the unit that is training the unitType
+        const trainingUnit = world.resources.get().units.getBases().find(unit => {
+          return unit.orders && unit.orders.some(order => order.abilityId === abilityId);
+        });
+
+        if (trainingUnit) {
+          const pendingOrders = getPendingOrders(nexus);
+          const isChronoBoostPending = pendingOrders.some(order => order.abilityId === Ability.EFFECT_CHRONOBOOSTENERGYCOST);
+
+          if (!isChronoBoostPending) {
+            /** @type {SC2APIProtocol.ActionRawUnitCommand} */
+            const chronoBoostAction = {
+              abilityId: Ability.EFFECT_CHRONOBOOSTENERGYCOST,
+              unitTags: unitTags,
+              targetUnitTag: trainingUnit.tag
+            };
+
+            // Set pending orders for the nexus unit
+            setPendingOrders(nexus, chronoBoostAction);
+
+            // Add the chrono boost action to the list
+            chronoBoostActions.push(chronoBoostAction);
+          }
+        }
+      }
+    }
+
+    return chronoBoostActions;
+  }
+
+  /**
    * Handles earmarks and balances resources if necessary.
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
    * @param {World} world
@@ -320,11 +391,10 @@ class StrategyManager {
    * @param {import('../../core/utils/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
    * @param {number} step The current step number in the strategy.
    * @param {import('../../core/utils/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
-   * @param {StrategyManager} strategyManager The strategy manager instance.
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform The array of actions to be performed.
    * @param {number} currentCumulativeCount The current cumulative count of the unit type up to this step.
    */
-  handlePlanStep(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform, currentCumulativeCount) {
+  handlePlanStep(world, rawStep, step, interpretedAction, actionsToPerform, currentCumulativeCount) {
     const effectiveUnitType = interpretedAction.unitType?.toString() || 'default';
     const planStep = StrategyManager.createPlanStep(rawStep, interpretedAction, currentCumulativeCount);
     this.cumulativeCounts[effectiveUnitType] = currentCumulativeCount + (interpretedAction.count || 0);
@@ -334,7 +404,7 @@ class StrategyManager {
       return;
     }
 
-    this.processRegularAction(world, planStep, step, strategyManager, actionsToPerform);
+    this.processRegularAction(world, planStep, step, actionsToPerform);
   }
 
   /**
@@ -572,6 +642,13 @@ class StrategyManager {
         break;
     }
 
+    // Check for chrono boost
+    const gameState = GameState.getInstance();
+    const currentSupply = gameState.getFoodUsed();
+    if (planStep.isChronoBoosted && currentSupply === planStep.supply) {
+      actions = actions.concat(StrategyManager.handleChronoBoostAction(world, planStep));
+    }
+
     return actions;
   }
 
@@ -586,17 +663,16 @@ class StrategyManager {
     for (const [step, rawStep] of plan.steps.entries()) {
       this.processStep(world, rawStep, step, strategyManager, actionsToPerform);
     }
-  }
+  }  
 
   /**
    * Processes regular actions for a plan step and handles earmarks if needed.
    * @param {World} world The game world context.
    * @param {PlanStep} planStep The current plan step.
    * @param {number} step The current step number in the strategy.
-   * @param {StrategyManager} strategyManager The strategy manager instance.
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform The array of actions to be performed.
    */
-  processRegularAction(world, planStep, step, strategyManager, actionsToPerform) {
+  processRegularAction(world, planStep, step, actionsToPerform) {
     if (!this.strategyContext) {
       console.error('strategyContext is undefined, unable to set current step and perform actions.');
       return;
@@ -643,7 +719,7 @@ class StrategyManager {
       return;
     }
 
-    this.handlePlanStep(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform, currentCumulativeCount);
+    this.handlePlanStep(world, rawStep, step, interpretedAction, actionsToPerform, currentCumulativeCount);
   }
 
   /**
