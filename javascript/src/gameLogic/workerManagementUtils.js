@@ -11,15 +11,15 @@ const { getMovementSpeed } = require('./coreUtils');
 const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft } = require('./economy/workerService');
 const { calculateBaseTimeToPosition } = require('./pathfinding');
 const { getDistanceByPath, getClosestPositionByPath } = require('./pathfindingCore');
-const { findPathablePositions } = require('./pathfindingUtils');
 const { isPendingContructing } = require('./workerCommonUtils');
-const { createUnitCommand, getPathablePositionsForStructure } = require('../core/utils/common');
 const { stopOverlappingBuilders } = require('../features/construction/buildingWorkerInteractions');
 const { getTimeToTargetTech } = require('../features/misc/gameData');
 // eslint-disable-next-line no-unused-vars
 const { GameState } = require('../gameState');
 const { unitTypeTrainingAbilities } = require('../units/management/unitConfig');
 const { setPendingOrders } = require('../units/management/unitOrders');
+const { createUnitCommand, getPathablePositionsForStructure } = require('../utils/common');
+const { findPathablePositions } = require('../utils/pathfindingUtils');
 
 /**
  * Adjusts the time to position based on whether the unit should rally to the base or not.

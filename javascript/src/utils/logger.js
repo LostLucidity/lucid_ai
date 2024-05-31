@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const config = require('../../../config/config');
+const config = require('../../config/config');
 
 /**
  * Logs a message if the specified level is less than or equal to the current logging level.

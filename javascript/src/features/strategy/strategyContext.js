@@ -2,7 +2,7 @@ class StrategyContext {
   /** @type {number} The current step index in the strategy, initialized to -1 indicating no current step. */
   currentStep = -1;
 
-  /** @type {import("../../core/utils/globalTypes").BuildOrder | import("./strategyManager").Strategy | null | undefined} */
+  /** @type {import("../../utils/globalTypes").BuildOrder | import("./strategyManager").Strategy | null | undefined} */
   currentStrategy = null; // Define the type according to your strategy structure.
   
   /** @type {StrategyContext | null} */
@@ -81,7 +81,7 @@ class StrategyContext {
   }
 
   /**
-   * @param {import("../../core/utils/globalTypes").BuildOrder | import("./strategyManager").Strategy | undefined} strategy
+   * @param {import("../../utils/globalTypes").BuildOrder | import("./strategyManager").Strategy | undefined} strategy
    */
   setCurrentStrategy(strategy) {
     this.currentStrategy = strategy;

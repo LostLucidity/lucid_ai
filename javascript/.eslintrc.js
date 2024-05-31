@@ -19,6 +19,7 @@ module.exports = {
     ecmaFeatures: {
       jsx: true,
     },
+    requireConfigFile: false, // Ensure Babel parser doesn't require a config file
   },
   plugins: [
     "import",

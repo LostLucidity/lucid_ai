@@ -6,11 +6,11 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
 // Internal module imports
-const { positionIsEqual } = require("../../core/utils/common");
-const { logMessageStorage } = require("../../core/utils/logging");
-const { getAddOnPlacement } = require("../../gameLogic/pathfinding");
-const { getDistance } = require("../../gameLogic/spatialCoreUtils");
-const { canLiftOff } = require("../../units/management/unitConfig");
+const { positionIsEqual } = require("./common");
+const { logMessageStorage } = require("./logging");
+const { getAddOnPlacement } = require("../gameLogic/pathfinding");
+const { getDistance } = require("../gameLogic/spatialCoreUtils");
+const { canLiftOff } = require("../units/management/unitConfig");
 
 /** @type {UnitTypeId | null} */
 let lastLoggedUnitType = null;

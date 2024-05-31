@@ -1,10 +1,11 @@
-// sharedPathfindingUtils.js
+// src/utils/pathfindingCore.js
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
-const { getStructureCells, getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath, getClosestPosition } = require("../pathfindingCommon");
-const { getDistanceByPath } = require("../pathfindingCore");
+const cacheManager = require("./cache");
+const { getStructureCells, getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath, getClosestPosition } = require("../gameLogic/pathfindingCommon");
+const { getDistanceByPath } = require("../gameLogic/pathfindingCore");
 
 /**
  * Get the closest pathable positions between two positions considering various obstacles.
@@ -102,7 +103,25 @@ function getClosestPathablePositionsBetweenPositions(resources, position, target
   return result;
 }
 
-// Export the shared pathfinding functionalities
+/**
+ * Retrieves gas geyser units from the unit resource.
+ * Uses a cache to store and return the gas geysers.
+ * @param {UnitResource} units - The unit resource object from the bot.
+ * @returns {Unit[]}
+ */
+function getGasGeysers(units) {
+  const cacheKey = 'gasGeysers';
+  let gasGeysers = cacheManager.getGasGeysersCache(cacheKey);
+
+  if (!gasGeysers) {
+    gasGeysers = units.getGasGeysers();
+    cacheManager.setGasGeysersCache(cacheKey, gasGeysers);
+  }
+
+  return gasGeysers;
+}
+
 module.exports = {
   getClosestPathablePositionsBetweenPositions,
+  getGasGeysers
 };

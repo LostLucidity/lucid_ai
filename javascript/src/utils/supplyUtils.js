@@ -1,19 +1,25 @@
-"use strict";
+// src/utils/supplyUtils.js
 
-const { calculateLiftLandAndMoveTime } = require("../../core/utils/baseUnitUtils");
-const { hasAddOn, findBestPositionForAddOn } = require("../../features/construction/buildingPlacementUtils");
-const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
-const { unitPendingOrders } = require("../../units/management/unitOrders");
-const { getTimeInSeconds } = require("../pathfinding");
+const { calculateLiftLandAndMoveTime } = require("./baseUnitUtils");
+const { hasAddOn, findBestPositionForAddOn } = require("./buildingPlacementUtils");
+const { EarmarkManager } = require("../core");
+const { getTimeInSeconds } = require("../gameLogic/pathfinding");
+const { GameState } = require("../gameState");
+const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../units/management/unitConfig");
 
 /**
- * Clears pending orders for all units to ensure they are ready for new commands.
- * @param {Unit[]} units - The units whose pending orders need to be cleared.
+ * @param {World} world 
+ * @param {UnitTypeId} unitType
  */
-function clearAllPendingOrders(units) {
-  units.forEach(unit => {
-    unitPendingOrders.delete(unit); // Clears pending orders for the given unit
-  });
+function haveSupplyForUnit(world, unitType) {
+  const { agent, data } = world;
+  const { foodCap } = agent; if (foodCap === undefined) return false;
+  const gameState = GameState.getInstance();
+  const foodUsed = gameState.getFoodUsed();
+  const earmarkedFood = EarmarkManager.getEarmarkedFood();
+  const { foodRequired } = data.getUnitTypeData(unitType); if (foodRequired === undefined) return false;
+  const supplyLeft = foodCap - foodUsed - earmarkedFood - foodRequired;
+  return supplyLeft >= 0;
 }
 
 /**
@@ -74,6 +80,6 @@ function getTimeUntilUnitCanBuildAddon(world, unit) {
 }
 
 module.exports = {
-  clearAllPendingOrders,
+  haveSupplyForUnit,
   getTimeUntilUnitCanBuildAddon,
 };

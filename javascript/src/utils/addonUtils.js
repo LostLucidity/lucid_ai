@@ -1,7 +1,8 @@
 //@ts-check
 "use strict";
 
-const { canUnitBuildAddOn } = require("../../units/management/unitConfig");
+const { canUnitBuildAddOn } = require("../units/management/unitConfig");
+
 
 /**
  * Retrieves units capable of adding an add-on. This includes units that currently do not have an add-on

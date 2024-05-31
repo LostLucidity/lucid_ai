@@ -1,14 +1,15 @@
 const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
-const { getBasicProductionUnits } = require("./basicUnitUtils");
-const { EarmarkManager } = require("../../core");
-const { isTrainingOrder } = require("../../core/utils/baseUnitUtils");
-const { haveSupplyForUnit } = require("../../features/construction/buildingService");
-const StrategyContext = require("../../features/strategy/strategyContext");
-const { checkTechRequirement } = require("../../gameLogic/gameMechanics/resourceUtils");
-const { GameState } = require('../../gameState');
-const { getPendingOrders } = require("../../sharedServices");
+const { isTrainingOrder } = require("./baseUnitUtils");
+const { checkTechRequirement } = require("./resourceUtils");
+const { haveSupplyForUnit } = require("./supplyUtils");
+const { EarmarkManager } = require("../core");
+const StrategyContext = require("../features/strategy/strategyContext");
+const { GameState } = require('../gameState');
+const { getPendingOrders } = require("../sharedServices");
+const { getBasicProductionUnits } = require("../units/management/basicUnitUtils");
+const { unitPendingOrders } = require("../units/management/unitOrders");
 
 /** @type {Map<UnitTypeId, Unit[]>} */
 const productionUnitsCache = new Map();
@@ -76,6 +77,16 @@ const canTrainNow = (world, unit, unitType) => {
     .length;
 
   return currentAndPendingOrders < maxOrders;
+}
+
+/**
+ * Clears pending orders for all units to ensure they are ready for new commands.
+ * @param {Unit[]} units - The units whose pending orders need to be cleared.
+ */
+function clearAllPendingOrders(units) {
+  units.forEach(unit => {
+    unitPendingOrders.delete(unit); // Clears pending orders for the given unit
+  });
 }
 
 /**
@@ -169,6 +180,7 @@ module.exports = {
   productionUnitsCache,
   unitTypeDataCache,
   unitProductionAvailable,
+  clearAllPendingOrders,
   getAffordableFoodDifference,
   haveAvailableProductionUnitsFor,
   setRepositionLabel,

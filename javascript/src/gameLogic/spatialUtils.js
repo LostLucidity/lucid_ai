@@ -12,12 +12,12 @@ const { getTimeInSeconds, getOccupiedExpansions, existsInMap, pointsOverlap, get
 const { getDistance } = require("./spatialCoreUtils");
 const config = require("../../config/config");
 const BuildingPlacement = require("../features/construction/buildingPlacement");
-const { isPlaceableAtGasGeyser } = require("../features/construction/buildingPlacementUtils");
-const { getCurrentlyEnrouteConstructionGrids } = require("../features/construction/constructionDataUtils");
 const { GameState } = require('../gameState');
 const { buildingPositions } = require("../gameState");
 const MapResources = require("../gameState/mapResources");
 const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../units/management/unitConfig");
+const { isPlaceableAtGasGeyser } = require("../utils/buildingPlacementUtils");
+const { getCurrentlyEnrouteConstructionGrids } = require("../utils/constructionDataUtils");
 
 /**
  * @typedef {Object} FootprintType

@@ -7,17 +7,17 @@ const { BUILD_ASSIMILATOR } = require('@node-sc2/core/constants/ability');
 const { ASSIMILATOR, PROBE } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
 
-const cacheManager = require('./core/utils/cache');
-const logger = require('./core/utils/logger');
 const ActionCollector = require('./features/actions/actionCollector');
-const { resetNoFreeGeysersLogFlag, resetNoValidPositionLogFlag, lastLoggedUnitType } = require('./features/construction/buildingPlacementUtils');
 const StrategyManager = require('./features/strategy/strategyManager');
 const { gather } = require('./gameLogic/economy/workerAssignment');
-const { clearAllPendingOrders } = require('./gameLogic/gameMechanics/unitUtils');
 const { getDistance } = require('./gameLogic/spatialCoreUtils');
 const { findPlacements } = require('./gameLogic/spatialUtils');
 const { GameState } = require('./gameState');
 const GameInitialization = require('./initialization/GameInitialization');
+const { resetNoFreeGeysersLogFlag, resetNoValidPositionLogFlag, lastLoggedUnitType } = require('./utils/buildingPlacementUtils');
+const cacheManager = require('./utils/cache');
+const logger = require('./utils/logger');
+const { clearAllPendingOrders } = require('./utils/unitUtils');
 const config = require('../config/config');
 
 const buildOrderCompletion = new Map();
@@ -34,7 +34,7 @@ let previousValidPositionsCount = 0;
 /**
  * Checks and updates the build order progress.
  * @param {World} world - The current game world state.
- * @param {import('./core/utils/globalTypes').BuildOrderStep[]} buildOrder - The build order to track and update.
+ * @param {import('./utils/globalTypes').BuildOrderStep[]} buildOrder - The build order to track and update.
  */
 async function checkBuildOrderProgress(world, buildOrder) {
   const currentTimeInSeconds = world.resources.get().frame.timeInSeconds();

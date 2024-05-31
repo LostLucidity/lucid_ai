@@ -3,14 +3,14 @@
 const { Ability } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
-const { createUnitCommand } = require("../../core/utils/common");
 const { isMoving, rallyWorkerToTarget, getUnitsFromClustering, setBuilderLabel, getOrderTargetPosition } = require("../../gameLogic/economy/workerService");
-const { getBuilders } = require("../../gameLogic/gameMechanics/workerUtils");
 const { getAwayPosition, areApproximatelyEqual } = require("../../gameLogic/pathfinding");
 const { getDistanceByPath } = require("../../gameLogic/pathfindingCore");
 const { getDistance } = require("../../gameLogic/spatialCoreUtils");
 const { GameState } = require("../../gameState");
 const { setPendingOrders } = require("../../units/management/unitOrders");
+const { createUnitCommand } = require("../../utils/common");
+const { getBuilders } = require("../../utils/workerUtils");
 
 /**
  * @param {World} world

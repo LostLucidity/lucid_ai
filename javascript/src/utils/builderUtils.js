@@ -9,16 +9,16 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 // Internal Dependencies
-const { EarmarkManager } = require("../../core");
-const { findUnitTypesWithAbilityCached } = require("../../core/utils/common");
-const { calculateClosestConstructingWorker } = require("../../gameLogic/coreUtils");
-const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters, calculateMovingOrConstructingNonDronesTimeToPosition } = require("../../gameLogic/economy/workerService");
-const { getBuilders } = require("../../gameLogic/gameMechanics/workerUtils");
-const { getClosestBuilderCandidate } = require("../../gameLogic/pathfinding");
-const { gatherCandidateWorkersTimeToPosition } = require("../../gameLogic/workerManagementUtils");
-const { GameState } = require('../../gameState');
-const BuildingPlacement = require("../construction/buildingPlacement");
-const { keepPosition } = require("../construction/buildingPlacementUtils");
+const { findUnitTypesWithAbilityCached } = require("./common");
+const { getBuilders } = require("./workerUtils");
+const { EarmarkManager } = require("../core");
+const BuildingPlacement = require("../features/construction/buildingPlacement");
+const { calculateClosestConstructingWorker } = require("../gameLogic/coreUtils");
+const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters, calculateMovingOrConstructingNonDronesTimeToPosition } = require("../gameLogic/economy/workerService");
+const { getClosestBuilderCandidate } = require("../gameLogic/pathfinding");
+const { gatherCandidateWorkersTimeToPosition } = require("../gameLogic/workerManagementUtils");
+const { GameState } = require('../gameState');
+const { keepPosition } = require("../utils/buildingPlacementUtils");
 
 /**
  * Command to place a building at the specified position.

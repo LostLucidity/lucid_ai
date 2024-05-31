@@ -5,7 +5,7 @@
 
 // External library imports
 
-/** @type {import('../../core/utils/common').UnitTypeMap} */
+/** @type {import('../../utils/common').UnitTypeMap} */
 const UnitType = require('@node-sc2/core/constants').UnitType;
 const groupTypes = require('@node-sc2/core/constants/groups');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');

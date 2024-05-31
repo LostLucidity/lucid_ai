@@ -9,11 +9,11 @@ const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 
 // Internal module imports
 const { getClosestExpansion, isMoving } = require("./workerService");
-const { getUnitsWithinDistance, createUnitCommand } = require("../../core/utils/common");
 const { getPendingOrders } = require("../../sharedServices");
 const { setPendingOrders } = require("../../units/management/unitOrders");
+const { getUnitsWithinDistance, createUnitCommand } = require("../../utils/common");
+const { getNeediestMineralField, getMineralFieldAssignments } = require("../../utils/resourceUtils");
 const { findClosestMineralField } = require("../coreUtils");
-const { getNeediestMineralField, getMineralFieldAssignments } = require("../gameMechanics/resourceUtils");
 const { getClosestUnitFromUnit } = require("../pathfinding");
 const { findEnemyUnitsNear } = require("../scoutingUtils");
 const { getDistance } = require("../spatialCoreUtils");

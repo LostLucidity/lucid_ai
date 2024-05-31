@@ -2,7 +2,8 @@
 
 const groupTypes = require("@node-sc2/core/constants/groups");
 
-const { unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
+const { unitTypeTrainingAbilities } = require("../units/management/unitConfig");
+
 
 /**
  * @param {Unit} unit 

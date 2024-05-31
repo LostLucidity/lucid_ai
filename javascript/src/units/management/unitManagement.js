@@ -15,9 +15,7 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 const { handleUnitTraining } = require("./training");
 const { liftAndLandingTime } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
-const { productionUnitsCache } = require("./unitUtils");
 const { EarmarkManager } = require("../../core");
-const { createUnitCommand } = require("../../core/utils/common");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { buildSupply, getTimeToTargetCost } = require("../../features/construction/buildingService");
 const { getTimeToTargetTech } = require("../../features/misc/gameData");
@@ -25,6 +23,8 @@ const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../.
 const { getDistance } = require("../../gameLogic/spatialCoreUtils");
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require("../../sharedServices");
+const { createUnitCommand } = require("../../utils/common");
+const { productionUnitsCache } = require("../../utils/unitUtils");
 
 /**
  * Build supply or train units based on the game world state and strategy step.

@@ -6,12 +6,12 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { getStringNameOfConstant } = require("../core/utils/common");
-const { getCurrentlyEnrouteConstructionGrids } = require("../features/construction/constructionDataUtils");
-const { seigeTanksSiegedGrids } = require("../features/construction/sharedUnitPlacement");
 const { getAddOnPlacement, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../gameLogic/pathfinding");
 const spatialUtils = require('../gameLogic/spatialUtils');
 const { canUnitBuildAddOn, flyingTypesMapping } = require("../units/management/unitConfig");
+const { getStringNameOfConstant } = require("../utils/common");
+const { getCurrentlyEnrouteConstructionGrids } = require("../utils/constructionDataUtils");
+const { seigeTanksSiegedGrids } = require("../utils/sharedUnitPlacement");
 
 /**
  * Service to manage spatial and construction-related functionalities.

@@ -1,13 +1,5 @@
-const pathfindingUtils = require('./pathfindingUtils');
-const resourceUtils = require('./resourceUtils');
-const strategyUtils = require('./strategyUtils');
-const unitUtils = require('./unitUtils');
-const workerUtils = require('./workerUtils');
+const gameStrategyUtils = require('./gameStrategyUtils');
 
 module.exports = {
-  pathfindingUtils,
-  resourceUtils,
-  strategyUtils,
-  unitUtils,
-  workerUtils,
+  gameStrategyUtils,
 };

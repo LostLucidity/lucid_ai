@@ -9,13 +9,13 @@ const { avgPoints } = require('@node-sc2/core/utils/geometry/point');
 const getRandom = require('@node-sc2/core/utils/get-random');
 
 const { EarmarkManager } = require('../../core');
-const { createUnitCommand } = require('../../core/utils/common');
 const { ability, isIdleOrAlmostIdle, handleRallyBase, getOrderTargetPosition, rallyWorkerToTarget, getUnitsFromClustering } = require('../../gameLogic/economy/workerService');
 const { getPathCoordinates, getMapPath } = require('../../gameLogic/pathfindingCommon');
-const { calculatePathablePositions } = require('../../gameLogic/pathfindingUtils');
 const { prepareBuildContext } = require('../../gameLogic/workerManagementUtils');
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require('../../sharedServices');
+const { createUnitCommand } = require('../../utils/common');
+const { calculatePathablePositions } = require('../../utils/pathfindingUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
 const { handleNonRallyBase } = require('../construction/buildingWorkerInteractions');
 

@@ -12,13 +12,13 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 
 const { getGatheringWorkers, gather } = require('./workerAssignment');
 const { isMining } = require('./workerService');
-const { canBuild, createUnitCommand } = require('../../core/utils/common');
 const { gasMineCheckAndBuild, getMineralFieldsNearby, getGasGeysersNearby } = require('../../features/construction/buildingService');
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require('../../sharedServices');
 const { mine } = require('../../units/management/unitCommands');
 const { unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
 const { getProductionUnits } = require('../../units/management/unitManagement');
+const { canBuild, createUnitCommand } = require('../../utils/common');
 const { calculateDistance } = require('../coreUtils');
 
 // Precompute the gasMineConstructionAbilities Set once if it doesn't change frequently

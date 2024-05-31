@@ -7,17 +7,17 @@ const { createTrainingCommands } = require("./trainingCommands");
 const { canTrainUnit, earmarkResourcesIfNeeded } = require("./trainingUtils");
 const { unitTypeTrainingAbilities, flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
-const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("./unitUtils");
 const { EarmarkManager } = require("../../core");
 const { getUnitTypeData } = require("../../core/data/gameData");
-const { findKeysForValue, createUnitCommand, findUnitTypesWithAbilityCached } = require("../../core/utils/common");
 const StrategyContext = require("../../features/strategy/strategyContext");
 const { selectUnitTypeToBuild } = require("../../features/strategy/unitSelection");
 const { getBuildTimeLeft, shortOnWorkers } = require("../../gameLogic/economy/workerService");
-const { filterSafeTrainers } = require("../../gameLogic/gameMechanics/strategyUtils");
-const { getById } = require("../../gameLogic/shared/generalUtils");
+const { filterSafeTrainers } = require("../../gameLogic/gameMechanics/gameStrategyUtils");
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require("../../sharedServices");
+const { findKeysForValue, createUnitCommand, findUnitTypesWithAbilityCached } = require("../../utils/common");
+const { getById } = require("../../utils/generalUtils");
+const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("../../utils/unitUtils");
 
 /**
  * Earmarks workers for future training based on available food capacity.

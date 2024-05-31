@@ -9,8 +9,8 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 // Internal module imports
 const GasMineManager = require('./GasMineManager');
 const { defaultResources } = require('../core/data/gameData');
-const cacheManager = require('../core/utils/cache');
 const { missingUnits } = require('../features/misc/gameDataStore');
+const cacheManager = require('../utils/cache');
 
 /** 
  * This module manages shared game state resources.

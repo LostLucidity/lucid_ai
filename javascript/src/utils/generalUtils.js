@@ -1,4 +1,4 @@
-const { GameState } = require("../../gameState");
+const { GameState } = require("../gameState");
 
 /**
  * Check if the frame stored in the map matches the current frame
@@ -11,7 +11,6 @@ function isCurrent(unitType, currentFrame) {
   const entry = gameState.unitsById.get(unitType);
   return entry ? entry.frame === currentFrame : false;
 }
-
 
 /**
  * @param {ResourceManager} resources

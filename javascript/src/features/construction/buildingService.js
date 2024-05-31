@@ -6,22 +6,12 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { TownhallRace, GasMineRace } = require("@node-sc2/core/constants/race-map");
 const { ORBITALCOMMAND, BARRACKS } = require("@node-sc2/core/constants/unit-type");
 
-const { getUnitsCapableToAddOn } = require("./addonUtils");
 const BuildingPlacement = require("./buildingPlacement");
-const {
-  getInTheMain,
-  determineBuildingPosition,
-  findBestPositionForAddOn,
-  isPlaceableAtGasGeyser,
-  logNoValidPosition
-} = require("./buildingPlacementUtils");
 const config = require("../../../config/config");
 const { EarmarkManager } = require("../../core");
 const { attemptBuildAddOn, attemptLiftOff } = require("../../core/common/buildUtils");
-const { isSupplyNeeded } = require("../../core/utils/common");
 const { attemptLand } = require("../../gameLogic/buildingUtils");
 const { calculateDistance } = require("../../gameLogic/coreUtils");
-const { getTimeUntilUnitCanBuildAddon } = require("../../gameLogic/gameMechanics/unitUtils");
 const { getNextSafeExpansions } = require("../../gameLogic/pathfinding");
 const { prepareUnitToBuildAddon } = require("../../gameLogic/shared/unitPreparationUtils");
 const { findPlacements, findPosition } = require("../../gameLogic/spatialUtils");
@@ -32,8 +22,18 @@ const { checkAddOnPlacement } = require("../../services/ConstructionSpatialServi
 const { getPendingOrders } = require("../../sharedServices");
 const { flyingTypesMapping } = require("../../units/management/unitConfig");
 const { updateAddOnType, getUnitTypeToBuild } = require("../../units/management/unitHelpers");
+const { getUnitsCapableToAddOn } = require("../../utils/addonUtils");
+const { commandPlaceBuilding } = require("../../utils/builderUtils");
+const {
+  getInTheMain,
+  determineBuildingPosition,
+  findBestPositionForAddOn,
+  isPlaceableAtGasGeyser,
+  logNoValidPosition
+} = require("../../utils/buildingPlacementUtils");
+const { isSupplyNeeded } = require("../../utils/common");
+const { getTimeUntilUnitCanBuildAddon } = require("../../utils/supplyUtils");
 const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionsUtils");
-const { commandPlaceBuilding } = require("../misc/builderUtils");
 const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../misc/gameData");
 
 const foodEarmarks = new Map();
@@ -507,21 +507,6 @@ const hasEarmarks = (data) => {
 };
 
 /**
- * @param {World} world 
- * @param {UnitTypeId} unitType
- */
-function haveSupplyForUnit(world, unitType) {
-  const { agent, data } = world;
-  const { foodCap } = agent; if (foodCap === undefined) return false;
-  const gameState = GameState.getInstance();
-  const foodUsed = gameState.getFoodUsed();
-  const earmarkedFood = EarmarkManager.getEarmarkedFood();
-  const { foodRequired } = data.getUnitTypeData(unitType); if (foodRequired === undefined) return false;
-  const supplyLeft = foodCap - foodUsed - earmarkedFood - foodRequired;
-  return supplyLeft >= 0;
-}
-
-/**
  * Checks if the given Protoss unit type requires Pylon power.
  * @param {UnitTypeId} unitType The type of the Protoss unit.
  * @returns {boolean} True if the unit requires Pylon power, false otherwise.
@@ -555,7 +540,6 @@ module.exports = {
   getMineralFieldsNearby,
   getTimeToTargetCost,
   hasEarmarks,
-  haveSupplyForUnit,
   logNoValidPosition,
   resetEarmarks,
 };

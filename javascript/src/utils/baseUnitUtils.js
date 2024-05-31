@@ -2,9 +2,9 @@
 
 const { UnitType } = require("@node-sc2/core/constants");
 
-const { getDistance } = require("../../gameLogic/spatialCoreUtils");
-const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
-const { flyingTypesMapping, liftAndLandingTime, unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
+const { getDistance } = require("../gameLogic/spatialCoreUtils");
+const { checkAddOnPlacement } = require("../services/ConstructionSpatialService");
+const { flyingTypesMapping, liftAndLandingTime, unitTypeTrainingAbilities } = require("../units/management/unitConfig");
 
 /**
  * Calculate the time it takes for a unit with an add-on to lift off (if not already flying), move, and land.

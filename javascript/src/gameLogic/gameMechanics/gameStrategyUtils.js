@@ -2,8 +2,8 @@
 
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
-const { calculateTimeToKillUnits } = require("../../core/utils/sharedUtils");
 const { potentialCombatants, getWeaponDPS } = require("../../units");
+const { calculateTimeToKillUnits } = require("../../utils/sharedUtils");
 const { mappedEnemyUnits } = require("../scoutingUtils");
 const { getDistance } = require("../spatialCoreUtils");
 
@@ -24,8 +24,8 @@ const gameStrategyUtils = {
 
   /**
    * Determines if the given step is a BuildOrderStep.
-   * @param {import("../../core/utils/globalTypes").BuildOrderStep | import("../../features/strategy/strategyManager").StrategyStep} step
-   * @returns {step is import("../../core/utils/globalTypes").BuildOrderStep}
+   * @param {import("../../utils/globalTypes").BuildOrderStep | import("../../features/strategy/strategyManager").StrategyStep} step
+   * @returns {step is import("../../utils/globalTypes").BuildOrderStep}
    */
   isBuildOrderStep(step) {
     return 'uniquePropertyOfBuildOrderStep' in step; // Replace with an actual unique property

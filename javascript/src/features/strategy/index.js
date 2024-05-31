@@ -4,7 +4,6 @@ const data = require('./data/strategyData');
 const strategyContext = require('./strategyContext');
 const strategyInitialization = require('./strategyInitialization');
 const strategyManager = require('./strategyManager');
-const strategyUtils = require('./strategyUtils');
 const unitActionStrategy = require('./unitActionStrategy');
 const unitSelection = require('./unitSelection');
 const upgradeActionStrategy = require('./upgradeActionStrategy');
@@ -16,7 +15,6 @@ module.exports = {
   strategyContext,
   strategyInitialization,
   strategyManager,
-  strategyUtils,
   unitActionStrategy,
   unitSelection,
   upgradeActionStrategy,

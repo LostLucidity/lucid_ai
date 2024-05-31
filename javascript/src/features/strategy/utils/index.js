@@ -1,5 +1,5 @@
 // src/features/strategy/utils/index.js
-const timeUtils = require('./timeUtils');
+const timeUtils = require('../../../utils/timeUtils');
 
 module.exports = {
   timeUtils

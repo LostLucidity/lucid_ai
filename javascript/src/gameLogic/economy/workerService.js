@@ -10,18 +10,18 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal module imports
-const { createUnitCommand } = require("../../core/utils/common");
 const { GameState } = require('../../gameState');
 const MapResources = require("../../gameState/mapResources");
 const { getPendingOrders } = require("../../sharedServices");
 const { unitTypeTrainingAbilities, flyingTypesMapping } = require("../../units/management/unitConfig");
 const { setPendingOrders } = require("../../units/management/unitOrders");
+const { createUnitCommand } = require("../../utils/common");
+const { getById } = require("../../utils/generalUtils");
+const { getNeediestMineralField } = require("../../utils/resourceUtils");
+const { getClosestPathWithGasGeysers } = require("../../utils/sharedPathfindingUtils");
 const { getMovementSpeed, getWorkerSourceByPath } = require("../coreUtils");
-const { getClosestPathablePositionsBetweenPositions } = require("../gameMechanics/pathfindingUtils");
-const { getNeediestMineralField } = require("../gameMechanics/resourceUtils");
-const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, getGasGeysers, dbscan } = require("../pathfinding");
+const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../pathfinding");
 const { getDistanceByPath } = require("../pathfindingCore");
-const { getById } = require("../shared/generalUtils");
 const { getDistance } = require("../spatialCoreUtils");
 
 /**
@@ -322,19 +322,6 @@ function getClosestExpansion(map, position) {
     const distanceB = getDistance(b.townhallPosition, position) || Number.MAX_VALUE;
     return distanceA - distanceB;
   })[0];
-}
-
-/**
- * Retrieves the closest pathable positions between two points, considering gas geysers.
- * @param {ResourceManager} resources - The resource manager containing map and units data.
- * @param {Point2D} position - The starting position.
- * @param {Point2D} targetPosition - The target position.
- * @returns {{distance: number, pathCoordinates: Point2D[], pathablePosition: Point2D, pathableTargetPosition: Point2D}} - Closest pathable positions and related data.
- */
-function getClosestPathWithGasGeysers(resources, position, targetPosition) {
-  const { units } = resources.get();
-  const gasGeysers = getGasGeysers(units);
-  return getClosestPathablePositionsBetweenPositions(resources, position, targetPosition, gasGeysers);
 }
 
 /**

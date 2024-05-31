@@ -15,14 +15,13 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getNeighbors, createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { getClosestPathablePositionsBetweenPositions } = require("./gameMechanics/pathfindingUtils");
 const { getPathCoordinates, getClosestPosition, getStructureCells, getPathablePositions } = require("./pathfindingCommon");
 const { getDistanceByPath, getClosestPositionByPath } = require("./pathfindingCore");
 const { getDistance } = require("./spatialCoreUtils");
-const cacheManager = require("../core/utils/cache");
-const { getPathablePositionsForStructure } = require("../core/utils/common");
 const { GameState } = require('../gameState');
 const MapResources = require("../gameState/mapResources");
+const { getPathablePositionsForStructure } = require("../utils/common");
+const { getClosestPathablePositionsBetweenPositions, getGasGeysers } = require("../utils/pathfindingCore");
 
 
 /** @type {Point2D[]} */
@@ -516,24 +515,6 @@ function getClosestUnitPositionByPath(resources, unitPosition, position) {
   const pathablePositions = getPathablePositions(map, unitPosition);
   const [closestPositionByPath] = getClosestPositionByPath(resources, position, pathablePositions);
   return closestPositionByPath;
-}
-
-/**
- * Retrieves gas geyser units from the unit resource.
- * Uses a cache to store and return the gas geysers.
- * @param {UnitResource} units - The unit resource object from the bot.
- * @returns {Unit[]}
- */
-function getGasGeysers(units) {
-  const cacheKey = 'gasGeysers';
-  let gasGeysers = cacheManager.getGasGeysersCache(cacheKey);
-
-  if (!gasGeysers) {
-    gasGeysers = units.getGasGeysers();
-    cacheManager.setGasGeysersCache(cacheKey, gasGeysers);
-  }
-
-  return gasGeysers;
 }
 
 /**

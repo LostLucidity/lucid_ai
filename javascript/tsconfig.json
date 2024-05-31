@@ -13,11 +13,20 @@
     ], // Specify the root folders containing type declaration files
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "skipLibCheck": true // Skip type checking for all the declaration files (*.d.ts)
+    "skipLibCheck": true, // Skip type checking for all the declaration files (*.d.ts)
+    "baseUrl": ".", // Base directory to resolve non-relative module names
+    "paths": {
+      "utils/*": [
+        "src/utils/*"
+      ],
+      "gameLogic/*": [
+        "src/gameLogic/*"
+      ]
+    }
   },
   "include": [
     "src/**/*",
-    "node_modules/@node-sc2/core/**/*",
+    "node_modules/@node-sc2/core/**/*"
   ],
   "exclude": [
     "src/old"
