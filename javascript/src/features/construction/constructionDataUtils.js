@@ -1,4 +1,4 @@
-const { Ability } = require("@node-sc2/core/constants");
+const { Ability, UnitType } = require("@node-sc2/core/constants");
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
@@ -10,6 +10,21 @@ const { GameState, buildingPositions } = require("../../gameState");
 const { getPendingOrders } = require("../../sharedServices");
 const { buildUnitTypeMap } = require("../misc/gameData");
 
+/**
+ * @param {World} world
+ * @returns {Object.<number, string>}
+ */
+function buildAbilityIdToUnitTypeMap(world) {
+  const UnitTypeMap = buildUnitTypeMap(world.data);
+  /** @type {Object.<number, string>} */
+  const abilityIdToUnitTypeMap = {};
+
+  for (const [unitTypeName, abilityId] of Object.entries(UnitTypeMap)) {
+    abilityIdToUnitTypeMap[Number(abilityId)] = unitTypeName;
+  }
+
+  return abilityIdToUnitTypeMap;
+}
 
 /**
  * @param {World} world
@@ -19,51 +34,27 @@ function getCurrentlyEnrouteConstructionGrids(world) {
   const { constructionAbilities } = groupTypes;
   const { resources } = world;
   const { units } = resources.get();
-
   /** @type {Point2D[]} */
   const constructionGrids = [];
-
-  const UnitTypeMap = buildUnitTypeMap(world.data);
-
+  const abilityIdToUnitTypeMap = buildAbilityIdToUnitTypeMap(world);
   const gameState = GameState.getInstance();
+  const workers = units.getWorkers();
 
-  units.getWorkers().forEach(worker => {
-    const { orders } = worker;
-    if (orders === undefined) return;
+  workers.forEach(worker => {
+    const allOrders = worker.orders ? [...worker.orders, ...getPendingOrders(worker)] : getPendingOrders(worker);
+    const moveOrder = allOrders.find(order => order.abilityId === Ability.MOVE && order.targetWorldSpacePos);
 
-    const allOrders = [...orders, ...(getPendingOrders(worker))];
-    const moveOrder = allOrders.find(order => order.abilityId === Ability.MOVE);
     if (moveOrder && moveOrder.targetWorldSpacePos) {
       const intendedConstructionLocation = moveOrder.targetWorldSpacePos;
-
-      // Find corresponding building type
-      const buildingStep = [...buildingPositions.entries()].reduce(
-        /**
-         * @param {[number, Point2D] | null} closestEntry 
-         * @param {[number, false | Point2D]} currentEntry 
-         * @returns {[number, Point2D] | null}
-         */
-        (closestEntry, currentEntry) => {
-          // If the current entry's second element is not a Point2D, return the current closestEntry.
-          if (currentEntry[1] === false || typeof currentEntry[1] === 'boolean') return closestEntry;
-
-          // If closestEntry is null or doesn't exist, return the current entry as it's guaranteed to be of type [number, Point2D].
-          if (!closestEntry) return /** @type {[number, Point2D]} */(currentEntry);
-
-          const currentDistance = getDistance(currentEntry[1], intendedConstructionLocation);
-          const closestDistance = getDistance(closestEntry[1], intendedConstructionLocation);
-          return currentDistance < closestDistance ? /** @type {[number, Point2D]} */(currentEntry) : closestEntry;
-        },
-        /** @type {[number, Point2D] | null} */(null)
-      );
+      const buildingStep = getClosestBuildingStep(intendedConstructionLocation);
 
       if (buildingStep) {
         const stepNumber = buildingStep[0];
         const buildingType = gameState.getBuildingTypeByStepNumber(stepNumber);
-        if (buildingType !== undefined) {
+        if (buildingType) {
           const footprint = getFootprint(buildingType);
-          if (footprint && 'w' in footprint && 'h' in footprint) {
-            constructionGrids.push(...cellsInFootprint(createPoint2D(intendedConstructionLocation), footprint)); // Use the correct variable name
+          if (footprint && footprint.w && footprint.h) {
+            constructionGrids.push(...cellsInFootprint(createPoint2D(intendedConstructionLocation), footprint));
           }
         }
       }
@@ -71,15 +62,12 @@ function getCurrentlyEnrouteConstructionGrids(world) {
 
     if (worker.isConstructing() || isPendingContructing(worker)) {
       const foundOrder = allOrders.find(order => order.abilityId && constructionAbilities.includes(order.abilityId));
-      if (foundOrder && foundOrder.targetWorldSpacePos) {
-        // Find the unit type name associated with the found order's abilityId
-        const foundUnitTypeName = Object.keys(UnitTypeMap).find(unitTypeName =>
-          UnitTypeMap[unitTypeName] === foundOrder.abilityId
-        );
-
-        if (foundUnitTypeName) {
-          const footprint = getFootprint(UnitTypeMap[foundUnitTypeName]);
-          if (footprint && 'w' in footprint && 'h' in footprint) {
+      if (foundOrder && foundOrder.targetWorldSpacePos && foundOrder.abilityId !== undefined) {
+        const unitTypeName = abilityIdToUnitTypeMap[foundOrder.abilityId];
+        if (unitTypeName) {
+          const unitType = UnitType[unitTypeName.toUpperCase()];
+          const footprint = getFootprint(unitType);
+          if (footprint && footprint.w && footprint.h) {
             constructionGrids.push(...cellsInFootprint(createPoint2D(foundOrder.targetWorldSpacePos), footprint));
           }
         }
@@ -88,6 +76,29 @@ function getCurrentlyEnrouteConstructionGrids(world) {
   });
 
   return constructionGrids;
+
+  /**
+   * Find the closest building step to the intended construction location.
+   * @param {Point2D} location
+   * @returns {[number, Point2D] | null}
+   */
+  function getClosestBuildingStep(location) {
+    /** @type {[number, Point2D] | null} */
+    let closestEntry = null;
+    let closestDistance = Infinity;
+
+    for (const [stepNumber, pos] of buildingPositions.entries()) {
+      if (!pos) continue;
+
+      const currentDistance = getDistance(pos, location);
+      if (currentDistance < closestDistance) {
+        closestEntry = [stepNumber, pos];
+        closestDistance = currentDistance;
+      }
+    }
+
+    return closestEntry;
+  }
 }
 
 module.exports = {
