@@ -1,6 +1,7 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
+const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
@@ -24,29 +25,80 @@ const { getCurrentlyEnrouteConstructionGrids } = require("../utils/constructionD
  * @property {number} h - The height of the footprint.
  * @property {number} w - The width of the footprint.
  */
-
 /**
  * @param {World} world
  * @param {UnitTypeId} unitType
  * @returns {Point2D[]}
  */
 function findPlacements(world, unitType) {
-  const { BARRACKS, ENGINEERINGBAY, FORGE, PYLON, REACTOR, STARPORT, SUPPLYDEPOT, TECHLAB } = UnitType;
+  const { BARRACKS, ENGINEERINGBAY, REACTOR, STARPORT, SUPPLYDEPOT, TECHLAB } = UnitType;
   const { gasMineTypes } = groupTypes;
   const { agent, data, resources } = world;
   const { race } = agent;
-  const { map, units, frame } = resources.get();
+  const { map: gameMap, units, frame } = resources.get();
   const currentGameLoop = frame.getGameLoop();
-  const [main, natural] = map.getExpansions();
+  const [main, natural] = gameMap.getExpansions();
 
-  if (!main || !main.areas || !natural || !natural.areas) {
+  if (!main || !main.areas || !natural || !natural.areas || !race) {
     return [];
   }
 
   const mainMineralLine = main.areas.mineralLine;
+  const expansionPositions = gameMap.getExpansions().map(expansion => expansion.townhallPosition);
+
+  // Ensure that the race is defined and fetch the townhall footprint
+  const townhallTypes = TownhallRace[race];
+  if (!townhallTypes) {
+    return [];
+  }
+  const townhallFootprints = townhallTypes.map(type => getFootprint(type)).filter(Boolean);
+  if (townhallFootprints.length === 0) {
+    return [];
+  }
+
+  /**
+   * Checks if a given point is blocked by a townhall footprint
+   * @param {Point2D} point
+   * @returns {boolean}
+   */
+  const isPlaceBlockedByTownhall = (point) => {
+    const unitFootprint = getFootprint(unitType);
+    if (!unitFootprint) {
+      return false; // If the footprint is undefined, we cannot perform the check
+    }
+    return expansionPositions.some(expansion =>
+      townhallFootprints.some(footprint =>
+        footprint && pointsOverlap(cellsInFootprint(point, unitFootprint), cellsInFootprint(expansion, footprint))
+      )
+    );
+  };
+
+  /**
+   * Checks if a given point is a valid placement
+   * @param {Point2D} point
+   * @returns {boolean}
+   */
+  const isValidPlacement = (point) => {
+    const unitFootprint = getFootprint(unitType);
+    if (!unitFootprint) {
+      return false; // Skip if the footprint is undefined
+    }
+    const cells = cellsInFootprint(point, unitFootprint);
+    return (
+      cells.every(cell => gameMap.isPlaceable(cell)) &&
+      getDistance(natural.townhallPosition, point) > 4.5 &&
+      mainMineralLine.every(mlp => getDistance(mlp, point) > 1.5) &&
+      (natural.areas?.hull.every(hp => getDistance(hp, point) > 3) ?? true) && // Safe access using optional chaining
+      units.getStructures({ alliance: Alliance.SELF })
+        .map(u => u.pos)
+        .every(eb => getDistance(eb, point) > 3) &&
+      // Additional check to avoid blocking future expansions
+      !isPlaceBlockedByTownhall(point)
+    );
+  };
 
   if (gasMineTypes.includes(unitType)) {
-    const geyserPositions = MapResources.getFreeGasGeysers(map, currentGameLoop).map(geyser => {
+    const geyserPositions = MapResources.getFreeGasGeysers(gameMap, currentGameLoop).map(geyser => {
       const { pos } = geyser;
       if (pos === undefined) return { pos, buildProgress: 0 };
       const [closestBase] = units.getClosest(pos, units.getBases());
@@ -81,107 +133,28 @@ function findPlacements(world, unitType) {
       return []; // Return an empty array if no suitable position is found
     }
   }
-  /**
-   * @type {Point2D[]}
-   */
+
+  /** @type {Point2D[]} */
   let placements = [];
   const gameState = GameState.getInstance();
   const currentPlan = gameState.plan;
-  if (race === Race.PROTOSS) {
-    if (unitType === PYLON) {
-      if (gameState.getUnitTypeCount(world, unitType) === 0) {
-        if (config.naturalWallPylon) {
-          return BuildingPlacement.getCandidatePositions(resources, 'NaturalWallPylon', unitType);
-        }
-      }
-      const occupiedExpansions = getOccupiedExpansions(resources);
-      const occupiedExpansionsPlacementGrid = occupiedExpansions.reduce((/** @type {Point2D[]} */acc, expansion) => {
-        if (expansion.areas !== undefined) {
-          acc.push(...expansion.areas.placementGrid);
-        }
-        return acc;
-      }, []);
 
-      /** @type {Point2D[]} */
-      const placementGrids = [];
-      occupiedExpansionsPlacementGrid.forEach(grid => placementGrids.push(grid));
-      placements = placementGrids
-        .filter((point) => {
-          return (
-            (getDistance(natural.townhallPosition, point) > 4.5) &&
-            (mainMineralLine.every(mlp => getDistance(mlp, point) > 1.5)) &&
-            (natural.areas?.hull.every(hp => getDistance(hp, point) > 3)) && // Safe access using optional chaining
-            (units.getStructures({ alliance: Alliance.SELF })
-              .map(u => u.pos)
-              .every(eb => getDistance(eb, point) > 3))
-          );
-        });
-    } else {
-      let pylonsNearProduction;
-      if (units.getById(PYLON).length === 1) {
-        pylonsNearProduction = units.getById(PYLON);
-      } else {
-        pylonsNearProduction = units.getById(PYLON)
-          .filter(u => (u.buildProgress ?? 0) >= 1)
-          .filter(pylon => getDistance(pylon.pos, main.townhallPosition) < 50);
-
-      }
-      pylonsNearProduction.forEach(pylon => {
-        if (pylon.pos) {  // Check if pylon.pos is defined
-          placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true })
-            .filter(grid => existsInMap(map, grid) && getDistance(grid, pylon.pos) < 6.5));
-        }
-      });
-      /** @type {Point2D[]} */
-      const wallOffPositions = [];
-      const currentlyEnrouteConstructionGrids = getCurrentlyEnrouteConstructionGrids(world);
-      const threeByThreeFootprint = getFootprint(FORGE); if (threeByThreeFootprint === undefined) return [];
-      // Using reduce to filter and combine currentlyEnrouteConstructionGrids and buildingPositions
-      const filteredPositions = [...currentlyEnrouteConstructionGrids, ...buildingPositions].reduce((/** @type {Point2D[]} */acc, position) => {
-        // Check if 'position' is a Point2D and not a tuple
-        if (position && typeof position === 'object' && !Array.isArray(position)) {
-          acc.push(position);
-        } else if (Array.isArray(position) && position[1] && typeof position[1] === 'object') {
-          // If 'position' is a tuple, extract the Point2D part
-          acc.push(position[1]);
-        }
-        return acc;
-      }, []);
-
-
-      BuildingPlacement.threeByThreePositions = BuildingPlacement.threeByThreePositions.filter(position => {
-        // Ensure position is a valid Point2D object before passing it to cellsInFootprint
-        if (typeof position === 'object' && position) {
-          return !pointsOverlap(
-            filteredPositions,
-            cellsInFootprint(position, threeByThreeFootprint)
-          );
-        }
-        return false;
-      });
-
-      if (BuildingPlacement.threeByThreePositions.length > 0) {
-        const threeByThreeCellsInFootprints = BuildingPlacement.threeByThreePositions.map(position => cellsInFootprint(position, threeByThreeFootprint));
-        wallOffPositions.push(...threeByThreeCellsInFootprints.flat().filter(position => !pointsOverlap(currentlyEnrouteConstructionGrids, cellsInFootprint(position, threeByThreeFootprint))));
-        const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
-        if (unitTypeFootprint.h === threeByThreeFootprint.h && unitTypeFootprint.w === threeByThreeFootprint.w) {
-          const canPlace = getRandom(BuildingPlacement.threeByThreePositions.filter(pos => map.isPlaceableAt(unitType, pos)));
-          if (canPlace) {
-            return [canPlace];
-          }
-        }
-      }
-      const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
-      placements = placements.filter(grid => {
-        const cells = [...cellsInFootprint(grid, unitTypeFootprint)];
-        return cells.every(cell => map.isPlaceable(cell)) && !pointsOverlap(cells, [...wallOffPositions]);
-      }).map(pos => ({ pos, rand: Math.random() }))
-        .sort((a, b) => a.rand - b.rand)
-        .map(a => a.pos)
-        .slice(0, 20);
-      return placements;
-
+  const occupiedExpansions = getOccupiedExpansions(resources);
+  const occupiedExpansionsPlacementGrid = occupiedExpansions.reduce((/** @type {Point2D[]} */acc, expansion) => {
+    if (expansion.areas !== undefined) {
+      acc.push(...expansion.areas.placementGrid);
     }
+    return acc;
+  }, []);
+
+  /** @type {Point2D[]} */
+  const placementGrids = [];
+  occupiedExpansionsPlacementGrid.forEach(grid => placementGrids.push(grid));
+
+  placements = placementGrids.filter(isValidPlacement);
+
+  if (race === Race.PROTOSS) {
+    return findProtossPlacements(world, unitType, placements, isPlaceBlockedByTownhall);
   } else if (race === Race.TERRAN) {
     /** @type {Point2D[]} */
     const placementGrids = [];
@@ -215,7 +188,7 @@ function findPlacements(world, unitType) {
     }, []);
 
     const wallOffPositions = BuildingPlacement.findWallOffPlacement(unitType).slice();
-    if (wallOffPositions.filter(position => map.isPlaceableAt(unitType, position)).length > 0) {
+    if (wallOffPositions.filter(position => gameMap.isPlaceableAt(unitType, position)).length > 0) {
       // Check if the structure is one that cannot use an orphan add-on
       if (!canUnitBuildAddOn(unitType)) {
         // Exclude positions that are suitable for orphan add-ons and inside existing footprints
@@ -291,14 +264,109 @@ function findPlacements(world, unitType) {
         cells.push(...cellsInFootprint(getAddOnPlacement(grid), addonFootprint));
       }
 
-      return cells.every(cell => map.isPlaceable(cell)) && !pointsOverlap(cells, [...wallOffPositions, ...buildingFootprintOfOrphanAddons, ...orphanAddonPositions]);
+      return cells.every(cell => gameMap.isPlaceable(cell)) && !pointsOverlap(cells, [...wallOffPositions, ...buildingFootprintOfOrphanAddons, ...orphanAddonPositions]);
     }).map(pos => ({ pos, rand: Math.random() }))
       .sort((a, b) => a.rand - b.rand)
       .map(a => a.pos)
       .slice(0, 20);
   } else if (race === Race.ZERG) {
-    placements.push(...findZergPlacements(world, unitType))
+    placements.push(...findZergPlacements(world, unitType));
   }
+  return placements;
+}
+
+/**
+ * Extracted function to handle Protoss-specific placement logic
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @param {Point2D[]} placements
+ * @param {function} isPlaceBlockedByTownhall
+ * @returns {Point2D[]}
+ */
+function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTownhall) {
+  const { PYLON, FORGE } = UnitType;
+  const { resources } = world;
+  const { map: gameMap, units } = resources.get();
+  const gameState = GameState.getInstance();
+  const main = gameMap.getExpansions()[0];
+  let pylonsNearProduction;
+
+  if (units.getById(PYLON).length === 1) {
+    pylonsNearProduction = units.getById(PYLON);
+  } else {
+    pylonsNearProduction = units.getById(PYLON)
+      .filter(u => (u.buildProgress ?? 0) >= 1)
+      .filter(pylon => getDistance(pylon.pos, main.townhallPosition) < 50);
+  }
+
+  if (unitType === PYLON) {
+    if (gameState.getUnitTypeCount(world, unitType) === 0) {
+      if (config.naturalWallPylon) {
+        return BuildingPlacement.getCandidatePositions(resources, 'NaturalWallPylon', unitType);
+      }
+    }
+  } else {
+    pylonsNearProduction.forEach(pylon => {
+      if (pylon.pos) {  // Check if pylon.pos is defined
+        placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true })
+          .filter(grid => existsInMap(gameMap, grid) && getDistance(grid, pylon.pos) < 6.5));
+      }
+    });
+
+    /** @type {Point2D[]} */
+    const wallOffPositions = [];
+    const currentlyEnrouteConstructionGrids = getCurrentlyEnrouteConstructionGrids(world);
+    const threeByThreeFootprint = getFootprint(FORGE); if (threeByThreeFootprint === undefined) return [];
+    // Using reduce to filter and combine currentlyEnrouteConstructionGrids and buildingPositions
+    const filteredPositions = [...currentlyEnrouteConstructionGrids, ...buildingPositions].reduce((/** @type {Point2D[]} */acc, position) => {
+      // Check if 'position' is a Point2D and not a tuple
+      if (position && typeof position === 'object' && !Array.isArray(position)) {
+        acc.push(position);
+      } else if (Array.isArray(position) && position[1] && typeof position[1] === 'object') {
+        // If 'position' is a tuple, extract the Point2D part
+        acc.push(position[1]);
+      }
+      return acc;
+    }, []);
+
+    BuildingPlacement.threeByThreePositions = BuildingPlacement.threeByThreePositions.filter(position => {
+      // Ensure position is a valid Point2D object before passing it to cellsInFootprint
+      if (typeof position === 'object' && position) {
+        return !pointsOverlap(
+          filteredPositions,
+          cellsInFootprint(position, threeByThreeFootprint)
+        );
+      }
+      return false;
+    });
+
+    if (BuildingPlacement.threeByThreePositions.length > 0) {
+      const threeByThreeCellsInFootprints = BuildingPlacement.threeByThreePositions.map(position => cellsInFootprint(position, threeByThreeFootprint));
+      wallOffPositions.push(...threeByThreeCellsInFootprints.flat().filter(position => !pointsOverlap(currentlyEnrouteConstructionGrids, cellsInFootprint(position, threeByThreeFootprint))));
+      const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
+      if (unitTypeFootprint.h === threeByThreeFootprint.h && unitTypeFootprint.w === threeByThreeFootprint.w) {
+        const canPlace = getRandom(BuildingPlacement.threeByThreePositions.filter(pos => gameMap.isPlaceableAt(unitType, pos)));
+        if (canPlace) {
+          return [canPlace];
+        }
+      }
+    }
+
+    const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
+    placements = placements.filter(grid => {
+      const cells = [...cellsInFootprint(grid, unitTypeFootprint)];
+      return cells.every(cell => gameMap.isPlaceable(cell)) &&
+        !pointsOverlap(cells, [...wallOffPositions]) &&
+        // Check if the placement is within pylon power range
+        pylonsNearProduction.some(pylon => getDistance(pylon.pos, grid) <= 6.5) &&
+        // Additional check to avoid blocking future expansions
+        !isPlaceBlockedByTownhall(grid);
+    }).map(pos => ({ pos, rand: Math.random() }))
+      .sort((a, b) => a.rand - b.rand)
+      .map(a => a.pos)
+      .slice(0, 20);
+  }
+
   return placements;
 }
 
