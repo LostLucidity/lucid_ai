@@ -698,6 +698,32 @@ class GameState {
     const unitArray = unitResource.getAll(); // Adjust as needed
     const abilityIds = GameState.getAbilityIdsForAddons(data, unitType);
     const unitsWithCurrentOrders = GameState.getUnitsWithCurrentOrders(unitArray, abilityIds);
+
+    // Map unit tags to their positions
+    const unitTagToPosition = new Map();
+    unitArray.forEach(unit => {
+      if (unit.pos) {
+        unitTagToPosition.set(unit.tag, `${unit.pos.x},${unit.pos.y}`);
+      }
+    });
+
+    // Get positions of orders from unitsWithCurrentOrders, handling both targetWorldSpacePos and targetUnitTag
+    const positionsWithCurrentOrders = new Set();
+    for (const unit of unitsWithCurrentOrders) {
+      if (unit.orders && unit.orders.length > 0) {
+        unit.orders.forEach(order => {
+          if (order.targetWorldSpacePos) {
+            positionsWithCurrentOrders.add(`${order.targetWorldSpacePos.x},${order.targetWorldSpacePos.y}`);
+          } else if (order.targetUnitTag) {
+            const pos = unitTagToPosition.get(order.targetUnitTag);
+            if (pos) {
+              positionsWithCurrentOrders.add(pos);
+            }
+          }
+        });
+      }
+    }
+
     let count = unitsWithCurrentOrders.length;
 
     const unitTypes = this.countTypes.get(unitType) || [unitType];
@@ -708,6 +734,9 @@ class GameState {
         const completed = type === UnitType.ORBITALCOMMAND ? 0.998 : 1;
         unitsToCount = unitsToCount.filter(unit => (unit.buildProgress || 0) >= completed);
       }
+      // Filter out units that are at positions already tracked by positionsWithCurrentOrders
+      unitsToCount = unitsToCount.filter(unit => unit.pos && !positionsWithCurrentOrders.has(`${unit.pos.x},${unit.pos.y}`));
+
       count += unitsToCount.length;
     });
 
