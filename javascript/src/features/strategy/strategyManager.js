@@ -99,14 +99,17 @@ class StrategyManager {
    * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    */
   constructor(race, specificBuildOrderKey) {
-    this.strategyData = new StrategyData();
-
-    if (!StrategyManager.instance) {
-      this.initializeSingleton(race, specificBuildOrderKey);
-      StrategyManager.instance = this;
-    } else {
-      StrategyManager.instance.strategyData = this.strategyData;
+    if (StrategyManager.instance) {
+      StrategyManager.instance.strategyData = new StrategyData();
+      return StrategyManager.instance;
     }
+
+    this.strategyData = new StrategyData();
+    this.initializeSingleton(race, specificBuildOrderKey);
+    StrategyManager.instance = this;
+
+    this.cumulativeCounts = {};
+    this.stepCompletionStatus = new Map(); // Initialize the step completion status map
 
     return StrategyManager.instance;
   }
@@ -422,21 +425,28 @@ class StrategyManager {
   }
 
   /**
-   * Handles the completion of a strategy step, updating cumulative counts if necessary.
+   * Handles the completion of a strategy step.
    * @param {World} world The game world context.
    * @param {import('../../utils/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
    * @param {string} unitType The unit type identifier.
    * @param {number} currentCumulativeCount The current cumulative count for the unit type.
    * @param {import('../../utils/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
    * @param {StrategyManager} strategyManager The strategy manager instance.
+   * @param {number} actionIndex The index of the current interpreted action in the rawStep.
    * @returns {boolean} True if the step is completed, false otherwise.
    */
-  handleStepCompletion(world, rawStep, unitType, currentCumulativeCount, interpretedAction, strategyManager) {
-    if (strategyManager.isStepSatisfied(world, rawStep)) {
-      this.cumulativeCounts[unitType] = currentCumulativeCount + (interpretedAction.count || 0);
-      return true;
+  static handleStepCompletion(world, rawStep, unitType, currentCumulativeCount, interpretedAction, strategyManager, actionIndex) {
+    // Cast rawStep to a type that includes interpretedActionsStatus
+    const stepWithStatus = /** @type {any} */ (rawStep);
+
+    // Check if the interpreted action is satisfied in the current world context
+    if (strategyManager.isActionSatisfied(world, interpretedAction, rawStep)) {
+      // Mark the action as satisfied in the step's status
+      stepWithStatus.interpretedActionsStatus[actionIndex] = true;
+      return true; // Step is completed
     }
-    return false;
+
+    return false; // Step is not completed
   }
 
   /**
@@ -492,6 +502,40 @@ class StrategyManager {
     }
 
     this.resetPlanningVariables();
+  }
+
+  /**
+   * Check if the action conditions are satisfied.
+   * @param {World} world
+   * @param {import('../../utils/globalTypes').InterpretedAction} action
+   * @param {import('../../utils/globalTypes').BuildOrderStep | StrategyStep} step
+   * @returns {boolean}
+   */
+  isActionSatisfied(world, action, step) {
+    const gameState = GameState.getInstance();
+    const agent = world.agent;
+
+    if (!this.strategyData) {
+      console.error('Strategy data is not initialized');
+      return false;
+    }
+
+    const buildOrder = this.getBuildOrderForCurrentStrategy();
+    const stepIndex = buildOrder.steps.findIndex(s => isEqualStep(s, step));
+
+    if (action.unitType !== null && action.unitType !== undefined) {
+      const startingUnitCounts = { [`unitType_${action.unitType}`]: gameState.getStartingUnitCount(action.unitType) };
+      const targetCounts = this.strategyData.calculateTargetCountForStep(step, buildOrder, startingUnitCounts);
+      const targetCount = targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
+
+      if (!action.isUpgrade) {
+        const currentUnitCount = gameState.getUnitCount(world, action.unitType);
+        return currentUnitCount >= targetCount;
+      } else if (action.isUpgrade && action.upgradeType) {
+        return agent.upgradeIds?.includes(action.upgradeType) ?? false;
+      }
+    }
+    return false;
   }
 
   /**
@@ -560,7 +604,8 @@ class StrategyManager {
       if (!action.isUpgrade && action.unitType) {
         const currentUnitCount = gameState.getUnitCount(world, action.unitType);
         const startingUnitCounts = { [`unitType_${action.unitType}`]: gameState.getStartingUnitCount(action.unitType) };
-        const targetCounts = this.strategyData.calculateTargetCountForStep(step, buildOrder, startingUnitCounts);
+
+        const targetCounts = this.strategyData ? this.strategyData.calculateTargetCountForStep(step, buildOrder, startingUnitCounts) : {};
         const targetCount = targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
 
         return currentUnitCount >= targetCount;
@@ -653,6 +698,30 @@ class StrategyManager {
   }
 
   /**
+   * Processes an interpreted action from the current strategy step.
+   * @param {World} world
+   * @param {import("../../utils/globalTypes").BuildOrderStep | StrategyStep} rawStep
+   * @param {number} step
+   * @param {import('../../utils/globalTypes').InterpretedAction} interpretedAction
+   * @param {StrategyManager} strategyManager
+   * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
+   * @param {number} currentCumulativeCount The current cumulative count of the unit type up to this step.
+   * @param {number} actionIndex The index of the current interpreted action in the rawStep.
+   */
+  processInterpretedAction(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform, currentCumulativeCount, actionIndex) {
+    // Extract unitType, defaulting to 'default' if undefined or null
+    const unitType = interpretedAction.unitType?.toString() || 'default';
+
+    // Handle step completion via StrategyManager and return early if handled
+    if (StrategyManager.handleStepCompletion(world, rawStep, unitType, currentCumulativeCount, interpretedAction, strategyManager, actionIndex)) {
+      return;
+    }
+
+    // Handle plan step if not handled by StrategyManager
+    this.handlePlanStep(world, rawStep, step, interpretedAction, actionsToPerform, currentCumulativeCount);
+  }
+
+  /**
    * Processes all steps in the strategy plan.
    * @param {World} world - The game world context.
    * @param {import("../../utils/globalTypes").BuildOrder | Strategy} plan - The strategy plan to execute.
@@ -663,7 +732,7 @@ class StrategyManager {
     for (const [step, rawStep] of plan.steps.entries()) {
       this.processStep(world, rawStep, step, strategyManager, actionsToPerform);
     }
-  }  
+  }
 
   /**
    * Processes regular actions for a plan step and handles earmarks if needed.
@@ -697,29 +766,28 @@ class StrategyManager {
     const interpretedActions = StrategyData.getInterpretedActions(rawStep);
     if (!interpretedActions) return;
 
-    for (const interpretedAction of interpretedActions) {
-      this.processInterpretedAction(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform);
-    }
-  }
+    // Type assertion to ensure interpretedActionsStatus can exist on rawStep
+    const stepWithStatus = /** @type {import("../../utils/globalTypes").BuildOrderStep & { interpretedActionsStatus?: boolean[], completed?: boolean }} */ (rawStep);
 
-  /**
-   * Processes an interpreted action from the current strategy step.
-   * @param {World} world
-   * @param {import("../../utils/globalTypes").BuildOrderStep | StrategyManager.StrategyStep} rawStep
-   * @param {number} step
-   * @param {import('../../utils/globalTypes').InterpretedAction} interpretedAction
-   * @param {StrategyManager} strategyManager
-   * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
-   */
-  processInterpretedAction(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform) {
-    const unitType = interpretedAction.unitType?.toString() || 'default';
-    const currentCumulativeCount = this.getCumulativeCount(unitType);
-
-    if (this.handleStepCompletion(world, rawStep, unitType, currentCumulativeCount, interpretedAction, strategyManager)) {
-      return;
+    // Ensure interpretedActionsStatus exists on stepWithStatus
+    if (!stepWithStatus.interpretedActionsStatus) {
+      stepWithStatus.interpretedActionsStatus = new Array(interpretedActions.length).fill(false);
     }
 
-    this.handlePlanStep(world, rawStep, step, interpretedAction, actionsToPerform, currentCumulativeCount);
+    for (let i = 0; i < interpretedActions.length; i++) {
+      const interpretedAction = interpretedActions[i];
+      const unitType = interpretedAction.unitType ? interpretedAction.unitType.toString() : 'default';
+      const currentCumulativeCount = this.getCumulativeCount(unitType);
+
+      // Update cumulative count regardless of completion status
+      this.updateCumulativeCount(unitType, interpretedAction.count || 0);
+
+      if (!stepWithStatus.interpretedActionsStatus[i]) {
+        this.processInterpretedAction(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform, currentCumulativeCount, i);
+      }
+    }
+
+    stepWithStatus.completed = stepWithStatus.interpretedActionsStatus.every(status => status);
   }
 
   /**
@@ -899,6 +967,15 @@ class StrategyManager {
       this.loggedDelays.delete(delayKey);
     }
     return false;
+  }
+
+  /**
+   * Updates the cumulative count for a given unit type.
+   * @param {string} unitType The unit type identifier.
+   * @param {number} count The count to add to the cumulative count.
+   */
+  updateCumulativeCount(unitType, count) {
+    this.cumulativeCounts[unitType] = (this.cumulativeCounts[unitType] || 0) + count;
   }
 
   /**
