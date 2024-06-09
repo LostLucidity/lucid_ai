@@ -31,7 +31,7 @@ const { keepPosition } = require("../utils/buildingPlacementUtils");
  * @param {(world: World, position: Point2D, unitType: UnitTypeId, getBuilderFunc: (world: World, position: Point2D) => { unit: Unit; timeToPosition: number } | undefined, getMiddleOfStructureFn: (position: Point2D, unitType: UnitTypeId) => Point2D, getTimeToTargetCostFn: (world: World, unitType: UnitTypeId) => number) => SC2APIProtocol.ActionRawUnitCommand[]} premoveBuilderToPosition - Injected dependency from buildingHelpers.js
  * @param {(map: MapResource, unitType: UnitTypeId, position: Point2D) => boolean} isPlaceableAtGasGeyser - Injected dependency from buildingPlacement.js
  * @param {(world: World, unitType: UnitTypeId) => number} getTimeToTargetCost - Injected dependency from resourceManagement.js
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A promise containing a list of raw unit commands.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of raw unit commands.
  */
 function commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, premoveBuilderToPosition, isPlaceableAtGasGeyser, getTimeToTargetCost) {
   const { agent, data } = world;
@@ -54,7 +54,7 @@ function commandPlaceBuilding(world, unitType, position, commandBuilderToConstru
     return collectedActions;
   }
 
-  if (!agent.canAfford(unitType)) {
+  if (!agent.canAfford(unitType) || !agent.hasTechFor(unitType)) {
     collectedActions.push(...handleCannotAffordBuilding(world, position, unitType, premoveBuilderToPosition, getTimeToTargetCost));
     return collectedActions;
   }
@@ -96,10 +96,12 @@ function getBuilder(world, position) {
 
   const builderCandidateClusters = getBuilderCandidateClusters(builderCandidates);
 
-  let closestBuilderCandidate = getClosestBuilderCandidate(resources, builderCandidateClusters, position);
+  const closestBuilderCandidate = getClosestBuilderCandidate(resources, builderCandidateClusters, position);
   const movingOrConstructingNonDronesTimeToPosition = calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrConstructingNonDrones, position);
 
-  const candidateWorkersTimeToPosition = gatherCandidateWorkersTimeToPosition(resources, position, movingOrConstructingNonDronesTimeToPosition, closestBuilderCandidate, gameState);
+  const candidateWorkersTimeToPosition = closestBuilderCandidate
+    ? gatherCandidateWorkersTimeToPosition(resources, position, movingOrConstructingNonDronesTimeToPosition, closestBuilderCandidate, gameState)
+    : []; // Handle the case where closestBuilderCandidate is undefined
 
   const constructingWorkers = units.getConstructingWorkers();
   const closestConstructingWorker = calculateClosestConstructingWorker(world, constructingWorkers, position);

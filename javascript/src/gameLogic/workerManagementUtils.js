@@ -1,4 +1,3 @@
-// workerManagementUtils.js
 "use strict";
 
 // External library imports
@@ -23,55 +22,55 @@ const { findPathablePositions } = require('../utils/pathfindingUtils');
 
 /**
  * Adjusts the time to position based on whether the unit should rally to the base or not.
- * Includes calculation of the base distance to the position as required by calculateBaseTimeToPosition.
  * @param {boolean} rallyBase
  * @param {number} buildTimeLeft
  * @param {number} movementSpeedPerSecond
  * @param {number} originalTimeToPosition
- * @param {number} baseDistanceToPosition - The distance from the base to the target position.
+ * @param {number} baseDistanceToPosition
  * @returns {number}
  */
 function adjustTimeToPosition(rallyBase, buildTimeLeft, movementSpeedPerSecond, originalTimeToPosition, baseDistanceToPosition) {
-  if (rallyBase) {
-    return calculateBaseTimeToPosition(baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond);
-  }
-  return originalTimeToPosition;
+  return rallyBase ? calculateBaseTimeToPosition(baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond) : originalTimeToPosition;
 }
 
 /**
  * Calculates the movement speed per second from the unit's data.
  * @param {Unit} unit
- * @returns {number} Movement speed per second
+ * @returns {number}
  */
 function calculateMovementSpeed(unit) {
-  const movementSpeed = unit.data().movementSpeed || 0;
-  return movementSpeed * 1.4; // Apply any necessary conversion factor
+  return (unit.data().movementSpeed || 0) * 1.4; // Apply conversion factor if needed
 }
 
 /**
  * Calculates the maximum of time to target cost or time to target technology from unit data.
  * @param {World} world
- * @param {Unit} unit
- * @param {number} timeToTargetCost Pre-calculated time to target cost.
+ * @param {number} timeToTargetCost
+ * @param {UnitTypeId} unitType
  * @returns {number}
  */
-function calculateTimeToTargetCostOrTech(world, unit, timeToTargetCost) {
-  if (!unit.unitType) {
-    console.error("Unit type is undefined, cannot calculate time to target tech.");
-    return timeToTargetCost; // Return the already known cost as the maximum.
+function calculateTimeToTargetCostOrTech(world, timeToTargetCost, unitType) {
+  if (!unitType) {
+    console.error("Unit type is undefined, returning time to target cost:", timeToTargetCost);
+    return timeToTargetCost;
   }
-  const timeToTargetTech = getTimeToTargetTech(world, unit.unitType);
+
+  const timeToTargetTech = getTimeToTargetTech(world, unitType);
+  if (isNaN(timeToTargetTech)) {
+    console.error("Invalid time to target tech calculated, returning time to target cost:", timeToTargetCost);
+    return timeToTargetCost;
+  }
+
   return Math.max(timeToTargetCost, timeToTargetTech);
 }
 
 /**
  * Checks if a worker is currently training and calculates if rallying to a base is needed based on timing.
- * Adjusts the calculation to ensure positions are pathable before computing distance.
  * @param {World} world
  * @param {Unit} base
- * @param {Point2D} targetPosition - The target position to move towards.
- * @param {number} timeToPosition - Current estimated time to the target position.
- * @param {number} movementSpeedPerSecond - Speed of the worker unit.
+ * @param {Point2D} targetPosition
+ * @param {number} timeToPosition
+ * @param {number} movementSpeedPerSecond
  * @returns {{rallyBase: boolean, buildTimeLeft: number}}
  */
 function checkWorkerTraining(world, base, targetPosition, timeToPosition, movementSpeedPerSecond) {
@@ -94,9 +93,9 @@ function checkWorkerTraining(world, base, targetPosition, timeToPosition, moveme
 
 /**
  * Commands the provided builder to construct a structure.
- * @param {World} world 
- * @param {Unit} builder The builder to command.
- * @param {UnitTypeId} unitType 
+ * @param {World} world
+ * @param {Unit} builder
+ * @param {UnitTypeId} unitType
  * @param {Point2D} position
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
@@ -104,7 +103,6 @@ function commandBuilderToConstruct(world, builder, unitType, position) {
   const { agent, data, resources } = world;
   const { units } = resources.get();
   const { abilityId } = data.getUnitTypeData(unitType);
-
   const collectedActions = [];
 
   if (!builder.isConstructing() && !isPendingContructing(builder) && abilityId !== undefined) {
@@ -130,42 +128,32 @@ function commandBuilderToConstruct(world, builder, unitType, position) {
 
 /**
  * Gathers candidate workers based on their time to reach a specified position.
- * 
- * @param {ResourceManager} resources - The resources available in the game world.
- * @param {Point2D} position - The target position to reach.
- * @param {{unit: Unit, timeToPosition: number}[]} movingOrConstructingNonDronesTimeToPosition - Array of non-drone units that are moving or constructing and their respective time to reach the position.
- * @param {Unit | undefined} closestBuilder - The closest available builder unit.
- * @param {GameState} gameState - The current game state.
- * @returns {Array<{unit: Unit, timeToPosition: number}>} - Array of candidate workers with their time to reach the position.
+ * @param {ResourceManager} resources
+ * @param {Point2D} position
+ * @param {{unit: Unit, timeToPosition: number}[]} movingOrConstructingNonDronesTimeToPosition
+ * @param {Unit} closestBuilder
+ * @param {GameState} gameState
+ * @returns {Array<{unit: Unit, timeToPosition: number}>}
  */
 function gatherCandidateWorkersTimeToPosition(resources, position, movingOrConstructingNonDronesTimeToPosition, closestBuilder, gameState) {
   const { map } = resources.get();
   let candidateWorkersTimeToPosition = [];
 
-  const [movingOrConstructingNonDrone] = movingOrConstructingNonDronesTimeToPosition.sort((a, b) => {
-    if (a === undefined || b === undefined) return 0;
-    return a.timeToPosition - b.timeToPosition;
-  });
+  const [movingOrConstructingNonDrone] = movingOrConstructingNonDronesTimeToPosition.sort((a, b) => a.timeToPosition - b.timeToPosition);
 
-  if (movingOrConstructingNonDrone !== undefined) {
-    candidateWorkersTimeToPosition.push(movingOrConstructingNonDrone);
-  }
+  if (movingOrConstructingNonDrone) candidateWorkersTimeToPosition.push(movingOrConstructingNonDrone);
 
-  if (closestBuilder !== undefined) {
-    const { pos } = closestBuilder;
-    if (pos === undefined) return candidateWorkersTimeToPosition;
-
+  if (closestBuilder && closestBuilder.pos) {
     const movementSpeed = getMovementSpeed(map, closestBuilder, gameState);
-    if (movementSpeed === undefined) return candidateWorkersTimeToPosition;
-
-    const movementSpeedPerSecond = movementSpeed * 1.4;
-    const closestPathablePositionsBetweenPositions = getClosestPathWithGasGeysers(resources, pos, position);
-    const closestBuilderWithDistance = {
-      unit: closestBuilder,
-      timeToPosition: closestPathablePositionsBetweenPositions.distance / movementSpeedPerSecond
-    };
-
-    candidateWorkersTimeToPosition.push(closestBuilderWithDistance);
+    if (movementSpeed !== undefined) {
+      const movementSpeedPerSecond = movementSpeed * 1.4;
+      const closestPathablePositionsBetweenPositions = getClosestPathWithGasGeysers(resources, closestBuilder.pos, position);
+      const closestBuilderWithDistance = {
+        unit: closestBuilder,
+        timeToPosition: closestPathablePositionsBetweenPositions.distance / movementSpeedPerSecond
+      };
+      candidateWorkersTimeToPosition.push(closestBuilderWithDistance);
+    }
   }
 
   return candidateWorkersTimeToPosition;
@@ -173,9 +161,9 @@ function gatherCandidateWorkersTimeToPosition(resources, position, movingOrConst
 
 /**
  * Determines the current build time left for a worker that is being trained at a base.
- * @param {Unit} base - The base unit to check for ongoing worker training.
- * @param {World} world - The game world context.
- * @returns {number} - The remaining build time for the worker, or 0 if no worker is being trained.
+ * @param {Unit} base
+ * @param {World} world
+ * @returns {number}
  */
 function getCurrentWorkerBuildTimeLeft(base, world) {
   const { data, agent } = world;
@@ -190,13 +178,15 @@ function getCurrentWorkerBuildTimeLeft(base, world) {
 /**
  * Checks if the given order is for training a worker.
  * @param {SC2APIProtocol.UnitOrder} order
- * @returns {boolean} - True if the order is for training a worker, false otherwise.
+ * @returns {boolean}
  */
 function isWorkerTrainingOrder(order) {
   const abilityId = order.abilityId;
+
   if (abilityId === undefined) {
     return false;
   }
+
   const unitTypeForAbility = unitTypeTrainingAbilities.get(abilityId);
   return unitTypeForAbility !== undefined && groupTypes.workerTypes.includes(unitTypeForAbility);
 }
@@ -209,31 +199,31 @@ function isWorkerTrainingOrder(order) {
  * @param {number} timeToPosition
  * @param {Unit} unit
  * @param {number} timeToTargetCost
+ * @param {UnitTypeId} unitType
  * @returns {{ rallyBase: boolean, buildTimeLeft: number, timeToPosition: number, timeToTargetCostOrTech: number }}
  */
-function prepareBuildContext(world, base, position, timeToPosition, unit, timeToTargetCost) {
-  const { resources } = world;
-  const { map } = resources.get();
+function prepareBuildContext(world, base, position, timeToPosition, unit, timeToTargetCost, unitType) {
+  const resources = world.resources;
+  const map = resources.get().map;
 
-  const movementSpeedPerSecond = calculateMovementSpeed(unit)
+  const movementSpeedPerSecond = calculateMovementSpeed(unit);
+  if (!unit.pos) return { rallyBase: false, buildTimeLeft: 0, timeToPosition, timeToTargetCostOrTech: 0 };
 
-  const { pos } = unit;
-  if (pos === undefined) return { rallyBase: false, buildTimeLeft: 0, timeToPosition, timeToTargetCostOrTech: 0 };
-
-  const closestPathablePositionBetweenPositions = getClosestPathWithGasGeysers(resources, pos, position);
-  const { pathableTargetPosition } = closestPathablePositionBetweenPositions;
+  const closestPathData = getClosestPathWithGasGeysers(resources, unit.pos, position);
+  const pathableTargetPosition = closestPathData.pathableTargetPosition;
   const pathablePositions = getPathablePositionsForStructure(map, base);
-  const [pathableStructurePosition] = getClosestPositionByPath(resources, pathableTargetPosition, pathablePositions);
-  const baseDistanceToPosition = getDistanceByPath(resources, pathableStructurePosition, pathableTargetPosition);
+  const closestPosition = getClosestPositionByPath(resources, pathableTargetPosition, pathablePositions)[0];
+  const baseDistanceToPosition = getDistanceByPath(resources, closestPosition, pathableTargetPosition);
 
   const { rallyBase, buildTimeLeft } = checkWorkerTraining(world, base, position, timeToPosition, movementSpeedPerSecond);
 
-  const timeToTargetCostOrTech = calculateTimeToTargetCostOrTech(world, unit, timeToTargetCost);
+  const adjustedTimeToPosition = adjustTimeToPosition(rallyBase, buildTimeLeft, movementSpeedPerSecond, timeToPosition, baseDistanceToPosition);
+  const timeToTargetCostOrTech = calculateTimeToTargetCostOrTech(world, timeToTargetCost, unitType);
 
   return {
     rallyBase,
     buildTimeLeft,
-    timeToPosition: adjustTimeToPosition(rallyBase, buildTimeLeft, movementSpeedPerSecond, timeToPosition, baseDistanceToPosition),
+    timeToPosition: adjustedTimeToPosition,
     timeToTargetCostOrTech
   };
 }

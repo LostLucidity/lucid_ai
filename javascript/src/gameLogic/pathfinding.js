@@ -458,7 +458,7 @@ function getClosestBuilderCandidate(resources, builderCandidateClusters, positio
   // Find the closest candidate within that cluster
   for (let builderCandidate of closestCluster.units) {
     const { pos } = builderCandidate;
-    if (pos === undefined) continue;
+    if (!pos) continue;
 
     const distance = getDistanceByPath(resources, pos, position);
 
