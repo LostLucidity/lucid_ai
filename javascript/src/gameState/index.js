@@ -8,7 +8,7 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
 const GasMineManager = require('./GasMineManager');
-const { defaultResources } = require('../core/data/gameData');
+const { defaultResources } = require('../core/gameData');
 const { missingUnits } = require('../features/misc/gameDataStore');
 const cacheManager = require('../utils/cache');
 
@@ -129,7 +129,7 @@ class GameState {
   race = null;
 
   /**
-   * @type {import('../core/data/gameData').Resources} - Typing the resources property using JSDoc comment
+   * @type {import('../core/gameData').Resources} - Typing the resources property using JSDoc comment
    */
   resources = defaultResources;
 

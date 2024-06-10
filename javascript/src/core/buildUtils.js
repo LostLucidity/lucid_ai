@@ -5,10 +5,10 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const EarmarkManager = require("./EarmarkManager");
-const { getAddOnPlacement, pointsOverlap } = require("../../gameLogic/pathfinding");
-const { getDistance } = require("../../gameLogic/spatialCoreUtils");
-const { setPendingOrders } = require("../../units/management/unitOrders");
-const { seigeTanksSiegedGrids } = require("../../utils/sharedUnitPlacement");
+const { getAddOnPlacement, pointsOverlap } = require("../gameLogic/pathfinding");
+const { getDistance } = require("../gameLogic/spatialCoreUtils");
+const { setPendingOrders } = require("../units/management/unitOrders");
+const { seigeTanksSiegedGrids } = require("../utils/sharedUnitPlacement");
 
 /**
  * Attempt to build addOn

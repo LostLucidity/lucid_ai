@@ -1,7 +1,7 @@
 // src/core/index.js
-const buildUtils = require('./common/buildUtils');
-const EarmarkManager = require('./common/EarmarkManager');
-const gameData = require('./data/gameData');
+const buildUtils = require('./buildUtils');
+const EarmarkManager = require('./EarmarkManager');
+const gameData = require('./gameData');
 
 module.exports = {
   buildUtils,
