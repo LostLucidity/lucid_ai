@@ -23,7 +23,7 @@ const { getPendingOrders } = require("../../sharedServices");
 const { flyingTypesMapping } = require("../../units/management/unitConfig");
 const { updateAddOnType, getUnitTypeToBuild } = require("../../units/management/unitHelpers");
 const { getUnitsCapableToAddOn } = require("../../utils/addonUtils");
-const { commandPlaceBuilding } = require("../../utils/builderUtils");
+const { commandPlaceBuilding } = require("../../utils/buildingCommandUtils");
 const {
   getInTheMain,
   determineBuildingPosition,

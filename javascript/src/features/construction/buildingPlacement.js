@@ -135,21 +135,19 @@ class BuildingPlacement {
   }
 
   /**
-   * Checks if the Pylon is in range and powered for the given positions.
+   * Checks if the Pylon is in range for the given position.
    * @param {Unit} pylon The Pylon unit to check.
-   * @param {Point2D[]} candidatePositions The positions to check against.
-   * @returns {boolean} True if the Pylon is in range and powered, false otherwise.
+   * @param {Point2D} position The position to check against.
+   * @returns {boolean} True if the Pylon is in range, false otherwise.
    */
-  static isPylonInRangeAndPowered(pylon, candidatePositions) {
+  static isPylonInRange(pylon, position) {
     if (!pylon.pos) return false;
 
     const { pos } = pylon;
     if (pos.x === undefined || pos.y === undefined) return false;
 
-    return candidatePositions.some(position => {
-      const distance = calculateDistance(pos, position);
-      return distance <= PYLON_POWER_RANGE && pylon.isPowered;
-    });
+    const distance = calculateDistance(pos, position);
+    return distance <= PYLON_POWER_RANGE;
   }
 
   /**

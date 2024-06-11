@@ -143,6 +143,18 @@ function getCachedUnitTypeData(world, unitTypeId) {
   return unitTypeData;
 }
 
+
+/**
+ * Get units by type.
+ * @param {World} world - The current game world context.
+ * @param {number} unitType - The unit type to find.
+ * @returns {Unit[]} A list of units matching the specified type.
+ */
+function getUnitsById(world, unitType) {
+  return world.resources.get().units.getById(unitType);
+}
+
+
 /**
  * Check if unitType has prerequisites to build when minerals are available.
  * @param {World} world 
@@ -182,6 +194,7 @@ module.exports = {
   unitProductionAvailable,
   clearAllPendingOrders,
   getAffordableFoodDifference,
+  getUnitsById,
   haveAvailableProductionUnitsFor,
   setRepositionLabel,
 };

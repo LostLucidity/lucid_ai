@@ -9,7 +9,6 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 
 // Internal Dependencies
-const { findUnitTypesWithAbilityCached } = require("./common");
 const { getBuilders } = require("./workerUtils");
 const { EarmarkManager } = require("../core");
 const BuildingPlacement = require("../features/construction/buildingPlacement");
@@ -18,62 +17,7 @@ const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuil
 const { getClosestBuilderCandidate } = require("../gameLogic/pathfinding");
 const { gatherCandidateWorkersTimeToPosition } = require("../gameLogic/workerManagementUtils");
 const { GameState } = require('../gameState');
-const { keepPosition } = require("../utils/buildingPlacementUtils");
 
-/**
- * Command to place a building at the specified position.
- * 
- * @param {World} world The current world state.
- * @param {number} unitType The type of unit/building to place.
- * @param {?Point2D} position The position to place the unit/building, or null if no valid position.
- * @param {(world: World, builder: Unit, unitType: UnitTypeId, position: Point2D) => SC2APIProtocol.ActionRawUnitCommand[]} commandBuilderToConstruct - Injected dependency from constructionUtils.js
- * @param {(world: World, unitType: UnitTypeId, abilityId: AbilityId) => SC2APIProtocol.ActionRawUnitCommand[]} buildWithNydusNetwork - Injected dependency from constructionUtils.js
- * @param {(world: World, position: Point2D, unitType: UnitTypeId, getBuilderFunc: (world: World, position: Point2D) => { unit: Unit; timeToPosition: number } | undefined, getMiddleOfStructureFn: (position: Point2D, unitType: UnitTypeId) => Point2D, getTimeToTargetCostFn: (world: World, unitType: UnitTypeId) => number) => SC2APIProtocol.ActionRawUnitCommand[]} premoveBuilderToPosition - Injected dependency from buildingHelpers.js
- * @param {(map: MapResource, unitType: UnitTypeId, position: Point2D) => boolean} isPlaceableAtGasGeyser - Injected dependency from buildingPlacement.js
- * @param {(world: World, unitType: UnitTypeId) => number} getTimeToTargetCost - Injected dependency from resourceManagement.js
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of raw unit commands.
- */
-function commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, premoveBuilderToPosition, isPlaceableAtGasGeyser, getTimeToTargetCost) {
-  const { agent, data } = world;
-  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-  const collectedActions = [];
-
-  const unitTypeData = data.getUnitTypeData(unitType);
-  if (!unitTypeData?.abilityId) {
-    return collectedActions;
-  }
-
-  if (!position) {
-    return collectedActions;
-  }
-
-  const isNydusNetwork = findUnitTypesWithAbilityCached(data, unitTypeData.abilityId).includes(UnitType.NYDUSNETWORK);
-
-  if (isNydusNetwork) {
-    collectedActions.push(...buildWithNydusNetwork(world, unitType, unitTypeData.abilityId));
-    return collectedActions;
-  }
-
-  if (!agent.canAfford(unitType) || !agent.hasTechFor(unitType)) {
-    collectedActions.push(...handleCannotAffordBuilding(world, position, unitType, premoveBuilderToPosition, getTimeToTargetCost));
-    return collectedActions;
-  }
-
-  if (!keepPosition(world, unitType, position, isPlaceableAtGasGeyser)) {
-    return collectedActions;
-  }
-
-  const builder = prepareBuilderForConstruction(world, unitType, position);
-  if (!builder) {
-    // Handle no builder found scenario
-    return collectedActions;
-  }
-
-  collectedActions.push(...commandBuilderToConstruct(world, builder, unitType, position));
-  handleSpecialUnits(world, collectedActions, premoveBuilderToPosition, getTimeToTargetCost);
-
-  return collectedActions;
-}
 
 /**
  * Selects the most suitable builder based on the given position.
@@ -181,7 +125,8 @@ function prepareBuilderForConstruction(world, unitType, position) {
 }
 
 module.exports = {
-  commandPlaceBuilding,
   getBuilder,
+  handleCannotAffordBuilding,
+  handleSpecialUnits,
   prepareBuilderForConstruction,
 };
