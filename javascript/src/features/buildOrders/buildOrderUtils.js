@@ -74,6 +74,11 @@ function generateFileContent(buildOrder) {
  * @returns {Array<import("../../utils/globalTypes").InterpretedAction>} An array of objects representing the interpreted actions.
  */
 function interpretBuildOrderAction(action, comment = '') {
+  if (!action || typeof action !== 'string') {
+    console.error('Invalid action input:', action);
+    return [];
+  }
+
   /**
    * Maps action strings to corresponding upgrade keys.
    * @param {string} action - The action string.
@@ -82,6 +87,7 @@ function interpretBuildOrderAction(action, comment = '') {
   function getUpgradeKey(action) {
     /** @type {Record<string, string>} */
     const actionToUpgradeKey = {
+      'Warp Gate': 'WARPGATERESEARCH',
       'Blink': 'BLINKTECH',
       // Add other mappings as needed
     };

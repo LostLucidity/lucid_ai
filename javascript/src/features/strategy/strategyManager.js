@@ -174,7 +174,7 @@ class StrategyManager {
    */
   static createPlanStep(rawStep, interpretedAction, cumulativeCount) {
     const { supply, time, action } = rawStep;
-    const { isUpgrade, unitType, count } = interpretedAction;
+    const { isUpgrade, unitType, upgradeType, count } = interpretedAction;
 
     return {
       supply: parseInt(supply, 10),
@@ -183,7 +183,7 @@ class StrategyManager {
       orderType: isUpgrade ? 'Upgrade' : 'UnitType',
       unitType: unitType || 0,
       targetCount: cumulativeCount + (count || 0),
-      upgrade: isUpgrade ? (unitType || Upgrade.NULL) : Upgrade.NULL,
+      upgrade: isUpgrade ? (upgradeType || Upgrade.NULL) : Upgrade.NULL,
       isChronoBoosted: Boolean(interpretedAction.isChronoBoosted),
       count: count || 0,
       candidatePositions: [],
