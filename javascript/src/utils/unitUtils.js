@@ -5,8 +5,8 @@ const { isTrainingOrder } = require("./baseUnitUtils");
 const { checkTechRequirement } = require("./resourceUtils");
 const { haveSupplyForUnit } = require("./supplyUtils");
 const { EarmarkManager } = require("../core");
-const StrategyContext = require("../features/strategy/strategyContext");
-const { GameState } = require('../gameState');
+const StrategyContext = require("../features/strategy/strategyContext").getInstance();
+const GameState = require('../gameState').GameState.getInstance();
 const { getPendingOrders } = require("../sharedServices");
 const { getBasicProductionUnits } = require("../units/management/basicUnitUtils");
 const { unitPendingOrders } = require("../units/management/unitOrders");
@@ -28,23 +28,22 @@ const unitTypeDataCache = new Map();
  * @returns {number} The number of affordable units with available supply.
  */
 function calculateAffordableUnits(world, workerRaceData, maxUnits) {
-  const { agent } = world; // Destructure data from world here
+  const { agent } = world;
   let affordableUnits = 0;
 
   for (let i = 0; i < maxUnits; i++) {
     if (agent.canAfford(workerRaceData) && haveSupplyForUnit(world, workerRaceData)) {
       affordableUnits++;
 
-      // Use the cached version of getUnitTypeData
       const unitTypeData = getCachedUnitTypeData(world, workerRaceData);
       if (!unitTypeData) {
         console.error(`No unit type data found for ID: ${workerRaceData}`);
-        break; // Exit the loop if the unit data cannot be found
+        break;
       }
 
-      EarmarkManager.getInstance().addEarmark(world.data, unitTypeData); // Pass the UnitTypeData to addEarmark
+      EarmarkManager.getInstance().addEarmark(world.data, unitTypeData);
     } else {
-      break; // Exit loop if a unit cannot be afforded or there's no supply
+      break;
     }
   }
 
@@ -61,23 +60,20 @@ function calculateAffordableUnits(world, workerRaceData, maxUnits) {
 const canTrainNow = (world, unit, unitType) => {
   if (!unit.orders || unit.buildProgress === undefined) return false;
 
-  // Calculate the max orders and get the tech requirement once
   const maxOrders = unit.hasReactor() ? 2 : 1;
   const { techRequirement } = world.data.getUnitTypeData(unitType);
 
-  // Check for tech requirements
   if (techRequirement && !checkTechRequirement(world.resources, techRequirement, unit)) {
     return false;
   }
 
-  // Combine and filter orders in one go
   const currentAndPendingOrders = unit.orders
     .concat(getPendingOrders(unit))
     .filter(order => isTrainingOrder(order, world.data))
     .length;
 
   return currentAndPendingOrders < maxOrders;
-}
+};
 
 /**
  * Clears pending orders for all units to ensure they are ready for new commands.
@@ -85,7 +81,7 @@ const canTrainNow = (world, unit, unitType) => {
  */
 function clearAllPendingOrders(units) {
   units.forEach(unit => {
-    unitPendingOrders.delete(unit); // Clears pending orders for the given unit
+    unitPendingOrders.delete(unit);
   });
 }
 
@@ -98,22 +94,21 @@ function getAffordableFoodDifference(world) {
   const { agent, data } = world;
   const race = agent.race;
 
-  // Validate race
   if (!race || !WorkerRace[race]) return 0;
 
   const workerRaceData = WorkerRace[race];
   const unitData = data.getUnitTypeData(workerRaceData);
   if (!unitData || !unitData.abilityId) return 0;
 
-  const foodUsed = GameState.getInstance().getFoodUsed();
-  const plan = StrategyContext.getInstance().getCurrentStrategy();
+  const foodUsed = GameState.getFoodUsed();
+  const plan = StrategyContext.getCurrentStrategy();
   if (!plan || !plan.steps) {
     console.error('Current strategy plan is undefined or invalid.');
     return 0;
   }
 
   const nextStep = plan.steps.find(step => parseInt(step.supply, 10) >= foodUsed);
-  if (!nextStep) return 0; // No further steps or already at the last step
+  if (!nextStep) return 0;
 
   const foodDifference = parseInt(nextStep.supply, 10) - foodUsed;
   const productionUnits = getBasicProductionUnits(world, workerRaceData).length;
@@ -129,12 +124,10 @@ function getAffordableFoodDifference(world) {
  * @returns {SC2APIProtocol.UnitTypeData | undefined} The unit type data, or undefined if not found.
  */
 function getCachedUnitTypeData(world, unitTypeId) {
-  // Check if the data is already in the cache
   if (unitTypeDataCache.has(unitTypeId)) {
     return unitTypeDataCache.get(unitTypeId);
   }
 
-  // If not in the cache, retrieve it and add to the cache
   const unitTypeData = world.data.getUnitTypeData(unitTypeId);
   if (unitTypeData) {
     unitTypeDataCache.set(unitTypeId, unitTypeData);
@@ -142,7 +135,6 @@ function getCachedUnitTypeData(world, unitTypeId) {
 
   return unitTypeData;
 }
-
 
 /**
  * Get units by type.
@@ -153,7 +145,6 @@ function getCachedUnitTypeData(world, unitTypeId) {
 function getUnitsById(world, unitType) {
   return world.resources.get().units.getById(unitType);
 }
-
 
 /**
  * Check if unitType has prerequisites to build when minerals are available.

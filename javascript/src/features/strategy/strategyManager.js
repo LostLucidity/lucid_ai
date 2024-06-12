@@ -100,19 +100,11 @@ class StrategyManager {
    * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    */
   constructor(race, specificBuildOrderKey) {
-    if (StrategyManager.instance) {
-      StrategyManager.instance.strategyData = new StrategyData();
-      return StrategyManager.instance;
-    }
-
-    this.strategyData = new StrategyData();
     this.initializeSingleton(race, specificBuildOrderKey);
+
     StrategyManager.instance = this;
-
     this.cumulativeCounts = {};
-    this.stepCompletionStatus = new Map(); // Initialize the step completion status map
-
-    return StrategyManager.instance;
+    this.stepCompletionStatus = new Map();
   }
 
   /**
@@ -281,7 +273,6 @@ class StrategyManager {
       this.instance = new StrategyManager(race, specificBuildOrderKey);
     } else {
       if (race !== undefined && this.instance.race !== race) {
-        this.instance.race = race;
         this.instance.assignRaceAndInitializeStrategy(race);
       }
       if (specificBuildOrderKey !== undefined && this.instance.specificBuildOrderKey !== specificBuildOrderKey) {
@@ -804,6 +795,13 @@ class StrategyManager {
     } else {
       console.error("finalizeStrategyExecution: strategyContext is undefined");
     }
+  }
+
+  /**
+   * Resets the strategy data to a new instance.
+   */
+  resetStrategyData() {
+    this.strategyData = new StrategyData();
   }
 
   /**

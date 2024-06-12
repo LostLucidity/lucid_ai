@@ -11,11 +11,14 @@ const path = require("path");
  * @returns {string|null} The directory name, or null if it cannot be determined.
  */
 function determineRaceDirectory(raceMatchup) {
-  switch (raceMatchup[0]) {
-    case 'P': return 'protoss';
-    case 'T': return 'terran';
-    case 'Z': return 'zerg';
-    default: return null;
+  /** @type {{ [key: string]: string }} */
+  const raceMap = { 'P': 'protoss', 'T': 'terran', 'Z': 'zerg' };
+  const raceKey = raceMatchup[0];
+
+  if (Object.prototype.hasOwnProperty.call(raceMap, raceKey)) {
+    return raceMap[raceKey];
+  } else {
+    return null;
   }
 }
 
@@ -91,7 +94,6 @@ function interpretBuildOrderAction(action, comment = '') {
       'Blink': 'BLINKTECH',
       // Add other mappings as needed
     };
-
     return actionToUpgradeKey[action] || null;
   }
 
@@ -107,13 +109,18 @@ function interpretBuildOrderAction(action, comment = '') {
    * @param {string} actionPart - The action part string.
    * @returns {ActionDetails} - The extracted details including cleaned action, count, and chrono boost status.
    */
+  const actionDetailRegex = /^(.*?)(?:\sx(\d+))?(?:\s\(Chrono Boost\))?$/;
+  /**
+   * @param {string} actionPart
+   * @returns {ActionDetails}
+   */
   const extractActionDetails = (actionPart) => {
-    const match = actionPart.match(/^(.*?)(?:\sx(\d+))?(?:\s\(Chrono Boost\))?$/);
+    const match = actionDetailRegex.exec(actionPart);
     if (!match) return { cleanedAction: '', count: 0, isChronoBoosted: false };
 
     const cleanedAction = match[1].trim();
     const count = match[2] ? parseInt(match[2], 10) : 1;
-    const isChronoBoosted = actionPart.includes("(Chrono Boost)");
+    const isChronoBoosted = Boolean(match[3]);
 
     return { cleanedAction, count, isChronoBoosted };
   };
@@ -124,15 +131,15 @@ function interpretBuildOrderAction(action, comment = '') {
    * @param {string} key - The key to check.
    * @returns {boolean} - Whether the key exists in the object.
    */
-  const isKeyOf = (obj, key) => key in obj;
+  const isKeyOf = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
   const actions = action.split(',');
   /** @type {Array<import("../../utils/globalTypes").InterpretedAction>} */
   const interpretedActions = [];
 
-  actions.forEach(actionPart => {
+  for (const actionPart of actions) {
     const details = extractActionDetails(actionPart);
-    if (!details.cleanedAction) return;
+    if (!details.cleanedAction) continue;
 
     const { cleanedAction, count, isChronoBoosted } = details;
     const formattedAction = cleanedAction.toUpperCase().replace(/\s+/g, '');
@@ -159,7 +166,7 @@ function interpretBuildOrderAction(action, comment = '') {
     }
 
     interpretedActions.push({ unitType, upgradeType, count, isUpgrade: !!upgradeKey, isChronoBoosted, specialAction });
-  });
+  }
 
   return interpretedActions;
 }

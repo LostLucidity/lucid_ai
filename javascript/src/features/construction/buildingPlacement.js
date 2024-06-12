@@ -1,11 +1,7 @@
 //@ts-check
 "use strict";
 
-// buildingPlacement.js
-
 // External library imports
-
-/** @type {import('../../utils/common').UnitTypeMap} */
 const UnitType = require('@node-sc2/core/constants').UnitType;
 const groupTypes = require('@node-sc2/core/constants/groups');
 const { gridsInCircle } = require('@node-sc2/core/utils/geometry/angle');
@@ -84,6 +80,10 @@ class BuildingPlacement {
    * @param {World} world - The world context containing map and other game info.
    */
   static calculateWallOffPositions(world) {
+    if (!world || !world.resources) {
+      console.error("Invalid world object provided to calculateWallOffPositions:", world);
+      return;
+    }
     const map = world.resources.get().map;
     BuildingPlacement.setWallOffRampPlacements(map);
   }
@@ -105,7 +105,7 @@ class BuildingPlacement {
    * @returns {Point2D | undefined} - The calculated position for the add-on building, or undefined if input is invalid.
    */
   static getAddOnBuildingPosition(position) {
-    if (typeof position.x === 'number' && typeof position.y === 'number') {
+    if (position && typeof position.x === 'number' && typeof position.y === 'number') {
       return { x: position.x - 2.5, y: position.y + 0.5 };
     } else {
       console.error("Invalid position provided to getAddOnBuildingPosition:", position);
@@ -129,8 +129,11 @@ class BuildingPlacement {
       } else {
         throw new Error(`Function "${functionName}" does not exist in BuildingPlacement`);
       }
-    } else {
+    } else if (Array.isArray(positions)) {
       return positions;
+    } else {
+      console.error("Invalid positions provided to getCandidatePositions:", positions);
+      return [];
     }
   }
 
@@ -141,12 +144,12 @@ class BuildingPlacement {
    * @returns {boolean} True if the Pylon is in range, false otherwise.
    */
   static isPylonInRange(pylon, position) {
-    if (!pylon.pos) return false;
+    if (!pylon || !pylon.pos || typeof pylon.pos.x !== 'number' || typeof pylon.pos.y !== 'number' || !position || typeof position.x !== 'number' || typeof position.y !== 'number') {
+      console.error("Invalid pylon or position provided to isPylonInRange:", pylon, position);
+      return false;
+    }
 
-    const { pos } = pylon;
-    if (pos.x === undefined || pos.y === undefined) return false;
-
-    const distance = calculateDistance(pos, position);
+    const distance = calculateDistance(pylon.pos, position);
     return distance <= PYLON_POWER_RANGE;
   }
 
@@ -155,6 +158,11 @@ class BuildingPlacement {
    * @param {MapResource} map - The map resource for analyzing placement.
    */
   static setAddOnWallOffPosition(map) {
+    if (!map) {
+      console.error("Invalid map provided to setAddOnWallOffPosition:", map);
+      return;
+    }
+
     const middleOfAdjacentGrids = avgPoints(getAdjacentToRampGrids());
     const footprint = getFootprint(UnitType.SUPPLYDEPOT);
     if (!footprint) return;
@@ -186,6 +194,11 @@ class BuildingPlacement {
    * @param {MapResource} map - The map resource for analyzing placement.
    */
   static setThreeByThreePlacements(map) {
+    if (!map) {
+      console.error("Invalid map provided to setThreeByThreePlacements:", map);
+      return;
+    }
+
     BuildingPlacement.setAddOnWallOffPosition(map);
     BuildingPlacement.setThreeByThreePosition(map);
   }
@@ -195,6 +208,11 @@ class BuildingPlacement {
    * @param {MapResource} map - The map resource for analysis and placement.
    */
   static setThreeByThreePosition(map) {
+    if (!map) {
+      console.error("Invalid map provided to setThreeByThreePosition:", map);
+      return;
+    }
+
     const middleOfAdjacentGrids = avgPoints(getAdjacentToRampGrids());
     const footprint = getFootprint(UnitType.SUPPLYDEPOT);
     if (!footprint) return;
@@ -222,6 +240,11 @@ class BuildingPlacement {
    * @param {MapResource} map - The map resource for analyzing placement.
    */
   static setTwoByTwoPlacements(map) {
+    if (!map) {
+      console.error("Invalid map provided to setTwoByTwoPlacements:", map);
+      return;
+    }
+
     const placeableGrids = getAdjacentToRampGrids().filter(grid => map.isPlaceable(grid));
     const cornerGrids = placeableGrids.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1).filter(point => getDistance(point, grid) <= 1), placeableGrids).length === 2);
     cornerGrids.forEach(cornerGrid => {
@@ -243,6 +266,11 @@ class BuildingPlacement {
    * @param {MapResource} map - The map resource to analyze for wall-off placements.
    */
   static setWallOffRampPlacements(map) {
+    if (!map) {
+      console.error("Invalid map provided to setWallOffRampPlacements:", map);
+      return;
+    }
+
     BuildingPlacement.setTwoByTwoPlacements(map);
     BuildingPlacement.setThreeByThreePlacements(map);
   }
@@ -252,7 +280,11 @@ class BuildingPlacement {
    * @param {Point2D | null} newPosition - The new position to set.
    */
   static updateFoundPosition(newPosition) {
-    BuildingPlacement.#foundPosition = newPosition;
+    if (newPosition && typeof newPosition.x === 'number' && typeof newPosition.y === 'number') {
+      BuildingPlacement.#foundPosition = newPosition;
+    } else {
+      console.error("Invalid newPosition provided to updateFoundPosition:", newPosition);
+    }
   }
 
   /**
@@ -268,6 +300,11 @@ class BuildingPlacement {
    * @returns {Promise<Point2D[]>}
    */
   static async getByMainRamp(resources) {
+    if (!resources || !resources.get) {
+      console.error("Invalid resources provided to getByMainRamp:", resources);
+      return [];
+    }
+
     const { map } = resources.get();
     const main = map.getMain();
 
@@ -294,6 +331,11 @@ class BuildingPlacement {
    * @returns {Point2D[]} - An array of placeable positions.
    */
   static getPlaceableAtPositions(candidates, map, unitType) {
+    if (!Array.isArray(candidates) || !map || !unitType) {
+      console.error("Invalid input provided to getPlaceableAtPositions:", candidates, map, unitType);
+      return [];
+    }
+
     const filteredCandidates = candidates.filter(position => map.isPlaceableAt(unitType, position));
 
     if (filteredCandidates.length === 0) {
@@ -317,6 +359,11 @@ class BuildingPlacement {
    * @returns {Point2D[]}
    */
   static getMiddleOfNaturalWall(resources, unitType) {
+    if (!resources || !unitType) {
+      console.error("Invalid input provided to getMiddleOfNaturalWall:", resources, unitType);
+      return [];
+    }
+
     const { map } = resources.get();
     const naturalWall = map.getNatural().getWall() || BuildingPlacement.wall;
     /** @type {Point2D[]} */
@@ -344,6 +391,11 @@ class BuildingPlacement {
    * @returns {ExtendedPoint2D[]}
    */
   static getNaturalWallPylon(resources) {
+    if (!resources || !resources.get) {
+      console.error("Invalid resources provided to getNaturalWallPylon:", resources);
+      return [];
+    }
+
     const { map } = resources.get();
     const naturalExpansion = map.getNatural();
 
@@ -380,6 +432,11 @@ class BuildingPlacement {
    * @returns {Point2D[]}
    */
   static getMineralLines(resources) {
+    if (!resources || !resources.get) {
+      console.error("Invalid resources provided to getMineralLines:", resources);
+      return [];
+    }
+
     const { map, units } = resources.get();
     const occupiedExpansions = map.getOccupiedExpansions();
     /** @type {Point2D[]} */
@@ -401,7 +458,10 @@ class BuildingPlacement {
    * @returns {number | null} The extracted unit type ID or null if not found.
    */
   static extractUnitTypeFromAction(action) {
-    if (!action || typeof action !== 'string') return null;
+    if (!action || typeof action !== 'string') {
+      console.error("Invalid action provided to extractUnitTypeFromAction:", action);
+      return null;
+    }
 
     const actionSegments = action.split(',');
     for (const segment of actionSegments) {
@@ -419,6 +479,11 @@ class BuildingPlacement {
    * @returns {Point2D[]}
    */
   static findWallOffPlacement(unitType) {
+    if (!unitType) {
+      console.error("Invalid unitType provided to findWallOffPlacement:", unitType);
+      return [];
+    }
+
     if (twoByTwoUnits.includes(unitType)) {
       return BuildingPlacement.twoByTwoPositions;
     } else if (addOnTypesMapping.has(unitType)) {
@@ -437,6 +502,11 @@ class BuildingPlacement {
    * @returns {Point2D} - The middle position of the structure's footprint.
    */
   static getMiddleOfStructure(position, unitType) {
+    if (!position || typeof position.x !== 'number' || typeof position.y !== 'number' || !unitType) {
+      console.error("Invalid input provided to getMiddleOfStructure:", position, unitType);
+      return position;
+    }
+
     const { gasMineTypes } = groupTypes;
     if (gasMineTypes.includes(unitType)) return position;
 
@@ -460,6 +530,11 @@ class BuildingPlacement {
    * @param {Point2D | false} position
    */
   static setBuildingPosition(unitType, position) {
+    if (!unitType) {
+      console.error("Invalid unitType provided to setBuildingPosition:", unitType);
+      return;
+    }
+
     const strategyContext = StrategyContext.getInstance();
     const currentStep = strategyContext.getCurrentStep();
     const currentStrategy = strategyContext.getCurrentStrategy();
@@ -485,10 +560,22 @@ module.exports = BuildingPlacement;
 
 /**
  * Deep compares two objects.
- * @param {Object} obj1 
- * @param {Object} obj2 
+ * @param {{ [key: string]: any }} obj1 - The first object to compare.
+ * @param {{ [key: string]: any }} obj2 - The second object to compare.
  * @returns {boolean} - True if objects are equal, false otherwise.
  */
 function deepEqual(obj1, obj2) {
-  return JSON.stringify(obj1) === JSON.stringify(obj2);
+  if (obj1 === obj2) return true;
+  if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 === null || obj2 === null) return false;
+
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+
+  if (keys1.length !== keys2.length) return false;
+
+  for (const key of keys1) {
+    if (!keys2.includes(key) || !deepEqual(obj1[key], obj2[key])) return false;
+  }
+
+  return true;
 }

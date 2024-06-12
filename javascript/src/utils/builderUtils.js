@@ -18,7 +18,6 @@ const { getClosestBuilderCandidate } = require("../gameLogic/pathfinding");
 const { gatherCandidateWorkersTimeToPosition } = require("../gameLogic/workerManagementUtils");
 const { GameState } = require('../gameState');
 
-
 /**
  * Selects the most suitable builder based on the given position.
  * @param {World} world 
@@ -28,38 +27,29 @@ const { GameState } = require('../gameState');
 function getBuilder(world, position) {
   const { resources } = world;
   const { units } = resources.get();
-
   const gameState = GameState.getInstance();
 
-  // Define builderCandidates before using it
   let builderCandidates = getBuilders(units);
-
   builderCandidates = gatherBuilderCandidates(units, builderCandidates, position);
+
   const movingOrConstructingNonDrones = filterMovingOrConstructingNonDrones(units, builderCandidates);
   builderCandidates = filterBuilderCandidates(builderCandidates, movingOrConstructingNonDrones);
-
   const builderCandidateClusters = getBuilderCandidateClusters(builderCandidates);
-
   const closestBuilderCandidate = getClosestBuilderCandidate(resources, builderCandidateClusters, position);
-  const movingOrConstructingNonDronesTimeToPosition = calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrConstructingNonDrones, position);
 
+  const movingOrConstructingNonDronesTimeToPosition = calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrConstructingNonDrones, position);
   const candidateWorkersTimeToPosition = closestBuilderCandidate
     ? gatherCandidateWorkersTimeToPosition(resources, position, movingOrConstructingNonDronesTimeToPosition, closestBuilderCandidate, gameState)
-    : []; // Handle the case where closestBuilderCandidate is undefined
+    : [];
 
   const constructingWorkers = units.getConstructingWorkers();
   const closestConstructingWorker = calculateClosestConstructingWorker(world, constructingWorkers, position);
 
-  if (closestConstructingWorker !== undefined) {
+  if (closestConstructingWorker) {
     candidateWorkersTimeToPosition.push(closestConstructingWorker);
   }
 
-  const [closestWorker] = candidateWorkersTimeToPosition.sort((a, b) => {
-    if (a === undefined || b === undefined) return 0;
-    return a.timeToPosition - b.timeToPosition;
-  });
-
-  if (closestWorker === undefined) return;
+  const closestWorker = candidateWorkersTimeToPosition.sort((a, b) => a.timeToPosition - b.timeToPosition)[0];
   return closestWorker;
 }
 
@@ -87,11 +77,10 @@ function handleCannotAffordBuilding(world, position, unitType, premoveBuilderToP
  * @returns {void} No return value; actions are added to collectedActions.
  */
 function handleSpecialUnits(world, collectedActions, premoveBuilderToPosition, getTimeToTargetCost) {
-  const units = world.resources.get().units; // Accessing units from the World's ResourceManager
-  const [pylon] = units.getById(UnitType.PYLON);
+  const units = world.resources.get().units;
+  const pylon = units.getById(UnitType.PYLON)[0];
 
-  // Check if pylon, buildProgress, pos, and unitType are defined
-  if (pylon && typeof pylon.buildProgress !== 'undefined' && pylon.buildProgress < 1 && pylon.pos && typeof pylon.unitType !== 'undefined') {
+  if (pylon && pylon.pos && typeof pylon.unitType === 'number' && (pylon.buildProgress ?? 0) < 1) {
     collectedActions.push(...premoveBuilderToPosition(world, pylon.pos, pylon.unitType, getBuilder, BuildingPlacement.getMiddleOfStructure, getTimeToTargetCost));
   }
 }
@@ -105,17 +94,15 @@ function handleSpecialUnits(world, collectedActions, premoveBuilderToPosition, g
  */
 function prepareBuilderForConstruction(world, unitType, position) {
   const { agent, data } = world;
-  // Provide a default race if 'race' is undefined
   const race = agent.race || Race.TERRAN;
-
-  let builder = getBuilder(world, position);
+  const builder = getBuilder(world, position);
 
   if (builder) {
     const { unit } = builder;
     EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
-    if (TownhallRace[race].indexOf(unitType) === 0) {
-      const gameState = GameState.getInstance();
-      gameState.setAvailableExpansions([]);
+    
+    if (TownhallRace[race][0] === unitType) {
+      GameState.getInstance().setAvailableExpansions([]);
     }
 
     return unit;
