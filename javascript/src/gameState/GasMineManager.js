@@ -47,16 +47,17 @@ class GasMineManager {
     const gasMines = units.getAll(Alliance.SELF).filter(unit => unit.isGasMine());
     let presumedInside = 0;
 
+    const allWorkers = units.getAll(Alliance.SELF).filter(worker => worker.isWorker() && worker.tag);
+
     gasMines.forEach(mine => {
       if (mine.tag) {
         const assignedWorkers = this.gasMineWorkers.get(mine.tag) || new Set();
-        const visibleWorkers = units.getAll(Alliance.SELF).filter(worker => {
-          return worker.isWorker() && worker.isGathering('vespene') && worker.tag && assignedWorkers.has(worker.tag);
-        }).length;
+        const visibleWorkers = allWorkers.filter(worker =>
+          worker.tag && assignedWorkers.has(worker.tag) &&
+          (worker.isGathering('vespene') || worker.isReturning('vespene'))
+        ).length;
 
-        if (assignedWorkers.size > visibleWorkers) {
-          presumedInside += (assignedWorkers.size - visibleWorkers);
-        }
+        presumedInside += Math.max(0, assignedWorkers.size - visibleWorkers);
       }
     });
 
