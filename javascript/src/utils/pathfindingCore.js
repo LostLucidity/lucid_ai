@@ -4,8 +4,8 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
 const cacheManager = require("./cache");
-const { getStructureCells, getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath, getClosestPosition } = require("../gameLogic/pathfindingCommon");
-const { getDistanceByPath } = require("../gameLogic/pathfindingCore");
+const { getStructureCells, getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath, getClosestPosition } = require("../gameLogic/shared/pathfindingCommon");
+const { getDistanceByPath } = require("../gameLogic/shared/pathfindingCore");
 
 /**
  * Get the closest pathable positions between two positions considering various obstacles.

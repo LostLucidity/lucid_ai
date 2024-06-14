@@ -1,7 +1,7 @@
 // scoutActions.js
 const { determineScoutingLocations } = require("./scoutingUtils");
 const { selectSCVForScouting } = require("./scoutManager");
-const { createMoveCommand } = require("../units/management/unitCommands");
+const { createMoveCommand } = require("../../units/management/unitCommands");
 
 /**
  * Performs the action of scouting with an SCV.

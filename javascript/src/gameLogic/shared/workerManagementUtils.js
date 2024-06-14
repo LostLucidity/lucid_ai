@@ -6,19 +6,19 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const { GasMineRace, WorkerRace } = require('@node-sc2/core/constants/race-map');
 
 // Internal module imports
+const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft } = require('./../economy/workerService');
 const { getMovementSpeed } = require('./coreUtils');
-const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft } = require('./economy/workerService');
 const { calculateBaseTimeToPosition } = require('./pathfinding');
 const { getDistanceByPath, getClosestPositionByPath } = require('./pathfindingCore');
 const { isPendingContructing } = require('./workerCommonUtils');
-const { stopOverlappingBuilders } = require('../features/construction/buildingWorkerInteractions');
-const { getTimeToTargetTech } = require('../features/misc/gameData');
+const { stopOverlappingBuilders } = require('../../features/construction/buildingWorkerInteractions');
+const { getTimeToTargetTech } = require('../../features/misc/gameData');
 // eslint-disable-next-line no-unused-vars
-const { GameState } = require('../gameState');
-const { unitTypeTrainingAbilities } = require('../units/management/unitConfig');
-const { setPendingOrders } = require('../units/management/unitOrders');
-const { createUnitCommand, getPathablePositionsForStructure } = require('../utils/common');
-const { findPathablePositions } = require('../utils/pathfindingUtils');
+const { GameState } = require('../../gameState');
+const { unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
+const { setPendingOrders } = require('../../units/management/unitOrders');
+const { createUnitCommand, getPathablePositionsForStructure } = require('../../utils/common');
+const { findPathablePositions } = require('../../utils/pathfindingUtils');
 
 /**
  * Adjusts the time to position based on whether the unit should rally to the base or not.

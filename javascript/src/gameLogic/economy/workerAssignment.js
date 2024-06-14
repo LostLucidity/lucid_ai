@@ -13,12 +13,12 @@ const { getPendingOrders } = require("../../sharedServices");
 const { setPendingOrders } = require("../../units/management/unitOrders");
 const { getUnitsWithinDistance, createUnitCommand } = require("../../utils/common");
 const { getNeediestMineralField, getMineralFieldAssignments } = require("../../utils/resourceUtils");
-const { findClosestMineralField } = require("../coreUtils");
-const { getClosestUnitFromUnit } = require("../pathfinding");
-const { findEnemyUnitsNear } = require("../scoutingUtils");
-const { getDistance } = require("../spatialCoreUtils");
-const { isTownhallInDanger } = require("../stateManagement");
-const { isPendingContructing } = require("../workerCommonUtils");
+const { findClosestMineralField } = require("../shared/coreUtils");
+const { getClosestUnitFromUnit } = require("../shared/pathfinding");
+const { findEnemyUnitsNear } = require("../shared/scoutingUtils");
+const { getDistance } = require("../shared/spatialCoreUtils");
+const { isTownhallInDanger } = require("../shared/stateManagement");
+const { isPendingContructing } = require("../shared/workerCommonUtils");
 
 /**
  * Balances the worker distribution across all bases.

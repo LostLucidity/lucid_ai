@@ -19,10 +19,10 @@ const { createUnitCommand } = require("../../utils/common");
 const { getById } = require("../../utils/generalUtils");
 const { getNeediestMineralField } = require("../../utils/resourceUtils");
 const { getClosestPathWithGasGeysers } = require("../../utils/sharedPathfindingUtils");
-const { getMovementSpeed, getWorkerSourceByPath } = require("../coreUtils");
-const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../pathfinding");
-const { getDistanceByPath } = require("../pathfindingCore");
-const { getDistance } = require("../spatialCoreUtils");
+const { getMovementSpeed, getWorkerSourceByPath } = require("../shared/coreUtils");
+const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../shared/pathfinding");
+const { getDistanceByPath } = require("../shared/pathfindingCore");
+const { getDistance } = require("../shared/spatialCoreUtils");
 
 /**
  * @param {World} world 

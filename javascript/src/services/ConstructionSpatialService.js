@@ -6,8 +6,8 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { getAddOnPlacement, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../gameLogic/pathfinding");
-const spatialUtils = require('../gameLogic/spatialUtils');
+const { getAddOnPlacement, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../gameLogic/shared/pathfinding");
+const spatialUtils = require('../gameLogic/shared/spatialUtils');
 const { canUnitBuildAddOn, flyingTypesMapping } = require("../units/management/unitConfig");
 const { getStringNameOfConstant } = require("../utils/common");
 const { getCurrentlyEnrouteConstructionGrids } = require("../utils/constructionDataUtils");
@@ -19,7 +19,7 @@ const { seigeTanksSiegedGrids } = require("../utils/sharedUnitPlacement");
 class ConstructionSpatialService {
   /**
    * Creates an instance of ConstructionSpatialService.
-   * @param {typeof import("../gameLogic/spatialUtils")} spatialUtils Module with spatial utilities.
+   * @param {typeof import("../gameLogic/shared/spatialUtils")} spatialUtils Module with spatial utilities.
    */
   constructor(spatialUtils) {
     this.spatialUtils = spatialUtils;

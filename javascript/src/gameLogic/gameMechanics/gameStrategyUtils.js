@@ -4,8 +4,8 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 
 const { potentialCombatants, getWeaponDPS } = require("../../units");
 const { calculateTimeToKillUnits } = require("../../utils/sharedUtils");
-const { mappedEnemyUnits } = require("../scoutingUtils");
-const { getDistance } = require("../spatialCoreUtils");
+const { mappedEnemyUnits } = require("../shared/scoutingUtils");
+const { getDistance } = require("../shared/spatialCoreUtils");
 
 
 /**

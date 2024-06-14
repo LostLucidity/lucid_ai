@@ -8,8 +8,8 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 // Internal module imports
 const { positionIsEqual } = require("./common");
 const { logMessageStorage } = require("./logging");
-const { getAddOnPlacement } = require("../gameLogic/pathfinding");
-const { getDistance } = require("../gameLogic/spatialCoreUtils");
+const { getAddOnPlacement } = require("../gameLogic/shared/pathfinding");
+const { getDistance } = require("../gameLogic/shared/spatialCoreUtils");
 const { canLiftOff } = require("../units/management/unitConfig");
 
 /** @type {UnitTypeId | null} */

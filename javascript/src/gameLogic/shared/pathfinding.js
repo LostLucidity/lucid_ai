@@ -18,10 +18,10 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const { getPathCoordinates, getClosestPosition, getStructureCells, getPathablePositions } = require("./pathfindingCommon");
 const { getDistanceByPath, getClosestPositionByPath } = require("./pathfindingCore");
 const { getDistance } = require("./spatialCoreUtils");
-const { GameState } = require('../gameState');
-const MapResources = require("../gameState/mapResources");
-const { getPathablePositionsForStructure } = require("../utils/common");
-const { getClosestPathablePositionsBetweenPositions, getGasGeysers } = require("../utils/pathfindingCore");
+const { GameState } = require('../../gameState');
+const MapResources = require("../../gameState/mapResources");
+const { getPathablePositionsForStructure } = require("../../utils/common");
+const { getClosestPathablePositionsBetweenPositions, getGasGeysers } = require("../../utils/pathfindingCore");
 
 
 /** @type {Point2D[]} */

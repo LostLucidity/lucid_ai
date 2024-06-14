@@ -11,7 +11,7 @@ const { getFootprint, twoByTwoUnits } = require('@node-sc2/core/utils/geometry/u
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
 // Internal module imports
-const { calculateDistance } = require('../../gameLogic/coreUtils');
+const { calculateDistance } = require('../../gameLogic/shared/coreUtils');
 const {
   getAdjacentToRampGrids,
   intersectionOfPoints,
@@ -19,9 +19,9 @@ const {
   isBuildingAndAddonPlaceable,
   getAddOnPlacement,
   getAddOnBuildingPlacement,
-} = require('../../gameLogic/pathfinding');
-const { getClosestPosition } = require('../../gameLogic/pathfindingCommon');
-const { getDistance } = require('../../gameLogic/spatialCoreUtils');
+} = require('../../gameLogic/shared/pathfinding');
+const { getClosestPosition } = require('../../gameLogic/shared/pathfindingCommon');
+const { getDistance } = require('../../gameLogic/shared/spatialCoreUtils');
 const { buildingPositions } = require('../../gameState');
 const { addOnTypesMapping } = require('../../units/management/unitConfig');
 const StrategyContext = require('../strategy/strategyContext');

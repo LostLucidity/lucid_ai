@@ -19,7 +19,7 @@ const { mine } = require('../../units/management/unitCommands');
 const { unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
 const { getProductionUnits } = require('../../units/management/unitManagement');
 const { canBuild, createUnitCommand } = require('../../utils/common');
-const { calculateDistance } = require('../coreUtils');
+const { calculateDistance } = require('../shared/coreUtils');
 
 // Precompute the gasMineConstructionAbilities Set once if it doesn't change frequently
 const gasMineConstructionAbilities = new Set();

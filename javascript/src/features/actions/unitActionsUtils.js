@@ -15,8 +15,8 @@ const {
   rallyWorkerToTarget,
   getUnitsFromClustering,
 } = require('../../gameLogic/economy/workerService');
-const { getPathCoordinates, getMapPath } = require('../../gameLogic/pathfindingCommon');
-const { prepareBuildContext } = require('../../gameLogic/workerManagementUtils');
+const { getPathCoordinates, getMapPath } = require('../../gameLogic/shared/pathfindingCommon');
+const { prepareBuildContext } = require('../../gameLogic/shared/workerManagementUtils');
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require('../../sharedServices');
 const { createUnitCommand } = require('../../utils/common');

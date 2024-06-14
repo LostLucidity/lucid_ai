@@ -4,8 +4,8 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { getGridsInCircleWithinMap } = require("./spatialCore");
 const { getDistance } = require("./spatialCoreUtils");
-const cacheManager = require("../utils/cache");
-const { getClosestPathablePositions } = require("../utils/common");
+const cacheManager = require("../../utils/cache");
+const { getClosestPathablePositions } = require("../../utils/common");
 
 /**
  * @param {Point2D[]} positions 

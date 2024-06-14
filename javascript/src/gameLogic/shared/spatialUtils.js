@@ -8,17 +8,17 @@ const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
-const { getBuildTimeLeft } = require("./economy/workerService");
+const { getBuildTimeLeft } = require("./../economy/workerService");
 const { getTimeInSeconds, getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("./pathfinding");
 const { getDistance } = require("./spatialCoreUtils");
-const config = require("../../config/config");
-const BuildingPlacement = require("../features/construction/buildingPlacement");
-const { GameState } = require('../gameState');
-const { buildingPositions } = require("../gameState");
-const MapResources = require("../gameState/mapResources");
-const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../units/management/unitConfig");
-const { isPlaceableAtGasGeyser } = require("../utils/buildingPlacementUtils");
-const { getCurrentlyEnrouteConstructionGrids } = require("../utils/constructionDataUtils");
+const config = require("../../../config/config");
+const BuildingPlacement = require("../../features/construction/buildingPlacement");
+const { GameState } = require('../../gameState');
+const { buildingPositions } = require("../../gameState");
+const MapResources = require("../../gameState/mapResources");
+const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../../units/management/unitConfig");
+const { isPlaceableAtGasGeyser } = require("../../utils/buildingPlacementUtils");
+const { getCurrentlyEnrouteConstructionGrids } = require("../../utils/constructionDataUtils");
 
 /**
  * @typedef {Object} FootprintType

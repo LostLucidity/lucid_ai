@@ -8,10 +8,10 @@
 // Import necessary constants or modules
 const { UnitType, UnitTypeId } = require('@node-sc2/core/constants');
 
-const { EarmarkManager } = require('../core');
-const { checkAddOnPlacement } = require('../services/ConstructionSpatialService');
-const { flyingTypesMapping } = require('../units/management/unitConfig');
-const { setPendingOrders } = require('../units/management/unitOrders');
+const { EarmarkManager } = require('../../core');
+const { checkAddOnPlacement } = require('../../services/ConstructionSpatialService');
+const { flyingTypesMapping } = require('../../units/management/unitConfig');
+const { setPendingOrders } = require('../../units/management/unitOrders');
 
 /**
  * Attempts to land the unit at a suitable location.

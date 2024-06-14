@@ -5,12 +5,12 @@ const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
 const { getTimeInSeconds } = require("./pathfinding");
 const { getDistance } = require("./spatialCoreUtils");
-const { missingUnits } = require("../features/misc/gameDataStore");
-const { GameState } = require("../gameState");
-const { getPendingOrders } = require("../sharedServices");
-const { getWeaponDPS } = require("../units");
-const { getById } = require("../utils/generalUtils");
-const { calculateTimeToKillUnits } = require("../utils/sharedUtils");
+const { missingUnits } = require("../../features/misc/gameDataStore");
+const { GameState } = require("../../gameState");
+const { getPendingOrders } = require("../../sharedServices");
+const { getWeaponDPS } = require("../../units");
+const { getById } = require("../../utils/generalUtils");
+const { calculateTimeToKillUnits } = require("../../utils/sharedUtils");
 
 /**
  * Calculates the remaining time to finish a structure's construction.
