@@ -1,5 +1,3 @@
-// GasMineManager.js
-
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 
@@ -8,7 +6,7 @@ const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
  */
 class GasMineManager {
   /** @type {Map<string, Set<string>>} */
-  gasMineWorkers = new Map();  // Initialize directly here
+  gasMineWorkers = new Map();
 
   /** @type {GasMineManager|null} */
   static instance = null;
@@ -21,12 +19,23 @@ class GasMineManager {
   }
 
   /**
+   * Returns the singleton instance of the GasMineManager.
+   * @returns {GasMineManager} The singleton instance.
+   */
+  static getInstance() {
+    if (!GasMineManager.instance) {
+      GasMineManager.instance = new GasMineManager();
+    }
+    return GasMineManager.instance;
+  }
+
+  /**
    * Assigns a worker to a gas mine.
    * @param {string} workerTag - The tag of the worker.
    * @param {string} mineTag - The tag of the mine.
    */
   assignWorkerToMine(workerTag, mineTag) {
-    if (mineTag && workerTag) { // Ensure tags are defined
+    if (mineTag && workerTag) {
       if (!this.gasMineWorkers.has(mineTag)) {
         this.gasMineWorkers.set(mineTag, new Set());
       }
@@ -50,7 +59,7 @@ class GasMineManager {
     const allWorkers = units.getAll(Alliance.SELF).filter(worker => worker.isWorker() && worker.tag);
 
     gasMines.forEach(mine => {
-      if (mine.tag) {
+      if (mine.tag) { // Ensure mine.tag is defined
         const assignedWorkers = this.gasMineWorkers.get(mine.tag) || new Set();
         const visibleWorkers = allWorkers.filter(worker =>
           worker.tag && assignedWorkers.has(worker.tag) &&
@@ -70,19 +79,14 @@ class GasMineManager {
    */
   initialize(world) {
     console.log('Initializing GasMineManager with default settings.');
-    // Example: Pre-load known gas mines from the game map or configuration
     const { units } = world.resources.get();
     const gasMines = units.getAll(Alliance.SELF).filter(unit => unit.isGasMine());
 
-    // Set up the gas mine workers map with empty sets for each mine
     gasMines.forEach(mine => {
-      if (mine.tag) {
+      if (mine.tag) { // Ensure mine.tag is defined
         this.gasMineWorkers.set(mine.tag, new Set());
       }
     });
-
-    // Additional setup logic can go here
-    // This might include setting defaults, pre-calculating values, etc.
   }
 
   /**
@@ -93,7 +97,7 @@ class GasMineManager {
   removeWorkerFromMine(workerTag, mineTag) {
     if (mineTag && this.gasMineWorkers.has(mineTag)) {
       const workersSet = this.gasMineWorkers.get(mineTag);
-      if (workersSet && workerTag) {
+      if (workersSet) {
         workersSet.delete(workerTag);
       }
     }
@@ -106,16 +110,14 @@ class GasMineManager {
    * @returns {boolean} - Returns true if the worker is assigned to the mine based on specific orders.
    */
   static shouldAssignWorkerToMine(worker, mine) {
-    // Check the worker's current orders to determine if it is gathering gas from the specific mine
     if (worker.orders && worker.orders.length > 0) {
       return worker.orders.some(order =>
         order.targetUnitTag === mine.tag &&
-        order.abilityId !== undefined && // Ensure abilityId is not undefined
-        gatheringAbilities.includes(order.abilityId) // Check against all gathering abilities
+        order.abilityId !== undefined && // Ensure abilityId is defined
+        gatheringAbilities.includes(order.abilityId)
       );
     }
-
-    return false;  // Return false if no relevant orders are found
+    return false;
   }
 
   /**
@@ -128,31 +130,26 @@ class GasMineManager {
     const allMines = units.getAll(Alliance.SELF).filter(unit => unit.isGasMine());
 
     allMines.forEach(mine => {
-      if (mine.tag) {
+      if (mine.tag) { // Ensure mine.tag is defined
         const currentAssignedWorkers = this.gasMineWorkers.get(mine.tag) || new Set();
 
-        // Verify and update the workers currently assigned to each mine
         allWorkers.forEach(worker => {
-          // Safely check if orders are defined and then proceed
-          const isGathering = worker.isGathering('vespene') && worker.orders && worker.orders.some(order => order.targetUnitTag === mine.tag);
-          const isReturning = worker.isReturning('vespene') && worker.tag && currentAssignedWorkers.has(worker.tag);
+          if (worker.tag) { // Ensure worker.tag is defined
+            const isGathering = worker.isGathering('vespene') && worker.orders && worker.orders.some(order => order.targetUnitTag === mine.tag);
+            const isReturning = worker.isReturning('vespene') && currentAssignedWorkers.has(worker.tag);
 
-          if (isGathering || isReturning) {
-            if (worker.tag) { // Make sure the tag is not undefined before adding or checking
+            if (isGathering || isReturning) {
               currentAssignedWorkers.add(worker.tag);
-            }
-          } else {
-            if (worker.tag) { // Make sure the tag is not undefined before removing
+            } else {
               currentAssignedWorkers.delete(worker.tag);
             }
           }
         });
 
-        // Update the map with the latest valid set of workers
         this.gasMineWorkers.set(mine.tag, currentAssignedWorkers);
       }
     });
   }
 }
 
-module.exports = GasMineManager;  // Export the class for use in other files
+module.exports = GasMineManager;
