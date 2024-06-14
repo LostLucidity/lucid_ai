@@ -1,6 +1,5 @@
 // src/utils/gameLogic/stateManagement.js
-// Import necessary dependencies, if any
-
+// Import necessary dependencies
 const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
@@ -20,55 +19,70 @@ const { calculateTimeToKillUnits } = require("../utils/sharedUtils");
  * @returns {number} Time left in seconds
  */
 function calculateTimeToFinishStructure(data, unit) {
-  // Check if unitType is defined
-  if (typeof unit.unitType === 'number') {
-    const { buildTime } = data.getUnitTypeData(unit.unitType);
-    // Check if both buildTime and buildProgress are defined
-    if (typeof buildTime === 'number' && typeof unit.buildProgress === 'number') {
-      const timeElapsed = buildTime * unit.buildProgress;
-      const timeLeft = getTimeInSeconds(buildTime - timeElapsed);
-      return timeLeft;
-    }
-  }
-  return 0; // Return 0 if unitType, buildTime, or buildProgress is undefined
+  if (typeof unit.unitType !== 'number') return 0;
+
+  const { buildTime } = data.getUnitTypeData(unit.unitType);
+  if (typeof buildTime !== 'number' || typeof unit.buildProgress !== 'number') return 0;
+
+  const timeElapsed = buildTime * unit.buildProgress;
+  return getTimeInSeconds(buildTime - timeElapsed);
 }
 
 /**
  * Analyzes the game state and determines if the current count of a 
- * specific unit type matches the target count.
+ * specific unit type matches the target count based on the provided comparison mode.
  * @param {World} world
  * @param {UnitTypeId} unitType
  * @param {number} targetCount
+ * @param {boolean} [checkAtLeast=false] - If true, checks if the count is at least the target count. Otherwise, checks if it is less than the target count.
  * @returns {boolean}
  */
-function checkUnitCount(world, unitType, targetCount) {
+function checkUnitCount(world, unitType, targetCount, checkAtLeast = false) {
   const { data, resources } = world;
   const units = resources.get().units;
-  const abilityId = data.getUnitTypeData(unitType).abilityId;
+  const unitTypeData = data.getUnitTypeData(unitType);
 
-  if (!abilityId) {
-    return false;
-  }
+  if (!unitTypeData) return false;
+
+  const { abilityId } = unitTypeData;
+  if (!abilityId) return false;
 
   const unitTypes = GameState.getInstance().morphMapping?.get(unitType) || [unitType];
   const allUnits = units.getAlive(Alliance.SELF);
 
-  const orderedUnits = allUnits.filter(u => u.orders?.some(o => o.abilityId === abilityId)).length;
-  const unitsWithPendingOrders = allUnits.filter(u => getPendingOrders(u)?.some(o => o.abilityId === abilityId)).length;
+  /**
+   * Gets the count of units with a specific order.
+   * @param {Array<Unit>} unitArray - Array of units to check.
+   * @returns {number} - Count of units with the specified order.
+   */
+  const getUnitOrderCount = (unitArray) =>
+    unitArray.reduce((count, unit) => count + (unit.orders?.some(order => order.abilityId === abilityId) ? 1 : 0), 0);
 
-  // For Zerglings, count each unit as 2 due to them being trained in pairs
-  const actualUnitCount = getById(resources, unitTypes).length +
-    (unitType === UnitType.ZERGLING ? 2 * orderedUnits : orderedUnits) +
-    unitsWithPendingOrders;
+  const orderedUnitsCount = getUnitOrderCount(allUnits);
+  const pendingOrders = allUnits.flatMap(u => getPendingOrders(u) || []);
+
+  /**
+   * Gets the count of pending units with a specific order.
+   * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} orderArray - Array of orders to check.
+   * @returns {number} - Count of units with the specified pending order.
+   */
+  const getPendingOrderCount = (orderArray) =>
+    orderArray.reduce((count, order) => count + (order.abilityId === abilityId ? 1 : 0), 0);
+
+  const pendingUnitsCount = getPendingOrderCount(pendingOrders);
+
+  const baseUnitCount = getById(resources, unitTypes).length;
+  const adjustedOrderedUnitsCount = (unitType === UnitType.ZERGLING ? 2 * orderedUnitsCount : orderedUnitsCount);
+  const actualUnitCount = baseUnitCount + adjustedOrderedUnitsCount + pendingUnitsCount;
 
   const missingUnitCount = missingUnits.filter(unit => unit.unitType === unitType).length;
   const totalUnitCount = actualUnitCount + missingUnitCount;
 
-  const adjustedTargetCount = unitType === UnitType.ZERGLING
-    ? targetCount + (getById(resources, [UnitType.ZERGLING]).length % 2)
+  const adjustedTargetCount = (unitType === UnitType.ZERGLING)
+    ? targetCount + (baseUnitCount % 2)
     : targetCount;
 
-  return totalUnitCount < adjustedTargetCount;
+  return checkAtLeast ? totalUnitCount >= adjustedTargetCount : totalUnitCount < adjustedTargetCount;
 }
 
 /**
@@ -88,16 +102,12 @@ function determineBotRace(world) {
  * @returns {boolean} - True if townhall is in danger, otherwise false.
  */
 function isTownhallInDanger(world, townhall, nearbyEnemies) {
-  // Retrieve self-defense units near the townhall
   const selfDefenseUnits = world.resources.get().units.getCombatUnits().filter(unit => {
     const distance = getDistance(unit.pos, townhall.pos);
     return distance !== undefined && distance < 10; // 10 units radius for defense
   });
 
-  // Calculate time to kill and time to be killed
   const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, selfDefenseUnits, nearbyEnemies, getWeaponDPS);
-
-  // Townhall is in danger if it can be killed faster than the threats can be eliminated
   return timeToBeKilled <= timeToKill;
 }
 

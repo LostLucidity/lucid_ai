@@ -12,6 +12,7 @@ const { UpgradeActionStrategy } = require("./upgradeActionStrategy");
 const config = require("../../../config/config");
 const { getUnitTypeData } = require("../../core/gameData");
 const { balanceResources, setFoodUsed } = require("../../gameLogic/economy/economyManagement");
+const { checkUnitCount } = require("../../gameLogic/stateManagement");
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require("../../sharedServices");
 const { buildSupplyOrTrain } = require("../../units/management/unitManagement");
@@ -101,7 +102,6 @@ class StrategyManager {
    */
   constructor(race, specificBuildOrderKey) {
     this.initializeSingleton(race, specificBuildOrderKey);
-
     StrategyManager.instance = this;
     this.cumulativeCounts = {};
     this.stepCompletionStatus = new Map();
@@ -148,6 +148,21 @@ class StrategyManager {
     const mineralsNeeded = Math.max(earmarkTotals.minerals - minerals, 0);
     const vespeneNeeded = Math.max(earmarkTotals.vespene - vespene, 0);
     return balanceResources(world, mineralsNeeded / vespeneNeeded, build);
+  }
+
+  /**
+   * Check if the upgrade is in progress or completed.
+   * @param {Agent} agent
+   * @param {string | number} upgradeType
+   * @returns {boolean}
+   */
+  static checkUpgradeStatus(agent, upgradeType) {
+    const gameState = GameState.getInstance();
+    const upgradesInProgress = /** @type {Object<string, boolean>} */ (gameState.upgradesInProgress || {});
+    const upgradeInProgress = !!upgradesInProgress[upgradeType];  // Ensuring boolean result
+    const upgradeCompleted = agent.upgradeIds?.includes(Number(upgradeType)) ?? false; // Convert to number
+
+    return upgradeCompleted || upgradeInProgress;
   }
 
   /**
@@ -423,10 +438,10 @@ class StrategyManager {
   /**
    * Handles the completion of a strategy step.
    * @param {World} world The game world context.
-   * @param {import('../../utils/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
+   * @param {import("../../utils/globalTypes").BuildOrderStep | import('./strategyManager').StrategyStep} rawStep The raw step data from the build order or strategy.
    * @param {string} unitType The unit type identifier.
    * @param {number} currentCumulativeCount The current cumulative count for the unit type.
-   * @param {import('../../utils/globalTypes').InterpretedAction} interpretedAction The interpreted action for the current step.
+   * @param {import("../../utils/globalTypes").InterpretedAction} interpretedAction The interpreted action for the current step.
    * @param {StrategyManager} strategyManager The strategy manager instance.
    * @param {number} actionIndex The index of the current interpreted action in the rawStep.
    * @returns {boolean} True if the step is completed, false otherwise.
@@ -516,21 +531,23 @@ class StrategyManager {
       return false;
     }
 
+    if (action.unitType == null) {
+      return false;
+    }
+
     const buildOrder = this.getBuildOrderForCurrentStrategy();
     const stepIndex = buildOrder.steps.findIndex(s => isEqualStep(s, step));
 
-    if (action.unitType !== null && action.unitType !== undefined) {
-      const startingUnitCounts = { [`unitType_${action.unitType}`]: gameState.getStartingUnitCount(action.unitType) };
-      const targetCounts = this.strategyData.calculateTargetCountForStep(step, buildOrder, startingUnitCounts);
-      const targetCount = targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
+    const startingUnitCounts = { [`unitType_${action.unitType}`]: gameState.getStartingUnitCount(action.unitType) };
+    const targetCounts = this.strategyData.calculateTargetCountForStep(step, buildOrder, startingUnitCounts);
+    const targetCount = targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
 
-      if (!action.isUpgrade) {
-        const currentUnitCount = gameState.getUnitCount(world, action.unitType);
-        return currentUnitCount >= targetCount;
-      } else if (action.isUpgrade && action.upgradeType) {
-        return agent.upgradeIds?.includes(action.upgradeType) ?? false;
-      }
+    if (!action.isUpgrade) {
+      return checkUnitCount(world, action.unitType, targetCount, true); // Check if count is at least the target count
+    } else if (action.isUpgrade && action.upgradeType) {
+      return StrategyManager.checkUpgradeStatus(agent, action.upgradeType);
     }
+
     return false;
   }
 
@@ -606,7 +623,10 @@ class StrategyManager {
 
         return currentUnitCount >= targetCount;
       } else if (action.isUpgrade && action.upgradeType) {
-        return agent.upgradeIds?.includes(action.upgradeType) ?? false;
+        const isUpgradeCompleted = agent.upgradeIds?.includes(action.upgradeType) ?? false;
+        const isUpgradeInProgress = gameState.isUpgradeInProgress(action.upgradeType);
+
+        return isUpgradeCompleted || isUpgradeInProgress;
       }
       return false;
     });

@@ -215,6 +215,11 @@ class GameState {
      * @type {boolean}
      */
     this.enemyMetabolicBoost = false;
+
+    /**
+     * @type {{[key: number]: boolean}}
+     */
+    this.upgradesInProgress = {}
   }
 
   /**
@@ -450,6 +455,15 @@ class GameState {
   injectDependencies({ getPendingOrders, calculateTimeToFinishStructure }) {
     this.getPendingOrdersFn = getPendingOrders;
     this.calculateTimeToFinishStructureFn = calculateTimeToFinishStructure;
+  }
+
+  /**
+   * Checks if an upgrade is in progress
+   * @param {number} upgradeType - The type of upgrade to check
+   * @returns {boolean} - True if the upgrade is in progress, false otherwise
+   */
+  isUpgradeInProgress(upgradeType) {
+    return this.upgradesInProgress[upgradeType] === true;
   }
 
   /**
@@ -785,6 +799,16 @@ class GameState {
 
     // Ensure framesPerStep is always at least 1
     this.framesPerStep = Math.max(1, this.framesPerStep);
+  }
+
+  /**
+   * Updates the upgrades in progress status
+   * @param {Array<{upgradeType: number, inProgress: boolean}>} upgrades - List of upgrades and their status
+   */
+  updateUpgradesInProgress(upgrades) {
+    upgrades.forEach(upgrade => {
+      this.upgradesInProgress[upgrade.upgradeType] = upgrade.inProgress;
+    });
   }
 
   /**

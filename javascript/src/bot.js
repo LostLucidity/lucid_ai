@@ -3,6 +3,7 @@
 
 // External library imports
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
+const { Upgrade } = require('@node-sc2/core/constants');
 const { BUILD_ASSIMILATOR } = require('@node-sc2/core/constants/ability');
 const { ASSIMILATOR, PROBE } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
@@ -40,14 +41,12 @@ async function checkBuildOrderProgress(world, buildOrder) {
   const currentTimeInSeconds = world.resources.get().frame.timeInSeconds();
   const BASE_BUFFER_TIME_SECONDS = 15;
   const ADDITIONAL_BUFFER_PER_ACTION_SECONDS = 5;
-  const MARGIN_OF_ERROR_SECONDS = 5; // Margin of error to prevent logging minor premature completions
+  const MARGIN_OF_ERROR_SECONDS = 5;
 
   for (const [index, order] of buildOrder.entries()) {
     const orderStatus = buildOrderCompletion.get(order) || { completed: false, logged: false, prematureLogged: false };
 
-    if (orderStatus.completed) {
-      continue;
-    }
+    if (orderStatus.completed) continue;
 
     const satisfied = StrategyManager.getInstance().isStepSatisfied(world, order);
     const expectedTimeInSeconds = timeStringToSeconds(order.time);
@@ -314,7 +313,6 @@ async function executeActions(world, actionCollection) {
   try {
     const response = await resources.actions.sendAction(actionCollection);
 
-    // Check if the response contains any results and log them
     if (response && response.result) {
       response.result.forEach((result, index) => {
         if (result !== ActionResult.Success) {
@@ -389,6 +387,7 @@ const bot = createAgent({
       const { frame, units, map } = world.resources.get();
       const actionList = [];
 
+      // Update completed bases
       const completedBases = units.getBases().filter(base => {
         if ((base.buildProgress ?? 0) >= 1 && !completedBasesMap.has(base.tag)) {
           completedBasesMap.set(base.tag, true);
@@ -396,11 +395,11 @@ const bot = createAgent({
         }
         return false;
       });
-
       if (completedBases.length > 0) {
         cacheManager.updateCompletedBasesCache(completedBases);
       }
 
+      // Check build order progress
       const buildOrder = gameState.getBuildOrder();
       await checkBuildOrderProgress(world, buildOrder);
 
@@ -408,40 +407,76 @@ const bot = createAgent({
       const probesWarpingAssimilators = units.getAll().filter(probe =>
         probe.unitType === PROBE && probe.orders?.some(order => order.abilityId === BUILD_ASSIMILATOR)
       );
-
-      probesWarpingAssimilators.forEach(probe => {
-        if (probe.pos) {
-          const closestMineralPatch = units.getClosest(probe.pos, units.getMineralFields(), 1)[0];
-          if (closestMineralPatch) {
-            actionList.push(...gather(world.resources, probe, closestMineralPatch, true));
+      if (probesWarpingAssimilators.length > 0) {
+        const mineralFields = units.getMineralFields();
+        probesWarpingAssimilators.forEach(probe => {
+          if (probe.pos) {
+            const closestMineralPatch = units.getClosest(probe.pos, mineralFields, 1)[0];
+            if (closestMineralPatch) {
+              actionList.push(...gather(world.resources, probe, closestMineralPatch, true));
+            }
           }
-        }
-      });
+        });
+      }
 
       // Handle idle PROBES near warping ASSIMILATORS
       const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator =>
         assimilator.buildProgress !== undefined && assimilator.buildProgress < 1
       );
-
-      assimilatorsWarpingIn.forEach(assimilator => {
-        const nearbyProbes = units.getAll().filter(probe =>
-          probe.unitType === PROBE && (!probe.orders || probe.orders.some(order =>
-            probe.isGathering() && order.targetUnitTag === assimilator.tag)) &&
-          getDistance(probe.pos, assimilator.pos) < 3
-        );
-
-        nearbyProbes.forEach(probe => {
-          if (probe.pos) {
-            actionList.push(...gather(world.resources, probe, null, false));
-          }
+      if (assimilatorsWarpingIn.length > 0) {
+        assimilatorsWarpingIn.forEach(assimilator => {
+          const nearbyProbes = units.getAll().filter(probe =>
+            probe.unitType === PROBE && (!probe.orders || probe.orders.some(order =>
+              probe.isGathering() && order.targetUnitTag === assimilator.tag)) &&
+            getDistance(probe.pos, assimilator.pos) < 3
+          );
+          nearbyProbes.forEach(probe => {
+            if (probe.pos) {
+              actionList.push(...gather(world.resources, probe, null, false));
+            }
+          });
         });
-      });
+      }
 
+      // Collect actions
       const actionCollector = new ActionCollector(world);
       actionList.push(...actionCollector.collectActions());
 
+      // Execute actions
       await executeActions(world, actionList);
 
+      // Update upgrades in progress
+      const UPGRADE_ABILITY_IDS = new Map();
+      for (const upgradeId in Upgrade) {
+        if (Object.prototype.hasOwnProperty.call(Upgrade, upgradeId)) {
+          const upgradeData = world.data.getUpgradeData(Upgrade[upgradeId]);
+          if (upgradeData && upgradeData.abilityId) {
+            UPGRADE_ABILITY_IDS.set(upgradeData.abilityId, Upgrade[upgradeId]);
+          }
+        }
+      }
+
+      /** @type {{ upgradeType: number, inProgress: boolean }[]} */
+      const upgradesInProgress = [];
+      const allUnits = units.getAll();
+      allUnits.forEach(unit => {
+        if (unit.isStructure() && unit.orders && unit.orders.length > 0) {
+          unit.orders.forEach(order => {
+            if (UPGRADE_ABILITY_IDS.has(order.abilityId)) {
+              const upgradeId = UPGRADE_ABILITY_IDS.get(order.abilityId);
+              if (upgradeId !== undefined) {
+                upgradesInProgress.push({
+                  upgradeType: upgradeId,
+                  inProgress: true,
+                });
+              }
+            }
+          });
+        }
+      });
+      gameState.updateUpgradesInProgress(upgradesInProgress);
+
+      // Performance tracking and logging
       const stepEnd = performance.now();
       const realTimeElapsed = (stepEnd - gameStartTime) / 1000;
       const gameTimeElapsed = (frame.getGameLoop() - gameState.lastGameLoop) / 22.4;
@@ -455,12 +490,14 @@ const bot = createAgent({
         lastCheckTime = stepEnd;
       }
 
+      // Geyser logging
       const currentFreeGeysersCount = map.freeGasGeysers().length;
       if (currentFreeGeysersCount > previousFreeGeysersCount) {
         resetNoFreeGeysersLogFlag();
       }
       previousFreeGeysersCount = currentFreeGeysersCount;
 
+      // Unit position logging
       if (lastLoggedUnitType) {
         const currentValidPositionsCount = getValidPositionsCount(world, lastLoggedUnitType);
         if (currentValidPositionsCount > previousValidPositionsCount) {

@@ -1,35 +1,30 @@
-// trainingUtils.js
-
 const { EarmarkManager } = require("../../core");
 const { checkUnitCount } = require("../../gameLogic/stateManagement");
 
 /**
  * Determines if a unit can be trained based on the target count.
- * @param {World} world The current game world.
- * @param {number} unitTypeId Type of the unit.
- * @param {number | null} targetCount Target number of units.
- * @returns {boolean}
+ * @param {World} world - The current game world.
+ * @param {number} unitTypeId - Type of the unit.
+ * @param {number | null} targetCount - Target number of units.
+ * @returns {boolean} - True if the unit can be trained, otherwise false.
  */
 function canTrainUnit(world, unitTypeId, targetCount) {
-  return targetCount === null || checkUnitCount(world, unitTypeId, targetCount);
+  return targetCount === null || checkUnitCount(world, unitTypeId, targetCount, false);
 }
 
 /**
- * Earmark resources if needed.
- *
- * @param {World} world
- * @param {SC2APIProtocol.UnitTypeData} unitTypeData
- * @param {number | boolean | null} earmarkNeeded
- * @returns {boolean}
+ * Earmarks resources if needed.
+ * @param {World} world - The current game world.
+ * @param {SC2APIProtocol.UnitTypeData} unitTypeData - Data of the unit type to earmark.
+ * @param {number | boolean | null} earmarkNeeded - Flag indicating if earmarking is needed.
+ * @returns {boolean} - True if no earmarking was needed, otherwise false.
  */
 function earmarkResourcesIfNeeded(world, unitTypeData, earmarkNeeded) {
-  const earmarkNeededBool = Boolean(earmarkNeeded);
-
-  if (earmarkNeededBool) {
+  if (earmarkNeeded) {
     EarmarkManager.getInstance().addEarmark(world.data, unitTypeData);
+    return false;
   }
-
-  return !earmarkNeededBool;
+  return true;
 }
 
 module.exports = {
