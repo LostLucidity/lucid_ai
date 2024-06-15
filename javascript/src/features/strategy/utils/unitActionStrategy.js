@@ -1,8 +1,8 @@
 const { Attribute } = require("@node-sc2/core/constants/enums");
 
 const ActionStrategy = require("./actionStrategy");
-const { train } = require("../../units/management/training");
-const { build } = require("../construction/buildingService");
+const { train } = require("../../../units/management/training");
+const { build } = require("../../construction/buildingService");
 
 // Concrete strategy for handling unit type actions
 class UnitActionStrategy extends ActionStrategy {

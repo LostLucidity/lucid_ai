@@ -10,6 +10,7 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const GasMineManager = require('./GasMineManager');
 const { defaultResources } = require('../core/gameData');
 const { missingUnits } = require('../features/misc/gameDataStore');
+const { getPendingOrders } = require('../sharedServices');
 const cacheManager = require('../utils/cache');
 
 /** 
@@ -113,7 +114,7 @@ class GameState {
 
   /**
    * The plan consisting of a sequence of PlanStep objects.
-   * @type {import('../features/strategy/strategyManager').PlanStep[]}
+   * @type {import('../features/strategy/utils/strategyManager').PlanStep[]}
    */
   plan = [];
 
@@ -587,7 +588,7 @@ class GameState {
 
   /**
    * Sets the building plan.
-   * @param {import('../features/strategy/strategyManager').PlanStep[]} newPlan - The new building plan.
+   * @param {import('../features/strategy/utils/strategyManager').PlanStep[]} newPlan - The new building plan.
    */
   setPlan(newPlan) {
     this.plan = newPlan;
@@ -754,7 +755,20 @@ class GameState {
       count += unitsToCount.length;
     });
 
-    return count;
+    // Include pending orders
+    const pendingOrders = unitArray.flatMap(u => getPendingOrders(u) || []);
+
+    /**
+     * Gets the count of pending units with a specific order.
+     * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} orderArray - Array of orders to check.
+     * @returns {number} - Count of units with the specified pending order.
+     */
+    const getPendingOrderCount = (orderArray) =>
+      orderArray.reduce((count, order) => count + (order.abilityId === abilityIds[0] ? 1 : 0), 0);
+
+    const pendingUnitsCount = getPendingOrderCount(pendingOrders);
+
+    return count + pendingUnitsCount;
   }
 
   /**

@@ -29,7 +29,7 @@ const { productionUnitsCache } = require("../../utils/unitUtils");
 /**
  * Build supply or train units based on the game world state and strategy step.
  * @param {World} world
- * @param {import("../../features/strategy/strategyManager").PlanStep} step
+ * @param {import("../../features/strategy/utils/strategyManager").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function buildSupplyOrTrain(world, step) {

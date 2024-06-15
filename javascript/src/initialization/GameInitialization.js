@@ -1,5 +1,5 @@
 const { initializeGameState } = require('./gameStateInitialization');
-const { initializeStrategyAndAssignWorkers } = require('../features/strategy/strategyInitialization');
+const { initializeStrategyAndAssignWorkers } = require('../features/strategy/utils/strategyInitialization');
 const { performInitialMapAnalysis } = require('../gameLogic/shared/mapAnalysis');
 const { determineBotRace } = require('../gameLogic/shared/stateManagement');
 const GasMineManager = require("../gameState/GasMineManager");

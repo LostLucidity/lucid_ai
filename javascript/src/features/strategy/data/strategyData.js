@@ -4,7 +4,7 @@ const { interpretBuildOrderAction } = require('../../buildOrders/buildOrderUtils
 
 /**
  * A type that includes both BuildOrderStep and StrategyStep.
- * @typedef {import('../../../utils/globalTypes').BuildOrderStep | import('../strategyManager').StrategyStep} GeneralStep
+ * @typedef {import('../../../utils/globalTypes').BuildOrderStep | import('../utils/strategyManager').StrategyStep} GeneralStep
  */
 
 
@@ -72,7 +72,7 @@ class StrategyData {
   }
 
   /**
-   * @param {import('../../../utils/globalTypes').BuildOrderStep | import('../strategyManager').StrategyStep} rawStep
+   * @param {import('../../../utils/globalTypes').BuildOrderStep | import('../utils/strategyManager').StrategyStep} rawStep
    */
   static getInterpretedActions(rawStep) {
     if (rawStep.interpretedAction) {

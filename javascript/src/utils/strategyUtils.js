@@ -2,14 +2,14 @@
 
 const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 
-const StrategyContext = require("../features/strategy/strategyContext");
+const StrategyContext = require("../features/strategy/utils/strategyContext");
 /* eslint-disable-next-line no-unused-vars */
 const { GameState } = require('../gameState');
 
 /**
  * Converts strategy steps (from BuildOrderStep or StrategyStep format) to PlanStep format.
- * @param {(import("./globalTypes").BuildOrderStep[] | import("../features/strategy/strategyManager").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
- * @returns {import("../features/strategy/strategyManager").PlanStep[]} Array of PlanStep objects.
+ * @param {(import("./globalTypes").BuildOrderStep[] | import("../features/strategy/utils/strategyManager").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
+ * @returns {import("../features/strategy/utils/strategyManager").PlanStep[]} Array of PlanStep objects.
  */
 function convertToPlanSteps(strategySteps) {
   return strategySteps.map(step => {

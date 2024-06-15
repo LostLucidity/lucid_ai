@@ -24,7 +24,7 @@ const { getClosestPosition } = require('../../gameLogic/shared/pathfindingCommon
 const { getDistance } = require('../../gameLogic/shared/spatialCoreUtils');
 const { buildingPositions } = require('../../gameState');
 const { addOnTypesMapping } = require('../../units/management/unitConfig');
-const StrategyContext = require('../strategy/strategyContext');
+const StrategyContext = require('../strategy/utils/strategyContext');
 
 const PYLON_POWER_RANGE = 6.5;
 

@@ -9,7 +9,7 @@ const { ASSIMILATOR, PROBE } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
 
 const ActionCollector = require('./features/actions/actionCollector');
-const StrategyManager = require('./features/strategy/strategyManager');
+const StrategyManager = require('./features/strategy/utils/strategyManager');
 const { gather } = require('./gameLogic/economy/workerAssignment');
 const { getDistance } = require('./gameLogic/shared/spatialCoreUtils');
 const { findPlacements } = require('./gameLogic/shared/spatialUtils');
