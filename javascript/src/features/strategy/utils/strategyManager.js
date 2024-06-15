@@ -1,12 +1,11 @@
 "use strict";
 
-const { Upgrade, UnitType } = require("@node-sc2/core/constants");
-const { Ability } = require("@node-sc2/core/constants");
+const { Upgrade, UnitType, Buff, Ability } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 
 const StrategyContext = require("./strategyContext");
 const UnitActionStrategy = require("./unitActionStrategy");
-const { UpgradeActionStrategy } = require("./upgradeActionStrategy");
+const UpgradeActionStrategy = require("./upgradeActionStrategy");
 const config = require("../../../../config/config");
 const { getUnitTypeData } = require("../../../core/gameData");
 const { balanceResources, setFoodUsed } = require("../../../gameLogic/economy/economyManagement");
@@ -103,8 +102,6 @@ class StrategyManager {
   constructor(race, specificBuildOrderKey) {
     this.initializeSingleton(race, specificBuildOrderKey);
     StrategyManager.instance = this;
-    this.cumulativeCounts = {};
-    this.stepCompletionStatus = new Map();
   }
 
   /**
@@ -117,8 +114,6 @@ class StrategyManager {
     this.race = race;
     this.specificBuildOrderKey = specificBuildOrderKey;
     this.loggedDelays = new Map();
-    this.actionStrategy = new UnitActionStrategy();
-    this.upgradeStrategy = new UpgradeActionStrategy();
     this.cumulativeCounts = {};
     this.stepCompletionStatus = new Map();
 
@@ -152,33 +147,43 @@ class StrategyManager {
 
   /**
    * Check if the unit type is being ChronoBoosted.
-   * @param {World} world
-   * @param {number} unitType
-   * @returns {boolean}
+   * @param {World} world - The game world object.
+   * @param {number} unitType - The ID of the unit type to check.
+   * @returns {boolean} - Returns true if the unit type is being ChronoBoosted, otherwise false.
    */
   static checkChronoBoostStatus(world, unitType) {
     const nexusUnits = getUnitsById(world, UnitType.NEXUS);
-
     if (nexusUnits.length === 0) {
       return false;
     }
 
-    // Find the unit that is training the specified unitType
-    const trainingUnit = world.resources.get().units.getBases().find(unit => {
-      return unit.orders?.some(order => order.abilityId === getUnitTypeData(world, unitType).abilityId);
-    });
-
-    if (!trainingUnit) {
+    const unitTypeData = getUnitTypeData(world, unitType);
+    if (!unitTypeData) {
       return false;
     }
 
-    // Check if any Nexus has a pending ChronoBoost order targeting the training unit
-    const isChronoBoosted = nexusUnits.some(nexus => {
-      const pendingOrders = getPendingOrders(nexus);
-      return pendingOrders.some(order => order.abilityId === Ability.EFFECT_CHRONOBOOSTENERGYCOST && order.targetUnitTag === trainingUnit.tag);
-    });
+    const trainingUnit = world.resources.get().units.getBases().find(unit =>
+      unit.orders?.some(order => order.abilityId === unitTypeData.abilityId)
+    );
 
-    return isChronoBoosted;
+    if (!trainingUnit || !trainingUnit.tag) {
+      return false;
+    }
+
+    const targetUnit = world.resources.get().units.getByTag(trainingUnit.tag);
+
+    if (!targetUnit) {
+      return false;
+    }
+
+    /**
+     * Check if the given unit has a Chrono Boost buff.
+     * @param {Unit} unit - The unit to check.
+     * @returns {boolean}
+     */
+    const hasChronoBoostBuff = (unit) => unit.buffIds?.includes(Buff.CHRONOBOOSTENERGYCOST) || false;
+
+    return hasChronoBoostBuff(targetUnit);
   }
 
   /**

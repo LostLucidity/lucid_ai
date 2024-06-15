@@ -30,4 +30,4 @@ class UpgradeActionStrategy extends ActionStrategy {
   }
 }
 
-module.exports = { UpgradeActionStrategy };
+module.exports = UpgradeActionStrategy;
