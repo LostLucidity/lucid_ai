@@ -4,7 +4,7 @@ const { Ability } = require("@node-sc2/core/constants");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const EarmarkManager = require("./EarmarkManager");
+const EarmarkManager = require("./earmarkManager");
 const { getAddOnPlacement, pointsOverlap } = require("../gameLogic/shared/pathfinding");
 const { getDistance } = require("../gameLogic/shared/spatialCoreUtils");
 const { setPendingOrders } = require("../units/management/unitOrders");

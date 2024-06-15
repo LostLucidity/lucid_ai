@@ -7,7 +7,7 @@ const { Alliance, Attribute, Race } = require('@node-sc2/core/constants/enums');
 const groupTypes = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
-const GasMineManager = require('./GasMineManager');
+const GasMineManager = require('./gasMineManager');
 const { defaultResources } = require('../core/gameData');
 const { missingUnits } = require('../features/misc/gameDataStore');
 const { getPendingOrders } = require('../sharedServices');

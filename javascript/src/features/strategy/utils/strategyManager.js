@@ -21,7 +21,7 @@ const { getUnitsById } = require("../../../utils/unitUtils");
 const buildOrders = require('../../buildOrders');
 const { interpretBuildOrderAction } = require("../../buildOrders/buildOrderUtils");
 const { build, hasEarmarks, resetEarmarks } = require("../../construction/buildingService");
-const { executeSpecialAction } = require("../actions/SpecialActions");
+const { executeSpecialAction } = require("../actions/specialActions");
 const StrategyData = require("../data/strategyData");
 
 /**
@@ -1018,7 +1018,7 @@ class StrategyManager {
    * Checks if an action should be delayed based on the current time and target time.
    * @param {string} specialAction - The special action to check.
    * @param {World} world - The world context.
-   * @param {import('../../../utils/globalTypes').BuildOrderStep | StrategyManager.StrategyStep} rawStep - The step data.
+   * @param {import('../../../utils/globalTypes').BuildOrderStep | StrategyStep} rawStep - The step data.
    * @returns {boolean} True if the action should be delayed, false otherwise.
    */
   shouldDelayAction(specialAction, world, rawStep) {
