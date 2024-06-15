@@ -151,6 +151,37 @@ class StrategyManager {
   }
 
   /**
+   * Check if the unit type is being ChronoBoosted.
+   * @param {World} world
+   * @param {number} unitType
+   * @returns {boolean}
+   */
+  static checkChronoBoostStatus(world, unitType) {
+    const nexusUnits = getUnitsById(world, UnitType.NEXUS);
+
+    if (nexusUnits.length === 0) {
+      return false;
+    }
+
+    // Find the unit that is training the specified unitType
+    const trainingUnit = world.resources.get().units.getBases().find(unit => {
+      return unit.orders?.some(order => order.abilityId === getUnitTypeData(world, unitType).abilityId);
+    });
+
+    if (!trainingUnit) {
+      return false;
+    }
+
+    // Check if any Nexus has a pending ChronoBoost order targeting the training unit
+    const isChronoBoosted = nexusUnits.some(nexus => {
+      const pendingOrders = getPendingOrders(nexus);
+      return pendingOrders.some(order => order.abilityId === Ability.EFFECT_CHRONOBOOSTENERGYCOST && order.targetUnitTag === trainingUnit.tag);
+    });
+
+    return isChronoBoosted;
+  }
+
+  /**
    * Check if the upgrade is in progress or completed.
    * @param {Agent} agent
    * @param {string | number} upgradeType
@@ -307,8 +338,9 @@ class StrategyManager {
   static handleChronoBoostAction(world, planStep) {
     /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
     const chronoBoostActions = [];
-    const nexusUnits = getUnitsById(world, UnitType.NEXUS);
 
+    // Get all Nexus units and exit early if there are none
+    const nexusUnits = getUnitsById(world, UnitType.NEXUS);
     if (nexusUnits.length === 0) {
       return chronoBoostActions;
     }
@@ -318,49 +350,53 @@ class StrategyManager {
       const maxEnergy = maxNexus.energy ?? 0;
       const currentEnergy = currentNexus.energy ?? 0;
       return currentEnergy > maxEnergy ? currentNexus : maxNexus;
-    }, nexusUnits[0]);
+    });
 
+    // Exit early if the selected Nexus doesn't have a tag
     if (!nexus.tag) {
       return chronoBoostActions;
     }
 
+    // Get the ability ID for the unit type specified in the plan step
     const unitTypeData = getUnitTypeData(world, planStep.unitType);
     const abilityId = unitTypeData?.abilityId;
 
+    // Exit early if there's no ability ID
     if (!abilityId) {
       return chronoBoostActions;
     }
 
     // Check if the Nexus has the Chrono Boost ability available
-    const availableAbilities = nexus.orders?.map(order => order.abilityId) ?? [];
+    const availableAbilities = nexus.availableAbilities();
     if (!availableAbilities.includes(Ability.EFFECT_CHRONOBOOSTENERGYCOST)) {
-      return chronoBoostActions; // Exit early if Chrono Boost is not available
+      return chronoBoostActions;
     }
 
-    // Find the unit that is training the specified unitType
-    const trainingUnit = world.resources.get().units.getBases().find(unit => {
-      return unit.orders?.some(order => order.abilityId === abilityId);
-    });
+    // Find the unit that is training the specified unit type
+    const trainingUnit = world.resources.get().units.getBases().find(unit =>
+      unit.orders?.some(order => order.abilityId === abilityId)
+    );
 
+    // Exit early if there's no training unit
     if (!trainingUnit) {
       return chronoBoostActions;
     }
 
-    const pendingOrders = getPendingOrders(nexus);
-    const isChronoBoostPending = pendingOrders.some(order => order.abilityId === Ability.EFFECT_CHRONOBOOSTENERGYCOST);
+    // Check if Chrono Boost is already pending
+    const isChronoBoostPending = getPendingOrders(nexus).some(order =>
+      order.abilityId === Ability.EFFECT_CHRONOBOOSTENERGYCOST
+    );
 
+    // Add Chrono Boost action if it's not already pending
     if (!isChronoBoostPending) {
-      /** @type {SC2APIProtocol.ActionRawUnitCommand} */
       const chronoBoostAction = {
         abilityId: Ability.EFFECT_CHRONOBOOSTENERGYCOST,
         unitTags: [nexus.tag],
         targetUnitTag: trainingUnit.tag
       };
 
-      // Set pending orders for the nexus unit
+      // Set pending orders for the Nexus unit and add the action to the list
       setPendingOrders(nexus, chronoBoostAction);
-
-      // Add the chrono boost action to the list
       chronoBoostActions.push(chronoBoostAction);
     }
 
@@ -543,8 +579,16 @@ class StrategyManager {
     const targetCount = targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
 
     if (!action.isUpgrade) {
-      return checkUnitCount(world, action.unitType, targetCount, true); // Check if count is at least the target count
-    } else if (action.isUpgrade && action.upgradeType) {
+      const isCountSatisfied = checkUnitCount(world, action.unitType, targetCount, true); // Check if count is at least the target count
+
+      if (action.isChronoBoosted) {
+        return isCountSatisfied && StrategyManager.checkChronoBoostStatus(world, action.unitType);
+      }
+
+      return isCountSatisfied;
+    }
+
+    if (action.isUpgrade && action.upgradeType) {
       return StrategyManager.checkUpgradeStatus(agent, action.upgradeType);
     }
 
@@ -686,28 +730,32 @@ class StrategyManager {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be performed.
    */
   performPlanStepActions(world, planStep) {
-    let actions = buildSupplyOrTrain(world, planStep);
+    let actions = [...buildSupplyOrTrain(world, planStep)];
+    const { orderType, isChronoBoosted, supply } = planStep;
 
-    switch (planStep.orderType) {
+    switch (orderType) {
       case 'UnitType':
-        actions = actions.concat(UnitActionStrategy.handleUnitTypeAction(world, planStep));
+        actions.push(...UnitActionStrategy.handleUnitTypeAction(world, planStep));
         break;
       case 'Upgrade':
         if (this.upgradeStrategy) {
-          actions = actions.concat(UpgradeActionStrategy.handleUpgradeAction(world, planStep));
+          actions.push(...UpgradeActionStrategy.handleUpgradeAction(world, planStep));
         } else {
           console.error("upgradeStrategy is not initialized.");
         }
         break;
       default:
+        console.warn("Unhandled orderType:", orderType);
         break;
     }
 
     // Check for chrono boost
-    const gameState = GameState.getInstance();
-    const currentSupply = gameState.getFoodUsed();
-    if (planStep.isChronoBoosted && currentSupply === planStep.supply) {
-      actions = actions.concat(StrategyManager.handleChronoBoostAction(world, planStep));
+    if (isChronoBoosted) {
+      const gameState = GameState.getInstance();
+      const currentSupply = gameState.getFoodUsed();
+      if (currentSupply >= supply) {
+        actions.push(...StrategyManager.handleChronoBoostAction(world, planStep));
+      }
     }
 
     return actions;
