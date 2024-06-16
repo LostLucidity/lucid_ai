@@ -1,6 +1,11 @@
 "use strict";
 
-const { Upgrade, UnitType, Buff, Ability } = require("@node-sc2/core/constants");
+const {
+  Upgrade,
+  UnitType,
+  Buff,
+  Ability,
+} = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 
 const StrategyContext = require("./strategyContext");
@@ -8,16 +13,19 @@ const UnitActionStrategy = require("./unitActionStrategy");
 const UpgradeActionStrategy = require("./upgradeActionStrategy");
 const config = require("../../../../config/config");
 const { getUnitTypeData } = require("../../../core/gameData");
-const { balanceResources, setFoodUsed } = require("../../../gameLogic/economy/economyManagement");
+const {
+  balanceResources,
+  setFoodUsed,
+} = require("../../../gameLogic/economy/economyManagement");
 const { checkUnitCount } = require("../../../gameLogic/shared/stateManagement");
-const { GameState } = require('../../../gameState');
+const { GameState } = require("../../../gameState");
 const { getPendingOrders } = require("../../../sharedServices");
 const { buildSupplyOrTrain } = require("../../../units/management/unitManagement");
 const { setPendingOrders } = require("../../../units/management/unitOrders");
 const { isEqualStep } = require("../../../utils/strategyUtils");
 const { convertTimeStringToSeconds } = require("../../../utils/timeUtils");
 const { getUnitsById } = require("../../../utils/unitUtils");
-const buildOrders = require('../../buildOrders');
+const buildOrders = require("../../buildOrders");
 const { interpretBuildOrderAction } = require("../../buildOrders/buildOrderUtils");
 const { build, hasEarmarks, resetEarmarks } = require("../../construction/buildingService");
 const { executeSpecialAction } = require("../actions/specialActions");
@@ -56,9 +64,6 @@ const StrategyData = require("../data/strategyData");
 
 /**
  * Class representing the strategy manager.
- * @property {Map} loggedDelays - Stores delays for actions based on certain conditions.
- * @property {UnitActionStrategy} actionStrategy - Handles actions related to unit management.
- * @property {UpgradeActionStrategy} upgradeStrategy - Handles actions related to upgrades.
  */
 class StrategyManager {
   /**
@@ -153,37 +158,18 @@ class StrategyManager {
    */
   static checkChronoBoostStatus(world, unitType) {
     const nexusUnits = getUnitsById(world, UnitType.NEXUS);
-    if (nexusUnits.length === 0) {
-      return false;
-    }
+    if (nexusUnits.length === 0) return false;
 
     const unitTypeData = getUnitTypeData(world, unitType);
-    if (!unitTypeData) {
-      return false;
-    }
+    if (!unitTypeData) return false;
 
-    const trainingUnit = world.resources.get().units.getBases().find(unit =>
-      unit.orders?.some(order => order.abilityId === unitTypeData.abilityId)
+    const trainingUnit = world.resources.get().units.getStructures().find((unit) =>
+      unit.orders?.some((order) => order.abilityId === unitTypeData.abilityId)
     );
 
-    if (!trainingUnit || !trainingUnit.tag) {
-      return false;
-    }
+    if (!trainingUnit) return false;
 
-    const targetUnit = world.resources.get().units.getByTag(trainingUnit.tag);
-
-    if (!targetUnit) {
-      return false;
-    }
-
-    /**
-     * Check if the given unit has a Chrono Boost buff.
-     * @param {Unit} unit - The unit to check.
-     * @returns {boolean}
-     */
-    const hasChronoBoostBuff = (unit) => unit.buffIds?.includes(Buff.CHRONOBOOSTENERGYCOST) || false;
-
-    return hasChronoBoostBuff(targetUnit);
+    return trainingUnit.buffIds?.includes(Buff.CHRONOBOOSTENERGYCOST) || false;
   }
 
   /**
@@ -194,19 +180,15 @@ class StrategyManager {
    */
   static checkUpgradeStatus(agent, upgradeType) {
     const gameState = GameState.getInstance();
-    const upgradesInProgress = /** @type {Object<string, boolean>} */ (gameState.upgradesInProgress || {});
-    const upgradeInProgress = !!upgradesInProgress[upgradeType];  // Ensuring boolean result
-    const upgradeCompleted = agent.upgradeIds?.includes(Number(upgradeType)) ?? false; // Convert to number
+    const upgradesInProgress = /** @type {Object<string, boolean>} */ (
+      gameState.upgradesInProgress || {}
+    );
+    const upgradeInProgress = !!upgradesInProgress[upgradeType];
+    const upgradeCompleted =
+      agent.upgradeIds?.includes(Number(upgradeType)) ?? false;
 
     return upgradeCompleted || upgradeInProgress;
   }
-
-  /**
-   * @typedef {Object} RawStep
-   * @property {number} supply - The supply count for the step.
-   * @property {string} time - The game time for the step.
-   * @property {string} action - The action to be taken.
-   */
 
   /**
    * Creates a plan step from the given raw step and interpreted action.
@@ -223,14 +205,14 @@ class StrategyManager {
       supply: parseInt(supply, 10),
       time,
       action,
-      orderType: isUpgrade ? 'Upgrade' : 'UnitType',
+      orderType: isUpgrade ? "Upgrade" : "UnitType",
       unitType: unitType || 0,
       targetCount: cumulativeCount + (count || 0),
-      upgrade: isUpgrade ? (upgradeType || Upgrade.NULL) : Upgrade.NULL,
+      upgrade: isUpgrade ? upgradeType || Upgrade.NULL : Upgrade.NULL,
       isChronoBoosted: Boolean(interpretedAction.isChronoBoosted),
       count: count || 0,
       candidatePositions: [],
-      food: parseInt(supply, 10)
+      food: parseInt(supply, 10),
     };
   }
 
@@ -270,19 +252,25 @@ class StrategyManager {
    */
   getBuildOrderForCurrentStrategy() {
     if (!this.strategyContext) {
-      throw new Error('Strategy context is undefined, which is required to get the current build order.');
+      throw new Error(
+        "Strategy context is undefined, which is required to get the current build order."
+      );
     }
 
     const currentStrategy = this.strategyContext.getCurrentStrategy();
     if (!currentStrategy) {
-      throw new Error('No current strategy found in the strategy context.');
+      throw new Error(
+        "No current strategy found in the strategy context."
+      );
     }
 
     if (StrategyManager.isBuildOrder(currentStrategy)) {
       return currentStrategy;
     }
 
-    throw new Error('The current strategy does not conform to the expected build order structure.');
+    throw new Error(
+      "The current strategy does not conform to the expected build order structure."
+    );
   }
 
   /**
@@ -294,14 +282,14 @@ class StrategyManager {
     const currentStrategy = strategyContext.getCurrentStrategy();
 
     if (currentStrategy) {
-      if ('title' in currentStrategy) {
+      if ("title" in currentStrategy) {
         return currentStrategy.title;
-      } else if ('name' in currentStrategy) {
+      } else if ("name" in currentStrategy) {
         return currentStrategy.name;
       }
     }
 
-    return 'defaultKey';
+    return "defaultKey";
   }
 
   /**
@@ -326,7 +314,10 @@ class StrategyManager {
       if (race !== undefined && this.instance.race !== race) {
         this.instance.assignRaceAndInitializeStrategy(race);
       }
-      if (specificBuildOrderKey !== undefined && this.instance.specificBuildOrderKey !== specificBuildOrderKey) {
+      if (
+        specificBuildOrderKey !== undefined &&
+        this.instance.specificBuildOrderKey !== specificBuildOrderKey
+      ) {
         this.instance.specificBuildOrderKey = specificBuildOrderKey;
       }
     }
@@ -341,51 +332,38 @@ class StrategyManager {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to perform the chrono boost.
    */
   static handleChronoBoostAction(world, planStep) {
-    /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-    const chronoBoostActions = [];
+    const chronoBoostActions = /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */ ([]);
 
     // Get all Nexus units and exit early if there are none
     const nexusUnits = getUnitsById(world, UnitType.NEXUS);
-    if (nexusUnits.length === 0) {
-      return chronoBoostActions;
-    }
+    if (!nexusUnits.length) return chronoBoostActions;
 
     // Select the Nexus with the highest energy
-    const nexus = nexusUnits.reduce((maxNexus, currentNexus) => {
-      const maxEnergy = maxNexus.energy ?? 0;
-      const currentEnergy = currentNexus.energy ?? 0;
-      return currentEnergy > maxEnergy ? currentNexus : maxNexus;
-    });
+    const nexus = nexusUnits.reduce((maxNexus, currentNexus) =>
+      (currentNexus.energy ?? 0) > (maxNexus.energy ?? 0) ? currentNexus : maxNexus
+    );
 
     // Exit early if the selected Nexus doesn't have a tag
-    if (!nexus.tag) {
-      return chronoBoostActions;
-    }
+    if (!nexus.tag) return chronoBoostActions;
 
     // Get the ability ID for the unit type specified in the plan step
     const unitTypeData = getUnitTypeData(world, planStep.unitType);
     const abilityId = unitTypeData?.abilityId;
 
     // Exit early if there's no ability ID
-    if (!abilityId) {
-      return chronoBoostActions;
-    }
+    if (!abilityId) return chronoBoostActions;
 
     // Check if the Nexus has the Chrono Boost ability available
     const availableAbilities = nexus.availableAbilities();
-    if (!availableAbilities.includes(Ability.EFFECT_CHRONOBOOSTENERGYCOST)) {
-      return chronoBoostActions;
-    }
+    if (!availableAbilities.includes(Ability.EFFECT_CHRONOBOOSTENERGYCOST)) return chronoBoostActions;
 
-    // Find the unit that is training the specified unit type
-    const trainingUnit = world.resources.get().units.getBases().find(unit =>
+    // Find the structure that is training the specified unit type
+    const trainingUnit = world.resources.get().units.getStructures().find(unit =>
       unit.orders?.some(order => order.abilityId === abilityId)
     );
 
     // Exit early if there's no training unit
-    if (!trainingUnit) {
-      return chronoBoostActions;
-    }
+    if (!trainingUnit) return chronoBoostActions;
 
     // Check if Chrono Boost is already pending
     const isChronoBoostPending = getPendingOrders(nexus).some(order =>
@@ -422,7 +400,10 @@ class StrategyManager {
         this.handleEarmarksIfNeeded(world, actionsToPerform);
       }
     } catch (error) {
-      console.error("Error handling earmarks and resources:", error instanceof Error ? error.message : "Unknown error");
+      console.error(
+        "Error handling earmarks and resources:",
+        error instanceof Error ? error.message : "Unknown error"
+      );
     }
   }
 
@@ -449,13 +430,32 @@ class StrategyManager {
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform The array of actions to be performed.
    * @param {number} currentCumulativeCount The current cumulative count of the unit type up to this step.
    */
-  handlePlanStep(world, rawStep, step, interpretedAction, actionsToPerform, currentCumulativeCount) {
-    const effectiveUnitType = interpretedAction.unitType?.toString() || 'default';
-    const planStep = StrategyManager.createPlanStep(rawStep, interpretedAction, currentCumulativeCount);
-    this.cumulativeCounts[effectiveUnitType] = currentCumulativeCount + (interpretedAction.count || 0);
+  handlePlanStep(
+    world,
+    rawStep,
+    step,
+    interpretedAction,
+    actionsToPerform,
+    currentCumulativeCount
+  ) {
+    const effectiveUnitType =
+      interpretedAction.unitType?.toString() || "default";
+    const planStep = StrategyManager.createPlanStep(
+      rawStep,
+      interpretedAction,
+      currentCumulativeCount
+    );
+    this.cumulativeCounts[effectiveUnitType] =
+      currentCumulativeCount + (interpretedAction.count || 0);
 
     if (interpretedAction.specialAction) {
-      actionsToPerform.push(...this.handleSpecialAction(interpretedAction.specialAction, world, rawStep));
+      actionsToPerform.push(
+        ...this.handleSpecialAction(
+          interpretedAction.specialAction,
+          world,
+          rawStep
+        )
+      );
       return;
     }
 
@@ -487,18 +487,25 @@ class StrategyManager {
    * @param {number} actionIndex The index of the current interpreted action in the rawStep.
    * @returns {boolean} True if the step is completed, false otherwise.
    */
-  static handleStepCompletion(world, rawStep, unitType, currentCumulativeCount, interpretedAction, strategyManager, actionIndex) {
-    // Cast rawStep to a type that includes interpretedActionsStatus
+  static handleStepCompletion(
+    world,
+    rawStep,
+    unitType,
+    currentCumulativeCount,
+    interpretedAction,
+    strategyManager,
+    actionIndex
+  ) {
     const stepWithStatus = /** @type {any} */ (rawStep);
 
-    // Check if the interpreted action is satisfied in the current world context
-    if (strategyManager.isActionSatisfied(world, interpretedAction, rawStep)) {
-      // Mark the action as satisfied in the step's status
+    if (
+      strategyManager.isActionSatisfied(world, interpretedAction, rawStep)
+    ) {
       stepWithStatus.interpretedActionsStatus[actionIndex] = true;
-      return true; // Step is completed
+      return true;
     }
 
-    return false; // Step is not completed
+    return false;
   }
 
   /**
@@ -546,8 +553,12 @@ class StrategyManager {
     }
 
     try {
-      const buildOrderKey = config.debugBuildOrderKey || StrategyManager.selectBuildOrderKey(race);
-      this.strategyContext.setCurrentStrategy(StrategyManager.loadStrategy(race, buildOrderKey));
+      const buildOrderKey =
+        config.debugBuildOrderKey ||
+        StrategyManager.selectBuildOrderKey(race);
+      this.strategyContext.setCurrentStrategy(
+        StrategyManager.loadStrategy(race, buildOrderKey)
+      );
     } catch (error) {
       console.error(`Error loading strategy for ${race}:`, error);
       return;
@@ -568,7 +579,7 @@ class StrategyManager {
     const agent = world.agent;
 
     if (!this.strategyData) {
-      console.error('Strategy data is not initialized');
+      console.error("Strategy data is not initialized");
       return false;
     }
 
@@ -577,17 +588,33 @@ class StrategyManager {
     }
 
     const buildOrder = this.getBuildOrderForCurrentStrategy();
-    const stepIndex = buildOrder.steps.findIndex(s => isEqualStep(s, step));
+    const stepIndex = buildOrder.steps.findIndex((s) => isEqualStep(s, step));
 
-    const startingUnitCounts = { [`unitType_${action.unitType}`]: gameState.getStartingUnitCount(action.unitType) };
-    const targetCounts = this.strategyData.calculateTargetCountForStep(step, buildOrder, startingUnitCounts);
-    const targetCount = targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
+    const startingUnitCounts = {
+      [`unitType_${action.unitType}`]:
+        gameState.getStartingUnitCount(action.unitType),
+    };
+    const targetCounts = this.strategyData.calculateTargetCountForStep(
+      step,
+      buildOrder,
+      startingUnitCounts
+    );
+    const targetCount =
+      targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
 
     if (!action.isUpgrade) {
-      const isCountSatisfied = checkUnitCount(world, action.unitType, targetCount, true); // Check if count is at least the target count
+      const isCountSatisfied = checkUnitCount(
+        world,
+        action.unitType,
+        targetCount,
+        true
+      );
 
       if (action.isChronoBoosted) {
-        return isCountSatisfied && StrategyManager.checkChronoBoostStatus(world, action.unitType);
+        return (
+          isCountSatisfied &&
+          StrategyManager.checkChronoBoostStatus(world, action.unitType)
+        );
       }
 
       return isCountSatisfied;
@@ -606,7 +633,7 @@ class StrategyManager {
    */
   isActivePlan() {
     if (!this.strategyContext) {
-      console.error('strategyContext is undefined');
+      console.error("strategyContext is undefined");
       return false;
     }
 
@@ -624,7 +651,12 @@ class StrategyManager {
    * @returns {strategy is import('../../../utils/globalTypes').BuildOrder}
    */
   static isBuildOrder(strategy) {
-    return 'title' in strategy && 'raceMatchup' in strategy && 'steps' in strategy && 'url' in strategy;
+    return (
+      "title" in strategy &&
+      "raceMatchup" in strategy &&
+      "steps" in strategy &&
+      "url" in strategy
+    );
   }
 
   /**
@@ -651,29 +683,44 @@ class StrategyManager {
     const gameState = GameState.getInstance();
     const agent = world.agent;
     const buildOrder = this.getBuildOrderForCurrentStrategy();
-    const stepIndex = buildOrder.steps.findIndex(s => isEqualStep(s, step));
+    const stepIndex = buildOrder.steps.findIndex((s) => isEqualStep(s, step));
 
-    const interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction :
-      step.interpretedAction ? [step.interpretedAction] :
-        interpretBuildOrderAction(step.action, ('comment' in step) ? step.comment : '');
+    const interpretedActions = Array.isArray(step.interpretedAction)
+      ? step.interpretedAction
+      : step.interpretedAction
+        ? [step.interpretedAction]
+        : interpretBuildOrderAction(step.action, "comment" in step ? step.comment : "");
 
     if (!this.strategyData) {
-      console.error('Strategy data is not initialized');
+      console.error("Strategy data is not initialized");
       return false;
     }
 
-    return interpretedActions.every(action => {
+    return interpretedActions.every((action) => {
       if (!action.isUpgrade && action.unitType) {
         const currentUnitCount = gameState.getUnitCount(world, action.unitType);
-        const startingUnitCounts = { [`unitType_${action.unitType}`]: gameState.getStartingUnitCount(action.unitType) };
+        const startingUnitCounts = {
+          [`unitType_${action.unitType}`]:
+            gameState.getStartingUnitCount(action.unitType),
+        };
 
-        const targetCounts = this.strategyData ? this.strategyData.calculateTargetCountForStep(step, buildOrder, startingUnitCounts) : {};
-        const targetCount = targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
+        const targetCounts = this.strategyData
+          ? this.strategyData.calculateTargetCountForStep(
+            step,
+            buildOrder,
+            startingUnitCounts
+          )
+          : {};
+        const targetCount =
+          targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
 
         return currentUnitCount >= targetCount;
       } else if (action.isUpgrade && action.upgradeType) {
-        const isUpgradeCompleted = agent.upgradeIds?.includes(action.upgradeType) ?? false;
-        const isUpgradeInProgress = gameState.isUpgradeInProgress(action.upgradeType);
+        const isUpgradeCompleted =
+          agent.upgradeIds?.includes(action.upgradeType) ?? false;
+        const isUpgradeInProgress = gameState.isUpgradeInProgress(
+          action.upgradeType
+        );
 
         return isUpgradeCompleted || isUpgradeInProgress;
       }
@@ -696,7 +743,7 @@ class StrategyManager {
    */
   static loadStrategy(race, buildOrderKey) {
     if (!race) {
-      console.error('Race must be provided to load strategy');
+      console.error("Race must be provided to load strategy");
       return;
     }
 
@@ -719,13 +766,15 @@ class StrategyManager {
    */
   static mapRaceToKey(race) {
     const raceMapping = {
-      [Race.PROTOSS]: 'protoss',
-      [Race.TERRAN]: 'terran',
-      [Race.ZERG]: 'zerg'
+      [Race.PROTOSS]: "protoss",
+      [Race.TERRAN]: "terran",
+      [Race.ZERG]: "zerg",
     };
 
     const key = raceMapping[race];
-    return key === 'protoss' || key === 'terran' || key === 'zerg' ? key : undefined;
+    return key === "protoss" || key === "terran" || key === "zerg"
+      ? key
+      : undefined;
   }
 
   /**
@@ -739,10 +788,10 @@ class StrategyManager {
     const { orderType, isChronoBoosted, supply } = planStep;
 
     switch (orderType) {
-      case 'UnitType':
+      case "UnitType":
         actions.push(...UnitActionStrategy.handleUnitTypeAction(world, planStep));
         break;
-      case 'Upgrade':
+      case "Upgrade":
         if (this.upgradeStrategy) {
           actions.push(...UpgradeActionStrategy.handleUpgradeAction(world, planStep));
         } else {
@@ -754,7 +803,6 @@ class StrategyManager {
         break;
     }
 
-    // Check for chrono boost
     if (isChronoBoosted) {
       const gameState = GameState.getInstance();
       const currentSupply = gameState.getFoodUsed();
@@ -777,17 +825,40 @@ class StrategyManager {
    * @param {number} currentCumulativeCount The current cumulative count of the unit type up to this step.
    * @param {number} actionIndex The index of the current interpreted action in the rawStep.
    */
-  processInterpretedAction(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform, currentCumulativeCount, actionIndex) {
-    // Extract unitType, defaulting to 'default' if undefined or null
-    const unitType = interpretedAction.unitType?.toString() || 'default';
+  processInterpretedAction(
+    world,
+    rawStep,
+    step,
+    interpretedAction,
+    strategyManager,
+    actionsToPerform,
+    currentCumulativeCount,
+    actionIndex
+  ) {
+    const unitType = interpretedAction.unitType?.toString() || "default";
 
-    // Handle step completion via StrategyManager and return early if handled
-    if (StrategyManager.handleStepCompletion(world, rawStep, unitType, currentCumulativeCount, interpretedAction, strategyManager, actionIndex)) {
+    if (
+      StrategyManager.handleStepCompletion(
+        world,
+        rawStep,
+        unitType,
+        currentCumulativeCount,
+        interpretedAction,
+        strategyManager,
+        actionIndex
+      )
+    ) {
       return;
     }
 
-    // Handle plan step if not handled by StrategyManager
-    this.handlePlanStep(world, rawStep, step, interpretedAction, actionsToPerform, currentCumulativeCount);
+    this.handlePlanStep(
+      world,
+      rawStep,
+      step,
+      interpretedAction,
+      actionsToPerform,
+      currentCumulativeCount
+    );
   }
 
   /**
@@ -812,7 +883,9 @@ class StrategyManager {
    */
   processRegularAction(world, planStep, step, actionsToPerform) {
     if (!this.strategyContext) {
-      console.error('strategyContext is undefined, unable to set current step and perform actions.');
+      console.error(
+        "strategyContext is undefined, unable to set current step and perform actions."
+      );
       return;
     }
 
@@ -835,28 +908,42 @@ class StrategyManager {
     const interpretedActions = StrategyData.getInterpretedActions(rawStep);
     if (!interpretedActions) return;
 
-    // Type assertion to ensure interpretedActionsStatus can exist on rawStep
-    const stepWithStatus = /** @type {import("../../../utils/globalTypes").BuildOrderStep & { interpretedActionsStatus?: boolean[], completed?: boolean }} */ (rawStep);
+    const stepWithStatus = /** @type {import("../../../utils/globalTypes").BuildOrderStep & { interpretedActionsStatus?: boolean[], completed?: boolean }} */ (
+      rawStep
+    );
 
-    // Ensure interpretedActionsStatus exists on stepWithStatus
     if (!stepWithStatus.interpretedActionsStatus) {
-      stepWithStatus.interpretedActionsStatus = new Array(interpretedActions.length).fill(false);
+      stepWithStatus.interpretedActionsStatus = new Array(
+        interpretedActions.length
+      ).fill(false);
     }
 
     for (let i = 0; i < interpretedActions.length; i++) {
       const interpretedAction = interpretedActions[i];
-      const unitType = interpretedAction.unitType ? interpretedAction.unitType.toString() : 'default';
+      const unitType = interpretedAction.unitType
+        ? interpretedAction.unitType.toString()
+        : "default";
       const currentCumulativeCount = this.getCumulativeCount(unitType);
 
-      // Update cumulative count regardless of completion status
       this.updateCumulativeCount(unitType, interpretedAction.count || 0);
 
       if (!stepWithStatus.interpretedActionsStatus[i]) {
-        this.processInterpretedAction(world, rawStep, step, interpretedAction, strategyManager, actionsToPerform, currentCumulativeCount, i);
+        this.processInterpretedAction(
+          world,
+          rawStep,
+          step,
+          interpretedAction,
+          strategyManager,
+          actionsToPerform,
+          currentCumulativeCount,
+          i
+        );
       }
     }
 
-    stepWithStatus.completed = stepWithStatus.interpretedActionsStatus.every(status => status);
+    stepWithStatus.completed = stepWithStatus.interpretedActionsStatus.every(
+      (status) => status
+    );
   }
 
   /**
@@ -879,7 +966,7 @@ class StrategyManager {
 
   /**
    * Execute the game plan and return the actions to be performed.
-   * @param {World} world 
+   * @param {World} world
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} An array of actions to be performed.
    */
   runPlan(world) {
@@ -888,13 +975,16 @@ class StrategyManager {
     const specificBuildOrderKey = StrategyManager.getBuildOrderKey();
 
     if (!StrategyManager.validateResources(agent)) {
-      console.error('Insufficient resources to run the plan.');
+      console.error("Insufficient resources to run the plan.");
       return [];
     }
 
-    const strategyManager = StrategyManager.getInstance(race, specificBuildOrderKey);
+    const strategyManager = StrategyManager.getInstance(
+      race,
+      specificBuildOrderKey
+    );
     if (!strategyManager) {
-      console.error('Failed to retrieve or initialize StrategyManager.');
+      console.error("Failed to retrieve or initialize StrategyManager.");
       return [];
     }
 
@@ -903,13 +993,13 @@ class StrategyManager {
     gameState.pendingFood = 0;
 
     if (!this.strategyContext) {
-      console.error('strategyContext is undefined');
+      console.error("strategyContext is undefined");
       return [];
     }
 
     const plan = this.strategyContext.getCurrentStrategy();
     if (!plan || !StrategyManager.isValidPlan(plan)) {
-      console.error('Invalid or undefined strategy plan');
+      console.error("Invalid or undefined strategy plan");
       return [];
     }
 
@@ -923,9 +1013,12 @@ class StrategyManager {
    * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    * @returns {string}
    */
-  static selectBuildOrderKey(race, specificBuildOrderKey = undefined) {
+  static selectBuildOrderKey(
+    race,
+    specificBuildOrderKey = undefined
+  ) {
     if (race === undefined) {
-      throw new Error('Race must be provided');
+      throw new Error("Race must be provided");
     }
     if (specificBuildOrderKey !== undefined) {
       return specificBuildOrderKey;
@@ -1051,7 +1144,8 @@ class StrategyManager {
    * @param {number} count The count to add to the cumulative count.
    */
   updateCumulativeCount(unitType, count) {
-    this.cumulativeCounts[unitType] = (this.cumulativeCounts[unitType] || 0) + count;
+    this.cumulativeCounts[unitType] =
+      (this.cumulativeCounts[unitType] || 0) + count;
   }
 
   /**

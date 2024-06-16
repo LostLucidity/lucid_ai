@@ -1,5 +1,4 @@
-// src/features/strategy/index.js
-const utils = require('.');
+// src/features/strategy/utils/index.js
 const strategyContext = require('./strategyContext');
 const strategyInitialization = require('./strategyInitialization');
 const strategyManager = require('./strategyManager');
@@ -18,5 +17,5 @@ module.exports = {
   unitActionStrategy,
   unitSelection,
   upgradeActionStrategy,
-  utils
 };
+
