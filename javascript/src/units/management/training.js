@@ -25,8 +25,9 @@ const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require
  * @param {number} foodAvailable The amount of food capacity available for training workers.
  */
 function earmarkWorkersForTraining(world, foodAvailable) {
-  if (world.agent.race !== undefined) {
-    const workerUnitTypeData = world.data.getUnitTypeData(WorkerRace[world.agent.race]);
+  const { race } = world.agent;
+  if (race) {
+    const workerUnitTypeData = world.data.getUnitTypeData(WorkerRace[race]);
     for (let i = 0; i < foodAvailable; i++) {
       EarmarkManager.getInstance().addEarmark(world.data, workerUnitTypeData);
     }
@@ -51,12 +52,7 @@ function filterCandidateTypes(world) {
 
   const currentStepIndex = strategyContext.getCurrentStep();
   const currentPlanStep = currentStrategy.steps[currentStepIndex];
-
-  const trainingTypes = strategyContext.getTrainingTypes();
-  if (!trainingTypes) {
-    console.error('Training types are undefined.');
-    return [];
-  }
+  const trainingTypes = strategyContext.getTrainingTypes() || [];
 
   return trainingTypes.filter(type => {
     const unitTypeData = data.getUnitTypeData(type);
@@ -65,12 +61,12 @@ function filterCandidateTypes(world) {
     const supply = currentPlanStep ? parseInt(currentPlanStep.supply, 10) : 0;
 
     const isPlannedType = currentStrategy.steps.some(step => {
-      const interpretedActions = Array.isArray(step.interpretedAction) ? step.interpretedAction : [step.interpretedAction];
-      return interpretedActions.some(action => action && action.unitType === type);
+      const actions = Array.isArray(step.interpretedAction) ? step.interpretedAction : [step.interpretedAction];
+      return actions.some(action => action && action.unitType === type);
     });
 
     return isPlannedType &&
-      (!attributes.includes(Attribute.STRUCTURE)) &&
+      !attributes.includes(Attribute.STRUCTURE) &&
       foodRequired <= supply - gameState.getFoodUsed() &&
       gameState.checkTechFor(world.agent, type) &&
       gameState.checkProductionAvailability(type);
@@ -90,7 +86,6 @@ function getTrainer(world, unitTypeId, threshold) {
   const { data, resources } = world;
   const abilityId = data.getUnitTypeData(unitTypeId)?.abilityId;
 
-  // Ensure abilityId is defined before proceeding
   if (abilityId === undefined) return [];
 
   const warpgateAbilityId = WarpUnitAbility[unitTypeId];
@@ -98,7 +93,12 @@ function getTrainer(world, unitTypeId, threshold) {
 
   const units = resources.get().units;
 
-  const canTrain = (/** @type {Unit} */ unit) => {
+  /**
+   * Determines if a unit can train the specified unit type.
+   * @param {Unit} unit - The unit to check.
+   * @returns {boolean} - True if the unit can train the specified unit type, false otherwise.
+   */
+  const canTrain = unit => {
     if (!unit.buildProgress || unit.buildProgress < 1 || unit.labels.has('reposition')) {
       return false;
     }
@@ -107,11 +107,11 @@ function getTrainer(world, unitTypeId, threshold) {
     const orders = unit.orders || [];
     const pendingOrders = getPendingOrders(unit);
 
-    if ((orders.length + pendingOrders.length) === 0) return true;
+    if (orders.length + pendingOrders.length === 0) return true;
     if (orders.length === 0 || orders[0].abilityId !== currentAbilityId) return false;
 
     const firstOrder = orders[0];
-    if (firstOrder.abilityId === undefined) return false; // Ensure abilityId is defined
+    if (firstOrder.abilityId === undefined) return false;
 
     const unitTypeTraining = unitTypeTrainingAbilities.get(firstOrder.abilityId);
     if (!unitTypeTraining) return false;
@@ -125,12 +125,10 @@ function getTrainer(world, unitTypeId, threshold) {
 
   const productionUnits = getBasicProductionUnits(world, unitTypeId).filter(canTrain);
   const warpgateUnits = units.getById(WARPGATE).filter(canTrain);
-
-  // Handle flying units if applicable
   const flyingTypes = unitTypesWithAbility.flatMap(type => findKeysForValue(flyingTypesMapping, type));
   const flyingUnits = units.getById(flyingTypes).filter(canTrain);
 
-  return [...new Set([...productionUnits, ...warpgateUnits, ...flyingUnits])]; // Remove duplicates
+  return [...new Set([...productionUnits, ...warpgateUnits, ...flyingUnits])];
 }
 
 /**
@@ -150,20 +148,13 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
   const safeTrainers = filterSafeTrainers(world, trainers);
   const trainingCommands = createTrainingCommands(world, safeTrainers, unitTypeData);
 
-  // Collect all valid, non-undefined unit tags
-  const validTags = trainingCommands.flatMap(command => command.unitTags || [])
-    .filter(tag => typeof tag === 'string'); // Ensure only strings are included
-
-  // Fetch units by valid tags
+  const validTags = trainingCommands.flatMap(command => command.unitTags || []).filter(tag => typeof tag === 'string');
   const trainerUnits = world.resources.get().units.getByTag(validTags);
-
-  // Create a map from tags to units for quick access
   const tagToUnitMap = new Map(trainerUnits.map(unit => [unit.tag, unit]));
 
-  // Set pending orders in bulk
   trainingCommands.forEach(command => {
     (command.unitTags || []).forEach(tag => {
-      if (tag) { // Ensure tag is not undefined
+      if (tag) {
         const trainerUnit = tagToUnitMap.get(tag);
         if (trainerUnit) {
           setPendingOrders(trainerUnit, command);
@@ -191,12 +182,10 @@ function handleUnitTraining(world, step) {
 
   let trainingOrders = shouldTrainWorkers(world) ? trainWorkers(world) : [];
 
-  // Proceed to train combat units if no worker training orders are created
   if (trainingOrders.length === 0) {
     trainingOrders = trainCombatUnits(world);
   }
 
-  // Earmark workers for future training if no training orders were created
   if (trainingOrders.length === 0 && WorkerRace[world.agent.race]) {
     earmarkWorkersForTraining(world, foodAvailable);
   }
@@ -204,7 +193,6 @@ function handleUnitTraining(world, step) {
   return trainingOrders;
 }
 
-// Unit training specific functions and data structures
 /**
  * Analyzes the game state and decides if workers should be trained.
  * @param {World} world - The current game world context.
@@ -213,7 +201,7 @@ function handleUnitTraining(world, step) {
 function shouldTrainWorkers(world) {
   const { agent, resources } = world;
 
-  if (agent.race === undefined || !agent.canAfford(WorkerRace[agent.race])) {
+  if (!agent.race || !agent.canAfford(WorkerRace[agent.race])) {
     return false;
   }
 
@@ -222,6 +210,8 @@ function shouldTrainWorkers(world) {
   const gasMines = resources.get().units.getGasMines();
   const assignedWorkerCount = [...bases, ...gasMines].reduce((acc, unit) => acc + (unit.assignedHarvesters || 0), 0);
   const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
+
+  // Ensure minerals is defined before performing the comparison
   const sufficientMinerals = typeof agent.minerals === 'number' && (agent.minerals < 512 || minimumWorkerCount <= 36);
   const productionPossible = haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]);
   const notOutpowered = !StrategyContext.getInstance().getOutpowered();
@@ -240,19 +230,20 @@ function train(world, unitTypeId, targetCount = null) {
   const unitTypeData = world.data.getUnitTypeData(unitTypeId);
   if (!unitTypeData.abilityId) return [];
 
-  // Check if we can train the unit considering the target count
   if (!canTrainUnit(world, unitTypeId, targetCount)) return [];
 
-  // First check affordability before earmarking resources
-  const canAffordNow = world.agent.canAfford(unitTypeId);
-  earmarkResourcesIfNeeded(world, unitTypeData, true);
+  const foodCap = world.agent.foodCap ?? 0;
+  const foodUsed = world.agent.foodUsed ?? 0;
+  const availableSupply = foodCap - foodUsed;
+  const requiredSupply = unitTypeData.foodRequired || 0;
 
-  // Only proceed with training if we can afford the unit after checking affordability
-  if (canAffordNow) {
+  if (availableSupply < requiredSupply) return [];
+
+  if (world.agent.canAfford(unitTypeId)) {
+    earmarkResourcesIfNeeded(world, unitTypeData, true);
     return handleTrainingActions(world, unitTypeId, unitTypeData);
   }
 
-  // Can't afford now, but resources are earmarked for future
   return [];
 }
 
@@ -289,9 +280,9 @@ function trainWorkers(world) {
   const { agent, resources } = world;
   const { minerals, race } = agent;
 
-  if (minerals === undefined || race === undefined) return [];
+  if (!minerals || !race) return [];
 
-  const workerTypeId = WorkerRace[race]; // Assuming WorkerRace is a predefined mapping
+  const workerTypeId = WorkerRace[race];
   const workerTypeData = getUnitTypeData(world, workerTypeId);
   const { abilityId } = workerTypeData;
 
@@ -308,8 +299,8 @@ function trainWorkers(world) {
       if (larva.isIdle() && larva.abilityAvailable(abilityId) && !isAlreadyTraining) {
         const unitCommand = createUnitCommand(abilityId, [larva]);
         collectedActions.push(unitCommand);
-        setPendingOrders(larva, unitCommand); // Update local state to reflect new order
-        break; // Only issue one command per function call to manage resources efficiently
+        setPendingOrders(larva, unitCommand);
+        break;
       }
     }
   } else {
@@ -321,8 +312,8 @@ function trainWorkers(world) {
       if (base.isIdle() && base.isFinished() && base.abilityAvailable(abilityId) && !isAlreadyTraining) {
         const unitCommand = createUnitCommand(abilityId, [base]);
         collectedActions.push(unitCommand);
-        setPendingOrders(base, unitCommand); // Update local state to reflect new order
-        break; // Issue command to the first eligible base only
+        setPendingOrders(base, unitCommand);
+        break;
       }
     }
   }
