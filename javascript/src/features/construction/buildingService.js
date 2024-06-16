@@ -33,7 +33,7 @@ const {
 } = require("../../utils/buildingPlacementUtils");
 const { isSupplyNeeded } = require("../../utils/common");
 const { getTimeUntilUnitCanBuildAddon } = require("../../utils/supplyUtils");
-const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionsUtils");
+const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionUtils");
 const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../misc/gameData");
 
 const foodEarmarks = new Map();
