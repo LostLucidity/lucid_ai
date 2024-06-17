@@ -583,6 +583,10 @@ class StrategyManager {
       return false;
     }
 
+    if (action.isUpgrade && action.upgradeType) {
+      return StrategyManager.checkUpgradeStatus(agent, action.upgradeType);
+    }
+
     if (action.unitType == null) {
       return false;
     }
@@ -618,10 +622,6 @@ class StrategyManager {
       }
 
       return isCountSatisfied;
-    }
-
-    if (action.isUpgrade && action.upgradeType) {
-      return StrategyManager.checkUpgradeStatus(agent, action.upgradeType);
     }
 
     return false;
