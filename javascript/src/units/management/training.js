@@ -1,4 +1,4 @@
-const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
+const { UnitType } = require("@node-sc2/core/constants");
 const { Attribute, Race } = require("@node-sc2/core/constants/enums");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
@@ -88,7 +88,6 @@ function getTrainer(world, unitTypeId, threshold) {
 
   if (abilityId === undefined) return [];
 
-  const warpgateAbilityId = WarpUnitAbility[unitTypeId];
   const unitTypesWithAbility = findUnitTypesWithAbilityCached(data, abilityId);
 
   const units = resources.get().units;
@@ -103,12 +102,12 @@ function getTrainer(world, unitTypeId, threshold) {
       return false;
     }
 
-    const currentAbilityId = unit.unitType === WARPGATE ? warpgateAbilityId : abilityId;
     const orders = unit.orders || [];
     const pendingOrders = getPendingOrders(unit);
 
-    if (orders.length + pendingOrders.length === 0) return true;
-    if (orders.length === 0 || orders[0].abilityId !== currentAbilityId) return false;
+    if (orders.length + pendingOrders.length > 1) return false;
+
+    if (orders.length === 0) return true;
 
     const firstOrder = orders[0];
     if (firstOrder.abilityId === undefined) return false;

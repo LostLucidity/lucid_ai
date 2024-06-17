@@ -84,6 +84,25 @@ function convertToPlanSteps(strategySteps) {
 }
 
 /**
+ * Retrieves the build order key from the current strategy.
+ * @returns {string} - The determined build order key.
+ */
+function getBuildOrderKey() {
+const strategyContext = StrategyContext.getInstance();
+const currentStrategy = strategyContext.getCurrentStrategy();
+
+if (currentStrategy) {
+  if ("title" in currentStrategy) {
+    return currentStrategy.title;
+  } else if ("name" in currentStrategy) {
+    return currentStrategy.name;
+  }
+}
+
+return "defaultKey";
+}
+
+/**
  * Calculates the maximum supply from an array of build order steps, focusing on the last supply unit.
  * @param {import('./globalTypes').BuildOrderStep[]} steps - The steps in the build order.
  * @param {SC2APIProtocol.Race} race - The race of the bot.
@@ -152,9 +171,27 @@ function isEqualStep(stepA, stepB) {
     stepA.supply === stepB.supply;
 }
 
+/**
+ * @param {import("./globalTypes").BuildOrder | import("../features/strategy/utils/strategyManager").Strategy | undefined} plan
+ */
+function isValidPlan(plan) {
+  return plan && Array.isArray(plan.steps);
+}
+
+/**
+ * @param {Agent} agent
+ */
+function validateResources(agent) {
+  const { minerals, vespene } = agent;
+  return !(minerals === undefined || vespene === undefined);
+}
+
 module.exports = {
   convertToPlanSteps,
+  getBuildOrderKey,
   getMaxSupplyFromPlan,
   getPlanFoodValue,
-  isEqualStep
+  isEqualStep,
+  isValidPlan,
+  validateResources
 };

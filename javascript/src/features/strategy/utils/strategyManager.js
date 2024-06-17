@@ -4,7 +4,6 @@ const {
   Upgrade,
   UnitType,
   Buff,
-  Ability,
 } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 
@@ -19,12 +18,11 @@ const {
 } = require("../../../gameLogic/economy/economyManagement");
 const { checkUnitCount } = require("../../../gameLogic/shared/stateManagement");
 const { GameState } = require("../../../gameState");
-const { getPendingOrders } = require("../../../sharedServices");
 const { buildSupplyOrTrain } = require("../../../units/management/unitManagement");
-const { setPendingOrders } = require("../../../units/management/unitOrders");
-const { isEqualStep } = require("../../../utils/strategyUtils");
+const { isEqualStep, getBuildOrderKey, validateResources, isValidPlan } = require("../../../utils/strategyUtils");
 const { convertTimeStringToSeconds } = require("../../../utils/timeUtils");
 const { getUnitsById } = require("../../../utils/unitUtils");
+const { checkUpgradeStatus } = require("../../../utils/upgradeUtils");
 const buildOrders = require("../../buildOrders");
 const { interpretBuildOrderAction } = require("../../buildOrders/buildOrderUtils");
 const { build, hasEarmarks, resetEarmarks } = require("../../construction/buildingService");
@@ -173,24 +171,6 @@ class StrategyManager {
   }
 
   /**
-   * Check if the upgrade is in progress or completed.
-   * @param {Agent} agent
-   * @param {string | number} upgradeType
-   * @returns {boolean}
-   */
-  static checkUpgradeStatus(agent, upgradeType) {
-    const gameState = GameState.getInstance();
-    const upgradesInProgress = /** @type {Object<string, boolean>} */ (
-      gameState.upgradesInProgress || {}
-    );
-    const upgradeInProgress = !!upgradesInProgress[upgradeType];
-    const upgradeCompleted =
-      agent.upgradeIds?.includes(Number(upgradeType)) ?? false;
-
-    return upgradeCompleted || upgradeInProgress;
-  }
-
-  /**
    * Creates a plan step from the given raw step and interpreted action.
    * @param {import('../../../utils/globalTypes').BuildOrderStep | StrategyStep} rawStep - The raw step from the build order.
    * @param {import('../../../utils/globalTypes').InterpretedAction} interpretedAction - The interpreted action for the step.
@@ -274,25 +254,6 @@ class StrategyManager {
   }
 
   /**
-   * Retrieves the build order key from the current strategy.
-   * @returns {string} - The determined build order key.
-   */
-  static getBuildOrderKey() {
-    const strategyContext = StrategyContext.getInstance();
-    const currentStrategy = strategyContext.getCurrentStrategy();
-
-    if (currentStrategy) {
-      if ("title" in currentStrategy) {
-        return currentStrategy.title;
-      } else if ("name" in currentStrategy) {
-        return currentStrategy.name;
-      }
-    }
-
-    return "defaultKey";
-  }
-
-  /**
    * Gets the cumulative count for a given unit type.
    * @param {string} unitType The unit type identifier.
    * @returns {number} The cumulative count for the unit type.
@@ -324,68 +285,6 @@ class StrategyManager {
 
     return this.instance;
   }
-
-  /**
-   * Handle the chrono boost action for the current plan step.
-   * @param {World} world - The current game world context.
-   * @param {PlanStep} planStep - The current step in the plan to be executed.
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to perform the chrono boost.
-   */
-  static handleChronoBoostAction(world, planStep) {
-    const chronoBoostActions = /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */ ([]);
-
-    // Get all Nexus units and exit early if there are none
-    const nexusUnits = getUnitsById(world, UnitType.NEXUS);
-    if (!nexusUnits.length) return chronoBoostActions;
-
-    // Select the Nexus with the highest energy
-    const nexus = nexusUnits.reduce((maxNexus, currentNexus) =>
-      (currentNexus.energy ?? 0) > (maxNexus.energy ?? 0) ? currentNexus : maxNexus
-    );
-
-    // Exit early if the selected Nexus doesn't have a tag
-    if (!nexus.tag) return chronoBoostActions;
-
-    // Get the ability ID for the unit type specified in the plan step
-    const unitTypeData = getUnitTypeData(world, planStep.unitType);
-    const abilityId = unitTypeData?.abilityId;
-
-    // Exit early if there's no ability ID
-    if (!abilityId) return chronoBoostActions;
-
-    // Check if the Nexus has the Chrono Boost ability available
-    const availableAbilities = nexus.availableAbilities();
-    if (!availableAbilities.includes(Ability.EFFECT_CHRONOBOOSTENERGYCOST)) return chronoBoostActions;
-
-    // Find the structure that is training the specified unit type
-    const trainingUnit = world.resources.get().units.getStructures().find(unit =>
-      unit.orders?.some(order => order.abilityId === abilityId)
-    );
-
-    // Exit early if there's no training unit
-    if (!trainingUnit) return chronoBoostActions;
-
-    // Check if Chrono Boost is already pending
-    const isChronoBoostPending = getPendingOrders(nexus).some(order =>
-      order.abilityId === Ability.EFFECT_CHRONOBOOSTENERGYCOST
-    );
-
-    // Add Chrono Boost action if it's not already pending
-    if (!isChronoBoostPending) {
-      const chronoBoostAction = {
-        abilityId: Ability.EFFECT_CHRONOBOOSTENERGYCOST,
-        unitTags: [nexus.tag],
-        targetUnitTag: trainingUnit.tag
-      };
-
-      // Set pending orders for the Nexus unit and add the action to the list
-      setPendingOrders(nexus, chronoBoostAction);
-      chronoBoostActions.push(chronoBoostAction);
-    }
-
-    return chronoBoostActions;
-  }
-
   /**
    * Handles earmarks and balances resources if necessary.
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
@@ -584,7 +483,7 @@ class StrategyManager {
     }
 
     if (action.isUpgrade && action.upgradeType) {
-      return StrategyManager.checkUpgradeStatus(agent, action.upgradeType);
+      return checkUpgradeStatus(agent, action.upgradeType);
     }
 
     if (action.unitType == null) {
@@ -729,13 +628,6 @@ class StrategyManager {
   }
 
   /**
-   * @param {import("../../../utils/globalTypes").BuildOrder | Strategy | undefined} plan
-   */
-  static isValidPlan(plan) {
-    return plan && Array.isArray(plan.steps);
-  }
-
-  /**
    * Dynamically loads a strategy based on race and build order key.
    * @param {SC2APIProtocol.Race | undefined} race
    * @param {string} buildOrderKey
@@ -807,7 +699,7 @@ class StrategyManager {
       const gameState = GameState.getInstance();
       const currentSupply = gameState.getFoodUsed();
       if (currentSupply >= supply) {
-        actions.push(...StrategyManager.handleChronoBoostAction(world, planStep));
+        actions.push(...UnitActionStrategy.handleChronoBoostAction(world, planStep));
       }
     }
 
@@ -972,9 +864,9 @@ class StrategyManager {
   runPlan(world) {
     const { agent, data } = world;
     const { race } = agent;
-    const specificBuildOrderKey = StrategyManager.getBuildOrderKey();
+    const specificBuildOrderKey = getBuildOrderKey();
 
-    if (!StrategyManager.validateResources(agent)) {
+    if (!validateResources(agent)) {
       console.error("Insufficient resources to run the plan.");
       return [];
     }
@@ -998,7 +890,7 @@ class StrategyManager {
     }
 
     const plan = this.strategyContext.getCurrentStrategy();
-    if (!plan || !StrategyManager.isValidPlan(plan)) {
+    if (!plan || !isValidPlan(plan)) {
       console.error("Invalid or undefined strategy plan");
       return [];
     }
@@ -1146,14 +1038,6 @@ class StrategyManager {
   updateCumulativeCount(unitType, count) {
     this.cumulativeCounts[unitType] =
       (this.cumulativeCounts[unitType] || 0) + count;
-  }
-
-  /**
-   * @param {Agent} agent
-   */
-  static validateResources(agent) {
-    const { minerals, vespene } = agent;
-    return !(minerals === undefined || vespene === undefined);
   }
 }
 
