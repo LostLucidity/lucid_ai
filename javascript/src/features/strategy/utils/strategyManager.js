@@ -18,6 +18,7 @@ const {
 } = require("../../../gameLogic/economy/economyManagement");
 const { checkUnitCount } = require("../../../gameLogic/shared/stateManagement");
 const { GameState } = require("../../../gameState");
+const { earmarkResourcesIfNeeded } = require("../../../units/management/trainingUtils");
 const { buildSupplyOrTrain } = require("../../../units/management/unitManagement");
 const { isEqualStep, getBuildOrderKey, validateResources, isValidPlan } = require("../../../utils/strategyUtils");
 const { convertTimeStringToSeconds } = require("../../../utils/timeUtils");
@@ -108,6 +109,19 @@ class StrategyManager {
   }
 
   /**
+   * Earmark resources for the given plan step.
+   * @param {World} world - The current game world context.
+   * @param {PlanStep} planStep - The current step in the plan to be executed.
+   */
+  static earmarkResourcesForPlanStep(world, planStep) {
+    const { unitType } = planStep;
+    if (unitType) {
+      const unitTypeData = world.data.getUnitTypeData(unitType);
+      earmarkResourcesIfNeeded(world, unitTypeData, true);
+    }
+  }
+
+  /**
    * Initializes the singleton instance.
    * @param {SC2APIProtocol.Race | undefined} race
    * @param {string | undefined} specificBuildOrderKey
@@ -137,6 +151,7 @@ class StrategyManager {
   }
 
   /**
+   * Balances earmarked resources for the world.
    * @param {World} world
    */
   static balanceEarmarkedResources(world) {
@@ -675,8 +690,8 @@ class StrategyManager {
    * @param {PlanStep} planStep - The current step in the plan to be executed.
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be performed.
    */
-  performPlanStepActions(world, planStep) {
-    let actions = [...buildSupplyOrTrain(world, planStep)];
+  static performPlanStepActions(world, planStep) {
+    const actions = [...buildSupplyOrTrain(world, planStep)];
     const { orderType, isChronoBoosted, supply } = planStep;
 
     switch (orderType) {
@@ -684,10 +699,10 @@ class StrategyManager {
         actions.push(...UnitActionStrategy.handleUnitTypeAction(world, planStep));
         break;
       case "Upgrade":
-        if (this.upgradeStrategy) {
+        if (UpgradeActionStrategy) {
           actions.push(...UpgradeActionStrategy.handleUpgradeAction(world, planStep));
         } else {
-          console.error("upgradeStrategy is not initialized.");
+          console.error("UpgradeActionStrategy is not initialized.");
         }
         break;
       default:
@@ -697,11 +712,13 @@ class StrategyManager {
 
     if (isChronoBoosted) {
       const gameState = GameState.getInstance();
-      const currentSupply = gameState.getFoodUsed();
-      if (currentSupply >= supply) {
+      if (gameState.getFoodUsed() >= supply) {
         actions.push(...UnitActionStrategy.handleChronoBoostAction(world, planStep));
       }
     }
+
+    // Earmark resources unconditionally
+    StrategyManager.earmarkResourcesForPlanStep(world, planStep);
 
     return actions;
   }
@@ -782,7 +799,7 @@ class StrategyManager {
     }
 
     this.strategyContext.setCurrentStep(step);
-    const stepActions = this.performPlanStepActions(world, planStep);
+    const stepActions = StrategyManager.performPlanStepActions(world, planStep);
     if (stepActions && stepActions.length > 0) {
       actionsToPerform.push(...stepActions);
     }

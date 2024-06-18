@@ -4,7 +4,7 @@ const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
 const { getBasicProductionUnits } = require("./basicUnitUtils");
 const { createTrainingCommands } = require("./trainingCommands");
-const { canTrainUnit, earmarkResourcesIfNeeded } = require("./trainingUtils");
+const { canTrainUnit } = require("./trainingUtils");
 const { unitTypeTrainingAbilities, flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { EarmarkManager } = require("../../core");
@@ -18,6 +18,36 @@ const { getPendingOrders } = require("../../sharedServices");
 const { findKeysForValue, createUnitCommand, findUnitTypesWithAbilityCached } = require("../../utils/common");
 const { getById } = require("../../utils/generalUtils");
 const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("../../utils/unitUtils");
+
+/**
+ * Checks if a unit can train the specified unit type.
+ * @param {World} world The game world context.
+ * @param {Unit} unit The unit to check.
+ * @param {number} abilityId The ability ID required to train the unit type.
+ * @param {number} threshold The time in frames or seconds until the next call (dynamic threshold).
+ * @returns {boolean} True if the unit can train the specified unit type, false otherwise.
+ */
+function canTrainUnitType(world, unit, abilityId, threshold) {
+  const { data } = world;
+  if (!unit.buildProgress || unit.buildProgress < 1 || unit.labels.has('reposition')) return false;
+
+  const orders = unit.orders || [];
+  const pendingOrders = getPendingOrders(unit);
+  if (orders.length + pendingOrders.length > 1) return false;
+  if (orders.length === 0) return true;
+
+  const firstOrder = orders[0];
+  if (firstOrder.abilityId === undefined) return false;
+
+  const unitTypeTraining = unitTypeTrainingAbilities.get(firstOrder.abilityId);
+  if (!unitTypeTraining) return false;
+
+  const unitTypeData = data.getUnitTypeData(unitTypeTraining);
+  if (!unitTypeData || unitTypeData.buildTime === undefined) return false;
+
+  const buildTimeLeft = getBuildTimeLeft(unit, unitTypeData.buildTime, firstOrder.progress || 0);
+  return buildTimeLeft <= threshold && pendingOrders.length === 0;
+}
 
 /**
  * Earmarks workers for future training based on available food capacity.
@@ -75,59 +105,47 @@ function filterCandidateTypes(world) {
 
 /**
  * Gets trainers that can produce a specific unit type, including those nearly finished training other units.
- * 
- * @param {World} world - The game world context.
- * @param {UnitTypeId} unitTypeId - The type ID of the unit to train.
- * @param {number} threshold - The time in frames or seconds until the next call (dynamic threshold).
+ * @param {World} world The game world context.
+ * @param {UnitTypeId} unitTypeId The type ID of the unit to train.
+ * @param {number} threshold The time in frames or seconds until the next call (dynamic threshold).
  * @returns {Unit[]} Array of units that can train the specified unit type.
  */
 function getTrainer(world, unitTypeId, threshold) {
   const { WARPGATE } = UnitType;
-  const { data, resources } = world;
+  const { data } = world;
   const abilityId = data.getUnitTypeData(unitTypeId)?.abilityId;
-
   if (abilityId === undefined) return [];
 
   const unitTypesWithAbility = findUnitTypesWithAbilityCached(data, abilityId);
+  const units = world.resources.get().units;
 
-  const units = resources.get().units;
-
-  /**
-   * Determines if a unit can train the specified unit type.
-   * @param {Unit} unit - The unit to check.
-   * @returns {boolean} - True if the unit can train the specified unit type, false otherwise.
-   */
-  const canTrain = unit => {
-    if (!unit.buildProgress || unit.buildProgress < 1 || unit.labels.has('reposition')) {
-      return false;
-    }
-
-    const orders = unit.orders || [];
-    const pendingOrders = getPendingOrders(unit);
-
-    if (orders.length + pendingOrders.length > 1) return false;
-
-    if (orders.length === 0) return true;
-
-    const firstOrder = orders[0];
-    if (firstOrder.abilityId === undefined) return false;
-
-    const unitTypeTraining = unitTypeTrainingAbilities.get(firstOrder.abilityId);
-    if (!unitTypeTraining) return false;
-
-    const unitTypeData = data.getUnitTypeData(unitTypeTraining);
-    if (!unitTypeData || unitTypeData.buildTime === undefined) return false;
-
-    const buildTimeLeft = getBuildTimeLeft(unit, unitTypeData.buildTime, firstOrder.progress || 0);
-    return buildTimeLeft <= threshold && pendingOrders.length === 0;
-  };
-
-  const productionUnits = getBasicProductionUnits(world, unitTypeId).filter(canTrain);
-  const warpgateUnits = units.getById(WARPGATE).filter(canTrain);
-  const flyingTypes = unitTypesWithAbility.flatMap(type => findKeysForValue(flyingTypesMapping, type));
-  const flyingUnits = units.getById(flyingTypes).filter(canTrain);
+  const productionUnits = getBasicProductionUnits(world, unitTypeId).filter(unit =>
+    canTrainUnitType(world, unit, abilityId, threshold)
+  );
+  const warpgateUnits = units.getById(WARPGATE).filter(unit =>
+    canTrainUnitType(world, unit, abilityId, threshold)
+  );
+  const flyingUnits = getUnitsByAbility(world, unitTypeId, threshold, unitTypesWithAbility);
 
   return [...new Set([...productionUnits, ...warpgateUnits, ...flyingUnits])];
+}
+
+/**
+ * Gets units that can train the specified unit type from a given set of unit types.
+ * @param {World} world The game world context.
+ * @param {number} unitTypeId The type ID of the unit to train.
+ * @param {number} threshold The time in frames or seconds until the next call (dynamic threshold).
+ * @param {number[]} unitTypesWithAbility Array of unit types that can use the required ability.
+ * @returns {Unit[]} Array of units that can train the specified unit type.
+ */
+function getUnitsByAbility(world, unitTypeId, threshold, unitTypesWithAbility) {
+  const { resources } = world;
+  const units = resources.get().units;
+
+  return unitTypesWithAbility.flatMap(type => {
+    const unitIds = findKeysForValue(flyingTypesMapping, type);
+    return units.getById(unitIds).filter(unit => canTrainUnitType(world, unit, unitTypeId, threshold));
+  });
 }
 
 /**
@@ -220,30 +238,42 @@ function shouldTrainWorkers(world) {
 
 /**
  * Train a unit.
- * @param {World} world The current game world.
- * @param {UnitTypeId} unitTypeId Type of the unit to train.
- * @param {number | null} targetCount Target number of units.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ * @param {World} world - The current game world.
+ * @param {UnitTypeId} unitTypeId - Type of the unit to train.
+ * @param {number | null} targetCount - Target number of units.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - List of unit training actions.
  */
 function train(world, unitTypeId, targetCount = null) {
   const unitTypeData = world.data.getUnitTypeData(unitTypeId);
-  if (!unitTypeData.abilityId) return [];
 
-  if (!canTrainUnit(world, unitTypeId, targetCount)) return [];
+  // Check if the unit type has a valid ability ID
+  if (!unitTypeData.abilityId) {
+    return [];
+  }
 
+  // Calculate available supply and required supply
   const foodCap = world.agent.foodCap ?? 0;
   const foodUsed = world.agent.foodUsed ?? 0;
   const availableSupply = foodCap - foodUsed;
   const requiredSupply = unitTypeData.foodRequired || 0;
 
-  if (availableSupply < requiredSupply) return [];
-
-  if (world.agent.canAfford(unitTypeId)) {
-    earmarkResourcesIfNeeded(world, unitTypeData, true);
-    return handleTrainingActions(world, unitTypeId, unitTypeData);
+  // Check if there is enough available supply to train the unit
+  if (availableSupply < requiredSupply) {
+    return [];
   }
 
-  return [];
+  // Check if the agent can afford the unit
+  if (!world.agent.canAfford(unitTypeId)) {
+    return [];
+  }
+
+  // Check if the unit can be trained based on target count and other conditions
+  if (!canTrainUnit(world, unitTypeId, targetCount)) {
+    return [];
+  }
+
+  // Handle the unit training actions
+  return handleTrainingActions(world, unitTypeId, unitTypeData);
 }
 
 /**
