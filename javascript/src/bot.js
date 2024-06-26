@@ -1,4 +1,3 @@
-//@ts-check
 "use strict";
 
 // External library imports
@@ -43,6 +42,8 @@ async function checkBuildOrderProgress(world, buildOrder) {
   const ADDITIONAL_BUFFER_PER_ACTION_SECONDS = 5;
   const MARGIN_OF_ERROR_SECONDS = 5;
 
+  const currentSupply = gameState.getFoodUsed();
+
   for (const [index, order] of buildOrder.entries()) {
     const orderStatus = buildOrderCompletion.get(order) || { completed: false, logged: false, prematureLogged: false };
 
@@ -50,17 +51,20 @@ async function checkBuildOrderProgress(world, buildOrder) {
 
     const satisfied = StrategyManager.getInstance().isStepSatisfied(world, order);
     const expectedTimeInSeconds = timeStringToSeconds(order.time);
+    const timeDifference = currentTimeInSeconds - expectedTimeInSeconds;
+    const supplyDifference = currentSupply - Number(order.supply);
+    const timeStatus = timeDifference < 0 ? "ahead of schedule" : "behind schedule";
 
     if (satisfied) {
       if (currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS) {
         orderStatus.completed = true;
-        console.log(`Build Order Step ${index} Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds`);
+        console.log(`Build Order Step ${index} Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
       } else if (!orderStatus.prematureLogged) {
-        console.log(`Build Order Step ${index} Prematurely Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Expected time: ${expectedTimeInSeconds.toFixed(2)} seconds.`);
+        console.log(`Build Order Step ${index} Prematurely Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Expected time: ${expectedTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
         orderStatus.prematureLogged = true;
       }
     } else if (currentTimeInSeconds >= expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + ADDITIONAL_BUFFER_PER_ACTION_SECONDS && !orderStatus.logged) {
-      console.warn(`Build Order Step ${index} NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds.`);
+      console.warn(`Build Order Step ${index} NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
       orderStatus.logged = true;
     }
 
