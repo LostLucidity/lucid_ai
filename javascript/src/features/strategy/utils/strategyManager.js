@@ -66,36 +66,11 @@ const StrategyData = require("../data/strategyData");
  */
 class StrategyManager {
   /**
-   * Handles actions related to unit management.
-   * @type {UnitActionStrategy}
-   */
-  actionStrategy = new UnitActionStrategy();
-
-  /**
-   * Stores cumulative counts of units or upgrades.
-   * @private
-   * @type {Object<string, number>}
-   */
-  cumulativeCounts = {};
-
-  /**
    * Singleton instance of the StrategyManager.
    * @type {StrategyManager | null}
    * @private
    */
   static instance = null;
-
-  /**
-   * The race type, optional for setting up race-specific strategies.
-   * @type {SC2APIProtocol.Race | undefined}
-   */
-  race;
-
-  /**
-   * Handles actions related to upgrades.
-   * @type {UpgradeActionStrategy}
-   */
-  upgradeStrategy = new UpgradeActionStrategy();
 
   /**
    * Constructor for StrategyManager.
@@ -107,6 +82,31 @@ class StrategyManager {
     this.initializeSingleton(race, specificBuildOrderKey);
     StrategyManager.instance = this;
   }
+
+  /**
+   * Handles actions related to unit management.
+   * @type {UnitActionStrategy}
+   */
+  actionStrategy = new UnitActionStrategy();
+
+  /**
+   * Handles actions related to upgrades.
+   * @type {UpgradeActionStrategy}
+   */
+  upgradeStrategy = new UpgradeActionStrategy();
+
+  /**
+   * Stores cumulative counts of units or upgrades.
+   * @private
+   * @type {Object<string, number>}
+   */
+  cumulativeCounts = {};
+
+  /**
+   * The race type, optional for setting up race-specific strategies.
+   * @type {SC2APIProtocol.Race | undefined}
+   */
+  race;
 
   /**
    * Earmark resources for the given plan step.
@@ -300,6 +300,7 @@ class StrategyManager {
 
     return this.instance;
   }
+
   /**
    * Handles earmarks and balances resources if necessary.
    * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
@@ -692,7 +693,9 @@ class StrategyManager {
    */
   static performPlanStepActions(world, planStep) {
     const actions = [...buildSupplyOrTrain(world, planStep)];
-    const { orderType, isChronoBoosted, supply } = planStep;
+    const { orderType, isChronoBoosted, supply, unitType, targetCount } = planStep;
+    const gameState = GameState.getInstance();
+    const currentUnitCount = gameState.getUnitCount(world, unitType);
 
     switch (orderType) {
       case "UnitType":
@@ -710,15 +713,13 @@ class StrategyManager {
         break;
     }
 
-    if (isChronoBoosted) {
-      const gameState = GameState.getInstance();
-      if (gameState.getFoodUsed() >= supply) {
-        actions.push(...UnitActionStrategy.handleChronoBoostAction(world, planStep));
-      }
+    if (isChronoBoosted && gameState.getFoodUsed() >= supply) {
+      actions.push(...UnitActionStrategy.handleChronoBoostAction(world, planStep));
     }
 
-    // Earmark resources unconditionally
-    StrategyManager.earmarkResourcesForPlanStep(world, planStep);
+    if (currentUnitCount < targetCount) {
+      StrategyManager.earmarkResourcesForPlanStep(world, planStep);
+    }
 
     return actions;
   }
