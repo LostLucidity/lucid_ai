@@ -190,7 +190,7 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of unit training commands.
  */
 function handleUnitTraining(world, step) {
-  if (!world.agent.race || !step.unitType) return [];
+  if (world.agent.race == null || step.unitType == null) return [];
 
   const gameState = GameState.getInstance();
   const foodUsed = gameState.getFoodUsed() + EarmarkManager.getEarmarkedFood();

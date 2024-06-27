@@ -19,7 +19,7 @@ const { commandBuilderToConstruct } = require("../../gameLogic/shared/workerMana
 const { GameState } = require("../../gameState");
 const MapResources = require("../../gameState/mapResources");
 const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
-const { getPendingOrders } = require("../../sharedServices");
+const { getPendingOrders, foodEarmarks } = require("../../sharedServices");
 const { flyingTypesMapping } = require("../../units/management/unitConfig");
 const { updateAddOnType, getUnitTypeToBuild } = require("../../units/management/unitHelpers");
 const { getUnitsCapableToAddOn } = require("../../utils/addonUtils");
@@ -35,8 +35,6 @@ const { isSupplyNeeded } = require("../../utils/common");
 const { getTimeUntilUnitCanBuildAddon } = require("../../utils/supplyUtils");
 const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionUtils");
 const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../misc/gameData");
-
-const foodEarmarks = new Map();
 
 /**
  * Adds an add-on with placement checks and relocating logic.
