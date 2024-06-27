@@ -1,7 +1,7 @@
 const { UnitType, Ability } = require("@node-sc2/core/constants");
 
 const { shouldTrainMoreWorkers, calculateMaxWorkers, trainAdditionalWorkers } = require("../../gameLogic/economy/economyManagement");
-const { reassignIdleWorkers, balanceWorkerDistribution } = require("../../gameLogic/economy/workerAssignment");
+const { reassignIdleWorkers } = require("../../gameLogic/economy/workerAssignment");
 const { GameState } = require("../../gameState");
 const GasMineManager = require("../../gameState/gasMineManager");
 const { refreshProductionUnitsCache } = require("../../units/management/unitManagement");
@@ -52,9 +52,6 @@ class ActionCollector {
   collectAdditionalActions(world) {
     const { units } = world.resources.get();
     const actions = [];
-
-    // Balance worker distribution across bases for optimal resource gathering
-    actions.push(...balanceWorkerDistribution(world, units, world.resources));
 
     // Ensure sufficient supply to support unit production
     actions.push(...buildSupply(world));

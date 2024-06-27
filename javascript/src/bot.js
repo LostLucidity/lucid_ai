@@ -9,7 +9,7 @@ const { performance } = require('perf_hooks');
 
 const ActionCollector = require('./features/actions/actionCollector');
 const StrategyManager = require('./features/strategy/utils/strategyManager');
-const { gather } = require('./gameLogic/economy/workerAssignment');
+const { gather, balanceWorkerDistribution } = require('./gameLogic/economy/workerAssignment');
 const { getDistance } = require('./gameLogic/shared/spatialCoreUtils');
 const { findPlacements } = require('./gameLogic/shared/spatialUtils');
 const { GameState } = require('./gameState');
@@ -509,6 +509,9 @@ const bot = createAgent({
         }
         previousValidPositionsCount = currentValidPositionsCount;
       }
+
+      // Balance worker distribution across bases
+      actionList.push(...balanceWorkerDistribution(world, units, world.resources));
     } catch (error) {
       console.error('Error during game step:', error);
     }
