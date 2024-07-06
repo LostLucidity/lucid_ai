@@ -9,8 +9,8 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 const { positionIsEqual } = require("./common");
 const { logMessageStorage } = require("./logging");
 const BuildingPlacement = require("../features/construction/buildingPlacement");
-const { getAddOnPlacement } = require("../features/shared/pathfinding");
-const { getDistance } = require("../features/shared/spatialCoreUtils");
+const { getAddOnPlacement } = require("../features/shared/pathfinding/pathfinding");
+const { getDistance } = require("../features/shared/pathfinding/spatialCoreUtils");
 const { canLiftOff } = require("../units/management/unitConfig");
 
 /** @type {UnitTypeId | null} */

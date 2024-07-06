@@ -1,7 +1,7 @@
 // src/utils/sharedPathfindingUtils.js
 
 const { getClosestPathablePositionsBetweenPositions } = require("./pathfindingCore");
-const { getGasGeysers } = require("../features/shared/pathfinding");
+const { getGasGeysers } = require("../features/shared/pathfinding/pathfinding");
 
 /**
  * Retrieves the closest pathable positions between two points, considering gas geysers.

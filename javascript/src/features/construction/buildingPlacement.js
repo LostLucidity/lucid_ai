@@ -21,9 +21,9 @@ const {
   isBuildingAndAddonPlaceable,
   getAddOnPlacement,
   getAddOnBuildingPlacement,
-} = require('../shared/pathfinding');
-const { getClosestPosition } = require('../shared/pathfindingCommon');
-const { getDistance } = require('../shared/spatialCoreUtils');
+} = require('../shared/pathfinding/pathfinding');
+const { getClosestPosition } = require('../shared/pathfinding/pathfindingCommon');
+const { getDistance } = require('../shared/pathfinding/spatialCoreUtils');
 const StrategyContext = require('../strategy/strategyContext');
 
 const PYLON_POWER_RANGE = 6.5;

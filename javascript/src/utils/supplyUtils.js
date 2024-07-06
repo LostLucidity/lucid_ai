@@ -3,7 +3,7 @@
 const { calculateLiftLandAndMoveTime } = require("./baseUnitUtils");
 const { hasAddOn, findBestPositionForAddOn } = require("./buildingPlacementUtils");
 const { EarmarkManager } = require("../core");
-const { getTimeInSeconds } = require("../features/shared/pathfinding");
+const { getTimeInSeconds } = require("../features/shared/pathfinding/pathfinding");
 const { GameState } = require("../gameState");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../units/management/unitConfig");
 

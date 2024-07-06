@@ -5,9 +5,9 @@ const Buff = require("@node-sc2/core/constants/buff");
 const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
-const { getClosestUnitByPath, getTimeInSeconds } = require("./pathfinding");
-const { getDistanceByPath } = require("./pathfindingCore");
-const { getDistance } = require("./spatialCoreUtils");
+const { getClosestUnitByPath, getTimeInSeconds } = require("./pathfinding/pathfinding");
+const { getDistanceByPath } = require("./pathfinding/pathfindingCore");
+const { getDistance } = require("./pathfinding/spatialCoreUtils");
 // eslint-disable-next-line no-unused-vars
 const { GameState } = require("../../gameState");
 const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../../units/management/unitConfig");

@@ -8,8 +8,8 @@ const { ASSIMILATOR, PROBE } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
 
 const ActionCollector = require('./features/actions/actionCollector');
-const { getDistance } = require('./features/shared/spatialCoreUtils');
-const { findPlacements } = require('./features/shared/spatialUtils');
+const { getDistance } = require('./features/shared/pathfinding/spatialCoreUtils');
+const { findPlacements } = require('./features/shared/pathfinding/spatialUtils');
 const StrategyManager = require('./features/strategy/strategyManager');
 const { gather, balanceWorkerDistribution } = require('./gameLogic/economy/workerAssignment');
 const { getWorkerAssignedToStructure, releaseWorkerFromBuilding } = require('./gameLogic/economy/workerService');

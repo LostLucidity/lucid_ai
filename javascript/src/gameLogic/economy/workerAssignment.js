@@ -10,9 +10,9 @@ const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 // Internal module imports
 const { getClosestExpansion, isMoving } = require("./workerService");
 const { findClosestMineralField } = require("../../features/shared/coreUtils");
-const { getClosestUnitFromUnit } = require("../../features/shared/pathfinding");
+const { getClosestUnitFromUnit } = require("../../features/shared/pathfinding/pathfinding");
+const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
 const { findEnemyUnitsNear } = require("../../features/shared/scoutingUtils");
-const { getDistance } = require("../../features/shared/spatialCoreUtils");
 const { isTownhallInDanger } = require("../../features/shared/stateManagement");
 const { isPendingContructing } = require("../../features/shared/workerCommonUtils");
 const { getPendingOrders } = require("../../sharedServices");

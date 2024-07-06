@@ -1,6 +1,6 @@
 const { Race } = require('@node-sc2/core/constants/enums');
 
-const { calculateAdjacentToRampGrids } = require('./pathfinding');
+const { calculateAdjacentToRampGrids } = require('./pathfinding/pathfinding');
 const BuildingPlacement = require('../construction/buildingPlacement');
 
 /**

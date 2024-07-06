@@ -31,8 +31,8 @@ const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } 
 const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../misc/gameData");
 const { attemptLand } = require("../shared/buildingUtils");
 const { calculateDistance } = require("../shared/coreUtils");
-const { getNextSafeExpansions } = require("../shared/pathfinding");
-const { findPlacements, findPosition } = require("../shared/spatialUtils");
+const { getNextSafeExpansions } = require("../shared/pathfinding/pathfinding");
+const { findPlacements, findPosition } = require("../shared/pathfinding/spatialUtils");
 const { prepareUnitToBuildAddon } = require("../shared/unitPreparationUtils");
 const { commandBuilderToConstruct } = require("../shared/workerManagementUtils");
 

@@ -16,9 +16,9 @@ const { getBuilders } = require("../../utils/workerUtils");
 const {
   getAwayPosition,
   areApproximatelyEqual,
-} = require("../shared/pathfinding");
-const { getDistanceByPath } = require("../shared/pathfindingCore");
-const { getDistance } = require("../shared/spatialCoreUtils");
+} = require("../shared/pathfinding/pathfinding");
+const { getDistanceByPath } = require("../shared/pathfinding/pathfindingCore");
+const { getDistance } = require("../shared/pathfinding/spatialCoreUtils");
 
 /**
  * @param {World} world

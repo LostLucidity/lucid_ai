@@ -11,9 +11,9 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal module imports
 const { getMovementSpeed, getWorkerSourceByPath } = require("../../features/shared/coreUtils");
-const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../../features/shared/pathfinding");
-const { getDistanceByPath } = require("../../features/shared/pathfindingCore");
-const { getDistance } = require("../../features/shared/spatialCoreUtils");
+const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../../features/shared/pathfinding/pathfinding");
+const { getDistanceByPath } = require("../../features/shared/pathfinding/pathfindingCore");
+const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
 const { GameState } = require('../../gameState');
 const MapResources = require("../../gameState/mapResources");
 const { getPendingOrders } = require("../../sharedServices");

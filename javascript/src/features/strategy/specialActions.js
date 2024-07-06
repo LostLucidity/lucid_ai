@@ -1,8 +1,8 @@
 const { EFFECT_CALLDOWNMULE } = require("@node-sc2/core/constants/ability");
 
 const { createUnitCommand } = require("../../utils/common");
+const { getDistance } = require("../shared/pathfinding/spatialCoreUtils");
 const { performScoutingWithSCV } = require("../shared/scoutActions");
-const { getDistance } = require("../shared/spatialCoreUtils");
 
 /**
  * Calls down MULEs in the specified world state.

@@ -7,8 +7,8 @@ const { GasMineRace, WorkerRace } = require('@node-sc2/core/constants/race-map')
 
 // Internal module imports
 const { getMovementSpeed } = require('./coreUtils');
-const { calculateBaseTimeToPosition } = require('./pathfinding');
-const { getDistanceByPath, getClosestPositionByPath } = require('./pathfindingCore');
+const { calculateBaseTimeToPosition } = require('./pathfinding/pathfinding');
+const { getDistanceByPath, getClosestPositionByPath } = require('./pathfinding/pathfindingCore');
 const { isPendingContructing } = require('./workerCommonUtils');
 const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft } = require('../../gameLogic/economy/workerService');
 // eslint-disable-next-line no-unused-vars

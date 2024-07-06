@@ -3,8 +3,8 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 
-const { getTimeInSeconds } = require("./pathfinding");
-const { getDistance } = require("./spatialCoreUtils");
+const { getTimeInSeconds } = require("./pathfinding/pathfinding");
+const { getDistance } = require("./pathfinding/spatialCoreUtils");
 const { GameState } = require("../../gameState");
 const { getWeaponDPS } = require("../../units");
 const { calculateTimeToKillUnits } = require("../../utils/sharedUtils");

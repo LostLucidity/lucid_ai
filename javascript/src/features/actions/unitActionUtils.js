@@ -21,7 +21,7 @@ const { createUnitCommand } = require('../../utils/common');
 const { calculatePathablePositions } = require('../../utils/pathfindingUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
 const { handleNonRallyBase } = require('../construction/buildingWorkerInteractions');
-const { getPathCoordinates, getMapPath } = require('../shared/pathfindingCommon');
+const { getPathCoordinates, getMapPath } = require('../shared/pathfinding/pathfindingCommon');
 const { prepareBuildContext } = require('../shared/workerManagementUtils');
 
 /**
