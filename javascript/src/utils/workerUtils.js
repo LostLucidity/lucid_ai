@@ -2,7 +2,7 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
 const { getGatheringWorkers, handleWorkerAssignment, getWithLabelAvailable } = require("../gameLogic/economy/workerAssignment");
-const { isMining } = require("../gameLogic/economy/workerService");
+const { isMining, isWorkerReservedForBuilding } = require("../gameLogic/economy/workerService");
 
 /**
  * Assigns workers to mineral fields for optimal resource gathering.
@@ -18,8 +18,9 @@ function assignWorkers(resources) {
   const completedBases = units.getBases({ buildProgress: 1, alliance: Alliance.SELF });
 
   gatheringMineralWorkers.forEach(worker => {
-    const workerActions = handleWorkerAssignment(worker, completedBases, map, units, resources);
-    collectedActions.push(...workerActions);
+    if (!isWorkerReservedForBuilding(worker)) {
+      collectedActions.push(...handleWorkerAssignment(worker, completedBases, map, units, resources));
+    }
   });
 
   return collectedActions;

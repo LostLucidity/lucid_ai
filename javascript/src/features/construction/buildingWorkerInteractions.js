@@ -3,7 +3,7 @@
 const { Ability } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
-const { isMoving, rallyWorkerToTarget, getUnitsFromClustering, setBuilderLabel, getOrderTargetPosition } = require("../../gameLogic/economy/workerService");
+const { isMoving, rallyWorkerToTarget, getUnitsFromClustering, setBuilderLabel, getOrderTargetPosition, reserveWorkerForBuilding } = require("../../gameLogic/economy/workerService");
 const { getAwayPosition, areApproximatelyEqual } = require("../../gameLogic/shared/pathfinding");
 const { getDistanceByPath } = require("../../gameLogic/shared/pathfindingCore");
 const { getDistance } = require("../../gameLogic/shared/spatialCoreUtils");
@@ -24,48 +24,55 @@ const { getBuilders } = require("../../utils/workerUtils");
 function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrderTargetPosition) {
   const { agent, data, resources } = world;
   const { units } = resources.get();
-  const { pos } = unit; if (pos === undefined) return [];
+  const { pos } = unit;
+  if (!pos) return [];
   let actions = [];
 
   const orderTargetPosition = getOrderTargetPosition(units, unit);
-  const movingButNotToPosition = isMoving(unit) && orderTargetPosition && getDistance(orderTargetPosition, position) > 1;
+  const isMovingButNotToPosition = isMoving(unit) && orderTargetPosition && getDistance(orderTargetPosition, position) > 1;
 
-  // check for units near the building position
+  // Filter units near the building position
   const unitsNearPosition = units.getAlive(Alliance.SELF).filter(u => u.pos && getDistance(u.pos, position) <= 2);
 
+  // Move worker units away from the building position
   unitsNearPosition.forEach(u => {
-    if (u.pos) { // only consider units where pos is defined
+    if (u.isWorker() && u.pos) {
       const moveAwayCommand = createUnitCommand(Ability.MOVE, [u]);
       moveAwayCommand.targetWorldSpacePos = getAwayPosition(u.pos, position);
       actions.push(moveAwayCommand);
     }
   });
 
+  // Add rally worker commands
   actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering));
 
-  // check for a current unit that is heading towards position
+  // Find a worker unit currently moving towards the position
   const currentUnitMovingToPosition = units.getWorkers().find(u => {
-    const orderTargetPosition = getOrderTargetPosition(units, u); if (orderTargetPosition === undefined) return false;
-    return isMoving(u) && areApproximatelyEqual(orderTargetPosition, position);
+    const targetPos = getOrderTargetPosition(units, u);
+    return targetPos && isMoving(u) && areApproximatelyEqual(targetPos, position);
   });
 
-  // if there is a unit already moving to position, check if current unit is closer
   if (currentUnitMovingToPosition) {
-    const { pos: currentUnitMovingToPositionPos } = currentUnitMovingToPosition; if (currentUnitMovingToPositionPos === undefined) return [];
+    const { pos: currentUnitPos } = currentUnitMovingToPosition;
+    if (!currentUnitPos) return actions;
+
     const distanceOfCurrentUnit = getDistanceByPath(resources, pos, position);
-    const distanceOfMovingUnit = getDistanceByPath(resources, currentUnitMovingToPositionPos, position);
+    const distanceOfMovingUnit = getDistanceByPath(resources, currentUnitPos, position);
 
     if (distanceOfCurrentUnit >= distanceOfMovingUnit) {
-      // if current unit is not closer, return early
-      return actions;
+      return actions; // Current unit is not closer, return early
     }
   }
 
-  if (!unit.isConstructing() && !movingButNotToPosition) {
+  // Handle worker unit assignment for building
+  if (unit.isWorker() && !unit.isConstructing() && !isMovingButNotToPosition) {
+    reserveWorkerForBuilding(unit, unitCommand.targetUnitTag);
+
     unitCommand.targetWorldSpacePos = position;
     setBuilderLabel(unit);
     actions.push(unitCommand, ...stopOverlappingBuilders(units, unit, position));
     setPendingOrders(unit, unitCommand);
+
     if (agent.race === Race.ZERG) {
       const { foodRequired } = data.getUnitTypeData(unitType);
       if (foodRequired !== undefined) {
@@ -74,6 +81,7 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
       }
     }
   }
+
   actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering));
 
   return actions;

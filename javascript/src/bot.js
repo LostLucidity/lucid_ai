@@ -10,6 +10,7 @@ const { performance } = require('perf_hooks');
 const ActionCollector = require('./features/actions/actionCollector');
 const StrategyManager = require('./features/strategy/utils/strategyManager');
 const { gather, balanceWorkerDistribution } = require('./gameLogic/economy/workerAssignment');
+const { getWorkerAssignedToStructure, releaseWorkerFromBuilding } = require('./gameLogic/economy/workerService');
 const { getDistance } = require('./gameLogic/shared/spatialCoreUtils');
 const { findPlacements } = require('./gameLogic/shared/spatialUtils');
 const { GameState } = require('./gameState');
@@ -18,6 +19,7 @@ const { resetNoFreeGeysersLogFlag, resetNoValidPositionLogFlag, lastLoggedUnitTy
 const cacheManager = require('./utils/cache');
 const logger = require('./utils/logger');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
+const { assignWorkers } = require('./utils/workerUtils');
 const config = require('../config/config');
 
 const buildOrderCompletion = new Map();
@@ -390,17 +392,19 @@ const bot = createAgent({
     try {
       const { frame, units, map } = world.resources.get();
       const actionList = [];
+      const allUnits = units.getAll();
 
       // Update completed bases
-      const completedBases = units.getBases().filter(base => {
-        if ((base.buildProgress ?? 0) >= 1 && !completedBasesMap.has(base.tag)) {
+      const newCompletedBases = units.getBases().filter(base => {
+        const isCompleted = (base.buildProgress ?? 0) >= 1;
+        if (isCompleted && !completedBasesMap.has(base.tag)) {
           completedBasesMap.set(base.tag, true);
           return true;
         }
         return false;
       });
-      if (completedBases.length > 0) {
-        cacheManager.updateCompletedBasesCache(completedBases);
+      if (newCompletedBases.length > 0) {
+        cacheManager.updateCompletedBasesCache(newCompletedBases);
       }
 
       // Check build order progress
@@ -408,7 +412,7 @@ const bot = createAgent({
       await checkBuildOrderProgress(world, buildOrder);
 
       // Preemptively queue gather orders for probes starting ASSIMILATOR warpin
-      const probesWarpingAssimilators = units.getAll().filter(probe =>
+      const probesWarpingAssimilators = allUnits.filter(probe =>
         probe.unitType === PROBE && probe.orders?.some(order => order.abilityId === BUILD_ASSIMILATOR)
       );
       if (probesWarpingAssimilators.length > 0) {
@@ -429,15 +433,12 @@ const bot = createAgent({
       );
       if (assimilatorsWarpingIn.length > 0) {
         assimilatorsWarpingIn.forEach(assimilator => {
-          const nearbyProbes = units.getAll().filter(probe =>
-            probe.unitType === PROBE && (!probe.orders || probe.orders.some(order =>
-              probe.isGathering() && order.targetUnitTag === assimilator.tag)) &&
+          const nearbyProbes = allUnits.filter(probe =>
+            probe.unitType === PROBE && (!probe.orders || probe.isGathering()) &&
             getDistance(probe.pos, assimilator.pos) < 3
           );
           nearbyProbes.forEach(probe => {
-            if (probe.pos) {
-              actionList.push(...gather(world.resources, probe, null, false));
-            }
+            actionList.push(...gather(world.resources, probe, null, false));
           });
         });
       }
@@ -446,38 +447,33 @@ const bot = createAgent({
       const actionCollector = new ActionCollector(world);
       actionList.push(...actionCollector.collectActions());
 
-      // Execute actions
-      await executeActions(world, actionList);
-
       // Update upgrades in progress
       const UPGRADE_ABILITY_IDS = new Map();
-      for (const upgradeId in Upgrade) {
-        if (Object.prototype.hasOwnProperty.call(Upgrade, upgradeId)) {
-          const upgradeData = world.data.getUpgradeData(Upgrade[upgradeId]);
-          if (upgradeData && upgradeData.abilityId) {
-            UPGRADE_ABILITY_IDS.set(upgradeData.abilityId, Upgrade[upgradeId]);
-          }
+      Object.values(Upgrade).forEach(upgradeId => {
+        const upgradeData = world.data.getUpgradeData(upgradeId);
+        if (upgradeData?.abilityId) {
+          UPGRADE_ABILITY_IDS.set(upgradeData.abilityId, upgradeId);
         }
-      }
+      });
 
-      /** @type {{ upgradeType: number, inProgress: boolean }[]} */
-      const upgradesInProgress = [];
-      const allUnits = units.getAll();
-      allUnits.forEach(unit => {
+      /**
+       * @typedef {Object} UpgradeProgress
+       * @property {number} upgradeType
+       * @property {boolean} inProgress
+       */
+
+      /** @type {UpgradeProgress[]} */
+      const upgradesInProgress = allUnits.reduce((/** @type {UpgradeProgress[]} */ acc, unit) => {
         if (unit.isStructure() && unit.orders && unit.orders.length > 0) {
           unit.orders.forEach(order => {
-            if (UPGRADE_ABILITY_IDS.has(order.abilityId)) {
-              const upgradeId = UPGRADE_ABILITY_IDS.get(order.abilityId);
-              if (upgradeId !== undefined) {
-                upgradesInProgress.push({
-                  upgradeType: upgradeId,
-                  inProgress: true,
-                });
-              }
+            const upgradeId = UPGRADE_ABILITY_IDS.get(order.abilityId);
+            if (upgradeId !== undefined) {
+              acc.push({ upgradeType: upgradeId, inProgress: true });
             }
           });
         }
-      });
+        return acc;
+      }, []);
       gameState.updateUpgradesInProgress(upgradesInProgress);
 
       // Performance tracking and logging
@@ -512,6 +508,13 @@ const bot = createAgent({
 
       // Balance worker distribution across bases
       actionList.push(...balanceWorkerDistribution(world, units, world.resources));
+
+      // Assign workers to mineral fields
+      actionList.push(...assignWorkers(world.resources));
+
+      // Execute all actions
+      await executeActions(world, actionList);
+
     } catch (error) {
       console.error('Error during game step:', error);
     }
@@ -524,6 +527,32 @@ const bot = createAgent({
     logger.logMessage('Game has ended', 1);
     gameState.reset();
   },
+
+  onUnitDestroyed: async (world, unit) => {
+    if (unit.isWorker()) {
+      releaseWorkerFromBuilding(unit);
+    }
+  },
+
+  onUnitFinished: async (world, unit) => {
+    if (unit.isStructure() && typeof unit.tag === 'string') {
+      // Find the worker assigned to this structure
+      const workerTag = getWorkerAssignedToStructure(unit.tag);
+      if (workerTag) {
+        const { units } = world.resources.get();
+        const worker = units.getByTag(workerTag);
+        if (worker) {
+          releaseWorkerFromBuilding(worker);
+        }
+      }
+    }
+  },
+
+  onUnitIdle: async (world, unit) => {
+    if (unit.isWorker() && !unit.isConstructing()) {
+      releaseWorkerFromBuilding(unit);
+    }
+  }
 });
 
 const engine = createEngine();

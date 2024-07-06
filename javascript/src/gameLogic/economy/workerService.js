@@ -25,6 +25,18 @@ const { getDistanceByPath } = require("../shared/pathfindingCore");
 const { getDistance } = require("../shared/spatialCoreUtils");
 
 /**
+ * Global scope for worker assignment tracking
+ * @type {Set<string>}
+ */
+const reservedWorkers = new Set();
+
+/**
+ * Global scope for worker to structure assignment
+ * @type {Map<string, string>}
+ */
+const workerToStructureMap = new Map();
+
+/**
  * @param {World} world 
  * @param {AbilityId} abilityId 
  * @param {(data: DataStorage, unit: Unit) => boolean} isIdleOrAlmostIdleFunc - Function to check if a unit is idle or almost idle.
@@ -425,6 +437,16 @@ function getUnitsTrainingTargetUnitType(world, unitType) {
   return GameState.getUnitsWithCurrentOrders(unitArray, [abilityId]);
 }
 
+
+/**
+ * Get the worker assigned to a structure
+ * @param {string} structureTag - The tag of the structure
+ * @returns {string | undefined} - The tag of the assigned worker or undefined
+ */
+function getWorkerAssignedToStructure(structureTag) {
+  return workerToStructureMap.get(structureTag);
+}
+
 /**
  * Sets rally points for workers and stops a unit from moving to a position.
  * @param {World} world
@@ -514,6 +536,16 @@ function isMoving(unit, pending = false) {
 }
 
 /**
+ * Checks if a worker is currently reserved for building a structure.
+ * 
+ * @param {Unit} worker - The worker unit to check.
+ * @returns {boolean} True if the worker is reserved for building, false otherwise.
+ */
+function isWorkerReservedForBuilding(worker) {
+  return worker.tag ? reservedWorkers.has(worker.tag) : false;
+}
+
+/**
  * Rallies a worker to a specified target position.
  * @param {World} world 
  * @param {Point2D} position
@@ -562,6 +594,35 @@ const rallyWorkerToTarget = (world, position, getUnitsFromClustering, mineralTar
 
   return collectedActions;
 };
+
+/**
+ * Reserve a worker for building a structure
+ * @param {Unit} worker - The worker unit to reserve
+ * @param {string} [structureTag] - The tag of the structure (optional)
+ */
+function reserveWorkerForBuilding(worker, structureTag) {
+  if (worker.tag) {
+    reservedWorkers.add(worker.tag);
+    if (structureTag) {
+      workerToStructureMap.set(structureTag, worker.tag);
+    }
+  }
+}
+
+/**
+ * Release a worker from building a structure
+ * @param {Unit} worker - The worker unit to release
+ */
+function releaseWorkerFromBuilding(worker) {
+  if (worker.tag) {
+    reservedWorkers.delete(worker.tag);
+    workerToStructureMap.forEach((value, key) => {
+      if (value === worker.tag) {
+        workerToStructureMap.delete(key);
+      }
+    });
+  }
+}
 
 /**
  * @param {Unit} builder
@@ -662,6 +723,7 @@ function stopUnitFromMovingToPosition(unit, position) {
 module.exports = {
   ability,
   calculateMovingOrConstructingNonDronesTimeToPosition,
+  getWorkerAssignedToStructure,
   handleRallyBase,
   filterBuilderCandidates,
   filterMovingOrConstructingNonDrones,
@@ -675,7 +737,10 @@ module.exports = {
   isIdleOrAlmostIdle,
   isMining,
   isMoving,
+  isWorkerReservedForBuilding,
   rallyWorkerToTarget,
+  releaseWorkerFromBuilding,
+  reserveWorkerForBuilding,
   setBuilderLabel,
   shortOnWorkers,
 };
