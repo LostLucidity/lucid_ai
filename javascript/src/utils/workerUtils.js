@@ -1,6 +1,5 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
-
 const { getGatheringWorkers, handleWorkerAssignment, getWithLabelAvailable } = require("../gameLogic/economy/workerAssignment");
 const { isMining, isWorkerReservedForBuilding } = require("../gameLogic/economy/workerService");
 
@@ -27,20 +26,20 @@ function assignWorkers(resources) {
 }
 
 /**
+ * Retrieves available builder units.
  * 
  * @param {UnitResource} units 
  * @returns {Unit[]}
  */
 function getBuilders(units) {
-  let builders = [
+  return [
     ...units.withLabel('builder').filter(builder => getWithLabelAvailable(units, builder)),
-    ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(units, proxy)),
+    ...units.withLabel('proxy').filter(proxy => getWithLabelAvailable(units, proxy))
   ].filter(worker => {
     const gatheringAndMining = worker.isGathering() && isMining(units, worker);
     const isConstructingDrone = worker.isConstructing() && worker.unitType === UnitType.DRONE;
     return !worker.isReturning() && !gatheringAndMining && !isConstructingDrone;
   });
-  return builders;
 }
 
 // Exporting the functions

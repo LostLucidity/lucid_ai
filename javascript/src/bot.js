@@ -29,9 +29,14 @@ const gameState = GameState.getInstance();
 let cumulativeGameTime = 0;
 let gameStartTime = performance.now();
 let lastCheckTime = gameStartTime;
-const realTimeCheckInterval = 60 * 1000;
+const REAL_TIME_CHECK_INTERVAL = 60 * 1000;
+const BASE_BUFFER_TIME_SECONDS = 15;
+const ADDITIONAL_BUFFER_PER_ACTION_SECONDS = 5;
+const MARGIN_OF_ERROR_SECONDS = 5;
+
 let previousFreeGeysersCount = 0;
 let previousValidPositionsCount = 0;
+
 
 /**
  * Checks and updates the build order progress.
@@ -40,10 +45,6 @@ let previousValidPositionsCount = 0;
  */
 async function checkBuildOrderProgress(world, buildOrder) {
   const currentTimeInSeconds = world.resources.get().frame.timeInSeconds();
-  const BASE_BUFFER_TIME_SECONDS = 15;
-  const ADDITIONAL_BUFFER_PER_ACTION_SECONDS = 5;
-  const MARGIN_OF_ERROR_SECONDS = 5;
-
   const currentSupply = gameState.getFoodUsed();
 
   for (const [index, order] of buildOrder.entries()) {
@@ -60,9 +61,9 @@ async function checkBuildOrderProgress(world, buildOrder) {
     if (satisfied) {
       if (currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS) {
         orderStatus.completed = true;
-        console.log(`Build Order Step ${index} Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
+        logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
       } else if (!orderStatus.prematureLogged) {
-        console.log(`Build Order Step ${index} Prematurely Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Expected time: ${expectedTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
+        logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
         orderStatus.prematureLogged = true;
       }
     } else if (currentTimeInSeconds >= expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + ADDITIONAL_BUFFER_PER_ACTION_SECONDS && !orderStatus.logged) {
@@ -72,6 +73,36 @@ async function checkBuildOrderProgress(world, buildOrder) {
 
     buildOrderCompletion.set(order, orderStatus);
   }
+}
+
+/**
+ * Converts a time string in the format "MM:SS" to seconds.
+ * @param {string} timeString - The time string to convert.
+ * @returns {number} The corresponding time in seconds.
+ */
+function timeStringToSeconds(timeString) {
+  const [minutes, seconds] = timeString.split(':').map(Number);
+  return minutes * 60 + seconds;
+}
+
+/**
+ * Logs build order step completion status.
+ * @param {number} index - The index of the build order step.
+ * @param {import('./utils/globalTypes').BuildOrderStep} order - The build order step.
+ * @param {number} currentTimeInSeconds - The current game time in seconds.
+ * @param {number} expectedTimeInSeconds - The expected time for the order in seconds.
+ * @param {string} timeStatus - The time status (ahead/behind schedule).
+ * @param {number} timeDifference - The time difference between current and expected time.
+ * @param {number} supplyDifference - The supply difference between current and expected supply.
+ * @param {boolean} premature - Whether the completion is premature.
+ * @param {number} currentSupply - The current supply value.
+ */
+function logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, premature, currentSupply) {
+  const logMessage = premature
+    ? `Build Order Step ${index} Prematurely Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Expected time: ${expectedTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`
+    : `Build Order Step ${index} Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`;
+
+  console.log(logMessage);
 }
 
 /**
@@ -346,16 +377,6 @@ function getValidPositionsCount(world, unitType) {
   return candidatePositions.length;
 }
 
-/**
- * Converts a time string in the format "MM:SS" to seconds.
- * @param {string} timeString - The time string to convert.
- * @returns {number} The corresponding time in seconds.
- */
-function timeStringToSeconds(timeString) {
-  const [minutes, seconds] = timeString.split(':').map(Number);
-  return minutes * 60 + seconds;
-}
-
 const bot = createAgent({
   interface: {
     raw: true, rawCropToPlayableArea: true, score: true, showBurrowedShadows: true, showCloaked: true,
@@ -483,7 +504,7 @@ const bot = createAgent({
       gameState.lastGameLoop = frame.getGameLoop();
       cumulativeGameTime += gameTimeElapsed;
 
-      if (stepEnd - lastCheckTime >= realTimeCheckInterval) {
+      if (stepEnd - lastCheckTime >= REAL_TIME_CHECK_INTERVAL) {
         if (realTimeElapsed > cumulativeGameTime) {
           console.warn(`Bot is slower than real-time! Cumulative real-time elapsed: ${realTimeElapsed.toFixed(2)}s, Cumulative game-time elapsed: ${cumulativeGameTime.toFixed(2)}s`);
         }

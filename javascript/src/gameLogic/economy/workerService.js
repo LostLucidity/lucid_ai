@@ -22,7 +22,6 @@ const { getClosestPathWithGasGeysers } = require("../../utils/sharedPathfindingU
 const { getMovementSpeed, getWorkerSourceByPath } = require("../shared/coreUtils");
 const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../shared/pathfinding");
 const { getDistanceByPath } = require("../shared/pathfindingCore");
-const { getDistance } = require("../shared/spatialCoreUtils");
 
 /**
  * Global scope for worker assignment tracking
@@ -158,6 +157,8 @@ function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrCon
   }, []);
 }
 
+const { getDistance } = require("../shared/spatialCoreUtils");
+
 /**
  * @param {{point: Point2D, unit: Unit}[]} pointsWithUnits
  * @param {number} eps
@@ -165,10 +166,9 @@ function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrCon
  * @returns {{center: Point2D, units: Unit[]}[]}
  */
 function dbscanWithUnits(pointsWithUnits, eps = 1.5, minPts = 1) {
-  /** @type {{center: Point2D, units: Unit[]}[]} */
-  let clusters = [];
-  let visited = new Set();
-  let noise = new Set();
+  const clusters = [];
+  const visited = new Set();
+  const noise = new Set();
 
   /**
    * Finds points within the specified distance (eps) of point p.
@@ -176,49 +176,45 @@ function dbscanWithUnits(pointsWithUnits, eps = 1.5, minPts = 1) {
    * @returns {{point: Point2D, unit: Unit}[]}
    */
   function rangeQuery(p) {
-    return pointsWithUnits.filter(({ point }) => {
-      const distance = getDistance(p, point); // Assume getDistance is defined
-      return distance <= eps;
-    });
+    return pointsWithUnits.filter(({ point }) => getDistance(p, point) <= eps);
   }
 
-  pointsWithUnits.forEach(({ point }) => {
-    if (!visited.has(point)) {
-      visited.add(point);
+  for (const { point } of pointsWithUnits) {
+    if (visited.has(point)) continue;
+    visited.add(point);
 
-      let neighbors = rangeQuery(point);
+    let neighbors = rangeQuery(point);
 
-      if (neighbors.length < minPts) {
-        noise.add(point);
-      } else {
-        let cluster = new Set([point]);
+    if (neighbors.length < minPts) {
+      noise.add(point);
+    } else {
+      const cluster = new Set([point]);
 
-        for (let { point: point2 } of neighbors) {
-          if (!visited.has(point2)) {
-            visited.add(point2);
-
-            let neighbors2 = rangeQuery(point2);
-
-            if (neighbors2.length >= minPts) {
-              neighbors = neighbors.concat(neighbors2);
-            }
-          }
-
-          if (!Array.from(cluster).includes(point2)) {
-            cluster.add(point2);
+      for (const neighbor of neighbors) {
+        const { point: neighborPoint } = neighbor;
+        if (!visited.has(neighborPoint)) {
+          visited.add(neighborPoint);
+          const newNeighbors = rangeQuery(neighborPoint);
+          if (newNeighbors.length >= minPts) {
+            neighbors = neighbors.concat(newNeighbors);
           }
         }
-
-        const clusterUnits = pointsWithUnits.filter(pt => cluster.has(pt.point)).map(pt => pt.unit);
-        const center = {
-          x: Array.from(cluster).reduce((a, b) => b.x !== undefined ? a + b.x : a, 0) / cluster.size,
-          y: Array.from(cluster).reduce((a, b) => b.y !== undefined ? a + b.y : a, 0) / cluster.size
-        };
-
-        clusters.push({ center, units: clusterUnits });
+        cluster.add(neighborPoint);
       }
+
+      const clusterUnits = pointsWithUnits
+        .filter(pt => cluster.has(pt.point))
+        .map(pt => pt.unit);
+
+      const validPoints = [...cluster].filter(p => p.x !== undefined && p.y !== undefined);
+      const center = {
+        x: validPoints.reduce((a, b) => a + (b.x || 0), 0) / validPoints.length,
+        y: validPoints.reduce((a, b) => a + (b.y || 0), 0) / validPoints.length,
+      };
+
+      clusters.push({ center, units: clusterUnits });
     }
-  });
+  }
 
   return clusters;
 }

@@ -1,10 +1,18 @@
-// buildingWorkerInteractions.js
-
 const { Ability } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
-const { isMoving, rallyWorkerToTarget, getUnitsFromClustering, setBuilderLabel, getOrderTargetPosition, reserveWorkerForBuilding } = require("../../gameLogic/economy/workerService");
-const { getAwayPosition, areApproximatelyEqual } = require("../../gameLogic/shared/pathfinding");
+const {
+  isMoving,
+  rallyWorkerToTarget,
+  getUnitsFromClustering,
+  setBuilderLabel,
+  getOrderTargetPosition,
+  reserveWorkerForBuilding,
+} = require("../../gameLogic/economy/workerService");
+const {
+  getAwayPosition,
+  areApproximatelyEqual,
+} = require("../../gameLogic/shared/pathfinding");
 const { getDistanceByPath } = require("../../gameLogic/shared/pathfindingCore");
 const { getDistance } = require("../../gameLogic/shared/spatialCoreUtils");
 const { GameState } = require("../../gameState");
@@ -31,12 +39,10 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
   const orderTargetPosition = getOrderTargetPosition(units, unit);
   const isMovingButNotToPosition = isMoving(unit) && orderTargetPosition && getDistance(orderTargetPosition, position) > 1;
 
-  // Filter units near the building position
-  const unitsNearPosition = units.getAlive(Alliance.SELF).filter(u => u.pos && getDistance(u.pos, position) <= 2);
-
-  // Move worker units away from the building position
+  // Filter worker units near the building position and move them away
+  const unitsNearPosition = units.getAlive(Alliance.SELF).filter(u => u.isWorker() && u.pos && getDistance(u.pos, position) <= 2);
   unitsNearPosition.forEach(u => {
-    if (u.isWorker() && u.pos) {
+    if (u.pos) { // Ensure u.pos is defined
       const moveAwayCommand = createUnitCommand(Ability.MOVE, [u]);
       moveAwayCommand.targetWorldSpacePos = getAwayPosition(u.pos, position);
       actions.push(moveAwayCommand);
@@ -52,13 +58,9 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
     return targetPos && isMoving(u) && areApproximatelyEqual(targetPos, position);
   });
 
-  if (currentUnitMovingToPosition) {
-    const { pos: currentUnitPos } = currentUnitMovingToPosition;
-    if (!currentUnitPos) return actions;
-
+  if (currentUnitMovingToPosition && currentUnitMovingToPosition.pos) {
     const distanceOfCurrentUnit = getDistanceByPath(resources, pos, position);
-    const distanceOfMovingUnit = getDistanceByPath(resources, currentUnitPos, position);
-
+    const distanceOfMovingUnit = getDistanceByPath(resources, currentUnitMovingToPosition.pos, position);
     if (distanceOfCurrentUnit >= distanceOfMovingUnit) {
       return actions; // Current unit is not closer, return early
     }
@@ -76,8 +78,7 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
     if (agent.race === Race.ZERG) {
       const { foodRequired } = data.getUnitTypeData(unitType);
       if (foodRequired !== undefined) {
-        const gameState = GameState.getInstance();
-        gameState.pendingFood -= foodRequired;
+        GameState.getInstance().pendingFood -= foodRequired;
       }
     }
   }
@@ -88,23 +89,23 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
 }
 
 /**
- * Returns an array of unitCommands to prevent multiple builders on the same task. 
- * @param {UnitResource} units 
- * @param {Unit} builder 
- * @param {Point2D} position 
+ * Returns an array of unitCommands to prevent multiple builders on the same task.
+ * @param {UnitResource} units
+ * @param {Unit} builder
+ * @param {Point2D} position
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function stopOverlappingBuilders(units, builder, position) {
-  const collectedActions = [];
   const overlappingBuilders = getBuilders(units).filter(otherBuilder => {
     const orderTargetPosition = getOrderTargetPosition(units, otherBuilder);
     return otherBuilder.tag !== builder.tag && orderTargetPosition && getDistance(orderTargetPosition, position) < 1.6;
   });
+
   if (overlappingBuilders.length > 0) {
-    const unitCommand = createUnitCommand(Ability.STOP, overlappingBuilders.map(builder => builder));
-    collectedActions.push(unitCommand);
+    return [createUnitCommand(Ability.STOP, overlappingBuilders.map(builder => builder))];
   }
-  return collectedActions;
+
+  return [];
 }
 
 // Exporting the functions
