@@ -1,5 +1,5 @@
 //@ts-check
-"use strict"
+"use strict";
 
 // External library imports from @node-sc2/core
 const { UnitType } = require("@node-sc2/core/constants");
@@ -31,61 +31,93 @@ function balanceWorkerDistribution(world, units, resources) {
   const townhalls = units.getBases();
   const gatheringWorkers = getGatheringWorkers(units);
   /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
-  const collectedActions = []; // Initialize the array to collect actions
+  const collectedActions = [];
+  const reassignedWorkers = new Set();
 
-  // Iterate over each townhall to identify the needy ones
+  /**
+   * Finds nearby enemy units to a given townhall.
+   * @param {Unit} townhall - The townhall to check around.
+   * @returns {Array<Unit>} An array of nearby enemy units.
+   */
+  function findNearbyEnemies(townhall) {
+    return findEnemyUnitsNear(units, townhall, 10);
+  }
+
+  /**
+   * Checks if a townhall needs more workers.
+   * @param {Unit} townhall - The townhall to check.
+   * @returns {boolean} Whether the townhall needs more workers.
+   */
+  function isTownhallNeedy(townhall) {
+    const { assignedHarvesters, idealHarvesters } = townhall;
+    const nearbyEnemies = findNearbyEnemies(townhall);
+    return (
+      assignedHarvesters !== undefined &&
+      idealHarvesters !== undefined &&
+      assignedHarvesters < idealHarvesters &&
+      nearbyEnemies.length === 0 &&
+      !isTownhallInDanger(world, townhall, nearbyEnemies)
+    );
+  }
+
+  /**
+   * Gets potential donor townhalls.
+   * @returns {Array<SC2APIProtocol.Unit>} An array of potential donor townhalls.
+   */
+  function getDonorTownhalls() {
+    return townhalls.filter(donorTh => {
+      const { assignedHarvesters: donorAssigned, idealHarvesters: donorIdeal } = donorTh;
+      return (
+        donorAssigned !== undefined &&
+        donorIdeal !== undefined &&
+        donorAssigned > donorIdeal
+      );
+    });
+  }
+
+  /**
+   * Assigns a worker to a mineral field near a townhall.
+   * @param {Unit} worker - The worker to assign.
+   * @param {SC2APIProtocol.Unit} townhall - The townhall near which to assign the worker.
+   */
+  function assignWorkerToMineralField(worker, townhall) {
+    const mineralFields = units.getMineralFields().filter(field => {
+      const numWorkers = units.getWorkers().filter(worker => {
+        const { orders } = worker;
+        if (!orders) return false;
+        return orders.some(order => order.targetUnitTag === field.tag);
+      }).length;
+      return (
+        getDistance(field.pos, townhall.pos) < 8 &&
+        (!field.labels.has('workerCount') || field.labels.get('workerCount') < 2) &&
+        numWorkers < 2
+      );
+    });
+
+    if (townhall.pos) {
+      const [mineralFieldTarget] = units.getClosest(townhall.pos, mineralFields);
+      if (mineralFieldTarget) {
+        worker.labels.set('mineralField', mineralFieldTarget);
+        mineralFieldTarget.labels.set('workerCount', (mineralFieldTarget.labels.get('workerCount') || 0) + 1);
+        const unitCommands = gather(resources, worker, mineralFieldTarget, false);
+        collectedActions.push(...unitCommands);
+        unitCommands.forEach(unitCommand => setPendingOrders(worker, unitCommand));
+        reassignedWorkers.add(worker.tag);
+      }
+    }
+  }
+
   townhalls.forEach(townhall => {
-    if (!townhall.pos) return;
+    if (!townhall.pos || !isTownhallNeedy(townhall)) return;
 
-    // Use findEnemyUnitsNear to assess enemy presence
-    const nearbyEnemies = findEnemyUnitsNear(units, townhall, 10);
-    const isNeedy = nearbyEnemies.length === 0 || isTownhallInDanger(world, townhall, nearbyEnemies);
-
-    if (isNeedy) {
-      // Find potential donor townhalls
-      const possibleDonorThs = townhalls.filter(donorTh => {
-        const { assignedHarvesters, idealHarvesters } = donorTh;
-        return assignedHarvesters !== undefined && idealHarvesters !== undefined &&
-          assignedHarvesters > idealHarvesters && donorTh.pos;
-      });
-
-      const [givingTownhall] = units.getClosest(townhall.pos, possibleDonorThs);
+    const potentialDonors = getDonorTownhalls();
+    if (townhall.pos) {
+      const [givingTownhall] = units.getClosest(townhall.pos, potentialDonors);
       if (givingTownhall && givingTownhall.pos && gatheringWorkers.length > 0) {
-        const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringWorkers);
+        const potentialWorkers = gatheringWorkers.filter(worker => !reassignedWorkers.has(worker.tag));
+        const [donatingWorker] = units.getClosest(givingTownhall.pos, potentialWorkers);
         if (donatingWorker && donatingWorker.pos) {
-          // Logic for reassigning the worker
-          const mineralFields = units.getMineralFields().filter(field => {
-            const numWorkers = units.getWorkers().filter(worker => {
-              const { orders } = worker;
-              if (orders === undefined) { return false; }
-              return orders.some(order => order.targetUnitTag === field.tag);
-            }).length;
-            return (
-              (getDistance(field.pos, townhall.pos) < 8) &&
-              (!field.labels.has('workerCount') || field.labels.get('workerCount') < 2) &&
-              numWorkers < 2
-            );
-          });
-          const [mineralFieldTarget] = units.getClosest(townhall.pos, mineralFields);
-          if (mineralFieldTarget) {
-            donatingWorker.labels.set('mineralField', mineralFieldTarget);
-            if (!mineralFieldTarget.labels.has('workerCount')) {
-              mineralFieldTarget.labels.set('workerCount', 1);
-            } else {
-              mineralFieldTarget.labels.set('workerCount', mineralFieldTarget.labels.get('workerCount') + 1);
-            }
-            const unitCommands = gather(resources, donatingWorker, mineralFieldTarget, false);
-            collectedActions.push(...unitCommands);
-            unitCommands.forEach(unitCommand => setPendingOrders(donatingWorker, unitCommand));
-          } else {
-            const mineralFields = units.getMineralFields();
-            const [mineralFieldTarget] = units.getClosest(townhall.pos, mineralFields);
-            if (mineralFieldTarget) {
-              donatingWorker.labels.delete('mineralField');
-              const unitCommands = gather(resources, donatingWorker, mineralFieldTarget, false);
-              collectedActions.push(...unitCommands);
-            }
-          }
+          assignWorkerToMineralField(donatingWorker, townhall);
         }
       }
     }
