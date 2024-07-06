@@ -10,6 +10,10 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal module imports
+const { getMovementSpeed, getWorkerSourceByPath } = require("../../features/shared/coreUtils");
+const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../../features/shared/pathfinding");
+const { getDistanceByPath } = require("../../features/shared/pathfindingCore");
+const { getDistance } = require("../../features/shared/spatialCoreUtils");
 const { GameState } = require('../../gameState');
 const MapResources = require("../../gameState/mapResources");
 const { getPendingOrders } = require("../../sharedServices");
@@ -19,9 +23,6 @@ const { createUnitCommand } = require("../../utils/common");
 const { getById } = require("../../utils/generalUtils");
 const { getNeediestMineralField } = require("../../utils/resourceUtils");
 const { getClosestPathWithGasGeysers } = require("../../utils/sharedPathfindingUtils");
-const { getMovementSpeed, getWorkerSourceByPath } = require("../shared/coreUtils");
-const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../shared/pathfinding");
-const { getDistanceByPath } = require("../shared/pathfindingCore");
 
 /**
  * Global scope for worker assignment tracking
@@ -156,8 +157,6 @@ function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrCon
     return acc;
   }, []);
 }
-
-const { getDistance } = require("../shared/spatialCoreUtils");
 
 /**
  * @param {{point: Point2D, unit: Unit}[]} pointsWithUnits

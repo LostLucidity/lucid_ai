@@ -19,8 +19,8 @@ const { EarmarkManager } = require("../../core");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { buildSupply, getTimeToTargetCost } = require("../../features/construction/buildingService");
 const { getTimeToTargetTech } = require("../../features/misc/gameData");
-const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../../gameLogic/shared/pathfinding");
-const { getDistance } = require("../../gameLogic/shared/spatialCoreUtils");
+const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../../features/shared/pathfinding");
+const { getDistance } = require("../../features/shared/spatialCoreUtils");
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require("../../sharedServices");
 const { createUnitCommand } = require("../../utils/common");
@@ -29,7 +29,7 @@ const { productionUnitsCache } = require("../../utils/unitUtils");
 /**
  * Build supply or train units based on the game world state and strategy step.
  * @param {World} world
- * @param {import("../../features/strategy/utils/strategyManager").PlanStep} step
+ * @param {import("../../features/strategy/strategyManager").PlanStep} step
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function buildSupplyOrTrain(world, step) {

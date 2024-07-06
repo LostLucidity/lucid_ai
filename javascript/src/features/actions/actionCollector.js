@@ -6,7 +6,7 @@ const { GameState } = require("../../gameState");
 const GasMineManager = require("../../gameState/gasMineManager");
 const { refreshProductionUnitsCache } = require("../../units/management/unitManagement");
 const { buildSupply } = require("../construction/buildingService");
-const StrategyManager = require("../strategy/utils/strategyManager");
+const StrategyManager = require("../strategy/strategyManager");
 
 class ActionCollector {
   /**

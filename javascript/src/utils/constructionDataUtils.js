@@ -5,8 +5,8 @@ const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { buildUnitTypeMap } = require("../features/misc/gameData");
-const { getDistance } = require("../gameLogic/shared/spatialCoreUtils");
-const { isPendingContructing } = require("../gameLogic/shared/workerCommonUtils");
+const { getDistance } = require("../features/shared/spatialCoreUtils");
+const { isPendingContructing } = require("../features/shared/workerCommonUtils");
 const { GameState, buildingPositions } = require("../gameState");
 const { getPendingOrders } = require("../sharedServices");
 

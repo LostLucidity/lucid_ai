@@ -4,9 +4,9 @@
 
 const cacheManager = require("./cache");
 const { getPathablePositionsForStructure } = require("./common");
+const { getClosestUnitByPath } = require("../features/shared/pathfinding");
+const { getPathablePositions } = require("../features/shared/pathfindingCommon");
 const { getClosestPathWithGasGeysers } = require("../gameLogic/economy/workerService");
-const { getClosestUnitByPath } = require("../gameLogic/shared/pathfinding");
-const { getPathablePositions } = require("../gameLogic/shared/pathfindingCommon");
 
 
 /**

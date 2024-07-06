@@ -9,16 +9,16 @@ const {
   getOrderTargetPosition,
   reserveWorkerForBuilding,
 } = require("../../gameLogic/economy/workerService");
-const {
-  getAwayPosition,
-  areApproximatelyEqual,
-} = require("../../gameLogic/shared/pathfinding");
-const { getDistanceByPath } = require("../../gameLogic/shared/pathfindingCore");
-const { getDistance } = require("../../gameLogic/shared/spatialCoreUtils");
 const { GameState } = require("../../gameState");
 const { setPendingOrders } = require("../../units/management/unitOrders");
 const { createUnitCommand } = require("../../utils/common");
 const { getBuilders } = require("../../utils/workerUtils");
+const {
+  getAwayPosition,
+  areApproximatelyEqual,
+} = require("../shared/pathfinding");
+const { getDistanceByPath } = require("../shared/pathfindingCore");
+const { getDistance } = require("../shared/spatialCoreUtils");
 
 /**
  * @param {World} world

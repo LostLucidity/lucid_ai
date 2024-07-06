@@ -9,16 +9,16 @@ const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 
 // Internal module imports
 const { getClosestExpansion, isMoving } = require("./workerService");
+const { findClosestMineralField } = require("../../features/shared/coreUtils");
+const { getClosestUnitFromUnit } = require("../../features/shared/pathfinding");
+const { findEnemyUnitsNear } = require("../../features/shared/scoutingUtils");
+const { getDistance } = require("../../features/shared/spatialCoreUtils");
+const { isTownhallInDanger } = require("../../features/shared/stateManagement");
+const { isPendingContructing } = require("../../features/shared/workerCommonUtils");
 const { getPendingOrders } = require("../../sharedServices");
 const { setPendingOrders } = require("../../units/management/unitOrders");
 const { getUnitsWithinDistance, createUnitCommand } = require("../../utils/common");
 const { getNeediestMineralField, getMineralFieldAssignments } = require("../../utils/resourceUtils");
-const { findClosestMineralField } = require("../shared/coreUtils");
-const { getClosestUnitFromUnit } = require("../shared/pathfinding");
-const { findEnemyUnitsNear } = require("../shared/scoutingUtils");
-const { getDistance } = require("../shared/spatialCoreUtils");
-const { isTownhallInDanger } = require("../shared/stateManagement");
-const { isPendingContructing } = require("../shared/workerCommonUtils");
 
 /**
  * Balances the worker distribution across all bases.

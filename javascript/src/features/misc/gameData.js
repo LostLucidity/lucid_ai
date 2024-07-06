@@ -19,8 +19,8 @@ const { UnitType } = require('@node-sc2/core/constants');
 const { reactorTypes, techLabTypes } = require('@node-sc2/core/constants/groups');
 
 // Internal module imports
-const { getTimeInSeconds } = require('../../gameLogic/shared/pathfinding');
 const { GameState } = require('../../gameState');
+const { getTimeInSeconds } = require('../shared/pathfinding');
 
 /**
  * A map of unit types to their possible upgrades.

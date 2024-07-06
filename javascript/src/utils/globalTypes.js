@@ -27,7 +27,7 @@
 
 /**
  * @typedef {Object} GameState
- * @property {import("../features/strategy/utils/strategyManager").PlanStep[]} plan - The current plan.
+ * @property {import("../features/strategy/strategyManager").PlanStep[]} plan - The current plan.
  * @property {number} resources - The current resources available to the bot.
  * @property {Object} enemyInfo - Information about the enemy's units and buildings.
  * @property {Object[]} ownUnits - Array of the bot's own units.

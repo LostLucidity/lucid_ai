@@ -15,14 +15,14 @@ const {
   rallyWorkerToTarget,
   getUnitsFromClustering,
 } = require('../../gameLogic/economy/workerService');
-const { getPathCoordinates, getMapPath } = require('../../gameLogic/shared/pathfindingCommon');
-const { prepareBuildContext } = require('../../gameLogic/shared/workerManagementUtils');
 const { GameState } = require('../../gameState');
 const { getPendingOrders } = require('../../sharedServices');
 const { createUnitCommand } = require('../../utils/common');
 const { calculatePathablePositions } = require('../../utils/pathfindingUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
 const { handleNonRallyBase } = require('../construction/buildingWorkerInteractions');
+const { getPathCoordinates, getMapPath } = require('../shared/pathfindingCommon');
+const { prepareBuildContext } = require('../shared/workerManagementUtils');
 
 /**
  * @typedef {Object} BuildContext

@@ -9,8 +9,8 @@ const { unitTypeTrainingAbilities, flyingTypesMapping } = require("./unitConfig"
 const { setPendingOrders } = require("./unitOrders");
 const { EarmarkManager } = require("../../core");
 const { getUnitTypeData } = require("../../core/gameData");
-const StrategyContext = require("../../features/strategy/utils/strategyContext");
-const { selectUnitTypeToBuild } = require("../../features/strategy/utils/unitSelection");
+const StrategyContext = require("../../features/strategy/strategyContext");
+const { selectUnitTypeToBuild } = require("../../features/strategy/unitSelection");
 const { getBuildTimeLeft, shortOnWorkers } = require("../../gameLogic/economy/workerService");
 const { filterSafeTrainers } = require("../../gameLogic/gameMechanics/gameStrategyUtils");
 const { GameState } = require('../../gameState');
@@ -186,7 +186,7 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
 /**
  * Optimizes the training of units based on the current game state and strategic needs.
  * @param {World} world The game world context.
- * @param {import("../../features/strategy/utils/strategyManager").PlanStep} step The current strategy step.
+ * @param {import("../../features/strategy/strategyManager").PlanStep} step The current strategy step.
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of unit training commands.
  */
 function handleUnitTraining(world, step) {

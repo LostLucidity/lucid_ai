@@ -11,7 +11,9 @@ const { getFootprint, twoByTwoUnits } = require('@node-sc2/core/utils/geometry/u
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
 // Internal module imports
-const { calculateDistance } = require('../../gameLogic/shared/coreUtils');
+const { buildingPositions } = require('../../gameState');
+const { addOnTypesMapping } = require('../../units/management/unitConfig');
+const { calculateDistance } = require('../shared/coreUtils');
 const {
   getAdjacentToRampGrids,
   intersectionOfPoints,
@@ -19,12 +21,10 @@ const {
   isBuildingAndAddonPlaceable,
   getAddOnPlacement,
   getAddOnBuildingPlacement,
-} = require('../../gameLogic/shared/pathfinding');
-const { getClosestPosition } = require('../../gameLogic/shared/pathfindingCommon');
-const { getDistance } = require('../../gameLogic/shared/spatialCoreUtils');
-const { buildingPositions } = require('../../gameState');
-const { addOnTypesMapping } = require('../../units/management/unitConfig');
-const StrategyContext = require('../strategy/utils/strategyContext');
+} = require('../shared/pathfinding');
+const { getClosestPosition } = require('../shared/pathfindingCommon');
+const { getDistance } = require('../shared/spatialCoreUtils');
+const StrategyContext = require('../strategy/strategyContext');
 
 const PYLON_POWER_RANGE = 6.5;
 

@@ -6,8 +6,8 @@ const { getBuilder, prepareBuilderForConstruction, handleCannotAffordBuilding, h
 const { keepPosition } = require('./buildingPlacementUtils');
 const { findUnitTypesWithAbilityCached } = require('./common');
 const BuildingPlacement = require('../features/construction/buildingPlacement');
-const { calculateDistance } = require('../gameLogic/shared/coreUtils');
-const { requiresPylonPower } = require('../gameLogic/shared/protossUtils');
+const { calculateDistance } = require('../features/shared/coreUtils');
+const { requiresPylonPower } = require('../features/shared/protossUtils');
 
 /**
  * Command to place a building at the specified position.

@@ -1,21 +1,27 @@
-// src/features/strategy/utils/index.js
+// src/features/strategy/index.js
+
+// Exporting strategy action modules
+const actionStrategy = require('./actionStrategy');
+const specialActions = require('./specialActions');
+// Exporting strategy data modules
 const strategyContext = require('./strategyContext');
+const strategyData = require('./strategyData');
+// Exporting strategy utility modules
 const strategyInitialization = require('./strategyInitialization');
 const strategyManager = require('./strategyManager');
 const unitActionStrategy = require('./unitActionStrategy');
 const unitSelection = require('./unitSelection');
 const upgradeActionStrategy = require('./upgradeActionStrategy');
-const actions = require('../actions');
-const data = require('../data/strategyData');
 
+// Aggregating and exporting all modules
 module.exports = {
-  actions,
-  data,
+  specialActions,
+  strategyData,
+  actionStrategy,
   strategyContext,
   strategyInitialization,
   strategyManager,
   unitActionStrategy,
   unitSelection,
-  upgradeActionStrategy,
+  upgradeActionStrategy
 };
-

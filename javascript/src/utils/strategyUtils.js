@@ -2,14 +2,14 @@
 
 const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 
-const StrategyContext = require("../features/strategy/utils/strategyContext");
+const StrategyContext = require("../features/strategy/strategyContext");
 /* eslint-disable-next-line no-unused-vars */
 const { GameState } = require('../gameState');
 
 /**
  * Converts strategy steps (from BuildOrderStep or StrategyStep format) to PlanStep format.
- * @param {(import("./globalTypes").BuildOrderStep[] | import("../features/strategy/utils/strategyManager").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
- * @returns {import("../features/strategy/utils/strategyManager").PlanStep[]} Array of PlanStep objects.
+ * @param {(import("./globalTypes").BuildOrderStep[] | import("../features/strategy/strategyManager").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
+ * @returns {import("../features/strategy/strategyManager").PlanStep[]} Array of PlanStep objects.
  */
 function convertToPlanSteps(strategySteps) {
   return strategySteps.map(step => {
@@ -143,14 +143,14 @@ function getPlanFoodValue(gameState) {
 /**
  * Determines if two steps are similar based on their 'action' and potentially 'unitType'.
  * This function accounts for differences in structure between BuildOrderStep and StrategyStep.
- * @param {import("../features/strategy/data/strategyData").GeneralStep} stepA - First step to compare.
- * @param {import("../features/strategy/data/strategyData").GeneralStep} stepB - Second step to compare.
+ * @param {import("../features/strategy/strategyData").GeneralStep} stepA - First step to compare.
+ * @param {import("../features/strategy/strategyData").GeneralStep} stepB - Second step to compare.
  * @returns {boolean} True if the steps are considered similar, false otherwise.
  */
 function isEqualStep(stepA, stepB) {
   /**
    * Extracts the unit type from a step, which could be either a BuildOrderStep or a StrategyStep.
-   * @param {import("../features/strategy/data/strategyData").GeneralStep} step - The step from which to extract the unit type.
+   * @param {import("../features/strategy/strategyData").GeneralStep} step - The step from which to extract the unit type.
    * @returns {number | null} - The unit type if available, otherwise null.
    */
   const getUnitType = (step) => {
@@ -172,7 +172,7 @@ function isEqualStep(stepA, stepB) {
 }
 
 /**
- * @param {import("./globalTypes").BuildOrder | import("../features/strategy/utils/strategyManager").Strategy | undefined} plan
+ * @param {import("./globalTypes").BuildOrder | import("../features/strategy/strategyManager").Strategy | undefined} plan
  */
 function isValidPlan(plan) {
   return plan && Array.isArray(plan.steps);

@@ -10,12 +10,6 @@ const BuildingPlacement = require("./buildingPlacement");
 const config = require("../../../config/config");
 const { EarmarkManager } = require("../../core");
 const { attemptBuildAddOn, attemptLiftOff } = require("../../core/buildUtils");
-const { attemptLand } = require("../../gameLogic/shared/buildingUtils");
-const { calculateDistance } = require("../../gameLogic/shared/coreUtils");
-const { getNextSafeExpansions } = require("../../gameLogic/shared/pathfinding");
-const { findPlacements, findPosition } = require("../../gameLogic/shared/spatialUtils");
-const { prepareUnitToBuildAddon } = require("../../gameLogic/shared/unitPreparationUtils");
-const { commandBuilderToConstruct } = require("../../gameLogic/shared/workerManagementUtils");
 const { GameState } = require("../../gameState");
 const MapResources = require("../../gameState/mapResources");
 const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
@@ -35,6 +29,12 @@ const { isSupplyNeeded } = require("../../utils/common");
 const { getTimeUntilUnitCanBuildAddon } = require("../../utils/supplyUtils");
 const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionUtils");
 const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../misc/gameData");
+const { attemptLand } = require("../shared/buildingUtils");
+const { calculateDistance } = require("../shared/coreUtils");
+const { getNextSafeExpansions } = require("../shared/pathfinding");
+const { findPlacements, findPosition } = require("../shared/spatialUtils");
+const { prepareUnitToBuildAddon } = require("../shared/unitPreparationUtils");
+const { commandBuilderToConstruct } = require("../shared/workerManagementUtils");
 
 /**
  * Adds an add-on with placement checks and relocating logic.

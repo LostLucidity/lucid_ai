@@ -114,7 +114,7 @@ class GameState {
 
   /**
    * The plan consisting of a sequence of PlanStep objects.
-   * @type {import('../features/strategy/utils/strategyManager').PlanStep[]}
+   * @type {import('../features/strategy/strategyManager').PlanStep[]}
    */
   plan = [];
 
@@ -588,7 +588,7 @@ class GameState {
 
   /**
    * Sets the building plan.
-   * @param {import('../features/strategy/utils/strategyManager').PlanStep[]} newPlan - The new building plan.
+   * @param {import('../features/strategy/strategyManager').PlanStep[]} newPlan - The new building plan.
    */
   setPlan(newPlan) {
     this.plan = newPlan;

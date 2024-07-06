@@ -8,8 +8,9 @@ const groupTypes = require("@node-sc2/core/constants/groups");
 // Internal module imports
 const { positionIsEqual } = require("./common");
 const { logMessageStorage } = require("./logging");
-const { getAddOnPlacement } = require("../gameLogic/shared/pathfinding");
-const { getDistance } = require("../gameLogic/shared/spatialCoreUtils");
+const BuildingPlacement = require("../features/construction/buildingPlacement");
+const { getAddOnPlacement } = require("../features/shared/pathfinding");
+const { getDistance } = require("../features/shared/spatialCoreUtils");
 const { canLiftOff } = require("../units/management/unitConfig");
 
 /** @type {UnitTypeId | null} */
@@ -183,7 +184,10 @@ function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
 
   if (race === Race.PROTOSS && ![UnitType.PYLON, UnitType.ASSIMILATOR, UnitType.NEXUS].includes(unitType)) {
     const pylons = units.getById(UnitType.PYLON);
-    const pylonExists = pylons.some(pylon => pylon.isPowered || (pylon.buildProgress !== undefined && pylon.buildProgress < 1) || pylon.buildProgress === 1);
+    const pylonExists = pylons.some(pylon =>
+      (pylon.isPowered || (pylon.buildProgress !== undefined && pylon.buildProgress < 1) || pylon.buildProgress === 1) &&
+      BuildingPlacement.isPylonInRange(pylon, position)
+    );
     isPositionValid = isPositionValid && pylonExists;
   }
 
