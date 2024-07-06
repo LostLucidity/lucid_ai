@@ -29,7 +29,7 @@ const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require
  */
 function canTrainUnitType(world, unit, abilityId, threshold) {
   const { data } = world;
-  if (!unit.buildProgress || unit.buildProgress < 1 || unit.labels.has('reposition')) return false;
+  if ((unit.buildProgress ?? 0) < 1 || unit.labels.has('reposition')) return false;
 
   const orders = unit.orders || [];
   const pendingOrders = getPendingOrders(unit);
@@ -228,7 +228,6 @@ function shouldTrainWorkers(world) {
   const assignedWorkerCount = [...bases, ...gasMines].reduce((acc, unit) => acc + (unit.assignedHarvesters || 0), 0);
   const minimumWorkerCount = Math.min(workerCount, assignedWorkerCount);
 
-  // Ensure minerals is defined before performing the comparison
   const sufficientMinerals = typeof agent.minerals === 'number' && (agent.minerals < 512 || minimumWorkerCount <= 36);
   const productionPossible = haveAvailableProductionUnitsFor(world, WorkerRace[agent.race]);
   const notOutpowered = !StrategyContext.getInstance().getOutpowered();
@@ -246,33 +245,17 @@ function shouldTrainWorkers(world) {
 function train(world, unitTypeId, targetCount = null) {
   const unitTypeData = world.data.getUnitTypeData(unitTypeId);
 
-  // Check if the unit type has a valid ability ID
-  if (!unitTypeData.abilityId) {
-    return [];
-  }
+  if (!unitTypeData.abilityId) return [];
 
-  // Calculate available supply and required supply
-  const foodCap = world.agent.foodCap ?? 0;
-  const foodUsed = world.agent.foodUsed ?? 0;
+  const { foodCap = 0, foodUsed = 0 } = world.agent;
   const availableSupply = foodCap - foodUsed;
   const requiredSupply = unitTypeData.foodRequired || 0;
 
-  // Check if there is enough available supply to train the unit
-  if (availableSupply < requiredSupply) {
-    return [];
-  }
+  if (availableSupply < requiredSupply) return [];
+  if (!world.agent.canAfford(unitTypeId)) return [];
+  if (unitTypeData.techRequirement && !world.agent.hasTechFor(unitTypeId)) return [];
+  if (!canTrainUnit(world, unitTypeId, targetCount)) return [];
 
-  // Check if the agent can afford the unit
-  if (!world.agent.canAfford(unitTypeId)) {
-    return [];
-  }
-
-  // Check if the unit can be trained based on target count and other conditions
-  if (!canTrainUnit(world, unitTypeId, targetCount)) {
-    return [];
-  }
-
-  // Handle the unit training actions
   return handleTrainingActions(world, unitTypeId, unitTypeData);
 }
 
