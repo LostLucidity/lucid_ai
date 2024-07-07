@@ -1,4 +1,4 @@
-const { UnitType } = require("@node-sc2/core/constants");
+const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { Attribute, Race } = require("@node-sc2/core/constants/enums");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
@@ -112,22 +112,33 @@ function filterCandidateTypes(world) {
  */
 function getTrainer(world, unitTypeId, threshold) {
   const { WARPGATE } = UnitType;
-  const { data } = world;
+  const { data, resources } = world;
   const abilityId = data.getUnitTypeData(unitTypeId)?.abilityId;
   if (abilityId === undefined) return [];
 
   const unitTypesWithAbility = findUnitTypesWithAbilityCached(data, abilityId);
-  const units = world.resources.get().units;
+  const units = resources.get().units;
 
-  const productionUnits = getBasicProductionUnits(world, unitTypeId).filter(unit =>
-    canTrainUnitType(world, unit, abilityId, threshold)
+  /**
+   * Filters units by their ability to train a specific unit type within a threshold.
+   * @param {Unit[]} unitList The list of units to filter.
+   * @param {number} ability The ability ID to check against.
+   * @returns {Unit[]} The filtered list of units that can train the unit type.
+   */
+  const filterUnitsByTrainingAbility = (unitList, ability) =>
+    unitList.filter(unit => canTrainUnitType(world, unit, ability, threshold));
+
+  const productionUnits = filterUnitsByTrainingAbility(
+    getBasicProductionUnits(world, unitTypeId),
+    abilityId
   );
-  const warpgateUnits = units.getById(WARPGATE).filter(unit =>
-    canTrainUnitType(world, unit, abilityId, threshold)
+  const warpgateUnits = filterUnitsByTrainingAbility(
+    units.getById(WARPGATE),
+    WarpUnitAbility[unitTypeId]
   );
   const flyingUnits = getUnitsByAbility(world, unitTypeId, threshold, unitTypesWithAbility);
 
-  return [...new Set([...productionUnits, ...warpgateUnits, ...flyingUnits])];
+  return Array.from(new Set([...productionUnits, ...warpgateUnits, ...flyingUnits]));
 }
 
 /**
