@@ -144,8 +144,13 @@ class StrategyManager {
   /**
    * Assigns a race to the strategy manager and initializes the strategy.
    * @param {SC2APIProtocol.Race | undefined} race - The race to assign.
+   * @throws Will throw an error if the race is not provided.
    */
   assignRaceAndInitializeStrategy(race) {
+    if (!race) {
+      throw new Error("Race must be provided for assignment and initialization");
+    }
+
     this.race = race;
     this.initializeStrategy(race);
   }
@@ -454,26 +459,26 @@ class StrategyManager {
 
   /**
    * Initializes the strategy for the given race.
-   * @param {SC2APIProtocol.Race | undefined} race - The race for which to initialize the strategy.
+   * @param {SC2APIProtocol.Race} race - The race for which to initialize the strategy.
+   * @throws Will throw an error if the race is not provided or if the strategyContext is undefined.
    */
   initializeStrategy(race) {
     if (!race) {
       throw new Error("Race must be provided for strategy initialization");
     }
-    this.race = race;
 
     if (!this.strategyContext) {
-      console.error("strategyContext is undefined.");
-      return;
+      throw new Error("strategyContext is undefined.");
     }
 
+    this.race = race;
+
     try {
-      const buildOrderKey =
-        config.debugBuildOrderKey ||
-        StrategyManager.selectBuildOrderKey(race);
-      this.strategyContext.setCurrentStrategy(
-        StrategyManager.loadStrategy(race, buildOrderKey)
-      );
+      const buildOrderKey = config.debugBuildOrderKey || StrategyManager.selectBuildOrderKey(race);
+      const strategy = StrategyManager.loadStrategy(race, buildOrderKey);
+
+      this.strategyContext.setCurrentStrategy(strategy);
+      console.log(`Selected build order key: ${buildOrderKey}`);
     } catch (error) {
       console.error(`Error loading strategy for ${race}:`, error);
       return;
@@ -680,9 +685,7 @@ class StrategyManager {
     };
 
     const key = raceMapping[race];
-    return key === "protoss" || key === "terran" || key === "zerg"
-      ? key
-      : undefined;
+    return key === "protoss" || key === "terran" || key === "zerg" ? key : undefined;
   }
 
   /**
@@ -919,21 +922,21 @@ class StrategyManager {
   /**
    * Selects a build order key based on race and possibly other criteria.
    * If a specific build order key is provided, it uses that key; otherwise, it selects randomly.
-   * @param {SC2APIProtocol.Race | undefined} race
-   * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
-   * @returns {string}
+   * @param {SC2APIProtocol.Race} race - The race for which to select the build order.
+   * @param {string} [specificBuildOrderKey] - Optional specific build order key for debugging.
+   * @returns {string} The selected build order key.
+   * @throws {Error} If race is not provided.
    */
-  static selectBuildOrderKey(
-    race,
-    specificBuildOrderKey = undefined
-  ) {
-    if (race === undefined) {
+  static selectBuildOrderKey(race, specificBuildOrderKey) {
+    if (!race) {
       throw new Error("Race must be provided");
     }
-    if (specificBuildOrderKey !== undefined) {
-      return specificBuildOrderKey;
-    }
-    return StrategyManager.selectRandomBuildOrderKey(race);
+    const buildOrderKey = specificBuildOrderKey
+      ? specificBuildOrderKey
+      : StrategyManager.selectRandomBuildOrderKey(race);
+
+    console.log(`Selected build order key: ${buildOrderKey}`);
+    return buildOrderKey;
   }
 
   /**
