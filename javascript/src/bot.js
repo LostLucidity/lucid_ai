@@ -22,6 +22,17 @@ const { clearAllPendingOrders } = require('./utils/unitUtils');
 const { assignWorkers } = require('./utils/workerUtils');
 const config = require('../config/config');
 
+/**
+ * @typedef {Object} CacheManager
+ * @property {Function} updateCompletedBasesCache - Updates the cache of completed bases.
+ */
+
+/**
+ * @typedef {Object} UpgradeProgress
+ * @property {number} upgradeType
+ * @property {boolean} inProgress
+ */
+
 const buildOrderCompletion = new Map();
 const completedBasesMap = new Map();
 const gameState = GameState.getInstance();
@@ -37,6 +48,25 @@ const MARGIN_OF_ERROR_SECONDS = 5;
 let previousFreeGeysersCount = 0;
 let previousValidPositionsCount = 0;
 
+/**
+ * Assign workers to mineral fields.
+ * @param {ResourceManager} resources
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ */
+function assignMineralWorkers(resources, actionList) {
+  actionList.push(...assignWorkers(resources));
+}
+
+/**
+ * Balance worker distribution across bases.
+ * @param {World} world
+ * @param {UnitResource} units
+ * @param {ResourceManager} resources
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ */
+function balanceWorkers(world, units, resources, actionList) {
+  actionList.push(...balanceWorkerDistribution(world, units, resources));
+}
 
 /**
  * Checks and updates the build order progress.
@@ -72,6 +102,93 @@ async function checkBuildOrderProgress(world, buildOrder) {
     }
 
     buildOrderCompletion.set(order, orderStatus);
+  }
+}
+
+/**
+ * Collect actions from the action collector.
+ * @param {World} world
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ */
+function collectActions(world, actionList) {
+  const actionCollector = new ActionCollector(world);
+  actionList.push(...actionCollector.collectActions());
+}
+
+/**
+ * Handle idle PROBES near warping ASSIMILATORS.
+ * @param {UnitResource} units
+ * @param {Array<Unit>} allUnits
+ * @param {ResourceManager} resources
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ */
+function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList) {
+  const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator =>
+    assimilator.buildProgress !== undefined && assimilator.buildProgress < 1
+  );
+
+  if (assimilatorsWarpingIn.length > 0) {
+    assimilatorsWarpingIn.forEach(assimilator => {
+      const nearbyProbes = allUnits.filter(probe =>
+        probe.unitType === PROBE && (!probe.orders || probe.isGathering()) &&
+        getDistance(probe.pos, assimilator.pos) < 3
+      );
+
+      nearbyProbes.forEach(probe => {
+        actionList.push(...gather(resources, probe, null, false));
+      });
+    });
+  }
+}
+
+/**
+ * Log geyser activity.
+ * @param {MapResource} map
+ */
+function logGeyserActivity(map) {
+  const currentFreeGeysersCount = map.freeGasGeysers().length;
+  if (currentFreeGeysersCount > previousFreeGeysersCount) {
+    resetNoFreeGeysersLogFlag();
+  }
+  previousFreeGeysersCount = currentFreeGeysersCount;
+}
+
+/**
+ * Log unit positions.
+ * @param {World} world
+ */
+function logUnitPositions(world) {
+  if (lastLoggedUnitType) {
+    const currentValidPositionsCount = getValidPositionsCount(world, lastLoggedUnitType);
+    if (currentValidPositionsCount > previousValidPositionsCount) {
+      resetNoValidPositionLogFlag();
+    }
+    previousValidPositionsCount = currentValidPositionsCount;
+  }
+}
+
+/**
+ * Queue gather orders for probes starting ASSIMILATOR warpin.
+ * @param {UnitResource} units
+ * @param {Array<Unit>} allUnits
+ * @param {ResourceManager} resources
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ */
+function queueGatherOrdersForProbes(units, allUnits, resources, actionList) {
+  const probesWarpingAssimilators = allUnits.filter(probe =>
+    probe.unitType === PROBE && probe.orders?.some(order => order.abilityId === BUILD_ASSIMILATOR)
+  );
+
+  if (probesWarpingAssimilators.length > 0) {
+    const mineralFields = units.getMineralFields();
+    probesWarpingAssimilators.forEach(probe => {
+      if (probe.pos) {
+        const closestMineralPatch = units.getClosest(probe.pos, mineralFields, 1)[0];
+        if (closestMineralPatch) {
+          actionList.push(...gather(resources, probe, closestMineralPatch, true));
+        }
+      }
+    });
   }
 }
 
@@ -377,6 +494,76 @@ function getValidPositionsCount(world, unitType) {
   return candidatePositions.length;
 }
 
+/**
+ * Track performance and log warnings if necessary.
+ * @param {FrameResource} frame
+ * @param {GameState} gameState
+ */
+function trackPerformance(frame, gameState) {
+  const stepEnd = performance.now();
+  const realTimeElapsed = (stepEnd - gameStartTime) / 1000;
+  const gameTimeElapsed = (frame.getGameLoop() - gameState.lastGameLoop) / 22.4;
+  gameState.lastGameLoop = frame.getGameLoop();
+  cumulativeGameTime += gameTimeElapsed;
+
+  if (stepEnd - lastCheckTime >= REAL_TIME_CHECK_INTERVAL) {
+    if (realTimeElapsed > cumulativeGameTime) {
+      console.warn(`Bot is slower than real-time! Cumulative real-time elapsed: ${realTimeElapsed.toFixed(2)}s, Cumulative game-time elapsed: ${cumulativeGameTime.toFixed(2)}s`);
+    }
+    lastCheckTime = stepEnd;
+  }
+}
+
+/**
+ * Update completed bases and cache them.
+ * @param {UnitResource} units
+ * @param {CacheManager} cacheManager
+ */
+function updateCompletedBases(units, cacheManager) {
+  const newCompletedBases = units.getBases().filter(base => {
+    const isCompleted = (base.buildProgress ?? 0) >= 1;
+    if (isCompleted && !completedBasesMap.has(base.tag)) {
+      completedBasesMap.set(base.tag, true);
+      return true;
+    }
+    return false;
+  });
+
+  if (newCompletedBases.length > 0) {
+    cacheManager.updateCompletedBasesCache(newCompletedBases);
+  }
+}
+
+/**
+ * Update upgrades in progress.
+ * @param {Array<Unit>} allUnits
+ * @param {World} world
+ */
+function updateUpgradesInProgress(allUnits, world) {
+  const UPGRADE_ABILITY_IDS = new Map();
+  Object.values(Upgrade).forEach(upgradeId => {
+    const upgradeData = world.data.getUpgradeData(upgradeId);
+    if (upgradeData?.abilityId) {
+      UPGRADE_ABILITY_IDS.set(upgradeData.abilityId, upgradeId);
+    }
+  });
+
+  /** @type {UpgradeProgress[]} */
+  const upgradesInProgress = allUnits.reduce((/** @type {UpgradeProgress[]} */ acc, unit) => {
+    if (unit.isStructure() && unit.orders && unit.orders.length > 0) {
+      unit.orders.forEach(order => {
+        const upgradeId = UPGRADE_ABILITY_IDS.get(order.abilityId);
+        if (upgradeId !== undefined) {
+          acc.push({ upgradeType: upgradeId, inProgress: true });
+        }
+      });
+    }
+    return acc;
+  }, []);
+
+  gameState.updateUpgradesInProgress(upgradesInProgress);
+}
+
 const bot = createAgent({
   interface: {
     raw: true, rawCropToPlayableArea: true, score: true, showBurrowedShadows: true, showCloaked: true,
@@ -426,131 +613,36 @@ const bot = createAgent({
   onStep: async (world) => {
     try {
       const { frame, units, map } = world.resources.get();
+      const resources = world.resources; // Get the ResourceManager
+      /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
       const actionList = [];
       const allUnits = units.getAll();
 
-      // Update completed bases
-      const newCompletedBases = units.getBases().filter(base => {
-        const isCompleted = (base.buildProgress ?? 0) >= 1;
-        if (isCompleted && !completedBasesMap.has(base.tag)) {
-          completedBasesMap.set(base.tag, true);
-          return true;
-        }
-        return false;
-      });
-      if (newCompletedBases.length > 0) {
-        cacheManager.updateCompletedBasesCache(newCompletedBases);
-      }
+      updateCompletedBases(units, cacheManager);
 
-      // Check build order progress
       const buildOrder = gameState.getBuildOrder();
       await checkBuildOrderProgress(world, buildOrder);
 
-      // Preemptively queue gather orders for probes starting ASSIMILATOR warpin
-      const probesWarpingAssimilators = allUnits.filter(probe =>
-        probe.unitType === PROBE && probe.orders?.some(order => order.abilityId === BUILD_ASSIMILATOR)
-      );
-      if (probesWarpingAssimilators.length > 0) {
-        const mineralFields = units.getMineralFields();
-        probesWarpingAssimilators.forEach(probe => {
-          if (probe.pos) {
-            const closestMineralPatch = units.getClosest(probe.pos, mineralFields, 1)[0];
-            if (closestMineralPatch) {
-              actionList.push(...gather(world.resources, probe, closestMineralPatch, true));
-            }
-          }
-        });
-      }
+      queueGatherOrdersForProbes(units, allUnits, resources, actionList);
 
-      // Handle idle PROBES near warping ASSIMILATORS
-      const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator =>
-        assimilator.buildProgress !== undefined && assimilator.buildProgress < 1
-      );
-      if (assimilatorsWarpingIn.length > 0) {
-        assimilatorsWarpingIn.forEach(assimilator => {
-          const nearbyProbes = allUnits.filter(probe =>
-            probe.unitType === PROBE && (!probe.orders || probe.isGathering()) &&
-            getDistance(probe.pos, assimilator.pos) < 3
-          );
-          nearbyProbes.forEach(probe => {
-            actionList.push(...gather(world.resources, probe, null, false));
-          });
-        });
-      }
+      handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList);
 
-      // Collect actions
-      const actionCollector = new ActionCollector(world);
-      actionList.push(...actionCollector.collectActions());
+      collectActions(world, actionList);
 
-      // Update upgrades in progress
-      const UPGRADE_ABILITY_IDS = new Map();
-      Object.values(Upgrade).forEach(upgradeId => {
-        const upgradeData = world.data.getUpgradeData(upgradeId);
-        if (upgradeData?.abilityId) {
-          UPGRADE_ABILITY_IDS.set(upgradeData.abilityId, upgradeId);
-        }
-      });
+      updateUpgradesInProgress(allUnits, world);
 
-      /**
-       * @typedef {Object} UpgradeProgress
-       * @property {number} upgradeType
-       * @property {boolean} inProgress
-       */
+      trackPerformance(frame, gameState);
 
-      /** @type {UpgradeProgress[]} */
-      const upgradesInProgress = allUnits.reduce((/** @type {UpgradeProgress[]} */ acc, unit) => {
-        if (unit.isStructure() && unit.orders && unit.orders.length > 0) {
-          unit.orders.forEach(order => {
-            const upgradeId = UPGRADE_ABILITY_IDS.get(order.abilityId);
-            if (upgradeId !== undefined) {
-              acc.push({ upgradeType: upgradeId, inProgress: true });
-            }
-          });
-        }
-        return acc;
-      }, []);
-      gameState.updateUpgradesInProgress(upgradesInProgress);
+      logGeyserActivity(map);
 
-      // Performance tracking and logging
-      const stepEnd = performance.now();
-      const realTimeElapsed = (stepEnd - gameStartTime) / 1000;
-      const gameTimeElapsed = (frame.getGameLoop() - gameState.lastGameLoop) / 22.4;
-      gameState.lastGameLoop = frame.getGameLoop();
-      cumulativeGameTime += gameTimeElapsed;
+      logUnitPositions(world);
 
-      if (stepEnd - lastCheckTime >= REAL_TIME_CHECK_INTERVAL) {
-        if (realTimeElapsed > cumulativeGameTime) {
-          console.warn(`Bot is slower than real-time! Cumulative real-time elapsed: ${realTimeElapsed.toFixed(2)}s, Cumulative game-time elapsed: ${cumulativeGameTime.toFixed(2)}s`);
-        }
-        lastCheckTime = stepEnd;
-      }
+      balanceWorkers(world, units, resources, actionList);
 
-      // Geyser logging
-      const currentFreeGeysersCount = map.freeGasGeysers().length;
-      if (currentFreeGeysersCount > previousFreeGeysersCount) {
-        resetNoFreeGeysersLogFlag();
-      }
-      previousFreeGeysersCount = currentFreeGeysersCount;
+      assignMineralWorkers(resources, actionList);
 
-      // Unit position logging
-      if (lastLoggedUnitType) {
-        const currentValidPositionsCount = getValidPositionsCount(world, lastLoggedUnitType);
-        if (currentValidPositionsCount > previousValidPositionsCount) {
-          resetNoValidPositionLogFlag();
-        }
-        previousValidPositionsCount = currentValidPositionsCount;
-      }
-
-      // Balance worker distribution across bases
-      actionList.push(...balanceWorkerDistribution(world, units, world.resources));
-
-      // Assign workers to mineral fields
-      actionList.push(...assignWorkers(world.resources));
-
-      // Update food used
       gameState.setFoodUsed(world);
 
-      // Execute all actions
       await executeActions(world, actionList);
 
     } catch (error) {
