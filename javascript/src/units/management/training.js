@@ -196,24 +196,33 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
 
 /**
  * Optimizes the training of units based on the current game state and strategic needs.
- * @param {World} world The game world context.
- * @param {import("../../features/strategy/strategyManager").PlanStep} step The current strategy step.
+ * @param {World} world - The game world context.
+ * @param {import("../../features/strategy/strategyManager").PlanStep} step - The current strategy step.
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of unit training commands.
  */
 function handleUnitTraining(world, step) {
-  if (world.agent.race == null || step.unitType == null) return [];
+  // Early exit if essential data is missing
+  if (!world.agent.race || !step.unitType) return [];
 
   const gameState = GameState.getInstance();
+
+  // Update and fetch the current food usage
+  gameState.setFoodUsed(world);
   const foodUsed = gameState.getFoodUsed() + EarmarkManager.getEarmarkedFood();
   const foodAvailable = (step.food || 0) - foodUsed;
+
+  // Exit if no food is available
   if (foodAvailable <= 0) return [];
 
+  // Attempt to train workers first
   let trainingOrders = shouldTrainWorkers(world) ? trainWorkers(world) : [];
 
+  // If no workers are trained, attempt to train combat units
   if (trainingOrders.length === 0) {
     trainingOrders = trainCombatUnits(world);
   }
 
+  // If no combat units are trained and race allows, earmark workers for training
   if (trainingOrders.length === 0 && WorkerRace[world.agent.race]) {
     earmarkWorkersForTraining(world, foodAvailable);
   }

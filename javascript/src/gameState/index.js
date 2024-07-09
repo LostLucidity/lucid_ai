@@ -20,11 +20,6 @@ const cacheManager = require('../utils/cache');
 /** @type {Map<number, Point2D>} */
 const buildingPositions = new Map();
 
-/** @type {{foodUsed: number}} */
-const foodData = {
-  foodUsed: 12,
-};
-
 // Assuming `gasMineManager` is instantiated and available in this context
 const gasMineManager = new GasMineManager();
 
@@ -130,9 +125,9 @@ class GameState {
   race = null;
 
   /**
-   * @type {import('../core/gameData').Resources} - Typing the resources property using JSDoc comment
+   * @type {import('../core/gameData').Resources} Tracks various game resources.
    */
-  resources = defaultResources;
+  resources = { ...defaultResources };
 
   /**
    * The armor upgrade level for the player's (self) units.
@@ -354,7 +349,6 @@ class GameState {
    * @returns {number}
    */
   getFoodUsed() {
-    // Assuming 'this.resources' has a property 'foodUsed' that keeps track of the food used.
     return this.resources.foodUsed;
   }
 
@@ -623,12 +617,15 @@ class GameState {
    * @param {World} world - The current world state.
    */
   setFoodUsed(world) {
-    const { agent } = world;
-    const { foodUsed, race } = agent;
-    if (foodUsed === undefined) { return 0; }
-    const pendingFoodUsed = race === Race.ZERG ? GameState.getWorkers(world).filter(worker => worker.isConstructing()).length : 0;
-    const calculatedFoodUsed = foodUsed + this.pendingFood - pendingFoodUsed;
-    foodData.foodUsed = calculatedFoodUsed;
+    const agent = world.agent;
+    if (agent.foodUsed === undefined) {
+      return 0;
+    }
+
+    const isZerg = agent.race === Race.ZERG;
+    const pendingFoodUsed = isZerg ? GameState.getWorkers(world).reduce((count, worker) => count + (worker.isConstructing() ? 1 : 0), 0) : 0;
+
+    this.resources.foodUsed = agent.foodUsed + this.pendingFood - pendingFoodUsed;
   }
 
   // Method to update the metabolic boost state

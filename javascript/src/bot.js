@@ -382,17 +382,27 @@ const bot = createAgent({
     raw: true, rawCropToPlayableArea: true, score: true, showBurrowedShadows: true, showCloaked: true,
   },
 
+  /**
+   * Handles the actions to be performed at the start of the game.
+   * Initializes game settings, updates caches, and sets initial game state.
+   *
+   * @param {World} world - The game world object containing resources and state information.
+   * @returns {Promise<void>}
+   */
   onGameStart: async (world) => {
     try {
       const gameInit = new GameInitialization(world);
       await gameInit.enhancedOnGameStart();
 
-      gameStartTime = performance.now();
-      lastCheckTime = gameStartTime;
-      const { frame, units, map } = world.resources.get();
-      gameState.lastGameLoop = frame.getGameLoop();
+      const startTime = performance.now();
+      gameStartTime = startTime;
+      lastCheckTime = startTime;
 
-      const completedBases = units.getBases().filter(base => base.buildProgress !== undefined && base.buildProgress >= 1);
+      const { frame, units, map } = world.resources.get();
+      const currentGameLoop = frame.getGameLoop();
+      gameState.lastGameLoop = currentGameLoop;
+
+      const completedBases = units.getBases().filter(base => base.buildProgress === 1);
       cacheManager.updateCompletedBasesCache(completedBases);
 
       previousFreeGeysersCount = map.freeGasGeysers().length;
@@ -400,6 +410,10 @@ const bot = createAgent({
       if (lastLoggedUnitType) {
         previousValidPositionsCount = getValidPositionsCount(world, lastLoggedUnitType);
       }
+
+      // Update food used
+      gameState.setFoodUsed(world);
+
     } catch (error) {
       console.error('Error during onGameStart:', error);
     }
@@ -532,6 +546,9 @@ const bot = createAgent({
 
       // Assign workers to mineral fields
       actionList.push(...assignWorkers(world.resources));
+
+      // Update food used
+      gameState.setFoodUsed(world);
 
       // Execute all actions
       await executeActions(world, actionList);
