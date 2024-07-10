@@ -48,6 +48,7 @@ function addAddOn(world, unit, addOnType) {
   const { landingAbilities, liftingAbilities } = groupTypes;
   const { data } = world;
   const { tag } = unit;
+
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
 
@@ -73,7 +74,7 @@ function addAddOn(world, unit, addOnType) {
 
   if (unit.abilityAvailable(abilityId)) {
     const buildAddOnActions = attemptBuildAddOn(world, unit, addOnType, unitCommand);
-    if (buildAddOnActions && buildAddOnActions.length > 0) {
+    if (buildAddOnActions.length > 0) {
       EarmarkManager.getInstance().addEarmark(data, unitTypeData);
       collectedActions.push(...buildAddOnActions);
       return collectedActions;
@@ -82,7 +83,7 @@ function addAddOn(world, unit, addOnType) {
 
   if (availableAbilities.some(ability => liftingAbilities.includes(ability))) {
     const liftOffActions = attemptLiftOff(unit);
-    if (liftOffActions && liftOffActions.length > 0) {
+    if (liftOffActions.length > 0) {
       collectedActions.push(...liftOffActions);
       return collectedActions;
     }
@@ -216,39 +217,41 @@ function handleTownhallRace(world, unitType, candidatePositions, collectedAction
  * Builds a unit type with a target count and candidate positions.
  * @param {World} world
  * @param {UnitTypeId} unitType
- * @param {number} [targetCount=null]
+ * @param {number} [targetCount=Number.MAX_SAFE_INTEGER]
  * @param {Point2D[]} [candidatePositions=[]]
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
-function build(world, unitType, targetCount = undefined, candidatePositions = []) {
+function build(world, unitType, targetCount = Number.MAX_SAFE_INTEGER, candidatePositions = []) {
   const { addonTypes } = groupTypes;
   const { GREATERSPIRE } = UnitType;
+
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
+
   const { agent, resources } = world;
   const { units } = resources.get();
   const gameState = GameState.getInstance();
-  const effectiveTargetCount = targetCount === undefined ? Number.MAX_SAFE_INTEGER : targetCount;
 
-  if (agent.race === Race.PROTOSS && requiresPylonPower(unitType, world)) {
-    const pylons = units.getByType(UnitType.PYLON);
-    if (pylons.length === 0) {
-      return collectedActions;
-    }
-  }
-
-  if (gameState.getUnitTypeCount(world, unitType) > effectiveTargetCount ||
-    gameState.getUnitCount(world, unitType) > effectiveTargetCount) {
-    return collectedActions;
-  }
-
+  // Check race early
   const { race } = agent;
-
   if (!race) {
     console.error('Race is undefined');
     return collectedActions;
   }
 
+  // Early return if Protoss and requires Pylon power but no Pylons
+  if (race === Race.PROTOSS && requiresPylonPower(unitType, world)) {
+    if (units.getByType(UnitType.PYLON).length === 0) {
+      return collectedActions;
+    }
+  }
+
+  // Return if target count already met
+  if (gameState.getUnitTypeCount(world, unitType) >= targetCount) {
+    return collectedActions;
+  }
+
+  // Handle different races and special cases
   if (TownhallRace[race].includes(unitType)) {
     return handleTownhallRace(world, unitType, candidatePositions, collectedActions, race);
   }
@@ -259,31 +262,36 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
 
   if (unitType === GREATERSPIRE) {
     collectedActions.push(...morphStructureAction(world, unitType));
-  } else {
-    const position = determineBuildingPosition(
-      world,
-      unitType,
-      candidatePositions,
-      BuildingPlacement.buildingPosition,
-      findPlacements,
-      findPosition,
-      BuildingPlacement.setBuildingPosition
-    );
-    if (position === false) {
-      logNoValidPosition(unitType);
-      return collectedActions;
-    }
-    collectedActions.push(...commandPlaceBuilding(
-      world,
-      unitType,
-      position,
-      commandBuilderToConstruct,
-      buildWithNydusNetwork,
-      premoveBuilderToPosition,
-      isPlaceableAtGasGeyser,
-      getTimeToTargetCost
-    ));
+    return collectedActions;
   }
+
+  // Determine building position
+  const position = determineBuildingPosition(
+    world,
+    unitType,
+    candidatePositions,
+    BuildingPlacement.buildingPosition,
+    findPlacements,
+    findPosition,
+    BuildingPlacement.setBuildingPosition
+  );
+
+  if (position === false) {
+    logNoValidPosition(unitType);
+    return collectedActions;
+  }
+
+  // Add build command to actions
+  collectedActions.push(...commandPlaceBuilding(
+    world,
+    unitType,
+    position,
+    commandBuilderToConstruct,
+    buildWithNydusNetwork,
+    premoveBuilderToPosition,
+    isPlaceableAtGasGeyser,
+    getTimeToTargetCost
+  ));
 
   return collectedActions;
 }

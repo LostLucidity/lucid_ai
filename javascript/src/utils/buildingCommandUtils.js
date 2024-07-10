@@ -14,12 +14,12 @@ const { requiresPylonPower } = require('../features/shared/protossUtils');
  * 
  * @param {World} world The current world state.
  * @param {number} unitType The type of unit/building to place.
- * @param {?Point2D} position The position to place the unit/building, or null if no valid position.
- * @param {(world: World, builder: Unit, unitType: UnitTypeId, position: Point2D) => SC2APIProtocol.ActionRawUnitCommand[]} commandBuilderToConstruct - Injected dependency from constructionUtils.js
- * @param {(world: World, unitType: UnitTypeId, abilityId: AbilityId) => SC2APIProtocol.ActionRawUnitCommand[]} buildWithNydusNetwork - Injected dependency from constructionUtils.js
- * @param {(world: World, position: Point2D, unitType: UnitTypeId, getBuilderFunc: (world: World, position: Point2D) => { unit: Unit; timeToPosition: number } | undefined, getMiddleOfStructureFn: (position: Point2D, unitType: UnitTypeId) => Point2D, getTimeToTargetCostFn: (world: World, unitType: UnitTypeId) => number) => SC2APIProtocol.ActionRawUnitCommand[]} premoveBuilderToPosition - Injected dependency from buildingHelpers.js
- * @param {(map: MapResource, unitType: UnitTypeId, position: Point2D) => boolean} isPlaceableAtGasGeyser - Injected dependency from buildingPlacement.js
- * @param {(world: World, unitType: UnitTypeId) => number} getTimeToTargetCost - Injected dependency from resourceManagement.js
+ * @param {Point2D} position The position to place the unit/building, or null if no valid position.
+ * @param {function(World, Unit, UnitTypeId, Point2D): SC2APIProtocol.ActionRawUnitCommand[]} commandBuilderToConstruct - Injected dependency from constructionUtils.js
+ * @param {function(World, UnitTypeId, AbilityId): SC2APIProtocol.ActionRawUnitCommand[]} buildWithNydusNetwork - Injected dependency from constructionUtils.js
+ * @param {function(World, Point2D, UnitTypeId, function(World, Point2D): { unit: Unit, timeToPosition: number } | undefined, function(Point2D, UnitTypeId): Point2D, function(World, UnitTypeId): number): SC2APIProtocol.ActionRawUnitCommand[]} premoveBuilderToPosition - Injected dependency from buildingHelpers.js
+ * @param {function(MapResource, UnitTypeId, Point2D): boolean} isPlaceableAtGasGeyser - Injected dependency from buildingPlacement.js
+ * @param {function(World, UnitTypeId): number} getTimeToTargetCost - Injected dependency from resourceManagement.js
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of raw unit commands.
  */
 function commandPlaceBuilding(world, unitType, position, commandBuilderToConstruct, buildWithNydusNetwork, premoveBuilderToPosition, isPlaceableAtGasGeyser, getTimeToTargetCost) {
@@ -27,43 +27,30 @@ function commandPlaceBuilding(world, unitType, position, commandBuilderToConstru
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
 
+  if (!position) return collectedActions;
+
   const unitTypeData = data.getUnitTypeData(unitType);
-  if (!unitTypeData?.abilityId) {
-    return collectedActions;
-  }
+  if (!unitTypeData?.abilityId) return collectedActions;
 
-  if (!position) {
-    return collectedActions;
-  }
-
-  const isNydusNetwork = findUnitTypesWithAbilityCached(data, unitTypeData.abilityId).includes(UnitType.NYDUSNETWORK);
-
-  if (isNydusNetwork) {
-    collectedActions.push(...buildWithNydusNetwork(world, unitType, unitTypeData.abilityId));
-    return collectedActions;
+  const abilityId = unitTypeData.abilityId;
+  if (findUnitTypesWithAbilityCached(data, abilityId).includes(UnitType.NYDUSNETWORK)) {
+    return buildWithNydusNetwork(world, unitType, abilityId);
   }
 
   if (!agent.canAfford(unitType) || !agent.hasTechFor(unitType)) {
-    collectedActions.push(...handleCannotAffordBuilding(world, position, unitType, premoveBuilderToPosition, getTimeToTargetCost));
-    return collectedActions;
+    return handleCannotAffordBuilding(world, position, unitType, premoveBuilderToPosition, getTimeToTargetCost);
   }
 
   if (!keepPosition(world, unitType, position, isPlaceableAtGasGeyser)) {
     return collectedActions;
   }
 
-  const requiresPower = requiresPylonPower(unitType, world);
-  const powerSources = agent.powerSources || [];
-  if (requiresPower && !isPositionPowered(position, powerSources)) {
-    collectedActions.push(...premoveBuilderToPosition(world, position, unitType, getBuilder, BuildingPlacement.getMiddleOfStructure, getTimeToTargetCost));
-    return collectedActions;
+  if (requiresPylonPower(unitType, world) && !isPositionPowered(position, agent.powerSources || [])) {
+    return premoveBuilderToPosition(world, position, unitType, getBuilder, BuildingPlacement.getMiddleOfStructure, getTimeToTargetCost);
   }
 
   const builder = prepareBuilderForConstruction(world, unitType, position);
-  if (!builder) {
-    // Handle no builder found scenario
-    return collectedActions;
-  }
+  if (!builder) return collectedActions;
 
   collectedActions.push(...commandBuilderToConstruct(world, builder, unitType, position));
   handleSpecialUnits(world, collectedActions, premoveBuilderToPosition, getTimeToTargetCost);
