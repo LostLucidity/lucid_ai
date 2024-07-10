@@ -33,6 +33,7 @@ const { attemptLand } = require("../shared/buildingUtils");
 const { calculateDistance } = require("../shared/coreUtils");
 const { getNextSafeExpansions } = require("../shared/pathfinding/pathfinding");
 const { findPlacements, findPosition } = require("../shared/pathfinding/spatialUtils");
+const { requiresPylonPower } = require("../shared/protossUtils");
 const { prepareUnitToBuildAddon } = require("../shared/unitPreparationUtils");
 const { commandBuilderToConstruct } = require("../shared/workerManagementUtils");
 
@@ -229,7 +230,7 @@ function build(world, unitType, targetCount = undefined, candidatePositions = []
   const gameState = GameState.getInstance();
   const effectiveTargetCount = targetCount === undefined ? Number.MAX_SAFE_INTEGER : targetCount;
 
-  if (agent.race === Race.PROTOSS && requiresPylonPower(unitType)) {
+  if (agent.race === Race.PROTOSS && requiresPylonPower(unitType, world)) {
     const pylons = units.getByType(UnitType.PYLON);
     if (pylons.length === 0) {
       return collectedActions;
@@ -503,16 +504,6 @@ const hasEarmarks = (data) => {
   const earmarkTotals = data.getEarmarkTotals('');
   return earmarkTotals.minerals > 0 || earmarkTotals.vespene > 0;
 };
-
-/**
- * Checks if the given Protoss unit type requires Pylon power.
- * @param {UnitTypeId} unitType The type of the Protoss unit.
- * @returns {boolean} True if the unit requires Pylon power, false otherwise.
- */
-function requiresPylonPower(unitType) {
-  const noPylonRequired = [UnitType.NEXUS, UnitType.ASSIMILATOR, UnitType.PYLON];
-  return !noPylonRequired.includes(unitType);
-}
 
 /**
  * Resets all earmarks.

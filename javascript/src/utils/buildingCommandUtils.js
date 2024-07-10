@@ -52,7 +52,7 @@ function commandPlaceBuilding(world, unitType, position, commandBuilderToConstru
     return collectedActions;
   }
 
-  const requiresPower = requiresPylonPower(unitType);
+  const requiresPower = requiresPylonPower(unitType, world);
   const powerSources = agent.powerSources || [];
   if (requiresPower && !isPositionPowered(position, powerSources)) {
     collectedActions.push(...premoveBuilderToPosition(world, position, unitType, getBuilder, BuildingPlacement.getMiddleOfStructure, getTimeToTargetCost));
