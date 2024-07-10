@@ -20,6 +20,30 @@ const { getById } = require("../../utils/generalUtils");
 const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("../../utils/unitUtils");
 
 /**
+ * Determines if a base can train a unit.
+ * @param {Unit} base - The base to check.
+ * @param {number} abilityId - The ability ID required to train the unit.
+ * @returns {boolean} - True if the base can train the unit, false otherwise.
+ */
+function canTrainBase(base, abilityId) {
+  const pendingOrders = getPendingOrders(base);
+  const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
+  return base.isIdle() && base.isFinished() && base.abilityAvailable(abilityId) && !isAlreadyTraining;
+}
+
+/**
+ * Determines if a larva can train a unit.
+ * @param {Unit} larva - The larva to check.
+ * @param {number} abilityId - The ability ID required to train the unit.
+ * @returns {boolean} - True if the larva can train the unit, false otherwise.
+ */
+function canTrainLarva(larva, abilityId) {
+  const pendingOrders = getPendingOrders(larva);
+  const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
+  return larva.isIdle() && larva.abilityAvailable(abilityId) && !isAlreadyTraining;
+}
+
+/**
  * Checks if a unit can train the specified unit type.
  * @param {World} world The game world context.
  * @param {Unit} unit The unit to check.
@@ -28,7 +52,6 @@ const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require
  * @returns {boolean} True if the unit can train the specified unit type, false otherwise.
  */
 function canTrainUnitType(world, unit, abilityId, threshold) {
-  const { data } = world;
   if ((unit.buildProgress ?? 0) < 1 || unit.labels.has('reposition')) return false;
 
   const orders = unit.orders || [];
@@ -42,7 +65,7 @@ function canTrainUnitType(world, unit, abilityId, threshold) {
   const unitTypeTraining = unitTypeTrainingAbilities.get(firstOrder.abilityId);
   if (!unitTypeTraining) return false;
 
-  const unitTypeData = data.getUnitTypeData(unitTypeTraining);
+  const unitTypeData = world.data.getUnitTypeData(unitTypeTraining);
   if (!unitTypeData || unitTypeData.buildTime === undefined) return false;
 
   const buildTimeLeft = getBuildTimeLeft(unit, unitTypeData.buildTime, firstOrder.progress || 0);
@@ -104,6 +127,18 @@ function filterCandidateTypes(world) {
 }
 
 /**
+ * Filters units by their ability to train a specific unit type within a threshold.
+ * @param {World} world The game world context.
+ * @param {Unit[]} unitList The list of units to filter.
+ * @param {number} ability The ability ID to check against.
+ * @param {number} threshold The time in frames or seconds until the next call (dynamic threshold).
+ * @returns {Unit[]} The filtered list of units that can train the unit type.
+ */
+function filterUnitsByTrainingAbility(world, unitList, ability, threshold) {
+  return unitList.filter(unit => canTrainUnitType(world, unit, ability, threshold));
+}
+
+/**
  * Gets trainers that can produce a specific unit type, including those nearly finished training other units.
  * @param {World} world The game world context.
  * @param {UnitTypeId} unitTypeId The type ID of the unit to train.
@@ -119,22 +154,17 @@ function getTrainer(world, unitTypeId, threshold) {
   const unitTypesWithAbility = findUnitTypesWithAbilityCached(data, abilityId);
   const units = resources.get().units;
 
-  /**
-   * Filters units by their ability to train a specific unit type within a threshold.
-   * @param {Unit[]} unitList The list of units to filter.
-   * @param {number} ability The ability ID to check against.
-   * @returns {Unit[]} The filtered list of units that can train the unit type.
-   */
-  const filterUnitsByTrainingAbility = (unitList, ability) =>
-    unitList.filter(unit => canTrainUnitType(world, unit, ability, threshold));
-
   const productionUnits = filterUnitsByTrainingAbility(
+    world,
     getBasicProductionUnits(world, unitTypeId),
-    abilityId
+    abilityId,
+    threshold
   );
   const warpgateUnits = filterUnitsByTrainingAbility(
+    world,
     units.getById(WARPGATE),
-    WarpUnitAbility[unitTypeId]
+    WarpUnitAbility[unitTypeId],
+    threshold
   );
   const flyingUnits = getUnitsByAbility(world, unitTypeId, threshold, unitTypesWithAbility);
 
@@ -176,6 +206,46 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
   const safeTrainers = filterSafeTrainers(world, trainers);
   const trainingCommands = createTrainingCommands(world, safeTrainers, unitTypeData);
 
+  setPendingOrdersForUnits(world, trainingCommands);
+
+  return trainingCommands;
+}
+
+/**
+ * Optimizes the training of units based on the current game state and strategic needs.
+ * @param {World} world - The game world context.
+ * @param {import("../../features/strategy/strategyManager").PlanStep} step - The current strategy step.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of unit training commands.
+ */
+function handleUnitTraining(world, step) {
+  if (!world.agent.race || !step.unitType) return [];
+
+  const gameState = GameState.getInstance();
+  gameState.setFoodUsed(world);
+  const foodUsed = gameState.getFoodUsed() + EarmarkManager.getEarmarkedFood();
+  const foodAvailable = (step.food || 0) - foodUsed;
+
+  if (foodAvailable <= 0) return [];
+
+  let trainingOrders = shouldTrainWorkers(world) ? trainWorkers(world) : [];
+
+  if (trainingOrders.length === 0) {
+    trainingOrders = trainCombatUnits(world);
+  }
+
+  if (trainingOrders.length === 0 && WorkerRace[world.agent.race]) {
+    earmarkWorkersForTraining(world, foodAvailable);
+  }
+
+  return trainingOrders;
+}
+
+/**
+ * Sets pending orders for units based on training commands.
+ * @param {World} world - The game world context.
+ * @param {SC2APIProtocol.ActionRawUnitCommand[]} trainingCommands - The list of training commands.
+ */
+function setPendingOrdersForUnits(world, trainingCommands) {
   const validTags = trainingCommands.flatMap(command => command.unitTags || []).filter(tag => typeof tag === 'string');
   const trainerUnits = world.resources.get().units.getByTag(validTags);
   const tagToUnitMap = new Map(trainerUnits.map(unit => [unit.tag, unit]));
@@ -190,44 +260,6 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
       }
     });
   });
-
-  return trainingCommands;
-}
-
-/**
- * Optimizes the training of units based on the current game state and strategic needs.
- * @param {World} world - The game world context.
- * @param {import("../../features/strategy/strategyManager").PlanStep} step - The current strategy step.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of unit training commands.
- */
-function handleUnitTraining(world, step) {
-  // Early exit if essential data is missing
-  if (!world.agent.race || !step.unitType) return [];
-
-  const gameState = GameState.getInstance();
-
-  // Update and fetch the current food usage
-  gameState.setFoodUsed(world);
-  const foodUsed = gameState.getFoodUsed() + EarmarkManager.getEarmarkedFood();
-  const foodAvailable = (step.food || 0) - foodUsed;
-
-  // Exit if no food is available
-  if (foodAvailable <= 0) return [];
-
-  // Attempt to train workers first
-  let trainingOrders = shouldTrainWorkers(world) ? trainWorkers(world) : [];
-
-  // If no workers are trained, attempt to train combat units
-  if (trainingOrders.length === 0) {
-    trainingOrders = trainCombatUnits(world);
-  }
-
-  // If no combat units are trained and race allows, earmark workers for training
-  if (trainingOrders.length === 0 && WorkerRace[world.agent.race]) {
-    earmarkWorkersForTraining(world, foodAvailable);
-  }
-
-  return trainingOrders;
 }
 
 /**
@@ -325,10 +357,7 @@ function trainWorkers(world) {
   if (race === Race.ZERG) {
     const larvae = resources.get().units.getById(UnitType.LARVA);
     for (const larva of larvae) {
-      const pendingOrders = getPendingOrders(larva);
-      const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
-
-      if (larva.isIdle() && larva.abilityAvailable(abilityId) && !isAlreadyTraining) {
+      if (canTrainLarva(larva, abilityId)) {
         const unitCommand = createUnitCommand(abilityId, [larva]);
         collectedActions.push(unitCommand);
         setPendingOrders(larva, unitCommand);
@@ -338,10 +367,7 @@ function trainWorkers(world) {
   } else {
     const bases = resources.get().units.getBases();
     for (const base of bases) {
-      const pendingOrders = getPendingOrders(base);
-      const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
-
-      if (base.isIdle() && base.isFinished() && base.abilityAvailable(abilityId) && !isAlreadyTraining) {
+      if (canTrainBase(base, abilityId)) {
         const unitCommand = createUnitCommand(abilityId, [base]);
         collectedActions.push(unitCommand);
         setPendingOrders(base, unitCommand);

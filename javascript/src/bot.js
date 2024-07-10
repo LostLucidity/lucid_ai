@@ -569,13 +569,6 @@ const bot = createAgent({
     raw: true, rawCropToPlayableArea: true, score: true, showBurrowedShadows: true, showCloaked: true,
   },
 
-  /**
-   * Handles the actions to be performed at the start of the game.
-   * Initializes game settings, updates caches, and sets initial game state.
-   *
-   * @param {World} world - The game world object containing resources and state information.
-   * @returns {Promise<void>}
-   */
   onGameStart: async (world) => {
     try {
       const gameInit = new GameInitialization(world);
@@ -598,7 +591,6 @@ const bot = createAgent({
         previousValidPositionsCount = getValidPositionsCount(world, lastLoggedUnitType);
       }
 
-      // Update food used
       gameState.setFoodUsed(world);
 
     } catch (error) {
@@ -606,14 +598,10 @@ const bot = createAgent({
     }
   },
 
-  /**
-   * Main game loop function called on each step of the game.
-   * @param {World} world - The current game world state.
-   */
   onStep: async (world) => {
     try {
       const { frame, units, map } = world.resources.get();
-      const resources = world.resources; // Get the ResourceManager
+      const resources = world.resources;
       /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
       const actionList = [];
       const allUnits = units.getAll();
@@ -650,9 +638,6 @@ const bot = createAgent({
     }
   },
 
-  /**
-   * Handler for game end events.
-   */
   onGameEnd: async () => {
     logger.logMessage('Game has ended', 1);
     gameState.reset();
@@ -666,7 +651,6 @@ const bot = createAgent({
 
   onUnitFinished: async (world, unit) => {
     if (unit.isStructure() && typeof unit.tag === 'string') {
-      // Find the worker assigned to this structure
       const workerTag = getWorkerAssignedToStructure(unit.tag);
       if (workerTag) {
         const { units } = world.resources.get();

@@ -628,6 +628,7 @@ class GameState {
     this.resources.foodUsed = agent.foodUsed + this.pendingFood - pendingFoodUsed;
   }
 
+
   // Method to update the metabolic boost state
   /**
    * @param {boolean} hasBoost
@@ -707,11 +708,10 @@ class GameState {
   getUnitTypeCount(world, unitType) {
     const { agent, data, resources } = world;
     const unitResource = resources.get().units;
-    const unitArray = unitResource.getAll(); // Adjust as needed
+    const unitArray = unitResource.getAll();
     const abilityIds = GameState.getAbilityIdsForAddons(data, unitType);
     const unitsWithCurrentOrders = GameState.getUnitsWithCurrentOrders(unitArray, abilityIds);
 
-    // Map unit tags to their positions
     const unitTagToPosition = new Map();
     unitArray.forEach(unit => {
       if (unit.pos) {
@@ -719,7 +719,6 @@ class GameState {
       }
     });
 
-    // Get positions of orders from unitsWithCurrentOrders, handling both targetWorldSpacePos and targetUnitTag
     const positionsWithCurrentOrders = new Set();
     for (const unit of unitsWithCurrentOrders) {
       if (unit.orders && unit.orders.length > 0) {
@@ -739,20 +738,16 @@ class GameState {
     let count = unitsWithCurrentOrders.length;
 
     const unitTypes = this.countTypes.get(unitType) || [unitType];
-
     unitTypes.forEach(type => {
       let unitsToCount = unitArray.filter(unit => unit.unitType === type);
       if (agent.race === Race.TERRAN) {
         const completed = type === UnitType.ORBITALCOMMAND ? 0.998 : 1;
         unitsToCount = unitsToCount.filter(unit => (unit.buildProgress || 0) >= completed);
       }
-      // Filter out units that are at positions already tracked by positionsWithCurrentOrders
       unitsToCount = unitsToCount.filter(unit => unit.pos && !positionsWithCurrentOrders.has(`${unit.pos.x},${unit.pos.y}`));
-
       count += unitsToCount.length;
     });
 
-    // Include pending orders
     const pendingOrders = unitArray.flatMap(u => getPendingOrders(u) || []);
 
     /**
