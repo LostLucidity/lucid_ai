@@ -1,26 +1,9 @@
 // src/utils/supplyUtils.js
 
-const { calculateLiftLandAndMoveTime } = require("./baseUnitUtils");
-const { hasAddOn, findBestPositionForAddOn } = require("./buildingPlacementUtils");
-const { EarmarkManager } = require("../core");
+const { hasAddOn, findBestPositionForAddOn } = require("./buildingUtils");
+const { calculateLiftLandAndMoveTime } = require("./commonUtils");
 const { getTimeInSeconds } = require("../features/shared/pathfinding/pathfinding");
-const { GameState } = require("../gameState");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../units/management/unitConfig");
-
-/**
- * @param {World} world 
- * @param {UnitTypeId} unitType
- */
-function haveSupplyForUnit(world, unitType) {
-  const { agent, data } = world;
-  const { foodCap } = agent; if (foodCap === undefined) return false;
-  const gameState = GameState.getInstance();
-  const foodUsed = gameState.getFoodUsed();
-  const earmarkedFood = EarmarkManager.getEarmarkedFood();
-  const { foodRequired } = data.getUnitTypeData(unitType); if (foodRequired === undefined) return false;
-  const supplyLeft = foodCap - foodUsed - earmarkedFood - foodRequired;
-  return supplyLeft >= 0;
-}
 
 /**
  * @param {World} world
@@ -80,6 +63,5 @@ function getTimeUntilUnitCanBuildAddon(world, unit) {
 }
 
 module.exports = {
-  haveSupplyForUnit,
   getTimeUntilUnitCanBuildAddon,
 };

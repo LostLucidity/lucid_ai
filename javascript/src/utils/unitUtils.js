@@ -1,14 +1,14 @@
 const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
-const { isTrainingOrder } = require("./baseUnitUtils");
+const { haveSupplyForUnit } = require("./commonUtils");
 const { checkTechRequirement } = require("./resourceUtils");
-const { haveSupplyForUnit } = require("./supplyUtils");
 const { EarmarkManager } = require("../core");
 const StrategyContext = require("../features/strategy/strategyContext").getInstance();
 const GameState = require('../gameState').GameState.getInstance();
 const { getPendingOrders } = require("../sharedServices");
 const { getBasicProductionUnits } = require("../units/management/basicUnitUtils");
+const { unitTypeTrainingAbilities } = require("../units/management/unitConfig");
 const { unitPendingOrders } = require("../units/management/unitOrders");
 
 /** @type {Map<UnitTypeId, Unit[]>} */
@@ -166,6 +166,18 @@ function haveAvailableProductionUnitsFor(world, unitType) {
       canTrainNow(world, unit, unitType)
     )
   );
+}
+
+/**
+ * Check if an order is a training order.
+ * @param {SC2APIProtocol.ActionRawUnitCommand} order
+ * @param {DataStorage} data
+ * @returns {boolean}
+ */
+function isTrainingOrder(order, data) {
+  if (!order.abilityId) return false;
+  const trainingUnitType = unitTypeTrainingAbilities.get(order.abilityId);
+  return trainingUnitType !== undefined && data.getUnitTypeData(trainingUnitType) !== undefined;
 }
 
 /**

@@ -2,9 +2,7 @@
 
 // Import all utility modules
 const addonUtils = require('./addonUtils');
-const baseUnitUtils = require('./baseUnitUtils');
 const builderUtils = require('./builderUtils');
-const buildingPlacementUtils = require('./buildingPlacementUtils');
 const cache = require('./cache');
 const common = require('./common');
 const commonUnitUtils = require('./commonUnitUtils');
@@ -28,8 +26,6 @@ const workerUtils = require('./workerUtils');
 // Export all utility modules
 module.exports = {
   addonUtils,
-  baseUnitUtils,
-  buildingPlacementUtils,
   builderUtils,
   cache,
   common,

@@ -17,14 +17,14 @@ const { getPendingOrders, foodEarmarks } = require("../../sharedServices");
 const { flyingTypesMapping } = require("../../units/management/unitConfig");
 const { updateAddOnType, getUnitTypeToBuild } = require("../../units/management/unitHelpers");
 const { getUnitsCapableToAddOn } = require("../../utils/addonUtils");
-const { commandPlaceBuilding } = require("../../utils/buildingCommandUtils");
 const {
+  commandPlaceBuilding,
   getInTheMain,
   determineBuildingPosition,
   findBestPositionForAddOn,
   isPlaceableAtGasGeyser,
   logNoValidPosition
-} = require("../../utils/buildingPlacementUtils");
+} = require("../../utils/buildingUtils");
 const { isSupplyNeeded } = require("../../utils/common");
 const { getTimeUntilUnitCanBuildAddon } = require("../../utils/supplyUtils");
 const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionUtils");

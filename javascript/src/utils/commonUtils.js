@@ -1,10 +1,15 @@
-// baseUnitUtils.js located in src/core/utils
+/**
+ * @namespace CommonUtils
+ * @description Utility functions used across various modules.
+ */
 
 const { UnitType } = require("@node-sc2/core/constants");
 
+const { EarmarkManager } = require("../core");
 const { getDistance } = require("../features/shared/pathfinding/spatialCoreUtils");
+const { GameState } = require("../gameState");
 const { checkAddOnPlacement } = require("../services/ConstructionSpatialService");
-const { flyingTypesMapping, liftAndLandingTime, unitTypeTrainingAbilities } = require("../units/management/unitConfig");
+const { flyingTypesMapping, liftAndLandingTime } = require("../units/management/unitConfig");
 
 /**
  * Calculate the time it takes for a unit with an add-on to lift off (if not already flying), move, and land.
@@ -34,18 +39,21 @@ function calculateLiftLandAndMoveTime(world, unit, targetPosition = undefined, f
 }
 
 /**
- * Check if an order is a training order.
- * @param {SC2APIProtocol.ActionRawUnitCommand} order
- * @param {DataStorage} data
- * @returns {boolean}
+ * @param {World} world 
+ * @param {UnitTypeId} unitType
  */
-function isTrainingOrder(order, data) {
-  if (!order.abilityId) return false;
-  const trainingUnitType = unitTypeTrainingAbilities.get(order.abilityId);
-  return trainingUnitType !== undefined && data.getUnitTypeData(trainingUnitType) !== undefined;
+function haveSupplyForUnit(world, unitType) {
+  const { agent, data } = world;
+  const { foodCap } = agent; if (foodCap === undefined) return false;
+  const gameState = GameState.getInstance();
+  const foodUsed = gameState.getFoodUsed();
+  const earmarkedFood = EarmarkManager.getEarmarkedFood();
+  const { foodRequired } = data.getUnitTypeData(unitType); if (foodRequired === undefined) return false;
+  const supplyLeft = foodCap - foodUsed - earmarkedFood - foodRequired;
+  return supplyLeft >= 0;
 }
 
 module.exports = {
   calculateLiftLandAndMoveTime,
-  isTrainingOrder
+  haveSupplyForUnit,
 };
