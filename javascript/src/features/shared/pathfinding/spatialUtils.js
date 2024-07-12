@@ -16,7 +16,7 @@ const { GameState } = require('../../../gameState');
 const { buildingPositions } = require("../../../gameState");
 const MapResources = require("../../../gameState/mapResources");
 const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../../../units/management/unitConfig");
-const { isPlaceableAtGasGeyser } = require("../../../utils/buildingPlacementUtils");
+const { isPlaceableAtGasGeyser } = require("../../../utils/buildingUtils");
 const { getCurrentlyEnrouteConstructionGrids } = require("../../../utils/constructionDataUtils");
 const BuildingPlacement = require("../../construction/buildingPlacement");
 
@@ -46,92 +46,138 @@ function findPlacements(world, unitType) {
   const mainMineralLine = main.areas.mineralLine;
   const expansionPositions = gameMap.getExpansions().map(expansion => expansion.townhallPosition);
 
-  // Ensure that the race is defined and fetch the townhall footprint
   const townhallTypes = TownhallRace[race];
   if (!townhallTypes) {
     return [];
   }
-  const townhallFootprints = townhallTypes.map(type => getFootprint(type)).filter(Boolean);
+
+  /**
+   * @param {{ w: number, h: number }[]} footprints
+   * @returns {{ w: number, h: number }[]}
+   */
+  const getUniqueFootprints = (footprints) => {
+    /** @type {{ w: number, h: number }[]} */
+    const uniqueFootprints = [];
+    footprints.forEach(footprint => {
+      if (!uniqueFootprints.some(fp => fp.w === footprint.w && fp.h === footprint.h)) {
+        uniqueFootprints.push(footprint);
+      }
+    });
+    return uniqueFootprints;
+  };
+
+  /**
+   * @param {{ w: number, h: number } | undefined } footprint
+   * @returns {footprint is { w: number, h: number }}
+   */
+  const isDefinedFootprint = (footprint) => footprint !== undefined;
+
+  const townhallFootprints = getUniqueFootprints(townhallTypes.map(type => getFootprint(type)).filter(isDefinedFootprint));
   if (townhallFootprints.length === 0) {
     return [];
   }
 
+  const unitFootprint = getFootprint(unitType);
+  if (!unitFootprint) return [];
+
+  // Memoize the results of cellsInFootprint to avoid redundant calculations
+  const cellsInFootprintCache = new Map();
+
   /**
-   * Checks if a given point is blocked by a townhall footprint
+   * @param {Point2D} point
+   * @param {{ w: number, h: number }} footprint
+   * @returns {Point2D[]}
+   */
+  const getCellsInFootprint = (point, footprint) => {
+    const key = `${point.x},${point.y},${footprint.w},${footprint.h}`;
+    if (!cellsInFootprintCache.has(key)) {
+      cellsInFootprintCache.set(key, cellsInFootprint(point, footprint));
+    }
+    return cellsInFootprintCache.get(key);
+  };
+
+  // Simplify overlap check by early returning if bounding boxes do not intersect
+  /**
+   * @param {{ x: number, y: number, w: number, h: number }} rect1
+   * @param {{ x: number, y: number, w: number, h: number }} rect2
+   * @returns {boolean}
+   */
+  const boundingBoxIntersects = (rect1, rect2) => {
+    return !(rect1.x + rect1.w <= rect2.x ||
+      rect2.x + rect2.w <= rect1.x ||
+      rect1.y + rect1.h <= rect2.y ||
+      rect2.y + rect2.h <= rect1.y);
+  };
+
+  /**
    * @param {Point2D} point
    * @returns {boolean}
    */
   const isPlaceBlockedByTownhall = (point) => {
-    const unitFootprint = getFootprint(unitType);
-    if (!unitFootprint) {
-      return false; // If the footprint is undefined, we cannot perform the check
+    const unitCells = getCellsInFootprint(point, unitFootprint);
+
+    if (point.x === undefined || point.y === undefined) {
+      return false;
     }
-    return expansionPositions.some(expansion =>
-      townhallFootprints.some(footprint =>
-        footprint && pointsOverlap(cellsInFootprint(point, unitFootprint), cellsInFootprint(expansion, footprint))
-      )
-    );
+
+    const unitBoundingBox = {
+      x: point.x, y: point.y, w: unitFootprint.w, h: unitFootprint.h
+    };
+
+    return expansionPositions.some(expansion => {
+      if (expansion.x === undefined || expansion.y === undefined) {
+        return false;
+      }
+
+      const expansionBoundingBox = {
+        x: expansion.x, y: expansion.y, w: unitFootprint.w, h: unitFootprint.h
+      };
+
+      if (!boundingBoxIntersects(unitBoundingBox, expansionBoundingBox)) {
+        return false;
+      }
+
+      return pointsOverlap(unitCells, getCellsInFootprint(expansion, unitFootprint));
+    });
   };
 
   /**
-   * Checks if a given point is a valid placement
    * @param {Point2D} point
    * @returns {boolean}
    */
   const isValidPlacement = (point) => {
-    const unitFootprint = getFootprint(unitType);
-    if (!unitFootprint) {
-      return false; // Skip if the footprint is undefined
-    }
-    const cells = cellsInFootprint(point, unitFootprint);
-    return (
-      cells.every(cell => gameMap.isPlaceable(cell)) &&
-      getDistance(natural.townhallPosition, point) > 4.5 &&
-      mainMineralLine.every(mlp => getDistance(mlp, point) > 1.5) &&
-      (natural.areas?.hull.every(hp => getDistance(hp, point) > 3) ?? true) && // Safe access using optional chaining
-      units.getStructures({ alliance: Alliance.SELF })
-        .map(u => u.pos)
-        .every(eb => getDistance(eb, point) > 3) &&
-      // Additional check to avoid blocking future expansions
-      !isPlaceBlockedByTownhall(point)
-    );
+    const cells = getCellsInFootprint(point, unitFootprint);
+    if (cells.some(cell => !gameMap.isPlaceable(cell))) return false;
+    if (getDistance(natural.townhallPosition, point) <= 4.5) return false;
+    if (mainMineralLine.some(mlp => getDistance(mlp, point) <= 1.5)) return false;
+    if (natural.areas?.hull?.some(hp => getDistance(hp, point) <= 3)) return false;
+    if (units.getStructures({ alliance: Alliance.SELF }).some(u => getDistance(u.pos, point) <= 3)) return false;
+    return !isPlaceBlockedByTownhall(point);
   };
 
   if (gasMineTypes.includes(unitType)) {
     const geyserPositions = MapResources.getFreeGasGeysers(gameMap, currentGameLoop).map(geyser => {
       const { pos } = geyser;
-      if (pos === undefined) return { pos, buildProgress: 0 };
+      if (!pos) return { pos, buildProgress: 0 };
       const [closestBase] = units.getClosest(pos, units.getBases());
       return { pos, buildProgress: closestBase.buildProgress };
-    });
+    }).filter(geyser => {
+      const { pos, buildProgress } = geyser;
+      if (!pos || buildProgress === undefined) return false;
+      const [closestBase] = units.getClosest(pos, units.getBases());
+      if (!closestBase) return false;
+      const { unitType: baseType } = closestBase;
+      if (!baseType) return false;
+      const { buildTime } = data.getUnitTypeData(baseType);
+      if (!buildTime) return false;
+      const timeLeft = getBuildTimeLeft(closestBase, buildTime, buildProgress);
+      const { buildTime: geyserBuildTime } = data.getUnitTypeData(unitType);
+      if (!geyserBuildTime) return false;
+      return getTimeInSeconds(timeLeft) <= getTimeInSeconds(geyserBuildTime);
+    }).sort((a, b) => (a.buildProgress || 0) - (b.buildProgress || 0));
 
-    const sortedGeyserPositions = geyserPositions
-      .filter(geyser => {
-        const { pos, buildProgress } = geyser;
-        if (pos === undefined || buildProgress === undefined) return false;
-        const [closestBase] = units.getClosest(pos, units.getBases());
-        if (closestBase === undefined) return false;
-        const { unitType: baseType } = closestBase;
-        if (baseType === undefined) return false;
-        const { buildTime } = data.getUnitTypeData(baseType);
-        if (buildTime === undefined) return false;
-        const timeLeft = getBuildTimeLeft(closestBase, buildTime, buildProgress);
-        const { buildTime: geyserBuildTime } = data.getUnitTypeData(unitType);
-        if (geyserBuildTime === undefined) return false;
-        return getTimeInSeconds(timeLeft) <= getTimeInSeconds(geyserBuildTime);
-      })
-      .sort((a, b) => {
-        const buildProgressA = a.buildProgress !== undefined ? a.buildProgress : 0;
-        const buildProgressB = b.buildProgress !== undefined ? b.buildProgress : 0;
-        return buildProgressA - buildProgressB;
-      });
-
-    const [topGeyserPosition] = sortedGeyserPositions;
-    if (topGeyserPosition && topGeyserPosition.pos) {
-      return [topGeyserPosition.pos];
-    } else {
-      return []; // Return an empty array if no suitable position is found
-    }
+    const [topGeyserPosition] = geyserPositions;
+    return topGeyserPosition && topGeyserPosition.pos ? [topGeyserPosition.pos] : [];
   }
 
   /** @type {Point2D[]} */
@@ -140,12 +186,13 @@ function findPlacements(world, unitType) {
   const currentPlan = gameState.plan;
 
   const occupiedExpansions = getOccupiedExpansions(resources);
-  const occupiedExpansionsPlacementGrid = occupiedExpansions.reduce((/** @type {Point2D[]} */acc, expansion) => {
-    if (expansion.areas !== undefined) {
+  /** @type {Point2D[]} */
+  const occupiedExpansionsPlacementGrid = occupiedExpansions.reduce((acc, expansion) => {
+    if (expansion.areas) {
       acc.push(...expansion.areas.placementGrid);
     }
     return acc;
-  }, []);
+  }, /** @type {Point2D[]} */([]));
 
   /** @type {Point2D[]} */
   const placementGrids = [];
@@ -160,50 +207,46 @@ function findPlacements(world, unitType) {
     const placementGrids = [];
     const orphanAddons = units.getById([REACTOR, TECHLAB]);
 
-    const buildingFootprints = Array.from(buildingPositions.entries()).reduce((/** @type {Point2D[]} */positions, [step, buildingPos]) => {
-
+    const buildingFootprints = Array.from(buildingPositions.entries()).reduce((positions, [step, buildingPos]) => {
       const stepData = currentPlan[step];
-
       const stepUnitType = stepData.unitType;
+      if (!stepUnitType) return positions;
 
-      if (unitType === undefined) return positions;
-
-      const footprint = getFootprint(stepUnitType); if (footprint === undefined) return positions;
-      const newPositions = cellsInFootprint(buildingPos, footprint);
+      const footprint = getFootprint(stepUnitType);
+      if (!footprint) return positions;
+      const newPositions = getCellsInFootprint(buildingPos, footprint);
       if (canUnitBuildAddOn(stepUnitType)) {
-        const addonFootprint = getFootprint(REACTOR); if (addonFootprint === undefined) return positions;
-        const addonPositions = cellsInFootprint(getAddOnPlacement(buildingPos), addonFootprint);
+        const addonFootprint = getFootprint(REACTOR);
+        if (!addonFootprint) return positions;
+        const addonPositions = getCellsInFootprint(getAddOnPlacement(buildingPos), addonFootprint);
         return [...positions, ...newPositions, ...addonPositions];
       }
       return [...positions, ...newPositions];
-    }, []);
+    }, /** @type {Point2D[]} */([]));
 
-    const orphanAddonPositions = orphanAddons.reduce((/** @type {Point2D[]} */positions, addon) => {
-      const { pos } = addon; if (pos === undefined) return positions;
+    const orphanAddonPositions = orphanAddons.reduce((positions, addon) => {
+      const { pos } = addon;
+      if (!pos) return positions;
       const newPositions = getAddOnBuildingPlacement(pos);
-      const footprint = getFootprint(addon.unitType); if (footprint === undefined) return positions;
-      const cells = cellsInFootprint(newPositions, footprint);
-      if (cells.length === 0) return positions;
+      const footprint = getFootprint(addon.unitType);
+      if (!footprint) return positions;
+      const cells = getCellsInFootprint(newPositions, footprint);
+      if (!cells.length) return positions;
       return [...positions, ...cells];
-    }, []);
+    }, /** @type {Point2D[]} */([]));
 
     const wallOffPositions = BuildingPlacement.findWallOffPlacement(unitType).slice();
-    if (wallOffPositions.filter(position => gameMap.isPlaceableAt(unitType, position)).length > 0) {
-      // Check if the structure is one that cannot use an orphan add-on
+    if (wallOffPositions.some(position => gameMap.isPlaceableAt(unitType, position))) {
       if (!canUnitBuildAddOn(unitType)) {
-        // Exclude positions that are suitable for orphan add-ons and inside existing footprints
         const filteredWallOffPositions = wallOffPositions.filter(position =>
           !orphanAddonPositions.some(orphanPosition => getDistance(orphanPosition, position) < 1) &&
           !buildingFootprints.some(buildingFootprint => getDistance(buildingFootprint, position) < 1)
         );
-        // If there are any positions left, use them
         if (filteredWallOffPositions.length > 0) {
           return filteredWallOffPositions;
         }
       }
-      // If the structure can use an orphan add-on, use all wall-off positions
       if (wallOffPositions.length > 0) {
-        // Filter out positions already taken by buildings
         const newWallOffPositions = wallOffPositions.filter(position =>
           !buildingFootprints.some(buildingFootprint => getDistance(buildingFootprint, position) < 1)
         );
@@ -220,48 +263,46 @@ function findPlacements(world, unitType) {
     });
     if (BuildingPlacement.addOnPositions.length > 0) {
       const barracksFootprint = getFootprint(BARRACKS);
-      if (barracksFootprint === undefined) return [];
-      const barracksCellInFootprints = BuildingPlacement.addOnPositions.map(position => cellsInFootprint(createPoint2D(position), barracksFootprint));
+      if (!barracksFootprint) return [];
+      const barracksCellInFootprints = BuildingPlacement.addOnPositions.map(position => getCellsInFootprint(createPoint2D(position), barracksFootprint));
       wallOffPositions.push(...barracksCellInFootprints.flat());
     }
     if (BuildingPlacement.twoByTwoPositions.length > 0) {
       const supplyFootprint = getFootprint(SUPPLYDEPOT);
-      if (supplyFootprint === undefined) return [];
-      const supplyCellInFootprints = BuildingPlacement.twoByTwoPositions.map(position => cellsInFootprint(position, supplyFootprint));
+      if (!supplyFootprint) return [];
+      const supplyCellInFootprints = BuildingPlacement.twoByTwoPositions.map(position => getCellsInFootprint(position, supplyFootprint));
       wallOffPositions.push(...supplyCellInFootprints.flat());
     }
     if (BuildingPlacement.threeByThreePositions.length > 0) {
       const engineeringBayFootprint = getFootprint(ENGINEERINGBAY);
-      if (engineeringBayFootprint === undefined) return [];
-      const engineeringBayCellInFootprints = BuildingPlacement.threeByThreePositions.map(position => cellsInFootprint(position, engineeringBayFootprint));
+      if (!engineeringBayFootprint) return [];
+      const engineeringBayCellInFootprints = BuildingPlacement.threeByThreePositions.map(position => getCellsInFootprint(position, engineeringBayFootprint));
       wallOffPositions.push(...engineeringBayCellInFootprints.flat());
     }
     const unitTypeFootprint = getFootprint(unitType);
     /** @type {FootprintType | undefined} */
     let addonFootprint;
     if (addOnTypesMapping.has(unitType)) {
-      addonFootprint = getFootprint(REACTOR); if (addonFootprint === undefined) return [];
+      addonFootprint = getFootprint(REACTOR);
+      if (!addonFootprint) return [];
     }
-    if (unitTypeFootprint === undefined) return [];
-    // Get all existing barracks and starports
+    if (!unitTypeFootprint) return [];
     const barracks = units.getById(BARRACKS);
     const starports = units.getById(STARPORT);
     const barracksPositions = barracks.map(b => b.pos);
     const buildingFootprintOfOrphanAddons = getBuildingFootprintOfOrphanAddons(units);
 
     placements = placementGrids.filter(grid => {
-      const cells = [...cellsInFootprint(grid, unitTypeFootprint)];
+      const cells = [...getCellsInFootprint(grid, unitTypeFootprint)];
 
-      // Check if the unit is a STARPORT and there's a nearby BARRACKS, and it's the first STARPORT
       if (unitType === STARPORT && starports.length === 0) {
-        // If there is no nearby BARRACKS within 23.6 units, return false to filter out this grid
         if (!barracksPositions.some(bPos => bPos && getDistance(bPos, grid) <= 23.6)) {
           return false;
         }
       }
 
       if (addonFootprint) {
-        cells.push(...cellsInFootprint(getAddOnPlacement(grid), addonFootprint));
+        cells.push(...getCellsInFootprint(getAddOnPlacement(grid), addonFootprint));
       }
 
       return cells.every(cell => gameMap.isPlaceable(cell)) && !pointsOverlap(cells, [...wallOffPositions, ...buildingFootprintOfOrphanAddons, ...orphanAddonPositions]);
@@ -272,6 +313,7 @@ function findPlacements(world, unitType) {
   } else if (race === Race.ZERG) {
     placements.push(...findZergPlacements(world, unitType));
   }
+
   return placements;
 }
 
