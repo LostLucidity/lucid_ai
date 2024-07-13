@@ -29,11 +29,13 @@ const gasMineConstructionAbilities = new Set();
  * @param {World} world - The game world context.
  * @param {number} targetRatio - The target ratio of minerals to vespene gas.
  * @param {(world: World, unitType: number, targetCount?: number | undefined, candidatePositions?: Point2D[] | undefined) => SC2APIProtocol.ActionRawUnitCommand[]} buildFunction - The function to build the gas mine.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} - The actions to balance resources.
  */
 const balanceResources = (world, targetRatio = 16 / 6, buildFunction) => {
   const { agent, resources } = world;
   const { minerals, vespene } = agent;
   if (minerals === undefined || vespene === undefined) return [];
+
   const { units } = resources.get();
   targetRatio = isNaN(targetRatio) ? 16 / 6 : targetRatio;
   const maxRatio = 32 / 6;
@@ -43,14 +45,22 @@ const balanceResources = (world, targetRatio = 16 / 6, buildFunction) => {
   const { mineralMinerCount, vespeneMinerCount } = getMinerCount(units);
   const mineralMinerCountRatio = mineralMinerCount / vespeneMinerCount;
   const readySelfFilter = { buildProgress: 1, alliance: Alliance.SELF };
-  const needyBase = units.getBases(readySelfFilter).find(base => {
-    const { assignedHarvesters, idealHarvesters } = base;
-    if (assignedHarvesters === undefined || idealHarvesters === undefined) return false;
-    return assignedHarvesters < idealHarvesters;
-  });
 
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-  const actionsToReturn = []; // Array to store actions
+  const actionsToReturn = [];
+
+  /**
+   * Checks if a base is oversaturated with workers.
+   * @param {Unit} base - The base to check for oversaturation.
+   * @returns {boolean} - True if the base is oversaturated, false otherwise.
+   */
+  const isBaseOversaturated = (base) => {
+    const idealHarvesters = base.idealHarvesters || 0;
+    const assignedHarvesters = base.assignedHarvesters || 0;
+    return assignedHarvesters > idealHarvesters;
+  };
+
+  let needyBase = undefined; // Explicitly type needyBase
 
   if (mineralMinerCountRatio > targetRatio) {
     const decreaseRatio = (mineralMinerCount - 1) / (vespeneMinerCount + 1);
@@ -59,27 +69,17 @@ const balanceResources = (world, targetRatio = 16 / 6, buildFunction) => {
         const townhalls = units.getBases(readySelfFilter);
         const needyGasMine = getRandom(needyGasMines);
         const { pos } = needyGasMine;
-        if (pos === undefined) return [];
+        if (pos === undefined || isBaseOversaturated(needyGasMine)) return [];
         const [givingTownhall] = units.getClosest(pos, townhalls);
-        const gatheringMineralWorkers = units.getWorkers()
-          .filter(unit => unit.orders && unit.orders.some(order => {
-            const abilityId = order.abilityId; // Extract abilityId from order
-            if (!order.targetUnitTag) return false; // Check if targetUnitTag is defined
-            const targetUnit = units.getByTag(order.targetUnitTag); // Get the target unit
-            return (
-              abilityId !== undefined && // Check if abilityId is defined
-              [...gatheringAbilities].includes(abilityId) &&
-              targetUnit && // Check if targetUnit is defined
-              targetUnit.unitType !== undefined && // Check if unitType is defined
-              mineralFieldTypes.includes(targetUnit.unitType) // Use targetUnit.unitType
-            );
-          }));
-        if (givingTownhall && givingTownhall.pos && gatheringMineralWorkers.length > 0) {
+        if (!givingTownhall.pos) return [];
+
+        const gatheringMineralWorkers = getWorkersMiningMinerals(units);
+
+        if (gatheringMineralWorkers.length > 0) {
           const [donatingWorker] = units.getClosest(givingTownhall.pos, gatheringMineralWorkers);
-          // Push the single action returned by mine() to actionsToReturn
-          const action = mine(donatingWorker, needyGasMine, false);
-          if (action) {
-            actionsToReturn.push(action);
+          if (donatingWorker) {
+            const action = mine(donatingWorker, needyGasMine, false);
+            if (action) actionsToReturn.push(action);
           }
         }
       }
@@ -88,23 +88,60 @@ const balanceResources = (world, targetRatio = 16 / 6, buildFunction) => {
     }
   } else if (mineralMinerCountRatio === targetRatio) {
     return actionsToReturn;
-  } else if (needyBase && mineralMinerCountRatio < targetRatio) {
-    const { pos: basePos } = needyBase;
-    if (basePos === undefined) return [];
-    const increaseRatio = (mineralMinerCount + 1) / (vespeneMinerCount - 1);
+  } else if (mineralMinerCountRatio < targetRatio) {
+    needyBase = units.getBases(readySelfFilter).find(base => {
+      const { assignedHarvesters, idealHarvesters, pos } = base;
+      return assignedHarvesters !== undefined && idealHarvesters !== undefined && assignedHarvesters < idealHarvesters && pos !== undefined;
+    });
 
-    if ((mineralMinerCountRatio + increaseRatio) / 2 <= targetRatio) {
-      const gasMines = units.getAlive(readySelfFilter).filter(u => u.isGasMine());
-      const [givingGasMine] = units.getClosest(basePos, gasMines);
-      const gatheringGasWorkers = getGatheringWorkers(units, "vespene").filter(worker => !isMining(units, worker));
-
-      if (givingGasMine && givingGasMine.pos && gatheringGasWorkers.length > 0) {
-        const [donatingWorker] = units.getClosest(givingGasMine.pos, gatheringGasWorkers);
-        // Concatenate the array returned by gather() with actionsToReturn
-        actionsToReturn.push(...gather(resources, donatingWorker, null, false));
+    if (needyBase && !isBaseOversaturated(needyBase)) {
+      const increaseRatio = (mineralMinerCount + 1) / (vespeneMinerCount - 1);
+      if ((mineralMinerCountRatio + increaseRatio) / 2 <= targetRatio) {
+        const gasMines = units.getAlive(readySelfFilter).filter(u => u.isGasMine());
+        const [givingGasMine] = needyBase.pos ? units.getClosest(needyBase.pos, gasMines) : [undefined];
+        if (givingGasMine && givingGasMine.pos) {
+          const gatheringGasWorkers = getGatheringWorkers(units, "vespene").filter(worker => !isMining(units, worker));
+          if (gatheringGasWorkers.length > 0) {
+            const [donatingWorker] = units.getClosest(givingGasMine.pos, gatheringGasWorkers);
+            if (donatingWorker) {
+              actionsToReturn.push(...gather(resources, donatingWorker, null, false));
+            }
+          }
+        }
       }
     }
   }
+
+  const oversaturatedMineralBases = units.getBases(readySelfFilter).filter(base => isBaseOversaturated(base));
+  const oversaturatedGasMines = units.getAlive(readySelfFilter).filter(unit => unit.isGasMine() && isBaseOversaturated(unit));
+
+  oversaturatedMineralBases.forEach(base => {
+    if (base.pos && needyGasMines.length > 0) {
+      const gatheringMineralWorkers = getWorkersMiningMinerals(units);
+
+      if (gatheringMineralWorkers.length > 0) {
+        const needyGasMine = getRandom(needyGasMines);
+        const [donatingWorker] = units.getClosest(base.pos, gatheringMineralWorkers);
+        if (donatingWorker) {
+          const action = mine(donatingWorker, needyGasMine, false);
+          if (action) actionsToReturn.push(action);
+        }
+      }
+    }
+  });
+
+  oversaturatedGasMines.forEach(gasMine => {
+    if (gasMine.pos && needyBase) {
+      const gatheringGasWorkers = getGatheringWorkers(units, "vespene").filter(worker => !isMining(units, worker));
+      if (gatheringGasWorkers.length > 0) {
+        const [donatingWorker] = units.getClosest(gasMine.pos, gatheringGasWorkers);
+        if (donatingWorker) {
+          actionsToReturn.push(...gather(resources, donatingWorker, null, false));
+        }
+      }
+    }
+  });
+
   return actionsToReturn;
 };
 
@@ -190,6 +227,28 @@ function isBaseSaturated(base) {
   const idealHarvesters = base.idealHarvesters || 0;
   const assignedHarvesters = base.assignedHarvesters || 0;
   return assignedHarvesters >= idealHarvesters;
+}
+
+/**
+ * Gets workers that are currently mining minerals.
+ * @param {UnitResource} units - The units resource object from the bot.
+ * @returns {Unit[]} - The list of workers mining minerals.
+ */
+function getWorkersMiningMinerals(units) {
+  return units.getWorkers().filter(unit =>
+    unit.orders && unit.orders.some(order => {
+      const abilityId = order.abilityId;
+      if (!order.targetUnitTag) return false;
+      const targetUnit = units.getByTag(order.targetUnitTag);
+      return (
+        abilityId !== undefined &&
+        [...gatheringAbilities].includes(abilityId) &&
+        targetUnit &&
+        targetUnit.unitType !== undefined &&
+        mineralFieldTypes.includes(targetUnit.unitType)
+      );
+    })
+  );
 }
 
 /**
