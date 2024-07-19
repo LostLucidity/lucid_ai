@@ -620,27 +620,18 @@ class StrategyManager {
       if (!action.isUpgrade && action.unitType) {
         const currentUnitCount = gameState.getUnitCount(world, action.unitType);
         const startingUnitCounts = {
-          [`unitType_${action.unitType}`]:
-            gameState.getStartingUnitCount(action.unitType),
+          [`unitType_${action.unitType}`]: gameState.getStartingUnitCount(action.unitType),
         };
 
         const targetCounts = this.strategyData
-          ? this.strategyData.calculateTargetCountForStep(
-            step,
-            buildOrder,
-            startingUnitCounts
-          )
+          ? this.strategyData.calculateTargetCountForStep(step, buildOrder, startingUnitCounts)
           : {};
-        const targetCount =
-          targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
+        const targetCount = targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
 
         return currentUnitCount >= targetCount;
       } else if (action.isUpgrade && action.upgradeType) {
-        const isUpgradeCompleted =
-          agent.upgradeIds?.includes(action.upgradeType) ?? false;
-        const isUpgradeInProgress = gameState.isUpgradeInProgress(
-          action.upgradeType
-        );
+        const isUpgradeCompleted = agent.upgradeIds?.includes(action.upgradeType) ?? false;
+        const isUpgradeInProgress = gameState.isUpgradeInProgress(action.upgradeType);
 
         return isUpgradeCompleted || isUpgradeInProgress;
       }

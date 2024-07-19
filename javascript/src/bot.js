@@ -4,6 +4,7 @@
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Upgrade } = require('@node-sc2/core/constants');
 const { BUILD_ASSIMILATOR } = require('@node-sc2/core/constants/ability');
+const { Alliance } = require('@node-sc2/core/constants/enums');
 const { ASSIMILATOR, PROBE } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
 
@@ -77,10 +78,10 @@ async function checkBuildOrderProgress(world, buildOrder) {
   const currentTimeInSeconds = world.resources.get().frame.timeInSeconds();
   const currentSupply = gameState.getFoodUsed();
 
-  for (const [index, order] of buildOrder.entries()) {
+  buildOrder.forEach((order, index) => {
     const orderStatus = buildOrderCompletion.get(order) || { completed: false, logged: false, prematureLogged: false };
 
-    if (orderStatus.completed) continue;
+    if (orderStatus.completed) return;
 
     const satisfied = StrategyManager.getInstance().isStepSatisfied(world, order);
     const expectedTimeInSeconds = timeStringToSeconds(order.time);
@@ -89,12 +90,14 @@ async function checkBuildOrderProgress(world, buildOrder) {
     const timeStatus = timeDifference < 0 ? "ahead of schedule" : "behind schedule";
 
     if (satisfied) {
-      if (currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS) {
-        orderStatus.completed = true;
-        logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
-      } else if (!orderStatus.prematureLogged) {
-        logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
-        orderStatus.prematureLogged = true;
+      if (isStepInProgress(world, order)) {
+        if (currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS) {
+          orderStatus.completed = true;
+          logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
+        } else if (!orderStatus.prematureLogged) {
+          logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
+          orderStatus.prematureLogged = true;
+        }
       }
     } else if (currentTimeInSeconds >= expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + ADDITIONAL_BUFFER_PER_ACTION_SECONDS && !orderStatus.logged) {
       console.warn(`Build Order Step ${index} NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
@@ -102,7 +105,7 @@ async function checkBuildOrderProgress(world, buildOrder) {
     }
 
     buildOrderCompletion.set(order, orderStatus);
-  }
+  });
 }
 
 /**
@@ -139,6 +142,40 @@ function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, act
       });
     });
   }
+}
+
+/**
+ * Check if a step (construction or morph) is in progress.
+ * @param {World} world - The current game world state.
+ * @param {import('./utils/globalTypes').BuildOrderStep} step - The build order step to check.
+ * @returns {boolean} - True if the step is in progress, otherwise false.
+ */
+function isStepInProgress(world, step) {
+  const { resources, data } = world;
+  const { units } = resources.get();
+
+  const interpretedActions = step.interpretedAction || [];
+  const unitTypes = interpretedActions.map(action => action.unitType).filter(Boolean);
+
+  if (unitTypes.length === 0) return false;
+
+  return unitTypes.some(unitType => {
+    if (unitType === null) return false;
+
+    const unitData = data.getUnitTypeData(unitType);
+    const abilityId = unitData.abilityId;
+    if (!abilityId) return false;
+
+    // Check for structures under construction
+    const inProgressStructures = units.getAll(Alliance.SELF).filter(unit => unit.unitType === unitType && unit.buildProgress !== undefined && unit.buildProgress > 0);
+    if (inProgressStructures.length > 0) {
+      return true;
+    }
+
+    // Check for morphing units
+    const morphingUnits = units.getAll(Alliance.SELF).filter(unit => unit.orders && unit.orders.some(order => order.abilityId === abilityId));
+    return morphingUnits.length > 0;
+  });
 }
 
 /**
