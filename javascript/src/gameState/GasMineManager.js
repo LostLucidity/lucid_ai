@@ -54,23 +54,27 @@ class GasMineManager {
   countWorkersInsideGasMines(world) {
     const { units } = world.resources.get();
     const gasMines = units.getAll(Alliance.SELF).filter(unit => unit.isGasMine());
-    let presumedInside = 0;
+    const allWorkers = new Map(units.getAll(Alliance.SELF).filter(worker => worker.isWorker() && worker.tag).map(worker => [worker.tag, worker]));
 
-    const allWorkers = units.getAll(Alliance.SELF).filter(worker => worker.isWorker() && worker.tag);
-
-    gasMines.forEach(mine => {
+    return gasMines.reduce((totalInside, mine) => {
       if (mine.tag) { // Ensure mine.tag is defined
         const assignedWorkers = this.gasMineWorkers.get(mine.tag) || new Set();
-        const visibleWorkers = allWorkers.filter(worker =>
-          worker.tag && assignedWorkers.has(worker.tag) &&
-          (worker.isGathering('vespene') || worker.isReturning('vespene'))
-        ).length;
 
-        presumedInside += Math.max(0, assignedWorkers.size - visibleWorkers);
+        // Count workers that are assigned to this mine, currently visible and active
+        const visibleWorkersCount = Array.from(assignedWorkers).reduce((count, workerTag) => {
+          const worker = allWorkers.get(workerTag);
+          if (worker && worker.isCurrent() && (worker.isGathering('vespene') || worker.isReturning('vespene'))) {
+            count++;
+          }
+          return count;
+        }, 0);
+
+        // Calculate the number of workers inside the gas mine
+        const insideWorkers = assignedWorkers.size - visibleWorkersCount;
+        return totalInside + Math.max(0, insideWorkers);
       }
-    });
-
-    return presumedInside;
+      return totalInside;
+    }, 0);
   }
 
   /**
