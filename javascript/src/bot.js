@@ -78,10 +78,10 @@ async function checkBuildOrderProgress(world, buildOrder) {
   const currentTimeInSeconds = world.resources.get().frame.timeInSeconds();
   const currentSupply = gameState.getFoodUsed();
 
-  buildOrder.forEach((order, index) => {
+  for (const [index, order] of buildOrder.entries()) {
     const orderStatus = buildOrderCompletion.get(order) || { completed: false, logged: false, prematureLogged: false };
 
-    if (orderStatus.completed) return;
+    if (orderStatus.completed) continue;
 
     const satisfied = StrategyManager.getInstance().isStepSatisfied(world, order);
     const expectedTimeInSeconds = timeStringToSeconds(order.time);
@@ -89,15 +89,13 @@ async function checkBuildOrderProgress(world, buildOrder) {
     const supplyDifference = currentSupply - Number(order.supply);
     const timeStatus = timeDifference < 0 ? "ahead of schedule" : "behind schedule";
 
-    if (satisfied) {
-      if (isStepInProgress(world, order)) {
-        if (currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS) {
-          orderStatus.completed = true;
-          logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
-        } else if (!orderStatus.prematureLogged) {
-          logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
-          orderStatus.prematureLogged = true;
-        }
+    if (satisfied && isStepInProgress(world, order)) {
+      if (currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS) {
+        orderStatus.completed = true;
+        logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
+      } else if (!orderStatus.prematureLogged) {
+        logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
+        orderStatus.prematureLogged = true;
       }
     } else if (currentTimeInSeconds >= expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + ADDITIONAL_BUFFER_PER_ACTION_SECONDS && !orderStatus.logged) {
       console.warn(`Build Order Step ${index} NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
@@ -105,7 +103,7 @@ async function checkBuildOrderProgress(world, buildOrder) {
     }
 
     buildOrderCompletion.set(order, orderStatus);
-  });
+  }
 }
 
 /**
@@ -126,9 +124,7 @@ function collectActions(world, actionList) {
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
  */
 function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList) {
-  const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator =>
-    assimilator.buildProgress !== undefined && assimilator.buildProgress < 1
-  );
+  const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator => assimilator.buildProgress !== undefined && assimilator.buildProgress < 1);
 
   if (assimilatorsWarpingIn.length > 0) {
     assimilatorsWarpingIn.forEach(assimilator => {
@@ -154,27 +150,21 @@ function isStepInProgress(world, step) {
   const { resources, data } = world;
   const { units } = resources.get();
 
-  const interpretedActions = step.interpretedAction || [];
-  const unitTypes = interpretedActions.map(action => action.unitType).filter(Boolean);
+  const unitTypes = (step.interpretedAction || [])
+    .map(action => action.unitType)
+    .filter(unitType => unitType !== null); // Filter out null values
 
   if (unitTypes.length === 0) return false;
 
   return unitTypes.some(unitType => {
-    if (unitType === null) return false;
-
     const unitData = data.getUnitTypeData(unitType);
-    const abilityId = unitData.abilityId;
+    const abilityId = unitData?.abilityId;
     if (!abilityId) return false;
 
-    // Check for structures under construction
-    const inProgressStructures = units.getAll(Alliance.SELF).filter(unit => unit.unitType === unitType && unit.buildProgress !== undefined && unit.buildProgress > 0);
-    if (inProgressStructures.length > 0) {
-      return true;
-    }
-
-    // Check for morphing units
-    const morphingUnits = units.getAll(Alliance.SELF).filter(unit => unit.orders && unit.orders.some(order => order.abilityId === abilityId));
-    return morphingUnits.length > 0;
+    return units.getAll(Alliance.SELF).some(unit =>
+      (unit.unitType === unitType && unit.buildProgress !== undefined && unit.buildProgress > 0) ||
+      (unit.orders && unit.orders.some(order => order.abilityId === abilityId))
+    );
   });
 }
 
@@ -219,7 +209,7 @@ function queueGatherOrdersForProbes(units, allUnits, resources, actionList) {
   if (probesWarpingAssimilators.length > 0) {
     const mineralFields = units.getMineralFields();
     probesWarpingAssimilators.forEach(probe => {
-      if (probe.pos) {
+      if (probe.pos) { // Ensure probe.pos is defined
         const closestMineralPatch = units.getClosest(probe.pos, mineralFields, 1)[0];
         if (closestMineralPatch) {
           actionList.push(...gather(resources, probe, closestMineralPatch, true));
@@ -671,33 +661,30 @@ const bot = createAgent({
       const actionList = [];
       const allUnits = units.getAll();
 
+      // Update game state and build order progress before issuing commands
       updateCompletedBases(units, cacheManager);
+      await checkBuildOrderProgress(world, gameState.getBuildOrder());
 
-      const buildOrder = gameState.getBuildOrder();
-      await checkBuildOrderProgress(world, buildOrder);
-
+      // Gather resources efficiently and handle idle probes
       queueGatherOrdersForProbes(units, allUnits, resources, actionList);
-
       handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList);
 
+      // Collect actions and handle upgrades
       collectActions(world, actionList);
-
       updateUpgradesInProgress(allUnits, world);
 
+      // Track game metrics and log relevant information
       trackPerformance(frame, gameState);
-
       logGeyserActivity(map);
-
       logUnitPositions(world);
 
+      // Balance workers and manage Orbital Command energy usage
       balanceWorkers(world, units, resources, actionList);
-
       assignMineralWorkers(resources, actionList);
+      useOrbitalCommandEnergy(world, actionList);
 
-      useOrbitalCommandEnergy(world, actionList); // Use ORBITALCOMMAND energy
-
+      // Update game state and execute actions
       gameState.setFoodUsed(world);
-
       await executeActions(world, actionList);
 
     } catch (error) {
