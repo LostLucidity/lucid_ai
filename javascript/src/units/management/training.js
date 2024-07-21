@@ -56,11 +56,17 @@ function canTrainUnitType(world, unit, abilityId, threshold) {
 
   const orders = unit.orders || [];
   const pendingOrders = getPendingOrders(unit);
-  if (orders.length + pendingOrders.length > 1) return false;
-  if (orders.length === 0) return true;
+
+  if (pendingOrders.length > 0 || orders.length > 1) return false;
+
+  if (orders.length === 0) {
+    return unit.abilityAvailable(abilityId);
+  }
 
   const firstOrder = orders[0];
   if (firstOrder.abilityId === undefined) return false;
+
+  if (!unit.abilityAvailable(abilityId) || !unit.abilityAvailable(firstOrder.abilityId)) return false;
 
   const unitTypeTraining = unitTypeTrainingAbilities.get(firstOrder.abilityId);
   if (!unitTypeTraining) return false;
