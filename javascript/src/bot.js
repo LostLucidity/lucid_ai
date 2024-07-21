@@ -3,9 +3,9 @@
 // External library imports
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Upgrade } = require('@node-sc2/core/constants');
-const { BUILD_ASSIMILATOR } = require('@node-sc2/core/constants/ability');
+const { BUILD_ASSIMILATOR, EFFECT_CALLDOWNMULE } = require('@node-sc2/core/constants/ability');
 const { Alliance } = require('@node-sc2/core/constants/enums');
-const { ASSIMILATOR, PROBE } = require('@node-sc2/core/constants/unit-type');
+const { ASSIMILATOR, PROBE, ORBITALCOMMAND } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
 
 const ActionCollector = require('./features/actions/actionCollector');
@@ -601,6 +601,34 @@ function updateUpgradesInProgress(allUnits, world) {
   gameState.updateUpgradesInProgress(upgradesInProgress);
 }
 
+/**
+ * Use ORBITALCOMMAND energy for calling down MULEs.
+ * @param {World} world - The current game world state.
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - List of actions to be executed.
+ */
+function useOrbitalCommandEnergy(world, actionList) {
+  const { units } = world.resources.get();
+  const orbitalCommands = units.getByType(ORBITALCOMMAND);
+
+  orbitalCommands.forEach(orbital => {
+    const energy = orbital.energy;
+    const tag = orbital.tag;
+    if (energy !== undefined && energy >= 50 && tag) { // Check if energy and tag are defined and energy is >= 50
+      const mineralFields = units.getMineralFields();
+      if (mineralFields.length > 0) {
+        const targetMineralField = mineralFields.reduce((maxField, field) =>
+          (field.mineralContents !== undefined && (maxField.mineralContents === undefined || field.mineralContents > maxField.mineralContents) ? field : maxField), mineralFields[0]);
+
+        actionList.push({
+          abilityId: EFFECT_CALLDOWNMULE,
+          targetUnitTag: targetMineralField.tag,
+          unitTags: [tag]
+        });
+      }
+    }
+  });
+}
+
 const bot = createAgent({
   interface: {
     raw: true, rawCropToPlayableArea: true, score: true, showBurrowedShadows: true, showCloaked: true,
@@ -665,6 +693,8 @@ const bot = createAgent({
       balanceWorkers(world, units, resources, actionList);
 
       assignMineralWorkers(resources, actionList);
+
+      useOrbitalCommandEnergy(world, actionList); // Use ORBITALCOMMAND energy
 
       gameState.setFoodUsed(world);
 
