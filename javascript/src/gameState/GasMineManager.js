@@ -56,25 +56,31 @@ class GasMineManager {
     const gasMines = units.getAll(Alliance.SELF).filter(unit => unit.isGasMine());
     const allWorkers = new Map(units.getAll(Alliance.SELF).filter(worker => worker.isWorker() && worker.tag).map(worker => [worker.tag, worker]));
 
-    return gasMines.reduce((totalInside, mine) => {
+    let totalInside = 0;
+
+    gasMines.forEach(mine => {
       if (mine.tag) { // Ensure mine.tag is defined
         const assignedWorkers = this.gasMineWorkers.get(mine.tag) || new Set();
 
         // Count workers that are assigned to this mine, currently visible and active
-        const visibleWorkersCount = Array.from(assignedWorkers).reduce((count, workerTag) => {
+        let visibleWorkersCount = 0;
+        assignedWorkers.forEach(workerTag => {
           const worker = allWorkers.get(workerTag);
           if (worker && worker.isCurrent() && (worker.isGathering('vespene') || worker.isReturning('vespene'))) {
-            count++;
+            visibleWorkersCount++;
           }
-          return count;
-        }, 0);
+        });
+
+        // Ensure assigned workers count does not exceed gasMine.assignedHarvesters
+        const assignedCount = Math.min(assignedWorkers.size, mine.assignedHarvesters || 0);
 
         // Calculate the number of workers inside the gas mine
-        const insideWorkers = assignedWorkers.size - visibleWorkersCount;
-        return totalInside + Math.max(0, insideWorkers);
+        const insideWorkers = Math.max(0, assignedCount - visibleWorkersCount);
+        totalInside += Math.min(insideWorkers, 1); // Ensure no more than 1 inside worker per mine
       }
-      return totalInside;
-    }, 0);
+    });
+
+    return totalInside;
   }
 
   /**
