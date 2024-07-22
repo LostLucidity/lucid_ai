@@ -14,7 +14,7 @@ const { getClosestUnitFromUnit } = require("../../features/shared/pathfinding/pa
 const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
 const { findEnemyUnitsNear } = require("../../features/shared/scoutingUtils");
 const { isTownhallInDanger } = require("../../features/shared/stateManagement");
-const { isPendingContructing } = require("../../features/shared/workerCommonUtils");
+const { isPendingConstructing } = require("../../features/shared/workerCommonUtils");
 const { getPendingOrders } = require("../../sharedServices");
 const { setPendingOrders } = require("../../units/management/unitOrders");
 const { getUnitsWithinDistance, createUnitCommand } = require("../../utils/common");
@@ -391,7 +391,7 @@ function getWithLabelAvailable(units, unit) {
 
   const isNotConstructing = !unitIsConstructing || (unitIsConstructing && unit.unitType === UnitType.PROBE);
   const probeAndMoving = unit.unitType === UnitType.PROBE && isMoving(unit);
-  return (isNotConstructing && !unit.isAttacking() && !isPendingContructing(unit)) || probeAndMoving;
+  return (isNotConstructing && !unit.isAttacking() && !isPendingConstructing(unit)) || probeAndMoving;
 }
 
 /**

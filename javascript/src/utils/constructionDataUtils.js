@@ -6,7 +6,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { buildUnitTypeMap } = require("../features/misc/gameData");
 const { getDistance } = require("../features/shared/pathfinding/spatialCoreUtils");
-const { isPendingContructing } = require("../features/shared/workerCommonUtils");
+const { isPendingConstructing } = require("../features/shared/workerCommonUtils");
 const { GameState, buildingPositions } = require("../gameState");
 const { getPendingOrders } = require("../sharedServices");
 
@@ -60,7 +60,7 @@ function getCurrentlyEnrouteConstructionGrids(world) {
       }
     }
 
-    if (worker.isConstructing() || isPendingContructing(worker)) {
+    if (worker.isConstructing() || isPendingConstructing(worker)) {
       const foundOrder = allOrders.find(order => order.abilityId && constructionAbilities.includes(order.abilityId));
       if (foundOrder && foundOrder.targetWorldSpacePos && foundOrder.abilityId !== undefined) {
         const unitTypeName = abilityIdToUnitTypeMap[foundOrder.abilityId];

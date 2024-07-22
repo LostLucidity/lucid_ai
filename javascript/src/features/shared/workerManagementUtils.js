@@ -9,8 +9,8 @@ const { GasMineRace, WorkerRace } = require('@node-sc2/core/constants/race-map')
 const { getMovementSpeed } = require('./coreUtils');
 const { calculateBaseTimeToPosition } = require('./pathfinding/pathfinding');
 const { getDistanceByPath, getClosestPositionByPath } = require('./pathfinding/pathfindingCore');
-const { isPendingContructing } = require('./workerCommonUtils');
-const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft } = require('../../gameLogic/economy/workerService');
+const { isPendingConstructing } = require('./workerCommonUtils');
+const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft, reserveWorkerForBuilding } = require('../../gameLogic/economy/workerService');
 // eslint-disable-next-line no-unused-vars
 const { GameState } = require('../../gameState');
 const { unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
@@ -93,35 +93,39 @@ function checkWorkerTraining(world, base, targetPosition, timeToPosition, moveme
 
 /**
  * Commands the provided builder to construct a structure.
- * @param {World} world
- * @param {Unit} builder
- * @param {UnitTypeId} unitType
- * @param {Point2D} position
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ * @param {World} world - The game world object containing all necessary data.
+ * @param {Unit} builder - The unit that will construct the structure.
+ * @param {UnitTypeId} unitType - The type of unit to be constructed.
+ * @param {Point2D} position - The position where the structure will be constructed.
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} The array of actions to be executed.
  */
 function commandBuilderToConstruct(world, builder, unitType, position) {
   const { agent, data, resources } = world;
   const { units } = resources.get();
   const { abilityId } = data.getUnitTypeData(unitType);
-  const collectedActions = [];
 
-  if (!builder.isConstructing() && !isPendingContructing(builder) && abilityId !== undefined) {
-    setBuilderLabel(builder);
-    const unitCommand = createUnitCommand(abilityId, [builder]);
-
-    if (agent.race !== undefined && GasMineRace[agent.race] === unitType) {
-      const closestGasGeyser = units.getClosest(position, units.getGasGeysers())[0];
-      if (closestGasGeyser) {
-        unitCommand.targetUnitTag = closestGasGeyser.tag;
-      }
-    } else {
-      unitCommand.targetWorldSpacePos = position;
-    }
-
-    collectedActions.push(unitCommand);
-    setPendingOrders(builder, unitCommand);
-    collectedActions.push(...stopOverlappingBuilders(units, builder, position));
+  // Early return if builder is already constructing, is pending construction, or abilityId is undefined
+  if (builder.isConstructing() || isPendingConstructing(builder) || abilityId === undefined) {
+    return [];
   }
+
+  setBuilderLabel(builder);
+  reserveWorkerForBuilding(builder);
+
+  const unitCommand = createUnitCommand(abilityId, [builder]);
+
+  if (agent.race !== undefined && GasMineRace[agent.race] === unitType) {
+    const closestGasGeyser = units.getClosest(position, units.getGasGeysers())[0];
+    if (closestGasGeyser) {
+      unitCommand.targetUnitTag = closestGasGeyser.tag;
+    }
+  } else {
+    unitCommand.targetWorldSpacePos = position;
+  }
+
+  const collectedActions = [unitCommand];
+  setPendingOrders(builder, unitCommand);
+  collectedActions.push(...stopOverlappingBuilders(units, builder, position));
 
   return collectedActions;
 }
