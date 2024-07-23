@@ -22,6 +22,7 @@ const logger = require('./utils/logger');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
 const { assignWorkers } = require('./utils/workerUtils');
 const config = require('../config/config');
+const { getBasicProductionUnits } = require('./units/management/basicUnitUtils');
 
 /**
  * @typedef {Object} CacheManager
@@ -141,7 +142,7 @@ function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, act
 }
 
 /**
- * Check if a step (construction or morph) is in progress.
+ * Check if a step (construction, morph, or training) is in progress.
  * @param {World} world - The current game world state.
  * @param {import('./utils/globalTypes').BuildOrderStep} step - The build order step to check.
  * @returns {boolean} - True if the step is in progress, otherwise false.
@@ -161,11 +162,40 @@ function isStepInProgress(world, step) {
     const abilityId = unitData?.abilityId;
     if (!abilityId) return false;
 
-    return units.getAll(Alliance.SELF).some(unit =>
-      (unit.unitType === unitType && unit.buildProgress !== undefined && unit.buildProgress > 0) ||
-      (unit.orders && unit.orders.some(order => order.abilityId === abilityId))
-    );
+    return units.getAll(Alliance.SELF).some(unit => isUnitInProgress(world, unit, unitType, abilityId));
   });
+}
+
+/**
+ * Check if a unit is in progress (construction, morph, or training).
+ * @param {World} world - The current game world state.
+ * @param {Unit} unit - The unit to check.
+ * @param {number} unitType - The unit type to check.
+ * @param {number} abilityId - The ability ID associated with the unit type.
+ * @returns {boolean} - True if the unit is in progress, otherwise false.
+ */
+function isUnitInProgress(world, unit, unitType, abilityId) {
+  // Check if the unit type is under construction or morphing
+  if (unit.unitType === unitType && unit.buildProgress !== undefined && unit.buildProgress > 0 && unit.buildProgress < 1) {
+    return true;
+  }
+
+  // Check if the unit is being trained or produced
+  if (unit.orders) {
+    return unit.orders.some(order => {
+      if (order.abilityId !== abilityId) return false;
+
+      // Ensure the order is from a production structure and in progress
+      const productionUnits = getBasicProductionUnits(world, unitType);
+      return productionUnits.some(productionUnit =>
+        productionUnit.orders && productionUnit.orders.some(productionOrder =>
+          productionOrder.abilityId === abilityId
+        )
+      );
+    });
+  }
+
+  return false;
 }
 
 /**
