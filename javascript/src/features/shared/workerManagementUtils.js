@@ -18,7 +18,7 @@ const { setPendingOrders } = require('../../units/management/unitOrders');
 const { createUnitCommand, getPathablePositionsForStructure } = require('../../utils/common');
 const { findPathablePositions } = require('../../utils/pathfindingUtils');
 const { stopOverlappingBuilders } = require('../construction/buildingWorkerInteractions');
-const { getTimeToTargetTech } = require('../misc/gameData');
+const { getTimeToTargetTech } = require('../gameData/gameData');
 
 /**
  * Adjusts the time to position based on whether the unit should rally to the base or not.

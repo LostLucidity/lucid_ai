@@ -9,7 +9,7 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 // Internal module imports
 const GasMineManager = require('./gasMineManager');
 const { defaultResources } = require('../core/gameData');
-const { missingUnits } = require('../features/misc/gameDataStore');
+const { missingUnits } = require('../features/gameData/gameDataStore');
 const { getPendingOrders } = require('../sharedServices');
 const cacheManager = require('../utils/cache');
 

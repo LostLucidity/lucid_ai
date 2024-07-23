@@ -4,7 +4,7 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { buildUnitTypeMap } = require("../features/misc/gameData");
+const { buildUnitTypeMap } = require("../features/gameData/gameData");
 const { getDistance } = require("../features/shared/pathfinding/spatialCoreUtils");
 const { isPendingConstructing } = require("../features/shared/workerCommonUtils");
 const { GameState, buildingPositions } = require("../gameState");

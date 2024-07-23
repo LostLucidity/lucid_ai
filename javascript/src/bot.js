@@ -16,13 +16,13 @@ const { gather, balanceWorkerDistribution } = require('./gameLogic/economy/worke
 const { getWorkerAssignedToStructure, releaseWorkerFromBuilding } = require('./gameLogic/economy/workerService');
 const { GameState } = require('./gameState');
 const GameInitialization = require('./initialization/GameInitialization');
+const { getBasicProductionUnits } = require('./units/management/basicUnitUtils');
 const { resetNoFreeGeysersLogFlag, lastLoggedUnitType, resetNoValidPositionLogFlag } = require('./utils/buildingUtils');
 const cacheManager = require('./utils/cache');
 const logger = require('./utils/logger');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
 const { assignWorkers } = require('./utils/workerUtils');
 const config = require('../config/config');
-const { getBasicProductionUnits } = require('./units/management/basicUnitUtils');
 
 /**
  * @typedef {Object} CacheManager

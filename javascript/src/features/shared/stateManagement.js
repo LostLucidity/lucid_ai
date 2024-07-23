@@ -8,7 +8,7 @@ const { getDistance } = require("./pathfinding/spatialCoreUtils");
 const { GameState } = require("../../gameState");
 const { getWeaponDPS } = require("../../units");
 const { calculateTimeToKillUnits } = require("../../utils/sharedUtils");
-const { missingUnits } = require("../misc/gameDataStore");
+const { missingUnits } = require("../gameData/gameDataStore");
 
 /**
  * Calculates the remaining time to finish a structure's construction.

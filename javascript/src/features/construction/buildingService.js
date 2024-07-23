@@ -28,7 +28,7 @@ const {
 const { isSupplyNeeded } = require("../../utils/common");
 const { getTimeUntilUnitCanBuildAddon } = require("../../utils/supplyUtils");
 const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionUtils");
-const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../misc/gameData");
+const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../gameData/gameData");
 const { attemptLand } = require("../shared/buildingUtils");
 const { calculateDistance } = require("../shared/coreUtils");
 const { getNextSafeExpansions } = require("../shared/pathfinding/pathfinding");

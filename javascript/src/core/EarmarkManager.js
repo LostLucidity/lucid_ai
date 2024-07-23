@@ -1,7 +1,7 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { Race, Attribute } = require("@node-sc2/core/constants/enums");
 
-const { upgradeTypes } = require("../features/misc/gameData");
+const { upgradeTypes } = require("../features/gameData/gameData");
 const StrategyContext = require("../features/strategy/strategyContext");
 const { GameState } = require("../gameState");
 const { foodEarmarks } = require("../sharedServices");

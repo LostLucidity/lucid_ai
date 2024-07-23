@@ -158,7 +158,6 @@ function findBestPositionForAddOn(world, unit, checkAddOnPlacement, logCondition
   return undefined;
 }
 
-
 /**
  * Find potential building placements within the main base.
  * @param {World} world - The game world state.

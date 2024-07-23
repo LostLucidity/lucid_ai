@@ -3,7 +3,7 @@ const { UnitType, } = require("@node-sc2/core/constants");
 const { WeaponTargetType, Alliance } = require("@node-sc2/core/constants/enums");
 
 const { getUpgradeBonus } = require("./management/unitConfig");
-const { unitTypeData, saveAndGetUnitTypeData } = require("../features/misc/gameData");
+const { unitTypeData, saveAndGetUnitTypeData } = require("../features/gameData/gameData");
 const { GameState } = require("../gameState");
 
 /**
