@@ -80,10 +80,8 @@ async function checkBuildOrderProgress(world, buildOrder) {
   const currentTimeInSeconds = world.resources.get().frame.timeInSeconds();
   const currentSupply = gameState.getFoodUsed();
 
-  for (const [index, order] of buildOrder.entries()) {
-    /** @type {{completed: boolean, logged: boolean, prematureLogged: boolean}} */
+  for (const order of buildOrder) {
     const orderStatus = getOrderStatus(order);
-
     if (orderStatus.completed) continue;
 
     const satisfied = StrategyManager.getInstance().isStepSatisfied(world, order);
@@ -93,9 +91,9 @@ async function checkBuildOrderProgress(world, buildOrder) {
     const timeStatus = getTimeStatus(timeDifference);
 
     if (satisfied && isStepInProgress(world, order)) {
-      handleStepInProgress(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply, orderStatus);
+      handleStepInProgress(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply, orderStatus);
     } else if (isStepDelayed(currentTimeInSeconds, expectedTimeInSeconds, orderStatus)) {
-      logDelayedStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply);
+      logDelayedStep(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply);
       orderStatus.logged = true;
     }
 
@@ -139,7 +137,9 @@ function getTimeStatus(timeDifference) {
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
  */
 function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList) {
-  const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator => assimilator.buildProgress !== undefined && assimilator.buildProgress < 1);
+  const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator =>
+    assimilator.buildProgress !== undefined && assimilator.buildProgress < 1
+  );
 
   if (assimilatorsWarpingIn.length > 0) {
     assimilatorsWarpingIn.forEach(assimilator => {
@@ -157,7 +157,6 @@ function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, act
 
 /**
  * Handle the step in progress and log its status.
- * @param {number} index
  * @param {import('./utils/globalTypes').BuildOrderStep} order
  * @param {number} currentTimeInSeconds
  * @param {number} expectedTimeInSeconds
@@ -167,12 +166,12 @@ function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, act
  * @param {number} currentSupply
  * @param {{completed: boolean, logged: boolean, prematureLogged: boolean}} orderStatus
  */
-function handleStepInProgress(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply, orderStatus) {
+function handleStepInProgress(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply, orderStatus) {
   if (currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS) {
     orderStatus.completed = true;
-    logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
+    logBuildOrderStep(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
   } else if (!orderStatus.prematureLogged) {
-    logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
+    logBuildOrderStep(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
     orderStatus.prematureLogged = true;
   }
 }
@@ -200,7 +199,7 @@ function isStepInProgress(world, step) {
 
   const unitTypes = (step.interpretedAction || [])
     .map(action => action.unitType)
-    .filter(unitType => unitType !== null); // Filter out null values
+    .filter((unitType) => unitType !== null && unitType !== undefined); // Filter out null/undefined values
 
   if (unitTypes.length === 0) return false;
 
@@ -222,15 +221,13 @@ function isStepInProgress(world, step) {
  * @returns {boolean} - True if the unit is in progress, otherwise false.
  */
 function isUnitInProgress(world, unit, unitType, abilityId) {
-  // Check if the unit is under construction or morphing
   if (unit.unitType === unitType && unit.buildProgress !== undefined && unit.buildProgress > 0 && unit.buildProgress < 1) {
     return true;
   }
 
-  // Check if the unit is being trained or produced
   if (unit.orders && unit.orders.some(order => order.abilityId === abilityId)) {
     const productionUnits = getBasicProductionUnits(world, unitType)
-      .filter(productionUnit => productionUnit.unitType !== undefined && !workerTypes.includes(productionUnit.unitType));
+      .filter(productionUnit => productionUnit.unitType && !workerTypes.includes(productionUnit.unitType));
 
     return productionUnits.some(productionUnit =>
       productionUnit.orders && productionUnit.orders.some(productionOrder => productionOrder.abilityId === abilityId)
@@ -242,7 +239,6 @@ function isUnitInProgress(world, unit, unitType, abilityId) {
 
 /**
  * Log a delayed build order step.
- * @param {number} index
  * @param {import('./utils/globalTypes').BuildOrderStep} order
  * @param {number} currentTimeInSeconds
  * @param {number} expectedTimeInSeconds
@@ -251,8 +247,8 @@ function isUnitInProgress(world, unit, unitType, abilityId) {
  * @param {number} supplyDifference
  * @param {number} currentSupply
  */
-function logDelayedStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply) {
-  console.warn(`Build Order Step ${index} NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
+function logDelayedStep(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply) {
+  console.warn(`Build Order Step NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
 }
 
 /**
@@ -318,7 +314,6 @@ function timeStringToSeconds(timeString) {
 
 /**
  * Logs build order step completion status.
- * @param {number} index - The index of the build order step.
  * @param {import('./utils/globalTypes').BuildOrderStep} order - The build order step.
  * @param {number} currentTimeInSeconds - The current game time in seconds.
  * @param {number} expectedTimeInSeconds - The expected time for the order in seconds.
@@ -328,10 +323,10 @@ function timeStringToSeconds(timeString) {
  * @param {boolean} premature - Whether the completion is premature.
  * @param {number} currentSupply - The current supply value.
  */
-function logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, premature, currentSupply) {
+function logBuildOrderStep(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, premature, currentSupply) {
   const logMessage = premature
-    ? `Build Order Step ${index} Prematurely Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Expected time: ${expectedTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`
-    : `Build Order Step ${index} Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`;
+    ? `Build Order Step Prematurely Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Expected time: ${expectedTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`
+    : `Build Order Step Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`;
 
   console.log(logMessage);
 }
@@ -563,11 +558,11 @@ const ActionResult = {
 /**
  * @type {ActionResultStrings}
  */
-const actionResultStrings = Object.keys(ActionResult).reduce((/** @type {ActionResultStrings} */ acc, key) => {
+const actionResultStrings = Object.keys(ActionResult).reduce((acc, key) => {
   const numericKey = ActionResult[/** @type {keyof typeof ActionResult} */ (key)];
-  acc[numericKey] = key;
+  acc[/** @type {number} */ (numericKey)] = key;
   return acc;
-}, {});
+}, /** @type {ActionResultStrings} */({}));
 
 /**
  * Executes collected actions and handles any errors.
@@ -635,7 +630,10 @@ function trackPerformance(frame, gameState) {
  */
 function updateCompletedBases(units, cacheManager) {
   const newCompletedBases = units.getBases().filter(base => {
-    const isCompleted = (base.buildProgress ?? 0) >= 1;
+    if (base.buildProgress === undefined) {
+      return false;
+    }
+    const isCompleted = base.buildProgress >= 1;
     if (isCompleted && !completedBasesMap.has(base.tag)) {
       completedBasesMap.set(base.tag, true);
       return true;
@@ -662,8 +660,10 @@ function updateUpgradesInProgress(allUnits, world) {
     }
   });
 
-  /** @type {UpgradeProgress[]} */
-  const upgradesInProgress = allUnits.reduce((/** @type {UpgradeProgress[]} */ acc, unit) => {
+  /**
+   * @type {UpgradeProgress[]}
+   */
+  const upgradesInProgress = allUnits.reduce((acc, unit) => {
     if (unit.isStructure() && unit.orders && unit.orders.length > 0) {
       unit.orders.forEach(order => {
         const upgradeId = UPGRADE_ABILITY_IDS.get(order.abilityId);
@@ -673,7 +673,7 @@ function updateUpgradesInProgress(allUnits, world) {
       });
     }
     return acc;
-  }, []);
+  }, /** @type {UpgradeProgress[]} */([]));
 
   gameState.updateUpgradesInProgress(upgradesInProgress);
 }
@@ -690,7 +690,7 @@ function useOrbitalCommandEnergy(world, actionList) {
   orbitalCommands.forEach(orbital => {
     const energy = orbital.energy;
     const tag = orbital.tag;
-    if (energy !== undefined && energy >= 50 && tag) { // Check if energy and tag are defined and energy is >= 50
+    if (energy !== undefined && energy >= 50 && tag) { // Check if energy is defined and >= 50
       const mineralFields = units.getMineralFields();
       if (mineralFields.length > 0) {
         const targetMineralField = mineralFields.reduce((maxField, field) =>
@@ -740,11 +740,14 @@ const bot = createAgent({
     }
   },
 
+  /**
+   * @param {World} world - The current game world state.
+   */
   onStep: async (world) => {
     try {
       const { frame, units, map } = world.resources.get();
       const resources = world.resources;
-      /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
+      /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
       const actionList = [];
       const allUnits = units.getAll();
 
@@ -791,7 +794,7 @@ const bot = createAgent({
   },
 
   onUnitFinished: async (world, unit) => {
-    if (unit.isStructure() && typeof unit.tag === 'string') {
+    if (unit.isStructure() && unit.tag) {
       const workerTag = getWorkerAssignedToStructure(unit.tag);
       if (workerTag) {
         const { units } = world.resources.get();
