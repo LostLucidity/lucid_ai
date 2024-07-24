@@ -81,7 +81,8 @@ async function checkBuildOrderProgress(world, buildOrder) {
   const currentSupply = gameState.getFoodUsed();
 
   for (const [index, order] of buildOrder.entries()) {
-    const orderStatus = buildOrderCompletion.get(order) || { completed: false, logged: false, prematureLogged: false };
+    /** @type {{completed: boolean, logged: boolean, prematureLogged: boolean}} */
+    const orderStatus = getOrderStatus(order);
 
     if (orderStatus.completed) continue;
 
@@ -89,18 +90,12 @@ async function checkBuildOrderProgress(world, buildOrder) {
     const expectedTimeInSeconds = timeStringToSeconds(order.time);
     const timeDifference = currentTimeInSeconds - expectedTimeInSeconds;
     const supplyDifference = currentSupply - Number(order.supply);
-    const timeStatus = timeDifference < 0 ? "ahead of schedule" : "behind schedule";
+    const timeStatus = getTimeStatus(timeDifference);
 
     if (satisfied && isStepInProgress(world, order)) {
-      if (currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS) {
-        orderStatus.completed = true;
-        logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
-      } else if (!orderStatus.prematureLogged) {
-        logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
-        orderStatus.prematureLogged = true;
-      }
-    } else if (currentTimeInSeconds >= expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + ADDITIONAL_BUFFER_PER_ACTION_SECONDS && !orderStatus.logged) {
-      console.warn(`Build Order Step ${index} NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
+      handleStepInProgress(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply, orderStatus);
+    } else if (isStepDelayed(currentTimeInSeconds, expectedTimeInSeconds, orderStatus)) {
+      logDelayedStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply);
       orderStatus.logged = true;
     }
 
@@ -116,6 +111,24 @@ async function checkBuildOrderProgress(world, buildOrder) {
 function collectActions(world, actionList) {
   const actionCollector = new ActionCollector(world);
   actionList.push(...actionCollector.collectActions());
+}
+
+/**
+ * Get the status of the order from the buildOrderCompletion map.
+ * @param {import('./utils/globalTypes').BuildOrderStep} order
+ * @returns {{completed: boolean, logged: boolean, prematureLogged: boolean}} The status of the order
+ */
+function getOrderStatus(order) {
+  return buildOrderCompletion.get(order) || { completed: false, logged: false, prematureLogged: false };
+}
+
+/**
+ * Get the time status based on the time difference.
+ * @param {number} timeDifference
+ * @returns {string} The time status (ahead/behind schedule).
+ */
+function getTimeStatus(timeDifference) {
+  return timeDifference < 0 ? "ahead of schedule" : "behind schedule";
 }
 
 /**
@@ -140,6 +153,39 @@ function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, act
       });
     });
   }
+}
+
+/**
+ * Handle the step in progress and log its status.
+ * @param {number} index
+ * @param {import('./utils/globalTypes').BuildOrderStep} order
+ * @param {number} currentTimeInSeconds
+ * @param {number} expectedTimeInSeconds
+ * @param {string} timeStatus
+ * @param {number} timeDifference
+ * @param {number} supplyDifference
+ * @param {number} currentSupply
+ * @param {{completed: boolean, logged: boolean, prematureLogged: boolean}} orderStatus
+ */
+function handleStepInProgress(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply, orderStatus) {
+  if (currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS) {
+    orderStatus.completed = true;
+    logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
+  } else if (!orderStatus.prematureLogged) {
+    logBuildOrderStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
+    orderStatus.prematureLogged = true;
+  }
+}
+
+/**
+ * Check if a step is delayed.
+ * @param {number} currentTimeInSeconds
+ * @param {number} expectedTimeInSeconds
+ * @param {{completed: boolean, logged: boolean, prematureLogged: boolean}} orderStatus
+ * @returns {boolean} True if the step is delayed, otherwise false
+ */
+function isStepDelayed(currentTimeInSeconds, expectedTimeInSeconds, orderStatus) {
+  return currentTimeInSeconds >= expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + ADDITIONAL_BUFFER_PER_ACTION_SECONDS && !orderStatus.logged;
 }
 
 /**
@@ -192,6 +238,21 @@ function isUnitInProgress(world, unit, unitType, abilityId) {
   }
 
   return false;
+}
+
+/**
+ * Log a delayed build order step.
+ * @param {number} index
+ * @param {import('./utils/globalTypes').BuildOrderStep} order
+ * @param {number} currentTimeInSeconds
+ * @param {number} expectedTimeInSeconds
+ * @param {string} timeStatus
+ * @param {number} timeDifference
+ * @param {number} supplyDifference
+ * @param {number} currentSupply
+ */
+function logDelayedStep(index, order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply) {
+  console.warn(`Build Order Step ${index} NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
 }
 
 /**
