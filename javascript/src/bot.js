@@ -23,6 +23,7 @@ const logger = require('./utils/logger');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
 const { assignWorkers } = require('./utils/workerUtils');
 const config = require('../config/config');
+const { workerTypes } = require('@node-sc2/core/constants/groups');
 
 /**
  * @typedef {Object} CacheManager
@@ -175,24 +176,19 @@ function isStepInProgress(world, step) {
  * @returns {boolean} - True if the unit is in progress, otherwise false.
  */
 function isUnitInProgress(world, unit, unitType, abilityId) {
-  // Check if the unit type is under construction or morphing
+  // Check if the unit is under construction or morphing
   if (unit.unitType === unitType && unit.buildProgress !== undefined && unit.buildProgress > 0 && unit.buildProgress < 1) {
     return true;
   }
 
   // Check if the unit is being trained or produced
-  if (unit.orders) {
-    return unit.orders.some(order => {
-      if (order.abilityId !== abilityId) return false;
+  if (unit.orders && unit.orders.some(order => order.abilityId === abilityId)) {
+    const productionUnits = getBasicProductionUnits(world, unitType)
+      .filter(productionUnit => productionUnit.unitType !== undefined && !workerTypes.includes(productionUnit.unitType));
 
-      // Ensure the order is from a production structure and in progress
-      const productionUnits = getBasicProductionUnits(world, unitType);
-      return productionUnits.some(productionUnit =>
-        productionUnit.orders && productionUnit.orders.some(productionOrder =>
-          productionOrder.abilityId === abilityId
-        )
-      );
-    });
+    return productionUnits.some(productionUnit =>
+      productionUnit.orders && productionUnit.orders.some(productionOrder => productionOrder.abilityId === abilityId)
+    );
   }
 
   return false;
