@@ -4,7 +4,7 @@
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Upgrade } = require('@node-sc2/core/constants');
 const { BUILD_ASSIMILATOR, EFFECT_CALLDOWNMULE } = require('@node-sc2/core/constants/ability');
-const { Alliance } = require('@node-sc2/core/constants/enums');
+const { Alliance, DisplayType } = require('@node-sc2/core/constants/enums');
 const { ASSIMILATOR, PROBE, ORBITALCOMMAND } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
 
@@ -684,21 +684,64 @@ function updateUpgradesInProgress(allUnits, world) {
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - List of actions to be executed.
  */
 function useOrbitalCommandEnergy(world, actionList) {
+  const MAX_DISTANCE = 10; // Define a reasonable max distance threshold for mineral fields
+
   const { units } = world.resources.get();
   const orbitalCommands = units.getByType(ORBITALCOMMAND);
+  const baseLocations = units.getBases(); // Assuming getBases() returns all base locations.
+
+  // Precompute distances from bases to mineral fields
+  const baseToMineralDistances = new Map();
+  baseLocations.forEach(base => {
+    baseToMineralDistances.set(base.tag, units.getMineralFields()
+      .filter(field => field.displayType === DisplayType.VISIBLE)
+      .map(field => ({ field: field, distance: getDistance(base.pos, field.pos) }))
+      .filter(data => data.distance <= MAX_DISTANCE)
+    );
+  });
 
   orbitalCommands.forEach(orbital => {
     const energy = orbital.energy;
     const tag = orbital.tag;
     if (energy !== undefined && energy >= 50 && tag) { // Check if energy is defined and >= 50
-      const mineralFields = units.getMineralFields();
-      if (mineralFields.length > 0) {
-        const targetMineralField = mineralFields.reduce((maxField, field) =>
-          (field.mineralContents !== undefined && (maxField.mineralContents === undefined || field.mineralContents > maxField.mineralContents) ? field : maxField), mineralFields[0]);
+      /** @type {Unit | null} */
+      let bestMineralField = null;
+      let bestScore = -Infinity;
 
+      units.getMineralFields()
+        .filter(field => field.displayType === DisplayType.VISIBLE)
+        .forEach(field => {
+          if (field.mineralContents === undefined) return;
+
+          const orbitalToFieldDistance = getDistance(orbital.pos, field.pos);
+          let closestBaseDistance = Infinity;
+
+          baseLocations.forEach(base => {
+            const baseToFieldData = baseToMineralDistances.get(base.tag);
+            if (baseToFieldData) {
+              for (let i = 0; i < baseToFieldData.length; i++) {
+                const data = baseToFieldData[i];
+                if (data.field.tag === field.tag && data.distance < closestBaseDistance) {
+                  closestBaseDistance = data.distance;
+                }
+              }
+            }
+          });
+
+          if (closestBaseDistance <= MAX_DISTANCE) {
+            const score = field.mineralContents - orbitalToFieldDistance; // Use a score to consider both mineral contents and distance
+            if (score > bestScore) {
+              bestScore = score;
+              bestMineralField = field;
+            }
+          }
+        });
+
+      if (bestMineralField !== null) {
+        const fieldWithTag = /** @type {Unit} */ (bestMineralField); // Explicit type assertion
         actionList.push({
           abilityId: EFFECT_CALLDOWNMULE,
-          targetUnitTag: targetMineralField.tag,
+          targetUnitTag: fieldWithTag.tag,
           unitTags: [tag]
         });
       }
