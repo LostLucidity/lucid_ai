@@ -5,6 +5,7 @@ const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Upgrade } = require('@node-sc2/core/constants');
 const { BUILD_ASSIMILATOR, EFFECT_CALLDOWNMULE } = require('@node-sc2/core/constants/ability');
 const { Alliance, DisplayType } = require('@node-sc2/core/constants/enums');
+const { workerTypes } = require('@node-sc2/core/constants/groups');
 const { ASSIMILATOR, PROBE, ORBITALCOMMAND } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
 
@@ -23,7 +24,6 @@ const logger = require('./utils/logger');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
 const { assignWorkers } = require('./utils/workerUtils');
 const config = require('../config/config');
-const { workerTypes } = require('@node-sc2/core/constants/groups');
 
 /**
  * @typedef {Object} CacheManager
@@ -79,26 +79,36 @@ function balanceWorkers(world, units, resources, actionList) {
 async function checkBuildOrderProgress(world, buildOrder) {
   const currentTimeInSeconds = world.resources.get().frame.timeInSeconds();
   const currentSupply = gameState.getFoodUsed();
+  const strategyManager = StrategyManager.getInstance();
 
-  for (const order of buildOrder) {
+  buildOrder.forEach((order, index) => {
     const orderStatus = getOrderStatus(order);
-    if (orderStatus.completed) continue;
+    if (orderStatus.completed) return;
 
-    const satisfied = StrategyManager.getInstance().isStepSatisfied(world, order);
+    const satisfied = strategyManager.isStepSatisfied(world, order);
     const expectedTimeInSeconds = timeStringToSeconds(order.time);
     const timeDifference = currentTimeInSeconds - expectedTimeInSeconds;
     const supplyDifference = currentSupply - Number(order.supply);
     const timeStatus = getTimeStatus(timeDifference);
 
     if (satisfied && isStepInProgress(world, order)) {
-      handleStepInProgress(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply, orderStatus);
+      handleStepInProgress(
+        order, index, currentTimeInSeconds, expectedTimeInSeconds,
+        timeStatus, timeDifference, supplyDifference, currentSupply,
+        orderStatus
+      );
     } else if (isStepDelayed(currentTimeInSeconds, expectedTimeInSeconds, orderStatus)) {
-      logDelayedStep(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply);
-      orderStatus.logged = true;
+      if (!orderStatus.logged) {
+        logDelayedStep(
+          order, index, currentTimeInSeconds, expectedTimeInSeconds,
+          timeStatus, timeDifference, supplyDifference, currentSupply
+        );
+        orderStatus.logged = true;
+      }
     }
 
     buildOrderCompletion.set(order, orderStatus);
-  }
+  });
 }
 
 /**
@@ -158,6 +168,7 @@ function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, act
 /**
  * Handle the step in progress and log its status.
  * @param {import('./utils/globalTypes').BuildOrderStep} order
+ * @param {number} index - The index of the build order step.
  * @param {number} currentTimeInSeconds
  * @param {number} expectedTimeInSeconds
  * @param {string} timeStatus
@@ -166,12 +177,17 @@ function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, act
  * @param {number} currentSupply
  * @param {{completed: boolean, logged: boolean, prematureLogged: boolean}} orderStatus
  */
-function handleStepInProgress(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply, orderStatus) {
-  if (currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS) {
+function handleStepInProgress(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply, orderStatus) {
+  const shouldCompleteOrder = currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS;
+
+  if (shouldCompleteOrder) {
     orderStatus.completed = true;
-    logBuildOrderStep(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
-  } else if (!orderStatus.prematureLogged) {
-    logBuildOrderStep(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
+    logStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
+    return;
+  }
+
+  if (!orderStatus.prematureLogged) {
+    logStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
     orderStatus.prematureLogged = true;
   }
 }
@@ -238,8 +254,33 @@ function isUnitInProgress(world, unit, unitType, abilityId) {
 }
 
 /**
+ * Logs build order step completion status.
+ * @param {import('./utils/globalTypes').BuildOrderStep} order - The build order step.
+ * @param {number} index - The index of the build order step.
+ * @param {number} currentTimeInSeconds - The current game time in seconds.
+ * @param {number} expectedTimeInSeconds - The expected time for the order in seconds.
+ * @param {string} timeStatus - The time status (ahead/behind schedule).
+ * @param {number} timeDifference - The time difference between current and expected time.
+ * @param {number} supplyDifference - The supply difference between current and expected supply.
+ * @param {boolean} premature - Whether the completion is premature.
+ * @param {number} currentSupply - The current supply value.
+ */
+function logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, premature, currentSupply) {
+  const { supply, time, action } = order;
+  const formattedCurrentTime = currentTimeInSeconds.toFixed(2);
+  const formattedExpectedTime = expectedTimeInSeconds.toFixed(2);
+  const formattedTimeDifference = Math.abs(timeDifference).toFixed(2);
+
+  const logMessage = `Build Order Step ${premature ? 'Prematurely ' : ''}Completed: Step-${index} Supply-${supply} Time-${time} Action-${action} at game time ${formattedCurrentTime} seconds. ${premature ? `Expected time: ${formattedExpectedTime} seconds. ` : ''}Current Supply: ${currentSupply}. Time Difference: ${formattedTimeDifference} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`;
+
+  console.log(logMessage);
+}
+
+
+/**
  * Log a delayed build order step.
  * @param {import('./utils/globalTypes').BuildOrderStep} order
+ * @param {number} index - The index of the build order step.
  * @param {number} currentTimeInSeconds
  * @param {number} expectedTimeInSeconds
  * @param {string} timeStatus
@@ -247,8 +288,24 @@ function isUnitInProgress(world, unit, unitType, abilityId) {
  * @param {number} supplyDifference
  * @param {number} currentSupply
  */
-function logDelayedStep(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply) {
-  console.warn(`Build Order Step NOT Completed: Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
+function logDelayedStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply) {
+  console.warn(`Build Order Step NOT Completed: Step-${index} Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
+}
+
+/**
+ * Log the build order step.
+ * @param {import('./utils/globalTypes').BuildOrderStep} order
+ * @param {number} index - The index of the build order step.
+ * @param {number} currentTimeInSeconds
+ * @param {number} expectedTimeInSeconds
+ * @param {string} timeStatus
+ * @param {number} timeDifference
+ * @param {number} supplyDifference
+ * @param {boolean} isPremature
+ * @param {number} currentSupply
+ */
+function logStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, isPremature, currentSupply) {
+  logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, isPremature, currentSupply);
 }
 
 /**
@@ -310,25 +367,6 @@ function queueGatherOrdersForProbes(units, allUnits, resources, actionList) {
 function timeStringToSeconds(timeString) {
   const [minutes, seconds] = timeString.split(':').map(Number);
   return minutes * 60 + seconds;
-}
-
-/**
- * Logs build order step completion status.
- * @param {import('./utils/globalTypes').BuildOrderStep} order - The build order step.
- * @param {number} currentTimeInSeconds - The current game time in seconds.
- * @param {number} expectedTimeInSeconds - The expected time for the order in seconds.
- * @param {string} timeStatus - The time status (ahead/behind schedule).
- * @param {number} timeDifference - The time difference between current and expected time.
- * @param {number} supplyDifference - The supply difference between current and expected supply.
- * @param {boolean} premature - Whether the completion is premature.
- * @param {number} currentSupply - The current supply value.
- */
-function logBuildOrderStep(order, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, premature, currentSupply) {
-  const logMessage = premature
-    ? `Build Order Step Prematurely Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Expected time: ${expectedTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`
-    : `Build Order Step Completed: Supply-${order.supply} Time-${order.time} Action-${order.action} at game time ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`;
-
-  console.log(logMessage);
 }
 
 /**
@@ -692,12 +730,11 @@ function useOrbitalCommandEnergy(world, actionList) {
 
   // Precompute distances from bases to mineral fields
   const baseToMineralDistances = new Map();
+  const mineralFields = units.getMineralFields().filter(field => field.displayType === DisplayType.VISIBLE);
   baseLocations.forEach(base => {
-    baseToMineralDistances.set(base.tag, units.getMineralFields()
-      .filter(field => field.displayType === DisplayType.VISIBLE)
-      .map(field => ({ field: field, distance: getDistance(base.pos, field.pos) }))
-      .filter(data => data.distance <= MAX_DISTANCE)
-    );
+    const distances = mineralFields.map(field => ({ field: field, distance: getDistance(base.pos, field.pos) }))
+      .filter(/** @param {{field: Unit, distance: number}} data */ data => data.distance <= MAX_DISTANCE);
+    baseToMineralDistances.set(base.tag, distances);
   });
 
   orbitalCommands.forEach(orbital => {
@@ -708,34 +745,31 @@ function useOrbitalCommandEnergy(world, actionList) {
       let bestMineralField = null;
       let bestScore = -Infinity;
 
-      units.getMineralFields()
-        .filter(field => field.displayType === DisplayType.VISIBLE)
-        .forEach(field => {
-          if (field.mineralContents === undefined) return;
+      mineralFields.forEach(field => {
+        if (field.mineralContents === undefined) return;
 
-          const orbitalToFieldDistance = getDistance(orbital.pos, field.pos);
-          let closestBaseDistance = Infinity;
+        const orbitalToFieldDistance = getDistance(orbital.pos, field.pos);
+        let closestBaseDistance = Infinity;
 
-          baseLocations.forEach(base => {
-            const baseToFieldData = baseToMineralDistances.get(base.tag);
-            if (baseToFieldData) {
-              for (let i = 0; i < baseToFieldData.length; i++) {
-                const data = baseToFieldData[i];
-                if (data.field.tag === field.tag && data.distance < closestBaseDistance) {
-                  closestBaseDistance = data.distance;
-                }
+        baseLocations.forEach(base => {
+          const baseToFieldData = baseToMineralDistances.get(base.tag);
+          if (baseToFieldData) {
+            baseToFieldData.forEach(/** @param {{field: Unit, distance: number}} data */ data => {
+              if (data.field.tag === field.tag && data.distance < closestBaseDistance) {
+                closestBaseDistance = data.distance;
               }
-            }
-          });
-
-          if (closestBaseDistance <= MAX_DISTANCE) {
-            const score = field.mineralContents - orbitalToFieldDistance; // Use a score to consider both mineral contents and distance
-            if (score > bestScore) {
-              bestScore = score;
-              bestMineralField = field;
-            }
+            });
           }
         });
+
+        if (closestBaseDistance <= MAX_DISTANCE) {
+          const score = field.mineralContents - orbitalToFieldDistance; // Use a score to consider both mineral contents and distance
+          if (score > bestScore) {
+            bestScore = score;
+            bestMineralField = field;
+          }
+        }
+      });
 
       if (bestMineralField !== null) {
         const fieldWithTag = /** @type {Unit} */ (bestMineralField); // Explicit type assertion
