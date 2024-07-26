@@ -25,6 +25,21 @@ const { canBuild, createUnitCommand } = require('../../utils/common');
 const gasMineConstructionAbilities = new Set();
 
 /**
+ * Initializes the gas mine construction abilities set.
+ */
+function initializeGasMineConstructionAbilities() {
+  gasMineConstructionAbilities.clear(); // Clear previous data if any
+  unitTypeTrainingAbilities.forEach((unitType, abilityId) => {
+    if (gasMineTypes.includes(unitType)) {
+      gasMineConstructionAbilities.add(abilityId);
+    }
+  });
+}
+
+// Initialize gasMineConstructionAbilities at startup
+initializeGasMineConstructionAbilities();
+
+/**
  * Balances the resources based on the target ratio.
  * @param {World} world - The game world context.
  * @param {number} targetRatio - The target ratio of minerals to vespene gas.
@@ -216,16 +231,6 @@ function calculateMineralWorkerCapacity(units, base) {
   // Safely use buildProgress, defaulting to 0 if undefined
   const buildProgress = base.buildProgress || 0;
   return buildProgress * (mineralFields.length * 2);
-}
-
-function initializeGasMineConstructionAbilities() {
-  // Assuming gasMineTypes is defined and available here
-  gasMineConstructionAbilities.clear(); // Clear previous data if any
-  unitTypeTrainingAbilities.forEach((unitType, abilityId) => {
-    if (gasMineTypes.includes(unitType)) {
-      gasMineConstructionAbilities.add(abilityId);
-    }
-  });
 }
 
 /**
