@@ -726,21 +726,24 @@ function useOrbitalCommandEnergy(world, actionList) {
 
   const { units } = world.resources.get();
   const orbitalCommands = units.getByType(ORBITALCOMMAND);
-  const baseLocations = units.getBases(); // Assuming getBases() returns all base locations.
+  const baseLocations = units.getBases().filter(base => base.buildProgress === 1); // Check if the base is fully constructed
 
   // Precompute distances from bases to mineral fields
   const baseToMineralDistances = new Map();
   const mineralFields = units.getMineralFields().filter(field => field.displayType === DisplayType.VISIBLE);
+
   baseLocations.forEach(base => {
-    const distances = mineralFields.map(field => ({ field: field, distance: getDistance(base.pos, field.pos) }))
-      .filter(/** @param {{field: Unit, distance: number}} data */ data => data.distance <= MAX_DISTANCE);
+    /** @type {Array<{field: Unit, distance: number}>} */
+    const distances = mineralFields
+      .map(field => ({ field, distance: getDistance(base.pos, field.pos) }))
+      .filter(data => data.distance <= MAX_DISTANCE);
     baseToMineralDistances.set(base.tag, distances);
   });
 
   orbitalCommands.forEach(orbital => {
     const energy = orbital.energy;
     const tag = orbital.tag;
-    if (energy !== undefined && energy >= 50 && tag) { // Check if energy is defined and >= 50
+    if (energy !== undefined && energy >= 50 && tag !== undefined) { // Check if energy is defined and >= 50, and tag is defined
       /** @type {Unit | null} */
       let bestMineralField = null;
       let bestScore = -Infinity;
