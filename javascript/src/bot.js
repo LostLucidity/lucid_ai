@@ -631,6 +631,63 @@ async function executeActions(world, actionCollection) {
 }
 
 /**
+ * Find the best mineral field to call down a MULE based on proximity to bases and mineral contents.
+ * @param {Unit} orbital - The Orbital Command unit.
+ * @param {Array<Unit>} baseLocations - The list of base locations.
+ * @param {Map<string, Array<{field: Unit, distance: number}>>} baseToMineralDistances - The precomputed distances from bases to mineral fields.
+ * @param {Array<Unit>} mineralFields - The list of mineral fields.
+ * @param {number} maxDistance - The maximum distance to consider.
+ * @returns {Unit|null} - The best mineral field to call down a MULE, or null if none found.
+ */
+function findBestMineralField(orbital, baseLocations, baseToMineralDistances, mineralFields, maxDistance) {
+  let bestMineralField = null;
+  let bestScore = -Infinity;
+
+  mineralFields.forEach(field => {
+    if (field.mineralContents === undefined) return;
+
+    const orbitalToFieldDistance = getDistance(orbital.pos, field.pos);
+    const closestBaseDistance = findClosestBaseDistance(field, baseLocations, baseToMineralDistances);
+
+    if (closestBaseDistance <= maxDistance) {
+      const score = field.mineralContents - orbitalToFieldDistance;
+      if (score > bestScore) {
+        bestScore = score;
+        bestMineralField = field;
+      }
+    }
+  });
+
+  return bestMineralField;
+}
+
+/**
+ * Find the closest distance from a mineral field to any base.
+ * @param {Unit} field - The mineral field to check.
+ * @param {Array<Unit>} baseLocations - The list of base locations.
+ * @param {Map<string, Array<{field: Unit, distance: number}>>} baseToMineralDistances - The precomputed distances from bases to mineral fields.
+ * @returns {number} - The closest distance from the mineral field to any base.
+ */
+function findClosestBaseDistance(field, baseLocations, baseToMineralDistances) {
+  let closestBaseDistance = Infinity;
+
+  baseLocations.forEach(base => {
+    if (base.tag) { // Ensure base.tag is defined
+      const baseToFieldData = baseToMineralDistances.get(base.tag);
+      if (baseToFieldData) {
+        baseToFieldData.forEach(data => {
+          if (data.field.tag === field.tag && data.distance < closestBaseDistance) {
+            closestBaseDistance = data.distance;
+          }
+        });
+      }
+    }
+  });
+
+  return closestBaseDistance;
+}
+
+/**
  * Get the count of valid positions for building placements.
  * @param {World} world - The current game world state.
  * @param {UnitTypeId} unitType - The type of the unit to place.
@@ -639,6 +696,26 @@ async function executeActions(world, actionCollection) {
 function getValidPositionsCount(world, unitType) {
   const candidatePositions = findPlacements(world, unitType);
   return candidatePositions.length;
+}
+
+/**
+ * Precompute distances from bases to mineral fields within a specified maximum distance.
+ * @param {Array<Unit>} baseLocations - The bases to compute distances from.
+ * @param {Array<Unit>} mineralFields - The mineral fields to compute distances to.
+ * @param {number} maxDistance - The maximum distance to consider.
+ * @returns {Map<string, Array<{field: Unit, distance: number}>>} - A map of base tags to their mineral field distances.
+ */
+function precomputeBaseToMineralDistances(baseLocations, mineralFields, maxDistance) {
+  const baseToMineralDistances = new Map();
+  baseLocations.forEach(base => {
+    if (base.tag) { // Ensure base.tag is defined
+      const distances = mineralFields
+        .map(field => ({ field, distance: getDistance(base.pos, field.pos) }))
+        .filter(data => data.distance <= maxDistance);
+      baseToMineralDistances.set(base.tag, distances);
+    }
+  });
+  return baseToMineralDistances;
 }
 
 /**
@@ -722,64 +799,23 @@ function updateUpgradesInProgress(allUnits, world) {
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - List of actions to be executed.
  */
 function useOrbitalCommandEnergy(world, actionList) {
-  const MAX_DISTANCE = 10; // Define a reasonable max distance threshold for mineral fields
-
+  const MIN_ENERGY = 50;
+  const MAX_DISTANCE = 10;
   const { units } = world.resources.get();
   const orbitalCommands = units.getByType(ORBITALCOMMAND);
-  const baseLocations = units.getBases().filter(base => base.buildProgress === 1); // Check if the base is fully constructed
-
-  // Precompute distances from bases to mineral fields
-  const baseToMineralDistances = new Map();
+  const baseLocations = units.getBases().filter(base => base.buildProgress === 1);
   const mineralFields = units.getMineralFields().filter(field => field.displayType === DisplayType.VISIBLE);
 
-  baseLocations.forEach(base => {
-    /** @type {Array<{field: Unit, distance: number}>} */
-    const distances = mineralFields
-      .map(field => ({ field, distance: getDistance(base.pos, field.pos) }))
-      .filter(data => data.distance <= MAX_DISTANCE);
-    baseToMineralDistances.set(base.tag, distances);
-  });
+  const baseToMineralDistances = precomputeBaseToMineralDistances(baseLocations, mineralFields, MAX_DISTANCE);
 
   orbitalCommands.forEach(orbital => {
-    const energy = orbital.energy;
-    const tag = orbital.tag;
-    if (energy !== undefined && energy >= 50 && tag !== undefined) { // Check if energy is defined and >= 50, and tag is defined
-      /** @type {Unit | null} */
-      let bestMineralField = null;
-      let bestScore = -Infinity;
-
-      mineralFields.forEach(field => {
-        if (field.mineralContents === undefined) return;
-
-        const orbitalToFieldDistance = getDistance(orbital.pos, field.pos);
-        let closestBaseDistance = Infinity;
-
-        baseLocations.forEach(base => {
-          const baseToFieldData = baseToMineralDistances.get(base.tag);
-          if (baseToFieldData) {
-            baseToFieldData.forEach(/** @param {{field: Unit, distance: number}} data */ data => {
-              if (data.field.tag === field.tag && data.distance < closestBaseDistance) {
-                closestBaseDistance = data.distance;
-              }
-            });
-          }
-        });
-
-        if (closestBaseDistance <= MAX_DISTANCE) {
-          const score = field.mineralContents - orbitalToFieldDistance; // Use a score to consider both mineral contents and distance
-          if (score > bestScore) {
-            bestScore = score;
-            bestMineralField = field;
-          }
-        }
-      });
-
-      if (bestMineralField !== null) {
-        const fieldWithTag = /** @type {Unit} */ (bestMineralField); // Explicit type assertion
+    if (orbital.energy !== undefined && orbital.energy >= MIN_ENERGY && orbital.tag) { // Ensure orbital.energy and orbital.tag are defined
+      const bestMineralField = findBestMineralField(orbital, baseLocations, baseToMineralDistances, mineralFields, MAX_DISTANCE);
+      if (bestMineralField) {
         actionList.push({
           abilityId: EFFECT_CALLDOWNMULE,
-          targetUnitTag: fieldWithTag.tag,
-          unitTags: [tag]
+          targetUnitTag: bestMineralField.tag,
+          unitTags: [orbital.tag]
         });
       }
     }
