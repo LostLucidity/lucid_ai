@@ -114,11 +114,11 @@ const buildArmy = async (world, actionList) => {
   const observation = frame.getObservation();
   const resources = observation?.playerCommon ?? { minerals: 0, vespene: 0 };  // Accessing resources through the observation data
 
-  for (let structure of productionStructures) {
+  productionStructures.forEach(structure => {
     const structureType = structure.unitType;
     if (structureType !== undefined) {
       const availableUnits = productionUnits[structureType] || [];
-      for (let unitType of availableUnits) {
+      availableUnits.forEach(unitType => {
         const unitData = world.data.getUnitTypeData(unitType);
         if (
           unitData &&
@@ -130,9 +130,9 @@ const buildArmy = async (world, actionList) => {
           const trainingActions = train(world, unitType);  // Call train with unitType only
           actionList.push(...trainingActions); // Use spread operator to add multiple actions
         }
-      }
+      });
     }
-  }
+  });
 };
 
 /**
@@ -205,19 +205,19 @@ const researchUpgrades = async (world, actionList) => {
 
   const techBuildings = units.getAlive().filter(unit => unit.unitType !== undefined && isTechBuilding(unit) && unit.isFinished());
 
-  for (let building of techBuildings) {
+  techBuildings.forEach(building => {
     const buildingType = building.unitType;
     if (buildingType !== undefined) {
       /** @type {number[]} */
       const availableUpgrades = upgradeAbilities[buildingType] || [];
-      for (let upgradeId of availableUpgrades) {
+      availableUpgrades.forEach(upgradeId => {
         if (!currentUpgrades.includes(upgradeId)) {
           const upgradeActions = upgrade(world, upgradeId);
           actionList.push(...upgradeActions);
         }
-      }
+      });
     }
-  }
+  });
 };
 
 /**
