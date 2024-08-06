@@ -12,10 +12,12 @@ const { performance } = require('perf_hooks');
 const ActionCollector = require('./features/actions/actionCollector');
 const { getDistance } = require('./features/shared/pathfinding/spatialCoreUtils');
 const { findPlacements } = require('./features/shared/pathfinding/spatialUtils');
+const { midGameTransition } = require('./features/strategy/midGameTransition');
 const StrategyManager = require('./features/strategy/strategyManager');
 const { gather, balanceWorkerDistribution } = require('./gameLogic/economy/workerAssignment');
 const { getWorkerAssignedToStructure, releaseWorkerFromBuilding } = require('./gameLogic/economy/workerService');
 const { GameState } = require('./gameState');
+const buildOrderState = require('./globalState/buildOrderState');
 const GameInitialization = require('./initialization/GameInitialization');
 const { getBasicProductionUnits } = require('./units/management/basicUnitUtils');
 const { resetNoFreeGeysersLogFlag, lastLoggedUnitType, resetNoValidPositionLogFlag } = require('./utils/buildingUtils');
@@ -81,6 +83,8 @@ async function checkBuildOrderProgress(world, buildOrder) {
   const currentSupply = gameState.getFoodUsed();
   const strategyManager = StrategyManager.getInstance();
 
+  let allStepsCompleted = true;
+
   buildOrder.forEach((order, index) => {
     const orderStatus = getOrderStatus(order);
     if (orderStatus.completed) return;
@@ -107,8 +111,14 @@ async function checkBuildOrderProgress(world, buildOrder) {
       }
     }
 
+    if (!orderStatus.completed) {
+      allStepsCompleted = false;
+    }
+
     buildOrderCompletion.set(order, orderStatus);
   });
+
+  buildOrderState.setBuildOrderCompleted(allStepsCompleted);
 }
 
 /**
@@ -215,14 +225,15 @@ function isStepInProgress(world, step) {
 
   const unitTypes = (step.interpretedAction || [])
     .map(action => action.unitType)
-    .filter((unitType) => unitType !== null && unitType !== undefined); // Filter out null/undefined values
+    .filter(unitType => unitType !== null && unitType !== undefined); // Filter out null/undefined values
 
   if (unitTypes.length === 0) return false;
 
   return unitTypes.some(unitType => {
+    if (unitType === null || unitType === undefined) return false; // Additional null/undefined check
     const unitData = data.getUnitTypeData(unitType);
     const abilityId = unitData?.abilityId;
-    if (!abilityId) return false;
+    if (abilityId === null || abilityId === undefined) return false; // Additional null/undefined check
 
     return units.getAll(Alliance.SELF).some(unit => isUnitInProgress(world, unit, unitType, abilityId));
   });
@@ -856,9 +867,6 @@ const bot = createAgent({
     }
   },
 
-  /**
-   * @param {World} world - The current game world state.
-   */
   onStep: async (world) => {
     try {
       const { frame, units, map } = world.resources.get();
@@ -870,6 +878,11 @@ const bot = createAgent({
       // Update game state and build order progress before issuing commands
       updateCompletedBases(units, cacheManager);
       await checkBuildOrderProgress(world, gameState.getBuildOrder());
+
+      // Only transition to mid-game if the build order is completed
+      if (buildOrderState.isBuildOrderCompleted()) {
+        await midGameTransition(world, actionList);
+      }
 
       // Gather resources efficiently and handle idle probes
       queueGatherOrdersForProbes(units, allUnits, resources, actionList);

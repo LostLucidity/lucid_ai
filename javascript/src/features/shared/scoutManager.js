@@ -1,7 +1,4 @@
-// scoutManager.js
-
 const { determineScoutingLocation, isSuitableForScouting } = require("./scoutingUtils");
-
 
 /** @type {string | null} */
 let activeScoutTag = null;
@@ -48,5 +45,16 @@ function selectSCVForScouting(world) {
 }
 
 module.exports = {
-  selectSCVForScouting
+  selectSCVForScouting,
+  handleActiveScout,
+  /**
+   * Sets the active scout tag.
+   * @param {string} tag - The tag of the active scout.
+   */
+  setActiveScoutTag: (tag) => { activeScoutTag = tag; },
+  /**
+   * Gets the active scout tag.
+   * @returns {string | null} The tag of the active scout.
+   */
+  getActiveScoutTag: () => activeScoutTag
 };

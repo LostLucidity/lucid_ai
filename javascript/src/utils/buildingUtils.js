@@ -12,8 +12,6 @@ const { getDistance } = require("../features/shared/pathfinding/spatialCoreUtils
 const { requiresPylonPower } = require("../features/shared/protossUtils");
 const { canLiftOff } = require("../units/management/unitConfig");
 
-
-
 /** @type {UnitTypeId | null} */
 let lastLoggedUnitType = null;
 
@@ -65,7 +63,6 @@ function commandPlaceBuilding(world, unitType, position, commandBuilderToConstru
 
   return collectedActions;
 }
-
 
 /**
  * Determines a valid position for placing a building.
