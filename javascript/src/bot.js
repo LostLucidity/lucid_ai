@@ -10,6 +10,7 @@ const { ASSIMILATOR, PROBE, ORBITALCOMMAND } = require('@node-sc2/core/constants
 const { performance } = require('perf_hooks');
 
 const ActionCollector = require('./features/actions/actionCollector');
+const { isStepInProgress } = require('./features/buildOrders/buildOrderUtils');
 const { getDistance } = require('./features/shared/pathfinding/spatialCoreUtils');
 const { findPlacements } = require('./features/shared/pathfinding/spatialUtils');
 const { midGameTransition } = require('./features/strategy/midGameTransition');
@@ -211,57 +212,6 @@ function handleStepInProgress(order, index, currentTimeInSeconds, expectedTimeIn
  */
 function isStepDelayed(currentTimeInSeconds, expectedTimeInSeconds, orderStatus) {
   return currentTimeInSeconds >= expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + ADDITIONAL_BUFFER_PER_ACTION_SECONDS && !orderStatus.logged;
-}
-
-/**
- * Check if a step (construction, morph, or training) is in progress.
- * @param {World} world - The current game world state.
- * @param {import('./utils/globalTypes').BuildOrderStep} step - The build order step to check.
- * @returns {boolean} - True if the step is in progress, otherwise false.
- */
-function isStepInProgress(world, step) {
-  const { resources, data } = world;
-  const { units } = resources.get();
-
-  const unitTypes = (step.interpretedAction || [])
-    .map(action => action.unitType)
-    .filter(unitType => unitType !== null && unitType !== undefined); // Filter out null/undefined values
-
-  if (unitTypes.length === 0) return false;
-
-  return unitTypes.some(unitType => {
-    if (unitType === null || unitType === undefined) return false; // Additional null/undefined check
-    const unitData = data.getUnitTypeData(unitType);
-    const abilityId = unitData?.abilityId;
-    if (abilityId === null || abilityId === undefined) return false; // Additional null/undefined check
-
-    return units.getAll(Alliance.SELF).some(unit => isUnitInProgress(world, unit, unitType, abilityId));
-  });
-}
-
-/**
- * Check if a unit is in progress (construction, morph, or training).
- * @param {World} world - The current game world state.
- * @param {Unit} unit - The unit to check.
- * @param {number} unitType - The unit type to check.
- * @param {number} abilityId - The ability ID associated with the unit type.
- * @returns {boolean} - True if the unit is in progress, otherwise false.
- */
-function isUnitInProgress(world, unit, unitType, abilityId) {
-  if (unit.unitType === unitType && unit.buildProgress !== undefined && unit.buildProgress > 0 && unit.buildProgress < 1) {
-    return true;
-  }
-
-  if (unit.orders && unit.orders.some(order => order.abilityId === abilityId)) {
-    const productionUnits = getBasicProductionUnits(world, unitType)
-      .filter(productionUnit => productionUnit.unitType && !workerTypes.includes(productionUnit.unitType));
-
-    return productionUnits.some(productionUnit =>
-      productionUnit.orders && productionUnit.orders.some(productionOrder => productionOrder.abilityId === abilityId)
-    );
-  }
-
-  return false;
 }
 
 /**
