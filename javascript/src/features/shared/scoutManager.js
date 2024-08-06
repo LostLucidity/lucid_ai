@@ -9,14 +9,17 @@ let activeScoutTag = null;
  * @returns {boolean} True if there is an active scout, false otherwise.
  */
 function handleActiveScout(world) {
-  if (activeScoutTag !== null) {
-    let currentScout = world.resources.get().units.getByTag(activeScoutTag);
-    if (currentScout && currentScout.hasLabel('scouting')) {
-      return true; // Active scout is still valid, no need to select another
-    }
-    activeScoutTag = null; // Clear the active scout tag if no longer scouting
+  if (activeScoutTag === null) {
+    return false; // No active scout, allow selection of a new scout
   }
-  return false; // No active scout, allow selection of a new scout
+
+  let currentScout = world.resources.get().units.getByTag(activeScoutTag);
+  if (!currentScout || !currentScout.hasLabel('scouting')) {
+    activeScoutTag = null; // Clear the active scout tag if no longer scouting
+    return false; // No active scout, allow selection of a new scout
+  }
+
+  return true; // Active scout is still valid, no need to select another
 }
 
 /**
@@ -38,7 +41,7 @@ function selectSCVForScouting(world) {
   if (selectedScv && selectedScv.tag) {
     selectedScv.addLabel('scouting', true);
     activeScoutTag = selectedScv.tag;
-    return parseInt(selectedScv.tag);
+    return parseInt(selectedScv.tag, 10);
   }
 
   return -1;
