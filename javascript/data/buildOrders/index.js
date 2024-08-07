@@ -1,14 +1,35 @@
 const { loadBuildOrdersFromDirectory } = require("./buildOrderUtils");
 
-const protossBuildOrders = loadBuildOrdersFromDirectory('protoss');
-const terranBuildOrders = loadBuildOrdersFromDirectory('terran');
-const zergBuildOrders = loadBuildOrdersFromDirectory('zerg');
-
-/** @type {import('utils/globalTypes').BuildOrders} */
-const buildOrders = {
-  protoss: protossBuildOrders,
-  terran: terranBuildOrders,
-  zerg: zergBuildOrders,
+/**
+ * @type {{
+ *   buildOrders: import('utils/globalTypes').BuildOrders | null;
+ * }}
+ */
+const buildOrderStore = {
+  buildOrders: null, // Start with null, but it will eventually hold BuildOrders
 };
 
-module.exports = buildOrders;
+/**
+ * Loads all build orders.
+ * @returns {Promise<import('utils/globalTypes').BuildOrders>}
+ */
+async function loadAllBuildOrders() {
+  const [protossBuildOrders, terranBuildOrders, zergBuildOrders] = await Promise.all([
+    loadBuildOrdersFromDirectory('protoss'),
+    loadBuildOrdersFromDirectory('terran'),
+    loadBuildOrdersFromDirectory('zerg')
+  ]);
+
+  buildOrderStore.buildOrders = {
+    protoss: protossBuildOrders,
+    terran: terranBuildOrders,
+    zerg: zergBuildOrders,
+  };
+
+  return buildOrderStore.buildOrders;
+}
+
+module.exports = {
+  loadAllBuildOrders,
+  buildOrderStore,
+};

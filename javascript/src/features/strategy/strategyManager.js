@@ -14,6 +14,7 @@ const UnitActionStrategy = require("./unitActionStrategy");
 const UpgradeActionStrategy = require("./upgradeActionStrategy");
 const config = require("../../../config/config");
 const buildOrders = require("../../../data/buildOrders");
+const { loadAllBuildOrders } = require("../../../data/buildOrders");
 const { interpretBuildOrderAction } = require("../../../data/buildOrders/buildOrderUtils");
 const { getUnitTypeData } = require("../../core/gameData");
 const {
@@ -462,7 +463,7 @@ class StrategyManager {
    * @param {SC2APIProtocol.Race} race - The race for which to initialize the strategy.
    * @throws Will throw an error if the race is not provided or if the strategyContext is undefined.
    */
-  initializeStrategy(race) {
+  async initializeStrategy(race) {
     if (!race) {
       throw new Error("Race must be provided for strategy initialization");
     }
@@ -475,7 +476,7 @@ class StrategyManager {
 
     try {
       const buildOrderKey = config.debugBuildOrderKey || StrategyManager.selectBuildOrderKey(race);
-      const strategy = StrategyManager.loadStrategy(race, buildOrderKey);
+      const strategy = await StrategyManager.loadStrategy(race, buildOrderKey);
 
       this.strategyContext.setCurrentStrategy(strategy);
       console.log(`Selected build order key: ${buildOrderKey}`);
@@ -640,25 +641,34 @@ class StrategyManager {
   }
 
   /**
-   * Dynamically loads a strategy based on race and build order key.
-   * @param {SC2APIProtocol.Race | undefined} race
-   * @param {string} buildOrderKey
-   * @returns {import("../../utils/globalTypes").BuildOrder | undefined}
-   */
-  static loadStrategy(race, buildOrderKey) {
+     * Dynamically loads a strategy based on race and build order key.
+     * @param {SC2APIProtocol.Race | undefined} race
+     * @param {string} buildOrderKey
+     * @returns {Promise<import("../../utils/globalTypes").BuildOrder | undefined>}
+     */
+  static async loadStrategy(race, buildOrderKey) {
     if (!race) {
       console.error("Race must be provided to load strategy");
       return;
     }
 
+    if (!buildOrders.buildOrderStore.buildOrders) {
+      await loadAllBuildOrders();
+    }
+
+    if (!buildOrders.buildOrderStore.buildOrders) {
+      console.error("Build orders could not be loaded.");
+      return;
+    }
+
     const raceKey = StrategyManager.mapRaceToKey(race);
 
-    if (!raceKey || !buildOrders[raceKey]) {
+    if (!raceKey || !buildOrders.buildOrderStore.buildOrders[raceKey]) {
       console.error(`Build orders for race ${race} not found`);
       return;
     }
 
-    const raceBuildOrders = buildOrders[raceKey];
+    const raceBuildOrders = buildOrders.buildOrderStore.buildOrders[raceKey];
 
     return raceBuildOrders[buildOrderKey];
   }
@@ -931,22 +941,30 @@ class StrategyManager {
   }
 
   /**
-   * Selects a random build order key for a given race.
-   * @param {SC2APIProtocol.Race} race - The race for which to select a build order.
-   * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
-   * @returns {string} A randomly selected or specified build order key.
-   */
+     * Selects a random build order key for a given race.
+     * @param {SC2APIProtocol.Race} race - The race for which to select a build order.
+     * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
+     * @returns {string} A randomly selected or specified build order key.
+     */
   static selectRandomBuildOrderKey(race, specificBuildOrderKey = undefined) {
     if (specificBuildOrderKey) {
       return specificBuildOrderKey;
     }
+
     const raceKey = StrategyManager.mapRaceToKey(race);
 
     if (!raceKey) {
       throw new Error(`Race key for race ${race} not found`);
     }
 
-    const raceBuildOrders = buildOrders[raceKey];
+    // Ensure buildOrders is not null
+    if (!buildOrders.buildOrderStore.buildOrders) {
+      throw new Error("Build orders are not initialized.");
+    }
+
+    /** @type {import('utils/globalTypes').RaceBuildOrders} */
+    const raceBuildOrders = buildOrders.buildOrderStore.buildOrders[raceKey];
+
     if (!raceBuildOrders) {
       throw new Error(`Build orders for race ${raceKey} not found`);
     }

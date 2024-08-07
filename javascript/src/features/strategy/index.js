@@ -7,11 +7,11 @@ const specialActions = require('./specialActions');
 const strategyContext = require('./strategyContext');
 const strategyData = require('./strategyData');
 // Exporting strategy utility modules
-const strategyInitialization = require('./strategyInitialization');
 const strategyManager = require('./strategyManager');
 const unitActionStrategy = require('./unitActionStrategy');
 const unitSelection = require('./unitSelection');
 const upgradeActionStrategy = require('./upgradeActionStrategy');
+const strategyInitialization = require('../../initialization/strategySetup.js');
 
 // Aggregating and exporting all modules
 module.exports = {

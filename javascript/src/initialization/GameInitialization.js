@@ -1,7 +1,7 @@
 const { initializeGameState } = require('./gameStateInitialization');
+const { setupStrategyAndWorkers } = require('./strategySetup.js');
 const { performInitialMapAnalysis } = require('../features/shared/mapAnalysis');
 const { determineBotRace } = require('../features/shared/stateManagement');
-const { initializeStrategyAndAssignWorkers } = require('../features/strategy/strategyInitialization');
 const GasMineManager = require("../gameState/gasMineManager");
 const logger = require('../utils/logger');
 
@@ -57,7 +57,7 @@ class GameInitialization {
     try {
       const botRace = determineBotRace(world);
       initializeGameState(world, botRace);
-      const workerActions = initializeStrategyAndAssignWorkers(world, botRace);
+      const workerActions = await setupStrategyAndWorkers(world, botRace);
       await world.resources.get().actions.sendAction(workerActions);
       performInitialMapAnalysis(world, botRace);
       // Execute any other necessary actions based on the results from performInitialMapAnalysis

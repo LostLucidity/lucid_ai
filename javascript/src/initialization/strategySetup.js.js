@@ -1,11 +1,11 @@
 // strategyInitialization.js
 
-const StrategyContext = require('./strategyContext');
-const StrategyManager = require('./strategyManager');
-const config = require('../../../config/config');
-const { GameState } = require('../../gameState');
-const strategyUtils = require('../../utils/strategyUtils');
-const { assignWorkers } = require('../../utils/workerUtils');
+const config = require('../../config/config');
+const StrategyContext = require('../features/strategy/strategyContext');
+const StrategyManager = require('../features/strategy/strategyManager');
+const { GameState } = require('../gameState');
+const strategyUtils = require('../utils/strategyUtils');
+const { assignWorkers } = require('../utils/workerUtils');
 
 /**
  * Prepares the initial worker assignments to mineral fields.
@@ -24,16 +24,20 @@ function assignInitialWorkers(world) {
  * 
  * @param {World} world - The game world context.
  * @param {SC2APIProtocol.Race} botRace - The race of the bot.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} The actions to assign initial workers.
+ * @returns {Promise<SC2APIProtocol.ActionRawUnitCommand[]>} The actions to assign initial workers.
  */
-function initializeStrategyAndAssignWorkers(world, botRace) {
-  const strategyManager = StrategyManager.getInstance(botRace);
+async function setupStrategyAndWorkers(world, botRace) {
   const strategyContext = StrategyContext.getInstance();
+
+  // Early return if the current strategy is already set
+  if (strategyContext.getCurrentStrategy()) {
+    return assignInitialWorkers(world);
+  }
+
+  const strategyManager = StrategyManager.getInstance(botRace);
   const gameState = GameState.getInstance();
 
-  if (!strategyContext.getCurrentStrategy()) {
-    strategyManager.initializeStrategy(botRace);
-  }
+  await strategyManager.initializeStrategy(botRace); // Await the asynchronous initialization
 
   const buildOrder = strategyManager.getBuildOrderForCurrentStrategy();
   if (buildOrder && buildOrder.steps) {
@@ -42,15 +46,15 @@ function initializeStrategyAndAssignWorkers(world, botRace) {
     gameState.setPlan(strategyUtils.convertToPlanSteps(buildOrder.steps));
 
     // Enhance build order steps with a completed flag
-    const enhancedBuildOrder = buildOrder.steps.map(step => ({
+    const flaggedBuildOrder = buildOrder.steps.map(step => ({
       ...step,
       completed: false
     }));
 
-    gameState.setBuildOrder(enhancedBuildOrder);
+    gameState.setBuildOrder(flaggedBuildOrder);
   }
 
   return assignInitialWorkers(world);
 }
 
-module.exports = { initializeStrategyAndAssignWorkers };
+module.exports = { setupStrategyAndWorkers };

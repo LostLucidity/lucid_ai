@@ -4,10 +4,11 @@
 const { UnitType, Upgrade } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
-const fs = require("fs");
+const fs = require("fs").promises;
 const path = require("path");
-const { getBasicProductionUnits } = require("../../src/units/management/basicUnitUtils");
+
 const { GameState } = require("../../src/gameState");
+const { getBasicProductionUnits } = require("../../src/units/management/basicUnitUtils");
 
 /**
  * Determines the directory name based on the race matchup of the build order.
@@ -31,13 +32,13 @@ function determineRaceDirectory(raceMatchup) {
  * overwriting existing files with updated content.
  * @param {string} dataFilePath - Path to the JSON file containing the scraped build order data.
  */
-function generateBuildOrderFiles(dataFilePath) {
+async function generateBuildOrderFiles(dataFilePath) {
   try {
     // Parse the build orders from the file
     /** @type {import("utils/globalTypes").BuildOrder[]} */
-    const buildOrders = JSON.parse(fs.readFileSync(dataFilePath, 'utf8'));
+    const buildOrders = JSON.parse(await fs.readFile(dataFilePath, 'utf8'));
 
-    buildOrders.forEach(buildOrder => {
+    for (const buildOrder of buildOrders) {
       // Determine the directory based on the race matchup
       const directory = determineRaceDirectory(buildOrder.raceMatchup);
 
@@ -49,9 +50,9 @@ function generateBuildOrderFiles(dataFilePath) {
         const fileContent = generateFileContent(buildOrder);
 
         // Write (or overwrite) the file with the new content
-        fs.writeFileSync(filePath, fileContent);
+        await fs.writeFile(filePath, fileContent);
       }
-    });
+    }
   } catch (error) {
     if (error instanceof Error) {
       console.error(`Error generating build order files: ${error.message}`);
@@ -72,16 +73,6 @@ function generateFileContent(buildOrder) {
     interpretedAction: interpretBuildOrderAction(step.action, step.comment)
   }));
   return `module.exports = ${JSON.stringify({ ...buildOrder, steps }, null, 2)};\n`;
-}
-
-/**
- * Extract unit types from the build order step.
- * @param {import("utils/globalTypes").BuildOrderStep} step
- * @returns {Array<number>} - The list of unit types.
- */
-function getUnitTypesFromStep(step) {
-  return (step.interpretedAction || [])
-    .flatMap(action => action.unitType !== null && action.unitType !== undefined ? [action.unitType] : []);
 }
 
 /**
@@ -257,16 +248,16 @@ function isUnitTypeInProgress(world, units, unitType, data) {
 /**
  * Loads build orders from a specified directory.
  * @param {string} directoryName - Name of the directory (e.g., 'protoss', 'terran', 'zerg').
- * @returns {import('utils/globalTypes').RaceBuildOrders} Build orders loaded from the directory.
+ * @returns {Promise<import('utils/globalTypes').RaceBuildOrders>} Build orders loaded from the directory.
  */
-function loadBuildOrdersFromDirectory(directoryName) {
+async function loadBuildOrdersFromDirectory(directoryName) {
   const directoryPath = path.join(__dirname, directoryName);
-  const buildOrderFiles = fs.readdirSync(directoryPath);
+  const buildOrderFiles = await fs.readdir(directoryPath);
 
   /** @type {import('utils/globalTypes').RaceBuildOrders} */
   const buildOrders = {};
 
-  buildOrderFiles.forEach(file => {
+  for (const file of buildOrderFiles) {
     if (file.endsWith('.js')) {
       try {
         const buildOrder = require(path.join(directoryPath, file));
@@ -279,7 +270,7 @@ function loadBuildOrdersFromDirectory(directoryName) {
         }
       }
     }
-  });
+  }
 
   return buildOrders;
 }
