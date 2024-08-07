@@ -239,7 +239,7 @@ function handleUnitTraining(world, step) {
     trainingOrders = trainCombatUnits(world);
   }
 
-  if (trainingOrders.length === 0 && WorkerRace[world.agent.race]) {
+  if (WorkerRace[world.agent.race]) {
     earmarkWorkersForTraining(world, foodAvailable);
   }
 
