@@ -7,6 +7,7 @@ const { createTrainingCommands } = require("./trainingCommands");
 const { canTrainUnit } = require("./trainingUtils");
 const { unitTypeTrainingAbilities, flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
+const { canLarvaInitiateTraining, canBaseInitiateTraining } = require("./unitTrainingUtils");
 const { EarmarkManager } = require("../../core");
 const { getUnitTypeData } = require("../../core/gameData");
 const StrategyContext = require("../../features/strategy/strategyContext");
@@ -18,30 +19,6 @@ const { getPendingOrders } = require("../../sharedServices");
 const { findKeysForValue, createUnitCommand, findUnitTypesWithAbilityCached } = require("../../utils/common");
 const { getById } = require("../../utils/generalUtils");
 const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("../../utils/unitUtils");
-
-/**
- * Determines if a base can train a unit.
- * @param {Unit} base - The base to check.
- * @param {number} abilityId - The ability ID required to train the unit.
- * @returns {boolean} - True if the base can train the unit, false otherwise.
- */
-function canTrainBase(base, abilityId) {
-  const pendingOrders = getPendingOrders(base);
-  const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
-  return base.isIdle() && base.isFinished() && base.abilityAvailable(abilityId) && !isAlreadyTraining;
-}
-
-/**
- * Determines if a larva can train a unit.
- * @param {Unit} larva - The larva to check.
- * @param {number} abilityId - The ability ID required to train the unit.
- * @returns {boolean} - True if the larva can train the unit, false otherwise.
- */
-function canTrainLarva(larva, abilityId) {
-  const pendingOrders = getPendingOrders(larva);
-  const isAlreadyTraining = pendingOrders.some(order => order.abilityId === abilityId);
-  return larva.isIdle() && larva.abilityAvailable(abilityId) && !isAlreadyTraining;
-}
 
 /**
  * Checks if a unit can train the specified unit type.
@@ -218,35 +195,6 @@ function handleTrainingActions(world, unitTypeId, unitTypeData) {
 }
 
 /**
- * Optimizes the training of units based on the current game state and strategic needs.
- * @param {World} world - The game world context.
- * @param {import("../../features/strategy/strategyManager").PlanStep} step - The current strategy step.
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of unit training commands.
- */
-function handleUnitTraining(world, step) {
-  if (!world.agent.race || !step.unitType) return [];
-
-  const gameState = GameState.getInstance();
-  gameState.setFoodUsed(world);
-  const foodUsed = gameState.getFoodUsed() + EarmarkManager.getEarmarkedFood();
-  const foodAvailable = (step.food || 0) - foodUsed;
-
-  if (foodAvailable <= 0) return [];
-
-  let trainingOrders = shouldTrainWorkers(world) ? trainWorkers(world) : [];
-
-  if (trainingOrders.length === 0) {
-    trainingOrders = trainCombatUnits(world);
-  }
-
-  if (WorkerRace[world.agent.race]) {
-    earmarkWorkersForTraining(world, foodAvailable);
-  }
-
-  return trainingOrders;
-}
-
-/**
  * Sets pending orders for units based on training commands.
  * @param {World} world - The game world context.
  * @param {SC2APIProtocol.ActionRawUnitCommand[]} trainingCommands - The list of training commands.
@@ -363,7 +311,7 @@ function trainWorkers(world) {
   if (race === Race.ZERG) {
     const larvae = resources.get().units.getById(UnitType.LARVA);
     for (const larva of larvae) {
-      if (canTrainLarva(larva, abilityId)) {
+      if (canLarvaInitiateTraining(larva, abilityId)) {
         const unitCommand = createUnitCommand(abilityId, [larva]);
         collectedActions.push(unitCommand);
         setPendingOrders(larva, unitCommand);
@@ -373,7 +321,7 @@ function trainWorkers(world) {
   } else {
     const bases = resources.get().units.getBases();
     for (const base of bases) {
-      if (canTrainBase(base, abilityId)) {
+      if (canBaseInitiateTraining(base, abilityId)) {
         const unitCommand = createUnitCommand(abilityId, [base]);
         collectedActions.push(unitCommand);
         setPendingOrders(base, unitCommand);
@@ -387,7 +335,6 @@ function trainWorkers(world) {
 
 module.exports = {
   earmarkWorkersForTraining,
-  handleUnitTraining,
   shouldTrainWorkers,
   train,
   trainCombatUnits,
