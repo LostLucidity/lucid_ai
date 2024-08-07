@@ -7,6 +7,7 @@ const { workerTypes } = require("@node-sc2/core/constants/groups");
 const fs = require("fs");
 const path = require("path");
 const { getBasicProductionUnits } = require("../../src/units/management/basicUnitUtils");
+const { GameState } = require("../../src/gameState");
 
 /**
  * Determines the directory name based on the race matchup of the build order.
@@ -185,7 +186,7 @@ function interpretBuildOrderAction(action, comment = '') {
 }
 
 /**
- * Check if a step (construction, morph, or training) is in progress.
+ * Check if a step (construction, morph, training, or upgrade) is in progress.
  * @param {World} world - The current game world state.
  * @param {import("utils/globalTypes").BuildOrderStep} step - The build order step to check.
  * @returns {boolean} - True if the step is in progress, otherwise false.
@@ -194,10 +195,22 @@ function isStepInProgress(world, step) {
   const { resources, data } = world;
   const { units } = resources.get();
 
-  const unitTypes = getUnitTypesFromStep(step);
-  if (unitTypes.length === 0) return false;
+  const interpretedActions = Array.isArray(step.interpretedAction)
+    ? step.interpretedAction
+    : step.interpretedAction
+      ? [step.interpretedAction]
+      : interpretBuildOrderAction(step.action, "comment" in step ? step.comment : "");
 
-  return unitTypes.some(unitType => isUnitTypeInProgress(world, units, unitType, data));
+  return interpretedActions.some(action => {
+    if (action.isUpgrade) {
+      return action.upgradeType !== null && GameState.getInstance().isUpgradeInProgress(action.upgradeType);
+    }
+
+    const unitTypes = action.unitType ? [action.unitType] : [];
+    if (unitTypes.length === 0) return false;
+
+    return unitTypes.some(unitType => isUnitTypeInProgress(world, units, unitType, data));
+  });
 }
 
 /**
