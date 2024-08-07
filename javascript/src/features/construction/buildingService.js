@@ -8,10 +8,11 @@ const { ORBITALCOMMAND, BARRACKS } = require("@node-sc2/core/constants/unit-type
 
 const BuildingPlacement = require("./buildingPlacement");
 const config = require("../../../config/config");
+const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../../../data/gameData/gameData");
+const MapResources = require("../../../data/mapResources/mapResources");
 const { EarmarkManager } = require("../../core");
 const { attemptBuildAddOn, attemptLiftOff } = require("../../core/buildUtils");
 const { GameState } = require("../../gameState");
-const MapResources = require("../../gameState/mapResources");
 const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
 const { getPendingOrders, foodEarmarks } = require("../../sharedServices");
 const { flyingTypesMapping } = require("../../units/management/unitConfig");
@@ -28,7 +29,6 @@ const {
 const { isSupplyNeeded } = require("../../utils/common");
 const { getTimeUntilUnitCanBuildAddon } = require("../../utils/supplyUtils");
 const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionUtils");
-const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../gameData/gameData");
 const { attemptLand } = require("../shared/buildingUtils");
 const { calculateDistance } = require("../shared/coreUtils");
 const { getNextSafeExpansions } = require("../shared/pathfinding/pathfinding");

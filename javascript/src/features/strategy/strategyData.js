@@ -1,6 +1,6 @@
+const { interpretBuildOrderAction } = require('../../../data/buildOrders/buildOrderUtils');
 const { isBuildOrderStep } = require('../../gameLogic/gameMechanics/gameStrategyUtils');
 const { isEqualStep } = require('../../utils/strategyUtils');
-const { interpretBuildOrderAction } = require('../buildOrders/buildOrderUtils');
 
 /**
  * A type that includes both BuildOrderStep and StrategyStep.

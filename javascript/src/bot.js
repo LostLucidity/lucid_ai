@@ -4,13 +4,11 @@
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Upgrade } = require('@node-sc2/core/constants');
 const { BUILD_ASSIMILATOR, EFFECT_CALLDOWNMULE } = require('@node-sc2/core/constants/ability');
-const { Alliance, DisplayType } = require('@node-sc2/core/constants/enums');
-const { workerTypes } = require('@node-sc2/core/constants/groups');
+const { DisplayType } = require('@node-sc2/core/constants/enums');
 const { ASSIMILATOR, PROBE, ORBITALCOMMAND } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
 
 const ActionCollector = require('./features/actions/actionCollector');
-const { isStepInProgress } = require('./features/buildOrders/buildOrderUtils');
 const { getDistance } = require('./features/shared/pathfinding/spatialCoreUtils');
 const { findPlacements } = require('./features/shared/pathfinding/spatialUtils');
 const { midGameTransition } = require('./features/strategy/midGameTransition');
@@ -20,13 +18,13 @@ const { getWorkerAssignedToStructure, releaseWorkerFromBuilding } = require('./g
 const { GameState } = require('./gameState');
 const buildOrderState = require('./globalState/buildOrderState');
 const GameInitialization = require('./initialization/GameInitialization');
-const { getBasicProductionUnits } = require('./units/management/basicUnitUtils');
 const { resetNoFreeGeysersLogFlag, lastLoggedUnitType, resetNoValidPositionLogFlag } = require('./utils/buildingUtils');
 const cacheManager = require('./utils/cache');
 const logger = require('./utils/logger');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
 const { assignWorkers } = require('./utils/workerUtils');
 const config = require('../config/config');
+const { isStepInProgress } = require('../data/buildOrders/buildOrderUtils');
 
 /**
  * @typedef {Object} CacheManager

@@ -9,12 +9,12 @@ const { interpretBuildOrderAction } = require('./buildOrderUtils');
 /**
  * Extracts build order steps from the page content.
  * @param {string} data - The HTML content of the page.
- * @returns {import('../../utils/globalTypes').BuildOrderStep[]} An array of build order steps.
+ * @returns {import('utils/globalTypes').BuildOrderStep[]} An array of build order steps.
  */
 function extractSteps(data) {
   const $ = cheerio.load(data);
 
-  /** @type {import('../../utils/globalTypes').BuildOrderStep[]} */
+  /** @type {import('utils/globalTypes').BuildOrderStep[]} */
   const steps = [];
   $('tbody > tr').each((i, stepElem) => {
     const cells = $(stepElem).find('td').map((i, cell) => $(cell).text().trim()).get();
@@ -35,7 +35,7 @@ function extractSteps(data) {
 /**
  * Fetches the detailed steps of a build order from its URL and all subsequent pages.
  * @param {string} initialUrl - The URL of the detailed build order page.
- * @returns {Promise<import('../../utils/globalTypes').BuildOrderStep[]>} A promise that resolves to an array of build order steps.
+ * @returns {Promise<import('utils/globalTypes').BuildOrderStep[]>} A promise that resolves to an array of build order steps.
  */
 async function fetchBuildOrderSteps(initialUrl) {
   const visitedUrls = new Set();
@@ -66,7 +66,7 @@ async function scrapeBuildOrders(url, maxPages = 10) {
       visitedUrls.add(nextPageUrl);
       const { data } = await axios.get(nextPageUrl);
       const $ = cheerio.load(data);
-      /** @type {import('../../utils/globalTypes').BuildOrder[]} */
+      /** @type {import('utils/globalTypes').BuildOrder[]} */
       const buildOrders = [];
 
       $('tbody > tr').each((i, element) => {
@@ -108,7 +108,7 @@ async function scrapeBuildOrders(url, maxPages = 10) {
  * Recursively fetches the detailed steps of a build order from its URL, handling pagination.
  * @param {string} url - The URL of the detailed build order page.
  * @param {Set<string>} visitedUrls - A set of URLs that have already been visited to prevent cycles.
- * @returns {Promise<import('../../utils/globalTypes').BuildOrderStep[]>} A promise that resolves to an array of build order steps.
+ * @returns {Promise<import('utils/globalTypes').BuildOrderStep[]>} A promise that resolves to an array of build order steps.
  */
 async function scrapePage(url, visitedUrls) {
   if (visitedUrls.has(url)) {

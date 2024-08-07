@@ -14,10 +14,10 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 // Internal dependencies
 const { liftAndLandingTime } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
+const { getTimeToTargetTech } = require("../../../data/gameData/gameData");
 const { EarmarkManager } = require("../../core");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { buildSupply, getTimeToTargetCost } = require("../../features/construction/buildingService");
-const { getTimeToTargetTech } = require("../../features/gameData/gameData");
 const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../../features/shared/pathfinding/pathfinding");
 const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
 const { handleUnitTraining } = require("../../gameLogic/economy/trainingManagement");

@@ -13,6 +13,8 @@ const StrategyData = require("./strategyData");
 const UnitActionStrategy = require("./unitActionStrategy");
 const UpgradeActionStrategy = require("./upgradeActionStrategy");
 const config = require("../../../config/config");
+const buildOrders = require("../../../data/buildOrders");
+const { interpretBuildOrderAction } = require("../../../data/buildOrders/buildOrderUtils");
 const { getUnitTypeData } = require("../../core/gameData");
 const {
   balanceResources,
@@ -25,8 +27,6 @@ const { isEqualStep, getBuildOrderKey, validateResources, isValidPlan } = requir
 const { convertTimeStringToSeconds } = require("../../utils/timeUtils");
 const { getUnitsById } = require("../../utils/unitUtils");
 const { checkUpgradeStatus } = require("../../utils/upgradeUtils");
-const buildOrders = require("../buildOrders");
-const { interpretBuildOrderAction } = require("../buildOrders/buildOrderUtils");
 const { build, hasEarmarks, resetEarmarks } = require("../construction/buildingService");
 const { checkUnitCount } = require("../shared/stateManagement");
 

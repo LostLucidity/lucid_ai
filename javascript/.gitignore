@@ -8,7 +8,7 @@
 /logs/
 
 # Data files that should not be tracked
-/data/
+/data-old
 /systems/q-table/data/
 
 # Environment configuration file
@@ -21,7 +21,7 @@
 /replays/
 
 # Ignore specific directories under src/buildOrders
-/src/features/buildOrders/protoss/
-/src/features/buildOrders/terran/
-/src/features/buildOrders/zerg/
-/src/features/buildOrders/scrapedBuildOrders.json
+/data/buildOrders/protoss/
+/data/buildOrders/terran/
+/data/buildOrders/zerg/
+/data/buildOrders/scrapedBuildOrders.json

@@ -10,12 +10,12 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal module imports
+const MapResources = require("../../../data/mapResources/mapResources");
 const { getMovementSpeed, getWorkerSourceByPath } = require("../../features/shared/coreUtils");
 const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../../features/shared/pathfinding/pathfinding");
 const { getDistanceByPath } = require("../../features/shared/pathfinding/pathfindingCore");
 const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
 const { GameState } = require('../../gameState');
-const MapResources = require("../../gameState/mapResources");
 const { getPendingOrders } = require("../../sharedServices");
 const { unitTypeTrainingAbilities, flyingTypesMapping } = require("../../units/management/unitConfig");
 const { setPendingOrders } = require("../../units/management/unitOrders");

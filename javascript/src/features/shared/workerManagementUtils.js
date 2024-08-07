@@ -10,6 +10,7 @@ const { getMovementSpeed } = require('./coreUtils');
 const { calculateBaseTimeToPosition } = require('./pathfinding/pathfinding');
 const { getDistanceByPath, getClosestPositionByPath } = require('./pathfinding/pathfindingCore');
 const { isPendingConstructing } = require('./workerCommonUtils');
+const { getTimeToTargetTech } = require('../../../data/gameData/gameData');
 const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft, reserveWorkerForBuilding } = require('../../gameLogic/economy/workerService');
 // eslint-disable-next-line no-unused-vars
 const { GameState } = require('../../gameState');
@@ -18,7 +19,6 @@ const { setPendingOrders } = require('../../units/management/unitOrders');
 const { createUnitCommand, getPathablePositionsForStructure } = require('../../utils/common');
 const { findPathablePositions } = require('../../utils/pathfindingUtils');
 const { stopOverlappingBuilders } = require('../construction/buildingWorkerInteractions');
-const { getTimeToTargetTech } = require('../gameData/gameData');
 
 /**
  * Adjusts the time to position based on whether the unit should rally to the base or not.

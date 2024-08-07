@@ -6,8 +6,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { workerTypes } = require("@node-sc2/core/constants/groups");
 const fs = require("fs");
 const path = require("path");
-
-const { getBasicProductionUnits } = require("../../units/management/basicUnitUtils");
+const { getBasicProductionUnits } = require("../../src/units/management/basicUnitUtils");
 
 /**
  * Determines the directory name based on the race matchup of the build order.
@@ -34,7 +33,7 @@ function determineRaceDirectory(raceMatchup) {
 function generateBuildOrderFiles(dataFilePath) {
   try {
     // Parse the build orders from the file
-    /** @type {import("../../utils/globalTypes").BuildOrder[]} */
+    /** @type {import("utils/globalTypes").BuildOrder[]} */
     const buildOrders = JSON.parse(fs.readFileSync(dataFilePath, 'utf8'));
 
     buildOrders.forEach(buildOrder => {
@@ -63,7 +62,7 @@ function generateBuildOrderFiles(dataFilePath) {
 
 /**
  * Generates the content for a build order file.
- * @param {import("../../utils/globalTypes").BuildOrder} buildOrder - The build order object.
+ * @param {import("utils/globalTypes").BuildOrder} buildOrder - The build order object.
  * @returns {string} The string to be written to the file.
  */
 function generateFileContent(buildOrder) {
@@ -76,20 +75,19 @@ function generateFileContent(buildOrder) {
 
 /**
  * Extract unit types from the build order step.
- * @param {import("../../utils/globalTypes").BuildOrderStep} step
+ * @param {import("utils/globalTypes").BuildOrderStep} step
  * @returns {Array<number>} - The list of unit types.
  */
 function getUnitTypesFromStep(step) {
   return (step.interpretedAction || [])
-    .map(action => action.unitType)
-    .filter(unitType => unitType !== null && unitType !== undefined);
+    .flatMap(action => action.unitType !== null && action.unitType !== undefined ? [action.unitType] : []);
 }
 
 /**
  * Dynamically interprets build order actions, converting action strings to either UnitType or Upgrade references.
  * @param {string} action - The action string from the build order.
  * @param {string} [comment] - Optional comment associated with the action.
- * @returns {Array<import("../../utils/globalTypes").InterpretedAction>} An array of objects representing the interpreted actions.
+ * @returns {Array<import("utils/globalTypes").InterpretedAction>} An array of objects representing the interpreted actions.
  */
 function interpretBuildOrderAction(action, comment = '') {
   if (!action || typeof action !== 'string') {
@@ -149,7 +147,7 @@ function interpretBuildOrderAction(action, comment = '') {
   const isKeyOf = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
   const actions = action.split(',');
-  /** @type {Array<import("../../utils/globalTypes").InterpretedAction>} */
+  /** @type {Array<import("utils/globalTypes").InterpretedAction>} */
   const interpretedActions = [];
 
   for (const actionPart of actions) {
@@ -189,7 +187,7 @@ function interpretBuildOrderAction(action, comment = '') {
 /**
  * Check if a step (construction, morph, or training) is in progress.
  * @param {World} world - The current game world state.
- * @param {import("../../utils/globalTypes").BuildOrderStep} step - The build order step to check.
+ * @param {import("utils/globalTypes").BuildOrderStep} step - The build order step to check.
  * @returns {boolean} - True if the step is in progress, otherwise false.
  */
 function isStepInProgress(world, step) {
@@ -246,13 +244,13 @@ function isUnitTypeInProgress(world, units, unitType, data) {
 /**
  * Loads build orders from a specified directory.
  * @param {string} directoryName - Name of the directory (e.g., 'protoss', 'terran', 'zerg').
- * @returns {import('../../utils/globalTypes').RaceBuildOrders} Build orders loaded from the directory.
+ * @returns {import('utils/globalTypes').RaceBuildOrders} Build orders loaded from the directory.
  */
 function loadBuildOrdersFromDirectory(directoryName) {
   const directoryPath = path.join(__dirname, directoryName);
   const buildOrderFiles = fs.readdirSync(directoryPath);
 
-  /** @type {import('../../utils/globalTypes').RaceBuildOrders} */
+  /** @type {import('utils/globalTypes').RaceBuildOrders} */
   const buildOrders = {};
 
   buildOrderFiles.forEach(file => {
