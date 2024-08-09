@@ -17,12 +17,12 @@ const buildOrders = require("../../../data/buildOrders");
 const { loadAllBuildOrders } = require("../../../data/buildOrders");
 const { interpretBuildOrderAction } = require("../../../data/buildOrders/buildOrderUtils");
 const { getUnitTypeData } = require("../../core/gameData");
+const ResourceEarmarkManager = require("../../core/ResourceEarmarkManager");
 const {
   balanceResources,
   setFoodUsed,
 } = require("../../gameLogic/economy/economyManagement");
 const { GameState } = require("../../gameState");
-const { earmarkResourcesIfNeeded } = require("../../units/management/trainingUtils");
 const { buildSupplyOrTrain } = require("../../units/management/unitManagement");
 const { isEqualStep, getBuildOrderKey, validateResources, isValidPlan } = require("../../utils/strategyUtils");
 const { convertTimeStringToSeconds } = require("../../utils/timeUtils");
@@ -108,19 +108,6 @@ class StrategyManager {
    * @type {SC2APIProtocol.Race | undefined}
    */
   race;
-
-  /**
-   * Earmark resources for the given plan step.
-   * @param {World} world - The current game world context.
-   * @param {PlanStep} planStep - The current step in the plan to be executed.
-   */
-  static earmarkResourcesForPlanStep(world, planStep) {
-    const { unitType } = planStep;
-    if (unitType) {
-      const unitTypeData = world.data.getUnitTypeData(unitType);
-      earmarkResourcesIfNeeded(world, unitTypeData, true);
-    }
-  }
 
   /**
    * Initializes the singleton instance.
@@ -244,7 +231,7 @@ class StrategyManager {
    */
   finalizeStrategyExecution(actionsToPerform, world) {
     this.resetCurrentStep();
-    this.handleEarmarksAndResources(actionsToPerform, world);
+    ResourceEarmarkManager.manageResourceEarmarks(world, actionsToPerform);
   }
 
   /**
@@ -305,27 +292,6 @@ class StrategyManager {
     }
 
     return this.instance;
-  }
-
-  /**
-   * Handles earmarks and balances resources if necessary.
-   * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionsToPerform
-   * @param {World} world
-   */
-  handleEarmarksAndResources(actionsToPerform, world) {
-    try {
-      const earmarksExist = hasEarmarks(world.data);
-      if (!earmarksExist) {
-        actionsToPerform.push(...balanceResources(world, undefined, build));
-      } else {
-        this.handleEarmarksIfNeeded(world, actionsToPerform);
-      }
-    } catch (error) {
-      console.error(
-        "Error handling earmarks and resources:",
-        error instanceof Error ? error.message : "Unknown error"
-      );
-    }
   }
 
   /**
@@ -690,11 +656,11 @@ class StrategyManager {
   }
 
   /**
-   * Perform the necessary actions for the current plan step based on the available resources.
-   * @param {World} world - The current game world context.
-   * @param {PlanStep} planStep - The current step in the plan to be executed.
-   * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be performed.
-   */
+     * Perform the necessary actions for the current plan step based on the available resources.
+     * @param {World} world - The current game world context.
+     * @param {PlanStep} planStep - The current step in the plan to be executed.
+     * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be performed.
+     */
   static performPlanStepActions(world, planStep) {
     const actions = [...buildSupplyOrTrain(world, planStep)];
     const { orderType, isChronoBoosted, supply, unitType, targetCount } = planStep;
@@ -706,11 +672,7 @@ class StrategyManager {
         actions.push(...UnitActionStrategy.handleUnitTypeAction(world, planStep));
         break;
       case "Upgrade":
-        if (UpgradeActionStrategy) {
-          actions.push(...UpgradeActionStrategy.handleUpgradeAction(world, planStep));
-        } else {
-          console.error("UpgradeActionStrategy is not initialized.");
-        }
+        actions.push(...UpgradeActionStrategy.handleUpgradeAction(world, planStep));
         break;
       default:
         console.warn("Unhandled orderType:", orderType);
@@ -722,7 +684,7 @@ class StrategyManager {
     }
 
     if (currentUnitCount < targetCount) {
-      StrategyManager.earmarkResourcesForPlanStep(world, planStep);
+      ResourceEarmarkManager.earmarkResourcesForPlanStep(world, planStep);
     }
 
     return actions;
