@@ -13,7 +13,8 @@ const { getDistance } = require('./features/shared/pathfinding/spatialCoreUtils'
 const { findPlacements } = require('./features/shared/pathfinding/spatialUtils');
 const { midGameTransition } = require('./features/strategy/midGameTransition');
 const StrategyManager = require('./features/strategy/strategyManager');
-const { gather, balanceWorkerDistribution } = require('./gameLogic/economy/workerAssignment');
+const { startTrackingWorkerGathering, calculateGatheringTime } = require('./gameLogic/economy/gatheringManagement');
+const { gather, balanceWorkers } = require('./gameLogic/economy/workerAssignment');
 const { getWorkerAssignedToStructure, releaseWorkerFromBuilding } = require('./gameLogic/economy/workerService');
 const { GameState } = require('./gameState');
 const buildOrderState = require('./globalState/buildOrderState');
@@ -41,6 +42,7 @@ const buildOrderCompletion = new Map();
 const completedBasesMap = new Map();
 const gameState = GameState.getInstance();
 
+let averageGatheringTime = config.getAverageGatheringTime();
 let cumulativeGameTime = 0;
 let gameStartTime = performance.now();
 let lastCheckTime = gameStartTime;
@@ -59,17 +61,6 @@ let previousValidPositionsCount = 0;
  */
 function assignMineralWorkers(resources, actionList) {
   actionList.push(...assignWorkers(resources));
-}
-
-/**
- * Balance worker distribution across bases.
- * @param {World} world
- * @param {UnitResource} units
- * @param {ResourceManager} resources
- * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
- */
-function balanceWorkers(world, units, resources, actionList) {
-  actionList.push(...balanceWorkerDistribution(world, units, resources));
 }
 
 /**
@@ -698,6 +689,50 @@ function trackPerformance(frame, gameState) {
 }
 
 /**
+ * Track and calculate average gathering time.
+ * @param {Array<Unit>} workers - The list of worker units.
+ * @param {World} world - The current game world state.
+ */
+function updateAverageGatheringTime(workers, world) {
+  let totalGatheringTime = 0;
+  let gatherCount = 0;
+  let sumOfSquares = 0;
+
+  workers.forEach(worker => {
+    startTrackingWorkerGathering(worker, world);
+    const gatherTime = calculateGatheringTime(worker, world);
+    if (gatherTime !== null) {
+      gatherCount++;
+      totalGatheringTime += gatherTime;
+      sumOfSquares += gatherTime * gatherTime;
+    }
+  });
+
+  if (gatherCount > 0) {
+    const mean = totalGatheringTime / gatherCount;
+    const variance = (sumOfSquares / gatherCount) - (mean * mean);
+    const stdDev = Math.sqrt(variance);
+
+    let adjustedTotal = 0;
+    let adjustedCount = 0;
+
+    workers.forEach(worker => {
+      const gatherTime = calculateGatheringTime(worker, world);
+      if (gatherTime !== null && Math.abs(gatherTime - mean) <= 2 * stdDev) {
+        adjustedTotal += gatherTime;
+        adjustedCount++;
+      }
+    });
+
+    if (adjustedCount > 0) {
+      const calculatedAverage = adjustedTotal / adjustedCount;
+      const smoothingFactor = stdDev / (mean + stdDev);
+      averageGatheringTime = (averageGatheringTime || calculatedAverage) * (1 - smoothingFactor) + calculatedAverage * smoothingFactor;
+    }
+  }
+}
+
+/**
  * Update completed bases and cache them.
  * @param {UnitResource} units
  * @param {CacheManager} cacheManager
@@ -822,17 +857,59 @@ const bot = createAgent({
       /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
       const actionList = [];
       const allUnits = units.getAll();
+      const workers = units.getWorkers();
 
       // Update game state and build order progress before issuing commands
       updateCompletedBases(units, cacheManager);
-      await checkBuildOrderProgress(world, gameState.getBuildOrder());
+      checkBuildOrderProgress(world, gameState.getBuildOrder());
+
+      // Track and calculate average gathering time
+      updateAverageGatheringTime(workers, world);
+
+      /**
+       * @type {number[]} 
+       */
+      const gatheringTimes = [];
+      let totalGatheringTime = 0;
+      let gatherCount = 0;
+
+      workers.forEach(worker => {
+        startTrackingWorkerGathering(worker, world);
+        const gatherTime = calculateGatheringTime(worker, world);
+        if (gatherTime !== null) {
+          gatheringTimes.push(gatherTime);
+        }
+      });
+
+      if (gatheringTimes.length > 0) {
+        // Calculate mean and standard deviation
+        const mean = gatheringTimes.reduce((a, b) => a + b, 0) / gatheringTimes.length;
+        const stdDev = Math.sqrt(gatheringTimes.map(time => Math.pow(time - mean, 2)).reduce((a, b) => a + b, 0) / gatheringTimes.length);
+
+        // Filter out outliers based on standard deviation
+        const filteredTimes = gatheringTimes.filter(time => Math.abs(time - mean) <= 2 * stdDev);
+
+        // Calculate the average from the filtered times
+        if (filteredTimes.length > 0) {
+          filteredTimes.forEach(time => {
+            totalGatheringTime += time;
+            gatherCount++;
+          });
+
+          const calculatedAverage = totalGatheringTime / gatherCount;
+
+          // Adjust the smoothing factor based on data variability
+          const smoothingFactor = stdDev / (mean + stdDev); // The higher the stdDev, the lower the smoothing factor
+          averageGatheringTime = (averageGatheringTime || calculatedAverage) * (1 - smoothingFactor) + calculatedAverage * smoothingFactor;
+        }
+      }
 
       // Only transition to mid-game if the build order is completed
       if (buildOrderState.isBuildOrderCompleted()) {
-        await midGameTransition(world, actionList);
+        midGameTransition(world, actionList);
       }
 
-      // Gather resources efficiently and handle idle probes
+      // Handle idle probes and other worker management
       queueGatherOrdersForProbes(units, allUnits, resources, actionList);
       handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList);
 
@@ -840,7 +917,7 @@ const bot = createAgent({
       collectActions(world, actionList);
       updateUpgradesInProgress(allUnits, world);
 
-      // Track game metrics and log relevant information
+      // Track performance and log relevant information
       trackPerformance(frame, gameState);
       logGeyserActivity(map);
       logUnitPositions(world);
@@ -852,7 +929,7 @@ const bot = createAgent({
 
       // Update game state and execute actions
       gameState.setFoodUsed(world);
-      await executeActions(world, actionList);
+      executeActions(world, actionList);
 
     } catch (error) {
       console.error('Error during game step:', error);

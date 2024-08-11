@@ -9,6 +9,7 @@ const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 
 // Internal module imports
 const { getClosestExpansion, isMoving } = require("./workerService");
+const config = require("../../../config/config");
 const { findClosestMineralField } = require("../../features/shared/coreUtils");
 const { getClosestUnitFromUnit } = require("../../features/shared/pathfinding/pathfinding");
 const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
@@ -21,109 +22,158 @@ const { getUnitsWithinDistance, createUnitCommand } = require("../../utils/commo
 const { getNeediestMineralField, getMineralFieldAssignments } = require("../../utils/resourceUtils");
 
 /**
- * Balances the worker distribution across all bases.
+ * Checks if the mineral fields near a townhall are saturated.
+ * @param {UnitResource} units - The units resource object from the bot.
+ * @param {Unit} townhall - The townhall to check.
+ * @returns {boolean} Whether the nearby mineral fields are saturated.
+ */
+function areMineralFieldsSaturated(units, townhall) {
+  const mineralFields = units.getMineralFields().filter(field =>
+    getDistance(field.pos, townhall.pos) < 8
+  );
+  const totalWorkers = mineralFields.reduce((count, field) => {
+    return count + (field.labels.get('workerCount') || 0);
+  }, 0);
+  const maxWorkers = mineralFields.length * 2; // Assuming 2 workers per field for saturation
+  return totalWorkers >= maxWorkers;
+}
+
+/**
+ * Assigns a worker to the most suitable mineral field near a townhall.
+ * @param {UnitResource} units - The units resource object from the bot.
+ * @param {Unit} worker - The worker to assign.
+ * @param {Unit} townhall - The townhall near which to assign the worker.
+ * @param {ResourceManager} resources - The resource manager from the bot.
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} collectedActions - Array to collect actions.
+ * @param {Set<number>} reassignedWorkers - Set of reassigned worker tags.
+ */
+function assignWorkerToMineralField(units, worker, townhall, resources, collectedActions, reassignedWorkers) {
+  const mineralFieldTarget = findBestMineralField(units, worker, townhall);
+
+  if (mineralFieldTarget) {
+    worker.labels.set('mineralField', mineralFieldTarget);
+    mineralFieldTarget.labels.set('workerCount', (mineralFieldTarget.labels.get('workerCount') || 0) + 1);
+    const unitCommands = gather(resources, worker, mineralFieldTarget, false);
+    collectedActions.push(...unitCommands);
+    unitCommands.forEach(unitCommand => setPendingOrders(worker, unitCommand));
+    // Ensure worker.tag is defined before adding it to reassignedWorkers
+    if (typeof worker.tag === 'number') {
+      reassignedWorkers.add(worker.tag);
+    }
+  }
+}
+
+/**
+ * Balance worker distribution across bases.
+ * @param {World} world
+ * @param {UnitResource} units
+ * @param {ResourceManager} resources
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ */
+function balanceWorkers(world, units, resources, actionList) {
+  const averageGatheringTime = config.getAverageGatheringTime();
+
+  actionList.push(...distributeWorkersAcrossBases(world, units, resources, averageGatheringTime));
+}
+
+/**
+ * Balances the worker distribution across all bases, including townhalls under construction.
  * @param {World} world - The game world context.
  * @param {UnitResource} units - The units resource object from the bot.
  * @param {ResourceManager} resources - The resource manager from the bot.
+ * @param {number} averageGatheringTime - The average time it takes for a worker to gather resources.
  * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} An array of actions to reassign workers.
  */
-function balanceWorkerDistribution(world, units, resources) {
+function distributeWorkersAcrossBases(world, units, resources, averageGatheringTime) {
   const townhalls = units.getBases();
   const gatheringWorkers = getGatheringWorkers(units);
   /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
   const collectedActions = [];
   const reassignedWorkers = new Set();
 
-  /**
-   * Finds nearby enemy units to a given townhall.
-   * @param {Unit} townhall - The townhall to check around.
-   * @returns {Array<Unit>} An array of nearby enemy units.
-   */
-  function findNearbyEnemies(townhall) {
-    return findEnemyUnitsNear(units, townhall, 10);
-  }
-
-  /**
-   * Checks if a townhall needs more workers.
-   * @param {Unit} townhall - The townhall to check.
-   * @returns {boolean} Whether the townhall needs more workers.
-   */
-  function isTownhallNeedy(townhall) {
-    const { assignedHarvesters, idealHarvesters } = townhall;
-    const nearbyEnemies = findNearbyEnemies(townhall);
-    return (
-      assignedHarvesters !== undefined &&
-      idealHarvesters !== undefined &&
-      assignedHarvesters < idealHarvesters &&
-      nearbyEnemies.length === 0 &&
-      !isTownhallInDanger(world, townhall, nearbyEnemies)
-    );
-  }
-
-  /**
-   * Gets potential donor townhalls.
-   * @returns {Array<SC2APIProtocol.Unit>} An array of potential donor townhalls.
-   */
-  function getDonorTownhalls() {
-    return townhalls.filter(donorTh => {
-      const { assignedHarvesters: donorAssigned, idealHarvesters: donorIdeal } = donorTh;
-      return (
-        donorAssigned !== undefined &&
-        donorIdeal !== undefined &&
-        donorAssigned > donorIdeal
-      );
-    });
-  }
-
-  /**
-   * Assigns a worker to a mineral field near a townhall.
-   * @param {Unit} worker - The worker to assign.
-   * @param {SC2APIProtocol.Unit} townhall - The townhall near which to assign the worker.
-   */
-  function assignWorkerToMineralField(worker, townhall) {
-    const mineralFields = units.getMineralFields().filter(field => {
-      const numWorkers = units.getWorkers().filter(worker => {
-        const { orders } = worker;
-        if (!orders) return false;
-        return orders.some(order => order.targetUnitTag === field.tag);
-      }).length;
-      return (
-        getDistance(field.pos, townhall.pos) < 8 &&
-        (!field.labels.has('workerCount') || field.labels.get('workerCount') < 2) &&
-        numWorkers < 2
-      );
-    });
-
-    if (townhall.pos) {
-      const [mineralFieldTarget] = units.getClosest(townhall.pos, mineralFields);
-      if (mineralFieldTarget) {
-        worker.labels.set('mineralField', mineralFieldTarget);
-        mineralFieldTarget.labels.set('workerCount', (mineralFieldTarget.labels.get('workerCount') || 0) + 1);
-        const unitCommands = gather(resources, worker, mineralFieldTarget, false);
-        collectedActions.push(...unitCommands);
-        unitCommands.forEach(unitCommand => setPendingOrders(worker, unitCommand));
-        reassignedWorkers.add(worker.tag);
-      }
-    }
-  }
-
   townhalls.forEach(townhall => {
-    if (!townhall.pos || !isTownhallNeedy(townhall)) return;
+    if (!townhall.pos || !isTownhallNeedy(world, townhall, averageGatheringTime, units)) return;
 
-    const potentialDonors = getDonorTownhalls();
+    const potentialDonors = getDonorTownhalls(townhalls);
     if (townhall.pos) {
       const [givingTownhall] = units.getClosest(townhall.pos, potentialDonors);
       if (givingTownhall && givingTownhall.pos && gatheringWorkers.length > 0) {
         const potentialWorkers = gatheringWorkers.filter(worker => !reassignedWorkers.has(worker.tag));
         const [donatingWorker] = units.getClosest(givingTownhall.pos, potentialWorkers);
         if (donatingWorker && donatingWorker.pos) {
-          assignWorkerToMineralField(donatingWorker, townhall);
+          assignWorkerToMineralField(units, donatingWorker, townhall, resources, collectedActions, reassignedWorkers);
         }
       }
     }
   });
 
   return collectedActions;
+}
+
+/**
+ * Estimates the time it would take for a worker to gather resources from a mineral field and return to the townhall.
+ * @param {Unit} worker - The worker unit.
+ * @param {Unit} mineralField - The mineral field unit.
+ * @param {number} averageGatheringTime - The average time it takes for a worker to gather resources.
+ * @returns {number} The estimated time to gather and return resources.
+ */
+function estimateGatherAndReturnTime(worker, mineralField, averageGatheringTime) {
+  const baseWorkerSpeed = worker.data().movementSpeed || 2.81; // Fallback to default speed if undefined
+  const workerSpeed = baseWorkerSpeed * 1.4; // Adjust for Faster game speed
+  const distanceToField = getDistance(worker.pos, mineralField.pos);
+  const returnTime = distanceToField / workerSpeed;
+  return distanceToField / workerSpeed + averageGatheringTime + returnTime;
+}
+
+/**
+ * Finds townhalls that have more workers than ideal.
+ * @param {Unit[]} townhalls - Array of townhalls.
+ * @returns {Unit[]} An array of townhalls with excess workers.
+ */
+function getDonorTownhalls(townhalls) {
+  return townhalls.filter(donorTh => {
+    const { assignedHarvesters: donorAssigned, idealHarvesters: donorIdeal } = donorTh;
+    return (
+      donorAssigned !== undefined &&
+      donorIdeal !== undefined &&
+      donorAssigned > donorIdeal
+    );
+  });
+}
+
+
+/**
+ * Finds the most suitable mineral field for a worker near a townhall.
+ * @param {UnitResource} units - The units resource object from the bot.
+ * @param {Unit} worker - The worker to assign.
+ * @param {Unit} townhall - The townhall near which to assign the worker.
+ * @returns {Unit|null} The most suitable mineral field, or null if none found.
+ */
+function findBestMineralField(units, worker, townhall) {
+  if (!worker.pos) {
+    // If worker.pos is undefined, return null or handle the case appropriately
+    return null;
+  }
+
+  const suitableMineralFields = units.getMineralFields().filter(field => {
+    const numWorkers = units.getWorkers().filter(w => {
+      const { orders } = w;
+      if (!orders) return false;
+      return orders.some(order => order.targetUnitTag === field.tag);
+    }).length;
+
+    return (
+      getDistance(field.pos, townhall.pos) < 8 && // Close enough to the townhall
+      numWorkers < 2 && // Less than 2 workers assigned
+      (!field.labels.has('workerCount') || field.labels.get('workerCount') < 2) // Custom labels check
+    );
+  });
+
+  if (suitableMineralFields.length > 0) {
+    return units.getClosest(worker.pos, suitableMineralFields)[0];
+  }
+
+  return null;
 }
 
 /**
@@ -154,6 +204,32 @@ function findGatheringOrder(units, worker) {
       return undefined;
     }
   }
+}
+
+/**
+ * Finds nearby enemy units to a given townhall.
+ * @param {UnitResource} units - The units resource object from the bot.
+ * @param {Unit} townhall - The townhall to check around.
+ * @returns {Array<Unit>} An array of nearby enemy units.
+ */
+function findNearbyEnemies(units, townhall) {
+  return findEnemyUnitsNear(units, townhall, 10);
+}
+
+/**
+ * Finds townhalls that have more workers than ideal.
+ * @param {Unit[]} townhalls - Array of townhalls.
+ * @returns {Unit[]} An array of townhalls with excess workers.
+ */
+function getDonorTownhalls(townhalls) {
+  return townhalls.filter(donorTh => {
+    const { assignedHarvesters: donorAssigned, idealHarvesters: donorIdeal } = donorTh;
+    return (
+      donorAssigned !== undefined &&
+      donorIdeal !== undefined &&
+      donorAssigned > donorIdeal
+    );
+  });
 }
 
 /**
@@ -266,6 +342,56 @@ function handleWorkerAssignment(worker, completedBases, map, units, resources) {
   }
 
   return collectedActions;
+}
+
+/**
+ * Checks if a townhall needs more workers.
+ * Includes under construction townhalls if fields are saturated.
+ * @param {World} world - The game world context.
+ * @param {Unit} townhall - The townhall to check.
+ * @param {number} averageGatheringTime - The average time it takes for a worker to gather resources.
+ * @param {UnitResource} units - The units resource object from the bot.
+ * @returns {boolean} Whether the townhall needs more workers.
+ */
+function isTownhallNeedy(world, townhall, averageGatheringTime, units) {
+  const { assignedHarvesters, idealHarvesters, buildProgress } = townhall;
+  const nearbyEnemies = findNearbyEnemies(units, townhall);
+  const isUnderConstruction = buildProgress !== undefined && buildProgress < 1;
+
+  // Retrieve the build time from the unit's type data
+  const unitTypeData = townhall.data();
+  const buildTime = unitTypeData ? unitTypeData.buildTime : undefined;
+  const remainingBuildTime = (buildTime !== undefined && buildProgress !== undefined)
+    ? (buildTime * (1 - buildProgress)) / 22.4  // Convert from frames to seconds
+    : 0;
+
+  // Check if nearby mineral fields are saturated for under-construction townhalls
+  const nearbyFieldsSaturated = isUnderConstruction && areMineralFieldsSaturated(units, townhall);
+
+  let shouldReassign = false;
+  if (isUnderConstruction && !nearbyFieldsSaturated) {
+    const potentialWorkers = getGatheringWorkers(units).filter(worker => {
+      if (worker.pos) { // Check if worker.pos is defined
+        const [mineralField] = units.getClosest(worker.pos, units.getMineralFields());
+        if (mineralField) {
+          const estimatedTime = estimateGatherAndReturnTime(worker, mineralField, averageGatheringTime);
+          return estimatedTime > remainingBuildTime;
+        }
+      }
+      return false;
+    });
+
+    shouldReassign = potentialWorkers.length > 0;
+  }
+
+  const needsMoreWorkers = assignedHarvesters !== undefined && idealHarvesters !== undefined && assignedHarvesters < idealHarvesters;
+
+  return (
+    (shouldReassign && isUnderConstruction) ||
+    (needsMoreWorkers) &&
+    nearbyEnemies.length === 0 &&
+    !isTownhallInDanger(world, townhall, nearbyEnemies)
+  );
 }
 
 /**
@@ -440,7 +566,8 @@ function reassignIdleWorkers(world) {
 }
 
 module.exports = {
-  balanceWorkerDistribution,
+  balanceWorkers,
+  distributeWorkersAcrossBases,
   gather,
   getGatheringWorkers,
   getWithLabelAvailable,

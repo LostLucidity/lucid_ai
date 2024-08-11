@@ -27,7 +27,7 @@
   "include": [
     "src/**/*",
     "node_modules/@node-sc2/core/**/*"
-  ],
+, "data/buildOrders", "data/gameData", "data/mapResources/mapResources.js"  ],
   "exclude": [
     "src/old"
   ]

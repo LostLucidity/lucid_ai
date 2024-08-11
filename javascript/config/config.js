@@ -1,6 +1,5 @@
 require('dotenv').config();
 const { Difficulty, Race } = require('@node-sc2/core/constants/enums');
-
 const maps = require('./maps');
 
 // Default configuration values
@@ -15,7 +14,28 @@ const DEFAULTS = {
   },
   AUTOMATE_SUPPLY: true,
   NATURAL_WALL_PYLON: true,
+  MAX_TOWN_HALLS: 3,
+  TOWN_HALL_COST: 400,
 };
+
+// Initialize averageGatheringTime with a default value
+let averageGatheringTime = 4;  // Merged from config.json or environment variables
+
+/**
+ * Get the current average gathering time.
+ * @returns {number} The current average gathering time.
+ */
+function getAverageGatheringTime() {
+  return averageGatheringTime;
+}
+
+/**
+ * Set a new average gathering time.
+ * @param {number} newAverage The new average gathering time to set.
+ */
+function setAverageGatheringTime(newAverage) {
+  averageGatheringTime = newAverage;
+}
 
 /**
  * @param {number} level
@@ -51,4 +71,8 @@ module.exports = {
   automateSupply: process.env.AUTOMATE_SUPPLY === 'true' || DEFAULTS.AUTOMATE_SUPPLY,
   naturalWallPylon: process.env.NATURAL_WALL_PYLON === 'true' || DEFAULTS.NATURAL_WALL_PYLON,
   debugBuildOrderKey: process.env.DEBUG_BUILD_ORDER_KEY || null,
+  maxTownHalls: DEFAULTS.MAX_TOWN_HALLS,
+  townHallCost: DEFAULTS.TOWN_HALL_COST,
+  getAverageGatheringTime,
+  setAverageGatheringTime,
 };

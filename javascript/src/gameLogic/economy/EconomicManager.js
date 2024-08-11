@@ -1,5 +1,6 @@
 const { calculateMaxWorkers, shouldTrainMoreWorkers, trainAdditionalWorkers } = require("./economyManagement");
 const { balanceWorkerDistribution } = require("./workerAssignment");
+const config = require("../../../config/config");
 
 class EconomicManager {
   /**
@@ -20,7 +21,8 @@ class EconomicManager {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} Actions to balance worker distribution.
    */
   balanceWorkerDistribution() {
-    return balanceWorkerDistribution(this.world, this.units, this.world.resources);
+    const averageGatheringTime = config.getAverageGatheringTime();
+    return balanceWorkerDistribution(this.world, this.units, this.world.resources, averageGatheringTime);
   }
 
   /**
