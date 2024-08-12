@@ -3,7 +3,7 @@ const UnitTypeId = require('@node-sc2/core/constants/unit-type');
 const fs = require('fs');
 const path = require('path');
 
-const buildOrderState = require('../../globalState/buildOrderState');
+const buildOrderState = require('../../state/buildOrderState');
 const { train } = require('../../units/management/training');
 const { createMoveCommand } = require('../../units/management/unitCommands');
 const { upgrade } = require('../../units/management/unitManagement');

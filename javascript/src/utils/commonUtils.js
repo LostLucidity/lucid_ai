@@ -7,7 +7,7 @@ const { UnitType } = require("@node-sc2/core/constants");
 
 const { EarmarkManager } = require("../core");
 const { getDistance } = require("../features/shared/pathfinding/spatialCoreUtils");
-const { GameState } = require("../gameState");
+const { GameState } = require("../state");
 const { checkAddOnPlacement } = require("../services/ConstructionSpatialService");
 const { flyingTypesMapping, liftAndLandingTime } = require("../units/management/unitConfig");
 

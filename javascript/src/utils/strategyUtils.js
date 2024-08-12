@@ -4,7 +4,7 @@ const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 
 const StrategyContext = require("../features/strategy/strategyContext");
 /* eslint-disable-next-line no-unused-vars */
-const { GameState } = require('../gameState');
+const { GameState } = require('../state');
 
 /**
  * Converts strategy steps (from BuildOrderStep or StrategyStep format) to PlanStep format.

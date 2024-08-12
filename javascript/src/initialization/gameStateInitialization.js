@@ -2,7 +2,7 @@
 const { Race } = require('@node-sc2/core/constants/enums');
 
 const { initializeGasMineConstructionAbilities } = require('../gameLogic/economy/economyManagement');
-const { GameState } = require('../gameState');
+const { GameState } = require('../state');
 const { setUnitTypeTrainingAbilityMapping } = require('../units/management/unitConfig');
 
 /**

@@ -22,7 +22,7 @@ const {
   balanceResources,
   setFoodUsed,
 } = require("../../gameLogic/economy/economyManagement");
-const { GameState } = require("../../gameState");
+const { GameState } = require("../../state");
 const { buildSupplyOrTrain } = require("../../units/management/unitManagement");
 const { isEqualStep, getBuildOrderKey, validateResources, isValidPlan } = require("../../utils/strategyUtils");
 const { convertTimeStringToSeconds } = require("../../utils/timeUtils");

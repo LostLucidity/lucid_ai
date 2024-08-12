@@ -1,6 +1,6 @@
 "use strict";
 
-const { GameState } = require("../gameState");
+const { GameState } = require("../state");
 
 
 /**

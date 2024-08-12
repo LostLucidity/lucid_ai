@@ -13,7 +13,7 @@ const { isPendingConstructing } = require('./workerCommonUtils');
 const { getTimeToTargetTech } = require('../../../data/gameData/gameData');
 const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft, reserveWorkerForBuilding } = require('../../gameLogic/economy/workerService');
 // eslint-disable-next-line no-unused-vars
-const { GameState } = require('../../gameState');
+const { GameState } = require('../../state');
 const { unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
 const { setPendingOrders } = require('../../units/management/unitOrders');
 const { createUnitCommand, getPathablePositionsForStructure } = require('../../utils/common');

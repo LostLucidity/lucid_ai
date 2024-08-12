@@ -1,4 +1,4 @@
-const { GameState } = require("../gameState");
+const { GameState } = require("../state");
 
 /**
  * Check if the frame stored in the map matches the current frame

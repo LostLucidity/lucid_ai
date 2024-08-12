@@ -9,7 +9,7 @@ const { getClosestUnitByPath, getTimeInSeconds } = require("./pathfinding/pathfi
 const { getDistanceByPath } = require("./pathfinding/pathfindingCore");
 const { getDistance } = require("./pathfinding/spatialCoreUtils");
 // eslint-disable-next-line no-unused-vars
-const { GameState } = require("../../gameState");
+const { GameState } = require("../../state");
 const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
 const { SPEED_MODIFIERS } = require("../../utils/constants");
 

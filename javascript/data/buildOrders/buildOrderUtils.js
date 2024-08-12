@@ -7,7 +7,7 @@ const { workerTypes } = require("@node-sc2/core/constants/groups");
 const fs = require("fs").promises;
 const path = require("path");
 
-const { GameState } = require("../../src/gameState");
+const { GameState } = require("../../src/state");
 const { getBasicProductionUnits } = require("../../src/units/management/basicUnitUtils");
 
 /**

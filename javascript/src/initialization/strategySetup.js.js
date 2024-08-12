@@ -3,7 +3,7 @@
 const config = require('../../config/config');
 const StrategyContext = require('../features/strategy/strategyContext');
 const StrategyManager = require('../features/strategy/strategyManager');
-const { GameState } = require('../gameState');
+const { GameState } = require('../state');
 const strategyUtils = require('../utils/strategyUtils');
 const { assignWorkers } = require('../utils/workerUtils');
 

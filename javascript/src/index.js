@@ -1,7 +1,7 @@
 // src/index.js
 const core = require('./core');
 const features = require('./features');
-const gameState = require('./gameState');
+const gameState = require('./state');
 const initialization = require('./initialization');
 const ConstructionSpatialService = require('./services/ConstructionSpatialService');
 const units = require('./units');

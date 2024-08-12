@@ -11,7 +11,7 @@ const { getFootprint, twoByTwoUnits } = require('@node-sc2/core/utils/geometry/u
 const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 
 // Internal module imports
-const { buildingPositions } = require('../../gameState');
+const { buildingPositions } = require('../../state');
 const { addOnTypesMapping } = require('../../units/management/unitConfig');
 const { calculateDistance } = require('../shared/coreUtils');
 const {

@@ -16,7 +16,7 @@ const { calculateClosestConstructingWorker } = require("../features/shared/coreU
 const { getClosestBuilderCandidate } = require("../features/shared/pathfinding/pathfinding");
 const { gatherCandidateWorkersTimeToPosition } = require("../features/shared/workerManagementUtils");
 const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters, calculateMovingOrConstructingNonDronesTimeToPosition } = require("../gameLogic/economy/workerService");
-const { GameState } = require('../gameState');
+const { GameState } = require('../state');
 
 /**
  * Selects the most suitable builder based on the given position.

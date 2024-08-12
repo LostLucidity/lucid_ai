@@ -12,7 +12,7 @@ const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech }
 const MapResources = require("../../../data/mapResources/mapResources");
 const { EarmarkManager } = require("../../core");
 const { attemptBuildAddOn, attemptLiftOff } = require("../../core/buildUtils");
-const { GameState } = require("../../gameState");
+const { GameState } = require("../../state");
 const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
 const { getPendingOrders, foodEarmarks } = require("../../sharedServices");
 const { flyingTypesMapping } = require("../../units/management/unitConfig");

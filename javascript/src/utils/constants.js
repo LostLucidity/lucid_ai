@@ -4,7 +4,7 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
 // eslint-disable-next-line no-unused-vars
-const { GameState } = require('../gameState');
+const { GameState } = require('../state');
 
 /** @type {(unit: Unit, gameState: GameState) => number} */
 const zealotModifier = (unit, gameState) => (

@@ -9,7 +9,7 @@ const {
   getOrderTargetPosition,
   reserveWorkerForBuilding,
 } = require("../../gameLogic/economy/workerService");
-const { GameState } = require("../../gameState");
+const { GameState } = require("../../state");
 const { setPendingOrders } = require("../../units/management/unitOrders");
 const { createUnitCommand } = require("../../utils/common");
 const { getBuilders } = require("../../utils/workerUtils");

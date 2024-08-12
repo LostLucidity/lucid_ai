@@ -6,7 +6,7 @@ const { UnitType, WarpUnitAbility } = require('@node-sc2/core/constants');
 const { Alliance } = require('@node-sc2/core/constants/enums');
 
 // Internal module imports
-const { GameState } = require('../../gameState');
+const { GameState } = require('../../state');
 
 /**
  * Mapping of unit types to their possible addon types.
