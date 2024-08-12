@@ -15,8 +15,8 @@ const {
   rallyWorkerToTarget,
   getUnitsFromClustering,
 } = require('../../gameLogic/economy/workerService');
-const { GameState } = require('../../state');
 const { getPendingOrders } = require('../../sharedServices');
+const { GameState } = require('../../state');
 const { createUnitCommand } = require('../../utils/common');
 const { calculatePathablePositions } = require('../../utils/pathfindingUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');

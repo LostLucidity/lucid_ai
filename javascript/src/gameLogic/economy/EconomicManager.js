@@ -1,5 +1,5 @@
 const { calculateMaxWorkers, shouldTrainMoreWorkers, trainAdditionalWorkers } = require("./economyManagement");
-const { balanceWorkerDistribution } = require("./workerAssignment");
+const { distributeWorkersAcrossBases } = require("./workerAssignment");
 const config = require("../../../config/config");
 
 class EconomicManager {
@@ -22,7 +22,7 @@ class EconomicManager {
    */
   balanceWorkerDistribution() {
     const averageGatheringTime = config.getAverageGatheringTime();
-    return balanceWorkerDistribution(this.world, this.units, this.world.resources, averageGatheringTime);
+    return distributeWorkersAcrossBases(this.world, this.units, this.world.resources, averageGatheringTime);
   }
 
   /**

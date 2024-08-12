@@ -10,9 +10,7 @@ const { upgrade } = require('../../units/management/unitManagement');
 const { build } = require('../construction/buildingService');
 const { isSuitableForScouting } = require('../shared/scoutingUtils');
 const { handleActiveScout, setActiveScoutTag } = require('../shared/scoutManager');
-const configPath = path.join(__dirname, '../../config/config.json');
-const rawData = fs.readFileSync(configPath);
-const config = JSON.parse(rawData.toString());
+const config = require('../../../config/config');
 
 // Define a list of tech building unit types
 const techBuildingTypes = [

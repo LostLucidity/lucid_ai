@@ -3,8 +3,8 @@ const { Race, Attribute } = require("@node-sc2/core/constants/enums");
 
 const { upgradeTypes } = require("../../data/gameData/gameData");
 const StrategyContext = require("../features/strategy/strategyContext");
-const { GameState } = require("../state");
 const { foodEarmarks } = require("../sharedServices");
+const { GameState } = require("../state");
 
 class EarmarkManager {
   /**

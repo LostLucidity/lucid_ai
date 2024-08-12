@@ -1,7 +1,7 @@
 const { Ability } = require("@node-sc2/core/constants");
 
-const { GameState } = require("../../state");
 const { getPendingOrders } = require("../../sharedServices");
+const { GameState } = require("../../state");
 const { getFoodUsedByUnitType, createUnitCommand } = require("../../utils/common");
 const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff } = require("../../utils/commonUnitUtils");
 const { getPlanFoodValue } = require("../../utils/strategyUtils");

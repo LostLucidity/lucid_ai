@@ -126,23 +126,6 @@ function estimateGatherAndReturnTime(worker, mineralField, averageGatheringTime)
 }
 
 /**
- * Finds townhalls that have more workers than ideal.
- * @param {Unit[]} townhalls - Array of townhalls.
- * @returns {Unit[]} An array of townhalls with excess workers.
- */
-function getDonorTownhalls(townhalls) {
-  return townhalls.filter(donorTh => {
-    const { assignedHarvesters: donorAssigned, idealHarvesters: donorIdeal } = donorTh;
-    return (
-      donorAssigned !== undefined &&
-      donorIdeal !== undefined &&
-      donorAssigned > donorIdeal
-    );
-  });
-}
-
-
-/**
  * Finds the most suitable mineral field for a worker near a townhall.
  * @param {UnitResource} units - The units resource object from the bot.
  * @param {Unit} worker - The worker to assign.
