@@ -46,6 +46,8 @@ let averageGatheringTime = config.getAverageGatheringTime();
 let cumulativeGameTime = 0;
 let gameStartTime = performance.now();
 let lastCheckTime = gameStartTime;
+let lastLogTime = 0;
+const LOG_INTERVAL = 5; // Log every 5 seconds
 const REAL_TIME_CHECK_INTERVAL = 60 * 1000;
 const BASE_BUFFER_TIME_SECONDS = 15;
 const ADDITIONAL_BUFFER_PER_ACTION_SECONDS = 5;
@@ -845,6 +847,10 @@ const bot = createAgent({
 
       gameState.setFoodUsed(world);
 
+      // Log game start time and initial game state
+      logger.logMessage(`Game started at ${new Date().toLocaleTimeString()} with map: ${config.defaultMap}`, 1);
+      logger.logMessage(`Initial game state: Food used - ${gameState.getFoodUsed()}, Bases completed - ${completedBases.length}`, 1);
+
     } catch (error) {
       console.error('Error during onGameStart:', error);
     }
@@ -862,6 +868,14 @@ const bot = createAgent({
       // Update game state and build order progress before issuing commands
       updateCompletedBases(units, cacheManager);
       checkBuildOrderProgress(world, gameState.getBuildOrder());
+
+      // Log current game time and state
+      const currentGameTime = frame.getGameLoop() / 22.4;
+
+      if (currentGameTime >= lastLogTime + LOG_INTERVAL) {
+        logger.logMessage(`Current game time: ${currentGameTime.toFixed(2)}s - Food used: ${gameState.getFoodUsed()}, Bases completed: ${completedBasesMap.size}`, 1);
+        lastLogTime = currentGameTime;
+      }
 
       // Track and calculate average gathering time
       updateAverageGatheringTime(workers, world);

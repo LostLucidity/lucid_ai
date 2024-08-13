@@ -7,7 +7,7 @@ const DEFAULTS = {
   RACE: Race.RANDOM,
   DIFFICULTY: Difficulty.EASY,
   MAP: maps.MAP_JAGANNATHA_LE,
-  LOGGING_LEVEL: 1,
+  LOGGING_LEVEL: 0,  // Set to 0 to capture all logs
   PLAN_MAX: {
     supply: 200,
     gasMine: 2,
@@ -61,11 +61,12 @@ function getRaceEnumValue(raceName) {
   return RACE_ENUM_MAP[/** @type {keyof typeof RACE_ENUM_MAP} */ (normalizedRaceName)] || DEFAULTS.RACE;
 }
 
+// Change the default logging level from 0 to 1
 module.exports = {
   defaultRace: getRaceEnumValue(process.env.DEFAULT_RACE),
   defaultDifficulty: process.env.DEFAULT_DIFFICULTY || DEFAULTS.DIFFICULTY,
   defaultMap: process.env.DEFAULT_MAP || DEFAULTS.MAP,
-  loggingLevel: validateLoggingLevel(parseInt(process.env.LOGGING_LEVEL || '0', 10)),
+  loggingLevel: validateLoggingLevel(parseInt(process.env.LOGGING_LEVEL || '1', 10)), // Default to level 1 if undefined
   planMax: DEFAULTS.PLAN_MAX,
   automateSupply: process.env.AUTOMATE_SUPPLY === 'true' || DEFAULTS.AUTOMATE_SUPPLY,
   naturalWallPylon: process.env.NATURAL_WALL_PYLON === 'true' || DEFAULTS.NATURAL_WALL_PYLON,
