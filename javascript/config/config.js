@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Difficulty, Race } = require('@node-sc2/core/constants/enums');
 const maps = require('./maps');
+const { parseBooleanEnv, parseNumberEnv } = require('./utils');
 
 // Default configuration values
 const DEFAULTS = {
@@ -40,7 +41,7 @@ function setAverageGatheringTime(newAverage) {
 /**
  * @param {number} level
  */
-function validateLoggingLevel(level) {
+function getValidatedLogLevel(level) {
   const validLevels = [0, 1, 2];
   return validLevels.includes(level) ? level : DEFAULTS.LOGGING_LEVEL;
 }
@@ -52,8 +53,8 @@ const RACE_ENUM_MAP = {
   'PROTOSS': Race.PROTOSS,
 };
 
-// Function to convert race name to its enum value
 /**
+ * Function to convert race name to its enum value
  * @param {string | undefined} raceName
  */
 function getRaceEnumValue(raceName) {
@@ -66,10 +67,10 @@ module.exports = {
   defaultRace: getRaceEnumValue(process.env.DEFAULT_RACE),
   defaultDifficulty: process.env.DEFAULT_DIFFICULTY || DEFAULTS.DIFFICULTY,
   defaultMap: process.env.DEFAULT_MAP || DEFAULTS.MAP,
-  loggingLevel: validateLoggingLevel(parseInt(process.env.LOGGING_LEVEL || '1', 10)), // Default to level 1 if undefined
+  loggingLevel: getValidatedLogLevel(parseNumberEnv(process.env.LOGGING_LEVEL, 1)), // Default to level 1 if undefined
   planMax: DEFAULTS.PLAN_MAX,
-  automateSupply: process.env.AUTOMATE_SUPPLY === 'true' || DEFAULTS.AUTOMATE_SUPPLY,
-  naturalWallPylon: process.env.NATURAL_WALL_PYLON === 'true' || DEFAULTS.NATURAL_WALL_PYLON,
+  automateSupply: parseBooleanEnv(process.env.AUTOMATE_SUPPLY, DEFAULTS.AUTOMATE_SUPPLY),
+  naturalWallPylon: parseBooleanEnv(process.env.NATURAL_WALL_PYLON, DEFAULTS.NATURAL_WALL_PYLON),
   debugBuildOrderKey: process.env.DEBUG_BUILD_ORDER_KEY || null,
   maxTownHalls: DEFAULTS.MAX_TOWN_HALLS,
   townHallCost: DEFAULTS.TOWN_HALL_COST,
