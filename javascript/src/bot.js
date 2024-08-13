@@ -8,6 +8,7 @@ const { DisplayType } = require('@node-sc2/core/constants/enums');
 const { ASSIMILATOR, PROBE, ORBITALCOMMAND } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
 
+// Internal module imports
 const ActionCollector = require('./features/actions/actionCollector');
 const { getDistance } = require('./features/shared/pathfinding/spatialCoreUtils');
 const { findPlacements } = require('./features/shared/pathfinding/spatialUtils');
@@ -61,7 +62,7 @@ let previousValidPositionsCount = 0;
  * @param {ResourceManager} resources
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
  */
-function assignMineralWorkers(resources, actionList) {
+function assignWorkersToMinerals(resources, actionList) {
   actionList.push(...assignWorkers(resources));
 }
 
@@ -121,6 +122,18 @@ async function checkBuildOrderProgress(world, buildOrder) {
 function collectActions(world, actionList) {
   const actionCollector = new ActionCollector(world);
   actionList.push(...actionCollector.collectActions());
+}
+
+/**
+ * Collects and handles actions in the game world.
+ * 
+ * @param {World} world - The current game world state.
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - The list of actions to be executed.
+ * @param {Array<Unit>} allUnits - The list of all units in the game.
+ */
+function collectAndHandleActions(world, actionList, allUnits) {
+  collectActions(world, actionList);
+  updateUpgradesInProgress(allUnits, world);
 }
 
 /**
@@ -651,6 +664,36 @@ function getValidPositionsCount(world, unitType) {
 }
 
 /**
+ * Logs the current game state based on the frame information.
+ * 
+ * @param {FrameResource} frame - The frame resource containing game loop and timing information.
+ */
+function logCurrentGameState(frame) {
+  const currentGameTime = frame.getGameLoop() / 22.4;
+  if (currentGameTime >= lastLogTime + LOG_INTERVAL) {
+    logger.logMessage(`Current game time: ${currentGameTime.toFixed(2)}s - Food used: ${gameState.getFoodUsed()}, Bases completed: ${completedBasesMap.size}`, 1);
+    lastLogTime = currentGameTime;
+  }
+}
+
+/**
+ * Manages workers, handling idle probes, gathering orders, and other tasks.
+ * 
+ * @param {UnitResource} units - The resource managing all units in the game.
+ * @param {Array<Unit>} allUnits - The list of all units in the game.
+ * @param {ResourceManager} resources - The resource manager handling minerals, gas, and other resources.
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - The list of actions to be executed.
+ * @param {World} world - The current game world state.
+ */
+function manageWorkers(units, allUnits, resources, actionList, world) {
+  queueGatherOrdersForProbes(units, allUnits, resources, actionList);
+  handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList);
+  balanceWorkers(world, units, resources, actionList);
+  assignWorkersToMinerals(resources, actionList);
+  useOrbitalCommandEnergy(world, actionList);
+}
+
+/**
  * Precompute distances from bases to mineral fields within a specified maximum distance.
  * @param {Array<Unit>} baseLocations - The bases to compute distances from.
  * @param {Array<Unit>} mineralFields - The mineral fields to compute distances to.
@@ -668,6 +711,30 @@ function precomputeBaseToMineralDistances(baseLocations, mineralFields, maxDista
     }
   });
   return baseToMineralDistances;
+}
+
+/**
+ * Tracks and logs performance metrics.
+ * 
+ * @param {FrameResource} frame - The frame resource containing game loop and timing information.
+ * @param {GameState} gameState - The game state object.
+ * @param {MapResource} map - The map resource for the current game.
+ * @param {World} world - The current game world state.
+ */
+function trackAndLogPerformance(frame, gameState, map, world) {
+  trackPerformance(frame, gameState);
+  logGeyserActivity(map);
+  logUnitPositions(world);
+}
+
+/**
+ * Tracks the gathering time of workers and updates the average.
+ * 
+ * @param {Array<Unit>} workers - The list of worker units in the game.
+ * @param {World} world - The current game world state.
+ */
+function trackGatheringTime(workers, world) {
+  updateAverageGatheringTime(workers, world);
 }
 
 /**
@@ -755,6 +822,18 @@ function updateCompletedBases(units, cacheManager) {
   if (newCompletedBases.length > 0) {
     cacheManager.updateCompletedBasesCache(newCompletedBases);
   }
+}
+
+/**
+ * Updates the game state, including completed bases and build order progress.
+ * 
+ * @param {UnitResource} units - The resource managing all units in the game.
+ * @param {World} world - The current game world state.
+ */
+function updateGameState(units, world) {
+  updateCompletedBases(units, cacheManager);
+  checkBuildOrderProgress(world, gameState.getBuildOrder());
+  gameState.setFoodUsed(world);
 }
 
 /**
@@ -865,84 +944,30 @@ const bot = createAgent({
       const allUnits = units.getAll();
       const workers = units.getWorkers();
 
-      // Update game state and build order progress before issuing commands
-      updateCompletedBases(units, cacheManager);
-      checkBuildOrderProgress(world, gameState.getBuildOrder());
+      // 1. Update game state and build order progress
+      updateGameState(units, world);
 
-      // Log current game time and state
-      const currentGameTime = frame.getGameLoop() / 22.4;
+      // 2. Log current game time and state
+      logCurrentGameState(frame);
 
-      if (currentGameTime >= lastLogTime + LOG_INTERVAL) {
-        logger.logMessage(`Current game time: ${currentGameTime.toFixed(2)}s - Food used: ${gameState.getFoodUsed()}, Bases completed: ${completedBasesMap.size}`, 1);
-        lastLogTime = currentGameTime;
-      }
+      // 3. Track and calculate average gathering time
+      trackGatheringTime(workers, world);
 
-      // Track and calculate average gathering time
-      updateAverageGatheringTime(workers, world);
+      // 4. Handle worker and mineral management
+      manageWorkers(units, allUnits, resources, actionList, world);
 
-      /**
-       * @type {number[]} 
-       */
-      const gatheringTimes = [];
-      let totalGatheringTime = 0;
-      let gatherCount = 0;
+      // 5. Collect actions and handle upgrades
+      collectAndHandleActions(world, actionList, allUnits);
 
-      workers.forEach(worker => {
-        startTrackingWorkerGathering(worker, world);
-        const gatherTime = calculateGatheringTime(worker, world);
-        if (gatherTime !== null) {
-          gatheringTimes.push(gatherTime);
-        }
-      });
-
-      if (gatheringTimes.length > 0) {
-        // Calculate mean and standard deviation
-        const mean = gatheringTimes.reduce((a, b) => a + b, 0) / gatheringTimes.length;
-        const stdDev = Math.sqrt(gatheringTimes.map(time => Math.pow(time - mean, 2)).reduce((a, b) => a + b, 0) / gatheringTimes.length);
-
-        // Filter out outliers based on standard deviation
-        const filteredTimes = gatheringTimes.filter(time => Math.abs(time - mean) <= 2 * stdDev);
-
-        // Calculate the average from the filtered times
-        if (filteredTimes.length > 0) {
-          filteredTimes.forEach(time => {
-            totalGatheringTime += time;
-            gatherCount++;
-          });
-
-          const calculatedAverage = totalGatheringTime / gatherCount;
-
-          // Adjust the smoothing factor based on data variability
-          const smoothingFactor = stdDev / (mean + stdDev); // The higher the stdDev, the lower the smoothing factor
-          averageGatheringTime = (averageGatheringTime || calculatedAverage) * (1 - smoothingFactor) + calculatedAverage * smoothingFactor;
-        }
-      }
-
-      // Only transition to mid-game if the build order is completed
+      // Execute mid-game transition logic if appropriate
       if (buildOrderState.isBuildOrderCompleted()) {
-        midGameTransition(world, actionList);
+        await midGameTransition(world, actionList);
       }
 
-      // Handle idle probes and other worker management
-      queueGatherOrdersForProbes(units, allUnits, resources, actionList);
-      handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList);
+      // 6. Track performance and log relevant information
+      trackAndLogPerformance(frame, gameState, map, world);
 
-      // Collect actions and handle upgrades
-      collectActions(world, actionList);
-      updateUpgradesInProgress(allUnits, world);
-
-      // Track performance and log relevant information
-      trackPerformance(frame, gameState);
-      logGeyserActivity(map);
-      logUnitPositions(world);
-
-      // Balance workers and manage Orbital Command energy usage
-      balanceWorkers(world, units, resources, actionList);
-      assignMineralWorkers(resources, actionList);
-      useOrbitalCommandEnergy(world, actionList);
-
-      // Update game state and execute actions
-      gameState.setFoodUsed(world);
+      // 7. Execute the gathered actions
       executeActions(world, actionList);
 
     } catch (error) {
