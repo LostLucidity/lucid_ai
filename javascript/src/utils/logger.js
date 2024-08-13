@@ -1,14 +1,22 @@
-//@ts-check
-"use strict"
+"use strict";
 
 const config = require('../../config/config');
 
+/** @type {string | null} */
+let cachedTimestamp = null;
+let timestampExpiration = 0;
+
 /**
- * Formats the current date and time as a string.
- * @returns {string} The formatted timestamp.
+ * Gets the current timestamp, caching it for a short duration to avoid recalculating for each log.
+ * @returns {string} The cached or new timestamp.
  */
-function getTimestamp() {
-  return new Date().toISOString();
+function getCurrentTimestamp() {
+  const now = Date.now();
+  if (now > timestampExpiration || cachedTimestamp === null) {
+    cachedTimestamp = new Date(now).toISOString();
+    timestampExpiration = now + 1000; // Cache the timestamp for 1 second
+  }
+  return cachedTimestamp || new Date().toISOString(); // Ensure a string is always returned
 }
 
 /**
@@ -19,7 +27,7 @@ function getTimestamp() {
  */
 function logMessage(message, level) {
   if (config.loggingLevel >= level) {
-    console.log(`[${getTimestamp()}] ${message}`);
+    console.log(`[${getCurrentTimestamp()}] ${message}`);
   }
 }
 
@@ -30,10 +38,11 @@ function logMessage(message, level) {
  * @param {Error} [error] - The error object (optional).
  */
 function logError(message, error) {
+  const timestamp = getCurrentTimestamp();
   if (error) {
-    console.error(`[${getTimestamp()}] ${message}\n`, error);
+    console.error(`[${timestamp}] ${message}\n`, error);
   } else {
-    console.error(`[${getTimestamp()}] ${message}`);
+    console.error(`[${timestamp}] ${message}`);
   }
 }
 
