@@ -23,6 +23,8 @@ class ConstructionSpatialService {
    */
   constructor(spatialUtils) {
     this.spatialUtils = spatialUtils;
+    this.checkAddOnPlacement = this.checkAddOnPlacement.bind(this);
+    this.findPosition = this.findPosition.bind(this);
   }
 
   /**

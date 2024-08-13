@@ -4,7 +4,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { avgPoints } = require("@node-sc2/core/utils/geometry/point");
 
 const cacheManager = require("./cache");
-const { getStructureCells, getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath, getClosestPosition } = require("../features/shared/pathfinding/pathfindingCommon");
+const { getStructureCells, getPathablePositions, checkIfPositionIsCorner, getPathCoordinates, getMapPath, getClosestPosition } = require("../features/shared/pathfinding/pathfindingCommonUtils");
 const { getDistanceByPath } = require("../features/shared/pathfinding/pathfindingCore");
 
 /**

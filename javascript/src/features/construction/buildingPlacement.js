@@ -22,7 +22,7 @@ const {
   getAddOnPlacement,
   getAddOnBuildingPlacement,
 } = require('../shared/pathfinding/pathfinding');
-const { getClosestPosition } = require('../shared/pathfinding/pathfindingCommon');
+const { getClosestPosition } = require('../shared/pathfinding/pathfindingCommonUtils');
 const { getDistance } = require('../shared/pathfinding/spatialCoreUtils');
 const StrategyContext = require('../strategy/strategyContext');
 

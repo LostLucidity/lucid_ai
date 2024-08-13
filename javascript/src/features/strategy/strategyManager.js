@@ -17,7 +17,7 @@ const buildOrders = require("../../../data/buildOrders");
 const { loadAllBuildOrders } = require("../../../data/buildOrders");
 const { interpretBuildOrderAction } = require("../../../data/buildOrders/buildOrderUtils");
 const { getUnitTypeData } = require("../../core/gameData");
-const ResourceEarmarkManager = require("../../core/ResourceEarmarkManager");
+const ResourceEarmarkManager = require("../../core/resourceEarmarkManager");
 const {
   balanceResources,
   setFoodUsed,

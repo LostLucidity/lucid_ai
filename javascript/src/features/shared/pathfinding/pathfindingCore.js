@@ -1,7 +1,7 @@
 // src/gameLogic/spatial/pathfindingCore.js
 "use strict";
 
-const { getMapPath, getPathCoordinates } = require("./pathfindingCommon");
+const { getMapPath, getPathCoordinates } = require("./pathfindingCommonUtils");
 const { getDistance } = require("./spatialCoreUtils");
 const { getLine, getClosestPathablePositions, isLineTraversable } = require("../../../utils/common");
 
