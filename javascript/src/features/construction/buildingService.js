@@ -10,14 +10,7 @@ const BuildingPlacement = require("./buildingPlacement");
 const config = require("../../../config/config");
 const { getAbilityIdsForAddons, getUnitTypesWithAbilities, getTimeToTargetTech } = require("../../../data/gameData/gameData");
 const MapResources = require("../../../data/mapResources/mapResources");
-const { EarmarkManager } = require("../../core");
-const { attemptBuildAddOn, attemptLiftOff } = require("../../core/buildUtils");
-const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
-const { getPendingOrders, foodEarmarks } = require("../../sharedServices");
-const { GameState } = require("../../state");
-const { flyingTypesMapping } = require("../../units/management/unitConfig");
-const { updateAddOnType, getUnitTypeToBuild } = require("../../units/management/unitHelpers");
-const { getUnitsCapableToAddOn } = require("../../utils/addonUtils");
+const { getUnitsCapableToAddOn } = require("../../core/addonUtils");
 const {
   commandPlaceBuilding,
   getInTheMain,
@@ -25,9 +18,16 @@ const {
   findBestPositionForAddOn,
   isPlaceableAtGasGeyser,
   logNoValidPosition
-} = require("../../utils/buildingUtils");
-const { isSupplyNeeded } = require("../../utils/common");
-const { getTimeUntilUnitCanBuildAddon } = require("../../utils/supplyUtils");
+} = require("../../core/buildingUtils");
+const { attemptBuildAddOn, attemptLiftOff } = require("../../core/buildUtils");
+const { isSupplyNeeded } = require("../../core/common");
+const EarmarkManager = require("../../core/earmarkManager");
+const { getTimeUntilUnitCanBuildAddon } = require("../../core/supplyUtils");
+const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
+const { getPendingOrders, foodEarmarks } = require("../../sharedServices");
+const { GameState } = require("../../state");
+const { flyingTypesMapping } = require("../../units/management/unitConfig");
+const { updateAddOnType, getUnitTypeToBuild } = require("../../units/management/unitHelpers");
 const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionUtils");
 const { attemptLand } = require("../shared/buildingUtils");
 const { calculateDistance } = require("../shared/coreUtils");

@@ -2,7 +2,7 @@
 
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
-const { EarmarkManager } = require("../../core");
+const EarmarkManager = require("../../core/earmarkManager");
 const { GameState } = require("../../state");
 const { shouldTrainWorkers, trainWorkers, trainCombatUnits, earmarkWorkersForTraining } = require("../../units/management/training");
 

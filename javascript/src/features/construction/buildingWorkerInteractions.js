@@ -1,6 +1,8 @@
 const { Ability } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
+const { createUnitCommand } = require("../../core/common");
+const { getBuilders } = require("../../core/workerUtils");
 const {
   isMoving,
   rallyWorkerToTarget,
@@ -11,8 +13,6 @@ const {
 } = require("../../gameLogic/economy/workerService");
 const { GameState } = require("../../state");
 const { setPendingOrders } = require("../../units/management/unitOrders");
-const { createUnitCommand } = require("../../utils/common");
-const { getBuilders } = require("../../utils/workerUtils");
 const {
   getAwayPosition,
   areApproximatelyEqual,

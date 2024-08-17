@@ -1,10 +1,34 @@
-// src/core/index.js
-const buildUtils = require('./buildUtils');
-const EarmarkManager = require('./earmarkManager');
-const gameData = require('./gameData');
-
+// Exporting core functionalities
 module.exports = {
-  buildUtils,
-  EarmarkManager,
-  gameData
+  buildUtils: require('./buildUtils'),
+  earmarkManager: require('./earmarkManager'),
+  gameData: require('./gameData'),
+  resourceEarmarkManager: require('./resourceEarmarkManager'),
+
+  // Exporting utilities previously in `src/utils`
+  addonUtils: require('./addonUtils'),
+  builderUtils: require('./builderUtils'),
+  buildingUtils: require('./buildingUtils'),
+  cache: require('./cache'),
+  common: require('./common'),
+  commonUnitUtils: require('./commonUnitUtils'),
+  commonUtils: require('./commonUtils'),
+  constants: require('./constants'),
+  constructionDataUtils: require('./constructionDataUtils'),
+  generalUtils: require('./generalUtils'),
+  globalTypes: require('./globalTypes'),
+  logger: require('./logger'),
+  logging: require('./logging'),
+  pathfindingCore: require('./pathfindingCore'),
+  pathfindingUtils: require('./pathfindingUtils'),
+  sharedPathfindingUtils: require('./sharedPathfindingUtils'),
+  resourceUtils: require('./resourceUtils'),
+  sharedUnitPlacement: require('./sharedUnitPlacement'),
+  sharedUtils: require('./sharedUtils'),
+  strategyUtils: require('./strategyUtils'),
+  supplyUtils: require('./supplyUtils'),
+  timeUtils: require('./timeUtils'),
+  unitUtils: require('./unitUtils'),
+  upgradeUtils: require('./upgradeUtils'),
+  workerUtils: require('./workerUtils'),
 };

@@ -8,17 +8,17 @@ const { canTrainUnit } = require("./trainingUtils");
 const { unitTypeTrainingAbilities, flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { canLarvaInitiateTraining, canBaseInitiateTraining } = require("./unitTrainingUtils");
-const { EarmarkManager } = require("../../core");
+const { findKeysForValue, createUnitCommand, findUnitTypesWithAbilityCached } = require("../../core/common");
+const EarmarkManager = require("../../core/earmarkManager");
 const { getUnitTypeData } = require("../../core/gameData");
+const { getById } = require("../../core/generalUtils");
+const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("../../core/unitUtils");
 const StrategyContext = require("../../features/strategy/strategyContext");
 const { selectUnitTypeToBuild } = require("../../features/strategy/unitSelection");
 const { getBuildTimeLeft, shortOnWorkers } = require("../../gameLogic/economy/workerService");
 const { filterSafeTrainers } = require("../../gameLogic/gameMechanics/gameStrategyUtils");
 const { getPendingOrders } = require("../../sharedServices");
 const { GameState } = require('../../state');
-const { findKeysForValue, createUnitCommand, findUnitTypesWithAbilityCached } = require("../../utils/common");
-const { getById } = require("../../utils/generalUtils");
-const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("../../utils/unitUtils");
 
 /**
  * Checks if a unit can train the specified unit type.

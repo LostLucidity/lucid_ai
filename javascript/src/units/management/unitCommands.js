@@ -3,9 +3,9 @@
 const { Ability } = require("@node-sc2/core/constants");
 
 const { setPendingOrders } = require("./unitOrders");
+const { createUnitCommand } = require("../../core/common");
+const { setRepositionLabel } = require("../../core/unitUtils");
 const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
-const { createUnitCommand } = require("../../utils/common");
-const { setRepositionLabel } = require("../../utils/unitUtils");
 
 /**
  * Creates a move command for a unit to go to a specified location.

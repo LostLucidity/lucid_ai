@@ -11,13 +11,13 @@ const { calculateBaseTimeToPosition } = require('./pathfinding/pathfinding');
 const { getDistanceByPath, getClosestPositionByPath } = require('./pathfinding/pathfindingCore');
 const { isPendingConstructing } = require('./workerCommonUtils');
 const { getTimeToTargetTech } = require('../../../data/gameData/gameData');
+const { createUnitCommand, getPathablePositionsForStructure } = require('../../core/common');
+const { findPathablePositions } = require('../../core/pathfindingUtils');
 const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft, reserveWorkerForBuilding } = require('../../gameLogic/economy/workerService');
 // eslint-disable-next-line no-unused-vars
 const { GameState } = require('../../state');
 const { unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
 const { setPendingOrders } = require('../../units/management/unitOrders');
-const { createUnitCommand, getPathablePositionsForStructure } = require('../../utils/common');
-const { findPathablePositions } = require('../../utils/pathfindingUtils');
 const { stopOverlappingBuilders } = require('../construction/buildingWorkerInteractions');
 
 /**

@@ -6,7 +6,9 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const { avgPoints } = require('@node-sc2/core/utils/geometry/point');
 const getRandom = require('@node-sc2/core/utils/get-random');
 
-const { EarmarkManager } = require('../../core');
+const { createUnitCommand } = require('../../core/common');
+const EarmarkManager = require('../../core/earmarkManager');
+const { calculatePathablePositions } = require('../../core/pathfindingUtils');
 const {
   ability,
   isIdleOrAlmostIdle,
@@ -17,8 +19,6 @@ const {
 } = require('../../gameLogic/economy/workerService');
 const { getPendingOrders } = require('../../sharedServices');
 const { GameState } = require('../../state');
-const { createUnitCommand } = require('../../utils/common');
-const { calculatePathablePositions } = require('../../utils/pathfindingUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
 const { handleNonRallyBase } = require('../construction/buildingWorkerInteractions');
 const { getPathCoordinates, getMapPath } = require('../shared/pathfinding/pathfindingCommonUtils');

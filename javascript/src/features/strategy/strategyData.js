@@ -1,10 +1,10 @@
 const { interpretBuildOrderAction } = require('../../../data/buildOrders/buildOrderUtils');
+const { isEqualStep } = require('../../core/strategyUtils');
 const { isBuildOrderStep } = require('../../gameLogic/gameMechanics/gameStrategyUtils');
-const { isEqualStep } = require('../../utils/strategyUtils');
 
 /**
  * A type that includes both BuildOrderStep and StrategyStep.
- * @typedef {import('../../utils/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} GeneralStep
+ * @typedef {import('../../core/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} GeneralStep
  */
 
 
@@ -18,7 +18,7 @@ class StrategyData {
    * This function calculates the cumulative counts up to and including the current step index,
    * ensuring that counts for each unit type are properly isolated per step.
    * @param {GeneralStep} step - The step to calculate the target count for.
-   * @param {import('../../utils/globalTypes').BuildOrder} buildOrder - The build order containing the steps.
+   * @param {import('../../core/globalTypes').BuildOrder} buildOrder - The build order containing the steps.
    * @param {Record<string, number>} [startingUnitCounts={}] - An object mapping unit types to their initial counts.
    * @returns {Record<string, number>} - The cumulative target counts for each unit type in the specified step.
    */
@@ -72,7 +72,7 @@ class StrategyData {
   }
 
   /**
-   * @param {import('../../utils/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep
+   * @param {import('../../core/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep
    */
   static getInterpretedActions(rawStep) {
     if (rawStep.interpretedAction) {

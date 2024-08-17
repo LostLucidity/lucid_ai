@@ -2,7 +2,7 @@ const { loadBuildOrdersFromDirectory } = require("./buildOrderUtils");
 
 /**
  * @type {{
- *   buildOrders: import('utils/globalTypes').BuildOrders | null;
+ *   buildOrders: import('src/core/globalTypes').BuildOrders | null;
  * }}
  */
 const buildOrderStore = {
@@ -11,7 +11,7 @@ const buildOrderStore = {
 
 /**
  * Loads all build orders.
- * @returns {Promise<import('utils/globalTypes').BuildOrders>}
+ * @returns {Promise<import('src/core/globalTypes').BuildOrders>}
  */
 async function loadAllBuildOrders() {
   const [protossBuildOrders, terranBuildOrders, zergBuildOrders] = await Promise.all([

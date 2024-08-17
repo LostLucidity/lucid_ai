@@ -1,9 +1,9 @@
 const { initializeGameState } = require('./gameStateInitialization');
 const { setupStrategyAndWorkers } = require('./strategySetup.js.js');
+const logger = require('../core/logger');
 const { performInitialMapAnalysis } = require('../features/shared/mapAnalysis');
 const { determineBotRace } = require('../features/shared/stateManagement');
 const GasMineManager = require("../state/gasMineManager");
-const logger = require('../utils/logger');
 
 /**
  * Class responsible for handling game initialization processes.

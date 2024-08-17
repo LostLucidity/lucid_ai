@@ -9,6 +9,11 @@ const { ASSIMILATOR, PROBE, ORBITALCOMMAND } = require('@node-sc2/core/constants
 const { performance } = require('perf_hooks');
 
 // Internal module imports
+const { resetNoFreeGeysersLogFlag, lastLoggedUnitType, resetNoValidPositionLogFlag } = require('./core/buildingUtils');
+const cacheManager = require('./core/cache');
+const logger = require('./core/logger');
+const { clearAllPendingOrders } = require('./core/unitUtils');
+const { assignWorkers } = require('./core/workerUtils');
 const ActionCollector = require('./features/actions/actionCollector');
 const { getDistance } = require('./features/shared/pathfinding/spatialCoreUtils');
 const { findPlacements } = require('./features/shared/pathfinding/spatialUtils');
@@ -20,11 +25,6 @@ const { getWorkerAssignedToStructure, releaseWorkerFromBuilding } = require('./g
 const GameInitialization = require('./initialization/gameInitialization');
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
-const { resetNoFreeGeysersLogFlag, lastLoggedUnitType, resetNoValidPositionLogFlag } = require('./utils/buildingUtils');
-const cacheManager = require('./utils/cache');
-const logger = require('./utils/logger');
-const { clearAllPendingOrders } = require('./utils/unitUtils');
-const { assignWorkers } = require('./utils/workerUtils');
 const config = require('../config/config');
 const { isStepInProgress } = require('../data/buildOrders/buildOrderUtils');
 
@@ -69,7 +69,7 @@ function assignWorkersToMinerals(resources, actionList) {
 /**
  * Checks and updates the build order progress.
  * @param {World} world - The current game world state.
- * @param {import('./utils/globalTypes').BuildOrderStep[]} buildOrder - The build order to track and update.
+ * @param {import('./core/globalTypes').BuildOrderStep[]} buildOrder - The build order to track and update.
  */
 async function checkBuildOrderProgress(world, buildOrder) {
   const currentTimeInSeconds = world.resources.get().frame.timeInSeconds();
@@ -138,7 +138,7 @@ function collectAndHandleActions(world, actionList, allUnits) {
 
 /**
  * Get the status of the order from the buildOrderCompletion map.
- * @param {import('./utils/globalTypes').BuildOrderStep} order
+ * @param {import('./core/globalTypes').BuildOrderStep} order
  * @returns {{completed: boolean, logged: boolean, prematureLogged: boolean}} The status of the order
  */
 function getOrderStatus(order) {
@@ -182,7 +182,7 @@ function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, act
 
 /**
  * Handle the step in progress and log its status.
- * @param {import('./utils/globalTypes').BuildOrderStep} order
+ * @param {import('./core/globalTypes').BuildOrderStep} order
  * @param {number} index - The index of the build order step.
  * @param {number} currentTimeInSeconds
  * @param {number} expectedTimeInSeconds
@@ -220,7 +220,7 @@ function isStepDelayed(currentTimeInSeconds, expectedTimeInSeconds, orderStatus)
 
 /**
  * Logs build order step completion status.
- * @param {import('./utils/globalTypes').BuildOrderStep} order - The build order step.
+ * @param {import('./core/globalTypes').BuildOrderStep} order - The build order step.
  * @param {number} index - The index of the build order step.
  * @param {number} currentTimeInSeconds - The current game time in seconds.
  * @param {number} expectedTimeInSeconds - The expected time for the order in seconds.
@@ -244,7 +244,7 @@ function logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSec
 
 /**
  * Log a delayed build order step.
- * @param {import('./utils/globalTypes').BuildOrderStep} order
+ * @param {import('./core/globalTypes').BuildOrderStep} order
  * @param {number} index - The index of the build order step.
  * @param {number} currentTimeInSeconds
  * @param {number} expectedTimeInSeconds
@@ -259,7 +259,7 @@ function logDelayedStep(order, index, currentTimeInSeconds, expectedTimeInSecond
 
 /**
  * Log the build order step.
- * @param {import('./utils/globalTypes').BuildOrderStep} order
+ * @param {import('./core/globalTypes').BuildOrderStep} order
  * @param {number} index - The index of the build order step.
  * @param {number} currentTimeInSeconds
  * @param {number} expectedTimeInSeconds
@@ -302,7 +302,7 @@ function logUnitPositions(world) {
 /**
  * Manages Chrono Boost usage.
  * @param {Agent} bot - The bot instance handling the game.
- * @param {import('./utils/globalTypes').BuildOrderStep[]} buildOrder - The build order containing actions and timings.
+ * @param {import('./core/globalTypes').BuildOrderStep[]} buildOrder - The build order containing actions and timings.
  * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionList - The list of actions to be executed.
  */
 function manageChronoBoost(bot, buildOrder, actionList) {
@@ -383,7 +383,7 @@ function queueGatherOrdersForProbes(units, allUnits, resources, actionList) {
 
 /**
  * Determines if a building should be Chrono Boosted.
- * @param {import('./utils/globalTypes').BuildOrderStep[]} buildOrder - The build order.
+ * @param {import('./core/globalTypes').BuildOrderStep[]} buildOrder - The build order.
  * @param {number} currentSupply - The current supply count.
  * @param {Unit} building - The building unit to check.
  * @param {UnitResource} units - The unit resource manager.

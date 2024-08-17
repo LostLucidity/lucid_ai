@@ -44,10 +44,10 @@ const unitTypeData = {};
 /**
  * Builds a map from unit names to their ability IDs.
  * @param {DataStorage} dataStorage
- * @returns {import('utils/common').UnitTypeMap}
+ * @returns {import('src/core/common').UnitTypeMap}
  */
 function buildUnitTypeMap(dataStorage) {
-  /** @type {import('utils/common').UnitTypeMap} */
+  /** @type {import('src/core/common').UnitTypeMap} */
   const map = {};
 
   const allUnitTypeIds = getAllUnitTypeIds(); // Implement this function

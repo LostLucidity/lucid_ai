@@ -3,7 +3,7 @@
 
 const { getMapPath, getPathCoordinates } = require("./pathfindingCommonUtils");
 const { getDistance } = require("./spatialCoreUtils");
-const { getLine, getClosestPathablePositions, isLineTraversable } = require("../../../utils/common");
+const { getLine, getClosestPathablePositions, isLineTraversable } = require("../../../core/common");
 
 /**
   * @param {ResourceManager} resources

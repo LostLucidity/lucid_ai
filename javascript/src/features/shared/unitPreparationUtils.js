@@ -1,10 +1,10 @@
 const { Ability } = require("@node-sc2/core/constants");
 
+const { getFoodUsedByUnitType, createUnitCommand } = require("../../core/common");
+const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff } = require("../../core/commonUnitUtils");
+const { getPlanFoodValue } = require("../../core/strategyUtils");
 const { getPendingOrders } = require("../../sharedServices");
 const { GameState } = require("../../state");
-const { getFoodUsedByUnitType, createUnitCommand } = require("../../utils/common");
-const { getUnitBeingTrained, isStructureLifted, canStructureLiftOff } = require("../../utils/commonUnitUtils");
-const { getPlanFoodValue } = require("../../utils/strategyUtils");
 
 /**
  * Prepares a unit to build an addon, handling various commands based on the unit's state.

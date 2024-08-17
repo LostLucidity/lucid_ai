@@ -6,12 +6,12 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
+const { getStringNameOfConstant } = require("../core/common");
+const { getCurrentlyEnrouteConstructionGrids } = require("../core/constructionDataUtils");
+const { seigeTanksSiegedGrids } = require("../core/sharedUnitPlacement");
 const { getAddOnPlacement, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../features/shared/pathfinding/pathfinding");
 const spatialUtils = require('../features/shared/pathfinding/spatialUtils');
 const { canUnitBuildAddOn, flyingTypesMapping } = require("../units/management/unitConfig");
-const { getStringNameOfConstant } = require("../utils/common");
-const { getCurrentlyEnrouteConstructionGrids } = require("../utils/constructionDataUtils");
-const { seigeTanksSiegedGrids } = require("../utils/sharedUnitPlacement");
 
 /**
  * Service to manage spatial and construction-related functionalities.

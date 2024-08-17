@@ -2,8 +2,8 @@ const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
 
 const { haveSupplyForUnit } = require("./commonUtils");
+const EarmarkManager = require("./earmarkManager");
 const { checkTechRequirement } = require("./resourceUtils");
-const { EarmarkManager } = require("../core");
 const StrategyContext = require("../features/strategy/strategyContext").getInstance();
 const { getPendingOrders } = require("../sharedServices");
 const GameState = require('../state').GameState.getInstance();

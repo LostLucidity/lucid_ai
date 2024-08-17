@@ -11,6 +11,10 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal module imports
 const MapResources = require("../../../data/mapResources/mapResources");
+const { createUnitCommand } = require("../../core/common");
+const { getById } = require("../../core/generalUtils");
+const { getNeediestMineralField } = require("../../core/resourceUtils");
+const { getClosestPathWithGasGeysers } = require("../../core/sharedPathfindingUtils");
 const { getMovementSpeed, getWorkerSourceByPath } = require("../../features/shared/coreUtils");
 const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../../features/shared/pathfinding/pathfinding");
 const { getDistanceByPath } = require("../../features/shared/pathfinding/pathfindingCore");
@@ -19,10 +23,6 @@ const { getPendingOrders } = require("../../sharedServices");
 const { GameState } = require('../../state');
 const { unitTypeTrainingAbilities, flyingTypesMapping } = require("../../units/management/unitConfig");
 const { setPendingOrders } = require("../../units/management/unitOrders");
-const { createUnitCommand } = require("../../utils/common");
-const { getById } = require("../../utils/generalUtils");
-const { getNeediestMineralField } = require("../../utils/resourceUtils");
-const { getClosestPathWithGasGeysers } = require("../../utils/sharedPathfindingUtils");
 
 /**
  * Global scope for worker assignment tracking

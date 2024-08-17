@@ -1,4 +1,4 @@
-const { EarmarkManager } = require("../../core");
+const EarmarkManager = require("../../core/earmarkManager");
 const { checkUnitCount } = require("../../features/shared/stateManagement");
 
 /**
