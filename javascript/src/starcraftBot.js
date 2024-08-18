@@ -21,7 +21,7 @@ const { midGameTransition } = require('./features/strategy/midGameTransition');
 const StrategyManager = require('./features/strategy/strategyManager');
 const { startTrackingWorkerGathering, calculateGatheringTime } = require('./gameLogic/economy/gatheringManagement');
 const { gather, balanceWorkers } = require('./gameLogic/economy/workerAssignment');
-const { getWorkerAssignedToStructure, releaseWorkerFromBuilding } = require('./gameLogic/economy/workerService');
+const { releaseWorkerFromBuilding, getWorkerReservedForPosition } = require('./gameLogic/economy/workerService');
 const GameInitialization = require('./initialization/gameInitialization');
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
@@ -1079,8 +1079,8 @@ const bot = createAgent({
   },
 
   onUnitFinished: async (world, unit) => {
-    if (unit.isStructure() && unit.tag) {
-      const workerTag = getWorkerAssignedToStructure(unit.tag);
+    if (unit.isStructure() && unit.pos) {
+      const workerTag = getWorkerReservedForPosition(unit.pos); // Use unit.pos instead of unit.tag
       if (workerTag) {
         const { units } = world.resources.get();
         const worker = units.getByTag(workerTag);

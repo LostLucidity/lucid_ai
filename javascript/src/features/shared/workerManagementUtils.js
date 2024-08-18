@@ -13,7 +13,7 @@ const { isPendingConstructing } = require('./workerCommonUtils');
 const { getTimeToTargetTech } = require('../../../data/gameData/gameData');
 const { createUnitCommand, getPathablePositionsForStructure } = require('../../core/common');
 const { findPathablePositions } = require('../../core/pathfindingUtils');
-const { setBuilderLabel, getClosestPathWithGasGeysers, getBuildTimeLeft, reserveWorkerForBuilding } = require('../../gameLogic/economy/workerService');
+const { getClosestPathWithGasGeysers, getBuildTimeLeft, reserveWorkerForBuilding } = require('../../gameLogic/economy/workerService');
 // eslint-disable-next-line no-unused-vars
 const { GameState } = require('../../state');
 const { unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
@@ -104,13 +104,11 @@ function commandBuilderToConstruct(world, builder, unitType, position) {
   const { units } = resources.get();
   const { abilityId } = data.getUnitTypeData(unitType);
 
-  // Early return if builder is already constructing, is pending construction, or abilityId is undefined
   if (builder.isConstructing() || isPendingConstructing(builder) || abilityId === undefined) {
     return [];
   }
 
-  setBuilderLabel(builder);
-  reserveWorkerForBuilding(builder);
+  reserveWorkerForBuilding(builder, position);  // Reserve worker before construction
 
   const unitCommand = createUnitCommand(abilityId, [builder]);
 

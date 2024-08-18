@@ -21,13 +21,14 @@ const { getDistanceByPath } = require("../shared/pathfinding/pathfindingCore");
 const { getDistance } = require("../shared/pathfinding/spatialCoreUtils");
 
 /**
- * @param {World} world
- * @param {Unit} unit
- * @param {Point2D} position
- * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand
- * @param {UnitTypeId} unitType
+ * Handles non-rally base situations by assigning and moving workers.
+ * @param {World} world - The game world object.
+ * @param {Unit} unit - The worker unit.
+ * @param {Point2D} position - The position of the building.
+ * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand - The command for the unit.
+ * @param {UnitTypeId} unitType - The type of the unit to be constructed.
  * @param {(units: UnitResource, unit: Unit) => Point2D | undefined} getOrderTargetPosition - Injected dependency from workerUtils.js
- * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
+ * @returns {SC2APIProtocol.ActionRawUnitCommand[]} The array of actions to be executed.
  */
 function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrderTargetPosition) {
   const { agent, data, resources } = world;
@@ -68,7 +69,7 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
 
   // Handle worker unit assignment for building
   if (unit.isWorker() && !unit.isConstructing() && !isMovingButNotToPosition) {
-    reserveWorkerForBuilding(unit, unitCommand.targetUnitTag);
+    reserveWorkerForBuilding(unit, position);
 
     unitCommand.targetWorldSpacePos = position;
     setBuilderLabel(unit);
@@ -102,6 +103,7 @@ function stopOverlappingBuilders(units, builder, position) {
   });
 
   if (overlappingBuilders.length > 0) {
+    // overlappingBuilders.forEach(builder => builder.labels.delete("builder"));
     return [createUnitCommand(Ability.STOP, overlappingBuilders.map(builder => builder))];
   }
 

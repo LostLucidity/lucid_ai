@@ -17,19 +17,17 @@ function assignWorkers(resources) {
   const gatheringMineralWorkers = getGatheringWorkers(units, 'minerals');
   const completedBases = units.getBases({ buildProgress: 1, alliance: Alliance.SELF });
 
-  // Create a map to track the status of each worker
-  const workerStatusMap = new Map();
-
   gatheringMineralWorkers.forEach(worker => {
-    if (!workerStatusMap.has(worker.tag)) {
-      const isReserved = isWorkerReservedForBuilding(worker);
-      const isBuilder = worker.labels.has('builder');
-      workerStatusMap.set(worker.tag, { isReserved, isBuilder });
+    // Remove the 'builder' label from the worker if it exists
+    if (worker.labels.has('builder')) {
+      worker.labels.delete('builder');
     }
 
-    const { isReserved, isBuilder } = workerStatusMap.get(worker.tag);
+    // Check if the worker is reserved for building
+    const isReserved = isWorkerReservedForBuilding(worker);
 
-    if (!isReserved && !isBuilder) {
+    // Reassign worker only if they are not reserved
+    if (!isReserved) {
       collectedActions.push(...handleWorkerAssignment(worker, completedBases, map, units, resources));
     }
   });

@@ -16,7 +16,7 @@ const { getById } = require("../../core/generalUtils");
 const { getNeediestMineralField } = require("../../core/resourceUtils");
 const { getClosestPathWithGasGeysers } = require("../../core/sharedPathfindingUtils");
 const { getMovementSpeed, getWorkerSourceByPath } = require("../../features/shared/coreUtils");
-const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan } = require("../../features/shared/pathfinding/pathfinding");
+const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan, areApproximatelyEqual } = require("../../features/shared/pathfinding/pathfinding");
 const { getDistanceByPath } = require("../../features/shared/pathfinding/pathfindingCore");
 const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
 const { getPendingOrders } = require("../../sharedServices");
@@ -29,12 +29,7 @@ const { setPendingOrders } = require("../../units/management/unitOrders");
  * @type {Set<string>}
  */
 const reservedWorkers = new Set();
-
-/**
- * Global scope for worker to structure assignment
- * @type {Map<string, string>}
- */
-const workerToStructureMap = new Map();
+const reservedWorkersByPosition = new Map();
 
 /**
  * @param {World} world 
@@ -432,14 +427,18 @@ function getUnitsTrainingTargetUnitType(world, unitType) {
   return GameState.getUnitsWithCurrentOrders(unitArray, [abilityId]);
 }
 
-
 /**
- * Get the worker assigned to a structure
- * @param {string} structureTag - The tag of the structure
- * @returns {string | undefined} - The tag of the assigned worker or undefined
+ * Get the worker reserved for a specific position.
+ * @param {Point2D} position - The position where the structure will be built.
+ * @returns {string | undefined} - The tag of the reserved worker or undefined.
  */
-function getWorkerAssignedToStructure(structureTag) {
-  return workerToStructureMap.get(structureTag);
+function getWorkerReservedForPosition(position) {
+  for (const [workerTag, reservedPosition] of reservedWorkersByPosition.entries()) {
+    if (areApproximatelyEqual(reservedPosition, position)) {
+      return workerTag;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -591,31 +590,25 @@ const rallyWorkerToTarget = (world, position, getUnitsFromClustering, mineralTar
 };
 
 /**
- * Reserve a worker for building a structure
- * @param {Unit} worker - The worker unit to reserve
- * @param {string} [structureTag] - The tag of the structure (optional)
+ * Reserve a worker for building a structure at a specific position.
+ * @param {Unit} worker - The worker unit to reserve.
+ * @param {Point2D} position - The position where the structure will be built.
  */
-function reserveWorkerForBuilding(worker, structureTag) {
-  if (worker.tag) {
+function reserveWorkerForBuilding(worker, position) {
+  if (worker.tag && position) {
     reservedWorkers.add(worker.tag);
-    if (structureTag) {
-      workerToStructureMap.set(structureTag, worker.tag);
-    }
+    reservedWorkersByPosition.set(worker.tag, position);
   }
 }
 
 /**
- * Release a worker from building a structure
- * @param {Unit} worker - The worker unit to release
+ * Release a worker from building a structure.
+ * @param {Unit} worker - The worker unit to release.
  */
 function releaseWorkerFromBuilding(worker) {
   if (worker.tag) {
     reservedWorkers.delete(worker.tag);
-    workerToStructureMap.forEach((value, key) => {
-      if (value === worker.tag) {
-        workerToStructureMap.delete(key);
-      }
-    });
+    reservedWorkersByPosition.delete(worker.tag);
   }
 }
 
@@ -718,7 +711,6 @@ function stopUnitFromMovingToPosition(unit, position) {
 module.exports = {
   ability,
   calculateMovingOrConstructingNonDronesTimeToPosition,
-  getWorkerAssignedToStructure,
   handleRallyBase,
   filterBuilderCandidates,
   filterMovingOrConstructingNonDrones,
@@ -729,6 +721,7 @@ module.exports = {
   getClosestPathWithGasGeysers,
   getOrderTargetPosition,
   getUnitsFromClustering,
+  getWorkerReservedForPosition,
   isIdleOrAlmostIdle,
   isMining,
   isMoving,
