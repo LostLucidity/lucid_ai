@@ -30,7 +30,7 @@ const { getDistance } = require("../shared/pathfinding/spatialCoreUtils");
  * @param {(units: UnitResource, unit: Unit) => Point2D | undefined} getOrderTargetPosition - Injected dependency from workerUtils.js
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} The array of actions to be executed.
  */
-function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrderTargetPosition) {
+function assignWorkersToBuild(world, unit, position, unitCommand, unitType, getOrderTargetPosition) {
   const { agent, data, resources } = world;
   const { units } = resources.get();
   const { pos } = unit;
@@ -84,8 +84,6 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
     }
   }
 
-  actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering));
-
   return actions;
 }
 
@@ -112,6 +110,6 @@ function stopOverlappingBuilders(units, builder, position) {
 
 // Exporting the functions
 module.exports = {
-  handleNonRallyBase,
+  assignWorkersToBuild,
   stopOverlappingBuilders,
 };

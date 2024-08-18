@@ -20,7 +20,7 @@ const {
 const { getPendingOrders } = require('../../sharedServices');
 const { GameState } = require('../../state');
 const BuildingPlacement = require('../construction/buildingPlacement');
-const { handleNonRallyBase } = require('../construction/buildingWorkerInteractions');
+const { assignWorkersToBuild } = require('../construction/buildingWorkerInteractions');
 const { getPathCoordinates, getMapPath } = require('../shared/pathfinding/pathfindingCommonUtils');
 const { prepareBuildContext } = require('../shared/workerManagementUtils');
 
@@ -185,7 +185,7 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
       unitType,
       unitCommand,
       handleRallyBase,
-      handleNonRallyBase,
+      assignWorkersToBuild,
       getOrderTargetPosition
     );
   } else {
