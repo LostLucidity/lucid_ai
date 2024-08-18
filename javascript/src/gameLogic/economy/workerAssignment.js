@@ -62,7 +62,7 @@ function assignWorkers(resources) {
 
     // Reassign worker only if they are not reserved
     if (!isReserved) {
-      collectedActions.push(...handleWorkerAssignment(worker, completedBases, map, units, resources));
+      collectedActions.push(...assignWorkerToField(worker, completedBases, map, units, resources));
     }
   });
 
@@ -286,7 +286,7 @@ function getGatheringWorkers(units, type = undefined, firstOrderOnly = true) {
  * @param {ResourceManager} resources - The resource manager from the bot.
  * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} An array of actions for the worker.
  */
-function handleWorkerAssignment(worker, completedBases, map, units, resources) {
+function assignWorkerToField(worker, completedBases, map, units, resources) {
   /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
   const collectedActions = [];
   const { pos: workerPos } = worker;
@@ -580,6 +580,5 @@ module.exports = {
   gather,
   getGatheringWorkers,
   getWithLabelAvailable,
-  handleWorkerAssignment,
   reassignIdleWorkers,
 };
