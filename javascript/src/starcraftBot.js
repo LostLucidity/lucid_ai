@@ -13,14 +13,13 @@ const { resetNoFreeGeysersLogFlag, lastLoggedUnitType, resetNoValidPositionLogFl
 const cacheManager = require('./core/cache');
 const logger = require('./core/logger');
 const { clearAllPendingOrders } = require('./core/unitUtils');
-const { assignWorkers } = require('./core/workerUtils');
 const ActionCollector = require('./features/actions/actionCollector');
 const { getDistance } = require('./features/shared/pathfinding/spatialCoreUtils');
 const { findPlacements } = require('./features/shared/pathfinding/spatialUtils');
 const { midGameTransition } = require('./features/strategy/midGameTransition');
 const StrategyManager = require('./features/strategy/strategyManager');
 const { startTrackingWorkerGathering, calculateGatheringTime } = require('./gameLogic/economy/gatheringManagement');
-const { gather, balanceWorkers } = require('./gameLogic/economy/workerAssignment');
+const { gather, balanceWorkers, assignWorkers } = require('./gameLogic/economy/workerAssignment');
 const { releaseWorkerFromBuilding, getWorkerReservedForPosition } = require('./gameLogic/economy/workerService');
 const GameInitialization = require('./initialization/gameInitialization');
 const { GameState } = require('./state');
@@ -94,14 +93,8 @@ async function checkBuildOrderProgress(world, buildOrder) {
         timeStatus, timeDifference, supplyDifference, currentSupply,
         orderStatus
       );
-    } else if (isStepDelayed(currentTimeInSeconds, expectedTimeInSeconds, orderStatus)) {
-      if (!orderStatus.logged) {
-        logDelayedStep(
-          order, index, currentTimeInSeconds, expectedTimeInSeconds,
-          timeStatus, timeDifference, supplyDifference, currentSupply
-        );
-        orderStatus.logged = true;
-      }
+    } else {
+      checkAndLogDelayedStep(currentTimeInSeconds, expectedTimeInSeconds, orderStatus, order, index, timeStatus, timeDifference, supplyDifference, currentSupply);
     }
 
     if (!orderStatus.completed) {
@@ -112,6 +105,28 @@ async function checkBuildOrderProgress(world, buildOrder) {
   });
 
   buildOrderState.setBuildOrderCompleted(allStepsCompleted);
+}
+
+/**
+ * Check if a step is delayed and log it if necessary.
+ * @param {number} currentTimeInSeconds
+ * @param {number} expectedTimeInSeconds
+ * @param {{completed: boolean, logged: boolean, prematureLogged: boolean}} orderStatus
+ * @param {import('./core/globalTypes').BuildOrderStep} order
+ * @param {number} index
+ * @param {string} timeStatus
+ * @param {number} timeDifference
+ * @param {number} supplyDifference
+ * @param {number} currentSupply
+ * @returns {boolean} True if the step is delayed, otherwise false
+ */
+function checkAndLogDelayedStep(currentTimeInSeconds, expectedTimeInSeconds, orderStatus, order, index, timeStatus, timeDifference, supplyDifference, currentSupply) {
+  const isDelayed = currentTimeInSeconds >= expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + ADDITIONAL_BUFFER_PER_ACTION_SECONDS && !orderStatus.logged;
+  if (isDelayed) {
+    logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, true, currentSupply);
+    orderStatus.logged = true;
+  }
+  return isDelayed;
 }
 
 /**
@@ -197,29 +212,18 @@ function handleStepInProgress(order, index, currentTimeInSeconds, expectedTimeIn
 
   if (shouldCompleteOrder) {
     orderStatus.completed = true;
-    logStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, currentSupply);
+    logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, false, currentSupply);
     return;
   }
 
   if (!orderStatus.prematureLogged) {
-    logStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, currentSupply);
+    logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, false, currentSupply);
     orderStatus.prematureLogged = true;
   }
 }
 
 /**
- * Check if a step is delayed.
- * @param {number} currentTimeInSeconds
- * @param {number} expectedTimeInSeconds
- * @param {{completed: boolean, logged: boolean, prematureLogged: boolean}} orderStatus
- * @returns {boolean} True if the step is delayed, otherwise false
- */
-function isStepDelayed(currentTimeInSeconds, expectedTimeInSeconds, orderStatus) {
-  return currentTimeInSeconds >= expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + ADDITIONAL_BUFFER_PER_ACTION_SECONDS && !orderStatus.logged;
-}
-
-/**
- * Logs build order step completion status.
+ * Logs build order step status.
  * @param {import('./core/globalTypes').BuildOrderStep} order - The build order step.
  * @param {number} index - The index of the build order step.
  * @param {number} currentTimeInSeconds - The current game time in seconds.
@@ -227,50 +231,24 @@ function isStepDelayed(currentTimeInSeconds, expectedTimeInSeconds, orderStatus)
  * @param {string} timeStatus - The time status (ahead/behind schedule).
  * @param {number} timeDifference - The time difference between current and expected time.
  * @param {number} supplyDifference - The supply difference between current and expected supply.
- * @param {boolean} premature - Whether the completion is premature.
+ * @param {boolean} isPremature - Whether the completion is premature.
+ * @param {boolean} isDelayed - Whether the step is delayed.
  * @param {number} currentSupply - The current supply value.
  */
-function logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, premature, currentSupply) {
+function logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, isPremature, isDelayed, currentSupply) {
   const { supply, time, action } = order;
   const formattedCurrentTime = currentTimeInSeconds.toFixed(2);
   const formattedExpectedTime = expectedTimeInSeconds.toFixed(2);
   const formattedTimeDifference = Math.abs(timeDifference).toFixed(2);
 
-  const logMessage = `Build Order Step ${premature ? 'Prematurely ' : ''}Completed: Step-${index} Supply-${supply} Time-${time} Action-${action} at game time ${formattedCurrentTime} seconds. ${premature ? `Expected time: ${formattedExpectedTime} seconds. ` : ''}Current Supply: ${currentSupply}. Time Difference: ${formattedTimeDifference} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`;
-
-  console.log(logMessage);
-}
-
-
-/**
- * Log a delayed build order step.
- * @param {import('./core/globalTypes').BuildOrderStep} order
- * @param {number} index - The index of the build order step.
- * @param {number} currentTimeInSeconds
- * @param {number} expectedTimeInSeconds
- * @param {string} timeStatus
- * @param {number} timeDifference
- * @param {number} supplyDifference
- * @param {number} currentSupply
- */
-function logDelayedStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply) {
-  console.warn(`Build Order Step NOT Completed: Step-${index} Supply-${order.supply} Time-${order.time} Action-${order.action}. Expected by time ${order.time}, current time is ${currentTimeInSeconds.toFixed(2)} seconds. Current Supply: ${currentSupply}. Time Difference: ${Math.abs(timeDifference).toFixed(2)} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`);
-}
-
-/**
- * Log the build order step.
- * @param {import('./core/globalTypes').BuildOrderStep} order
- * @param {number} index - The index of the build order step.
- * @param {number} currentTimeInSeconds
- * @param {number} expectedTimeInSeconds
- * @param {string} timeStatus
- * @param {number} timeDifference
- * @param {number} supplyDifference
- * @param {boolean} isPremature
- * @param {number} currentSupply
- */
-function logStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, isPremature, currentSupply) {
-  logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, isPremature, currentSupply);
+  let logMessage;
+  if (isDelayed) {
+    logMessage = `Build Order Step NOT Completed: Step-${index} Supply-${supply} Time-${time} Action-${action}. Expected by time ${time}, current time is ${formattedCurrentTime} seconds. Current Supply: ${currentSupply}. Time Difference: ${formattedTimeDifference} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`;
+    console.warn(logMessage);
+  } else {
+    logMessage = `Build Order Step ${isPremature ? 'Prematurely ' : ''}Completed: Step-${index} Supply-${supply} Time-${time} Action-${action} at game time ${formattedCurrentTime} seconds. ${isPremature ? `Expected time: ${formattedExpectedTime} seconds. ` : ''}Current Supply: ${currentSupply}. Time Difference: ${formattedTimeDifference} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`;
+    console.log(logMessage);
+  }
 }
 
 /**
