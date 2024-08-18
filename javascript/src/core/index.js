@@ -30,5 +30,4 @@ module.exports = {
   timeUtils: require('./timeUtils'),
   unitUtils: require('./unitUtils'),
   upgradeUtils: require('./upgradeUtils'),
-  workerUtils: require('./workerUtils'),
 };

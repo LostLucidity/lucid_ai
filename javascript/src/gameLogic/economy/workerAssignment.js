@@ -8,7 +8,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 
 // Internal module imports
-const { getClosestExpansion, isMoving } = require("./workerService");
+const { getClosestExpansion, isMoving, isWorkerReservedForBuilding } = require("./workerService");
 const config = require("../../../config/config");
 const { getUnitsWithinDistance, createUnitCommand } = require("../../core/common");
 const { getNeediestMineralField, getMineralFieldAssignments } = require("../../core/resourceUtils");
@@ -36,6 +36,37 @@ function areMineralFieldsSaturated(units, townhall) {
   }, 0);
   const maxWorkers = mineralFields.length * 2; // Assuming 2 workers per field for saturation
   return totalWorkers >= maxWorkers;
+}
+
+/**
+ * Assigns workers to mineral fields for optimal resource gathering.
+ * 
+ * @param {ResourceManager} resources - The resource manager from the bot.
+ * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} An array of actions to assign workers.
+ */
+function assignWorkers(resources) {
+  const { map, units } = resources.get();
+  /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
+  const collectedActions = [];
+  const gatheringMineralWorkers = getGatheringWorkers(units, 'minerals');
+  const completedBases = units.getBases({ buildProgress: 1, alliance: Alliance.SELF });
+
+  gatheringMineralWorkers.forEach(worker => {
+    // Remove the 'builder' label from the worker if it exists
+    if (worker.labels.has('builder')) {
+      worker.labels.delete('builder');
+    }
+
+    // Check if the worker is reserved for building
+    const isReserved = isWorkerReservedForBuilding(worker);
+
+    // Reassign worker only if they are not reserved
+    if (!isReserved) {
+      collectedActions.push(...handleWorkerAssignment(worker, completedBases, map, units, resources));
+    }
+  });
+
+  return collectedActions;
 }
 
 /**
@@ -549,6 +580,7 @@ function reassignIdleWorkers(world) {
 }
 
 module.exports = {
+  assignWorkers,
   balanceWorkers,
   distributeWorkersAcrossBases,
   gather,

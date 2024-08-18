@@ -2,9 +2,9 @@
 
 const config = require('../../config/config');
 const strategyUtils = require('../core/strategyUtils');
-const { assignWorkers } = require('../core/workerUtils');
 const StrategyContext = require('../features/strategy/strategyContext');
 const StrategyManager = require('../features/strategy/strategyManager');
+const { assignWorkers } = require('../gameLogic/economy/workerAssignment');
 const { GameState } = require('../state');
 
 /**

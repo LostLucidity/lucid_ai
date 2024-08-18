@@ -2,7 +2,6 @@ const { Ability } = require("@node-sc2/core/constants");
 const { Alliance, Race } = require("@node-sc2/core/constants/enums");
 
 const { createUnitCommand } = require("../../core/common");
-const { getBuilders } = require("../../core/workerUtils");
 const {
   isMoving,
   rallyWorkerToTarget,
@@ -12,6 +11,7 @@ const {
   reserveWorkerForBuilding,
 } = require("../../gameLogic/economy/workerService");
 const { GameState } = require("../../state");
+const { getAvailableBuilders } = require("../../units/management/builderUtils");
 const { setPendingOrders } = require("../../units/management/unitOrders");
 const {
   getAwayPosition,
@@ -97,7 +97,7 @@ function handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrd
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function stopOverlappingBuilders(units, builder, position) {
-  const overlappingBuilders = getBuilders(units).filter(otherBuilder => {
+  const overlappingBuilders = getAvailableBuilders(units).filter(otherBuilder => {
     const orderTargetPosition = getOrderTargetPosition(units, otherBuilder);
     return otherBuilder.tag !== builder.tag && orderTargetPosition && getDistance(orderTargetPosition, position) < 1.6;
   });
