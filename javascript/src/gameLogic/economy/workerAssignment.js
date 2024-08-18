@@ -165,29 +165,23 @@ function estimateGatherAndReturnTime(worker, mineralField, averageGatheringTime)
  */
 function findBestMineralField(units, worker, townhall) {
   if (!worker.pos) {
-    // If worker.pos is undefined, return null or handle the case appropriately
     return null;
   }
 
   const suitableMineralFields = units.getMineralFields().filter(field => {
-    const numWorkers = units.getWorkers().filter(w => {
-      const { orders } = w;
-      if (!orders) return false;
-      return orders.some(order => order.targetUnitTag === field.tag);
+    const workerCount = field.labels.get('workerCount') || 0;
+    const numWorkersAssigned = units.getWorkers().filter(w => {
+      return w.orders && w.orders.some(order => order.targetUnitTag === field.tag);
     }).length;
 
     return (
-      getDistance(field.pos, townhall.pos) < 8 && // Close enough to the townhall
-      numWorkers < 2 && // Less than 2 workers assigned
-      (!field.labels.has('workerCount') || field.labels.get('workerCount') < 2) // Custom labels check
+      getDistance(field.pos, townhall.pos) < 8 &&
+      workerCount < 2 &&
+      numWorkersAssigned < 2
     );
   });
 
-  if (suitableMineralFields.length > 0) {
-    return units.getClosest(worker.pos, suitableMineralFields)[0];
-  }
-
-  return null;
+  return suitableMineralFields.length > 0 ? units.getClosest(worker.pos, suitableMineralFields)[0] : null;
 }
 
 /**
