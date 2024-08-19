@@ -8,7 +8,7 @@ const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
-const { getTimeInSeconds, getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("./pathfinding");
+const { getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("./pathfinding");
 const { getDistance } = require("./spatialCoreUtils");
 const config = require("../../../../config/config");
 const MapResources = require("../../../../data/mapResources/mapResources");
@@ -19,6 +19,7 @@ const { GameState } = require('../../../state');
 const { buildingPositions } = require("../../../state");
 const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../../../units/management/unitConfig");
 const BuildingPlacement = require("../../construction/buildingPlacement");
+const { getTimeInSeconds } = require("../timeUtils");
 
 /**
  * @typedef {Object} FootprintType

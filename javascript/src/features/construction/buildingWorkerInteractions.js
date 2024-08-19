@@ -5,9 +5,7 @@ const { createUnitCommand } = require("../../core/common");
 const {
   isMoving,
   rallyWorkerToTarget,
-  getUnitsFromClustering,
   setBuilderLabel,
-  getOrderTargetPosition,
   reserveWorkerForBuilding,
 } = require("../../gameLogic/economy/workerService");
 const { GameState } = require("../../state");
@@ -15,7 +13,9 @@ const { getAvailableBuilders } = require("../../units/management/builderUtils");
 const { setPendingOrders } = require("../../units/management/unitOrders");
 const {
   getAwayPosition,
+  getUnitsFromClustering,
   areApproximatelyEqual,
+  getOrderTargetPosition,
 } = require("../shared/pathfinding/pathfinding");
 const { getDistanceByPath } = require("../shared/pathfinding/pathfindingCore");
 const { getDistance } = require("../shared/pathfinding/spatialCoreUtils");

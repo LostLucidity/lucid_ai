@@ -20,8 +20,12 @@ const { getDistanceByPath, getClosestPositionByPath } = require("./pathfindingCo
 const { getDistance } = require("./spatialCoreUtils");
 const MapResources = require("../../../../data/mapResources/mapResources");
 const { getPathablePositionsForStructure } = require("../../../core/common");
-const { getClosestPathablePositionsBetweenPositions, getGasGeysers } = require("../../../core/pathfindingCore");
+const { getGasGeysers } = require("../../../core/pathfindingCore");
+const { getPendingOrders } = require("../../../sharedServices");
 const { GameState } = require('../../../state');
+const { unitTypeTrainingAbilities } = require("../../../units/management/unitConfig");
+const { getMovementSpeed, getClosestUnitByPath } = require("../movementUtils");
+const { getTimeInSeconds, getConstructionTimeLeft } = require("../timeUtils");
 
 
 /** @type {Point2D[]} */
@@ -87,6 +91,72 @@ function calculateAdjacentToRampGrids(map) {
 const calculateBaseTimeToPosition = (baseDistanceToPosition, buildTimeLeft, movementSpeedPerSecond) => {
   return (baseDistanceToPosition / movementSpeedPerSecond) + getTimeInSeconds(buildTimeLeft) + movementSpeedPerSecond;
 };
+
+/**
+ * @param {World} world
+ * @param {Unit[]} movingOrConstructingNonDrones 
+ * @param {Point2D} position 
+ * @returns {{unit: Unit, timeToPosition: number}[]}
+ */
+function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrConstructingNonDrones, position) {
+  const { resources } = world;
+  const { map, units } = resources.get();
+  const { SCV, SUPPLYDEPOT } = UnitType;
+
+  return movingOrConstructingNonDrones.reduce((/** @type {{unit: Unit, timeToPosition: number}[]} */acc, movingOrConstructingNonDrone) => {
+    const { orders, pos, unitType } = movingOrConstructingNonDrone;
+    if (orders === undefined || pos === undefined || unitType === undefined) return acc;
+
+    orders.push(...getPendingOrders(movingOrConstructingNonDrone));
+    const { abilityId, targetWorldSpacePos, targetUnitTag } = orders[0];
+    if (abilityId === undefined || (targetWorldSpacePos === undefined && targetUnitTag === undefined)) return acc;
+
+    const movingPosition = targetWorldSpacePos ? targetWorldSpacePos : targetUnitTag ? units.getByTag(targetUnitTag).pos : undefined;
+    const gameState = GameState.getInstance();
+    const movementSpeed = getMovementSpeed(map, movingOrConstructingNonDrone, gameState);
+    if (movingPosition === undefined || movementSpeed === undefined) return acc;
+
+    const movementSpeedPerSecond = movementSpeed * 1.4;
+    const isSCV = unitType === SCV;
+    const constructingStructure = isSCV ? getStructureAtPosition(units, movingPosition) : undefined;
+    constructingStructure && MapResources.setPathableGrids(map, constructingStructure, true);
+
+    const pathableMovingPosition = getClosestUnitPositionByPath(resources, movingPosition, pos);
+    const movingProbeTimeToMovePosition = getDistanceByPath(resources, pos, pathableMovingPosition) / movementSpeedPerSecond;
+
+    constructingStructure && MapResources.setPathableGrids(map, constructingStructure, false);
+
+    let buildTimeLeft = 0;
+    /** @type {Point2D[]} */
+    let supplyDepotCells = [];
+    if (isSCV) {
+      buildTimeLeft = getConstructionTimeLeft(world, movingOrConstructingNonDrone);
+      const isConstructingSupplyDepot = unitTypeTrainingAbilities.get(abilityId) === SUPPLYDEPOT;
+      if (isConstructingSupplyDepot) {
+        const [supplyDepot] = units.getClosest(movingPosition, units.getStructures().filter(structure => structure.unitType === SUPPLYDEPOT));
+        if (supplyDepot !== undefined) {
+          const { pos, unitType } = supplyDepot; if (pos === undefined || unitType === undefined) return acc;
+          const footprint = getFootprint(unitType); if (footprint === undefined) return acc;
+          supplyDepotCells = cellsInFootprint(pos, footprint);
+          supplyDepotCells.forEach(cell => map.setPathable(cell, true));
+        }
+      }
+    }
+
+    const pathablePremovingPosition = getClosestUnitPositionByPath(resources, position, pathableMovingPosition);
+    const targetTimeToPremovePosition = getDistanceByPath(resources, pathableMovingPosition, pathablePremovingPosition) / movementSpeedPerSecond;
+    supplyDepotCells.forEach(cell => map.setPathable(cell, false));
+
+    const timeToPosition = movingProbeTimeToMovePosition + buildTimeLeft + targetTimeToPremovePosition;
+
+    acc.push({
+      unit: movingOrConstructingNonDrone,
+      timeToPosition: timeToPosition
+    });
+
+    return acc;
+  }, []);
+}
 
 /**
  * Performs DBSCAN clustering on a given set of points.
@@ -164,6 +234,66 @@ function dbscan(points, eps = 1.5, minPts = 1) {
 
     return { x: xSum / count, y: ySum / count };
   });
+}
+
+/**
+ * @param {{point: Point2D, unit: Unit}[]} pointsWithUnits
+ * @param {number} eps
+ * @param {number} minPts
+ * @returns {{center: Point2D, units: Unit[]}[]}
+ */
+function dbscanWithUnits(pointsWithUnits, eps = 1.5, minPts = 1) {
+  const clusters = [];
+  const visited = new Set();
+  const noise = new Set();
+
+  /**
+   * Finds points within the specified distance (eps) of point p.
+   * @param {Point2D} p - The point to query around.
+   * @returns {{point: Point2D, unit: Unit}[]}
+   */
+  function rangeQuery(p) {
+    return pointsWithUnits.filter(({ point }) => getDistance(p, point) <= eps);
+  }
+
+  for (const { point } of pointsWithUnits) {
+    if (visited.has(point)) continue;
+    visited.add(point);
+
+    let neighbors = rangeQuery(point);
+
+    if (neighbors.length < minPts) {
+      noise.add(point);
+    } else {
+      const cluster = new Set([point]);
+
+      for (const neighbor of neighbors) {
+        const { point: neighborPoint } = neighbor;
+        if (!visited.has(neighborPoint)) {
+          visited.add(neighborPoint);
+          const newNeighbors = rangeQuery(neighborPoint);
+          if (newNeighbors.length >= minPts) {
+            neighbors = neighbors.concat(newNeighbors);
+          }
+        }
+        cluster.add(neighborPoint);
+      }
+
+      const clusterUnits = pointsWithUnits
+        .filter(pt => cluster.has(pt.point))
+        .map(pt => pt.unit);
+
+      const validPoints = [...cluster].filter(p => p.x !== undefined && p.y !== undefined);
+      const center = {
+        x: validPoints.reduce((a, b) => a + (b.x || 0), 0) / validPoints.length,
+        y: validPoints.reduce((a, b) => a + (b.y || 0), 0) / validPoints.length,
+      };
+
+      clusters.push({ center, units: clusterUnits });
+    }
+  }
+
+  return clusters;
 }
 
 /**
@@ -329,6 +459,26 @@ function getBuildingAndAddonGrids(pos, unitType) {
 }
 
 /**
+ * Get clusters of builder candidate positions
+ * @param {Unit[]} builderCandidates 
+ * @returns {{center: Point2D, units: Unit[]}[]}
+ */
+function getBuilderCandidateClusters(builderCandidates) {
+  // Prepare data for dbscanWithUnits
+  let pointsWithUnits = builderCandidates.reduce((/** @type {{point: Point2D, unit: Unit}[]} */accumulator, builder) => {
+    const { pos } = builder;
+    if (pos === undefined) return accumulator;
+    accumulator.push({ point: pos, unit: builder });
+    return accumulator;
+  }, []);
+
+  // Apply DBSCAN to get clusters
+  let builderCandidateClusters = dbscanWithUnits(pointsWithUnits, 9);
+
+  return builderCandidateClusters;
+}
+
+/**
  * @param {UnitResource} units
  * @returns {Point2D[]}
  */
@@ -345,79 +495,6 @@ function getBuildingFootprintOfOrphanAddons(units) {
     }
   });
   return buildingFootprints;
-}
-
-/**
- *
- * @param {ResourceManager} resources
- * @param {Point2D|SC2APIProtocol.Point} position
- * @param {Unit[]} units
- * @param {Unit[]} gasGeysers
- * @param {number} n
- * @returns {Unit[]}
- */
-function getClosestUnitByPath(resources, position, units, gasGeysers = [], n = 1) {
-  const { map } = resources.get();
-
-  const splitUnits = units.reduce((/** @type {{within16: Unit[], outside16: Unit[]}} */acc, unit) => {
-    const { pos } = unit;
-    if (pos === undefined) return acc;
-
-    // Use a fallback value if getDistance returns undefined
-    const distanceToUnit = getDistance(pos, position) || Number.MAX_VALUE;
-    const pathablePosData = getClosestPathablePositionsBetweenPositions(resources, pos, position, gasGeysers);
-    const distanceByPath = getDistanceByPath(resources, pathablePosData.pathablePosition, pathablePosData.pathableTargetPosition) || Number.MAX_VALUE;
-
-    const isWithin16 = distanceToUnit <= 16 && distanceByPath <= 16;
-    return {
-      within16: isWithin16 ? [...acc.within16, unit] : acc.within16,
-      outside16: isWithin16 ? acc.outside16 : [...acc.outside16, unit]
-    };
-  }, { within16: [], outside16: [] });
-
-  let closestUnits = splitUnits.within16.sort((a, b) => {
-    const { pos } = a; if (pos === undefined) return 1;
-    const { pos: bPos } = b; if (bPos === undefined) return -1;
-    const aData = getClosestPathablePositionsBetweenPositions(resources, pos, position, gasGeysers);
-    const bData = getClosestPathablePositionsBetweenPositions(resources, bPos, position, gasGeysers);
-    return getDistanceByPath(resources, aData.pathablePosition, aData.pathableTargetPosition) - getDistanceByPath(resources, bData.pathablePosition, bData.pathableTargetPosition);
-  });
-
-  if (n === 1 && closestUnits.length > 0) return closestUnits;
-
-  const unitsByDistance = [...closestUnits, ...splitUnits.outside16].reduce((/** @type {{unit: Unit, distance: number}[]} */acc, unit) => {
-    const { pos } = unit;
-    if (pos === undefined) return acc;
-
-    const expansionWithin16 = map.getExpansions().find(expansion => {
-      const { centroid: expansionPos } = expansion;
-      if (expansionPos === undefined) return false;
-
-      const pathablePosData = getClosestPathablePositionsBetweenPositions(resources, expansionPos, pos, gasGeysers);
-      if (!pathablePosData) return false;
-
-      // Use fallback values if getDistance or pathablePosData.distance returns undefined
-      const distanceToExpansion = getDistance(expansionPos, pos) || Number.MAX_VALUE;
-      const distanceByPath = pathablePosData.distance || Number.MAX_VALUE;
-
-      return distanceToExpansion <= 16 && distanceByPath <= 16;
-    });
-
-    if (!expansionWithin16 || !expansionWithin16.centroid) return acc;
-    const closestPathablePositionBetweenPositions = getClosestPathablePositionsBetweenPositions(resources, expansionWithin16.centroid, position, gasGeysers);
-    if (!closestPathablePositionBetweenPositions) return acc;
-
-    // Add only if closestPathablePositionBetweenPositions.distance is defined
-    if (typeof closestPathablePositionBetweenPositions.distance === 'number') {
-      acc.push({ unit, distance: closestPathablePositionBetweenPositions.distance });
-    }
-    return acc;
-  }, []).sort((a, b) => {
-    if (a === undefined || b === undefined) return 0;
-    return a.distance - b.distance;
-  });
-
-  return unitsByDistance.slice(0, n).map(u => u.unit);
 }
 
 /**
@@ -476,6 +553,24 @@ function getClosestBuilderCandidate(resources, builderCandidateClusters, positio
 
   // Return the closest candidate, or undefined if none was found
   return closestBuilderCandidate;
+}
+
+/**
+ * Finds the closest expansion to a given position.
+ * @param {MapResource} map - The map resource object from the bot.
+ * @param {Point2D} position - The position to compare against expansion locations.
+ * @returns {Expansion | undefined} The closest expansion, or undefined if not found.
+ */
+function getClosestExpansion(map, position) {
+  const expansions = map.getExpansions();
+  if (expansions.length === 0) return undefined;
+
+  return expansions.sort((a, b) => {
+    // Use a fallback value (like Number.MAX_VALUE) if getDistance returns undefined
+    const distanceA = getDistance(a.townhallPosition, position) || Number.MAX_VALUE;
+    const distanceB = getDistance(b.townhallPosition, position) || Number.MAX_VALUE;
+    return distanceA - distanceB;
+  })[0];
 }
 
 /**
@@ -575,6 +670,25 @@ function getOccupiedExpansions(resources) {
 
 /**
  * @param {UnitResource} units
+ * @param {Unit} unit
+ * @returns {Point2D|undefined}
+ */
+function getOrderTargetPosition(units, unit) {
+  if (unit.orders && unit.orders.length > 0) {
+    const order = unit.orders[0];
+    if (order.targetWorldSpacePos) {
+      return order.targetWorldSpacePos;
+    } else if (order.targetUnitTag) {
+      const targetUnit = units.getByTag(order.targetUnitTag);
+      if (targetUnit) {
+        return targetUnit.pos;
+      }
+    }
+  }
+}
+
+/**
+ * @param {UnitResource} units
  * @param {Point2D} movingPosition
  * @returns {Unit | undefined}
  * @description Returns the structure at the given position.
@@ -587,12 +701,38 @@ function getStructureAtPosition(units, movingPosition) {
 }
 
 /**
- * @param {number} frames 
- * @returns {number}
+ * Cluster units and find the closest unit to each cluster's centroid.
+ * @param {Unit[]} units
+ * @returns {Unit[]}
  */
-function getTimeInSeconds(frames) {
-  return frames / 22.4;
-}
+const getUnitsFromClustering = (units) => {
+  // Perform clustering on builderCandidates
+  let unitPoints = units.reduce((/** @type {Point2D[]} */accumulator, builder) => {
+    const { pos } = builder; if (pos === undefined) return accumulator;
+    accumulator.push(pos);
+    return accumulator;
+  }, []);
+  // Apply DBSCAN to get clusters
+  const clusters = dbscan(unitPoints);
+  // Find the closest builderCandidate to each centroid
+  let closestUnits = clusters.reduce((/** @type {Unit[]} */acc, builderCandidateCluster) => {
+    let closestBuilderCandidate;
+    let shortestDistance = Infinity;
+    for (let unit of units) {
+      const { pos } = unit; if (pos === undefined) return acc;
+      let distance = getDistance(builderCandidateCluster, pos);
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        closestBuilderCandidate = unit;
+      }
+    }
+    if (closestBuilderCandidate) {
+      acc.push(closestBuilderCandidate);
+    }
+    return acc;
+  }, []);
+  return closestUnits;
+};
 
 /**
  * Finds the intersection of two arrays of points.
@@ -688,6 +828,7 @@ module.exports = {
   areApproximatelyEqual,
   calculateAdjacentToRampGrids,
   calculateBaseTimeToPosition,
+  calculateMovingOrConstructingNonDronesTimeToPosition,
   dbscan,
   existsInMap,
   findZergPlacements,
@@ -696,17 +837,20 @@ module.exports = {
   getAdjacentToRampGrids,
   getAllLandingGrids,
   getAwayPosition,
+  getBuilderCandidateClusters,
   getBuildingAndAddonGrids,
   getBuildingFootprintOfOrphanAddons,
   getClosestBuilderCandidate,
+  getClosestExpansion,
   getClosestUnitByPath,
   getClosestUnitFromUnit,
   getClosestUnitPositionByPath,
   getGasGeysers,
   getOccupiedExpansions,
+  getOrderTargetPosition,
   getNextSafeExpansions,
   getStructureAtPosition,
-  getTimeInSeconds,
+  getUnitsFromClustering,
   intersectionOfPoints,
   isBuildingAndAddonPlaceable,
   pointsOverlap,

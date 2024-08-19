@@ -2,7 +2,7 @@
 
 const { hasAddOn, findBestPositionForAddOn } = require("./buildingUtils");
 const { calculateLiftLandAndMoveTime } = require("./commonUtils");
-const { getTimeInSeconds } = require("../features/shared/pathfinding/pathfinding");
+const { getTimeInSeconds } = require("../features/shared/timeUtils");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../units/management/unitConfig");
 
 /**

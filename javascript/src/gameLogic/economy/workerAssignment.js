@@ -8,12 +8,12 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 
 // Internal module imports
-const { getClosestExpansion, isMoving, isWorkerReservedForBuilding } = require("./workerService");
+const { isMoving, isWorkerReservedForBuilding } = require("./workerService");
 const config = require("../../../config/config");
 const { getUnitsWithinDistance, createUnitCommand } = require("../../core/common");
 const { getNeediestMineralField, getMineralFieldAssignments } = require("../../core/resourceUtils");
 const { findClosestMineralField } = require("../../features/shared/coreUtils");
-const { getClosestUnitFromUnit } = require("../../features/shared/pathfinding/pathfinding");
+const { getClosestUnitFromUnit, getClosestExpansion } = require("../../features/shared/pathfinding/pathfinding");
 const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
 const { findEnemyUnitsNear } = require("../../features/shared/scoutingUtils");
 const { isTownhallInDanger } = require("../../features/shared/stateManagement");

@@ -1,27 +1,25 @@
 // Import necessary constants, types, and other modules
 
 // External library imports
-const { UnitType, Buff, Ability } = require("@node-sc2/core/constants");
+const { UnitType, Ability } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { WorkerRace } = require("@node-sc2/core/constants/race-map");
-const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal module imports
-const MapResources = require("../../../data/mapResources/mapResources");
 const { createUnitCommand } = require("../../core/common");
 const { getById } = require("../../core/generalUtils");
 const { getNeediestMineralField } = require("../../core/resourceUtils");
 const { getClosestPathWithGasGeysers } = require("../../core/sharedPathfindingUtils");
-const { getMovementSpeed, getWorkerSourceByPath } = require("../../features/shared/coreUtils");
-const { getClosestUnitPositionByPath, getStructureAtPosition, getTimeInSeconds, dbscan, areApproximatelyEqual } = require("../../features/shared/pathfinding/pathfinding");
+const { getWorkerSourceByPath } = require("../../features/shared/coreUtils");
+const { areApproximatelyEqual, getUnitsFromClustering, getOrderTargetPosition } = require("../../features/shared/pathfinding/pathfinding");
 const { getDistanceByPath } = require("../../features/shared/pathfinding/pathfindingCore");
 const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
+const { getBuildTimeLeft } = require("../../features/shared/timeUtils");
 const { getPendingOrders } = require("../../sharedServices");
 const { GameState } = require('../../state');
-const { unitTypeTrainingAbilities, flyingTypesMapping } = require("../../units/management/unitConfig");
+const { unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
 const { setPendingOrders } = require("../../units/management/unitOrders");
 
 /**
@@ -69,132 +67,6 @@ function ability(world, abilityId, isIdleOrAlmostIdleFunc) {
   }
 
   return collectedActions;
-}
-
-/**
- * @param {World} world
- * @param {Unit[]} movingOrConstructingNonDrones 
- * @param {Point2D} position 
- * @returns {{unit: Unit, timeToPosition: number}[]}
- */
-function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrConstructingNonDrones, position) {
-  const { resources } = world;
-  const { map, units } = resources.get();
-  const { SCV, SUPPLYDEPOT } = UnitType;
-
-  return movingOrConstructingNonDrones.reduce((/** @type {{unit: Unit, timeToPosition: number}[]} */acc, movingOrConstructingNonDrone) => {
-    const { orders, pos, unitType } = movingOrConstructingNonDrone;
-    if (orders === undefined || pos === undefined || unitType === undefined) return acc;
-
-    orders.push(...getPendingOrders(movingOrConstructingNonDrone));
-    const { abilityId, targetWorldSpacePos, targetUnitTag } = orders[0];
-    if (abilityId === undefined || (targetWorldSpacePos === undefined && targetUnitTag === undefined)) return acc;
-
-    const movingPosition = targetWorldSpacePos ? targetWorldSpacePos : targetUnitTag ? units.getByTag(targetUnitTag).pos : undefined;
-    const gameState = GameState.getInstance();
-    const movementSpeed = getMovementSpeed(map, movingOrConstructingNonDrone, gameState);
-    if (movingPosition === undefined || movementSpeed === undefined) return acc;
-
-    const movementSpeedPerSecond = movementSpeed * 1.4;
-    const isSCV = unitType === SCV;
-    const constructingStructure = isSCV ? getStructureAtPosition(units, movingPosition) : undefined;
-    constructingStructure && MapResources.setPathableGrids(map, constructingStructure, true);
-
-    const pathableMovingPosition = getClosestUnitPositionByPath(resources, movingPosition, pos);
-    const movingProbeTimeToMovePosition = getDistanceByPath(resources, pos, pathableMovingPosition) / movementSpeedPerSecond;
-
-    constructingStructure && MapResources.setPathableGrids(map, constructingStructure, false);
-
-    let buildTimeLeft = 0;
-    /** @type {Point2D[]} */
-    let supplyDepotCells = [];
-    if (isSCV) {
-      buildTimeLeft = getConstructionTimeLeft(world, movingOrConstructingNonDrone);
-      const isConstructingSupplyDepot = unitTypeTrainingAbilities.get(abilityId) === SUPPLYDEPOT;
-      if (isConstructingSupplyDepot) {
-        const [supplyDepot] = units.getClosest(movingPosition, units.getStructures().filter(structure => structure.unitType === SUPPLYDEPOT));
-        if (supplyDepot !== undefined) {
-          const { pos, unitType } = supplyDepot; if (pos === undefined || unitType === undefined) return acc;
-          const footprint = getFootprint(unitType); if (footprint === undefined) return acc;
-          supplyDepotCells = cellsInFootprint(pos, footprint);
-          supplyDepotCells.forEach(cell => map.setPathable(cell, true));
-        }
-      }
-    }
-
-    const pathablePremovingPosition = getClosestUnitPositionByPath(resources, position, pathableMovingPosition);
-    const targetTimeToPremovePosition = getDistanceByPath(resources, pathableMovingPosition, pathablePremovingPosition) / movementSpeedPerSecond;
-    supplyDepotCells.forEach(cell => map.setPathable(cell, false));
-
-    const timeToPosition = movingProbeTimeToMovePosition + buildTimeLeft + targetTimeToPremovePosition;
-
-    acc.push({
-      unit: movingOrConstructingNonDrone,
-      timeToPosition: timeToPosition
-    });
-
-    return acc;
-  }, []);
-}
-
-/**
- * @param {{point: Point2D, unit: Unit}[]} pointsWithUnits
- * @param {number} eps
- * @param {number} minPts
- * @returns {{center: Point2D, units: Unit[]}[]}
- */
-function dbscanWithUnits(pointsWithUnits, eps = 1.5, minPts = 1) {
-  const clusters = [];
-  const visited = new Set();
-  const noise = new Set();
-
-  /**
-   * Finds points within the specified distance (eps) of point p.
-   * @param {Point2D} p - The point to query around.
-   * @returns {{point: Point2D, unit: Unit}[]}
-   */
-  function rangeQuery(p) {
-    return pointsWithUnits.filter(({ point }) => getDistance(p, point) <= eps);
-  }
-
-  for (const { point } of pointsWithUnits) {
-    if (visited.has(point)) continue;
-    visited.add(point);
-
-    let neighbors = rangeQuery(point);
-
-    if (neighbors.length < minPts) {
-      noise.add(point);
-    } else {
-      const cluster = new Set([point]);
-
-      for (const neighbor of neighbors) {
-        const { point: neighborPoint } = neighbor;
-        if (!visited.has(neighborPoint)) {
-          visited.add(neighborPoint);
-          const newNeighbors = rangeQuery(neighborPoint);
-          if (newNeighbors.length >= minPts) {
-            neighbors = neighbors.concat(newNeighbors);
-          }
-        }
-        cluster.add(neighborPoint);
-      }
-
-      const clusterUnits = pointsWithUnits
-        .filter(pt => cluster.has(pt.point))
-        .map(pt => pt.unit);
-
-      const validPoints = [...cluster].filter(p => p.x !== undefined && p.y !== undefined);
-      const center = {
-        x: validPoints.reduce((a, b) => a + (b.x || 0), 0) / validPoints.length,
-        y: validPoints.reduce((a, b) => a + (b.y || 0), 0) / validPoints.length,
-      };
-
-      clusters.push({ center, units: clusterUnits });
-    }
-  }
-
-  return clusters;
 }
 
 /**
@@ -251,147 +123,6 @@ function gatherBuilderCandidates(units, builderCandidates, position) {
   }));
   return builderCandidates;
 }
-
-/**
- * Get clusters of builder candidate positions
- * @param {Unit[]} builderCandidates 
- * @returns {{center: Point2D, units: Unit[]}[]}
- */
-function getBuilderCandidateClusters(builderCandidates) {
-  // Prepare data for dbscanWithUnits
-  let pointsWithUnits = builderCandidates.reduce((/** @type {{point: Point2D, unit: Unit}[]} */accumulator, builder) => {
-    const { pos } = builder;
-    if (pos === undefined) return accumulator;
-    accumulator.push({ point: pos, unit: builder });
-    return accumulator;
-  }, []);
-
-  // Apply DBSCAN to get clusters
-  let builderCandidateClusters = dbscanWithUnits(pointsWithUnits, 9);
-
-  return builderCandidateClusters;
-}
-
-/**
- * Calculates the remaining build time for a unit, considering buffs like Chrono Boost.
- * 
- * @param {Unit} unit - The unit being trained or constructed.
- * @param {number | undefined} buildTime - The base build time of the unit or structure.
- * @param {number} progress - The current build progress of the unit or structure.
- * @returns {number} - The remaining build time in game frames.
- */
-function getBuildTimeLeft(unit, buildTime, progress) {
-  // Handle undefined buildTime by returning a large number, indicating the build is not close to finishing
-  if (buildTime === undefined) return Number.MAX_SAFE_INTEGER;
-
-  const { buffIds } = unit;
-  if (buffIds && buffIds.includes(Buff.CHRONOBOOSTENERGYCOST)) {
-    buildTime = buildTime * 2 / 3;  // Chrono Boost accelerates construction/training time
-  }
-
-  return Math.round(buildTime * (1 - progress));
-}
-
-/**
- * Finds the closest expansion to a given position.
- * @param {MapResource} map - The map resource object from the bot.
- * @param {Point2D} position - The position to compare against expansion locations.
- * @returns {Expansion | undefined} The closest expansion, or undefined if not found.
- */
-function getClosestExpansion(map, position) {
-  const expansions = map.getExpansions();
-  if (expansions.length === 0) return undefined;
-
-  return expansions.sort((a, b) => {
-    // Use a fallback value (like Number.MAX_VALUE) if getDistance returns undefined
-    const distanceA = getDistance(a.townhallPosition, position) || Number.MAX_VALUE;
-    const distanceB = getDistance(b.townhallPosition, position) || Number.MAX_VALUE;
-    return distanceA - distanceB;
-  })[0];
-}
-
-/**
- * @param {World} world
- * @param {Unit} unit 
- * @param {boolean} inSeconds
- * @returns {number}
- */
-function getConstructionTimeLeft(world, unit, inSeconds = true) {
-  const { constructionAbilities } = groupTypes;
-  const { data, resources } = world;
-  const { units } = resources.get();
-  const { orders } = unit; if (orders === undefined) return 0;
-  const constructingOrder = orders.find(order => order.abilityId && constructionAbilities.includes(order.abilityId)); if (constructingOrder === undefined) return 0;
-  const { targetWorldSpacePos, targetUnitTag } = constructingOrder; if (targetWorldSpacePos === undefined && targetUnitTag === undefined) return 0;
-  const unitTypeBeingConstructed = constructingOrder.abilityId && unitTypeTrainingAbilities.get(constructingOrder.abilityId); if (unitTypeBeingConstructed === undefined) return 0;
-  let buildTimeLeft = 0;
-  let targetPosition = targetWorldSpacePos ? targetWorldSpacePos : targetUnitTag ? units.getByTag(targetUnitTag).pos : undefined; if (targetPosition === undefined) return 0;
-  const unitAtTargetPosition = units.getStructures().find(unit => unit.pos && getDistance(unit.pos, targetPosition) < 1);
-  const { buildTime } = data.getUnitTypeData(unitTypeBeingConstructed); if (buildTime === undefined) return 0;
-  if (unitAtTargetPosition !== undefined) {
-    const progress = unitAtTargetPosition.buildProgress; if (progress === undefined) return 0;
-    buildTimeLeft = getBuildTimeLeft(unitAtTargetPosition, buildTime, progress);
-  } else {
-    buildTimeLeft = buildTime;
-  }
-  if (inSeconds) {
-    return getTimeInSeconds(buildTimeLeft);
-  }
-  return buildTimeLeft;
-}
-
-/**
- * @param {UnitResource} units
- * @param {Unit} unit
- * @returns {Point2D|undefined}
- */
-function getOrderTargetPosition(units, unit) {
-  if (unit.orders && unit.orders.length > 0) {
-    const order = unit.orders[0];
-    if (order.targetWorldSpacePos) {
-      return order.targetWorldSpacePos;
-    } else if (order.targetUnitTag) {
-      const targetUnit = units.getByTag(order.targetUnitTag);
-      if (targetUnit) {
-        return targetUnit.pos;
-      }
-    }
-  }
-}
-
-/**
- * Cluster units and find the closest unit to each cluster's centroid.
- * @param {Unit[]} units
- * @returns {Unit[]}
- */
-const getUnitsFromClustering = (units) => {
-  // Perform clustering on builderCandidates
-  let unitPoints = units.reduce((/** @type {Point2D[]} */accumulator, builder) => {
-    const { pos } = builder; if (pos === undefined) return accumulator;
-    accumulator.push(pos);
-    return accumulator;
-  }, []);
-  // Apply DBSCAN to get clusters
-  const clusters = dbscan(unitPoints);
-  // Find the closest builderCandidate to each centroid
-  let closestUnits = clusters.reduce((/** @type {Unit[]} */acc, builderCandidateCluster) => {
-    let closestBuilderCandidate;
-    let shortestDistance = Infinity;
-    for (let unit of units) {
-      const { pos } = unit; if (pos === undefined) return acc;
-      let distance = getDistance(builderCandidateCluster, pos);
-      if (distance < shortestDistance) {
-        shortestDistance = distance;
-        closestBuilderCandidate = unit;
-      }
-    }
-    if (closestBuilderCandidate) {
-      acc.push(closestBuilderCandidate);
-    }
-    return acc;
-  }, []);
-  return closestUnits;
-};
 
 /**
  * Retrieves units that are currently training a specific unit type.
@@ -694,17 +425,12 @@ function stopUnitFromMovingToPosition(unit, position) {
 // Export the shared functions
 module.exports = {
   ability,
-  calculateMovingOrConstructingNonDronesTimeToPosition,
   handleRallyBase,
   filterBuilderCandidates,
   filterMovingOrConstructingNonDrones,
   gatherBuilderCandidates,
-  getBuilderCandidateClusters,
   getBuildTimeLeft,
-  getClosestExpansion,
   getClosestPathWithGasGeysers,
-  getOrderTargetPosition,
-  getUnitsFromClustering,
   getWorkerReservedForPosition,
   isIdleOrAlmostIdle,
   isMining,

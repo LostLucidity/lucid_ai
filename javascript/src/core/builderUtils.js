@@ -12,9 +12,9 @@ const { TownhallRace } = require("@node-sc2/core/constants/race-map");
 const EarmarkManager = require("./earmarkManager");
 const BuildingPlacement = require("../features/construction/buildingPlacement");
 const { calculateClosestConstructingWorker } = require("../features/shared/coreUtils");
-const { getClosestBuilderCandidate } = require("../features/shared/pathfinding/pathfinding");
+const { getClosestBuilderCandidate, getBuilderCandidateClusters, calculateMovingOrConstructingNonDronesTimeToPosition } = require("../features/shared/pathfinding/pathfinding");
 const { gatherCandidateWorkersTimeToPosition } = require("../features/shared/workerManagementUtils");
-const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates, getBuilderCandidateClusters, calculateMovingOrConstructingNonDronesTimeToPosition } = require("../gameLogic/economy/workerService");
+const { gatherBuilderCandidates, filterMovingOrConstructingNonDrones, filterBuilderCandidates } = require("../gameLogic/economy/workerService");
 const { GameState } = require('../state');
 const { getAvailableBuilders } = require("../units/management/builderUtils");
 

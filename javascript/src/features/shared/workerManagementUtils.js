@@ -6,7 +6,7 @@ const groupTypes = require('@node-sc2/core/constants/groups');
 const { GasMineRace, WorkerRace } = require('@node-sc2/core/constants/race-map');
 
 // Internal module imports
-const { getMovementSpeed } = require('./coreUtils');
+const { getMovementSpeed } = require('./movementUtils');
 const { calculateBaseTimeToPosition } = require('./pathfinding/pathfinding');
 const { getDistanceByPath, getClosestPositionByPath } = require('./pathfinding/pathfindingCore');
 const { isPendingConstructing } = require('./workerCommonUtils');

@@ -1,17 +1,14 @@
 // coreUtils.js
 
 const { UnitType } = require("@node-sc2/core/constants");
-const Buff = require("@node-sc2/core/constants/buff");
 const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
-const { getClosestUnitByPath, getTimeInSeconds } = require("./pathfinding/pathfinding");
+const { getClosestUnitByPath } = require("./pathfinding/pathfinding");
 const { getDistanceByPath } = require("./pathfinding/pathfindingCore");
 const { getDistance } = require("./pathfinding/spatialCoreUtils");
-const { SPEED_MODIFIERS } = require("../../core/constants");
-// eslint-disable-next-line no-unused-vars
-const { GameState } = require("../../state");
-const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS, unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
+const { getTimeInSeconds } = require("./timeUtils");
+const { unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
 
 
 /**
@@ -164,44 +161,6 @@ function findClosestUnit(position, units, initialRadius = 16) {
 }
 
 /**
- * Constants defined outside the function to avoid reinitialization on every call.
- */
-const NO_CREEP_BONUS_TYPES = new Set([UnitType.DRONE, UnitType.BROODLING, UnitType.CHANGELING /* and any burrowed unit type */]);
-const DEFAULT_CREEP_SPEED_BONUS = 1.3;
-
-/**
- * Calculates the movement speed of a unit based on various factors.
- * @param {MapResource} map The map resource object.
- * @param {Unit} unit The unit for which to calculate movement speed.
- * @param {GameState} gameState The current game state.
- * @param {boolean} adjustForRealSeconds Adjusts speed for real-time seconds.
- * @returns {number} The movement speed of the unit.
- */
-function getMovementSpeed(map, unit, gameState, adjustForRealSeconds = false) {
-  const { pos, unitType } = unit;
-  if (!pos || !unitType) return 0;
-
-  let movementSpeed = getMovementSpeedByType(unit);
-  if (!movementSpeed) return 0;
-
-  // Start with a base multiplier and conditionally modify it
-  let multiplier = adjustForRealSeconds ? 1.4 : 1;
-  if (unit.buffIds?.includes(Buff.STIMPACK)) {
-    multiplier *= 1.5;
-  }
-  if (map.hasCreep(pos) && !NO_CREEP_BONUS_TYPES.has(unitType)) {
-    multiplier *= ZERG_UNITS_ON_CREEP_BONUS.get(unitType) || DEFAULT_CREEP_SPEED_BONUS;
-  }
-
-  const speedModifierFunc = SPEED_MODIFIERS.get(unitType);
-  if (speedModifierFunc) {
-    movementSpeed += speedModifierFunc(unit, gameState);
-  }
-
-  return movementSpeed * multiplier;
-}
-
-/**
  * Get the closest worker source to a given position.
  * @param {World} world
  * @param {Point2D} position
@@ -231,6 +190,5 @@ module.exports = {
   calculateDistance,
   findClosestBase,
   findClosestMineralField,
-  getMovementSpeed,
   getWorkerSourceByPath,
 };
