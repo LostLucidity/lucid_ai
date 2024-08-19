@@ -44,34 +44,20 @@ function ability(world, abilityId, isIdleOrAlmostIdleFunc) {
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
 
-  const flyingTypesKeys = [...flyingTypesMapping.keys()];
+  const canDoTypes = data.findUnitTypesWithAbility(abilityId); // Simplified retrieval of unit types with ability
 
-  let canDoTypes = data.findUnitTypesWithAbility(abilityId)
-    .map(unitTypeId => {
-      const key = flyingTypesKeys.find(key => flyingTypesMapping.get(key) === unitTypeId);
-      return key ? [unitTypeId, key] : [unitTypeId];
-    }).flat();
-
-  if (canDoTypes.length === 0) {
-    canDoTypes = units.getAlive(Alliance.SELF).reduce((/** @type {UnitTypeId[]} */acc, unit) => {
-      if (unit.unitType) {
-        acc.push(unit.unitType);
-      }
-      return acc;
-    }, []);
-  }
-
-  const unitsCanDo = units.getById(canDoTypes);
-  if (!unitsCanDo.length) return collectedActions;
+  const unitsCanDo = units.getAlive(Alliance.SELF).filter(unit => unit.unitType !== undefined && canDoTypes.includes(unit.unitType));
 
   const unitsCanDoWithAbilityAvailable = unitsCanDo.filter(unit =>
-    unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0);
+    unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0
+  );
 
   let unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
 
   if (!unitCanDo) {
     const idleOrAlmostIdleUnits = unitsCanDo.filter(unit =>
-      isIdleOrAlmostIdleFunc(data, unit) && getPendingOrders(unit).length === 0);
+      isIdleOrAlmostIdleFunc(data, unit) && getPendingOrders(unit).length === 0
+    );
 
     unitCanDo = getRandom(idleOrAlmostIdleUnits);
   }
@@ -79,9 +65,7 @@ function ability(world, abilityId, isIdleOrAlmostIdleFunc) {
   if (unitCanDo) {
     const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
     setPendingOrders(unitCanDo, unitCommand);
-    if (unitCanDo.abilityAvailable(abilityId)) {
-      collectedActions.push(unitCommand);
-    }
+    collectedActions.push(unitCommand);
   }
 
   return collectedActions;
@@ -125,7 +109,7 @@ function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrCon
     /** @type {Point2D[]} */
     let supplyDepotCells = [];
     if (isSCV) {
-      buildTimeLeft = getContructionTimeLeft(world, movingOrConstructingNonDrone);
+      buildTimeLeft = getConstructionTimeLeft(world, movingOrConstructingNonDrone);
       const isConstructingSupplyDepot = unitTypeTrainingAbilities.get(abilityId) === SUPPLYDEPOT;
       if (isConstructingSupplyDepot) {
         const [supplyDepot] = units.getClosest(movingPosition, units.getStructures().filter(structure => structure.unitType === SUPPLYDEPOT));
@@ -332,7 +316,7 @@ function getClosestExpansion(map, position) {
  * @param {boolean} inSeconds
  * @returns {number}
  */
-function getContructionTimeLeft(world, unit, inSeconds = true) {
+function getConstructionTimeLeft(world, unit, inSeconds = true) {
   const { constructionAbilities } = groupTypes;
   const { data, resources } = world;
   const { units } = resources.get();
