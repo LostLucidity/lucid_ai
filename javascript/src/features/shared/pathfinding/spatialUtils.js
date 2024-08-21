@@ -87,10 +87,10 @@ function findPlacements(world, unitType) {
    * @returns {boolean}
    */
   const boundingBoxIntersects = (rect1, rect2) => {
-    return !(rect1.x + rect1.w <= rect2.x ||
-      rect2.x + rect2.w <= rect1.x ||
-      rect1.y + rect1.h <= rect2.y ||
-      rect2.y + rect2.h <= rect1.y);
+    return rect1.x < rect2.x + rect2.w &&
+      rect1.x + rect1.w > rect2.x &&
+      rect1.y < rect2.y + rect2.h &&
+      rect1.y + rect1.h > rect2.y;
   };
 
   /**
@@ -103,19 +103,40 @@ function findPlacements(world, unitType) {
     }
 
     const unitCells = memoizedCellsInFootprint(point, unitFootprint);
-    const unitBoundingBox = { x: point.x, y: point.y, w: unitFootprint.w, h: unitFootprint.h };
+
+    // Calculate the full bounding box for the unit based on its footprint
+    const unitBoundingBox = {
+      x: point.x - Math.floor(unitFootprint.w / 2),
+      y: point.y - Math.floor(unitFootprint.h / 2),
+      w: unitFootprint.w,
+      h: unitFootprint.h
+    };
 
     return expansionPositions.some(expansion => {
       if (expansion.x === undefined || expansion.y === undefined) {
         return false;
       }
 
+      const townhallFootprint = townhallFootprints.find(fp => fp.w && fp.h);
+
+      if (!townhallFootprint) return false;
+
+      // Calculate the full bounding box for the townhall based on its footprint
       const expansionBoundingBox = {
-        x: expansion.x, y: expansion.y, w: unitFootprint.w, h: unitFootprint.h
+        x: expansion.x - Math.floor(townhallFootprint.w / 2),
+        y: expansion.y - Math.floor(townhallFootprint.h / 2),
+        w: townhallFootprint.w,
+        h: townhallFootprint.h
       };
 
-      return boundingBoxIntersects(unitBoundingBox, expansionBoundingBox) &&
-        pointsOverlap(unitCells, memoizedCellsInFootprint(expansion, unitFootprint));
+      const overlap = boundingBoxIntersects(unitBoundingBox, expansionBoundingBox);
+
+      if (overlap) {
+        const expansionCells = memoizedCellsInFootprint(expansion, townhallFootprint);
+        return pointsOverlap(unitCells, expansionCells);
+      }
+
+      return false;
     });
   };
 
