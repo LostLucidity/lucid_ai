@@ -13,7 +13,8 @@ const { frontOfGrid } = require('@node-sc2/core/utils/map/region');
 // Internal module imports
 const { buildingPositions } = require('../../state');
 const { addOnTypesMapping } = require('../../units/management/unitConfig');
-const { calculateDistance } = require('../shared/coreUtils');
+const { calculateDistance } = require('../../utils/coreUtils');
+const { getDistance } = require('../../utils/spatialCoreUtils');
 const {
   getAdjacentToRampGrids,
   intersectionOfPoints,
@@ -23,7 +24,6 @@ const {
   getAddOnBuildingPlacement,
 } = require('../shared/pathfinding/pathfinding');
 const { getClosestPosition } = require('../shared/pathfinding/pathfindingCommonUtils');
-const { getDistance } = require('../shared/pathfinding/spatialCoreUtils');
 const StrategyContext = require('../strategy/strategyContext');
 
 const PYLON_POWER_RANGE = 6.5;

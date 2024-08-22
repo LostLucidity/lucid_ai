@@ -18,9 +18,6 @@ const { loadAllBuildOrders } = require("../../../data/buildOrders");
 const { interpretBuildOrderAction } = require("../../../data/buildOrders/buildOrderUtils");
 const { getUnitTypeData } = require("../../core/gameData");
 const ResourceEarmarkManager = require("../../core/resourceEarmarkManager");
-const { isEqualStep, getBuildOrderKey, validateResources, isValidPlan } = require("../../core/strategyUtils");
-const { convertTimeStringToSeconds } = require("../../core/timeUtils");
-const { getUnitsById } = require("../../core/unitUtils");
 const { checkUpgradeStatus } = require("../../core/upgradeUtils");
 const {
   balanceResources,
@@ -28,8 +25,11 @@ const {
 } = require("../../gameLogic/economy/economyManagement");
 const { GameState } = require("../../state");
 const { buildSupplyOrTrain } = require("../../units/management/unitManagement");
+const { checkUnitCount } = require("../../utils/stateManagement");
+const { isEqualStep, getBuildOrderKey, validateResources, isValidPlan } = require("../../utils/strategyUtils");
+const { convertTimeStringToSeconds } = require("../../utils/timeUtils");
+const { getUnitsById } = require("../../utils/unitUtils");
 const { build, hasEarmarks, resetEarmarks } = require("../construction/buildingService");
-const { checkUnitCount } = require("../shared/stateManagement");
 
 /**
  * @typedef {Object} PlanStep

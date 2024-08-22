@@ -2,8 +2,8 @@
 "use strict";
 
 const { getMapPath, getPathCoordinates } = require("./pathfindingCommonUtils");
-const { getDistance } = require("./spatialCoreUtils");
 const { getLine, getClosestPathablePositions, isLineTraversable } = require("../../../core/common");
+const { getDistance } = require("../../../utils/spatialCoreUtils");
 
 /**
   * @param {ResourceManager} resources

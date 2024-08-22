@@ -1,7 +1,7 @@
 const { Race } = require('@node-sc2/core/constants/enums');
 
-const { calculateAdjacentToRampGrids } = require('./pathfinding/pathfinding');
-const BuildingPlacement = require('../construction/buildingPlacement');
+const BuildingPlacement = require('../features/construction/buildingPlacement');
+const { calculateAdjacentToRampGrids } = require('../features/shared/pathfinding/pathfinding');
 
 /**
  * Performs initial map analysis based on the bot's race.

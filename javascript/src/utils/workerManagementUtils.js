@@ -7,18 +7,18 @@ const { GasMineRace, WorkerRace } = require('@node-sc2/core/constants/race-map')
 
 // Internal module imports
 const { getMovementSpeed } = require('./movementUtils');
-const { calculateBaseTimeToPosition } = require('./pathfinding/pathfinding');
-const { getDistanceByPath, getClosestPositionByPath } = require('./pathfinding/pathfindingCore');
-const { isPendingConstructing } = require('./workerCommonUtils');
-const { getTimeToTargetTech } = require('../../../data/gameData/gameData');
-const { createUnitCommand, getPathablePositionsForStructure } = require('../../core/common');
-const { findPathablePositions } = require('../../core/pathfindingUtils');
-const { getClosestPathWithGasGeysers, getBuildTimeLeft, reserveWorkerForBuilding } = require('../../gameLogic/economy/workerService');
+const { getTimeToTargetTech } = require('../../data/gameData/gameData');
+const { createUnitCommand, getPathablePositionsForStructure } = require('../core/common');
+const { stopOverlappingBuilders } = require('../features/construction/buildingWorkerInteractions');
+const { calculateBaseTimeToPosition } = require('../features/shared/pathfinding/pathfinding');
+const { getDistanceByPath, getClosestPositionByPath } = require('../features/shared/pathfinding/pathfindingCore');
+const { isPendingConstructing } = require('../features/shared/workerCommonUtils');
+const { getClosestPathWithGasGeysers, getBuildTimeLeft, reserveWorkerForBuilding } = require('../gameLogic/economy/workerService');
 // eslint-disable-next-line no-unused-vars
-const { GameState } = require('../../state');
-const { unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
-const { setPendingOrders } = require('../../units/management/unitOrders');
-const { stopOverlappingBuilders } = require('../construction/buildingWorkerInteractions');
+const { GameState } = require('../state');
+const { unitTypeTrainingAbilities } = require('../units/management/unitConfig');
+const { setPendingOrders } = require('../units/management/unitOrders');
+const { findPathablePositions } = require('../utils/pathfindingUtils');
 
 /**
  * Adjusts the time to position based on whether the unit should rally to the base or not.

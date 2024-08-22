@@ -1,6 +1,6 @@
 // src/utils/sharedPathfindingUtils.js
 
-const { getClosestPathablePositionsBetweenPositions } = require("./pathfindingCore");
+const { getClosestPathablePositionsBetweenPositions } = require("../core/pathfindingCore");
 const { getGasGeysers } = require("../features/shared/pathfinding/pathfinding");
 
 /**

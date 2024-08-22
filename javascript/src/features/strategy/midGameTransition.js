@@ -6,8 +6,8 @@ const buildOrderState = require('../../state/buildOrderState');
 const { train } = require('../../units/management/training');
 const { createMoveCommand } = require('../../units/management/unitCommands');
 const { upgrade } = require('../../units/management/unitManagement');
+const { isSuitableForScouting } = require('../../utils/scoutingUtils');
 const { build } = require('../construction/buildingService');
-const { isSuitableForScouting } = require('../shared/scoutingUtils');
 const { handleActiveScout, setActiveScoutTag } = require('../shared/scoutManager');
 
 // Define a list of tech building unit types

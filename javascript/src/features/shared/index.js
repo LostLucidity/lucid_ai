@@ -4,23 +4,23 @@
  */
 
 const buildingUtils = require('./buildingUtils');
-const coreUtils = require('./coreUtils');
-const mapAnalysis = require('./mapAnalysis');
 const pathfinding = require('./pathfinding/pathfinding');
 const pathfindingCommon = require('./pathfinding/pathfindingCommonUtils');
 const pathfindingCore = require('./pathfinding/pathfindingCore');
 const spatialCore = require('./pathfinding/spatialCore');
-const spatialCoreUtils = require('./pathfinding/spatialCoreUtils');
-const spatialUtils = require('./pathfinding/spatialUtils');
 const protossUtils = require('./protossUtils');
 const scoutActions = require('./scoutActions');
-const scoutingUtils = require('./scoutingUtils');
 const scoutManager = require('./scoutManager');
-const singletonFactory = require('./singletonFactory');
-const stateManagement = require('./stateManagement');
 const unitPreparationUtils = require('./unitPreparationUtils');
 const workerCommonUtils = require('./workerCommonUtils');
-const workerManagementUtils = require('./workerManagementUtils');
+const coreUtils = require('../../utils/coreUtils');
+const mapAnalysis = require('../../utils/mapAnalysis');
+const scoutingUtils = require('../../utils/scoutingUtils');
+const singletonFactory = require('../../utils/singletonFactory');
+const spatialCoreUtils = require('../../utils/spatialCoreUtils');
+const spatialUtils = require('../../utils/spatialUtils');
+const stateManagement = require('../../utils/stateManagement');
+const workerManagementUtils = require('../../utils/workerManagementUtils');
 
 module.exports = {
   unitPreparationUtils,

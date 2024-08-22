@@ -3,8 +3,8 @@
 const { Buff } = require("@node-sc2/core/constants");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
-const { getDistance } = require("./pathfinding/spatialCoreUtils");
 const { unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
+const { getDistance } = require("../../utils/spatialCoreUtils");
 
 /**
  * @param {number} frames 

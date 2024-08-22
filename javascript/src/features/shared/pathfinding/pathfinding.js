@@ -17,14 +17,14 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { getPathCoordinates, getClosestPosition, getStructureCells, getPathablePositions } = require("./pathfindingCommonUtils");
 const { getDistanceByPath, getClosestPositionByPath } = require("./pathfindingCore");
-const { getDistance } = require("./spatialCoreUtils");
 const MapResources = require("../../../../data/mapResources/mapResources");
 const { getPathablePositionsForStructure } = require("../../../core/common");
 const { getGasGeysers } = require("../../../core/pathfindingCore");
 const { getPendingOrders } = require("../../../sharedServices");
 const { GameState } = require('../../../state');
 const { unitTypeTrainingAbilities } = require("../../../units/management/unitConfig");
-const { getMovementSpeed, getClosestUnitByPath } = require("../movementUtils");
+const { getMovementSpeed, getClosestUnitByPath } = require("../../../utils/movementUtils");
+const { getDistance } = require("../../../utils/spatialCoreUtils");
 const { getTimeInSeconds, getConstructionTimeLeft } = require("../timeUtils");
 
 

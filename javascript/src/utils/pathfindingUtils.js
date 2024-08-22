@@ -1,9 +1,8 @@
 // src/core/utils/pathfindingUtils.js
 "use strict";
 
-
-const cacheManager = require("./cache");
-const { getPathablePositionsForStructure } = require("./common");
+const cacheManager = require("../core/cache");
+const { getPathablePositionsForStructure } = require("../core/common");
 const { getClosestUnitByPath } = require("../features/shared/pathfinding/pathfinding");
 const { getPathablePositions } = require("../features/shared/pathfinding/pathfindingCommonUtils");
 const { getClosestPathWithGasGeysers } = require("../gameLogic/economy/workerService");

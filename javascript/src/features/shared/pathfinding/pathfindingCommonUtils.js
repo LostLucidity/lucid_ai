@@ -3,9 +3,9 @@ const { createPoint2D, areEqual } = require("@node-sc2/core/utils/geometry/point
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { getGridsInCircleWithinMap } = require("./spatialCore");
-const { getDistance } = require("./spatialCoreUtils");
 const cacheManager = require("../../../core/cache");
 const { getClosestPathablePositions } = require("../../../core/common");
+const { getDistance } = require("../../../utils/spatialCoreUtils");
 
 /**
  * @param {Point2D[]} positions 

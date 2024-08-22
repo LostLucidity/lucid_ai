@@ -4,11 +4,11 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
-const { getClosestUnitByPath } = require("./pathfinding/pathfinding");
-const { getDistanceByPath } = require("./pathfinding/pathfindingCore");
-const { getDistance } = require("./pathfinding/spatialCoreUtils");
-const { getTimeInSeconds } = require("./timeUtils");
-const { unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
+const { getClosestUnitByPath } = require("../features/shared/pathfinding/pathfinding");
+const { getDistanceByPath } = require("../features/shared/pathfinding/pathfindingCore");
+const { getTimeInSeconds } = require("../features/shared/timeUtils");
+const { unitTypeTrainingAbilities } = require("../units/management/unitConfig");
+const { getDistance } = require("../utils/spatialCoreUtils");
 
 
 /**

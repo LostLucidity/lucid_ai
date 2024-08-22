@@ -1,4 +1,4 @@
-const { determineScoutingLocation, isSuitableForScouting } = require("./scoutingUtils");
+const { determineScoutingLocation, isSuitableForScouting } = require("../../utils/scoutingUtils");
 
 /** @type {string | null} */
 let activeScoutTag = null;

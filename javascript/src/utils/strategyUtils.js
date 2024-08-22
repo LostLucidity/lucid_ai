@@ -8,7 +8,7 @@ const { GameState } = require('../state');
 
 /**
  * Converts strategy steps (from BuildOrderStep or StrategyStep format) to PlanStep format.
- * @param {(import("./globalTypes").BuildOrderStep[] | import("../features/strategy/strategyManager").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
+ * @param {(import("../core/globalTypes").BuildOrderStep[] | import("../features/strategy/strategyManager").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
  * @returns {import("../features/strategy/strategyManager").PlanStep[]} Array of PlanStep objects.
  */
 function convertToPlanSteps(strategySteps) {
@@ -104,7 +104,7 @@ return "defaultKey";
 
 /**
  * Calculates the maximum supply from an array of build order steps, focusing on the last supply unit.
- * @param {import('./globalTypes').BuildOrderStep[]} steps - The steps in the build order.
+ * @param {import('../core/globalTypes').BuildOrderStep[]} steps - The steps in the build order.
  * @param {SC2APIProtocol.Race} race - The race of the bot.
  * @returns {number} The maximum supply value.
  */
@@ -172,7 +172,7 @@ function isEqualStep(stepA, stepB) {
 }
 
 /**
- * @param {import("./globalTypes").BuildOrder | import("../features/strategy/strategyManager").Strategy | undefined} plan
+ * @param {import("../core/globalTypes").BuildOrder | import("../features/strategy/strategyManager").Strategy | undefined} plan
  */
 function isValidPlan(plan) {
   return plan && Array.isArray(plan.steps);

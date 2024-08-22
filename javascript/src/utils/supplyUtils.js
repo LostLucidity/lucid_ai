@@ -1,7 +1,7 @@
 // src/utils/supplyUtils.js
 
-const { hasAddOn, findBestPositionForAddOn } = require("./buildingUtils");
 const { calculateLiftLandAndMoveTime } = require("./commonUtils");
+const { hasAddOn, findBestPositionForAddOn } = require("../core/buildingUtils");
 const { getTimeInSeconds } = require("../features/shared/timeUtils");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../units/management/unitConfig");
 

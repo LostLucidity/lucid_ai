@@ -8,7 +8,6 @@ const getRandom = require('@node-sc2/core/utils/get-random');
 
 const { createUnitCommand } = require('../../core/common');
 const EarmarkManager = require('../../core/earmarkManager');
-const { calculatePathablePositions } = require('../../core/pathfindingUtils');
 const {
   ability,
   isIdleOrAlmostIdle,
@@ -17,11 +16,12 @@ const {
 } = require('../../gameLogic/economy/workerService');
 const { getPendingOrders } = require('../../sharedServices');
 const { GameState } = require('../../state');
+const { calculatePathablePositions } = require('../../utils/pathfindingUtils');
+const { prepareBuildContext } = require('../../utils/workerManagementUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
 const { assignWorkersToBuild } = require('../construction/buildingWorkerInteractions');
 const { getUnitsFromClustering, getOrderTargetPosition } = require('../shared/pathfinding/pathfinding');
 const { getPathCoordinates, getMapPath } = require('../shared/pathfinding/pathfindingCommonUtils');
-const { prepareBuildContext } = require('../shared/workerManagementUtils');
 
 /**
  * @typedef {Object} BuildContext

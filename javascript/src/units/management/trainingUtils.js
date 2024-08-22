@@ -1,5 +1,5 @@
 const EarmarkManager = require("../../core/earmarkManager");
-const { checkUnitCount } = require("../../features/shared/stateManagement");
+const { checkUnitCount } = require("../../utils/stateManagement");
 
 /**
  * Determines if a unit can be trained based on the target count.

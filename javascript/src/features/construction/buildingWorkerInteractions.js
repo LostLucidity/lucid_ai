@@ -11,6 +11,7 @@ const {
 const { GameState } = require("../../state");
 const { getAvailableBuilders } = require("../../units/management/builderUtils");
 const { setPendingOrders } = require("../../units/management/unitOrders");
+const { getDistance } = require("../../utils/spatialCoreUtils");
 const {
   getAwayPosition,
   getUnitsFromClustering,
@@ -18,7 +19,6 @@ const {
   getOrderTargetPosition,
 } = require("../shared/pathfinding/pathfinding");
 const { getDistanceByPath } = require("../shared/pathfinding/pathfindingCore");
-const { getDistance } = require("../shared/pathfinding/spatialCoreUtils");
 
 /**
  * Handles non-rally base situations by assigning and moving workers.

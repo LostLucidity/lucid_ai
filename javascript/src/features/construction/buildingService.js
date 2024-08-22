@@ -22,20 +22,20 @@ const {
 const { attemptBuildAddOn, attemptLiftOff } = require("../../core/buildUtils");
 const { isSupplyNeeded } = require("../../core/common");
 const EarmarkManager = require("../../core/earmarkManager");
-const { getTimeUntilUnitCanBuildAddon } = require("../../core/supplyUtils");
 const { checkAddOnPlacement } = require("../../services/ConstructionSpatialService");
 const { getPendingOrders, foodEarmarks } = require("../../sharedServices");
 const { GameState } = require("../../state");
 const { flyingTypesMapping } = require("../../units/management/unitConfig");
 const { updateAddOnType, getUnitTypeToBuild } = require("../../units/management/unitHelpers");
+const { calculateDistance } = require("../../utils/coreUtils");
+const { findUnitPlacements, findPosition } = require("../../utils/spatialUtils");
+const { getTimeUntilUnitCanBuildAddon } = require("../../utils/supplyUtils");
+const { commandBuilderToConstruct } = require("../../utils/workerManagementUtils");
 const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionUtils");
 const { attemptLand } = require("../shared/buildingUtils");
-const { calculateDistance } = require("../shared/coreUtils");
 const { getNextSafeExpansions } = require("../shared/pathfinding/pathfinding");
-const { findPlacements, findPosition } = require("../shared/pathfinding/spatialUtils");
 const { requiresPylonPower } = require("../shared/protossUtils");
 const { prepareUnitToBuildAddon } = require("../shared/unitPreparationUtils");
-const { commandBuilderToConstruct } = require("../shared/workerManagementUtils");
 
 /**
  * Adds an add-on with placement checks and relocating logic.
@@ -154,7 +154,7 @@ function handleTownhallRace(world, unitType, candidatePositions, collectedAction
         unitType,
         candidatePositions,
         BuildingPlacement.buildingPosition,
-        findPlacements,
+        findUnitPlacements,
         findPosition,
         BuildingPlacement.setBuildingPosition
       );
@@ -182,7 +182,7 @@ function handleTownhallRace(world, unitType, candidatePositions, collectedAction
           unitType,
           candidatePositions,
           BuildingPlacement.buildingPosition,
-          findPlacements,
+          findUnitPlacements,
           findPosition,
           BuildingPlacement.setBuildingPosition
         );
@@ -271,7 +271,7 @@ function build(world, unitType, targetCount = Number.MAX_SAFE_INTEGER, candidate
     unitType,
     candidatePositions,
     BuildingPlacement.buildingPosition,
-    findPlacements,
+    findUnitPlacements,
     findPosition,
     BuildingPlacement.setBuildingPosition
   );
@@ -318,7 +318,7 @@ function buildSupply(world) {
   if (automateSupplyCondition) {
     switch (agent.race) {
       case Race.TERRAN: {
-        const candidatePositionsTerran = findPlacements(world, UnitType.SUPPLYDEPOT);
+        const candidatePositionsTerran = findUnitPlacements(world, UnitType.SUPPLYDEPOT);
         actions.push(...candidatePositionsTerran.map(pos => commandPlaceBuilding(
           world,
           UnitType.SUPPLYDEPOT,
@@ -332,7 +332,7 @@ function buildSupply(world) {
         break;
       }
       case Race.PROTOSS: {
-        const candidatePositionsProtoss = findPlacements(world, UnitType.PYLON);
+        const candidatePositionsProtoss = findUnitPlacements(world, UnitType.PYLON);
         actions.push(...candidatePositionsProtoss.map(pos => commandPlaceBuilding(
           world,
           UnitType.PYLON,

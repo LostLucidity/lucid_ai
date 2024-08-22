@@ -3,7 +3,7 @@
 const { UnitType, WarpUnitAbility } = require("@node-sc2/core/constants");
 const { Alliance } = require("@node-sc2/core/constants/enums");
 
-const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
+const { getDistance } = require("../../utils/spatialCoreUtils");
 
 const pylonsPowerRadius = 6.5;
 

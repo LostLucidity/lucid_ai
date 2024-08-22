@@ -11,15 +11,15 @@ const { gatheringAbilities } = require("@node-sc2/core/constants/groups");
 const { isMoving, isWorkerReservedForBuilding } = require("./workerService");
 const config = require("../../../config/config");
 const { getUnitsWithinDistance, createUnitCommand } = require("../../core/common");
-const { getNeediestMineralField, getMineralFieldAssignments } = require("../../core/resourceUtils");
-const { findClosestMineralField } = require("../../features/shared/coreUtils");
 const { getClosestUnitFromUnit, getClosestExpansion } = require("../../features/shared/pathfinding/pathfinding");
-const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
-const { findEnemyUnitsNear } = require("../../features/shared/scoutingUtils");
-const { isTownhallInDanger } = require("../../features/shared/stateManagement");
 const { isPendingConstructing } = require("../../features/shared/workerCommonUtils");
 const { getPendingOrders } = require("../../sharedServices");
 const { setPendingOrders } = require("../../units/management/unitOrders");
+const { findClosestMineralField } = require("../../utils/coreUtils");
+const { getNeediestMineralField, getMineralFieldAssignments } = require("../../utils/resourceUtils");
+const { findEnemyUnitsNear } = require("../../utils/scoutingUtils");
+const { getDistance } = require("../../utils/spatialCoreUtils");
+const { isTownhallInDanger } = require("../../utils/stateManagement");
 
 /**
  * Checks if the mineral fields near a townhall are saturated.

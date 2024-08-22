@@ -6,11 +6,11 @@ const { handleCannotAffordBuilding, getBuilder, prepareBuilderForConstruction, h
 const { findUnitTypesWithAbilityCached, positionIsEqual } = require("./common");
 const { logMessageStorage } = require("./logging");
 const BuildingPlacement = require("../features/construction/buildingPlacement");
-const { calculateDistance } = require("../features/shared/coreUtils");
 const { getAddOnPlacement } = require("../features/shared/pathfinding/pathfinding");
-const { getDistance } = require("../features/shared/pathfinding/spatialCoreUtils");
 const { requiresPylonPower } = require("../features/shared/protossUtils");
 const { canLiftOff } = require("../units/management/unitConfig");
+const { calculateDistance } = require("../utils/coreUtils");
+const { getDistance } = require("../utils/spatialCoreUtils");
 
 /** @type {UnitTypeId | null} */
 let lastLoggedUnitType = null;
@@ -70,7 +70,7 @@ function commandPlaceBuilding(world, unitType, position, commandBuilderToConstru
  * @param {UnitTypeId} unitType - The type of unit to place.
  * @param {Point3D[]} candidatePositions - Array of candidate positions.
  * @param {false | Point2D | undefined} buildingPositionFn - Function to get the building position.
- * @param {(world: World, unitType: UnitTypeId) => Point2D[]} findPlacementsFn - Function to find placements.
+ * @param {(world: World, unitType: UnitTypeId) => Point2D[]} findUnitPlacementsFn - Function to find placements.
  * @param {(world: World, unitType: UnitTypeId, candidatePositions: Point2D[]) => false | Point2D} findPositionFn - Function to find the position.
  * @param {(unitType: UnitTypeId, position: false | Point2D) => void} setBuildingPositionFn - Function to set the building position.
  * @returns {false | Point2D} - The determined building position or false.
@@ -80,7 +80,7 @@ function determineBuildingPosition(
   unitType,
   candidatePositions,
   buildingPositionFn,
-  findPlacementsFn,
+  findUnitPlacementsFn,
   findPositionFn,
   setBuildingPositionFn
 ) {
@@ -90,13 +90,13 @@ function determineBuildingPosition(
   }
 
   if (isGasCollector(unitType)) {
-    candidatePositions = findPlacementsFn(world, unitType).filter(pos => isGeyserFree(world, pos));
+    candidatePositions = findUnitPlacementsFn(world, unitType).filter(pos => isGeyserFree(world, pos));
     if (candidatePositions.length === 0) {
       logNoFreeGeysers();
       return false;
     }
   } else if (candidatePositions.length === 0) {
-    candidatePositions = findPlacementsFn(world, unitType);
+    candidatePositions = findUnitPlacementsFn(world, unitType);
   }
 
   const position = findPositionFn(world, unitType, candidatePositions);

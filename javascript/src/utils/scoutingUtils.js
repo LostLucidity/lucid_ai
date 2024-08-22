@@ -1,9 +1,9 @@
 // @ts-check
 "use strict";
 
-const { getDistance } = require("./pathfinding/spatialCoreUtils");
-const MapResources = require("../../../data/mapResources/mapResources");
-const { isMining } = require("../../gameLogic/economy/workerService");
+const MapResources = require("../../data/mapResources/mapResources");
+const { isMining } = require("../gameLogic/economy/workerService");
+const { getDistance } = require("../utils/spatialCoreUtils");
 
 // scoutingUtils.js
 

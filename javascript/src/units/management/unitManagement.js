@@ -17,14 +17,14 @@ const { setPendingOrders } = require("./unitOrders");
 const { getTimeToTargetTech } = require("../../../data/gameData/gameData");
 const { createUnitCommand } = require("../../core/common");
 const EarmarkManager = require("../../core/earmarkManager");
-const { productionUnitsCache } = require("../../core/unitUtils");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { buildSupply, getTimeToTargetCost } = require("../../features/construction/buildingService");
 const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../../features/shared/pathfinding/pathfinding");
-const { getDistance } = require("../../features/shared/pathfinding/spatialCoreUtils");
 const { handleUnitTraining } = require("../../gameLogic/economy/trainingManagement");
 const { getPendingOrders } = require("../../sharedServices");
 const { GameState } = require('../../state');
+const { getDistance } = require("../../utils/spatialCoreUtils");
+const { productionUnitsCache } = require("../../utils/unitUtils");
 
 /**
  * Build supply or train units based on the game world state and strategy step.

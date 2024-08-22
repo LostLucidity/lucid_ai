@@ -1,7 +1,7 @@
 const { EFFECT_CALLDOWNMULE } = require("@node-sc2/core/constants/ability");
 
 const { createUnitCommand } = require("../../core/common");
-const { getDistance } = require("../shared/pathfinding/spatialCoreUtils");
+const { getDistance } = require("../../utils/spatialCoreUtils");
 const { performScoutingWithSCV } = require("../shared/scoutActions");
 
 /**
