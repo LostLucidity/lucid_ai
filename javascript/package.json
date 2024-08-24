@@ -10,6 +10,7 @@
     "axios": "^1.6.3",
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.4.5",
+    "eslint": "^8.57.0",
     "typescript": "^5.5.4",
     "uuid": "^8.3.2"
   },
@@ -18,8 +19,6 @@
     "@babel/preset-env": "^7.22.2",
     "@types/axios": "^0.14.0",
     "@types/pathfinding": "^0.0.6",
-    "eslint": "^8.57.0",
-    "eslint-config-recommended": "^4.1.0",
     "eslint-plugin-import": "^2.29.1",
     "pkg": "^4.4.8",
     "webpack": "^4.43.0",
