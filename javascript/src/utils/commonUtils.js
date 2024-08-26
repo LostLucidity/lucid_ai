@@ -53,7 +53,22 @@ function haveSupplyForUnit(world, unitType) {
   return supplyLeft >= 0;
 }
 
+/**
+ * Shuffles an array using the Fisher-Yates algorithm.
+ * @template T
+ * @param {T[]} array - The array to shuffle.
+ * @returns {T[]} The shuffled array.
+ */
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 module.exports = {
   calculateLiftLandAndMoveTime,
   haveSupplyForUnit,
+  shuffle
 };

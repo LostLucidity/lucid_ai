@@ -2,9 +2,10 @@ const { UnitType } = require("@node-sc2/core/constants");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
+const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
-const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
+const { createPoint2D, distance } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
@@ -31,6 +32,15 @@ const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("..
  * Memoize cellsInFootprint function
  */
 const cellsInFootprintCache = new Map();
+
+/**
+ * @param {Point2D[]} points
+ * @param {Point2D[]} grids
+ * @returns {Boolean}
+ */
+function allPointsWithinGrid(points, grids) {
+  return points.every(point => grids.some(second => distance(point, second) < 1))
+}
 
 /**
  * @param {Point2D} point
@@ -482,6 +492,29 @@ function findUnitPlacements(world, unitType) {
 }
 
 /**
+ * Get pylon power area
+ * @param {Point2D} position
+ * @returns {Point2D[]}
+ */
+function getPylonPowerArea(position) {
+  const pylonFootprint = getFootprint(PYLON);
+
+  // Ensure the pylonFootprint is defined before proceeding
+  if (!pylonFootprint) {
+    console.error('Failed to retrieve the footprint for PYLON.');
+    return [];
+  }
+
+  const pylonCells = cellsInFootprint(position, pylonFootprint);
+  const pylonPowerCircleGrids = gridsInCircle(position, 7, { normalize: true })
+    .filter(grid => distance(grid, position) <= 6.5);
+
+  const pylonPowerCircleGridsExcludingPylonPlacements = pylonPowerCircleGrids.filter(grid => !pointsOverlap(pylonCells, [grid]));
+
+  return pylonPowerCircleGridsExcludingPylonPlacements;
+}
+
+/**
  * Gets unique footprints from an array of footprints.
  * @param {{ w: number, h: number }[]} footprints
  * @returns {{ w: number, h: number }[]}
@@ -507,6 +540,8 @@ function isDefinedFootprint(footprint) {
 }
 
 module.exports = {
+  allPointsWithinGrid,
   findPosition,
   findUnitPlacements,
+  getPylonPowerArea
 };

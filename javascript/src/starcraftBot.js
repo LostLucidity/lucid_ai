@@ -12,20 +12,22 @@ const { performance } = require('perf_hooks');
 const { resetNoFreeGeysersLogFlag, lastLoggedUnitType, resetNoValidPositionLogFlag } = require('./core/buildingUtils');
 const cacheManager = require('./core/cache');
 const logger = require('./core/logger');
-const { clearAllPendingOrders } = require('./core/unitUtils');
 const ActionCollector = require('./features/actions/actionCollector');
-const { getDistance } = require('./features/shared/pathfinding/spatialCoreUtils');
-const { findPlacements } = require('./features/shared/pathfinding/spatialUtils');
 const { midGameTransition } = require('./features/strategy/midGameTransition');
 const StrategyManager = require('./features/strategy/strategyManager');
 const { startTrackingWorkerGathering, calculateGatheringTime } = require('./gameLogic/economy/gatheringManagement');
 const { gather, balanceWorkers, assignWorkers } = require('./gameLogic/economy/workerAssignment');
 const { releaseWorkerFromBuilding, getWorkerReservedForPosition } = require('./gameLogic/economy/workerService');
 const GameInitialization = require('./initialization/gameInitialization');
+const WallOffService = require('./services/wallOffService');
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
+const { getDistance } = require('./utils/spatialCoreUtils');
+const { findUnitPlacements } = require('./utils/spatialUtils');
+const { clearAllPendingOrders } = require('./utils/unitUtils');
 const config = require('../config/config');
 const { isStepInProgress } = require('../data/buildOrders/buildOrderUtils');
+
 
 /**
  * @typedef {Object} CacheManager
@@ -47,6 +49,8 @@ let cumulativeGameTime = 0;
 let gameStartTime = performance.now();
 let lastCheckTime = gameStartTime;
 let lastLogTime = 0;
+/** @type {WallOffService | undefined} */
+let wallOffService;
 const LOG_INTERVAL = 5; // Log every 5 seconds
 const REAL_TIME_CHECK_INTERVAL = 60 * 1000;
 const BASE_BUFFER_TIME_SECONDS = 15;
@@ -149,6 +153,29 @@ function collectActions(world, actionList) {
 function collectAndHandleActions(world, actionList, allUnits) {
   collectActions(world, actionList);
   updateUpgradesInProgress(allUnits, world);
+}
+
+/**
+ * Find the closest completed townhall to the worker.
+ * @param {Unit} worker - The worker unit.
+ * @param {Array<Unit>} townhalls - List of townhall units.
+ * @returns {Unit|null} - The closest completed townhall or null if none found.
+ */
+function findClosestTownhall(worker, townhalls) {
+  let closestTownhall = null;
+  let shortestDistance = Infinity;
+
+  townhalls.forEach(townhall => {
+    if (townhall.buildProgress === 1) { // Check if the townhall is fully completed
+      const distance = getDistance(worker.pos, townhall.pos); // Assuming getDistance is a utility function available in your code
+      if (distance < shortestDistance) {
+        closestTownhall = townhall;
+        shortestDistance = distance;
+      }
+    }
+  });
+
+  return closestTownhall;
 }
 
 /**
@@ -335,6 +362,36 @@ function manageChronoBoost(bot, buildOrder, actionList) {
 }
 
 /**
+ * Manages workers, handling idle probes, gathering orders, and other tasks.
+ * 
+ * @param {UnitResource} units - The resource managing all units in the game.
+ * @param {Array<Unit>} allUnits - The list of all units in the game.
+ * @param {ResourceManager} resources - The resource manager handling minerals, gas, and other resources.
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - The list of actions to be executed.
+ * @param {World} world - The current game world state.
+ */
+function manageWorkers(units, allUnits, resources, actionList, world) {
+  queueGatherOrdersForProbes(units, allUnits, resources, actionList);
+  handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList);
+  balanceWorkers(world, units, resources, actionList);
+  assignWorkersToMinerals(resources, actionList);
+
+  // Re-evaluate and ensure workers return minerals to the closest townhall
+  const workers = units.getWorkers();
+  const townhalls = units.getBases().filter(base => base.buildProgress === 1); // Check if townhall is completed
+
+  workers.forEach(worker => {
+    // Check if the worker's orders are defined and if it's carrying minerals
+    const isCarryingMinerals = worker.orders && worker.orders.some(order => order.abilityId === Ability.HARVEST_RETURN);
+    if (isCarryingMinerals) {
+      returnMinerals(worker, townhalls, actionList);
+    }
+  });
+
+  useOrbitalCommandEnergy(world, actionList);
+}
+
+/**
  * Queue gather orders for probes starting ASSIMILATOR warpin.
  * @param {UnitResource} units
  * @param {Array<Unit>} allUnits
@@ -356,6 +413,26 @@ function queueGatherOrdersForProbes(units, allUnits, resources, actionList) {
         }
       }
     });
+  }
+}
+
+/**
+ * Command a worker to return minerals to the closest townhall.
+ * @param {Unit} worker - The worker unit carrying minerals.
+ * @param {Array<Unit>} townhalls - List of townhall units.
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - The list of actions to be executed.
+ */
+function returnMinerals(worker, townhalls, actionList) {
+  const closestTownhall = findClosestTownhall(worker, townhalls);
+
+  if (closestTownhall && worker.tag) { // Ensure worker.tag is defined
+    actionList.push({
+      abilityId: Ability.HARVEST_RETURN, // The ability to return the resources
+      targetUnitTag: closestTownhall.tag, // Target the closest townhall
+      unitTags: [worker.tag], // The worker that will perform the action
+    });
+  } else {
+    console.error('No completed townhall found for resource return or worker tag is undefined.');
   }
 }
 
@@ -726,7 +803,7 @@ function findClosestBaseDistance(field, baseLocations, baseToMineralDistances) {
  * @returns {number} - The count of valid positions.
  */
 function getValidPositionsCount(world, unitType) {
-  const candidatePositions = findPlacements(world, unitType);
+  const candidatePositions = findUnitPlacements(world, unitType);
   return candidatePositions.length;
 }
 
@@ -741,23 +818,6 @@ function logCurrentGameState(frame) {
     logger.logMessage(`Current game time: ${currentGameTime.toFixed(2)}s - Food used: ${gameState.getFoodUsed()}, Bases completed: ${completedBasesMap.size}`, 1);
     lastLogTime = currentGameTime;
   }
-}
-
-/**
- * Manages workers, handling idle probes, gathering orders, and other tasks.
- * 
- * @param {UnitResource} units - The resource managing all units in the game.
- * @param {Array<Unit>} allUnits - The list of all units in the game.
- * @param {ResourceManager} resources - The resource manager handling minerals, gas, and other resources.
- * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - The list of actions to be executed.
- * @param {World} world - The current game world state.
- */
-function manageWorkers(units, allUnits, resources, actionList, world) {
-  queueGatherOrdersForProbes(units, allUnits, resources, actionList);
-  handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList);
-  balanceWorkers(world, units, resources, actionList);
-  assignWorkersToMinerals(resources, actionList);
-  useOrbitalCommandEnergy(world, actionList);
 }
 
 /**
@@ -974,6 +1034,13 @@ const bot = createAgent({
       const gameInit = new GameInitialization(world);
       await gameInit.enhancedOnGameStart();
 
+      // Initialize WallOffService
+      wallOffService = new WallOffService(world.resources);
+
+      // Set up the wall-off using the instance method
+      wallOffService.setUpWallOffNatural(world);
+
+      // Log initial game state
       const startTime = performance.now();
       gameStartTime = startTime;
       lastCheckTime = startTime;
@@ -993,7 +1060,6 @@ const bot = createAgent({
 
       gameState.setFoodUsed(world);
 
-      // Log game start time and initial game state
       logger.logMessage(`Game started at ${new Date().toLocaleTimeString()} with map: ${config.defaultMap}`, 1);
       logger.logMessage(`Initial game state: Food used - ${gameState.getFoodUsed()}, Bases completed - ${completedBases.length}`, 1);
 
@@ -1023,10 +1089,10 @@ const bot = createAgent({
       // 4. Handle worker and mineral management
       manageWorkers(units, allUnits, resources, actionList, world);
 
-      // 5. Collect actions and handle upgrades
+      // 6. Collect actions and handle upgrades
       collectAndHandleActions(world, actionList, allUnits);
 
-      // 6. Manage Chrono Boost usage
+      // 7. Manage Chrono Boost usage
       manageChronoBoost(bot, gameState.getBuildOrder(), actionList);
 
       // Execute mid-game transition logic if appropriate
@@ -1034,10 +1100,10 @@ const bot = createAgent({
         await midGameTransition(world, actionList);
       }
 
-      // 7. Track performance and log relevant information
+      // 8. Track performance and log relevant information
       trackAndLogPerformance(frame, gameState, map, world);
 
-      // 8. Execute the gathered actions
+      // 9. Execute the gathered actions
       executeActions(world, actionList);
 
     } catch (error) {
