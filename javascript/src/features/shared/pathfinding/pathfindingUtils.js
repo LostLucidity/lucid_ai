@@ -4,27 +4,11 @@
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { getNeighbors, distance } = require("@node-sc2/core/utils/geometry/point");
 
-const cacheManager = require("../core/cache");
-const { getPathablePositionsForStructure } = require("../core/common");
-const { getClosestUnitByPath, existsInMap } = require("../features/shared/pathfinding/pathfinding");
-const { getPathablePositions, getMapPath, getPathCoordinates, getClosestPosition } = require("../features/shared/pathfinding/pathfindingCommonUtils");
-const { getClosestPathWithGasGeysers } = require("../gameLogic/economy/workerService");
-
-/**
- * 
- * @param {{path: Point2D[], pathLength: number}[]} candidateWalls 
- * @param {Point2D[]} wallCandidate 
- * @returns 
- */
-function areCandidateWallEndsUnique(candidateWalls, wallCandidate) {
-  return !candidateWalls.some(candidateWall => {
-    const [firstElement, lastElement] = [candidateWall.path[0], candidateWall.path[candidateWall.path.length - 1]];
-    const [firstElementTwo, lastElementTwo] = [wallCandidate[0], wallCandidate[wallCandidate.length - 1]];
-    const firstElementExists = firstElement.x === firstElementTwo.x && firstElement.y === firstElementTwo.y;
-    const lastElementExists = lastElement.x === lastElementTwo.x && lastElement.y === lastElementTwo.y;
-    return firstElementExists && lastElementExists;
-  });
-}
+const { getClosestUnitByPath, existsInMap } = require("./pathfinding");
+const { getPathablePositions, getMapPath, getPathCoordinates, getClosestPosition } = require("./pathfindingCommonUtils");
+const cacheManager = require("../../../core/cache");
+const { getPathablePositionsForStructure } = require("../../../core/common");
+const { getClosestPathWithGasGeysers } = require("../../../gameLogic/economy/workerService");
 
 /**
  * Retrieves pathable positions from start to target, ensuring the closest base and paths are found.
@@ -93,15 +77,20 @@ function findPathablePositions(world, base, targetPosition) {
  * @returns {Point2D[]}
  */
 function getCandidateWallEnds(map, grid) {
-  return gridsInCircle(grid, 8).filter(gridInCircle => {
-    // conditions: exists in map, is placeable, has adjacent non placeable, is same height as grid
-    return (
+  /** @type {Point2D[]} */
+  const candidates = []; // Explicitly define the type as Point2D[]
+
+  return gridsInCircle(grid, 8).reduce((candidates, gridInCircle) => {
+    if (
       existsInMap(map, gridInCircle) &&
       map.isPlaceable(gridInCircle) &&
-      getNeighbors(gridInCircle, false).filter(neighbor => !map.isPlaceable(neighbor)).length > 0 &&
+      getNeighbors(gridInCircle, false).some(neighbor => !map.isPlaceable(neighbor)) &&
       map.getHeight(gridInCircle) === map.getHeight(grid)
-    );
-  });
+    ) {
+      candidates.push(gridInCircle);
+    }
+    return candidates;
+  }, candidates);
 }
 
 /**
@@ -139,7 +128,7 @@ function getCandidateWalls(map, candidateWallEnds, pathToCross) {
       const [closestCandidateWallEndThatCross] = getClosestPosition(candidateWallEnd, candidateWallEndsThatCross);
       const pathCoordinates = getPathCoordinates(map.path(candidateWallEnd, closestCandidateWallEndThatCross, { diagonal: true, force: true }));
 
-      if (areCandidateWallEndsUnique(candidateWalls, pathCoordinates)) {
+      if (isWallEndUnique(candidateWalls, pathCoordinates)) {
         candidateWalls.push({ path: pathCoordinates, pathLength: pathCoordinates.length });
       }
     }
@@ -185,12 +174,28 @@ function isPathBlocked(map, wallOffGrids, debug = undefined) {
   return path.length === 0;
 }
 
+/**
+ * 
+ * @param {{path: Point2D[], pathLength: number}[]} candidateWalls 
+ * @param {Point2D[]} wallCandidate 
+ * @returns 
+ */
+function isWallEndUnique(candidateWalls, wallCandidate) {
+  return !candidateWalls.some(candidateWall => {
+    const [firstElement, lastElement] = [candidateWall.path[0], candidateWall.path[candidateWall.path.length - 1]];
+    const [firstElementTwo, lastElementTwo] = [wallCandidate[0], wallCandidate[wallCandidate.length - 1]];
+    const firstElementExists = firstElement.x === firstElementTwo.x && firstElement.y === firstElementTwo.y;
+    const lastElementExists = lastElement.x === lastElementTwo.x && lastElement.y === lastElementTwo.y;
+    return firstElementExists && lastElementExists;
+  });
+}
+
 module.exports = {
-  areCandidateWallEndsUnique,
   calculatePathablePositions,
   findPathablePositions,
   getCandidateWallEnds,
   getCandidateWalls,
   getClosestBaseByPath,
-  isPathBlocked
+  isPathBlocked,
+  isWallEndUnique,
 };

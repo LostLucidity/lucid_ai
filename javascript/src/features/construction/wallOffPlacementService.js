@@ -5,17 +5,17 @@ const { avgPoints, getNeighbors, distance } = require("@node-sc2/core/utils/geom
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
-const BuildingPlacement = require("../features/construction/buildingPlacement");
-const { pointsOverlap, intersectionOfPoints } = require("../features/shared/pathfinding/pathfinding");
-const { getPathCoordinates, getClosestPosition } = require("../features/shared/pathfinding/pathfindingCommonUtils");
-const { getDistanceByPath } = require("../features/shared/pathfinding/pathfindingCore");
-const { shuffle } = require("../utils/commonUtils");
-const { isPathBlocked, getCandidateWallEnds, getCandidateWalls, areCandidateWallEndsUnique } = require("../utils/pathfindingUtils");
-const { setFoundPositions } = require("../utils/sharedUtils");
-const { getDistance } = require("../utils/spatialCoreUtils");
-const { getPylonPowerArea, allPointsWithinGrid } = require("../utils/spatialUtils");
+const BuildingPlacement = require("./buildingPlacement.js");
+const { shuffle } = require("../../units/management/unitCommonUtils.js");
+const { setFoundPositions } = require("../../utils/sharedUtils.js");
+const { getDistance } = require("../../utils/spatialCoreUtils.js");
+const { getPylonPowerArea, allPointsWithinGrid } = require("../../utils/spatialUtils.js");
+const { pointsOverlap, intersectionOfPoints } = require("../shared/pathfinding/pathfinding.js");
+const { getPathCoordinates, getClosestPosition } = require("../shared/pathfinding/pathfindingCommonUtils.js");
+const { getDistanceByPath } = require("../shared/pathfinding/pathfindingCore.js");
+const { isPathBlocked, getCandidateWallEnds, getCandidateWalls, isWallEndUnique } = require("../shared/pathfinding/pathfindingUtils.js");
 
-class WallOffService {
+class WallOffPlacementService {
   /**
    * @param {ResourceManager} resources - The resource manager to access game data.
    */
@@ -28,30 +28,33 @@ class WallOffService {
   }
 
   /**
-   * Sets up the wall-off structure placements at the natural expansion.
-   * @param {ResourceManager} resources - The resource manager to access game data.
-   * @param {{ path: Point2D[]; pathLength: number;}[]} walls - The walls data containing paths and lengths.
-   */
-  // eslint-disable-next-line class-methods-use-this
-  setStructurePlacements(resources, walls) {
+     * Determines the wall-off structure placements at the natural expansion.
+     * @param {ResourceManager} resources - The resource manager to access game data.
+     * @param {{ path: Point2D[]; pathLength: number;}[]} walls - The walls data containing paths and lengths.
+     */
+  static determineWallOffPlacements(resources, walls) {
     const { debug, map } = resources.get();
     BuildingPlacement.threeByThreePositions = [];
     let shuffledWalls = shuffle(walls);
     const threeByThreeGrid = getFootprint(GATEWAY);
-    if (threeByThreeGrid === undefined) return;
+    if (!threeByThreeGrid) return;
+
+    const naturalTownhallPosition = map.getNatural().townhallPosition;
+    const townhallFootprint = getFootprint(NEXUS);
+    if (!townhallFootprint) return;
+
+    const townhallCells = cellsInFootprint(naturalTownhallPosition, townhallFootprint);
 
     for (let i = 0; i < shuffledWalls.length; i++) {
       const currentWall = shuffledWalls[i].path;
       BuildingPlacement.wall = currentWall;
       const middleOfWall = avgPoints(currentWall);
-      const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, map.getNatural().townhallPosition))
+
+      const wallToTownhallPoints = getPathCoordinates(map.path(middleOfWall, naturalTownhallPosition))
         .filter(point => {
           const pylonFootprint = getFootprint(PYLON);
           if (!pylonFootprint) return false;
           const pylonCells = cellsInFootprint(point, pylonFootprint);
-          const townhallFootprint = getFootprint(NEXUS);
-          if (!townhallFootprint) return false;
-          const townhallCells = cellsInFootprint(map.getNatural().townhallPosition, townhallFootprint);
           return map.isPlaceableAt(PYLON, point) && !pointsOverlap(pylonCells, townhallCells);
         });
 
@@ -87,6 +90,10 @@ class WallOffService {
               const threeByThreePlacement = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
               const temporaryWall = workingWall.filter(grid => !pointsOverlap([grid], threeByThreePlacement));
               const [closestWallGrid] = getClosestPosition(cornerNeighbor, temporaryWall);
+
+              // Add check here to ensure closestWallGrid is defined
+              if (!closestWallGrid) return false;
+
               const wallGridNeighbors = getNeighbors(closestWallGrid, false);
               const conflictsWithPylon = pylonCells.some(pylonCell =>
                 threeByThreePlacement.some(candidateCell =>
@@ -94,7 +101,7 @@ class WallOffService {
                 )
               );
               const conditions = [
-                distance(point, map.getNatural().townhallPosition) < distance(cornerNeighbor, map.getNatural().townhallPosition),
+                distance(point, naturalTownhallPosition) < distance(cornerNeighbor, naturalTownhallPosition),
                 map.isPlaceableAt(GATEWAY, cornerNeighbor),
                 pointsOverlap(threeByThreePlacement, wallGridNeighbors),
                 intersectionOfPoints(threeByThreePlacement, workingWall).length > 1,
@@ -137,7 +144,7 @@ class WallOffService {
                 )
               );
               return (
-                distance(point, map.getNatural().townhallPosition) < distance(cornerNeighbor, map.getNatural().townhallPosition) &&
+                distance(point, naturalTownhallPosition) < distance(cornerNeighbor, naturalTownhallPosition) &&
                 map.isPlaceableAt(GATEWAY, cornerNeighbor) &&
                 !pointsOverlap(wallOffGrids, placementGrids) &&
                 !diagonalBuilding &&
@@ -165,6 +172,10 @@ class WallOffService {
               const threeByThreePlacement = cellsInFootprint(cornerNeighbor, threeByThreeGrid);
               const temporaryWall = workingWall.filter(grid => !pointsOverlap([grid], threeByThreePlacement));
               const [closestWallGrid] = getClosestPosition(cornerNeighbor, temporaryWall);
+
+              // Add check here to ensure closestWallGrid is defined
+              if (!closestWallGrid) return false;
+
               const wallGridNeighbors = getNeighbors(closestWallGrid, false);
               const conflictsWithPylon = pylonCells.some(pylonCell =>
                 threeByThreePlacement.some(candidateCell =>
@@ -172,7 +183,7 @@ class WallOffService {
                 )
               );
               const conditions = [
-                distance(point, map.getNatural().townhallPosition) < distance(cornerNeighbor, map.getNatural().townhallPosition),
+                distance(point, naturalTownhallPosition) < distance(cornerNeighbor, naturalTownhallPosition),
                 map.isPlaceableAt(GATEWAY, cornerNeighbor),
                 pointsOverlap(threeByThreePlacement, wallGridNeighbors),
                 intersectionOfPoints(threeByThreePlacement, workingWall).length > 1,
@@ -180,7 +191,7 @@ class WallOffService {
                 !conflictsWithPylon
               ];
               return conditions.every(condition => condition);
-            }))
+            }));
             const selectedCandidate = getRandom(placementCandidates);
             if (selectedCandidate) {
               wallOffGrids.push(...cellsInFootprint(selectedCandidate, threeByThreeGrid));
@@ -303,7 +314,7 @@ class WallOffService {
           debug.setDrawCells('rmpWl', this.wall.map(r => ({ pos: r })), { size: 1, cube: false });
         }
         const walls = [{ path: this.wall, pathLength: this.wall.length }];
-        this.setStructurePlacements(resources, walls);
+        WallOffPlacementService.determineWallOffPlacements(resources, walls);  // Use class name to call the static method
       }
     } else {
       /** @typedef {Object} WallCandidate
@@ -316,8 +327,8 @@ class WallOffService {
       slicedGridsToEnemy.reverse().map(grid => {
         const candidateWallEnds = getCandidateWallEnds(map, grid);
         const candidateWalls = getCandidateWalls(map, candidateWallEnds, slicedGridsToEnemy);
-        if (areCandidateWallEndsUnique(wallCandidates, candidateWallEnds)) {
-          wallCandidates.push(...candidateWalls.filter(wall => areCandidateWallEndsUnique(wallCandidates, wall.path)));
+        if (isWallEndUnique(wallCandidates, candidateWallEnds)) {
+          wallCandidates.push(...candidateWalls.filter(wall => isWallEndUnique(wallCandidates, wall.path)));
         }
       });
 
@@ -327,10 +338,11 @@ class WallOffService {
         if (debug) {
           debug.setDrawCells('wllCnd', shortestWalls[0].path.map(r => ({ pos: r })), { size: 1, cube: false });
         }
-        this.setStructurePlacements(resources, shortestWalls);
+        WallOffPlacementService.determineWallOffPlacements(resources, shortestWalls);  // Use class name to call the static method
       }
     }
   }
+
 }
 
-module.exports = WallOffService;
+module.exports = WallOffPlacementService;

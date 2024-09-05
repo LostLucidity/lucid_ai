@@ -3,9 +3,9 @@
 const { UnitType } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 
-const { calculateTimeToKillUnits } = require("./sharedUtils");
 const { missingUnits } = require("../../data/gameData/gameDataStore");
 const { getTimeInSeconds } = require("../features/shared/timeUtils");
+const { calculateCombatTimes } = require("../gameLogic/gameMechanics/gameStrategyUtils");
 const { GameState } = require("../state");
 const { getWeaponDPS } = require("../units");
 const { getDistance } = require("../utils/spatialCoreUtils");
@@ -83,7 +83,7 @@ function isTownhallInDanger(world, townhall, nearbyEnemies) {
     return distance !== undefined && distance < 10; // 10 units radius for defense
   });
 
-  const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, selfDefenseUnits, nearbyEnemies, getWeaponDPS);
+  const { timeToKill, timeToBeKilled } = calculateCombatTimes(world, selfDefenseUnits, nearbyEnemies, getWeaponDPS);
   return timeToBeKilled <= timeToKill;
 }
 

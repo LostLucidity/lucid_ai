@@ -13,21 +13,19 @@ const { resetNoFreeGeysersLogFlag, lastLoggedUnitType, resetNoValidPositionLogFl
 const cacheManager = require('./core/cache');
 const logger = require('./core/logger');
 const ActionCollector = require('./features/actions/actionCollector');
+const WallOffService = require('./features/construction/wallOffPlacementService');
 const { midGameTransition } = require('./features/strategy/midGameTransition');
-const StrategyManager = require('./features/strategy/strategyManager');
+const { trackBuildOrderProgress } = require('./gameLogic/buildOrders/buildOrderProgress');
 const { startTrackingWorkerGathering, calculateGatheringTime } = require('./gameLogic/economy/gatheringManagement');
 const { gather, balanceWorkers, assignWorkers } = require('./gameLogic/economy/workerAssignment');
 const { releaseWorkerFromBuilding, getWorkerReservedForPosition } = require('./gameLogic/economy/workerService');
 const GameInitialization = require('./initialization/gameInitialization');
-const WallOffService = require('./services/wallOffService');
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
 const { getDistance } = require('./utils/spatialCoreUtils');
 const { findUnitPlacements } = require('./utils/spatialUtils');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
 const config = require('../config/config');
-const { isStepInProgress } = require('../data/buildOrders/buildOrderUtils');
-
 
 /**
  * @typedef {Object} CacheManager
@@ -40,7 +38,6 @@ const { isStepInProgress } = require('../data/buildOrders/buildOrderUtils');
  * @property {boolean} inProgress
  */
 
-const buildOrderCompletion = new Map();
 const completedBasesMap = new Map();
 const gameState = GameState.getInstance();
 
@@ -53,9 +50,6 @@ let lastLogTime = 0;
 let wallOffService;
 const LOG_INTERVAL = 5; // Log every 5 seconds
 const REAL_TIME_CHECK_INTERVAL = 60 * 1000;
-const BASE_BUFFER_TIME_SECONDS = 15;
-const ADDITIONAL_BUFFER_PER_ACTION_SECONDS = 5;
-const MARGIN_OF_ERROR_SECONDS = 5;
 
 let previousFreeGeysersCount = 0;
 let previousValidPositionsCount = 0;
@@ -67,70 +61,6 @@ let previousValidPositionsCount = 0;
  */
 function assignWorkersToMinerals(resources, actionList) {
   actionList.push(...assignWorkers(resources));
-}
-
-/**
- * Checks and updates the build order progress.
- * @param {World} world - The current game world state.
- * @param {import('./core/globalTypes').BuildOrderStep[]} buildOrder - The build order to track and update.
- */
-async function checkBuildOrderProgress(world, buildOrder) {
-  const currentTimeInSeconds = world.resources.get().frame.timeInSeconds();
-  const currentSupply = gameState.getFoodUsed();
-  const strategyManager = StrategyManager.getInstance();
-
-  let allStepsCompleted = true;
-
-  buildOrder.forEach((order, index) => {
-    const orderStatus = getOrderStatus(order);
-    if (orderStatus.completed) return;
-
-    const satisfied = strategyManager.isStepSatisfied(world, order);
-    const expectedTimeInSeconds = timeStringToSeconds(order.time);
-    const timeDifference = currentTimeInSeconds - expectedTimeInSeconds;
-    const supplyDifference = currentSupply - Number(order.supply);
-    const timeStatus = getTimeStatus(timeDifference);
-
-    if (satisfied && isStepInProgress(world, order)) {
-      handleStepInProgress(
-        order, index, currentTimeInSeconds, expectedTimeInSeconds,
-        timeStatus, timeDifference, supplyDifference, currentSupply,
-        orderStatus
-      );
-    } else {
-      checkAndLogDelayedStep(currentTimeInSeconds, expectedTimeInSeconds, orderStatus, order, index, timeStatus, timeDifference, supplyDifference, currentSupply);
-    }
-
-    if (!orderStatus.completed) {
-      allStepsCompleted = false;
-    }
-
-    buildOrderCompletion.set(order, orderStatus);
-  });
-
-  buildOrderState.setBuildOrderCompleted(allStepsCompleted);
-}
-
-/**
- * Check if a step is delayed and log it if necessary.
- * @param {number} currentTimeInSeconds
- * @param {number} expectedTimeInSeconds
- * @param {{completed: boolean, logged: boolean, prematureLogged: boolean}} orderStatus
- * @param {import('./core/globalTypes').BuildOrderStep} order
- * @param {number} index
- * @param {string} timeStatus
- * @param {number} timeDifference
- * @param {number} supplyDifference
- * @param {number} currentSupply
- * @returns {boolean} True if the step is delayed, otherwise false
- */
-function checkAndLogDelayedStep(currentTimeInSeconds, expectedTimeInSeconds, orderStatus, order, index, timeStatus, timeDifference, supplyDifference, currentSupply) {
-  const isDelayed = currentTimeInSeconds >= expectedTimeInSeconds + BASE_BUFFER_TIME_SECONDS + ADDITIONAL_BUFFER_PER_ACTION_SECONDS && !orderStatus.logged;
-  if (isDelayed) {
-    logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, true, currentSupply);
-    orderStatus.logged = true;
-  }
-  return isDelayed;
 }
 
 /**
@@ -179,138 +109,12 @@ function findClosestTownhall(worker, townhalls) {
 }
 
 /**
- * Get the status of the order from the buildOrderCompletion map.
- * @param {import('./core/globalTypes').BuildOrderStep} order
- * @returns {{completed: boolean, logged: boolean, prematureLogged: boolean}} The status of the order
- */
-function getOrderStatus(order) {
-  return buildOrderCompletion.get(order) || { completed: false, logged: false, prematureLogged: false };
-}
-
-/**
- * Get the time status based on the time difference.
- * @param {number} timeDifference
- * @returns {string} The time status (ahead/behind schedule).
- */
-function getTimeStatus(timeDifference) {
-  return timeDifference < 0 ? "ahead of schedule" : "behind schedule";
-}
-
-/**
- * Handle idle PROBES near warping ASSIMILATORS.
- * @param {UnitResource} units
- * @param {Array<Unit>} allUnits
- * @param {ResourceManager} resources
- * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
- */
-function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList) {
-  const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator =>
-    assimilator.buildProgress !== undefined && assimilator.buildProgress < 1
-  );
-
-  if (assimilatorsWarpingIn.length > 0) {
-    assimilatorsWarpingIn.forEach(assimilator => {
-      const nearbyProbes = allUnits.filter(probe =>
-        probe.unitType === PROBE && (!probe.orders || probe.isGathering()) &&
-        getDistance(probe.pos, assimilator.pos) < 3
-      );
-
-      nearbyProbes.forEach(probe => {
-        actionList.push(...gather(resources, probe, null, false));
-      });
-    });
-  }
-}
-
-/**
- * Handle the step in progress and log its status.
- * @param {import('./core/globalTypes').BuildOrderStep} order
- * @param {number} index - The index of the build order step.
- * @param {number} currentTimeInSeconds
- * @param {number} expectedTimeInSeconds
- * @param {string} timeStatus
- * @param {number} timeDifference
- * @param {number} supplyDifference
- * @param {number} currentSupply
- * @param {{completed: boolean, logged: boolean, prematureLogged: boolean}} orderStatus
- */
-function handleStepInProgress(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, currentSupply, orderStatus) {
-  const shouldCompleteOrder = currentTimeInSeconds >= expectedTimeInSeconds - MARGIN_OF_ERROR_SECONDS;
-
-  if (shouldCompleteOrder) {
-    orderStatus.completed = true;
-    logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, false, false, currentSupply);
-    return;
-  }
-
-  if (!orderStatus.prematureLogged) {
-    logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, true, false, currentSupply);
-    orderStatus.prematureLogged = true;
-  }
-}
-
-/**
- * Logs build order step status.
- * @param {import('./core/globalTypes').BuildOrderStep} order - The build order step.
- * @param {number} index - The index of the build order step.
- * @param {number} currentTimeInSeconds - The current game time in seconds.
- * @param {number} expectedTimeInSeconds - The expected time for the order in seconds.
- * @param {string} timeStatus - The time status (ahead/behind schedule).
- * @param {number} timeDifference - The time difference between current and expected time.
- * @param {number} supplyDifference - The supply difference between current and expected supply.
- * @param {boolean} isPremature - Whether the completion is premature.
- * @param {boolean} isDelayed - Whether the step is delayed.
- * @param {number} currentSupply - The current supply value.
- */
-function logBuildOrderStep(order, index, currentTimeInSeconds, expectedTimeInSeconds, timeStatus, timeDifference, supplyDifference, isPremature, isDelayed, currentSupply) {
-  const { supply, time, action } = order;
-  const formattedCurrentTime = currentTimeInSeconds.toFixed(2);
-  const formattedExpectedTime = expectedTimeInSeconds.toFixed(2);
-  const formattedTimeDifference = Math.abs(timeDifference).toFixed(2);
-
-  let logMessage;
-  if (isDelayed) {
-    logMessage = `Build Order Step NOT Completed: Step-${index} Supply-${supply} Time-${time} Action-${action}. Expected by time ${time}, current time is ${formattedCurrentTime} seconds. Current Supply: ${currentSupply}. Time Difference: ${formattedTimeDifference} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`;
-    console.warn(logMessage);
-  } else {
-    logMessage = `Build Order Step ${isPremature ? 'Prematurely ' : ''}Completed: Step-${index} Supply-${supply} Time-${time} Action-${action} at game time ${formattedCurrentTime} seconds. ${isPremature ? `Expected time: ${formattedExpectedTime} seconds. ` : ''}Current Supply: ${currentSupply}. Time Difference: ${formattedTimeDifference} seconds ${timeStatus}. Supply Difference: ${supplyDifference}`;
-    console.log(logMessage);
-  }
-}
-
-/**
- * Log geyser activity.
- * @param {MapResource} map
- */
-function logGeyserActivity(map) {
-  const currentFreeGeysersCount = map.freeGasGeysers().length;
-  if (currentFreeGeysersCount > previousFreeGeysersCount) {
-    resetNoFreeGeysersLogFlag();
-  }
-  previousFreeGeysersCount = currentFreeGeysersCount;
-}
-
-/**
- * Log unit positions.
- * @param {World} world
- */
-function logUnitPositions(world) {
-  if (lastLoggedUnitType) {
-    const currentValidPositionsCount = getValidPositionsCount(world, lastLoggedUnitType);
-    if (currentValidPositionsCount > previousValidPositionsCount) {
-      resetNoValidPositionLogFlag();
-    }
-    previousValidPositionsCount = currentValidPositionsCount;
-  }
-}
-
-/**
  * Manages Chrono Boost usage.
  * @param {Agent} bot - The bot instance handling the game.
  * @param {import('./core/globalTypes').BuildOrderStep[]} buildOrder - The build order containing actions and timings.
  * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionList - The list of actions to be executed.
  */
-function manageChronoBoost(bot, buildOrder, actionList) {
+function handleChronoBoostUsage(bot, buildOrder, actionList) {
   const world = bot._world;
   const frame = world.resources.get().frame; // Get the frame resource
   const observation = frame.getObservation(); // Get the current observation
@@ -358,6 +162,58 @@ function manageChronoBoost(bot, buildOrder, actionList) {
         }
       }
     }
+  }
+}
+
+/**
+ * Handle idle PROBES near warping ASSIMILATORS.
+ * @param {UnitResource} units
+ * @param {Array<Unit>} allUnits
+ * @param {ResourceManager} resources
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ */
+function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList) {
+  const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator =>
+    assimilator.buildProgress !== undefined && assimilator.buildProgress < 1
+  );
+
+  if (assimilatorsWarpingIn.length > 0) {
+    assimilatorsWarpingIn.forEach(assimilator => {
+      const nearbyProbes = allUnits.filter(probe =>
+        probe.unitType === PROBE && (!probe.orders || probe.isGathering()) &&
+        getDistance(probe.pos, assimilator.pos) < 3
+      );
+
+      nearbyProbes.forEach(probe => {
+        actionList.push(...gather(resources, probe, null, false));
+      });
+    });
+  }
+}
+
+/**
+ * Log geyser activity.
+ * @param {MapResource} map
+ */
+function logGeyserActivity(map) {
+  const currentFreeGeysersCount = map.freeGasGeysers().length;
+  if (currentFreeGeysersCount > previousFreeGeysersCount) {
+    resetNoFreeGeysersLogFlag();
+  }
+  previousFreeGeysersCount = currentFreeGeysersCount;
+}
+
+/**
+ * Log unit positions.
+ * @param {World} world
+ */
+function logUnitPositions(world) {
+  if (lastLoggedUnitType) {
+    const currentValidPositionsCount = getValidPositionsCount(world, lastLoggedUnitType);
+    if (currentValidPositionsCount > previousValidPositionsCount) {
+      resetNoValidPositionLogFlag();
+    }
+    previousValidPositionsCount = currentValidPositionsCount;
   }
 }
 
@@ -466,16 +322,6 @@ function shouldChronoBoost(buildOrder, currentSupply, building, units) {
 
   // Boost the building if it's planned in the build order or it's a high-priority task
   return isPlanned || (building.orders !== undefined && building.orders.length > 0);
-}
-
-/**
- * Converts a time string in the format "MM:SS" to seconds.
- * @param {string} timeString - The time string to convert.
- * @returns {number} The corresponding time in seconds.
- */
-function timeStringToSeconds(timeString) {
-  const [minutes, seconds] = timeString.split(':').map(Number);
-  return minutes * 60 + seconds;
 }
 
 /**
@@ -959,7 +805,7 @@ function updateCompletedBases(units, cacheManager) {
  */
 function updateGameState(units, world) {
   updateCompletedBases(units, cacheManager);
-  checkBuildOrderProgress(world, gameState.getBuildOrder());
+  trackBuildOrderProgress(world, gameState.getBuildOrder());
   gameState.setFoodUsed(world);
 }
 
@@ -1093,7 +939,7 @@ const bot = createAgent({
       collectAndHandleActions(world, actionList, allUnits);
 
       // 7. Manage Chrono Boost usage
-      manageChronoBoost(bot, gameState.getBuildOrder(), actionList);
+      handleChronoBoostUsage(bot, gameState.getBuildOrder(), actionList);
 
       // Execute mid-game transition logic if appropriate
       if (buildOrderState.isBuildOrderCompleted()) {

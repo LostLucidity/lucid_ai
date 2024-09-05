@@ -4,7 +4,6 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 
 const { potentialCombatants, getWeaponDPS } = require("../../units");
 const { mappedEnemyUnits } = require("../../utils/scoutingUtils");
-const { calculateTimeToKillUnits } = require("../../utils/sharedUtils");
 const { getDistance } = require("../../utils/spatialCoreUtils");
 
 
@@ -14,6 +13,67 @@ const { getDistance } = require("../../utils/spatialCoreUtils");
  */
 
 const gameStrategyUtils = {
+  /**
+   * Calculates the time to kill between self units and enemy units,
+   * using a function to get the Weapon DPS.
+   * 
+   * @param {World} world The world context.
+   * @param {Unit[]} selfUnits The units on the player's side.
+   * @param {Unit[]} enemyUnits The enemy units.
+   * @param {(world: World, unitType: UnitTypeId, alliance: Alliance, enemyUnitTypes: UnitTypeId[]) => number} getWeaponDPSFunc Function to calculate weapon DPS.
+   * @returns {{ timeToKill: number, timeToBeKilled: number }}
+   */
+  calculateCombatTimes(world, selfUnits, enemyUnits, getWeaponDPSFunc) {
+
+      if (selfUnits.length === 0) {
+    return { timeToKill: Infinity, timeToBeKilled: 0 };
+  }
+
+  if (enemyUnits.length === 0) {
+    return { timeToKill: 0, timeToBeKilled: Infinity };
+  }
+
+  const enemyUnitTypes = enemyUnits
+    .map(threat => threat.unitType)
+    .filter(unitType => unitType !== undefined);
+
+  const timeToKill = enemyUnits.reduce((timeToKill, threat) => {
+    const { health, shield, unitType } = threat;
+    if (health === undefined || shield === undefined || unitType === undefined) return timeToKill;
+    const totalHealth = health + shield;
+
+    const totalWeaponDPS = selfUnits
+      .map(unit => unit.unitType)
+      .filter(unitType => unitType !== undefined)
+      .map(unitType => getWeaponDPSFunc(world, unitType, Alliance.SELF, enemyUnitTypes))
+      .reduce((acc, dps) => acc + dps, 0);
+
+    const timeToKillCurrent = totalHealth / (totalWeaponDPS === 0 ? 1 : totalWeaponDPS);
+    return (timeToKill === Infinity) ? timeToKillCurrent : timeToKill + timeToKillCurrent;
+  }, Infinity);
+
+  const selfUnitTypes = selfUnits
+    .map(unit => unit.unitType)
+    .filter(unitType => unitType !== undefined);
+
+  const timeToBeKilled = selfUnits.reduce((timeToBeKilled, unit) => {
+    const { health, shield, unitType } = unit;
+    if (health === undefined || shield === undefined || unitType === undefined) return timeToBeKilled;
+    const totalHealth = health + shield;
+
+    const totalWeaponDPS = enemyUnits
+      .map(threat => threat.unitType)
+      .filter(unitType => unitType !== undefined)
+      .map(unitType => getWeaponDPSFunc(world, unitType, Alliance.ENEMY, selfUnitTypes))
+      .reduce((acc, dps) => acc + dps, 0);
+
+    const timeToBeKilledCurrent = totalHealth / (totalWeaponDPS === 0 ? 1 : totalWeaponDPS);
+    return (timeToBeKilled === Infinity) ? timeToBeKilledCurrent : timeToBeKilled + timeToBeKilledCurrent;
+  }, Infinity);
+
+  return { timeToKill, timeToBeKilled };
+  },
+
   /**
    * @param {World} world
    * @param {Unit[]} trainers
@@ -75,7 +135,7 @@ const gameStrategyUtils = {
       return true;  // Modify as per your game's logic
     }
 
-    const { timeToKill, timeToBeKilled } = calculateTimeToKillUnits(world, selfUnits, enemyUnits, getWeaponDPS);
+    const { timeToKill, timeToBeKilled } = gameStrategyUtils.calculateCombatTimes(world, selfUnits, enemyUnits, getWeaponDPS);
 
     // Engage if self units can eliminate enemy units faster than they can be eliminated
     return timeToKill <= timeToBeKilled;

@@ -1,8 +1,8 @@
 // src/utils/supplyUtils.js
 
-const { calculateLiftLandAndMoveTime } = require("./commonUtils");
 const { hasAddOn, findBestPositionForAddOn } = require("../core/buildingUtils");
 const { getTimeInSeconds } = require("../features/shared/timeUtils");
+const { calculateLiftMoveAndLandTime } = require("../units/management/unitCommonUtils.js");
 const { flyingTypesMapping, unitTypeTrainingAbilities } = require("../units/management/unitConfig");
 
 /**
@@ -26,9 +26,9 @@ function getTimeUntilUnitCanBuildAddon(world, unit) {
   if (unit.isIdle()) {
     // If unit already has an add-on, calculate the time it takes for the structure to lift off, move, and land
     if (hasAddOn(unit)) {
-      return calculateLiftLandAndMoveTime(world, unit, undefined, findBestPositionForAddOn);
+      return calculateLiftMoveAndLandTime(world, unit, undefined, findBestPositionForAddOn);
     } else if (isFlying) {
-      return calculateLiftLandAndMoveTime(world, unit, undefined, findBestPositionForAddOn);
+      return calculateLiftMoveAndLandTime(world, unit, undefined, findBestPositionForAddOn);
     }
     return 0;
   }
@@ -38,7 +38,7 @@ function getTimeUntilUnitCanBuildAddon(world, unit) {
     if (orders && orders.length > 0) {
       const order = orders[0];
       if (order.targetWorldSpacePos) {
-        return calculateLiftLandAndMoveTime(world, unit, order.targetWorldSpacePos, findBestPositionForAddOn);
+        return calculateLiftMoveAndLandTime(world, unit, order.targetWorldSpacePos, findBestPositionForAddOn);
       }
     }
     return Infinity;
@@ -53,7 +53,7 @@ function getTimeUntilUnitCanBuildAddon(world, unit) {
 
     const remainingTime = getTimeInSeconds(buildTime - (buildTime * progress));
     if (hasAddOn(unit)) {
-      return remainingTime + calculateLiftLandAndMoveTime(world, unit, undefined, findBestPositionForAddOn);
+      return remainingTime + calculateLiftMoveAndLandTime(world, unit, undefined, findBestPositionForAddOn);
     }
     return remainingTime;
   }

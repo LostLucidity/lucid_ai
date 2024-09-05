@@ -16,12 +16,12 @@ const {
 } = require('../../gameLogic/economy/workerService');
 const { getPendingOrders } = require('../../sharedServices');
 const { GameState } = require('../../state');
-const { calculatePathablePositions } = require('../../utils/pathfindingUtils');
 const { prepareBuildContext } = require('../../utils/workerManagementUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
 const { assignWorkersToBuild } = require('../construction/buildingWorkerInteractions');
 const { getUnitsFromClustering, getOrderTargetPosition } = require('../shared/pathfinding/pathfinding');
 const { getPathCoordinates, getMapPath } = require('../shared/pathfinding/pathfindingCommonUtils');
+const { calculatePathablePositions } = require('../shared/pathfinding/pathfindingUtils');
 
 /**
  * @typedef {Object} BuildContext

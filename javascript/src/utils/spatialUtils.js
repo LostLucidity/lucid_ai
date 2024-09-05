@@ -29,9 +29,9 @@ const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("..
  */
 
 /**
- * Memoize cellsInFootprint function
+ * Cache for cellsInFootprint function
  */
-const cellsInFootprintCache = new Map();
+const footprintCellsCache = new Map();
 
 /**
  * @param {Point2D[]} points
@@ -47,12 +47,13 @@ function allPointsWithinGrid(points, grids) {
  * @param {{ w: number, h: number }} footprint
  * @returns {Point2D[]}
  */
-function memoizedCellsInFootprint(point, footprint) {
-  const key = [point.x, point.y, footprint.w, footprint.h];
-  if (!cellsInFootprintCache.has(key)) {
-    cellsInFootprintCache.set(key, cellsInFootprint(point, footprint));
+function getCachedFootprintCells(point, footprint) {
+  // Create a string key by concatenating the values
+  const key = `${point.x},${point.y},${footprint.w},${footprint.h}`;
+  if (!footprintCellsCache.has(key)) {
+    footprintCellsCache.set(key, cellsInFootprint(point, footprint));
   }
-  return cellsInFootprintCache.get(key);
+  return footprintCellsCache.get(key);
 }
 
 /**
@@ -110,19 +111,19 @@ function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTown
     }, []);
 
     BuildingPlacement.threeByThreePositions = BuildingPlacement.threeByThreePositions.filter(position => {
-      // Ensure position is a valid Point2D object before passing it to memoizedCellsInFootprint
+      // Ensure position is a valid Point2D object before passing it to getCachedFootprintCells
       if (typeof position === 'object' && position) {
         return !pointsOverlap(
           filteredPositions,
-          memoizedCellsInFootprint(position, threeByThreeFootprint)
+          getCachedFootprintCells(position, threeByThreeFootprint)
         );
       }
       return false;
     });
 
     if (BuildingPlacement.threeByThreePositions.length > 0) {
-      const threeByThreeCellsInFootprints = BuildingPlacement.threeByThreePositions.map(position => memoizedCellsInFootprint(position, threeByThreeFootprint));
-      wallOffPositions.push(...threeByThreeCellsInFootprints.flat().filter(position => !pointsOverlap(currentlyEnrouteConstructionGrids, memoizedCellsInFootprint(position, threeByThreeFootprint))));
+      const threeByThreeCellsInFootprints = BuildingPlacement.threeByThreePositions.map(position => getCachedFootprintCells(position, threeByThreeFootprint));
+      wallOffPositions.push(...threeByThreeCellsInFootprints.flat().filter(position => !pointsOverlap(currentlyEnrouteConstructionGrids, getCachedFootprintCells(position, threeByThreeFootprint))));
       const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
       if (unitTypeFootprint.h === threeByThreeFootprint.h && unitTypeFootprint.w === threeByThreeFootprint.w) {
         const canPlace = getRandom(BuildingPlacement.threeByThreePositions.filter(pos => gameMap.isPlaceableAt(unitType, pos)));
@@ -134,7 +135,7 @@ function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTown
 
     const unitTypeFootprint = getFootprint(unitType); if (unitTypeFootprint === undefined) return [];
     placements = placements.filter(grid => {
-      const cells = [...memoizedCellsInFootprint(grid, unitTypeFootprint)];
+      const cells = [...getCachedFootprintCells(grid, unitTypeFootprint)];
       return cells.every(cell => gameMap.isPlaceable(cell)) &&
         !pointsOverlap(cells, [...wallOffPositions]) &&
         // Check if the placement is within pylon power range
@@ -182,7 +183,7 @@ function findPosition(world, unitType, candidatePositions) {
     const footprint = getFootprint(unitType);
     if (!footprint) return false;
 
-    const unitTypeCells = memoizedCellsInFootprint(position, footprint);
+    const unitTypeCells = getCachedFootprintCells(position, footprint);
 
     // Special handling for gas mine types
     if (gasMineTypes.includes(unitType)) {
@@ -274,7 +275,7 @@ function findUnitPlacements(world, unitType) {
       return false;
     }
 
-    const unitCells = memoizedCellsInFootprint(point, unitFootprint);
+    const unitCells = getCachedFootprintCells(point, unitFootprint);
 
     // Calculate the full bounding box for the unit based on its footprint
     const unitBoundingBox = {
@@ -304,7 +305,7 @@ function findUnitPlacements(world, unitType) {
       const overlap = boundingBoxIntersects(unitBoundingBox, expansionBoundingBox);
 
       if (overlap) {
-        const expansionCells = memoizedCellsInFootprint(expansion, townhallFootprint);
+        const expansionCells = getCachedFootprintCells(expansion, townhallFootprint);
         return pointsOverlap(unitCells, expansionCells);
       }
 
@@ -317,7 +318,7 @@ function findUnitPlacements(world, unitType) {
    * @returns {boolean}
    */
   const isValidPlacement = (point) => {
-    const cells = memoizedCellsInFootprint(point, unitFootprint);
+    const cells = getCachedFootprintCells(point, unitFootprint);
     if (cells.some(cell => !gameMap.isPlaceable(cell))) return false;
     if (getDistance(natural.townhallPosition, point) <= 4.5) return false;
     if (mainMineralLine.some(mlp => getDistance(mlp, point) <= 1.5)) return false;
@@ -385,11 +386,11 @@ function findUnitPlacements(world, unitType) {
 
       const footprint = getFootprint(stepUnitType);
       if (!footprint) return positions;
-      const newPositions = memoizedCellsInFootprint(buildingPos, footprint);
+      const newPositions = getCachedFootprintCells(buildingPos, footprint);
       if (canUnitBuildAddOn(stepUnitType)) {
         const addonFootprint = getFootprint(REACTOR);
         if (!addonFootprint) return positions;
-        const addonPositions = memoizedCellsInFootprint(getAddOnPlacement(buildingPos), addonFootprint);
+        const addonPositions = getCachedFootprintCells(getAddOnPlacement(buildingPos), addonFootprint);
         return [...positions, ...newPositions, ...addonPositions];
       }
       return [...positions, ...newPositions];
@@ -401,7 +402,7 @@ function findUnitPlacements(world, unitType) {
       const newPositions = getAddOnBuildingPlacement(pos);
       const footprint = getFootprint(addon.unitType);
       if (!footprint) return positions;
-      const cells = memoizedCellsInFootprint(newPositions, footprint);
+      const cells = getCachedFootprintCells(newPositions, footprint);
       if (!cells.length) return positions;
       return [...positions, ...cells];
     }, /** @type {Point2D[]} */([]));
@@ -436,21 +437,21 @@ function findUnitPlacements(world, unitType) {
     if (BuildingPlacement.addOnPositions.length > 0) {
       const barracksFootprint = getFootprint(BARRACKS);
       if (!barracksFootprint) return [];
-      const barracksCellInFootprints = BuildingPlacement.addOnPositions.map(position => memoizedCellsInFootprint(createPoint2D(position), barracksFootprint));
+      const barracksCellInFootprints = BuildingPlacement.addOnPositions.map(position => getCachedFootprintCells(createPoint2D(position), barracksFootprint));
       wallOffPositions.push(...barracksCellInFootprints.flat());
     }
 
     if (BuildingPlacement.twoByTwoPositions.length > 0) {
       const supplyFootprint = getFootprint(SUPPLYDEPOT);
       if (!supplyFootprint) return [];
-      const supplyCellInFootprints = BuildingPlacement.twoByTwoPositions.map(position => memoizedCellsInFootprint(position, supplyFootprint));
+      const supplyCellInFootprints = BuildingPlacement.twoByTwoPositions.map(position => getCachedFootprintCells(position, supplyFootprint));
       wallOffPositions.push(...supplyCellInFootprints.flat());
     }
 
     if (BuildingPlacement.threeByThreePositions.length > 0) {
       const engineeringBayFootprint = getFootprint(ENGINEERINGBAY);
       if (!engineeringBayFootprint) return [];
-      const engineeringBayCellInFootprints = BuildingPlacement.threeByThreePositions.map(position => memoizedCellsInFootprint(position, engineeringBayFootprint));
+      const engineeringBayCellInFootprints = BuildingPlacement.threeByThreePositions.map(position => getCachedFootprintCells(position, engineeringBayFootprint));
       wallOffPositions.push(...engineeringBayCellInFootprints.flat());
     }
 
@@ -473,9 +474,9 @@ function findUnitPlacements(world, unitType) {
     const buildingFootprintOfOrphanAddons = getBuildingFootprintOfOrphanAddons(units);
 
     placements = placementGrids.filter(grid => {
-      const cells = [...memoizedCellsInFootprint(grid, unitTypeFootprint)];
+      const cells = [...getCachedFootprintCells(grid, unitTypeFootprint)];
       if (addonFootprint) {
-        cells.push(...memoizedCellsInFootprint(getAddOnPlacement(grid), addonFootprint));
+        cells.push(...getCachedFootprintCells(getAddOnPlacement(grid), addonFootprint));
       }
       return cells.every(cell => gameMap.isPlaceable(cell)) &&
         !pointsOverlap(cells, [...wallOffPositions, ...buildingFootprintOfOrphanAddons, ...orphanAddonPositions]);
