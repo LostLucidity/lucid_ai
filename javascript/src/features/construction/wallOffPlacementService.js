@@ -263,7 +263,10 @@ class WallOffPlacementService {
     const { areas, townhallPosition } = natural;
     if (!areas) return;
 
-    const pathToEnemy = map.path(natural.townhallPosition, map.getEnemyNatural().townhallPosition);
+    const enemyNatural = map.getEnemyNatural();
+    const pathToEnemy = map.path(natural.townhallPosition, enemyNatural.townhallPosition);
+
+    // Focus on paths that go directly from natural to enemy natural
     const coordinatesToEnemy = getPathCoordinates(pathToEnemy).filter(coordinate => {
       const race = agent.race;
       if (race) {
@@ -281,14 +284,15 @@ class WallOffPlacementService {
       }
     });
 
-    const slicedGridsToEnemy = coordinatesToEnemy.slice(4, 13);
+    // Adjust slice to focus on the ramp closer to the natural
+    const slicedGridsToEnemy = coordinatesToEnemy.slice(0, 10);
     if (debug) {
       debug.setDrawCells('pthTEnm', slicedGridsToEnemy.map(r => ({ pos: r })), { size: 1, cube: false });
     }
 
     const rampIntoNatural = slicedGridsToEnemy.some(grid => map.isRamp(grid));
     if (rampIntoNatural) {
-      const { townhallPosition: enemyTownhallPosition } = map.getEnemyNatural();
+      const { townhallPosition: enemyTownhallPosition } = enemyNatural;
       this.adjacentToRampGrids = areas.placementGrid.filter(grid => {
         const [closestPosition] = getClosestPosition(grid, map._ramps);
         const distanceToRamp = distance(grid, closestPosition);
@@ -300,10 +304,14 @@ class WallOffPlacementService {
       });
 
       const cornerGrids = this.adjacentToRampGrids
-        ? this.adjacentToRampGrids.filter(grid =>
-          this.adjacentToRampGrids &&
-          intersectionOfPoints(getNeighbors(grid, true, false), this.adjacentToRampGrids).length === 1
-        )
+        ? this.adjacentToRampGrids.filter(grid => {
+          const neighbors = getNeighbors(grid, true, false);
+          return (
+            neighbors && // Check that neighbors is defined
+            this.adjacentToRampGrids && // Ensure adjacentToRampGrids is defined
+            intersectionOfPoints(neighbors, this.adjacentToRampGrids).length === 1
+          );
+        })
         : [];
 
       if (cornerGrids.length > 0) {
@@ -314,7 +322,7 @@ class WallOffPlacementService {
           debug.setDrawCells('rmpWl', this.wall.map(r => ({ pos: r })), { size: 1, cube: false });
         }
         const walls = [{ path: this.wall, pathLength: this.wall.length }];
-        WallOffPlacementService.determineWallOffPlacements(resources, walls);  // Use class name to call the static method
+        WallOffPlacementService.determineWallOffPlacements(resources, walls);
       }
     } else {
       /** @typedef {Object} WallCandidate
@@ -338,7 +346,7 @@ class WallOffPlacementService {
         if (debug) {
           debug.setDrawCells('wllCnd', shortestWalls[0].path.map(r => ({ pos: r })), { size: 1, cube: false });
         }
-        WallOffPlacementService.determineWallOffPlacements(resources, shortestWalls);  // Use class name to call the static method
+        WallOffPlacementService.determineWallOffPlacements(resources, shortestWalls);
       }
     }
   }

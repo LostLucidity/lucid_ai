@@ -403,27 +403,40 @@ class BuildingPlacement {
       return [];
     }
 
+    // Check for the wall placement first
     const naturalWall = BuildingPlacement.wall.length > 0 ? BuildingPlacement.wall : naturalExpansion.getWall();
-    if (!naturalWall) {
-      return BuildingPlacement.pylonPlacement ? [{ x: BuildingPlacement.pylonPlacement.x || 0, y: BuildingPlacement.pylonPlacement.y || 0, coverage: 0 }] : [];
+
+    // If we have a wall, check for pylon placement
+    if (BuildingPlacement.pylonPlacement) {
+      return [{
+        x: BuildingPlacement.pylonPlacement.x || 0,
+        y: BuildingPlacement.pylonPlacement.y || 0,
+        coverage: 0
+      }];
     }
 
-    const naturalTownhallPosition = naturalExpansion.townhallPosition;
+    // If there's no wall or pylon placement, return calculated pylon positions based on the wall
+    if (naturalWall) {
+      const naturalTownhallPosition = naturalExpansion.townhallPosition;
 
-    const possiblePlacements = frontOfGrid(resources, naturalExpansion.areas.areaFill)
-      .map(point => {
-        const coverage = naturalWall.filter(wallCell =>
-          getDistance(wallCell, point) <= 6.5 &&
-          getDistance(wallCell, point) >= 1 &&
-          getDistance(wallCell, naturalTownhallPosition) > getDistance(point, naturalTownhallPosition)
-        ).length;
+      const possiblePlacements = frontOfGrid(resources, naturalExpansion.areas.areaFill)
+        .map(point => {
+          const coverage = naturalWall.filter(wallCell =>
+            getDistance(wallCell, point) <= 6.5 &&
+            getDistance(wallCell, point) >= 1 &&
+            getDistance(wallCell, naturalTownhallPosition) > getDistance(point, naturalTownhallPosition)
+          ).length;
 
-        return { x: point.x || 0, y: point.y || 0, coverage };
-      });
+          return { x: point.x || 0, y: point.y || 0, coverage };
+        });
 
-    return possiblePlacements
-      .sort((a, b) => b.coverage - a.coverage)
-      .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
+      return possiblePlacements
+        .sort((a, b) => b.coverage - a.coverage)
+        .filter((cell, i, arr) => cell.coverage === arr[0].coverage);
+    }
+
+    // Fallback: if no wall or pylon placement, return empty array
+    return [];
   }
 
   /**
