@@ -3,7 +3,7 @@
 const config = require('../../config/config');
 const StrategyContext = require('../features/strategy/strategyContext');
 const StrategyManager = require('../features/strategy/strategyManager');
-const { assignWorkers } = require('../gameLogic/economy/workerAssignment');
+const { assignWorkersToMinerals } = require('../gameLogic/economy/workerAssignment');
 const { GameState } = require('../state');
 const strategyUtils = require('../utils/strategyUtils');
 
@@ -16,7 +16,7 @@ const strategyUtils = require('../utils/strategyUtils');
  */
 function assignInitialWorkers(world) {
   const resourceManager = world.resources;
-  return assignWorkers(resourceManager);
+  return assignWorkersToMinerals(resourceManager);
 }
 
 /**

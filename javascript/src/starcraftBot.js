@@ -17,7 +17,7 @@ const WallOffService = require('./features/construction/wallOffPlacementService'
 const { midGameTransition } = require('./features/strategy/midGameTransition');
 const { trackBuildOrderProgress } = require('./gameLogic/buildOrders/buildOrderProgress');
 const { startTrackingWorkerGathering, calculateGatheringTime } = require('./gameLogic/economy/gatheringManagement');
-const { gather, balanceWorkers, assignWorkers } = require('./gameLogic/economy/workerAssignment');
+const { gather, balanceWorkers, assignWorkersToMinerals } = require('./gameLogic/economy/workerAssignment');
 const { releaseWorkerFromBuilding, getWorkerReservedForPosition } = require('./gameLogic/economy/workerService');
 const GameInitialization = require('./initialization/gameInitialization');
 const { GameState } = require('./state');
@@ -59,8 +59,8 @@ let previousValidPositionsCount = 0;
  * @param {ResourceManager} resources
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
  */
-function assignWorkersToMinerals(resources, actionList) {
-  actionList.push(...assignWorkers(resources));
+function handleWorkerAssignment(resources, actionList) {
+  actionList.push(...assignWorkersToMinerals(resources));
 }
 
 /**
@@ -230,7 +230,7 @@ function manageWorkers(units, allUnits, resources, actionList, world) {
   queueGatherOrdersForProbes(units, allUnits, resources, actionList);
   handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, actionList);
   balanceWorkers(world, units, resources, actionList);
-  assignWorkersToMinerals(resources, actionList);
+  handleWorkerAssignment(resources, actionList);
 
   // Re-evaluate and ensure workers return minerals to the closest townhall
   const workers = units.getWorkers();

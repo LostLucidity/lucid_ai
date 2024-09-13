@@ -30,7 +30,7 @@ const { getDistanceByPath } = require("../shared/pathfinding/pathfindingCore");
  * @param {(units: UnitResource, unit: Unit) => Point2D | undefined} getOrderTargetPosition - Injected dependency from workerUtils.js
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} The array of actions to be executed.
  */
-function assignWorkersToBuild(world, unit, position, unitCommand, unitType, getOrderTargetPosition) {
+function assignWorkersToMineralsToBuild(world, unit, position, unitCommand, unitType, getOrderTargetPosition) {
   const { agent, data, resources } = world;
   const { units } = resources.get();
   const { pos } = unit;
@@ -110,6 +110,6 @@ function stopOverlappingBuilders(units, builder, position) {
 
 // Exporting the functions
 module.exports = {
-  assignWorkersToBuild,
+  assignWorkersToMineralsToBuild,
   stopOverlappingBuilders,
 };

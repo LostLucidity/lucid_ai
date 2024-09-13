@@ -44,7 +44,7 @@ function areMineralFieldsSaturated(units, townhall) {
  * @param {ResourceManager} resources - The resource manager from the bot.
  * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} An array of actions to assign workers.
  */
-function assignWorkers(resources) {
+function assignWorkersToMinerals(resources) {
   const { map, units } = resources.get();
   /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
   const collectedActions = [];
@@ -77,9 +77,10 @@ function assignWorkers(resources) {
  * @param {ResourceManager} resources - The resource manager from the bot.
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} collectedActions - Array to collect actions.
  * @param {Set<number>} reassignedWorkers - Set of reassigned worker tags.
+ * @param {Unit[]} mineralFieldsCache - Cached mineral fields.
  */
-function assignWorkerToMineralField(units, worker, townhall, resources, collectedActions, reassignedWorkers) {
-  const mineralFieldTarget = findBestMineralField(units, worker, townhall);
+function assignWorkerToMineralField(units, worker, townhall, resources, collectedActions, reassignedWorkers, mineralFieldsCache) {
+  const mineralFieldTarget = findBestMineralField(units, worker, townhall, mineralFieldsCache); // Use cached fields
 
   if (mineralFieldTarget) {
     worker.labels.set('mineralField', mineralFieldTarget);
@@ -87,7 +88,6 @@ function assignWorkerToMineralField(units, worker, townhall, resources, collecte
     const unitCommands = gather(resources, worker, mineralFieldTarget, false);
     collectedActions.push(...unitCommands);
     unitCommands.forEach(unitCommand => setPendingOrders(worker, unitCommand));
-    // Ensure worker.tag is defined before adding it to reassignedWorkers
     if (typeof worker.tag === 'number') {
       reassignedWorkers.add(worker.tag);
     }
@@ -122,6 +122,10 @@ function distributeWorkersAcrossBases(world, units, resources, averageGatheringT
   const collectedActions = [];
   const reassignedWorkers = new Set();
 
+  // Cache the mineral fields to avoid multiple calls to units.getMineralFields()
+  const mineralFieldsCache = units.getMineralFields(); // Declare and cache the result
+
+  // Loop through each townhall
   townhalls.forEach(townhall => {
     if (!townhall.pos || !isTownhallNeedy(world, townhall, averageGatheringTime, units)) return;
 
@@ -132,7 +136,8 @@ function distributeWorkersAcrossBases(world, units, resources, averageGatheringT
         const potentialWorkers = gatheringWorkers.filter(worker => !reassignedWorkers.has(worker.tag));
         const [donatingWorker] = units.getClosest(givingTownhall.pos, potentialWorkers);
         if (donatingWorker && donatingWorker.pos) {
-          assignWorkerToMineralField(units, donatingWorker, townhall, resources, collectedActions, reassignedWorkers);
+          // Pass cached mineral fields instead of calling units.getMineralFields() again
+          assignWorkerToMineralField(units, donatingWorker, townhall, resources, collectedActions, reassignedWorkers, mineralFieldsCache);
         }
       }
     }
@@ -161,14 +166,16 @@ function estimateGatherAndReturnTime(worker, mineralField, averageGatheringTime)
  * @param {UnitResource} units - The units resource object from the bot.
  * @param {Unit} worker - The worker to assign.
  * @param {Unit} townhall - The townhall near which to assign the worker.
+ * @param {Unit[]} mineralFieldsCache - Cached mineral fields.
  * @returns {Unit|null} The most suitable mineral field, or null if none found.
  */
-function findBestMineralField(units, worker, townhall) {
+function findBestMineralField(units, worker, townhall, mineralFieldsCache) {
   if (!worker.pos) {
     return null;
   }
 
-  const suitableMineralFields = units.getMineralFields().filter(field => {
+  // Use cached mineral fields instead of calling units.getMineralFields()
+  const suitableMineralFields = mineralFieldsCache.filter(field => {
     const workerCount = field.labels.get('workerCount') || 0;
     const numWorkersAssigned = units.getWorkers().filter(w => {
       return w.orders && w.orders.some(order => order.targetUnitTag === field.tag);
@@ -249,11 +256,19 @@ function getDonorTownhalls(townhalls) {
  * @returns {Unit[]} An array of workers gathering the specified resource type.
  */
 function getGatheringWorkers(units, type = undefined, firstOrderOnly = true) {
+  // Cache the pending orders to avoid fetching them multiple times for each worker
+  const pendingOrdersCache = new Map();
+
   const gatheringWorkers = units.getWorkers()
     .filter(worker => {
+      if (!pendingOrdersCache.has(worker.tag)) {
+        pendingOrdersCache.set(worker.tag, getPendingOrders(worker));
+      }
+      const pendingOrders = pendingOrdersCache.get(worker.tag);
+
       return (
         worker.isGathering(type) ||
-        getPendingOrders(worker).some(order =>
+        pendingOrders.some(/** @type {function(SC2APIProtocol.UnitOrder): boolean} */ (order) =>
           order.abilityId !== undefined && gatheringAbilities.includes(order.abilityId)
         )
       );
@@ -264,8 +279,8 @@ function getGatheringWorkers(units, type = undefined, firstOrderOnly = true) {
       const { orders } = worker;
       if (orders === undefined) return false;
 
-      const pendingOrders = getPendingOrders(worker);
-      const gatheringOrders = [...orders, ...pendingOrders].filter(order =>
+      const pendingOrders = pendingOrdersCache.get(worker.tag);
+      const gatheringOrders = [...orders, ...pendingOrders].filter(/** @type {function(SC2APIProtocol.UnitOrder): boolean} */ (order) =>
         order.abilityId !== undefined && gatheringAbilities.includes(order.abilityId)
       );
 
@@ -301,8 +316,10 @@ function assignWorkerToField(worker, completedBases, map, units, resources) {
   const closestExpansion = getClosestExpansion(map, basePos);
   if (!closestExpansion) return collectedActions;
 
+  // Filter out mineral fields in the fog of war using the map's visibility function
   const mineralFields = units.getMineralFields().filter(mineralField => {
-    if (!mineralField.pos) return false;
+    // Check if the mineral field is visible and has a valid position
+    if (!mineralField.pos || !map.isVisible(mineralField.pos)) return false;
     const distance = getDistance(basePos, mineralField.pos);
     return distance !== undefined && distance < 14;
   });
@@ -310,7 +327,9 @@ function assignWorkerToField(worker, completedBases, map, units, resources) {
   const assignedMineralField = worker.labels.get('mineralField');
   if (assignedMineralField && assignedMineralField.tag !== undefined) {
     let currentMineralField = units.getByTag(assignedMineralField.tag);
-    if (currentMineralField) {
+
+    // Check if the current mineral field is visible and has a valid position
+    if (currentMineralField && currentMineralField.pos && map.isVisible(currentMineralField.pos)) {
       const neediestMineralField = getNeediestMineralField(units, mineralFields);
       const leastNeediestMineralField = getLeastNeediestMineralField(units, mineralFields);
 
@@ -337,9 +356,11 @@ function assignWorkerToField(worker, completedBases, map, units, resources) {
         }
       }
     } else {
+      // Mineral field is in fog of war or no longer exists
       worker.labels.delete('mineralField');
     }
   } else {
+    // No previously assigned mineral field or the field is no longer valid
     const neediestMineralField = getNeediestMineralField(units, mineralFields);
     if (neediestMineralField) {
       const unitCommands = gather(resources, worker, neediestMineralField, false);
@@ -347,6 +368,12 @@ function assignWorkerToField(worker, completedBases, map, units, resources) {
       worker.labels.set('mineralField', neediestMineralField);
       neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
     }
+  }
+
+  // If no visible mineral fields are available, add fallback logic
+  if (!mineralFields.length) {
+    // You can add idle, scout, or fallback logic here if no mineral fields are visible
+    collectedActions.push({ /* idle or scouting action */ });
   }
 
   return collectedActions;
@@ -574,7 +601,7 @@ function reassignIdleWorkers(world) {
 }
 
 module.exports = {
-  assignWorkers,
+  assignWorkersToMinerals,
   balanceWorkers,
   distributeWorkersAcrossBases,
   gather,

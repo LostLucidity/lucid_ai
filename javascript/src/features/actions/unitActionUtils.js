@@ -18,7 +18,7 @@ const { getPendingOrders } = require('../../sharedServices');
 const { GameState } = require('../../state');
 const { prepareBuildContext } = require('../../utils/workerManagementUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
-const { assignWorkersToBuild } = require('../construction/buildingWorkerInteractions');
+const { assignWorkersToMineralsToBuild } = require('../construction/buildingWorkerInteractions');
 const { getUnitsFromClustering, getOrderTargetPosition } = require('../shared/pathfinding/pathfinding');
 const { getPathCoordinates, getMapPath } = require('../shared/pathfinding/pathfindingCommonUtils');
 const { calculatePathablePositions } = require('../shared/pathfinding/pathfindingUtils');
@@ -184,7 +184,7 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
       unitType,
       unitCommand,
       handleRallyBase,
-      assignWorkersToBuild,
+      assignWorkersToMineralsToBuild,
       getOrderTargetPosition
     );
   } else {
