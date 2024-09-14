@@ -1,6 +1,6 @@
 // src/units/management/unitTrainingUtils.js
 
-const { getPendingOrders } = require("../../sharedServices");
+const { getPendingOrders } = require("../../services/sharedServices");
 
 /**
  * Determines if a unit (base or larva) can initiate training a unit.

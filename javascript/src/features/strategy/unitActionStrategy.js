@@ -3,7 +3,7 @@ const { Attribute } = require("@node-sc2/core/constants/enums");
 
 const ActionStrategy = require("./actionStrategy");
 const { getUnitTypeData } = require("../../core/gameData");
-const { getPendingOrders } = require("../../sharedServices");
+const { getPendingOrders } = require("../../services/sharedServices");
 const { train } = require("../../units/management/training");
 const { setPendingOrders } = require("../../units/management/unitOrders");
 const { getUnitsById } = require("../../utils/unitUtils");

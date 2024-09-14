@@ -14,7 +14,7 @@ const {
   handleRallyBase,
   rallyWorkerToTarget,
 } = require('../../gameLogic/economy/workerService');
-const { getPendingOrders } = require('../../sharedServices');
+const { getPendingOrders } = require('../../services/sharedServices');
 const { GameState } = require('../../state');
 const { prepareBuildContext } = require('../../utils/workerManagementUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
