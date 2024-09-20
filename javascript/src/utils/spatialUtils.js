@@ -267,6 +267,7 @@ function findUnitPlacements(world, unitType) {
   };
 
   /**
+   * Check if the point overlaps with any townhall locations or existing building positions
    * @param {Point2D} point
    * @returns {boolean}
    */
@@ -276,8 +277,6 @@ function findUnitPlacements(world, unitType) {
     }
 
     const unitCells = getCachedFootprintCells(point, unitFootprint);
-
-    // Calculate the full bounding box for the unit based on its footprint
     const unitBoundingBox = {
       x: point.x - Math.floor(unitFootprint.w / 2),
       y: point.y - Math.floor(unitFootprint.h / 2),
@@ -285,16 +284,14 @@ function findUnitPlacements(world, unitType) {
       h: unitFootprint.h
     };
 
-    return expansionPositions.some(expansion => {
+    const blockedByTownhall = expansionPositions.some(expansion => {
       if (expansion.x === undefined || expansion.y === undefined) {
         return false;
       }
 
       const townhallFootprint = townhallFootprints.find(fp => fp.w && fp.h);
-
       if (!townhallFootprint) return false;
 
-      // Calculate the full bounding box for the townhall based on its footprint
       const expansionBoundingBox = {
         x: expansion.x - Math.floor(townhallFootprint.w / 2),
         y: expansion.y - Math.floor(townhallFootprint.h / 2),
@@ -303,7 +300,6 @@ function findUnitPlacements(world, unitType) {
       };
 
       const overlap = boundingBoxIntersects(unitBoundingBox, expansionBoundingBox);
-
       if (overlap) {
         const expansionCells = getCachedFootprintCells(expansion, townhallFootprint);
         return pointsOverlap(unitCells, expansionCells);
@@ -311,12 +307,38 @@ function findUnitPlacements(world, unitType) {
 
       return false;
     });
+
+    let blockedByBuilding = false;
+    buildingPositions.forEach(position => {
+      if (position.x === undefined || position.y === undefined) {
+        return; // Skip this position if x or y is undefined
+      }
+
+      const buildingFootprint = getFootprint(unitType);
+      if (!buildingFootprint) {
+        return; // Skip this position if buildingFootprint is undefined
+      }
+
+      const buildingBoundingBox = {
+        x: position.x - Math.floor(buildingFootprint.w / 2),
+        y: position.y - Math.floor(buildingFootprint.h / 2),
+        w: buildingFootprint.w,
+        h: buildingFootprint.h
+      };
+
+      if (boundingBoxIntersects(unitBoundingBox, buildingBoundingBox)) {
+        blockedByBuilding = true;
+      }
+    });
+
+    return blockedByTownhall || blockedByBuilding;
   };
 
   /**
-   * @param {Point2D} point
-   * @returns {boolean}
-   */
+     * Check if the placement is valid
+     * @param {Point2D} point
+     * @returns {boolean}
+     */
   const isValidPlacement = (point) => {
     const cells = getCachedFootprintCells(point, unitFootprint);
     if (cells.some(cell => !gameMap.isPlaceable(cell))) return false;
@@ -324,14 +346,35 @@ function findUnitPlacements(world, unitType) {
     if (mainMineralLine.some(mlp => getDistance(mlp, point) <= 1.5)) return false;
     if (natural.areas?.hull?.some(hp => getDistance(hp, point) <= 3)) return false;
     if (units.getStructures({ alliance: Alliance.SELF }).some(u => getDistance(u.pos, point) <= 3)) return false;
+
+    // Only check townhall and other building overlaps, avoiding redundant checks
     return !isPlaceBlockedByTownhall(point);
+  };
+
+  /**
+   * Check if the gas mine placement is valid
+   * @param {Point2D} geyserPos - Position of the gas geyser
+   * @returns {boolean} - Returns true if the placement is valid
+   */
+  const isGasMinePlacementValid = (geyserPos /** @type {Point2D} */) => {
+    const minDistance = 3; // Minimum distance from existing structures
+    let isValid = true;
+
+    // Iterate over the Map using forEach
+    buildingPositions.forEach(pos => {
+      if (getDistance(geyserPos, pos) < minDistance) {
+        isValid = false; // Mark as invalid if too close
+      }
+    });
+
+    return isValid;
   };
 
   if (gasMineTypes.includes(unitType)) {
     const geyserPositions = MapResources.getFreeGasGeysers(gameMap, currentGameLoop)
       .map(geyser => {
         const { pos } = geyser;
-        if (!pos) return { pos, buildProgress: 0 };
+        if (!pos) return { pos, buildProgress: 0 }; // Fallback for undefined positions
         const [closestBase] = units.getClosest(pos, units.getBases());
         return { pos, buildProgress: closestBase.buildProgress };
       })
@@ -349,6 +392,8 @@ function findUnitPlacements(world, unitType) {
         if (!geyserBuildTime) return false;
         return getTimeInSeconds(timeLeft) <= getTimeInSeconds(geyserBuildTime);
       })
+      // Fix: Check if geyser.pos is defined before passing it to isGasMinePlacementValid
+      .filter(geyser => geyser.pos && isGasMinePlacementValid(geyser.pos))
       .sort((a, b) => (a.buildProgress || 0) - (b.buildProgress || 0));
 
     const [topGeyserPosition] = geyserPositions;
