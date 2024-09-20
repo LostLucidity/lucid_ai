@@ -356,7 +356,7 @@ function findUnitPlacements(world, unitType) {
    * @param {Point2D} geyserPos - Position of the gas geyser
    * @returns {boolean} - Returns true if the placement is valid
    */
-  const isGasMinePlacementValid = (geyserPos /** @type {Point2D} */) => {
+  const validateGasMinePlacement = (geyserPos /** @type {Point2D} */) => {
     const minDistance = 3; // Minimum distance from existing structures
     let isValid = true;
 
@@ -370,31 +370,49 @@ function findUnitPlacements(world, unitType) {
     return isValid;
   };
 
+  /**
+   * @typedef {Object} GeyserPosition
+   * @property {Point2D} pos - The position of the geyser
+   * @property {number} buildProgress - The build progress of the closest base
+   */
+
   if (gasMineTypes.includes(unitType)) {
+    /** @type {GeyserPosition[]} */
     const geyserPositions = MapResources.getFreeGasGeysers(gameMap, currentGameLoop)
-      .map(geyser => {
-        const { pos } = geyser;
-        if (!pos) return { pos, buildProgress: 0 }; // Fallback for undefined positions
-        const [closestBase] = units.getClosest(pos, units.getBases());
-        return { pos, buildProgress: closestBase.buildProgress };
-      })
-      .filter(geyser => {
-        const { pos, buildProgress } = geyser;
-        if (!pos || buildProgress === undefined) return false;
-        const [closestBase] = units.getClosest(pos, units.getBases());
-        if (!closestBase) return false;
-        const { unitType: baseType } = closestBase;
-        if (!baseType) return false;
-        const { buildTime } = data.getUnitTypeData(baseType);
-        if (!buildTime) return false;
-        const timeLeft = getBuildTimeLeft(closestBase, buildTime, buildProgress);
-        const { buildTime: geyserBuildTime } = data.getUnitTypeData(unitType);
-        if (!geyserBuildTime) return false;
-        return getTimeInSeconds(timeLeft) <= getTimeInSeconds(geyserBuildTime);
-      })
-      // Fix: Check if geyser.pos is defined before passing it to isGasMinePlacementValid
-      .filter(geyser => geyser.pos && isGasMinePlacementValid(geyser.pos))
-      .sort((a, b) => (a.buildProgress || 0) - (b.buildProgress || 0));
+      .reduce(
+        /**
+         * @param {GeyserPosition[]} acc - Accumulator array of valid geyser positions
+         * @param {any} geyser - Current geyser being processed
+         * @returns {GeyserPosition[]}
+         */
+        (acc, geyser) => {
+          const { pos } = geyser;
+          if (!pos) return acc;
+
+          const [closestBase] = units.getClosest(pos, units.getBases());
+          if (!closestBase || closestBase.buildProgress === undefined) return acc;
+
+          const { unitType: baseType } = closestBase;
+          if (!baseType) return acc;
+
+          const { buildTime } = data.getUnitTypeData(baseType);
+          if (!buildTime) return acc;
+
+          const timeLeft = getBuildTimeLeft(closestBase, buildTime, closestBase.buildProgress);
+          const { buildTime: geyserBuildTime } = data.getUnitTypeData(unitType);
+          if (!geyserBuildTime) return acc;
+
+          if (getTimeInSeconds(timeLeft) > getTimeInSeconds(geyserBuildTime)) return acc;
+
+          if (validateGasMinePlacement(pos)) {
+            acc.push({ pos, buildProgress: closestBase.buildProgress || 0 });
+          }
+
+          return acc;
+        },
+      /** @type {GeyserPosition[]} */[]
+      )
+      .sort((a, b) => a.buildProgress - b.buildProgress);
 
     const [topGeyserPosition] = geyserPositions;
     return topGeyserPosition && topGeyserPosition.pos ? [topGeyserPosition.pos] : [];
