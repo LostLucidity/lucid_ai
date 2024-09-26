@@ -19,11 +19,11 @@ const { trackBuildOrderProgress } = require('./gameLogic/buildOrders/buildOrderP
 const { startTrackingWorkerGathering, calculateGatheringTime } = require('./gameLogic/economy/gatheringManagement');
 const { gather, balanceWorkers, assignWorkersToMinerals } = require('./gameLogic/economy/workerAssignment');
 const { releaseWorkerFromBuilding, getWorkerReservedForPosition } = require('./gameLogic/economy/workerService');
-const GameInitialization = require('./initialization/gameInitialization');
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
+const GameInitialization = require('./state/gameInitialization');
+const { findUnitPlacements } = require('./utils/spatial/spatialUtils');
 const { getDistance } = require('./utils/spatialCoreUtils');
-const { findUnitPlacements } = require('./utils/spatialUtils');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
 const config = require('../config/config');
 

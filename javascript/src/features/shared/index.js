@@ -17,8 +17,8 @@ const coreUtils = require('../../utils/coreUtils');
 const mapAnalysis = require('../../utils/mapAnalysis');
 const scoutingUtils = require('../../utils/scoutingUtils');
 const singletonFactory = require('../../utils/singletonFactory');
+const spatialUtils = require('../../utils/spatial/spatialUtils');
 const spatialCoreUtils = require('../../utils/spatialCoreUtils');
-const spatialUtils = require('../../utils/spatialUtils');
 const stateManagement = require('../../utils/stateManagement');
 const workerManagementUtils = require('../../utils/workerManagementUtils');
 

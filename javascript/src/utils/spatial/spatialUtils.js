@@ -9,18 +9,18 @@ const { createPoint2D, distance } = require("@node-sc2/core/utils/geometry/point
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
-const { getDistance } = require("./spatialCoreUtils");
-const config = require("../../config/config");
-const MapResources = require("../../data/mapResources/mapResources");
-const { isPlaceableAtGasGeyser } = require("../core/buildingUtils");
-const { getCurrentlyEnrouteConstructionGrids } = require("../core/constructionDataUtils");
-const BuildingPlacement = require("../features/construction/buildingPlacement");
-const { getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../features/shared/pathfinding/pathfinding");
-const { getTimeInSeconds } = require("../features/shared/timeUtils");
-const { getBuildTimeLeft } = require("../gameLogic/economy/workerService");
-const { GameState } = require('../state');
-const { buildingPositions } = require("../state");
-const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../units/management/unitConfig");
+const config = require("../../../config/config");
+const MapResources = require("../../../data/mapResources/mapResources");
+const { isPlaceableAtGasGeyser } = require("../../core/buildingUtils");
+const { getCurrentlyEnrouteConstructionGrids } = require("../../core/constructionDataUtils");
+const BuildingPlacement = require("../../features/construction/buildingPlacement");
+const { getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../../features/shared/pathfinding/pathfinding");
+const { getTimeInSeconds } = require("../../features/shared/timeUtils");
+const { getBuildTimeLeft } = require("../../gameLogic/economy/workerService");
+const { GameState } = require('../../state');
+const { buildingPositions } = require("../../state");
+const { flyingTypesMapping, canUnitBuildAddOn, addOnTypesMapping } = require("../../units/management/unitConfig");
+const { getDistance } = require("../spatialCoreUtils");
 
 /**
  * @typedef {Object} FootprintType

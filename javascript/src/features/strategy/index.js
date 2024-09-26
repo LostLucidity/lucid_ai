@@ -11,7 +11,7 @@ const strategyManager = require('./strategyManager');
 const unitActionStrategy = require('./unitActionStrategy');
 const unitSelection = require('./unitSelection');
 const upgradeActionStrategy = require('./upgradeActionStrategy');
-const strategyInitialization = require('../../initialization/strategySetup.js');
+const strategyInitialization = require('../../state/strategySetup.js');
 
 // Aggregating and exporting all modules
 module.exports = {

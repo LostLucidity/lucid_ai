@@ -11,7 +11,7 @@ const { getCurrentlyEnrouteConstructionGrids } = require("../core/constructionDa
 const { seigeTanksSiegedGrids } = require("../core/sharedUnitPlacement");
 const { getAddOnPlacement, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../features/shared/pathfinding/pathfinding");
 const { canUnitBuildAddOn, flyingTypesMapping } = require("../units/management/unitConfig");
-const spatialUtils = require('../utils/spatialUtils');
+const spatialUtils = require('../utils/spatial/spatialUtils');
 
 /**
  * Service to manage spatial and construction-related functionalities.
@@ -19,7 +19,7 @@ const spatialUtils = require('../utils/spatialUtils');
 class ConstructionSpatialService {
   /**
    * Creates an instance of ConstructionSpatialService.
-   * @param {typeof import("../utils/spatialUtils")} spatialUtils Module with spatial utilities.
+   * @param {typeof import("../utils/spatial/spatialUtils")} spatialUtils Module with spatial utilities.
    */
   constructor(spatialUtils) {
     this.spatialUtils = spatialUtils;
