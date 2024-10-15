@@ -1,7 +1,9 @@
+
 const { UnitType } = require("@node-sc2/core/constants");
 const { Race, Alliance } = require("@node-sc2/core/constants/enums");
 const groupTypes = require("@node-sc2/core/constants/groups");
 const { TownhallRace } = require("@node-sc2/core/constants/race-map");
+const { REACTOR, TECHLAB, BARRACKS, SUPPLYDEPOT, ENGINEERINGBAY, STARPORT } = require("@node-sc2/core/constants/unit-type");
 const { PYLON } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
@@ -170,6 +172,131 @@ function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTown
 }
 
 /**
+ * Handles Terran-specific placement logic
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @returns {Point2D[]}
+ */
+function findTerranPlacements(world, unitType) {
+  const { resources } = world;
+  const { map: gameMap, units } = resources.get();  // Extract units from resources
+  const gameState = GameState.getInstance();  // Retrieve the game state
+  const currentPlan = gameState.plan;  // Extract the current plan
+  /** @type {Point2D[]} */
+  const placementGrids = [];  // Initialize placementGrids as an empty array
+  /** @type {Point2D[]} */
+  let placements = [];  // Initialize placements as an empty array
+
+  const orphanAddons = units.getById([REACTOR, TECHLAB]);
+  const buildingFootprints = Array.from(buildingPositions.entries()).reduce((positions, [step, buildingPos]) => {
+    const stepData = currentPlan[step];
+    const stepUnitType = stepData.unitType;
+    if (!stepUnitType) return positions;
+
+    const footprint = getFootprint(stepUnitType);
+    if (!footprint) return positions;
+    const newPositions = getCachedFootprintCells(buildingPos, footprint);
+    if (canUnitBuildAddOn(stepUnitType)) {
+      const addonFootprint = getFootprint(REACTOR);
+      if (!addonFootprint) return positions;
+      const addonPositions = getCachedFootprintCells(getAddOnPlacement(buildingPos), addonFootprint);
+      return [...positions, ...newPositions, ...addonPositions];
+    }
+    return [...positions, ...newPositions];
+  }, /** @type {Point2D[]} */([]));
+
+  const orphanAddonPositions = orphanAddons.reduce((positions, addon) => {
+    const { pos } = addon;
+    if (!pos) return positions;
+    const newPositions = getAddOnBuildingPlacement(pos);
+    const footprint = getFootprint(addon.unitType);
+    if (!footprint) return positions;
+    const cells = getCachedFootprintCells(newPositions, footprint);
+    if (!cells.length) return positions;
+    return [...positions, ...cells];
+  }, /** @type {Point2D[]} */([]));
+
+  const wallOffPositions = BuildingPlacement.findWallOffPlacement(unitType).slice();
+  if (wallOffPositions.some(position => gameMap.isPlaceableAt(unitType, position))) {
+    if (!canUnitBuildAddOn(unitType)) {
+      const filteredWallOffPositions = wallOffPositions.filter(position =>
+        !orphanAddonPositions.some(orphanPosition => getDistance(orphanPosition, position) < 1) &&
+        !buildingFootprints.some(buildingFootprint => getDistance(buildingFootprint, position) < 1)
+      );
+      if (filteredWallOffPositions.length > 0) {
+        return filteredWallOffPositions;
+      }
+    }
+    if (wallOffPositions.length > 0) {
+      const newWallOffPositions = wallOffPositions.filter(position =>
+        !buildingFootprints.some(buildingFootprint => getDistance(buildingFootprint, position) < 1)
+      );
+      if (newWallOffPositions.length > 0) {
+        return newWallOffPositions;
+      }
+    }
+  }
+
+  getOccupiedExpansions(world.resources).forEach(expansion => {
+    if (expansion.areas) {
+      placementGrids.push(...expansion.areas.placementGrid);
+    }
+  });
+
+  if (BuildingPlacement.addOnPositions.length > 0) {
+    const barracksFootprint = getFootprint(BARRACKS);
+    if (!barracksFootprint) return [];
+    const barracksCellInFootprints = BuildingPlacement.addOnPositions.map(position => getCachedFootprintCells(createPoint2D(position), barracksFootprint));
+    wallOffPositions.push(...barracksCellInFootprints.flat());
+  }
+
+  if (BuildingPlacement.twoByTwoPositions.length > 0) {
+    const supplyFootprint = getFootprint(SUPPLYDEPOT);
+    if (!supplyFootprint) return [];
+    const supplyCellInFootprints = BuildingPlacement.twoByTwoPositions.map(position => getCachedFootprintCells(position, supplyFootprint));
+    wallOffPositions.push(...supplyCellInFootprints.flat());
+  }
+
+  if (BuildingPlacement.threeByThreePositions.length > 0) {
+    const engineeringBayFootprint = getFootprint(ENGINEERINGBAY);
+    if (!engineeringBayFootprint) return [];
+    const engineeringBayCellInFootprints = BuildingPlacement.threeByThreePositions.map(position => getCachedFootprintCells(position, engineeringBayFootprint));
+    wallOffPositions.push(...engineeringBayCellInFootprints.flat());
+  }
+
+  const unitTypeFootprint = getFootprint(unitType);
+  let addonFootprint = null;
+  if (addOnTypesMapping.has(unitType)) {
+    addonFootprint = getFootprint(REACTOR);
+    if (!addonFootprint) return [];
+  }
+
+  if (!unitTypeFootprint) return [];
+
+  const barracks = units.getById(BARRACKS);
+  const barracksPositions = barracks.map(b => b.pos);
+
+  if (unitType === STARPORT && (barracks.length === 0 || !barracksPositions.some(bPos => bPos && placementGrids.some(grid => getDistance(bPos, grid) <= 23.6)))) {
+    return []; // Early exit for STARPORT with no valid BARRACKS within range
+  }
+
+  const buildingFootprintOfOrphanAddons = getBuildingFootprintOfOrphanAddons(units);
+
+  placements = placementGrids.filter(grid => {
+    const cells = [...getCachedFootprintCells(grid, unitTypeFootprint)];
+    if (addonFootprint) {
+      cells.push(...getCachedFootprintCells(getAddOnPlacement(grid), addonFootprint));
+    }
+    return cells.every(cell => gameMap.isPlaceable(cell)) &&
+      !pointsOverlap(cells, [...wallOffPositions, ...buildingFootprintOfOrphanAddons, ...orphanAddonPositions]);
+  }).map(pos => ({ pos, rand: Math.random() }))
+    .sort((a, b) => a.rand - b.rand)
+    .map(a => a.pos)
+    .slice(0, 20);
+
+  return placements;
+}
+/**
  * Determines a valid position for a given unit type.
  * @param {World} world
  * @param {UnitTypeId} unitType
@@ -242,7 +369,6 @@ function findPosition(world, unitType, candidatePositions) {
  * @returns {Point2D[]}
  */
 function findUnitPlacements(world, unitType) {
-  const { BARRACKS, ENGINEERINGBAY, REACTOR, STARPORT, SUPPLYDEPOT, TECHLAB } = UnitType;
   const { gasMineTypes } = groupTypes;
   const { agent, data, resources } = world;
   const { race } = agent;
@@ -438,8 +564,6 @@ function findUnitPlacements(world, unitType) {
 
   /** @type {Point2D[]} */
   let placements = [];
-  const gameState = GameState.getInstance();
-  const currentPlan = gameState.plan;
 
   const occupiedExpansions = getOccupiedExpansions(resources);
   /** @type {Point2D[]} */
@@ -459,113 +583,7 @@ function findUnitPlacements(world, unitType) {
   if (race === Race.PROTOSS) {
     return findProtossPlacements(world, unitType, placements, isPlaceBlockedByTownhall);
   } else if (race === Race.TERRAN) {
-    const orphanAddons = units.getById([REACTOR, TECHLAB]);
-    const buildingFootprints = Array.from(buildingPositions.entries()).reduce((positions, [step, buildingPos]) => {
-      const stepData = currentPlan[step];
-      const stepUnitType = stepData.unitType;
-      if (!stepUnitType) return positions;
-
-      const footprint = getFootprint(stepUnitType);
-      if (!footprint) return positions;
-      const newPositions = getCachedFootprintCells(buildingPos, footprint);
-      if (canUnitBuildAddOn(stepUnitType)) {
-        const addonFootprint = getFootprint(REACTOR);
-        if (!addonFootprint) return positions;
-        const addonPositions = getCachedFootprintCells(getAddOnPlacement(buildingPos), addonFootprint);
-        return [...positions, ...newPositions, ...addonPositions];
-      }
-      return [...positions, ...newPositions];
-    }, /** @type {Point2D[]} */([]));
-
-    const orphanAddonPositions = orphanAddons.reduce((positions, addon) => {
-      const { pos } = addon;
-      if (!pos) return positions;
-      const newPositions = getAddOnBuildingPlacement(pos);
-      const footprint = getFootprint(addon.unitType);
-      if (!footprint) return positions;
-      const cells = getCachedFootprintCells(newPositions, footprint);
-      if (!cells.length) return positions;
-      return [...positions, ...cells];
-    }, /** @type {Point2D[]} */([]));
-
-    const wallOffPositions = BuildingPlacement.findWallOffPlacement(unitType).slice();
-    if (wallOffPositions.some(position => gameMap.isPlaceableAt(unitType, position))) {
-      if (!canUnitBuildAddOn(unitType)) {
-        const filteredWallOffPositions = wallOffPositions.filter(position =>
-          !orphanAddonPositions.some(orphanPosition => getDistance(orphanPosition, position) < 1) &&
-          !buildingFootprints.some(buildingFootprint => getDistance(buildingFootprint, position) < 1)
-        );
-        if (filteredWallOffPositions.length > 0) {
-          return filteredWallOffPositions;
-        }
-      }
-      if (wallOffPositions.length > 0) {
-        const newWallOffPositions = wallOffPositions.filter(position =>
-          !buildingFootprints.some(buildingFootprint => getDistance(buildingFootprint, position) < 1)
-        );
-        if (newWallOffPositions.length > 0) {
-          return newWallOffPositions;
-        }
-      }
-    }
-
-    getOccupiedExpansions(world.resources).forEach(expansion => {
-      if (expansion.areas) {
-        placementGrids.push(...expansion.areas.placementGrid);
-      }
-    });
-
-    if (BuildingPlacement.addOnPositions.length > 0) {
-      const barracksFootprint = getFootprint(BARRACKS);
-      if (!barracksFootprint) return [];
-      const barracksCellInFootprints = BuildingPlacement.addOnPositions.map(position => getCachedFootprintCells(createPoint2D(position), barracksFootprint));
-      wallOffPositions.push(...barracksCellInFootprints.flat());
-    }
-
-    if (BuildingPlacement.twoByTwoPositions.length > 0) {
-      const supplyFootprint = getFootprint(SUPPLYDEPOT);
-      if (!supplyFootprint) return [];
-      const supplyCellInFootprints = BuildingPlacement.twoByTwoPositions.map(position => getCachedFootprintCells(position, supplyFootprint));
-      wallOffPositions.push(...supplyCellInFootprints.flat());
-    }
-
-    if (BuildingPlacement.threeByThreePositions.length > 0) {
-      const engineeringBayFootprint = getFootprint(ENGINEERINGBAY);
-      if (!engineeringBayFootprint) return [];
-      const engineeringBayCellInFootprints = BuildingPlacement.threeByThreePositions.map(position => getCachedFootprintCells(position, engineeringBayFootprint));
-      wallOffPositions.push(...engineeringBayCellInFootprints.flat());
-    }
-
-    const unitTypeFootprint = getFootprint(unitType);
-    let addonFootprint = null;
-    if (addOnTypesMapping.has(unitType)) {
-      addonFootprint = getFootprint(REACTOR);
-      if (!addonFootprint) return [];
-    }
-
-    if (!unitTypeFootprint) return [];
-
-    const barracks = units.getById(BARRACKS);
-    const barracksPositions = barracks.map(b => b.pos);
-
-    if (unitType === STARPORT && (barracks.length === 0 || !barracksPositions.some(bPos => bPos && placementGrids.some(grid => getDistance(bPos, grid) <= 23.6)))) {
-      return []; // Early exit for STARPORT with no valid BARRACKS within range
-    }
-
-    const buildingFootprintOfOrphanAddons = getBuildingFootprintOfOrphanAddons(units);
-
-    placements = placementGrids.filter(grid => {
-      const cells = [...getCachedFootprintCells(grid, unitTypeFootprint)];
-      if (addonFootprint) {
-        cells.push(...getCachedFootprintCells(getAddOnPlacement(grid), addonFootprint));
-      }
-      return cells.every(cell => gameMap.isPlaceable(cell)) &&
-        !pointsOverlap(cells, [...wallOffPositions, ...buildingFootprintOfOrphanAddons, ...orphanAddonPositions]);
-    }).map(pos => ({ pos, rand: Math.random() }))
-      .sort((a, b) => a.rand - b.rand)
-      .map(a => a.pos)
-      .slice(0, 20);
-
+    return findTerranPlacements(world, unitType);
   } else if (race === Race.ZERG) {
     placements.push(...findZergPlacements(world, unitType));
   }
