@@ -66,7 +66,6 @@ function getCachedFootprintCells(point, footprint, shouldCache = true) {
   return footprintCellsCache.get(key);
 }
 
-
 /**
  * Extracted function to handle Protoss-specific placement logic
  * @param {World} world
@@ -79,63 +78,132 @@ function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTown
   const { PYLON, FORGE } = UnitType;
   const { resources } = world;
   const { map: gameMap, units } = resources.get();
-  const gameState = GameState.getInstance();
   const main = gameMap.getExpansions()[0];
-  let pylonsNearProduction;
 
-  if (units.getById(PYLON).length === 1) {
-    pylonsNearProduction = units.getById(PYLON);
-  } else {
-    pylonsNearProduction = units.getById(PYLON)
-      .filter(u => (u.buildProgress ?? 0) >= 1)
-      .filter(pylon => getDistance(pylon.pos, main.townhallPosition) < 50);
+  const pylonsNearProduction = getPylonsNearProduction(units, PYLON, main.townhallPosition);
+
+  let candidatePositions = getCandidatePositionsForPylon(world, unitType, resources);
+
+  addPylonPlacements(pylonsNearProduction, placements, gameMap);
+
+  const filteredPositions = getFilteredPositions(world);
+
+  const threeByThreePlacements = handleThreeByThreePositions(world, unitType, gameMap);
+  if (threeByThreePlacements.length > 0) {
+    return threeByThreePlacements; // Return if valid three-by-three placements are found
   }
 
-  // Prioritize natural wall pylon placements if unitType is PYLON and it's the first one being placed
-  /** @type {Point2D[]} */
-  let candidatePositions = [];
-  if (unitType === PYLON) {
-    if (gameState.getUnitTypeCount(world, unitType) === 0) {
-      if (config.naturalWallPylon) {
-        candidatePositions = BuildingPlacement.getCandidatePositions(resources, 'NaturalWallPylon', unitType);
+  const wallOffPositions = getWallOffPositions(world, FORGE, filteredPositions);
+  const filteredCandidatePositions = filterCandidatePositions(candidatePositions, wallOffPositions, gameMap, unitType, isPlaceBlockedByTownhall);
+
+  if (filteredCandidatePositions.length > 0) {
+    return filteredCandidatePositions.slice(0, 20);
+  }
+
+  const plannedPylonPositions = BuildingPlacement.getPlannedPylonPositions();
+
+  return finalizePlacements(placements, plannedPylonPositions, pylonsNearProduction, gameMap, wallOffPositions, unitType, isPlaceBlockedByTownhall);
+}
+
+/**
+ * Handles filtering and returning valid placements for three-by-three units.
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @param {MapResource} gameMap
+ * @returns {Point2D[]}
+ */
+function handleThreeByThreePositions(world, unitType, gameMap) {
+  const threeByThreeFootprint = getFootprint(UnitType.FORGE);
+  if (!threeByThreeFootprint) return [];
+
+  if (BuildingPlacement.threeByThreePositions.length > 0) {
+    const filteredPositions = BuildingPlacement.threeByThreePositions.filter(position => {
+      const footprintCells = getCachedFootprintCells(position, threeByThreeFootprint);
+      return footprintCells.every(cell => gameMap.isPlaceable(cell));
+    });
+
+    const unitTypeFootprint = getFootprint(unitType);
+    if (unitTypeFootprint && unitTypeFootprint.h === threeByThreeFootprint.h && unitTypeFootprint.w === threeByThreeFootprint.w) {
+      const validPosition = getRandom(filteredPositions.filter(pos => gameMap.isPlaceableAt(unitType, pos)));
+      if (validPosition) {
+        return [validPosition];
       }
     }
   }
 
-  // Continue with general placement logic
+  return [];
+}
+
+/**
+ * Gets pylons near the main townhall for production purposes.
+ * @param {UnitResource} units
+ * @param {UnitTypeId} PYLON
+ * @param {Point2D} townhallPosition
+ * @returns {Unit[]}
+ */
+function getPylonsNearProduction(units, PYLON, townhallPosition) {
+  const pylons = units.getById(PYLON);
+  if (pylons.length === 1) {
+    return pylons;
+  }
+  return pylons
+    .filter(u => (u.buildProgress ?? 0) >= 1)
+    .filter(pylon => getDistance(pylon.pos, townhallPosition) < 50);
+}
+
+/**
+ * Gets candidate positions for placing the first PYLON near the natural wall.
+ * @param {World} world
+ * @param {UnitTypeId} unitType
+ * @param {ResourceManager} resources
+ * @returns {Point2D[]}
+ */
+function getCandidatePositionsForPylon(world, unitType, resources) {
+  const gameState = GameState.getInstance();
+  if (unitType === UnitType.PYLON && gameState.getUnitTypeCount(world, unitType) === 0 && config.naturalWallPylon) {
+    return BuildingPlacement.getCandidatePositions(resources, 'NaturalWallPylon', unitType);
+  }
+  return [];
+}
+
+/**
+ * Adds grid placements around pylons to the placement list.
+ * @param {Unit[]} pylonsNearProduction
+ * @param {Point2D[]} placements
+ * @param {MapResource} gameMap
+ */
+function addPylonPlacements(pylonsNearProduction, placements, gameMap) {
   pylonsNearProduction.forEach(pylon => {
-    if (pylon.pos) {  // Check if pylon.pos is defined
+    if (pylon.pos) {
       placements.push(...gridsInCircle(pylon.pos, 6.5, { normalize: true })
         .filter(grid => existsInMap(gameMap, grid) && getDistance(grid, pylon.pos) < 6.5));
     }
   });
+}
 
-  /** @type {Point2D[]} */
-  const wallOffPositions = [];
-  const currentlyEnrouteConstructionGrids = getCurrentlyEnrouteConstructionGrids(world);
-  const threeByThreeFootprint = getFootprint(FORGE);
-  if (threeByThreeFootprint === undefined) return [];
+/**
+ * Gets positions that are already occupied or under construction.
+ * @param {World} world
+ * @returns {Point2D[]}
+ */
+function getFilteredPositions(world) {
+  const strategyContext = StrategyContext.getInstance();
+  const currentStrategy = strategyContext.getCurrentStrategy();
 
-  /**
-   * @type {Point2D[]} filteredPositions
-   */
-  const filteredPositions = [...getCurrentlyEnrouteConstructionGrids(world), ...buildingPositions].reduce(
+  if (!currentStrategy) {
+    console.error('Current strategy is undefined.');
+    return [];
+  }
+
+  const currentPlan = currentStrategy.steps;
+  return [...getCurrentlyEnrouteConstructionGrids(world), ...buildingPositions].reduce(
     /**
      * @param {Point2D[]} acc
      * @param {Point2D | [number, Point2D]} positionEntry - Either a Point2D or a tuple with [step, Point2D]
      * @param {number} step
      * @returns {Point2D[]}
-     */
+     */  
     (acc, positionEntry, step) => {
-      const strategyContext = StrategyContext.getInstance();
-      const currentStrategy = strategyContext.getCurrentStrategy();
-
-      if (!currentStrategy) {
-        console.error('Current strategy is undefined.');
-        return acc;
-      }
-
-      const currentPlan = currentStrategy.steps;
       if (!currentPlan[step]) {
         console.error(`No plan found for step ${step}.`);
         return acc;
@@ -145,108 +213,96 @@ function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTown
       const unitType = BuildingPlacement.extractUnitTypeFromAction(currentAction);
 
       const position = Array.isArray(positionEntry) ? positionEntry[1] : positionEntry;
-
       const unitFootprint = getFootprint(unitType);
 
       if (unitFootprint && position && typeof position === 'object' && !Array.isArray(position)) {
-        /**
-         * @type {Point2D[]}
-         */
         const footprintCells = getCachedFootprintCells(position, unitFootprint, false);
-
         acc.push(...footprintCells);
       }
 
       return acc;
     },
-  /** @type {Point2D[]} */[]
+    /** @type {Point2D[]} */[]
   );
+}
 
-  BuildingPlacement.threeByThreePositions = BuildingPlacement.threeByThreePositions.filter(position => {
-    if (typeof position === 'object' && position) {
-      return !pointsOverlap(
-        filteredPositions,
-        getCachedFootprintCells(position, threeByThreeFootprint)
-      );
-    }
-    return false;
+
+/**
+ * Gets wall-off positions for building placement.
+ * @param {World} world
+ * @param {UnitTypeId} FORGE
+ * @param {Point2D[]} filteredPositions
+ * @returns {Point2D[]}
+ */
+function getWallOffPositions(world, FORGE, filteredPositions) {
+  const threeByThreeFootprint = getFootprint(FORGE);
+  if (!threeByThreeFootprint) return [];
+
+  return BuildingPlacement.threeByThreePositions.filter(position => {
+    return !pointsOverlap(
+      filteredPositions,
+      getCachedFootprintCells(position, threeByThreeFootprint)
+    );
   });
+}
 
-  if (BuildingPlacement.threeByThreePositions.length > 0) {
-    const threeByThreeCellsInFootprints = BuildingPlacement.threeByThreePositions.map(position => getCachedFootprintCells(position, threeByThreeFootprint));
-    wallOffPositions.push(...threeByThreeCellsInFootprints.flat().filter(position => !pointsOverlap(currentlyEnrouteConstructionGrids, getCachedFootprintCells(position, threeByThreeFootprint, false))));
-    const unitTypeFootprint = getFootprint(unitType);
-    if (unitTypeFootprint === undefined) return [];
-
-    if (unitTypeFootprint.h === threeByThreeFootprint.h && unitTypeFootprint.w === threeByThreeFootprint.w) {
-      const canPlace = getRandom(BuildingPlacement.threeByThreePositions.filter(pos => gameMap.isPlaceableAt(unitType, pos)));
-      if (canPlace) {
-        return [canPlace];
-      }
-    }
-  }
-
+/**
+ * Filters candidate positions to remove those blocked by wall-off or townhalls.
+ * @param {Point2D[]} candidatePositions
+ * @param {Point2D[]} wallOffPositions
+ * @param {MapResource} gameMap
+ * @param {UnitTypeId} unitType
+ * @param {function} isPlaceBlockedByTownhall
+ * @returns {Point2D[]}
+ */
+function filterCandidatePositions(candidatePositions, wallOffPositions, gameMap, unitType, isPlaceBlockedByTownhall) {
   const unitTypeFootprint = getFootprint(unitType);
-  if (unitTypeFootprint === undefined) return [];
+  if (!unitTypeFootprint) return [];
 
-  // Filter candidate positions first, if any exist (without pylon power range filter)
-  const filteredCandidatePositions = candidatePositions.filter(grid => {
-    const cells = [...getCachedFootprintCells(grid, unitTypeFootprint, false)];
+  return candidatePositions.filter(grid => {
+    const cells = getCachedFootprintCells(grid, unitTypeFootprint, false);
     return cells.every(cell => gameMap.isPlaceable(cell)) &&
-      !pointsOverlap(cells, [...wallOffPositions]) &&
+      !pointsOverlap(cells, wallOffPositions) &&
       !isPlaceBlockedByTownhall(grid);
   });
+}
 
-  // If there are valid candidate positions, return them
-  if (filteredCandidatePositions.length > 0) {
-    return filteredCandidatePositions.slice(0, 20);
-  }
+/**
+ * Finalizes the placement list by filtering based on PYLON proximity.
+ * @param {Point2D[]} placements
+ * @param {Point2D[]} plannedPylonPositions
+ * @param {Unit[]} pylonsNearProduction
+ * @param {MapResource} gameMap
+ * @param {Point2D[]} wallOffPositions
+ * @param {UnitTypeId} unitType
+ * @param {function} isPlaceBlockedByTownhall
+ * @returns {Point2D[]}
+ */
+function finalizePlacements(placements, plannedPylonPositions, pylonsNearProduction, gameMap, wallOffPositions, unitType, isPlaceBlockedByTownhall) {
+  const unitTypeFootprint = getFootprint(unitType);
+  if (!unitTypeFootprint) return [];
 
-  // Collect all planned PYLONs from buildingPositions
-  /**
-   * @type {Point2D[]} plannedPylonPositions
-   */
-  const plannedPylonPositions = BuildingPlacement.getPlannedPylonPositions();
-
-  /**
-   * Continue with placement filtering
-   */
-  placements = placements.filter(grid => {
-    const cells = [...getCachedFootprintCells(grid, unitTypeFootprint, false)];
-
-    // Check if the grid is placeable and does not overlap with wall-off positions
+  return placements.filter(grid => {
+    const cells = getCachedFootprintCells(grid, unitTypeFootprint, false);
     const isPlaceable = cells.every(cell => gameMap.isPlaceable(cell)) &&
-      !pointsOverlap(cells, [...wallOffPositions]) &&
+      !pointsOverlap(cells, wallOffPositions) &&
       !isPlaceBlockedByTownhall(grid);
 
-    // If the unitType is PYLON, don't apply the proximity check
-    if (unitType === PYLON) {
+    if (unitType === UnitType.PYLON) {
       return isPlaceable;
     }
 
-    // Combine existing pylons (Unit.pos) and planned PYLONs (Point2D) for the proximity check
     const pylonsIncludingPlanned = [
-      ...pylonsNearProduction.map(pylon => pylon.pos),  // Convert Unit objects to Point2D by using pylon.pos
-      ...plannedPylonPositions  // These are already Point2D objects
+      ...pylonsNearProduction.map(pylon => pylon.pos),
+      ...plannedPylonPositions
     ];
 
-    // Use reduce to check if the grid is near any pylon
-    const isNearPylon = pylonsIncludingPlanned.reduce((isNear, pylonPosition) => {
-      if (isNear) {
-        return true; // If already near, no need to continue
-      }
-
-      // Now pylonPosition is always Point2D, check if it's within range
-      return getDistance(pylonPosition, grid) <= 6.5;
-    }, false); // Initial value of isNear is false
-
+    const isNearPylon = pylonsIncludingPlanned.some(pylonPosition => getDistance(pylonPosition, grid) <= 6.5);
     return isPlaceable && isNearPylon;
   }).map(pos => ({ pos, rand: Math.random() }))
     .sort((a, b) => a.rand - b.rand)
     .map(a => a.pos)
     .slice(0, 20);
-
-  return placements;
 }
 
 /**
