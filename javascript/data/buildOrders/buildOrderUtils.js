@@ -290,7 +290,7 @@ async function loadBuildOrdersFromDirectory(directoryName) {
  * @returns {string} The sanitized string.
  */
 function sanitizeFileName(title) {
-  return title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  return title.replace(/[^a-z0-9]+/gi, '_').toLowerCase().replace(/_+/g, '_').slice(0, 255);
 }
 
 // Export the utility functions
