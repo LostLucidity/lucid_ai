@@ -10,6 +10,9 @@ const path = require("path");
 const { GameState } = require("../../src/state");
 const { getBasicProductionUnits } = require("../../src/units/management/basicUnitUtils");
 
+/** @type {Record<string, import('src/core/globalTypes').RaceBuildOrders>} */
+const buildOrderCache = {};
+
 /**
  * Determines the directory name based on the race matchup of the build order.
  * @param {string} raceMatchup - The race matchup indicator (e.g., PvZ, TvT, ZvX).
@@ -251,6 +254,10 @@ function isUnitTypeInProgress(world, units, unitType, data) {
  * @returns {Promise<import('src/core/globalTypes').RaceBuildOrders>} Build orders loaded from the directory.
  */
 async function loadBuildOrdersFromDirectory(directoryName) {
+  if (buildOrderCache[directoryName]) {
+    return buildOrderCache[directoryName];
+  }
+
   const directoryPath = path.join(__dirname, directoryName);
   const buildOrderFiles = await fs.readdir(directoryPath);
 
@@ -271,6 +278,8 @@ async function loadBuildOrdersFromDirectory(directoryName) {
       }
     }
   }
+
+  buildOrderCache[directoryName] = buildOrders;
 
   return buildOrders;
 }

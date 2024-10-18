@@ -34,8 +34,21 @@ const { commandBuilderToConstruct } = require("../../utils/workerManagementUtils
 const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionUtils");
 const { attemptLand } = require("../shared/buildingUtils");
 const { getNextSafeExpansions } = require("../shared/pathfinding/pathfinding");
-const { requiresPylonPower } = require("../shared/protossUtils");
 const { prepareUnitToBuildAddon } = require("../shared/unitPreparationUtils");
+
+/**
+ * Checks if the race is valid and returns it.
+ * @param {Agent} agent - The agent object containing race data.
+ * @returns {Race | null} - The race if valid, otherwise null.
+ */
+function getRace(agent) {
+  const { race } = agent;
+  if (!race) {
+    console.error('Race is undefined');
+    return null;
+  }
+  return race;
+}
 
 /**
  * Adds an add-on with placement checks and relocating logic.
@@ -228,23 +241,11 @@ function build(world, unitType, targetCount = Number.MAX_SAFE_INTEGER, candidate
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
 
-  const { agent, resources } = world;
-  const { units } = resources.get();
+  const { agent } = world;
   const gameState = GameState.getInstance();
 
-  // Check race early
-  const { race } = agent;
-  if (!race) {
-    console.error('Race is undefined');
-    return collectedActions;
-  }
-
-  // Early return if Protoss and requires Pylon power but no Pylons
-  if (race === Race.PROTOSS && requiresPylonPower(unitType, world)) {
-    if (units.getByType(UnitType.PYLON).length === 0) {
-      return collectedActions;
-    }
-  }
+  const race = getRace(agent);
+  if (!race) return collectedActions;
 
   // Return if target count already met
   if (gameState.getUnitTypeCount(world, unitType) >= targetCount) {
@@ -316,7 +317,10 @@ function buildSupply(world) {
     config.automateSupply;
 
   if (automateSupplyCondition) {
-    switch (agent.race) {
+    const race = getRace(agent);
+    if (!race) return actions;
+
+    switch (race) {
       case Race.TERRAN: {
         const candidatePositionsTerran = findUnitPlacements(world, UnitType.SUPPLYDEPOT);
         actions.push(...candidatePositionsTerran.map(pos => commandPlaceBuilding(

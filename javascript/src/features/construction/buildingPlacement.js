@@ -76,6 +76,38 @@ class BuildingPlacement {
   }
 
   /**
+   * Retrieves the unitType and the stored position for the current step.
+   * @returns {{ unitType: UnitTypeId | null, position: Point2D | null }} - The unitType and position for the current step.
+   */
+  static getCurrentStepUnitTypeAndPosition() {
+    const strategyContext = StrategyContext.getInstance();
+    const currentStep = strategyContext.getCurrentStep();
+    const currentStrategy = strategyContext.getCurrentStrategy();
+
+    if (!currentStrategy) {
+      console.error('Current strategy is undefined.');
+      return { unitType: null, position: null };
+    }
+
+    const currentPlan = currentStrategy.steps;
+    if (currentPlan.length === 0) {
+      console.error('Current plan is empty.');
+      return { unitType: null, position: null };
+    }
+
+    const currentAction = currentPlan[currentStep]?.action;
+    if (!currentAction) {
+      console.error(`No action found for step ${currentStep}.`);
+      return { unitType: null, position: null };
+    }
+
+    const unitType = BuildingPlacement.extractUnitTypeFromAction(currentAction);
+    const position = BuildingPlacement.buildingPosition || null;
+
+    return { unitType, position };
+  }
+
+  /**
    * Calculates and sets the wall-off positions.
    * @param {World} world - The world context containing map and other game info.
    */
@@ -138,18 +170,36 @@ class BuildingPlacement {
   }
 
   /**
-   * Checks if the Pylon is in range for the given position.
+   * Checks if the Pylon Unit is in range for the given position.
    * @param {Unit} pylon The Pylon unit to check.
    * @param {Point2D} position The position to check against.
    * @returns {boolean} True if the Pylon is in range, false otherwise.
    */
-  static isPylonInRange(pylon, position) {
-    if (!pylon || !pylon.pos || typeof pylon.pos.x !== 'number' || typeof pylon.pos.y !== 'number' || !position || typeof position.x !== 'number' || typeof position.y !== 'number') {
-      console.error("Invalid pylon or position provided to isPylonInRange:", pylon, position);
+  static isPylonUnitInRange(pylon, position) {
+    if (!pylon || !pylon.pos || typeof pylon.pos.x !== 'number' || typeof pylon.pos.y !== 'number' ||
+      !position || typeof position.x !== 'number' || typeof position.y !== 'number') {
+      console.error("Invalid Pylon Unit or position provided to isPylonUnitInRange:", pylon, position);
       return false;
     }
 
     const distance = calculateDistance(pylon.pos, position);
+    return distance <= PYLON_POWER_RANGE;
+  }
+
+  /**
+   * Checks if the Pylon Point2D is in range for the given position.
+   * @param {Point2D} pylon The Pylon position (Point2D) to check.
+   * @param {Point2D} position The position to check against.
+   * @returns {boolean} True if the Pylon is in range, false otherwise.
+   */
+  static isPylonPointInRange(pylon, position) {
+    if (!pylon || typeof pylon.x !== 'number' || typeof pylon.y !== 'number' ||
+      !position || typeof position.x !== 'number' || typeof position.y !== 'number') {
+      console.error("Invalid Pylon Point2D or position provided to isPylonPointInRange:", pylon, position);
+      return false;
+    }
+
+    const distance = calculateDistance(pylon, position);
     return distance <= PYLON_POWER_RANGE;
   }
 
@@ -566,6 +616,42 @@ class BuildingPlacement {
     } else if (!BuildingPlacement.buildingPosition || !position || !deepEqual(BuildingPlacement.buildingPosition, position)) {
       BuildingPlacement.buildingPosition = position;
     }
+  }
+
+  /**
+   * Retrieves the planned PYLON positions.
+   * This function will extract positions of planned PYLONs from the building plan or similar source.
+   * @returns {Point2D[]} - Array of planned PYLON positions.
+   */
+  static getPlannedPylonPositions() {
+    const strategyContext = StrategyContext.getInstance();
+    const currentStrategy = strategyContext.getCurrentStrategy();
+
+    if (!currentStrategy) {
+      console.error('Current strategy is undefined or null.');
+      return [];
+    }
+
+    const currentPlan = currentStrategy.steps;
+
+    return Array.from(buildingPositions.entries()).reduce(
+      /**
+       * @param {Point2D[]} acc - The accumulator that collects planned PYLON positions.
+       * @param {[number, Point2D]} entry - The step (key as number) and position (value as Point2D) from buildingPositions.
+       * @returns {Point2D[]} - The updated accumulator with PYLON positions.
+       */
+      (acc, [step, position]) => {
+        const currentAction = currentPlan[step]?.action;
+        const unitType = BuildingPlacement.extractUnitTypeFromAction(currentAction);
+
+        if (unitType === UnitType.PYLON) {
+          acc.push(position);
+        }
+
+        return acc;
+      },
+    /** @type {Point2D[]} */[]
+    );
   }
 }
 

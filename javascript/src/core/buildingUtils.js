@@ -226,6 +226,29 @@ function isPositionPowered(position, powerSources) {
 }
 
 /**
+ * Checks if the position is valid for Protoss buildings by ensuring it is powered by a Pylon.
+ * @param {UnitResource} units - The units resource containing the list of Protoss Pylons.
+ * @param {Point2D} position - The position to validate.
+ * @returns {boolean} True if the position is valid, false otherwise.
+ */
+function isProtossPositionValid(units, position) {
+  const pylons = units.getById(UnitType.PYLON);
+
+  const pylonExists = pylons.some(pylon =>
+    (pylon.isPowered || (pylon.buildProgress !== undefined && pylon.buildProgress < 1) || pylon.buildProgress === 1) &&
+    BuildingPlacement.isPylonUnitInRange(pylon, position)
+  );
+
+  const plannedPylonPositions = BuildingPlacement.getPlannedPylonPositions();
+
+  const plannedPylonExists = plannedPylonPositions.some(plannedPylonPosition =>
+    BuildingPlacement.isPylonPointInRange(plannedPylonPosition, position)
+  );
+
+  return pylonExists || plannedPylonExists;
+}
+
+/**
  * Checks if the position is valid for building the specified unit type.
  * @param {World} world - The game world state.
  * @param {UnitTypeId} unitType - The type of unit to place.
@@ -244,12 +267,7 @@ function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
   let isPositionValid = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
 
   if (race === Race.PROTOSS && ![UnitType.PYLON, UnitType.ASSIMILATOR, UnitType.NEXUS].includes(unitType)) {
-    const pylons = units.getById(UnitType.PYLON);
-    const pylonExists = pylons.some(pylon =>
-      (pylon.isPowered || (pylon.buildProgress !== undefined && pylon.buildProgress < 1) || pylon.buildProgress === 1) &&
-      BuildingPlacement.isPylonInRange(pylon, position)
-    );
-    isPositionValid = isPositionValid && pylonExists;
+    isPositionValid = isPositionValid && isProtossPositionValid(units, position);
   }
 
   return isPositionValid;
