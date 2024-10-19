@@ -91,17 +91,17 @@ function drawDebugPath(debug, map, startPos, targetPos) {
  * @param {number} unitType - The type of the unit to check against specific conditions.
  * @param {SC2APIProtocol.ActionRawUnitCommand} unitCommand - The unit command to execute.
  * @param {Function} handleRallyBase - Function to handle rally base logic.
- * @param {Function} handleNonRallyBase - Function to handle non-rally base logic.
+ * @param {Function} assignWorkersToMineralsToBuild - Function to handle non-rally base logic.
  * @param {Function} getOrderTargetPosition - Function to get the target position for orders.
  */
-function handleBuildingActions(world, collectedActions, buildContext, unit, position, race, pathCoordinates, unitType, unitCommand, handleRallyBase, handleNonRallyBase, getOrderTargetPosition) {
+function handleBuildingActions(world, collectedActions, buildContext, unit, position, race, pathCoordinates, unitType, unitCommand, handleRallyBase, assignWorkersToMineralsToBuild, getOrderTargetPosition) {
   if (race === Race.PROTOSS && !groupTypes.gasMineTypes.includes(unitType) && pathCoordinates.length >= 2) {
     position = avgPoints([pathCoordinates[pathCoordinates.length - 2], position, position]);
   }
   if (buildContext.rallyBase) {
     collectedActions.push(...handleRallyBase(world, unit, position));
   } else {
-    collectedActions.push(...handleNonRallyBase(world, unit, position, unitCommand, unitType, getOrderTargetPosition));
+    collectedActions.push(...assignWorkersToMineralsToBuild(world, unit, position, unitCommand, unitType, getOrderTargetPosition));
   }
 }
 

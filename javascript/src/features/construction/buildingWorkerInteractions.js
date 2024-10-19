@@ -40,8 +40,9 @@ function assignWorkersToMineralsToBuild(world, unit, position, unitCommand, unit
   const orderTargetPosition = getOrderTargetPosition(units, unit);
   const isMovingButNotToPosition = isMoving(unit) && orderTargetPosition && getDistance(orderTargetPosition, position) > 1;
 
-  // Filter worker units near the building position and move them away
-  const unitsNearPosition = units.getAlive(Alliance.SELF).filter(u => u.isWorker() && u.pos && getDistance(u.pos, position) <= 2);
+  const unitsNearPosition = units.getAlive(Alliance.SELF).filter(u =>
+    u.isWorker() && u.pos && getDistance(u.pos, position) <= 2 && u.tag !== unit.tag
+  );
   unitsNearPosition.forEach(u => {
     if (u.pos) { // Ensure u.pos is defined
       const moveAwayCommand = createUnitCommand(Ability.MOVE, [u]);
