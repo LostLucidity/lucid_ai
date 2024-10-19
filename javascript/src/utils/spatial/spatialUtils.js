@@ -118,8 +118,13 @@ function handleThreeByThreePositions(world, unitType, gameMap) {
 
   if (BuildingPlacement.threeByThreePositions.length > 0) {
     const filteredPositions = BuildingPlacement.threeByThreePositions.filter(position => {
-      const footprintCells = getCachedFootprintCells(position, threeByThreeFootprint);
-      return footprintCells.every(cell => gameMap.isPlaceable(cell));
+      const usedPositions = getFilteredPositions(world);
+
+      const footprintCells = getCachedFootprintCells(position, threeByThreeFootprint, false);
+
+      const isPositionUsed = footprintCells.some(cell => usedPositions.some(usedPos => usedPos.x === cell.x && usedPos.y === cell.y));
+
+      return !isPositionUsed && footprintCells.every(cell => gameMap.isPlaceable(cell));
     });
 
     const unitTypeFootprint = getFootprint(unitType);
@@ -226,7 +231,6 @@ function getFilteredPositions(world) {
   );
 }
 
-
 /**
  * Gets wall-off positions for building placement.
  * @param {World} world
@@ -241,7 +245,7 @@ function getWallOffPositions(world, FORGE, filteredPositions) {
   return BuildingPlacement.threeByThreePositions.filter(position => {
     return !pointsOverlap(
       filteredPositions,
-      getCachedFootprintCells(position, threeByThreeFootprint)
+      getCachedFootprintCells(position, threeByThreeFootprint, false)
     );
   });
 }
