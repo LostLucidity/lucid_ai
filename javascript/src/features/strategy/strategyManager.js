@@ -83,6 +83,7 @@ class StrategyManager {
   constructor(race, specificBuildOrderKey) {
     this.initializeSingleton(race, specificBuildOrderKey);
     StrategyManager.instance = this;
+    this.chronoBoostsPerStep = new Map();
   }
 
   /**
@@ -109,6 +110,67 @@ class StrategyManager {
    * @type {SC2APIProtocol.Race | undefined}
    */
   race;
+
+  /**
+   * Validates if the strategy data is initialized.
+   * Logs an error if not.
+   * @returns {boolean} - Returns true if the strategy data is valid, otherwise false.
+   */
+  validateStrategyData() {
+    if (!this.strategyData) {
+      console.error("Strategy data is not initialized");
+      return false;
+    }
+    return true;
+  }  
+
+  /**
+   * Applies a Chrono Boost and tracks the step.
+   * @param {World} world - The game world object.
+   * @param {number} unitType - The ID of the unit type to check.
+   * @param {number} stepIndex - The current build order step index.
+   */
+  applyChronoBoost(world, unitType, stepIndex) {
+    if (!this.checkChronoBoostInCurrentStep(unitType, stepIndex)) {
+      if (!this.chronoBoostsPerStep.has(stepIndex)) {
+        this.chronoBoostsPerStep.set(stepIndex, new Set());
+      }
+      this.chronoBoostsPerStep.get(stepIndex).add(unitType);
+    }
+  }
+
+  /**
+   * Check if the Chrono Boost was applied in the current step.
+   * @param {number} unitType - The ID of the unit type to check.
+   * @param {number} stepIndex - The current build order step index.
+   * @returns {boolean} - Returns true if the unit type was Chrono Boosted in the current step.
+   */
+  checkChronoBoostInCurrentStep(unitType, stepIndex) {
+    return this.chronoBoostsPerStep.has(stepIndex) &&
+      this.chronoBoostsPerStep.get(stepIndex).has(unitType);
+  }
+
+  /**
+   * Check if the unit type has the Chrono Boost buff.
+   * @param {World} world - The game world object.
+   * @param {number} unitType - The ID of the unit type to check.
+   * @returns {boolean} - Returns true if the unit type has the Chrono Boost buff.
+   */
+  static checkChronoBoostBuff(world, unitType) {
+    const nexusUnits = getUnitsById(world, UnitType.NEXUS);
+    if (nexusUnits.length === 0) return false;
+
+    const unitTypeData = getUnitTypeData(world, unitType);
+    if (!unitTypeData) return false;
+
+    const trainingUnit = world.resources.get().units.getStructures().find((unit) =>
+      unit.orders?.some((order) => order.abilityId === unitTypeData.abilityId)
+    );
+
+    if (!trainingUnit) return false;
+
+    return trainingUnit.buffIds?.includes(Buff.CHRONOBOOSTENERGYCOST) || false;
+  }
 
   /**
    * Initializes the singleton instance.
@@ -161,9 +223,10 @@ class StrategyManager {
    * Check if the unit type is being ChronoBoosted.
    * @param {World} world - The game world object.
    * @param {number} unitType - The ID of the unit type to check.
+   * @param {number} stepIndex - The current build order step index.
    * @returns {boolean} - Returns true if the unit type is being ChronoBoosted, otherwise false.
    */
-  static checkChronoBoostStatus(world, unitType) {
+  checkChronoBoostStatus(world, unitType, stepIndex) {
     const nexusUnits = getUnitsById(world, UnitType.NEXUS);
     if (nexusUnits.length === 0) return false;
 
@@ -176,7 +239,12 @@ class StrategyManager {
 
     if (!trainingUnit) return false;
 
-    return trainingUnit.buffIds?.includes(Buff.CHRONOBOOSTENERGYCOST) || false;
+    const hasChronoBoostBuff = trainingUnit.buffIds?.includes(Buff.CHRONOBOOSTENERGYCOST) || false;
+
+    const appliedThisStep = this.chronoBoostsPerStep.has(stepIndex) &&
+      this.chronoBoostsPerStep.get(stepIndex).has(unitType);
+
+    return hasChronoBoostBuff && appliedThisStep;
   }
 
   /**
@@ -236,9 +304,9 @@ class StrategyManager {
   }
 
   /**
-   * Get the current strategy's build order.
-   * @returns {import('../../core/globalTypes').BuildOrder}
-   */
+  * Get the current strategy's build order.
+  * @returns {import('../../core/globalTypes').BuildOrder}
+  */
   getBuildOrderForCurrentStrategy() {
     if (!this.strategyContext) {
       throw new Error(
@@ -466,8 +534,7 @@ class StrategyManager {
     const gameState = GameState.getInstance();
     const agent = world.agent;
 
-    if (!this.strategyData) {
-      console.error("Strategy data is not initialized");
+    if (!this.validateStrategyData()) {
       return false;
     }
 
@@ -483,16 +550,19 @@ class StrategyManager {
     const stepIndex = buildOrder.steps.findIndex((s) => isEqualStep(s, step));
 
     const startingUnitCounts = {
-      [`unitType_${action.unitType}`]:
-        gameState.getStartingUnitCount(action.unitType),
+      [`unitType_${action.unitType}`]: gameState.getStartingUnitCount(action.unitType),
     };
+    if (!this.strategyData) {
+      throw new Error("Strategy data is not initialized.");
+    }
+
     const targetCounts = this.strategyData.calculateTargetCountForStep(
       step,
       buildOrder,
       startingUnitCounts
     );
-    const targetCount =
-      targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
+
+    const targetCount = targetCounts[`unitType_${action.unitType}_step_${stepIndex}`] || 0;
 
     if (!action.isUpgrade) {
       const isCountSatisfied = checkUnitCount(
@@ -503,10 +573,8 @@ class StrategyManager {
       );
 
       if (action.isChronoBoosted) {
-        return (
-          isCountSatisfied &&
-          StrategyManager.checkChronoBoostStatus(world, action.unitType)
-        );
+        const chronoBoostApplied = this.checkChronoBoostInCurrentStep(action.unitType, stepIndex);
+        return isCountSatisfied && chronoBoostApplied;
       }
 
       return isCountSatisfied;
@@ -662,9 +730,9 @@ class StrategyManager {
      * @param {PlanStep} planStep - The current step in the plan to be executed.
      * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to be performed.
      */
-  static performPlanStepActions(world, planStep) {
+  performPlanStepActions(world, planStep) {
     const actions = [...buildSupplyOrTrain(world, planStep)];
-    const { orderType, isChronoBoosted, supply, unitType, targetCount } = planStep;
+    const { orderType, isChronoBoosted, unitType, targetCount } = planStep;
     const gameState = GameState.getInstance();
     const currentUnitCount = gameState.getUnitCount(world, unitType);
 
@@ -680,12 +748,12 @@ class StrategyManager {
         break;
     }
 
-    if (isChronoBoosted && gameState.getFoodUsed() >= supply) {
-      actions.push(...UnitActionStrategy.handleChronoBoostAction(world, planStep));
-    }
-
     if (currentUnitCount < targetCount) {
       ResourceEarmarkManager.earmarkResourcesForPlanStep(world, planStep);
+    } else {
+      if (isChronoBoosted) {
+        actions.push(...UnitActionStrategy.handleChronoBoostAction(world, planStep, this.applyChronoBoost.bind(this)));
+      }
     }
 
     return actions;
@@ -770,7 +838,7 @@ class StrategyManager {
     }
 
     this.strategyContext.setCurrentStep(step);
-    const stepActions = StrategyManager.performPlanStepActions(world, planStep);
+    const stepActions = this.performPlanStepActions(world, planStep);
     if (stepActions && stepActions.length > 0) {
       actionsToPerform.push(...stepActions);
     }
@@ -923,7 +991,6 @@ class StrategyManager {
       throw new Error(`Race key for race ${race} not found`);
     }
 
-    // Ensure buildOrders is not null
     if (!buildOrders.buildOrderStore.buildOrders) {
       throw new Error("Build orders are not initialized.");
     }
@@ -1001,12 +1068,12 @@ class StrategyManager {
   }
 
   /**
-   * Checks if an action should be delayed based on the current time and target time.
-   * @param {string} specialAction - The special action to check.
-   * @param {World} world - The world context.
-   * @param {import('../../core/globalTypes').BuildOrderStep | StrategyStep} rawStep - The step data.
-   * @returns {boolean} True if the action should be delayed, false otherwise.
-   */
+     * Checks if an action should be delayed based on the current time and target time.
+     * @param {string} specialAction - The special action to check.
+     * @param {World} world - The world context.
+     * @param {import('../../core/globalTypes').BuildOrderStep | StrategyStep} rawStep - The step data.
+     * @returns {boolean} True if the action should be delayed, false otherwise.
+     */
   shouldDelayAction(specialAction, world, rawStep) {
     const targetTime = convertTimeStringToSeconds(rawStep.time);
     const currentTime = world.resources.get().frame.timeInSeconds();

@@ -2,7 +2,7 @@
 
 // External library imports
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
-const { Upgrade, Ability, Buff } = require('@node-sc2/core/constants');
+const { Upgrade, Ability } = require('@node-sc2/core/constants');
 const { BUILD_ASSIMILATOR, EFFECT_CALLDOWNMULE } = require('@node-sc2/core/constants/ability');
 const { DisplayType } = require('@node-sc2/core/constants/enums');
 const { ASSIMILATOR, PROBE, ORBITALCOMMAND } = require('@node-sc2/core/constants/unit-type');
@@ -106,63 +106,6 @@ function findClosestTownhall(worker, townhalls) {
   });
 
   return closestTownhall;
-}
-
-/**
- * Manages Chrono Boost usage.
- * @param {Agent} bot - The bot instance handling the game.
- * @param {import('./core/globalTypes').BuildOrderStep[]} buildOrder - The build order containing actions and timings.
- * @param {SC2APIProtocol.ActionRawUnitCommand[]} actionList - The list of actions to be executed.
- */
-function handleChronoBoostUsage(bot, buildOrder, actionList) {
-  const world = bot._world;
-  const frame = world.resources.get().frame; // Get the frame resource
-  const observation = frame.getObservation(); // Get the current observation
-  const units = world.resources.get().units;
-
-  // Retrieve the current supply used from playerCommon, default to 0 if undefined
-  const currentSupply = observation.playerCommon ? observation.playerCommon.foodUsed ?? 0 : 0;
-
-  const nexuses = units.getById(59).filter(nexus => nexus.buildProgress === 1); // Only include fully constructed Nexuses
-  const chronoBoostAbility = Ability.EFFECT_CHRONOBOOSTENERGYCOST;
-  const chronoBoostBuff = Buff.CHRONOBOOSTENERGYCOST; // The Chrono Boost buff
-
-  // Check for upcoming critical steps based on supply rather than exact time
-  const hasUpcomingCriticalStep = buildOrder.some(order => {
-    const orderSupply = Number(order.supply);
-    return (
-      currentSupply >= orderSupply - 2 && // Give some leeway with supply count
-      order.interpretedAction &&
-      order.interpretedAction.some(action => action.isChronoBoosted)
-    );
-  });
-
-  // Find all buildings that are actively working and not already boosted
-  const eligibleBuildings = units.getAll().filter(building => {
-    return building.isStructure() &&
-      building.buildProgress === 1 &&  // Fully constructed
-      !building.isIdle() &&            // Actively producing or researching
-      !(building.buffIds?.includes(chronoBoostBuff)); // Not already Chrono Boosted
-  });
-
-  for (const building of eligibleBuildings) {
-    if (building.tag && shouldChronoBoost(buildOrder, currentSupply, building, units)) {
-      for (const nexus of nexuses) {
-        if (nexus.tag && nexus.energy !== undefined && nexus.energy >= 50) {  // Ensure Nexus has at least 50 energy
-          const canUseChronoBoost = !hasUpcomingCriticalStep || nexus.energy >= 100; // Ensure energy is enough for both current and future needs
-
-          if (canUseChronoBoost) {
-            actionList.push({
-              abilityId: chronoBoostAbility,
-              unitTags: [nexus.tag],  // Only push if nexus.tag is defined
-              targetUnitTag: building.tag
-            });
-            return; // Exit after issuing the command to avoid using too much energy at once
-          }
-        }
-      }
-    }
-  }
 }
 
 /**
@@ -290,38 +233,6 @@ function returnMinerals(worker, townhalls, actionList) {
   } else {
     console.error('No completed townhall found for resource return or worker tag is undefined.');
   }
-}
-
-/**
- * Determines if a building should be Chrono Boosted.
- * @param {import('./core/globalTypes').BuildOrderStep[]} buildOrder - The build order.
- * @param {number} currentSupply - The current supply count.
- * @param {Unit} building - The building unit to check.
- * @param {UnitResource} units - The unit resource manager.
- * @returns {boolean} - True if the building should be Chrono Boosted, false otherwise.
- */
-function shouldChronoBoost(buildOrder, currentSupply, building, units) {
-  // Check if there's a planned Chrono Boost in the build order based on supply rather than time
-  const isPlanned = buildOrder.some(order => {
-    const orderSupply = Number(order.supply);
-
-    // Ensure building.tag is defined before using it
-    if (!building.tag) {
-      return false; // Skip if building.tag is undefined
-    }
-
-    // Get the unit by tag and check the unitType
-    const unit = units.getByTag(building.tag);
-    return currentSupply >= orderSupply - 2 && // Check supply proximity instead of time
-      order.interpretedAction &&
-      order.interpretedAction.some(action =>
-        action.isChronoBoosted &&
-        unit && unit.unitType === action.unitType
-      );
-  });
-
-  // Boost the building if it's planned in the build order or it's a high-priority task
-  return isPlanned || (building.orders !== undefined && building.orders.length > 0);
 }
 
 /**
@@ -937,9 +848,6 @@ const bot = createAgent({
 
       // 6. Collect actions and handle upgrades
       collectAndHandleActions(world, actionList, allUnits);
-
-      // 7. Manage Chrono Boost usage
-      handleChronoBoostUsage(bot, gameState.getBuildOrder(), actionList);
 
       // Execute mid-game transition logic if appropriate
       if (buildOrderState.isBuildOrderCompleted()) {
