@@ -16,6 +16,7 @@ const config = require("../../../config/config");
 const buildOrders = require("../../../data/buildOrders");
 const { loadAllBuildOrders } = require("../../../data/buildOrders");
 const { interpretBuildOrderAction } = require("../../../data/buildOrders/buildOrderUtils");
+const EarmarkManager = require("../../core/earmarkManager");
 const { getUnitTypeData } = require("../../core/gameData");
 const ResourceEarmarkManager = require("../../core/resourceEarmarkManager");
 const { checkUpgradeStatus } = require("../../core/upgradeUtils");
@@ -746,6 +747,9 @@ class StrategyManager {
    */
   processPlanSteps(world, plan, strategyManager, actionsToPerform) {
     for (const [step, rawStep] of plan.steps.entries()) {
+      if (EarmarkManager.earmarkThresholdReached(world.data)) {
+        break;
+      }
       this.processStep(world, rawStep, step, strategyManager, actionsToPerform);
     }
   }

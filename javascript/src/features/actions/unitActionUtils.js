@@ -146,13 +146,10 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
 
-  position = getMiddleOfStructureFn(position, unitType);
+  const adjustedPosition = getMiddleOfStructureFn(position, unitType);
   const timeToTargetCost = getTimeToTargetCostFn(world, unitType);
 
-  if (EarmarkManager.earmarkThresholdReached(data)) return collectedActions;
-
   EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
-  const adjustedPosition = getMiddleOfStructureFn(position, unitType);
   const builderInfo = getBuilderFunc(world, adjustedPosition);
 
   if (!builderInfo || !builderInfo.unit.orders || !builderInfo.unit.pos) return collectedActions;
@@ -160,13 +157,13 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
   const { unit, timeToPosition } = builderInfo;
   if (!unit.pos) return collectedActions;
 
-  const pathablePositionsInfo = calculatePathablePositions(resources, unit.pos, position);
+  const pathablePositionsInfo = calculatePathablePositions(resources, unit.pos, adjustedPosition);
   if (!pathablePositionsInfo.closestBaseByPath) return collectedActions;
 
   const { pathCoordinates, pathableTargetPosition } = pathablePositionsInfo;
   drawDebugPath(debug, map, unit.pos, pathableTargetPosition);
 
-  const buildContext = prepareBuildContext(world, pathablePositionsInfo.closestBaseByPath, position, timeToPosition, unit, timeToTargetCost, unitType);
+  const buildContext = prepareBuildContext(world, pathablePositionsInfo.closestBaseByPath, adjustedPosition, timeToPosition, unit, timeToTargetCost, unitType);
   const gameState = GameState.getInstance();
 
   if (gameState.shouldPremoveNow(world, buildContext.timeToTargetCostOrTech, buildContext.timeToPosition)) {
@@ -178,7 +175,7 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
       collectedActions,
       buildContext,
       unit,
-      position,
+      adjustedPosition,
       agent.race,
       pathCoordinates,
       unitType,
@@ -188,7 +185,7 @@ function premoveBuilderToPosition(world, position, unitType, getBuilderFunc, get
       getOrderTargetPosition
     );
   } else {
-    collectedActions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering));
+    collectedActions.push(...rallyWorkerToTarget(world, adjustedPosition, getUnitsFromClustering));
   }
 
   return collectedActions;
