@@ -48,8 +48,6 @@ let lastCheckTime = gameStartTime;
 let lastLogTime = 0;
 /** @type {WallOffService | undefined} */
 let wallOffService;
-const LOG_INTERVAL = 5; // Log every 5 seconds
-const REAL_TIME_CHECK_INTERVAL = 60 * 1000;
 
 let previousFreeGeysersCount = 0;
 let previousValidPositionsCount = 0;
@@ -61,13 +59,12 @@ let previousValidPositionsCount = 0;
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - The list of actions to be executed.
  */
 function useChronoboost(world, actionList) {
-  const DYNAMIC_ENERGY_THRESHOLD = 75;
 
   const { units } = world.resources.get();
   const nexusUnits = units.getByType(NEXUS);
 
   nexusUnits.forEach(nexus => {
-    if (nexus.energy !== undefined && nexus.energy >= DYNAMIC_ENERGY_THRESHOLD && nexus.tag) {
+    if (nexus.energy !== undefined && nexus.energy >= config.DYNAMIC_ENERGY_THRESHOLD && nexus.tag) {
       const activeProductionStructures = units.getStructures().filter(structure =>
         structure.isFinished() &&
         structure.orders && structure.orders.length === 1
@@ -622,7 +619,7 @@ function getValidPositionsCount(world, unitType) {
  */
 function logCurrentGameState(frame) {
   const currentGameTime = frame.getGameLoop() / 22.4;
-  if (currentGameTime >= lastLogTime + LOG_INTERVAL) {
+  if (currentGameTime >= lastLogTime + config.LOG_INTERVAL) {
     logger.logMessage(`Current game time: ${currentGameTime.toFixed(2)}s - Food used: ${gameState.getFoodUsed()}, Bases completed: ${completedBasesMap.size}`, 1);
     lastLogTime = currentGameTime;
   }
@@ -684,7 +681,7 @@ function trackPerformance(frame, gameState) {
   gameState.lastGameLoop = frame.getGameLoop();
   cumulativeGameTime += gameTimeElapsed;
 
-  if (stepEnd - lastCheckTime >= REAL_TIME_CHECK_INTERVAL) {
+  if (stepEnd - lastCheckTime >= config.REAL_TIME_CHECK_INTERVAL) {
     if (realTimeElapsed > cumulativeGameTime) {
       console.warn(`Bot is slower than real-time! Cumulative real-time elapsed: ${realTimeElapsed.toFixed(2)}s, Cumulative game-time elapsed: ${cumulativeGameTime.toFixed(2)}s`);
     }
@@ -809,18 +806,16 @@ function updateUpgradesInProgress(allUnits, world) {
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - List of actions to be executed.
  */
 function useOrbitalCommandEnergy(world, actionList) {
-  const MIN_ENERGY = 50;
-  const MAX_DISTANCE = 10;
   const { units } = world.resources.get();
   const orbitalCommands = units.getByType(ORBITALCOMMAND);
   const baseLocations = units.getBases().filter(base => base.buildProgress === 1);
   const mineralFields = units.getMineralFields().filter(field => field.displayType === DisplayType.VISIBLE);
 
-  const baseToMineralDistances = precomputeBaseToMineralDistances(baseLocations, mineralFields, MAX_DISTANCE);
+  const baseToMineralDistances = precomputeBaseToMineralDistances(baseLocations, mineralFields, config.MAX_DISTANCE);
 
   orbitalCommands.forEach(orbital => {
-    if (orbital.energy !== undefined && orbital.energy >= MIN_ENERGY && orbital.tag) { // Ensure orbital.energy and orbital.tag are defined
-      const bestMineralField = findBestMineralField(orbital, baseLocations, baseToMineralDistances, mineralFields, MAX_DISTANCE);
+    if (orbital.energy !== undefined && orbital.energy >= config.MIN_ENERGY && orbital.tag) { // Ensure orbital.energy and orbital.tag are defined
+      const bestMineralField = findBestMineralField(orbital, baseLocations, baseToMineralDistances, mineralFields, config.MAX_DISTANCE);
       if (bestMineralField) {
         actionList.push({
           abilityId: EFFECT_CALLDOWNMULE,

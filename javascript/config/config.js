@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { Difficulty, Race } = require('@node-sc2/core/constants/enums');
+
 const maps = require('./maps');
 const { parseBooleanEnv, parseNumberEnv } = require('./utils');
 
@@ -17,10 +18,15 @@ const DEFAULTS = {
   NATURAL_WALL_PYLON: true,
   MAX_TOWN_HALLS: 3,
   TOWN_HALL_COST: 400,
+  DYNAMIC_ENERGY_THRESHOLD: 75,
+  LOG_INTERVAL: 5,
+  REAL_TIME_CHECK_INTERVAL: 60000,
+  MIN_ENERGY: 50,
+  MAX_DISTANCE: 10,
 };
 
 // Initialize averageGatheringTime with a default value
-let averageGatheringTime = 4;  // Merged from config.json or environment variables
+let averageGatheringTime = 4;
 
 /**
  * Get the current average gathering time.
@@ -39,14 +45,16 @@ function setAverageGatheringTime(newAverage) {
 }
 
 /**
- * @param {number} level
+ * Validates logging level, defaulting to a valid level if the input is invalid.
+ * @param {number} level - Desired logging level.
+ * @returns {number} - Validated logging level.
  */
 function getValidatedLogLevel(level) {
   const validLevels = [0, 1, 2];
   return validLevels.includes(level) ? level : DEFAULTS.LOGGING_LEVEL;
 }
 
-// Mapping object to convert race name to its enum value
+// Map to convert race names to their enum values
 const RACE_ENUM_MAP = {
   'TERRAN': Race.TERRAN,
   'ZERG': Race.ZERG,
@@ -54,26 +62,31 @@ const RACE_ENUM_MAP = {
 };
 
 /**
- * Function to convert race name to its enum value
- * @param {string | undefined} raceName
+ * Converts a race name to its enum value.
+ * @param {string | undefined} raceName - The name of the race.
+ * @returns {Race} - Enum value for the race.
  */
 function getRaceEnumValue(raceName) {
   const normalizedRaceName = (raceName ?? '').toUpperCase();
   return RACE_ENUM_MAP[/** @type {keyof typeof RACE_ENUM_MAP} */ (normalizedRaceName)] || DEFAULTS.RACE;
 }
 
-// Change the default logging level from 0 to 1
 module.exports = {
   defaultRace: getRaceEnumValue(process.env.DEFAULT_RACE),
   defaultDifficulty: process.env.DEFAULT_DIFFICULTY || DEFAULTS.DIFFICULTY,
   defaultMap: process.env.DEFAULT_MAP || DEFAULTS.MAP,
-  loggingLevel: getValidatedLogLevel(parseNumberEnv(process.env.LOGGING_LEVEL, 1)), // Default to level 1 if undefined
+  loggingLevel: getValidatedLogLevel(parseNumberEnv(process.env.LOGGING_LEVEL, 1)), // Defaults to level 1 if undefined
   planMax: DEFAULTS.PLAN_MAX,
   automateSupply: parseBooleanEnv(process.env.AUTOMATE_SUPPLY, DEFAULTS.AUTOMATE_SUPPLY),
   naturalWallPylon: parseBooleanEnv(process.env.NATURAL_WALL_PYLON, DEFAULTS.NATURAL_WALL_PYLON),
   debugBuildOrderKey: process.env.DEBUG_BUILD_ORDER_KEY || null,
   maxTownHalls: DEFAULTS.MAX_TOWN_HALLS,
   townHallCost: DEFAULTS.TOWN_HALL_COST,
+  DYNAMIC_ENERGY_THRESHOLD: DEFAULTS.DYNAMIC_ENERGY_THRESHOLD,
+  LOG_INTERVAL: DEFAULTS.LOG_INTERVAL,
+  REAL_TIME_CHECK_INTERVAL: DEFAULTS.REAL_TIME_CHECK_INTERVAL,
+  MIN_ENERGY: DEFAULTS.MIN_ENERGY,
+  MAX_DISTANCE: DEFAULTS.MAX_DISTANCE,
   getAverageGatheringTime,
   setAverageGatheringTime,
 };
