@@ -3,9 +3,9 @@
 // External library imports
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Upgrade, Ability } = require('@node-sc2/core/constants');
-const { BUILD_ASSIMILATOR, EFFECT_CALLDOWNMULE } = require('@node-sc2/core/constants/ability');
+const { BUILD_ASSIMILATOR, EFFECT_CALLDOWNMULE, EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
 const { DisplayType } = require('@node-sc2/core/constants/enums');
-const { ASSIMILATOR, PROBE, ORBITALCOMMAND } = require('@node-sc2/core/constants/unit-type');
+const { ASSIMILATOR, PROBE, ORBITALCOMMAND, NEXUS } = require('@node-sc2/core/constants/unit-type');
 const { performance } = require('perf_hooks');
 
 // Internal module imports
@@ -18,7 +18,7 @@ const { midGameTransition } = require('./features/strategy/midGameTransition');
 const { trackBuildOrderProgress } = require('./gameLogic/buildOrders/buildOrderProgress');
 const { startTrackingWorkerGathering, calculateGatheringTime } = require('./gameLogic/economy/gatheringManagement');
 const { gather, balanceWorkers, assignWorkersToMinerals } = require('./gameLogic/economy/workerAssignment');
-const { releaseWorkerFromBuilding, getWorkerReservedForPosition } = require('./gameLogic/economy/workerService');
+const { releaseWorkerFromBuilding, getWorkerReservedForPosition, getBuildTimeLeft } = require('./gameLogic/economy/workerService');
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
 const GameInitialization = require('./state/gameInitialization');
@@ -53,6 +53,57 @@ const REAL_TIME_CHECK_INTERVAL = 60 * 1000;
 
 let previousFreeGeysersCount = 0;
 let previousValidPositionsCount = 0;
+
+/**
+ * Dynamically uses CHRONOBOOST on the most suitable active production structure,
+ * prioritizing those with the most remaining production time, while reserving energy for build order priorities.
+ * @param {World} world - The current game world state.
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - The list of actions to be executed.
+ */
+function useChronoboost(world, actionList) {
+  const DYNAMIC_ENERGY_THRESHOLD = 75;
+
+  const { units } = world.resources.get();
+  const nexusUnits = units.getByType(NEXUS);
+
+  nexusUnits.forEach(nexus => {
+    if (nexus.energy !== undefined && nexus.energy >= DYNAMIC_ENERGY_THRESHOLD && nexus.tag) {
+      const activeProductionStructures = units.getStructures().filter(structure =>
+        structure.isFinished() &&
+        structure.orders && structure.orders.length === 1
+      );
+
+      if (activeProductionStructures.length > 0) {
+        const target = activeProductionStructures.reduce((longestBuildTimeStructure, structure) => {
+          if (!structure.orders || structure.orders.length === 0) return longestBuildTimeStructure;
+          const order = structure.orders[0];
+          const progress = order.progress !== undefined ? order.progress : 1;
+
+          const unitData = order.abilityId !== undefined ? world.data.getUnitTypeData(order.abilityId) : null;
+          const totalBuildTime = unitData ? unitData.buildTime : undefined;
+
+          const remainingTime = getBuildTimeLeft(structure, totalBuildTime, progress);
+
+          const longestRemainingTime = longestBuildTimeStructure.orders && longestBuildTimeStructure.orders[0]
+            ? getBuildTimeLeft(
+              longestBuildTimeStructure,
+              world.data.getUnitTypeData(longestBuildTimeStructure.orders[0].abilityId ?? 0)?.buildTime,
+              longestBuildTimeStructure.orders[0].progress !== undefined ? longestBuildTimeStructure.orders[0].progress : 1
+            )
+            : 0;
+
+          return remainingTime > longestRemainingTime ? structure : longestBuildTimeStructure;
+        });
+
+        actionList.push({
+          abilityId: EFFECT_CHRONOBOOSTENERGYCOST,
+          targetUnitTag: target.tag,
+          unitTags: [nexus.tag],
+        });
+      }
+    }
+  });
+}
 
 /**
  * Assign workers to mineral fields.
@@ -845,6 +896,9 @@ const bot = createAgent({
 
       // 4. Handle worker and mineral management
       manageWorkers(units, allUnits, resources, actionList, world);
+
+      // 5. Use dynamic CHRONOBOOST
+      useChronoboost(world, actionList);
 
       // 6. Collect actions and handle upgrades
       collectAndHandleActions(world, actionList, allUnits);
