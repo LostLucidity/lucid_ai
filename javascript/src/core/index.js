@@ -13,11 +13,11 @@ module.exports = {
   common: require('./common'),
   commonUnitUtils: require('./commonUnitUtils'),
   constants: require('./constants'),
-  constructionDataUtils: require('./constructionDataUtils'),
+  constructionDataUtils: require('../features/construction/constructionDataUtils'),
   globalTypes: require('./globalTypes'),
   logger: require('./logger'),
   logging: require('./logging'),
   pathfindingCore: require('./pathfindingCore'),
-  sharedUnitPlacement: require('./sharedUnitPlacement'),
+  sharedUnitPlacement: require('../features/construction/sharedUnitPlacement'),
   upgradeUtils: require('./upgradeUtils'),
 };

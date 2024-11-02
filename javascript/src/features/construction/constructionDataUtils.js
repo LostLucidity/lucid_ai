@@ -4,11 +4,11 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { createPoint2D } = require("@node-sc2/core/utils/geometry/point");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
-const { buildUnitTypeMap } = require("../../data/gameData/gameData");
-const { isPendingConstructing } = require("../features/shared/workerCommonUtils");
-const { getPendingOrders } = require("../services/sharedServices");
-const { GameState, buildingPositions } = require("../state");
-const { getDistance } = require("../utils/spatialCoreUtils");
+const { buildUnitTypeMap } = require("../../../data/gameData/gameData");
+const { getPendingOrders } = require("../../services/sharedServices");
+const { GameState, buildingPositions } = require("../../state");
+const { getDistance } = require("../../utils/spatialCoreUtils");
+const { isPendingConstructing } = require("../shared/workerCommonUtils");
 
 /**
  * @param {World} world

@@ -1,5 +1,5 @@
 // Imports
-const StrategyContext = require('./strategyContext');
+const StrategyContext = require('../strategy/strategyContext');
 
 /**
  * Selects a unit type to build from the list of candidate types.

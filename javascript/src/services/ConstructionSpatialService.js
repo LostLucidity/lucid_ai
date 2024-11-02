@@ -7,8 +7,8 @@ const { cellsInFootprint } = require("@node-sc2/core/utils/geometry/plane");
 const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const { getStringNameOfConstant } = require("../core/common");
-const { getCurrentlyEnrouteConstructionGrids } = require("../core/constructionDataUtils");
-const { seigeTanksSiegedGrids } = require("../core/sharedUnitPlacement");
+const { getCurrentlyEnrouteConstructionGrids } = require("../features/construction/constructionDataUtils");
+const { seigeTanksSiegedGrids } = require("../features/construction/sharedUnitPlacement");
 const { getAddOnPlacement, getAddOnBuildingPlacement, existsInMap, pointsOverlap } = require("../features/shared/pathfinding/pathfinding");
 const { canUnitBuildAddOn, flyingTypesMapping } = require("../units/management/unitConfig");
 const spatialUtils = require('../utils/spatial/spatialUtils');

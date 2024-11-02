@@ -1,5 +1,5 @@
-const ActionStrategy = require("./actionStrategy");
 const { upgrade } = require("../../units/management/unitManagement");
+const ActionStrategy = require("../actions/actionStrategy");
 
 // Concrete strategy for handling upgrade actions
 class UpgradeActionStrategy extends ActionStrategy {
