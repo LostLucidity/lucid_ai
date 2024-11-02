@@ -26,6 +26,8 @@ const { findUnitPlacements } = require('./utils/spatial/spatialUtils');
 const { getDistance } = require('./utils/spatialCoreUtils');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
 const config = require('../config/config');
+const { createUnitTypeTrainingAbilitiesMap } = require('../config/unitTypeTrainingAbilities');
+const { createUpgradeAbilitiesMap } = require('../config/upgradeAbilities');
 
 /**
  * @typedef {Object} CacheManager
@@ -37,6 +39,11 @@ const config = require('../config/config');
  * @property {number} upgradeType
  * @property {boolean} inProgress
  */
+
+/** @type {{ [abilityId: number]: number }} */
+let upgradeAbilities = {};
+/** @type {{ [abilityId: number]: number }} */
+let unitTypeTrainingAbilities = {}; // Declaring with the type for indexing by number keys
 
 const completedBasesMap = new Map();
 const gameState = GameState.getInstance();
@@ -53,13 +60,71 @@ let previousFreeGeysersCount = 0;
 let previousValidPositionsCount = 0;
 
 /**
+ * Initializes game data, including mappings for abilities and unit types.
+ * @param {World} world
+ */
+function initializeGame(world) {
+  upgradeAbilities = createUpgradeAbilitiesMap(world.data);
+  unitTypeTrainingAbilities = createUnitTypeTrainingAbilitiesMap(world.data); // Step 2: Initialize the new map
+}
+
+/**
+ * Finds the production structure with the longest remaining build or research time.
+ * @param {Array<Unit>} activeProductionStructures - List of active structures.
+ * @param {World} world - The current game world state.
+ * @returns {Unit} - The structure with the longest remaining build or research time.
+ */
+function findLongestRemainingTimeStructure(activeProductionStructures, world) {
+  return activeProductionStructures.reduce((longestBuildTimeStructure, structure) => {
+    if (!structure.orders || structure.orders.length === 0) return longestBuildTimeStructure;
+
+    const order = structure.orders[0];
+    const progress = order.progress ?? 1;
+    const abilityId = order.abilityId;
+    let totalBuildTime;
+
+    if (abilityId !== undefined) {
+      const upgradeId = upgradeAbilities[abilityId];
+      const unitTypeId = unitTypeTrainingAbilities[abilityId];
+
+      if (upgradeId) {
+        totalBuildTime = world.data.getUpgradeData(upgradeId)?.researchTime;
+      } else if (unitTypeId) {
+        totalBuildTime = world.data.getUnitTypeData(unitTypeId)?.buildTime;
+      }
+    }
+
+    const remainingTime = getBuildTimeLeft(structure, totalBuildTime, progress);
+
+    const longestBuildAbilityId = longestBuildTimeStructure.orders?.[0]?.abilityId;
+    const longestBuildUpgradeId = longestBuildAbilityId ? upgradeAbilities[longestBuildAbilityId] : undefined;
+    const longestBuildUnitTypeId = longestBuildAbilityId !== undefined
+      ? unitTypeTrainingAbilities[longestBuildAbilityId]
+      : undefined;
+
+    const longestTotalBuildTime = longestBuildUpgradeId
+      ? world.data.getUpgradeData(longestBuildUpgradeId)?.researchTime
+      : longestBuildUnitTypeId
+        ? world.data.getUnitTypeData(longestBuildUnitTypeId)?.buildTime
+        : 0;
+
+    const longestRemainingTime = getBuildTimeLeft(
+      longestBuildTimeStructure,
+      longestTotalBuildTime,
+      longestBuildTimeStructure.orders?.[0]?.progress ?? 1
+    );
+
+    return remainingTime > longestRemainingTime ? structure : longestBuildTimeStructure;
+  });
+}
+
+/**
  * Dynamically uses CHRONOBOOST on the most suitable active production structure,
  * prioritizing those with the most remaining production time, while reserving energy for build order priorities.
  * @param {World} world - The current game world state.
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - The list of actions to be executed.
  */
 function useChronoboost(world, actionList) {
-
   const { units } = world.resources.get();
   const nexusUnits = units.getByType(NEXUS);
 
@@ -71,26 +136,7 @@ function useChronoboost(world, actionList) {
       );
 
       if (activeProductionStructures.length > 0) {
-        const target = activeProductionStructures.reduce((longestBuildTimeStructure, structure) => {
-          if (!structure.orders || structure.orders.length === 0) return longestBuildTimeStructure;
-          const order = structure.orders[0];
-          const progress = order.progress !== undefined ? order.progress : 1;
-
-          const unitData = order.abilityId !== undefined ? world.data.getUnitTypeData(order.abilityId) : null;
-          const totalBuildTime = unitData ? unitData.buildTime : undefined;
-
-          const remainingTime = getBuildTimeLeft(structure, totalBuildTime, progress);
-
-          const longestRemainingTime = longestBuildTimeStructure.orders && longestBuildTimeStructure.orders[0]
-            ? getBuildTimeLeft(
-              longestBuildTimeStructure,
-              world.data.getUnitTypeData(longestBuildTimeStructure.orders[0].abilityId ?? 0)?.buildTime,
-              longestBuildTimeStructure.orders[0].progress !== undefined ? longestBuildTimeStructure.orders[0].progress : 1
-            )
-            : 0;
-
-          return remainingTime > longestRemainingTime ? structure : longestBuildTimeStructure;
-        });
+        const target = findLongestRemainingTimeStructure(activeProductionStructures, world);
 
         actionList.push({
           abilityId: EFFECT_CHRONOBOOSTENERGYCOST,
@@ -517,7 +563,7 @@ const actionResultStrings = Object.keys(ActionResult).reduce((acc, key) => {
 }, /** @type {ActionResultStrings} */({}));
 
 /**
- * Executes collected actions and handles any errors.
+ * Executes collected actions and handles any errors with detailed logging.
  * @param {World} world - The current game world state.
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionCollection - Actions to be executed.
  */
@@ -530,8 +576,25 @@ async function executeActions(world, actionCollection) {
 
     if (response && response.result) {
       response.result.forEach((result, index) => {
+        const action = actionCollection[index];
+
+        let unit = null;
+        let unitType = 'Unknown Unit';
+        if (action.unitTags && action.unitTags.length > 0) {
+          unit = resources.units.getByTag(action.unitTags[0]);
+          unitType = unit && unit.unitType !== undefined ? String(unit.unitType) : 'Unknown Unit';
+        }
+
+        const commandType = action.abilityId;
+
         if (result !== ActionResult.Success) {
-          console.error(`Action ${index} failed with result: ${actionResultStrings[result]}`);
+          console.error(
+            `Action ${index} failed with result: ${actionResultStrings[result]} \n` +
+            `Unit: ${unitType} (ID: ${action.unitTags ? action.unitTags[0] : 'N/A'})\n` +
+            `Command: ${commandType} (Ability ID: ${commandType || 'Unknown Command'})\n` +
+            `Target: ${action.targetUnitTag ? 'Unit ' + action.targetUnitTag : action.targetWorldSpacePos ?
+              `Position (${action.targetWorldSpacePos.x}, ${action.targetWorldSpacePos.y})` : 'No target'}`
+          );
         }
       });
     } else {
@@ -842,6 +905,8 @@ const bot = createAgent({
 
       // Set up the wall-off using the instance method
       wallOffService.setUpWallOffNatural(world);
+
+      initializeGame(world);
 
       // Log initial game state
       const startTime = performance.now();
