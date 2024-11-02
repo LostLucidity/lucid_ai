@@ -2,7 +2,7 @@
 
 // External library imports
 const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
-const { Upgrade, Ability } = require('@node-sc2/core/constants');
+const { Upgrade, Ability, UnitType } = require('@node-sc2/core/constants');
 const { BUILD_ASSIMILATOR, EFFECT_CALLDOWNMULE, EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
 const { DisplayType } = require('@node-sc2/core/constants/enums');
 const { ASSIMILATOR, PROBE, ORBITALCOMMAND, NEXUS } = require('@node-sc2/core/constants/unit-type');
@@ -69,14 +69,21 @@ function initializeGame(world) {
 }
 
 /**
- * Finds the production structure with the longest remaining build or research time.
+ * Finds the production structure with the longest remaining build or research time
+ * that meets the absolute time threshold.
  * @param {Array<Unit>} activeProductionStructures - List of active structures.
  * @param {World} world - The current game world state.
- * @returns {Unit} - The structure with the longest remaining build or research time.
+ * @param {number} absoluteTimeThreshold - The minimum absolute time remaining in seconds to qualify.
+ * @returns {Unit|null} - The structure with the longest remaining build or research time, or null if none meet criteria.
  */
-function findLongestRemainingTimeStructure(activeProductionStructures, world) {
-  return activeProductionStructures.reduce((longestBuildTimeStructure, structure) => {
-    if (!structure.orders || structure.orders.length === 0) return longestBuildTimeStructure;
+function findLongestRemainingTimeStructure(activeProductionStructures, world, absoluteTimeThreshold = 10) {
+  const absoluteThresholdInGameLoops = absoluteTimeThreshold * 22.4; // Convert seconds to game loops
+
+  let bestStructure = null;
+  let longestRemainingTime = 0;
+
+  activeProductionStructures.forEach(structure => {
+    if (!structure.orders || structure.orders.length === 0) return;
 
     const order = structure.orders[0];
     const progress = order.progress ?? 1;
@@ -94,29 +101,19 @@ function findLongestRemainingTimeStructure(activeProductionStructures, world) {
       }
     }
 
+    if (!totalBuildTime) return;
+
     const remainingTime = getBuildTimeLeft(structure, totalBuildTime, progress);
 
-    const longestBuildAbilityId = longestBuildTimeStructure.orders?.[0]?.abilityId;
-    const longestBuildUpgradeId = longestBuildAbilityId ? upgradeAbilities[longestBuildAbilityId] : undefined;
-    const longestBuildUnitTypeId = longestBuildAbilityId !== undefined
-      ? unitTypeTrainingAbilities[longestBuildAbilityId]
-      : undefined;
-
-    const longestTotalBuildTime = longestBuildUpgradeId
-      ? world.data.getUpgradeData(longestBuildUpgradeId)?.researchTime
-      : longestBuildUnitTypeId
-        ? world.data.getUnitTypeData(longestBuildUnitTypeId)?.buildTime
-        : 0;
-
-    const longestRemainingTime = getBuildTimeLeft(
-      longestBuildTimeStructure,
-      longestTotalBuildTime,
-      longestBuildTimeStructure.orders?.[0]?.progress ?? 1
-    );
-
-    return remainingTime > longestRemainingTime ? structure : longestBuildTimeStructure;
+    if (remainingTime >= absoluteThresholdInGameLoops && remainingTime > longestRemainingTime) {
+      longestRemainingTime = remainingTime;
+      bestStructure = structure;
+    }
   });
+
+  return bestStructure;
 }
+
 
 /**
  * Dynamically uses CHRONOBOOST on the most suitable active production structure,
@@ -136,13 +133,15 @@ function useChronoboost(world, actionList) {
       );
 
       if (activeProductionStructures.length > 0) {
-        const target = findLongestRemainingTimeStructure(activeProductionStructures, world);
+        const target = findLongestRemainingTimeStructure(activeProductionStructures, world, 10);
 
-        actionList.push({
-          abilityId: EFFECT_CHRONOBOOSTENERGYCOST,
-          targetUnitTag: target.tag,
-          unitTags: [nexus.tag],
-        });
+        if (target) {
+          actionList.push({
+            abilityId: EFFECT_CHRONOBOOSTENERGYCOST,
+            targetUnitTag: target.tag,
+            unitTags: [nexus.tag],
+          });
+        }
       }
     }
   });
