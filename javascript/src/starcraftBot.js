@@ -585,20 +585,32 @@ async function executeActions(world, actionCollection) {
       response.result.forEach((result, index) => {
         const action = actionCollection[index];
 
+        /**
+         * @type {Unit | null}
+         */
         let unit = null;
-        let unitType = 'Unknown Unit';
+        let unitTypeName = 'Unknown Unit';
+
         if (action.unitTags && action.unitTags.length > 0) {
           unit = resources.units.getByTag(action.unitTags[0]);
-          unitType = unit && unit.unitType !== undefined ? String(unit.unitType) : 'Unknown Unit';
+          if (unit && unit.unitType !== undefined) {
+            unitTypeName = Object.keys(UnitType).find(
+              (type) => unit && UnitType[type] === unit.unitType
+            ) || `Unknown Unit (ID: ${unit.unitType})`;
+          }
         }
 
         const commandType = action.abilityId;
+        const abilityName = commandType !== undefined
+          ? Object.keys(Ability).find((ability) => Ability[ability] === commandType)
+          || `Unknown Command (Ability ID: ${commandType})`
+          : `Unknown Command (Ability ID: N/A)`;
 
         if (result !== ActionResult.Success) {
           console.error(
             `Action ${index} failed with result: ${actionResultStrings[result]} \n` +
-            `Unit: ${unitType} (ID: ${action.unitTags ? action.unitTags[0] : 'N/A'})\n` +
-            `Command: ${commandType} (Ability ID: ${commandType || 'Unknown Command'})\n` +
+            `Unit: ${unitTypeName} (Tag: ${action.unitTags ? action.unitTags[0] : 'N/A'})\n` +
+            `Command: ${abilityName}\n` +
             `Target: ${action.targetUnitTag ? 'Unit ' + action.targetUnitTag : action.targetWorldSpacePos ?
               `Position (${action.targetWorldSpacePos.x}, ${action.targetWorldSpacePos.y})` : 'No target'}`
           );
