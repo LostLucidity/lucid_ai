@@ -254,6 +254,21 @@ function logUnitPositions(world) {
 }
 
 /**
+ * Directs workers carrying resources to the nearest townhall.
+ * @param {Array<Unit>} workers - The list of worker units in the game.
+ * @param {Array<Unit>} townhalls - List of townhall units.
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList - The list of actions to be executed.
+ */
+function directCarryingWorkersToNearestTownhall(workers, townhalls, actionList) {
+  workers.forEach(worker => {
+    const isCarryingMinerals = worker.orders && worker.orders.some(order => order.abilityId === Ability.HARVEST_RETURN);
+    if (isCarryingMinerals) {
+      returnMinerals(worker, townhalls, actionList);
+    }
+  });
+}
+
+/**
  * Manages workers, handling idle probes, gathering orders, and other tasks.
  * 
  * @param {UnitResource} units - The resource managing all units in the game.
@@ -268,17 +283,10 @@ function manageWorkers(units, allUnits, resources, actionList, world) {
   balanceWorkers(world, units, resources, actionList);
   handleWorkerAssignment(resources, actionList);
 
-  // Re-evaluate and ensure workers return minerals to the closest townhall
   const workers = units.getWorkers();
-  const townhalls = units.getBases().filter(base => base.buildProgress === 1); // Check if townhall is completed
+  const townhalls = units.getBases().filter(base => base.buildProgress === 1);
 
-  workers.forEach(worker => {
-    // Check if the worker's orders are defined and if it's carrying minerals
-    const isCarryingMinerals = worker.orders && worker.orders.some(order => order.abilityId === Ability.HARVEST_RETURN);
-    if (isCarryingMinerals) {
-      returnMinerals(worker, townhalls, actionList);
-    }
-  });
+  directCarryingWorkersToNearestTownhall(workers, townhalls, actionList);
 
   useOrbitalCommandEnergy(world, actionList);
 }
