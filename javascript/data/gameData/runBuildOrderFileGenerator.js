@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { generateBuildOrderFiles } = require('../buildOrders/buildOrderUtils');
+const { generateBuildOrderFiles } = require('../buildOrders/scripts/buildOrderUtils');
 
 // Ensure the path is updated according to the actual location of the scrapedBuildOrders.json file
 const dataFilePath = path.join(__dirname, '../../features/buildOrders/scrapedBuildOrders.json');

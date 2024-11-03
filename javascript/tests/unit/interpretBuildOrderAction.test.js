@@ -1,6 +1,6 @@
 const { Upgrade, UnitType } = require('@node-sc2/core/constants');
 
-const { interpretBuildOrderAction } = require('../../data/buildOrders/buildOrderUtils');
+const { interpretBuildOrderAction } = require('../../data/buildOrders/scripts/buildOrderUtils');
 
 describe('interpretBuildOrderAction - Upgrade and Unit Actions', () => {
   test('should recognize "Charge" as an upgrade action', () => {

@@ -1,4 +1,4 @@
-const { loadBuildOrdersFromDirectory } = require("./buildOrderUtils");
+const { loadBuildOrdersFromDirectory } = require("./scripts/buildOrderUtils");
 
 /**
  * @type {{

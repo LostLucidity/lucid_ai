@@ -7,11 +7,15 @@ const { workerTypes } = require("@node-sc2/core/constants/groups");
 const fs = require("fs").promises;
 const path = require("path");
 
-const { GameState } = require("../../src/state");
-const { getBasicProductionUnits } = require("../../src/units/management/basicUnitUtils");
+const { GameState } = require("../../../src/state");
+const { getBasicProductionUnits } = require("../../../src/units/management/basicUnitUtils");
 
-/** @type {Record<string, import('src/core/globalTypes').RaceBuildOrders>} */
+/** 
+ * @type {Record<string, { data: import('src/core/globalTypes').RaceBuildOrders, timestamp: number }>} 
+ */
 const buildOrderCache = {};
+
+const CACHE_EXPIRATION_MS = 5 * 60 * 1000;
 
 /**
  * Determines the directory name based on the race matchup of the build order.
@@ -263,37 +267,39 @@ function isUnitTypeInProgress(world, units, unitType, data) {
 }
 
 /**
- * Loads build orders from a specified directory.
+ * Loads build orders from a specified directory with cache invalidation.
  * @param {string} directoryName - Name of the directory (e.g., 'protoss', 'terran', 'zerg').
  * @returns {Promise<import('src/core/globalTypes').RaceBuildOrders>} Build orders loaded from the directory.
  */
 async function loadBuildOrdersFromDirectory(directoryName) {
-  if (buildOrderCache[directoryName]) {
-    return buildOrderCache[directoryName];
+  const now = Date.now();
+
+  if (buildOrderCache[directoryName] && (now - buildOrderCache[directoryName].timestamp < CACHE_EXPIRATION_MS)) {
+    return buildOrderCache[directoryName].data;
   }
 
-  const directoryPath = path.join(__dirname, directoryName);
-  const buildOrderFiles = await fs.readdir(directoryPath);
+  const directoryPath = path.join(__dirname, '..', directoryName);
+  const buildOrderFiles = await fs.readdir(directoryPath, { withFileTypes: true });
 
   /** @type {import('src/core/globalTypes').RaceBuildOrders} */
   const buildOrders = {};
 
   for (const file of buildOrderFiles) {
-    if (file.endsWith('.js')) {
+    if (file.isFile() && file.name.endsWith('.js')) {
       try {
-        const buildOrder = require(path.join(directoryPath, file));
-        buildOrders[file.replace('.js', '')] = buildOrder;
+        const buildOrder = require(path.join(directoryPath, file.name));
+        buildOrders[file.name.replace('.js', '')] = buildOrder;
       } catch (error) {
         if (error instanceof Error) {
-          console.error(`Error loading build order from file ${file}: ${error.message}`);
+          console.error(`Error loading build order from file ${file.name}: ${error.message}`);
         } else {
-          console.error(`Unknown error loading build order from file ${file}`);
+          console.error(`Unknown error loading build order from file ${file.name}`);
         }
       }
     }
   }
 
-  buildOrderCache[directoryName] = buildOrders;
+  buildOrderCache[directoryName] = { data: buildOrders, timestamp: now };
 
   return buildOrders;
 }
@@ -312,5 +318,6 @@ module.exports = {
   interpretBuildOrderAction,
   isStepInProgress,
   generateBuildOrderFiles,
-  loadBuildOrdersFromDirectory
+  loadBuildOrdersFromDirectory,
+  buildOrderCache
 };

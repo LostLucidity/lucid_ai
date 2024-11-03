@@ -40,7 +40,7 @@ async function updateBuildOrders() {
 
     console.log(`Processing build order: ${buildOrder.title}`);
 
-    buildOrder.steps.forEach((/** @type {{ action: string, comment: string, interpretedAction: Array<import('../../src/core/globalTypes').InterpretedAction> }} */ step) => {
+    buildOrder.steps.forEach((/** @type {{ action: string, comment: string, interpretedAction: Array<import('../../../src/core/globalTypes').InterpretedAction> }} */ step) => {
       const { action, comment } = step;
       step.interpretedAction = interpretBuildOrderAction(action, comment);
     });

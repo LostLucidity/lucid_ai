@@ -15,7 +15,7 @@ const UpgradeActionStrategy = require("./upgradeActionStrategy");
 const config = require("../../../config/config");
 const buildOrders = require("../../../data/buildOrders");
 const { loadAllBuildOrders } = require("../../../data/buildOrders");
-const { interpretBuildOrderAction } = require("../../../data/buildOrders/buildOrderUtils");
+const { interpretBuildOrderAction } = require("../../../data/buildOrders/scripts/buildOrderUtils");
 const EarmarkManager = require("../../core/earmarkManager");
 const { getUnitTypeData } = require("../../core/gameData");
 const ResourceEarmarkManager = require("../../core/resourceEarmarkManager");
@@ -84,6 +84,7 @@ class StrategyManager {
     this.initializeSingleton(race, specificBuildOrderKey);
     StrategyManager.instance = this;
     this.chronoBoostsPerStep = new Map();
+    this.initializedRaces = new Set();
   }
 
   /**
@@ -494,10 +495,10 @@ class StrategyManager {
   }
 
   /**
-   * Initializes the strategy for the given race.
-   * @param {SC2APIProtocol.Race} race - The race for which to initialize the strategy.
-   * @throws Will throw an error if the race is not provided or if the strategyContext is undefined.
-   */
+     * Initializes the strategy for the given race.
+     * @param {SC2APIProtocol.Race} race - The race for which to initialize the strategy.
+     * @throws Will throw an error if the race is not provided or if the strategyContext is undefined.
+     */
   async initializeStrategy(race) {
     if (!race) {
       throw new Error("Race must be provided for strategy initialization");
@@ -507,7 +508,17 @@ class StrategyManager {
       throw new Error("strategyContext is undefined.");
     }
 
+    if (this.initializedRaces.has(race)) {
+      console.log(`Strategy for race ${race} is already initialized. Using cached strategy.`);
+      return;
+    }
+
     this.race = race;
+
+    if (!buildOrders.buildOrderStore.buildOrders) {
+      console.log(`Loading all build orders for race ${race}...`);
+      await buildOrders.loadAllBuildOrders();
+    }
 
     try {
       const buildOrderKey = config.debugBuildOrderKey || StrategyManager.selectBuildOrderKey(race);
@@ -515,6 +526,8 @@ class StrategyManager {
 
       this.strategyContext.setCurrentStrategy(strategy);
       console.log(`Selected build order key: ${buildOrderKey}`);
+
+      this.initializedRaces.add(race);
     } catch (error) {
       console.error(`Error loading strategy for ${race}:`, error);
       return;

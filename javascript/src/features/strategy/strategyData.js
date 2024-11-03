@@ -1,4 +1,4 @@
-const { interpretBuildOrderAction } = require('../../../data/buildOrders/buildOrderUtils');
+const { interpretBuildOrderAction } = require('../../../data/buildOrders/scripts/buildOrderUtils');
 const { isBuildOrderStep } = require('../../gameLogic/gameMechanics/gameStrategyUtils');
 const { isEqualStep } = require('../../utils/strategyUtils');
 

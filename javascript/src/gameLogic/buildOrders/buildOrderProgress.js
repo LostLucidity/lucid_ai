@@ -1,6 +1,6 @@
 "use strict";
 
-const { isStepInProgress } = require('../../../data/buildOrders/buildOrderUtils');
+const { isStepInProgress } = require('../../../data/buildOrders/scripts/buildOrderUtils');
 const StrategyManager = require('../../features/strategy/strategyManager');
 const { GameState } = require('../../state');
 const buildOrderState = require('../../state/buildOrderState');
