@@ -270,7 +270,7 @@ class BuildingPlacement {
       .flatMap(grid => cellsInFootprint(grid, footprint));
     const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3)
       .filter(grid => !twoByTwoPlacements.some(placement => placement.x === grid.x && placement.y === grid.y));
-    let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle)
+    const closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle)
       .filter(grid => {
         const footprint = getFootprint(UnitType.ENGINEERINGBAY);
         if (!footprint) return false;
@@ -299,7 +299,7 @@ class BuildingPlacement {
     const cornerGrids = placeableGrids.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1).filter(point => getDistance(point, grid) <= 1), placeableGrids).length === 2);
     cornerGrids.forEach(cornerGrid => {
       const cornerGridCircle = gridsInCircle(cornerGrid, 3);
-      let closestPlaceableGrids = getClosestPosition(cornerGrid, cornerGridCircle)
+      const closestPlaceableGrids = getClosestPosition(cornerGrid, cornerGridCircle)
         .filter(grid => map.isPlaceableAt(UnitType.SUPPLYDEPOT, grid));
       const [closestRamp] = getClosestPosition(cornerGrid, cornerGridCircle.filter(grid => map.isRamp(grid)));
       if (closestRamp) {
@@ -420,7 +420,7 @@ class BuildingPlacement {
     let candidates = [];
 
     if (naturalWall) {
-      let wallPositions = BuildingPlacement.getPlaceableAtPositions(naturalWall, map, unitType)
+      const wallPositions = BuildingPlacement.getPlaceableAtPositions(naturalWall, map, unitType)
         .filter(point => map.isPlaceableAt(unitType, point));
       candidates = getClosestPosition(avgPoints(wallPositions), wallPositions, 2);
     }

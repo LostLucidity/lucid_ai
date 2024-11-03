@@ -69,8 +69,8 @@ function buildUnitTypeMap(dataStorage) {
  * @returns {AbilityId[]}
  */
 function getAbilityIdsForAddons(data, unitType) {
-  let { abilityId } = data.getUnitTypeData(unitType);
-  let abilityIds = [];
+  const { abilityId } = data.getUnitTypeData(unitType);
+  const abilityIds = [];
 
   if (abilityId === 1674) { // Assuming these are constant values representing specific addons
     abilityIds.push(...getReactorAbilities(data));

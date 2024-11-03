@@ -50,7 +50,7 @@ class MapResources {
     const availableExpansions = map.getAvailableExpansions();
 
     // Extract the townhall positions of these expansions
-    let potentialSites = availableExpansions.map(expansion => expansion.townhallPosition);
+    const potentialSites = availableExpansions.map(expansion => expansion.townhallPosition);
 
     return potentialSites;
   }  

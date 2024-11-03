@@ -35,7 +35,7 @@ class WallOffPlacementService {
   static determineWallOffPlacements(resources, walls) {
     const { debug, map } = resources.get();
     BuildingPlacement.threeByThreePositions = [];
-    let shuffledWalls = shuffle(walls);
+    const shuffledWalls = shuffle(walls);
     const threeByThreeGrid = getFootprint(GATEWAY);
     if (!threeByThreeGrid) return;
 
@@ -58,12 +58,12 @@ class WallOffPlacementService {
           return map.isPlaceableAt(PYLON, point) && !pointsOverlap(pylonCells, townhallCells);
         });
 
-      let wallToTownhallPointsWithNeighbors = [];
+      const wallToTownhallPointsWithNeighbors = [];
       for (let i = 0; i < wallToTownhallPoints.length; i++) {
-        let point = wallToTownhallPoints[i];
+        const point = wallToTownhallPoints[i];
         const neighbors = getNeighbors(point, true);
         for (let j = 0; j < neighbors.length; j++) {
-          let neighbor = neighbors[j];
+          const neighbor = neighbors[j];
           if (map.isPlaceableAt(PYLON, neighbor) && !wallToTownhallPoints.some(point => point.x === neighbor.x && point.y === neighbor.y)) {
             wallToTownhallPointsWithNeighbors.push(neighbor);
           }
@@ -72,7 +72,7 @@ class WallOffPlacementService {
 
       const wallToTownhallPointsWithNeighborsMapped = wallToTownhallPointsWithNeighbors.map(point => {
         const pylonPowerArea = getPylonPowerArea(point);
-        let wallOffGrids = [];
+        const wallOffGrids = [];
         /** @type {Point2D | null} */
         let doorGrid = null;
         let workingWall = [...currentWall];

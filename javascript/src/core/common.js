@@ -93,13 +93,13 @@ function findKeysForValue(map, targetValue) {
  * @returns {number[]} - The list of unit type IDs with the specified ability.
  */
 function findUnitTypesWithAbilityCached(dataStorage, abilityId) {
-  let cachedResult = cacheManager.getUnitTypeAbilityData(abilityId);
+  const cachedResult = cacheManager.getUnitTypeAbilityData(abilityId);
   if (cachedResult !== undefined) {
     return cachedResult;
   }
 
   // Accessing data from the passed-in DataStorage instance
-  let result = dataStorage.findUnitTypesWithAbility(abilityId);
+  const result = dataStorage.findUnitTypesWithAbility(abilityId);
 
   // Cache the result for future use
   cacheManager.cacheUnitTypeAbilityData(abilityId, result);

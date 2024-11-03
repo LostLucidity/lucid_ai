@@ -36,7 +36,7 @@ function determineScoutingLocations(world) {
   const mapResource = getMapResource(world);
   const { enemyMainBase, enemyNatural } = getKeyLocations(mapResource);
 
-  let pointsOfInterest = [];
+  const pointsOfInterest = [];
   if (enemyMainBase) {
     pointsOfInterest.push(enemyMainBase);
   }

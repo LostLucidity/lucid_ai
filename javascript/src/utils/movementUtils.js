@@ -44,7 +44,7 @@ function getClosestUnitByPath(resources, position, units, gasGeysers = [], n = 1
     };
   }, { within16: [], outside16: [] });
 
-  let closestUnits = splitUnits.within16.sort((a, b) => {
+  const closestUnits = splitUnits.within16.sort((a, b) => {
     const { pos } = a; if (pos === undefined) return 1;
     const { pos: bPos } = b; if (bPos === undefined) return -1;
     const aData = getClosestPathablePositionsBetweenPositions(resources, pos, position, gasGeysers);

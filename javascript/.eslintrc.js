@@ -55,5 +55,6 @@ module.exports = {
       }
     ],
     "no-unused-private-class-members": "error", // Detect unused private class members
+    "prefer-const": "error"
   },
 };

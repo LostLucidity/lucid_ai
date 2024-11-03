@@ -326,7 +326,7 @@ function assignWorkerToField(worker, completedBases, map, units, resources) {
 
   const assignedMineralField = worker.labels.get('mineralField');
   if (assignedMineralField && assignedMineralField.tag !== undefined) {
-    let currentMineralField = units.getByTag(assignedMineralField.tag);
+    const currentMineralField = units.getByTag(assignedMineralField.tag);
 
     // Check if the current mineral field is visible and has a valid position
     if (currentMineralField && currentMineralField.pos && map.isVisible(currentMineralField.pos)) {

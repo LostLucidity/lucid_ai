@@ -32,7 +32,7 @@ const { getTimeInSeconds, getConstructionTimeLeft } = require("../timeUtils");
 let adjacentToRampGrids = [];
 
 /** @type {Point2D[]} */
-let landingGrids = [];
+const landingGrids = [];
 
 /**
  * Adds a new landing grid.
@@ -168,8 +168,8 @@ function calculateMovingOrConstructingNonDronesTimeToPosition(world, movingOrCon
  */
 function dbscan(points, eps = 1.5, minPts = 1) {
   /** @type {Set<Point2D>[]} */
-  let clusters = [];
-  let visited = new Set();
+  const clusters = [];
+  const visited = new Set();
 
   /**
    * Returns the neighbors of a given point within the 'eps' distance.
@@ -196,7 +196,7 @@ function dbscan(points, eps = 1.5, minPts = 1) {
       return;
     }
 
-    let cluster = new Set();
+    const cluster = new Set();
     clusters.push(cluster);
 
     neighbors.forEach(neighbor => {
@@ -465,7 +465,7 @@ function getBuildingAndAddonGrids(pos, unitType) {
  */
 function getBuilderCandidateClusters(builderCandidates) {
   // Prepare data for dbscanWithUnits
-  let pointsWithUnits = builderCandidates.reduce((/** @type {{point: Point2D, unit: Unit}[]} */accumulator, builder) => {
+  const pointsWithUnits = builderCandidates.reduce((/** @type {{point: Point2D, unit: Unit}[]} */accumulator, builder) => {
     const { pos } = builder;
     if (pos === undefined) return accumulator;
     accumulator.push({ point: pos, unit: builder });
@@ -473,7 +473,7 @@ function getBuilderCandidateClusters(builderCandidates) {
   }, []);
 
   // Apply DBSCAN to get clusters
-  let builderCandidateClusters = dbscanWithUnits(pointsWithUnits, 9);
+  const builderCandidateClusters = dbscanWithUnits(pointsWithUnits, 9);
 
   return builderCandidateClusters;
 }
@@ -509,7 +509,7 @@ function getClosestBuilderCandidate(resources, builderCandidateClusters, positio
   let shortestClusterDistance = Infinity;
 
   // Find the closest cluster to the position
-  for (let cluster of builderCandidateClusters) {
+  for (const cluster of builderCandidateClusters) {
     const distance = getDistance(cluster.center, position);
     if (distance < shortestClusterDistance) {
       shortestClusterDistance = distance;
@@ -533,7 +533,7 @@ function getClosestBuilderCandidate(resources, builderCandidateClusters, positio
   });
 
   // Find the closest candidate within that cluster
-  for (let builderCandidate of closestCluster.units) {
+  for (const builderCandidate of closestCluster.units) {
     const { pos } = builderCandidate;
     if (!pos) continue;
 
@@ -707,7 +707,7 @@ function getStructureAtPosition(units, movingPosition) {
  */
 const getUnitsFromClustering = (units) => {
   // Perform clustering on builderCandidates
-  let unitPoints = units.reduce((/** @type {Point2D[]} */accumulator, builder) => {
+  const unitPoints = units.reduce((/** @type {Point2D[]} */accumulator, builder) => {
     const { pos } = builder; if (pos === undefined) return accumulator;
     accumulator.push(pos);
     return accumulator;
@@ -715,12 +715,12 @@ const getUnitsFromClustering = (units) => {
   // Apply DBSCAN to get clusters
   const clusters = dbscan(unitPoints);
   // Find the closest builderCandidate to each centroid
-  let closestUnits = clusters.reduce((/** @type {Unit[]} */acc, builderCandidateCluster) => {
+  const closestUnits = clusters.reduce((/** @type {Unit[]} */acc, builderCandidateCluster) => {
     let closestBuilderCandidate;
     let shortestDistance = Infinity;
-    for (let unit of units) {
+    for (const unit of units) {
       const { pos } = unit; if (pos === undefined) return acc;
-      let distance = getDistance(builderCandidateCluster, pos);
+      const distance = getDistance(builderCandidateCluster, pos);
       if (distance < shortestDistance) {
         shortestDistance = distance;
         closestBuilderCandidate = unit;

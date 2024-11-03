@@ -28,7 +28,7 @@ class ActionCollector {
     this.updateManagers(); // Ensure managers are updated right before actions are collected
 
     const { units } = this.world.resources.get();
-    let actionCollection = [
+    const actionCollection = [
       ...ActionCollector.handleStrategicActions(this.world),
       ...ActionCollector.collectLowerDepotActions(this.world)
     ];

@@ -645,8 +645,8 @@ class GameState {
    * @returns {AbilityId[]} An array of ability IDs.
    */
   static getAbilityIdsForAddons(data, unitType) {
-    let { abilityId } = data.getUnitTypeData(unitType);
-    let abilityIds = [];
+    const { abilityId } = data.getUnitTypeData(unitType);
+    const abilityIds = [];
 
     if (abilityId === 1674) { // Assuming this is the ID for a reactor
       abilityIds.push(...GameState.getReactorAbilities(data));

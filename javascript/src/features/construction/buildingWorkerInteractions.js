@@ -35,7 +35,7 @@ function assignWorkersToMineralsToBuild(world, unit, position, unitCommand, unit
   const { units } = resources.get();
   const { pos } = unit;
   if (!pos) return [];
-  let actions = [];
+  const actions = [];
 
   const orderTargetPosition = getOrderTargetPosition(units, unit);
   const isMovingButNotToPosition = isMoving(unit) && orderTargetPosition && getDistance(orderTargetPosition, position) > 1;

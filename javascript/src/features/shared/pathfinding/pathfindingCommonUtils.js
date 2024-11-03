@@ -30,7 +30,7 @@ function checkIfPositionIsCorner(positions, position) {
  * @returns {Point2D[]} An array of the closest N positions.
  */
 function getClosestPosition(position, locations, n = 1) {
-  let sortedLocations = locations.map(location => ({ location, distance: getDistance(position, location) }));
+  const sortedLocations = locations.map(location => ({ location, distance: getDistance(position, location) }));
   sortedLocations.sort((a, b) => a.distance - b.distance);
   return sortedLocations.slice(0, n).map(u => u.location);
 }

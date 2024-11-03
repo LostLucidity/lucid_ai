@@ -82,7 +82,7 @@ function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTown
 
   const pylonsNearProduction = getPylonsNearProduction(units, PYLON, main.townhallPosition);
 
-  let candidatePositions = getCandidatePositionsForPylon(world, unitType, resources);
+  const candidatePositions = getCandidatePositionsForPylon(world, unitType, resources);
 
   addPylonPlacements(pylonsNearProduction, placements, gameMap);
 

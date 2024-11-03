@@ -5,7 +5,7 @@ const { unitPendingOrders } = require("../units/management/unitOrders");
 
 // Shared data structures
 /** @type {Map<string, number>} */
-let foodEarmarks = new Map();
+const foodEarmarks = new Map();
 
 /**
  * Retrieves pending orders for a unit.

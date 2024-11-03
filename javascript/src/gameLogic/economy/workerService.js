@@ -133,7 +133,7 @@ function gatherBuilderCandidates(units, builderCandidates, position) {
 function getUnitsTrainingTargetUnitType(world, unitType) {
   const { data, resources } = world;
   const unitsResource = resources.get().units;
-  let { abilityId } = data.getUnitTypeData(unitType);
+  const { abilityId } = data.getUnitTypeData(unitType);
   if (abilityId === undefined) return [];
 
   // Retrieve the array of units from the UnitResource object
@@ -164,7 +164,7 @@ function getWorkerReservedForPosition(position) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 const handleRallyBase = (world, unit, position) => {
-  let actions = [];
+  const actions = [];
   actions.push(...rallyWorkerToTarget(world, position, getUnitsFromClustering, false));
   actions.push(...stopUnitFromMovingToPosition(unit, position));
   return actions;

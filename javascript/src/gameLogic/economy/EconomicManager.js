@@ -30,7 +30,7 @@ class EconomicManager {
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A collection of economic actions.
    */
   collectEconomicActions() {
-    let actions = [];
+    const actions = [];
 
     this.updateMaxWorkers();
     actions.push(...this.balanceWorkerDistribution());

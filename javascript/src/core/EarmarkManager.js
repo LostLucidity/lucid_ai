@@ -63,7 +63,7 @@ class EarmarkManager {
     const fullKey = `${stepKey}_${foodKey}`;
 
     let minerals = 0;
-    let foodEarmark = foodEarmarks.get(fullKey) || 0;
+    const foodEarmark = foodEarmarks.get(fullKey) || 0;
 
     if ('unitId' in orderData) {
       const isZergling = orderData.unitId === ZERGLING;
@@ -74,7 +74,7 @@ class EarmarkManager {
         foodEarmarks.set(fullKey, foodEarmark + adjustedFoodRequired);
 
         // Check for town hall upgrades
-        for (let [base, upgrades] of upgradeTypes.entries()) {
+        for (const [base, upgrades] of upgradeTypes.entries()) {
           if (upgrades.includes(unitId)) {
             const baseTownHallData = data.getUnitTypeData(base);
             minerals = -(baseTownHallData?.mineralCost ?? 400); // defaulting to 400 if not found

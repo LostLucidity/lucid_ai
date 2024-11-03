@@ -28,7 +28,8 @@
   "scripts": {
     "build": "pkg ./ --target win-x64 --out-path ./dist",
     "lint": "eslint src/**/* --ext .js,.jsx",
-    "test": "jest"
+    "test": "jest",
+    "prepare": "npm run lint && npm test"
   },
   "author": "",
   "license": "ISC"

@@ -10,7 +10,7 @@ const { determineScoutingLocations } = require("../../utils/scoutingUtils");
  */
 function performScoutingWithSCV(world) {
   /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
-  let actions = [];
+  const actions = [];
   const scvId = selectSCVForScouting(world);
 
   // Determine multiple scouting locations

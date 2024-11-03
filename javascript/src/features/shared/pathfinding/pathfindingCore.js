@@ -28,10 +28,10 @@ function getDistanceByPath(resources, position, targetPosition) {
     if (everyLineIsPathable) {
       return getDistance(position, targetPosition) || 0;
     } else {
-      let path = getMapPath(map, position, targetPosition);
+      const path = getMapPath(map, position, targetPosition);
       const pathCoordinates = getPathCoordinates(path);
 
-      let straightLineSegments = [];
+      const straightLineSegments = [];
       let currentSegmentStart = pathCoordinates[0];
 
       for (let i = 1; i < pathCoordinates.length; i++) {

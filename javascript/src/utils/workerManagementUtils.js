@@ -139,7 +139,7 @@ function commandBuilderToConstruct(world, builder, unitType, position) {
  */
 function gatherCandidateWorkersTimeToPosition(resources, position, movingOrConstructingNonDronesTimeToPosition, closestBuilder, gameState) {
   const { map } = resources.get();
-  let candidateWorkersTimeToPosition = [];
+  const candidateWorkersTimeToPosition = [];
 
   const [movingOrConstructingNonDrone] = movingOrConstructingNonDronesTimeToPosition.sort((a, b) => a.timeToPosition - b.timeToPosition);
 

@@ -369,7 +369,7 @@ function findFastestAvailableUnit(world, allUnits) {
   let fastestAvailableUnit = null;
   let fastestAvailableTime = Infinity;
 
-  for (let unit of allUnits) {
+  for (const unit of allUnits) {
     const timeUntilAvailable = getTimeUntilUnitCanBuildAddon(world, unit);
     if (timeUntilAvailable < fastestAvailableTime) {
       fastestAvailableUnit = unit;
@@ -473,7 +473,7 @@ function getTimeToTargetCost(world, unitType) {
   }
 
   EarmarkManager.getInstance().addEarmark(data, data.getUnitTypeData(unitType));
-  let earmarkTotals = data.getEarmarkTotals('');
+  const earmarkTotals = data.getEarmarkTotals('');
   const { minerals: earmarkMinerals, vespene: earmarkVespene } = earmarkTotals;
   const mineralsLeft = earmarkMinerals - minerals;
   const vespeneLeft = earmarkVespene - (agent.vespene ?? 0);

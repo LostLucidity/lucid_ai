@@ -13,7 +13,7 @@ function handleActiveScout(world) {
     return false; // No active scout, allow selection of a new scout
   }
 
-  let currentScout = world.resources.get().units.getByTag(activeScoutTag);
+  const currentScout = world.resources.get().units.getByTag(activeScoutTag);
   if (!currentScout || !currentScout.hasLabel('scouting')) {
     activeScoutTag = null; // Clear the active scout tag if no longer scouting
     return false; // No active scout, allow selection of a new scout
@@ -37,7 +37,7 @@ function selectSCVForScouting(world) {
   const scoutingLocation = determineScoutingLocation(world);
   const availableScvs = units.getById(SCV_TYPE_ID).filter(unit => isSuitableForScouting(units, unit));
 
-  let [selectedScv] = units.getClosest(scoutingLocation, availableScvs);
+  const [selectedScv] = units.getClosest(scoutingLocation, availableScvs);
   if (selectedScv && selectedScv.tag) {
     selectedScv.addLabel('scouting', true);
     activeScoutTag = selectedScv.tag;

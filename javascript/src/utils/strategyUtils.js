@@ -48,7 +48,7 @@ function convertToPlanSteps(strategySteps) {
     } // else keep default value (0)
 
     // Ensure 'supply' is always a number
-    let supplyValue = typeof step.supply === 'number' ? step.supply : parseInt(step.supply, 10) || 0;
+    const supplyValue = typeof step.supply === 'number' ? step.supply : parseInt(step.supply, 10) || 0;
 
     // Determine orderType based on the type of step
     let orderType;
@@ -61,11 +61,11 @@ function convertToPlanSteps(strategySteps) {
       orderType = 'UnitType'; // or some other default logic
     }
 
-    let targetCount = count; // Assuming count is the same as targetCount
+    const targetCount = count; // Assuming count is the same as targetCount
     /**
      * @type {Point2D[]}
      */
-    let candidatePositions = []; // Default to empty array
+    const candidatePositions = []; // Default to empty array
 
     return {
       unitType: unitType,

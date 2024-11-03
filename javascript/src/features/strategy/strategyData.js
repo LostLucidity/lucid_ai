@@ -93,7 +93,7 @@ class StrategyData {
    */
   getLastStepKeyForUnitType(unitType, lastStep) {
     for (let step = lastStep; step >= 0; step--) {
-      let key = `unitType_${unitType}_step_${step}`;
+      const key = `unitType_${unitType}_step_${step}`;
       if (this.checkIfKeyExists(key)) {
         return key;
       }

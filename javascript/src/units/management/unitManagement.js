@@ -33,7 +33,7 @@ const { productionUnitsCache } = require("../../utils/unitUtils");
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function buildSupplyOrTrain(world, step) {
-  let collectedActions = [];
+  const collectedActions = [];
 
   collectedActions.push(...handleSupplyBuilding(world));
   collectedActions.push(...handleUnitTraining(world, step));
@@ -191,7 +191,7 @@ function upgrade(world, upgradeId) {
   const upgradeInProgress = upgraders.find(upgrader => upgrader.orders && upgrader.orders.find(order => order.abilityId === abilityId));
   if (upgradeInProgress) return [];
   
-  let actionsToPerform = [];
+  const actionsToPerform = [];
   const gameState = GameState.getInstance();
   if (agent.canAffordUpgrade(upgradeId)) {
     const upgrader = getRandom(upgraders.filter(upgrader => {
@@ -224,7 +224,7 @@ function upgrade(world, upgradeId) {
             completedBarracks = units.getById(barracksTypeIds).filter(barracks => barracks.buildProgress !== undefined && barracks.buildProgress >= 1);
           }
 
-          let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
+          const idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
 
           // If no idle barracks, get closest barracks to tech lab that are either not training a unit or have orders with progress less than 0.5
 
@@ -313,12 +313,12 @@ function upgrade(world, upgradeId) {
           }
 
           // Now that we've ensured barracksTypeIds is defined, we can safely use it in units.getById
-          let completedBarracks = units.getById(barracksTypeIds).filter(barracks =>
+          const completedBarracks = units.getById(barracksTypeIds).filter(barracks =>
             barracks.buildProgress !== undefined && barracks.buildProgress >= 1
           );
 
           // Filter only those barracks that have no queue
-          let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
+          const idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
           // if no idle barracks, get closest barracks to tech lab.
           const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => {
             // Safely check the progress of the first order
@@ -396,7 +396,7 @@ function upgrade(world, upgradeId) {
           completedBarracks = units.getById(barracksTypeIds).filter(barracks =>
             barracks.buildProgress !== undefined && barracks.buildProgress >= 1);
         }
-        let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
+        const idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
 
         // Filter barracks based on their training status and the progress of their first order
         const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => {
@@ -487,7 +487,7 @@ function upgrade(world, upgradeId) {
             barracks.buildProgress !== undefined && barracks.buildProgress >= 1
           );
         }
-        let idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
+        const idleBarracks = completedBarracks.filter(barracks => barracks.noQueue);
         // if no idle barracks, get closest barracks to tech lab.
         const barracks = idleBarracks.length > 0 ? idleBarracks : completedBarracks.filter(barracks => {
           // Check if 'orders' is defined before accessing its elements

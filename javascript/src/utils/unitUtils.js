@@ -15,7 +15,7 @@ const { unitPendingOrders } = require("../units/management/unitOrders");
 const productionUnitsCache = new Map();
 
 /** @type {boolean} */
-let unitProductionAvailable = true;
+const unitProductionAvailable = true;
 
 /** @type {Map<number, SC2APIProtocol.UnitTypeData>} */
 const unitTypeDataCache = new Map();
