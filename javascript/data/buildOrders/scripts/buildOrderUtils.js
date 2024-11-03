@@ -7,8 +7,8 @@ const { workerTypes } = require("@node-sc2/core/constants/groups");
 const fs = require("fs").promises;
 const path = require("path");
 
-const { GameState } = require("../../src/state");
-const { getBasicProductionUnits } = require("../../src/units/management/basicUnitUtils");
+const { GameState } = require("../../../src/state");
+const { getBasicProductionUnits } = require("../../../src/units/management/basicUnitUtils");
 
 /** @type {Record<string, import('src/core/globalTypes').RaceBuildOrders>} */
 const buildOrderCache = {};
