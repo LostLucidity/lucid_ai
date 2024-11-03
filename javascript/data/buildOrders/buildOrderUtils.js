@@ -79,6 +79,21 @@ function generateFileContent(buildOrder) {
 }
 
 /**
+ * Identifies special actions based on comments and sets the corresponding action.
+ * @param {string} comment - The comment string associated with the action.
+ * @returns {{ specialAction: string | null, unitType: any | null }}
+ */
+function getSpecialAction(comment) {
+  if (comment.includes("CALL DOWN MULES")) {
+    return { specialAction: 'Call Down MULEs', unitType: UnitType['MULE'] };
+  }
+  if (comment.includes("SCOUT SCV") || comment.includes("SCOUT CSV")) {
+    return { specialAction: 'Scouting with SCV', unitType: UnitType['SCV'] };
+  }
+  return { specialAction: null, unitType: null };
+}
+
+/**
  * Dynamically interprets build order actions, converting action strings to either UnitType or Upgrade references.
  * @param {string} action - The action string from the build order.
  * @param {string} [comment] - Optional comment associated with the action.
@@ -91,7 +106,7 @@ function interpretBuildOrderAction(action, comment = '') {
   }
 
   /**
-   * Maps action strings to corresponding upgrade keys.
+   * Maps specific action strings to corresponding upgrade keys when a direct match is not available.
    * @param {string} action - The action string.
    * @returns {string | null} - The upgrade key or null if not found.
    */
@@ -111,17 +126,12 @@ function interpretBuildOrderAction(action, comment = '') {
    * @property {number} count - The count of actions.
    * @property {boolean} isChronoBoosted - Whether the action is chrono boosted.
    */
-
-  /**
-   * Extracts the core details from an action part string.
-   * @param {string} actionPart - The action part string.
-   * @returns {ActionDetails} - The extracted details including cleaned action, count, and chrono boost status.
-   */
-  const actionDetailRegex = /^(.*?)(?:\sx(\d+))?(?:\s\(Chrono Boost\))?$/;
+  const actionDetailRegex = /^(.*?)(?:\sx(\d+))?(?:\s\((Chrono Boost)\))?$/;
   /**
    * @param {string} actionPart
    * @returns {ActionDetails}
    */
+
   const extractActionDetails = (actionPart) => {
     const match = actionDetailRegex.exec(actionPart);
     if (!match) return { cleanedAction: '', count: 0, isChronoBoosted: false };
@@ -142,7 +152,6 @@ function interpretBuildOrderAction(action, comment = '') {
   const isKeyOf = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
   const actions = action.split(',');
-  /** @type {Array<import("src/core/globalTypes").InterpretedAction>} */
   const interpretedActions = [];
 
   for (const actionPart of actions) {
@@ -154,26 +163,31 @@ function interpretBuildOrderAction(action, comment = '') {
 
     let unitType = null;
     let upgradeType = null;
-    let specialAction = null;
 
-    const upgradeKey = getUpgradeKey(cleanedAction);
-    if (upgradeKey && isKeyOf(Upgrade, upgradeKey)) {
-      upgradeType = Upgrade[upgradeKey];
-    } else if (isKeyOf(UnitType, formattedAction)) {
-      unitType = UnitType[formattedAction];
-    }
-
-    if (!unitType && !upgradeType) {
-      if (comment.includes("CALL DOWN MULES")) {
-        specialAction = 'Call Down MULEs';
-        unitType = UnitType['MULE'];
-      } else if (comment.includes("SCOUT SCV") || comment.includes("SCOUT CSV")) {
-        specialAction = 'Scouting with SCV';
-        unitType = UnitType['SCV'];
+    if (isKeyOf(Upgrade, formattedAction)) {
+      upgradeType = Upgrade[formattedAction];
+    } else {
+      const upgradeKey = getUpgradeKey(cleanedAction);
+      if (upgradeKey && isKeyOf(Upgrade, upgradeKey)) {
+        upgradeType = Upgrade[upgradeKey];
+      } else if (isKeyOf(UnitType, formattedAction)) {
+        unitType = UnitType[formattedAction];
       }
     }
 
-    interpretedActions.push({ unitType, upgradeType, count, isUpgrade: !!upgradeKey, isChronoBoosted, specialAction });
+    const { specialAction, unitType: specialUnitType } = getSpecialAction(comment);
+    if (specialAction) {
+      unitType = specialUnitType;
+    }
+
+    interpretedActions.push({
+      unitType,
+      upgradeType,
+      count,
+      isUpgrade: !!upgradeType,
+      isChronoBoosted,
+      specialAction,
+    });
   }
 
   return interpretedActions;
