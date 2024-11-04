@@ -8,7 +8,7 @@ const { distance } = require("@node-sc2/core/utils/geometry/point");
 const { morphMapping } = require("../../helper/groups");
 const { existsInMap } = require("../../helper/location");
 const { getSupply } = require("../../services/data-service");
-const enemyTrackingServiceV2 = require("../../src/services/enemy-tracking/enemy-tracking-service");
+// const enemyTrackingServiceV2 = require("../../src/services/enemy-tracking/enemy-tracking-service");
 
 const enemyTrackingService = {
   /** @type {Unit[]} */

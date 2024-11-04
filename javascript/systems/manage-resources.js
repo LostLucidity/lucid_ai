@@ -5,7 +5,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { gatheringAbilities, mineralFieldTypes } = require("@node-sc2/core/constants/groups");
 const { COMMANDCENTER, MULE } = require("@node-sc2/core/constants/unit-type");
 
-const { gasMineCheckAndBuild } = require("../helper/balance-resources");
+// const { gasMineCheckAndBuild } = require("../helper/balance-resources");
 const { upgradeTypes } = require("../helper/groups");
 const { gather } = require("../services/resource-manager-service");
 const { mine, getPendingOrders, setPendingOrders } = require("../services/unit-service");

@@ -1,7 +1,7 @@
 //@ts-check
 "use strict"
 
-const serviceLocator = require("../../src/services/service-locator");
+// const serviceLocator = require("../../src/services/service-locator");
 const { clearFromEnemyBehavior, scoutEnemyMainBehavior, scoutEnemyNaturalBehavior, acrossTheMapBehavior, recruitToBattleBehavior } = require("./labelled-behavior");
 const { liberatorBehavior, marineBehavior, supplyDepotBehavior, workerBehavior, observerBehavior, overlordBehavior, bunkerBehavior, creepTumorBurrowedBehavior } = require("./unit-behavior");
 

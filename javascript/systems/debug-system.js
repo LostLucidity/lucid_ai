@@ -12,8 +12,8 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const bresenham = require('bresenham');
 const { Alliance } = require("@node-sc2/core/constants/enums");
 const { LARVA } = require("@node-sc2/core/constants/unit-type");
-const { getBuildingFootprintOfOrphanAddons } = require("../services/placement-service");
-const enemyTrackingService = require("../src/services/enemy-tracking/enemy-tracking-service");
+// const { getBuildingFootprintOfOrphanAddons } = require("../services/placement-service");
+// const enemyTrackingService = require("../src/services/enemy-tracking/enemy-tracking-service");
 const debugDrawWalls = require('debug')('sc2:DrawDebugWalls');
 
 let setDebug = false;

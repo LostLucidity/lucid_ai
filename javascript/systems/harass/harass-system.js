@@ -9,10 +9,10 @@ const { avgPoints, distance } = require("@node-sc2/core/utils/geometry/point");
 const planService = require("../../services/plan-service");
 const scoutingService = require("../scouting/scouting-service");
 const harassService = require("./harass-service");
-const { pathFindingService } = require("../../src/services/pathfinding");
-const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
-const { getCombatRally } = require("../../src/services/shared-config/combatRallyConfig");
-const { MicroManagementService } = require("../../src/services/army-management/micro-management");
+// const { pathFindingService } = require("../../src/services/pathfinding");
+// const { createUnitCommand } = require("../../src/shared-utilities/command-utilities");
+// const { getCombatRally } = require("../../src/services/shared-config/combatRallyConfig");
+// const { MicroManagementService } = require("../../src/services/army-management/micro-management");
 
 module.exports = createSystem({
   name: "HarassSystem",

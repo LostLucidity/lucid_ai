@@ -5,13 +5,13 @@ const { MOVE } = require("@node-sc2/core/constants/ability");
 const { OVERLORD, COLOSSUS } = require("@node-sc2/core/constants/unit-type");
 const { gridsInCircle, toDegrees } = require("@node-sc2/core/utils/geometry/angle");
 const { distance, avgPoints } = require("@node-sc2/core/utils/geometry/point");
-const { getClosestPosition } = require("../helper/get-closest");
+// const { getClosestPosition } = require("../helper/get-closest");
 const { existsInMap } = require("../helper/location");
 const {  getTravelDistancePerStep } = require("../services/frames-service");
 const { moveAwayPosition } = require("../services/position-service");
 const { canAttack } = require("../services/resources-service");
 const { isWorker } = require("../systems/unit-resource/unit-resource-service");
-const { createUnitCommand } = require("../src/utils");
+// const { createUnitCommand } = require("../src/utils");
 // Retrieve the armyManagementService using the service locator's get method
 
 const helper = {

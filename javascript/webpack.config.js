@@ -14,7 +14,16 @@ module.exports = {
   },
   output: {
     path: path.resolve(__dirname, `build/${race}`),
-    filename    
+    filename
+  },
+  resolve: {
+    alias: {
+      // Exclude these folders from being bundled
+      helper: false,
+      services: false,
+      systems: false,
+      constants: false,
+    },
   },
   node: {
     __dirname: false,

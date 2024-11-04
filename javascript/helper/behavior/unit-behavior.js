@@ -18,7 +18,7 @@ const { gridsInCircle } = require("@node-sc2/core/utils/geometry/angle");
 const { creepGeneratorsTypes } = require("@node-sc2/core/constants/groups");
 const { CREEPTUMOR } = require("@node-sc2/core/constants/unit-type");
 const unitService = require("../../services/unit-service");
-const { getDistanceByPath } = require("../../src/utils");
+// const { getDistanceByPath } = require("../../src/utils");
 
 module.exports = {
   /**

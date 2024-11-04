@@ -16,7 +16,7 @@ const { getRandomPoints, getAcrossTheMap } = require("../location");
 const unitService = require("../../services/unit-service");
 const { isMining } = require("../../systems/unit-resource/unit-resource-service");
 const { getCreepEdges } = require("../../services/resource-manager-service");
-const { createUnitCommand } = require("../../src/utils");
+// const { createUnitCommand } = require("../../src/utils");
 
 module.exports = {
   /**

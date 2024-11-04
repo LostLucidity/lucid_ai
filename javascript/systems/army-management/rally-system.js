@@ -7,7 +7,7 @@ const { Alliance } = require("@node-sc2/core/constants/enums");
 const { BUNKER, QUEEN, LARVA } = require("@node-sc2/core/constants/unit-type");
 const armyManagementService = require("../../services/army-management-service");
 const { tankBehavior } = require("../unit-resource/unit-resource-service");
-const armyManagementServiceV2 = require("../../src/services/army-management/army-management-service");
+// const armyManagementServiceV2 = require("../../src/services/army-management/army-management-service");
 
 module.exports = createSystem({
   name: 'RallySystem',

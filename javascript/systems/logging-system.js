@@ -8,10 +8,10 @@ const { Race } = require("@node-sc2/core/constants/enums");
 const { CREEPTUMOR, CREEPTUMORQUEEN } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 const planService = require("../services/plan-service");
-const worldService = require("../src/world-service");
-const { setFoodUsed } = require("../src/shared-utilities/data-utils");
-const { formatToMinutesAndSeconds } = require("../src/shared-utilities/logging-utils");
-const serviceLocator = require("../src/services/service-locator");
+// const worldService = require("../src/world-service");
+// const { setFoodUsed } = require("../src/shared-utilities/data-utils");
+// const { formatToMinutesAndSeconds } = require("../src/shared-utilities/logging-utils");
+// const serviceLocator = require("../src/services/service-locator");
 
 /** @type {import("../src/interfaces/i-logging-service").ILoggingService} */
 const loggingService = serviceLocator.get('loggingService');

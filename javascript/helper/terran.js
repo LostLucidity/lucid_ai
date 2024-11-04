@@ -8,7 +8,7 @@ const { ORBITALCOMMAND } = require("@node-sc2/core/constants/unit-type");
 const { distance } = require("@node-sc2/core/utils/geometry/point");
 
 const { getAvailableExpansions } = require("./expansions");
-const { getClosestPosition } = require("./get-closest");
+// const { getClosestPosition } = require("./get-closest");
 
 
 const terran = {

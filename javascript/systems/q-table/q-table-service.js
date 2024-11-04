@@ -5,14 +5,14 @@ const fs = require('fs');
 const { Attribute } = require("@node-sc2/core/constants/enums");
 const { getAllActions } = require("../../services/data-service");
 const planService = require("../../services/plan-service");
-const { getStep } = require("../../src/world-service");
+// const { getStep } = require("../../src/world-service");
 const path = require('path');
 const { maxEnergyNexusChronoboost } = require('../unit-resource/unit-resource-service');
 const { EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
-const { upgrade } = require('../../src/services/training');
-const { build } = require('../../src/services/building-management');
-const { train } = require('../../src/shared-utilities/training-utilities');
-const unitRetrievalService = require('../../src/services/unit-retrieval');
+// const { upgrade } = require('../../src/services/training');
+// const { build } = require('../../src/services/building-management');
+// const { train } = require('../../src/shared-utilities/training-utilities');
+// const unitRetrievalService = require('../../src/services/unit-retrieval');
 
 /** @typedef { { step: number } } State */
 
