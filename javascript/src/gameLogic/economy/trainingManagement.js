@@ -9,7 +9,7 @@ const { shouldTrainWorkers, trainWorkers, trainCombatUnits, earmarkWorkersForTra
 /**
  * Optimizes the training of units based on the current game state and strategic needs.
  * @param {World} world - The game world context.
- * @param {import("../../features/strategy/strategyManager").PlanStep} step - The current strategy step.
+ * @param {import("../../types/strategyTypes").PlanStep} step - The current strategy step.
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of unit training commands.
  */
 function handleUnitTraining(world, step) {

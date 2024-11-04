@@ -4,7 +4,7 @@ const { isEqualStep } = require('../../utils/strategyUtils');
 
 /**
  * A type that includes both BuildOrderStep and StrategyStep.
- * @typedef {import('../../core/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} GeneralStep
+ * @typedef {import('../../core/globalTypes').BuildOrderStep | import('../../types/strategyTypes').StrategyStep} GeneralStep
  */
 
 
@@ -72,7 +72,7 @@ class StrategyData {
   }
 
   /**
-   * @param {import('../../core/globalTypes').BuildOrderStep | import('./strategyManager').StrategyStep} rawStep
+   * @param {import('../../core/globalTypes').BuildOrderStep | import('../../types/strategyTypes').StrategyStep} rawStep
    */
   static getInterpretedActions(rawStep) {
     if (rawStep.interpretedAction) {

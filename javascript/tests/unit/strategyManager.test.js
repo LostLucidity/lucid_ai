@@ -74,19 +74,19 @@ describe('StrategyManager.initializeStrategy', () => {
     await strategyManager.initializeStrategy(Race.PROTOSS);
     expect(buildOrders.buildOrderStore.buildOrders?.protoss).toBeDefined();
     expect(mockStrategyContext.setCurrentStrategy).toHaveBeenCalledWith(
-      expect.objectContaining({ raceMatchup: 'PvZ' })
+      expect.objectContaining({ race: 'PvZ' })
     );
 
     await strategyManager.initializeStrategy(Race.TERRAN);
     expect(buildOrders.buildOrderStore.buildOrders?.terran).toBeDefined();
     expect(mockStrategyContext.setCurrentStrategy).toHaveBeenCalledWith(
-      expect.objectContaining({ raceMatchup: 'TvZ' })
+      expect.objectContaining({ race: 'TvZ' })
     );
 
     await strategyManager.initializeStrategy(Race.ZERG);
     expect(buildOrders.buildOrderStore.buildOrders?.zerg).toBeDefined();
     expect(mockStrategyContext.setCurrentStrategy).toHaveBeenCalledWith(
-      expect.objectContaining({ raceMatchup: 'ZvP' })
+      expect.objectContaining({ race: 'ZvP' })
     );
   });
 
@@ -103,7 +103,7 @@ describe('StrategyManager.initializeStrategy', () => {
     await strategyManager.initializeStrategy(Race.PROTOSS);
 
     expect(mockStrategyContext.setCurrentStrategy).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'Protoss Example' })
+      expect.objectContaining({ name: 'Protoss Example' })
     );
   });
 });

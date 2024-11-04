@@ -11,7 +11,7 @@ class ResourceEarmarkManager {
   /**
    * Earmarks resources for a given plan step.
    * @param {World} world - The current game world context.
-   * @param {import("../features/strategy/strategyManager").PlanStep} planStep - The current step in the plan to be executed.
+   * @param {import("../types/strategyTypes").PlanStep} planStep - The current step in the plan to be executed.
    */
   static earmarkResourcesForPlanStep(world, planStep) {
     const { unitType } = planStep;

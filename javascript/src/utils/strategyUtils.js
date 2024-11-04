@@ -8,8 +8,8 @@ const { GameState } = require('../state');
 
 /**
  * Converts strategy steps (from BuildOrderStep or StrategyStep format) to PlanStep format.
- * @param {(import("../core/globalTypes").BuildOrderStep[] | import("../features/strategy/strategyManager").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
- * @returns {import("../features/strategy/strategyManager").PlanStep[]} Array of PlanStep objects.
+ * @param {(import("../core/globalTypes").BuildOrderStep[] | import("../types/strategyTypes").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
+ * @returns {import("../types/strategyTypes").PlanStep[]} Array of PlanStep objects.
  */
 function convertToPlanSteps(strategySteps) {
   return strategySteps.map(step => {
@@ -172,7 +172,7 @@ function isEqualStep(stepA, stepB) {
 }
 
 /**
- * @param {import("../core/globalTypes").BuildOrder | import("../features/strategy/strategyManager").Strategy | undefined} plan
+ * @param {import("../core/globalTypes").BuildOrder | import("../types/strategyTypes").Strategy | undefined} plan
  */
 function isValidPlan(plan) {
   return plan && Array.isArray(plan.steps);

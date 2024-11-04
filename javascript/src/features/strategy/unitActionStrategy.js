@@ -15,7 +15,7 @@ class UnitActionStrategy extends ActionStrategy {
   /**
    * Executes unit type actions based on the provided world and plan step.
    * @param {World} world - The game world context, used for action decisions.
-   * @param {import("./strategyManager").PlanStep} planStep - The plan step to execute.
+   * @param {import("../../types/strategyTypes").PlanStep} planStep - The plan step to execute.
    * @returns {any} Result of the unit type action.
    */
   static execute(world, planStep) {
@@ -25,7 +25,7 @@ class UnitActionStrategy extends ActionStrategy {
   /**
    * Handle the chrono boost action for the current plan step.
    * @param {World} world - The current game world context.
-   * @param {import("./strategyManager").PlanStep} planStep - The current step in the plan to be executed.
+   * @param {import("../../types/strategyTypes").PlanStep} planStep - The current step in the plan to be executed.
    * @param {Function} applyChronoBoost - The function to apply chrono boost, passed from strategyManager.js
    * @returns {SC2APIProtocol.ActionRawUnitCommand[]} A list of actions to perform the chrono boost.
    */

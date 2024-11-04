@@ -9,7 +9,7 @@ const { getDistance } = require("../../utils/spatialCoreUtils");
 
 /**
  * @typedef {Object} GameState
- * @property {import("../../features/strategy/strategyManager").PlanStep[]} plan - An array representing the game plan
+ * @property {import("../../types/strategyTypes").PlanStep[]} plan - An array representing the game plan
  */
 
 const gameStrategyUtils = {
@@ -84,7 +84,7 @@ const gameStrategyUtils = {
 
   /**
    * Determines if the given step is a BuildOrderStep.
-   * @param {import("../../core/globalTypes").BuildOrderStep | import("../../features/strategy/strategyManager").StrategyStep} step
+   * @param {import("../../core/globalTypes").BuildOrderStep | import("../../types/strategyTypes").StrategyStep} step
    * @returns {step is import("../../core/globalTypes").BuildOrderStep}
    */
   isBuildOrderStep(step) {
