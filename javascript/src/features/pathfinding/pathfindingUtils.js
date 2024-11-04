@@ -6,9 +6,9 @@ const { getNeighbors, distance } = require("@node-sc2/core/utils/geometry/point"
 
 const { getClosestUnitByPath, existsInMap } = require("./pathfinding");
 const { getPathablePositions, getMapPath, getPathCoordinates, getClosestPosition } = require("./pathfindingCommonUtils");
-const cacheManager = require("../../../core/cache");
-const { getPathablePositionsForStructure } = require("../../../core/common");
-const { getClosestPathWithGasGeysers } = require("../../../gameLogic/economy/workerService");
+const cacheManager = require("../../core/cache");
+const { getPathablePositionsForStructure } = require("../../core/common");
+const { getClosestPathWithGasGeysers } = require("../../gameLogic/economy/workerService");
 
 /**
  * Retrieves pathable positions from start to target, ensuring the closest base and paths are found.

@@ -4,10 +4,6 @@
  */
 
 const buildingUtils = require('./buildingUtils');
-const pathfinding = require('./pathfinding/pathfinding');
-const pathfindingCommon = require('./pathfinding/pathfindingCommonUtils');
-const pathfindingCore = require('./pathfinding/pathfindingCore');
-const spatialCore = require('./pathfinding/spatialCore');
 const protossUtils = require('./protossUtils');
 const scoutActions = require('./scoutActions');
 const scoutManager = require('./scoutManager');
@@ -21,6 +17,10 @@ const spatialUtils = require('../../utils/spatial/spatialUtils');
 const spatialCoreUtils = require('../../utils/spatialCoreUtils');
 const stateManagement = require('../../utils/stateManagement');
 const workerManagementUtils = require('../../utils/workerManagementUtils');
+const pathfinding = require('../pathfinding/pathfinding');
+const pathfindingCommon = require('../pathfinding/pathfindingCommonUtils');
+const pathfindingCore = require('../pathfinding/pathfindingCore');
+const spatialCore = require('../pathfinding/spatialCore');
 
 module.exports = {
   unitPreparationUtils,

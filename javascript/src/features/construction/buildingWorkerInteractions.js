@@ -17,8 +17,8 @@ const {
   getUnitsFromClustering,
   areApproximatelyEqual,
   getOrderTargetPosition,
-} = require("../shared/pathfinding/pathfinding");
-const { getDistanceByPath } = require("../shared/pathfinding/pathfindingCore");
+} = require("../pathfinding/pathfinding");
+const { getDistanceByPath } = require("../pathfinding/pathfindingCore");
 
 /**
  * Handles non-rally base situations by assigning and moving workers.

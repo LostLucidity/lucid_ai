@@ -10,10 +10,10 @@ const { shuffle } = require("../../units/management/unitCommonUtils.js");
 const { setFoundPositions } = require("../../utils/sharedUtils.js");
 const { getPylonPowerArea, allPointsWithinGrid } = require("../../utils/spatial/spatialUtils.js");
 const { getDistance } = require("../../utils/spatialCoreUtils.js");
-const { pointsOverlap, intersectionOfPoints } = require("../shared/pathfinding/pathfinding.js");
-const { getPathCoordinates, getClosestPosition } = require("../shared/pathfinding/pathfindingCommonUtils.js");
-const { getDistanceByPath } = require("../shared/pathfinding/pathfindingCore.js");
-const { isPathBlocked, getCandidateWallEnds, getCandidateWalls, isWallEndUnique } = require("../shared/pathfinding/pathfindingUtils.js");
+const { pointsOverlap, intersectionOfPoints } = require("../pathfinding/pathfinding.js");
+const { getPathCoordinates, getClosestPosition } = require("../pathfinding/pathfindingCommonUtils.js");
+const { getDistanceByPath } = require("../pathfinding/pathfindingCore.js");
+const { isPathBlocked, getCandidateWallEnds, getCandidateWalls, isWallEndUnique } = require("../pathfinding/pathfindingUtils.js");
 
 class WallOffPlacementService {
   /**
@@ -72,6 +72,7 @@ class WallOffPlacementService {
 
       const wallToTownhallPointsWithNeighborsMapped = wallToTownhallPointsWithNeighbors.map(point => {
         const pylonPowerArea = getPylonPowerArea(point);
+        /** @type {Point2D[]} */
         const wallOffGrids = [];
         /** @type {Point2D | null} */
         let doorGrid = null;

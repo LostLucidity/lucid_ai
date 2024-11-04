@@ -9,8 +9,8 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal module imports
 const { createUnitCommand } = require("../../core/common");
-const { areApproximatelyEqual, getUnitsFromClustering, getOrderTargetPosition } = require("../../features/shared/pathfinding/pathfinding");
-const { getDistanceByPath } = require("../../features/shared/pathfinding/pathfindingCore");
+const { areApproximatelyEqual, getUnitsFromClustering, getOrderTargetPosition } = require("../../features/pathfinding/pathfinding");
+const { getDistanceByPath } = require("../../features/pathfinding/pathfindingCore");
 const { getBuildTimeLeft } = require("../../features/shared/timeUtils");
 const { getPendingOrders } = require("../../services/sharedServices");
 const { GameState } = require('../../state');

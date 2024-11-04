@@ -19,9 +19,9 @@ const { GameState } = require('../../state');
 const { prepareBuildContext } = require('../../utils/workerManagementUtils');
 const BuildingPlacement = require('../construction/buildingPlacement');
 const { assignWorkersToMineralsToBuild } = require('../construction/buildingWorkerInteractions');
-const { getUnitsFromClustering, getOrderTargetPosition } = require('../shared/pathfinding/pathfinding');
-const { getPathCoordinates, getMapPath } = require('../shared/pathfinding/pathfindingCommonUtils');
-const { calculatePathablePositions } = require('../shared/pathfinding/pathfindingUtils');
+const { getUnitsFromClustering, getOrderTargetPosition } = require('../pathfinding/pathfinding');
+const { getPathCoordinates, getMapPath } = require('../pathfinding/pathfindingCommonUtils');
+const { calculatePathablePositions } = require('../pathfinding/pathfindingUtils');
 
 /**
  * @typedef {Object} BuildContext

@@ -6,7 +6,7 @@ const { handleCannotAffordBuilding, getBuilder, prepareBuilderForConstruction, h
 const { findUnitTypesWithAbilityCached, positionIsEqual } = require("./common");
 const { logMessageStorage } = require("./logging");
 const BuildingPlacement = require("../features/construction/buildingPlacement");
-const { getAddOnPlacement } = require("../features/shared/pathfinding/pathfinding");
+const { getAddOnPlacement } = require("../features/pathfinding/pathfinding");
 const { requiresPylonPower } = require("../features/shared/protossUtils");
 const { canLiftOff } = require("../units/management/unitConfig");
 const { calculateDistance } = require("../utils/coreUtils");

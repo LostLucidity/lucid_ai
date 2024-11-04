@@ -10,9 +10,9 @@ const { getMovementSpeed } = require('./movementUtils');
 const { getTimeToTargetTech } = require('../../data/gameData/gameData');
 const { createUnitCommand, getPathablePositionsForStructure } = require('../core/common');
 const { stopOverlappingBuilders } = require('../features/construction/buildingWorkerInteractions');
-const { calculateBaseTimeToPosition } = require('../features/shared/pathfinding/pathfinding');
-const { getDistanceByPath, getClosestPositionByPath } = require('../features/shared/pathfinding/pathfindingCore');
-const { findPathablePositions } = require('../features/shared/pathfinding/pathfindingUtils');
+const { calculateBaseTimeToPosition } = require('../features/pathfinding/pathfinding');
+const { getDistanceByPath, getClosestPositionByPath } = require('../features/pathfinding/pathfindingCore');
+const { findPathablePositions } = require('../features/pathfinding/pathfindingUtils');
 const { isPendingConstructing } = require('../features/shared/workerCommonUtils');
 const { getClosestPathWithGasGeysers, getBuildTimeLeft, reserveWorkerForBuilding } = require('../gameLogic/economy/workerService');
 // eslint-disable-next-line no-unused-vars

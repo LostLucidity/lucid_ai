@@ -6,7 +6,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 
 const EarmarkManager = require("./earmarkManager");
 const { seigeTanksSiegedGrids } = require("../features/construction/sharedUnitPlacement");
-const { getAddOnPlacement, pointsOverlap } = require("../features/shared/pathfinding/pathfinding");
+const { getAddOnPlacement, pointsOverlap } = require("../features/pathfinding/pathfinding");
 const { setPendingOrders } = require("../units/management/unitOrders");
 const { getDistance } = require("../utils/spatialCoreUtils");
 

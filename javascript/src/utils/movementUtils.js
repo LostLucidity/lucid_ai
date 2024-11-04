@@ -4,7 +4,7 @@ const { Buff, UnitType } = require("@node-sc2/core/constants");
 
 const { SPEED_MODIFIERS } = require("../core/constants");
 const { getClosestPathablePositionsBetweenPositions } = require("../core/pathfindingCore");
-const { getDistanceByPath } = require("../features/shared/pathfinding/pathfindingCore");
+const { getDistanceByPath } = require("../features/pathfinding/pathfindingCore");
 // eslint-disable-next-line no-unused-vars
 const { GameState } = require("../state");
 const { getMovementSpeedByType, ZERG_UNITS_ON_CREEP_BONUS } = require("../units/management/unitConfig");

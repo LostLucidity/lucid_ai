@@ -32,8 +32,8 @@ const { findUnitPlacements, findPosition } = require("../../utils/spatial/spatia
 const { getTimeUntilUnitCanBuildAddon } = require("../../utils/supplyUtils");
 const { commandBuilderToConstruct } = require("../../utils/workerManagementUtils");
 const { buildWithNydusNetwork, premoveBuilderToPosition, morphStructureAction } = require("../actions/unitActionUtils");
+const { getNextSafeExpansions } = require("../pathfinding/pathfinding");
 const { attemptLand } = require("../shared/buildingUtils");
-const { getNextSafeExpansions } = require("../shared/pathfinding/pathfinding");
 const { prepareUnitToBuildAddon } = require("../shared/unitPreparationUtils");
 
 /**
