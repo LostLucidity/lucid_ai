@@ -9,6 +9,7 @@ const { Race } = require("@node-sc2/core/constants/enums");
 
 const { executeSpecialAction } = require("./specialActions");
 const StrategyContext = require("./strategyContext");
+const { mapBuildOrderToStrategy } = require("./strategyConversion");
 const StrategyData = require("./strategyData");
 const UnitActionStrategy = require("./unitActionStrategy");
 const UpgradeActionStrategy = require("./upgradeActionStrategy");
@@ -33,25 +34,6 @@ const { getUnitsById } = require("../../utils/unitUtils");
 const { build, hasEarmarks, resetEarmarks } = require("../construction/buildingService");
 
 /**
- * Converts a BuildOrder to a Strategy.
- * @param {import("../../core/globalTypes").BuildOrder} buildOrder - The build order to convert.
- * @returns {import("../../types/strategyTypes").Strategy} - The converted strategy.
- */
-function mapBuildOrderToStrategy(buildOrder) {
-  return {
-    name: buildOrder.title,
-    race: buildOrder.raceMatchup,
-    description: `Build order for ${buildOrder.title} - ${buildOrder.raceMatchup}`,
-    steps: buildOrder.steps.map((step) => ({
-      ...step,
-      interpretedAction: step.interpretedAction
-        ? step.interpretedAction[0] // Select the first action or handle as necessary
-        : undefined,
-    })),
-  };
-}
-
-/**
  * Class representing the strategy manager.
  */
 class StrategyManager {
@@ -69,10 +51,10 @@ class StrategyManager {
    * @param {string | undefined} specificBuildOrderKey - Optional specific build order key for debugging.
    */
   constructor(race, specificBuildOrderKey) {
+    this.initializedRaces = new Set();
     this.initializeSingleton(race, specificBuildOrderKey);
     StrategyManager.instance = this;
     this.chronoBoostsPerStep = new Map();
-    this.initializedRaces = new Set();
   }
 
   /**
@@ -293,9 +275,9 @@ class StrategyManager {
   }
 
   /**
-  * Get the current strategy's build order.
-  * @returns {import('../../core/globalTypes').BuildOrder}
-  */
+   * Get the current strategy's build order.
+   * @returns {import('../../core/globalTypes').BuildOrder}
+   */
   getBuildOrderForCurrentStrategy() {
     if (!this.strategyContext) {
       throw new Error(
@@ -305,9 +287,12 @@ class StrategyManager {
 
     const currentStrategy = this.strategyContext.getCurrentStrategy();
     if (!currentStrategy) {
-      throw new Error(
-        "No current strategy found in the strategy context."
-      );
+      throw new Error("No current strategy found in the strategy context.");
+    }
+
+    if (!this.hasLoggedStrategyProperties) {
+      console.log("Current Strategy properties:", Object.keys(currentStrategy));
+      this.hasLoggedStrategyProperties = true;
     }
 
     if (StrategyManager.isBuildOrder(currentStrategy)) {
@@ -680,11 +665,11 @@ class StrategyManager {
   }
 
   /**
-     * Dynamically loads a strategy based on race and build order key.
-     * @param {SC2APIProtocol.Race | undefined} race
-     * @param {string} buildOrderKey
-     * @returns {Promise<import("../../core/globalTypes").BuildOrder | undefined>}
-     */
+   * Dynamically loads a strategy based on race and build order key.
+   * @param {SC2APIProtocol.Race | undefined} race
+   * @param {string} buildOrderKey
+   * @returns {Promise<import("../../core/globalTypes").BuildOrder | undefined>}
+   */
   static async loadStrategy(race, buildOrderKey) {
     if (!race) {
       console.error("Race must be provided to load strategy");
@@ -708,7 +693,20 @@ class StrategyManager {
     }
 
     const raceBuildOrders = buildOrders.buildOrderStore.buildOrders[raceKey];
-    return raceBuildOrders[buildOrderKey];
+    const buildOrder = raceBuildOrders[buildOrderKey];
+
+    if (
+      !buildOrder ||
+      typeof buildOrder.title !== "string" ||
+      typeof buildOrder.raceMatchup !== "string" ||
+      !Array.isArray(buildOrder.steps) ||
+      typeof buildOrder.url !== "string"
+    ) {
+      console.error(`Build order ${buildOrderKey} does not conform to the expected structure.`);
+      return;
+    }
+
+    return buildOrder;
   }
 
   /**

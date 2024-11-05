@@ -13,72 +13,37 @@ const { GameState } = require('../state');
  */
 function convertToPlanSteps(strategySteps) {
   return strategySteps.map(step => {
-    let unitType = 0; // Default value, adjust as necessary
-    let upgrade = 0; // Default value, adjust to a sensible default
-    let count = 1;   // Default value for count
-    let isChronoBoosted = false; // Default value for isChronoBoosted
-    let food = 0;    // Default value for food
+    let unitType = 0;
+    let upgrade = 0;
+    let count = 1;
+    let isChronoBoosted = false;
+    let food = 0;
 
-    // Derive unitType based on the step properties
-    if ('unitType' in step && typeof step.unitType === 'number') {
-      unitType = step.unitType;
-    } else {
-      // Derive unitType based on other properties of step
-      // unitType = deriveUnitType(step) or use a suitable default
-    }
-
-    // Check for upgrade property and ensure it's the correct type
-    if ('upgrade' in step && typeof step.upgrade === 'number') {
-      upgrade = step.upgrade;
-    } // else keep default value (0 or another suitable default)
-
-    // Check for count property and ensure it's the correct type
-    if ('count' in step && typeof step.count === 'number') {
-      count = step.count;
-    } // else keep default value (1 or another suitable default)
-
-    // Check for isChronoBoosted property and ensure it's a boolean
-    if ('isChronoBoosted' in step && typeof step.isChronoBoosted === 'boolean') {
-      isChronoBoosted = step.isChronoBoosted;
-    } // else keep default value (false)
-
-    // Check for food property and ensure it's the correct type
-    if ('food' in step && typeof step.food === 'number') {
-      food = step.food;
-    } // else keep default value (0)
-
-    // Ensure 'supply' is always a number
     const supplyValue = typeof step.supply === 'number' ? step.supply : parseInt(step.supply, 10) || 0;
 
-    // Determine orderType based on the type of step
-    let orderType;
-    if ('isUpgrade' in step) {
-      // This block will execute if step is of a type that has an isUpgrade property
-      orderType = step.isUpgrade ? 'Upgrade' : 'UnitType';
-    } else {
-      // Define logic for steps that do not have the isUpgrade property
-      // For example, set a default value or derive it based on other properties
-      orderType = 'UnitType'; // or some other default logic
-    }
+    if ('unitType' in step && typeof step.unitType === 'number') unitType = step.unitType;
+    if ('upgrade' in step && typeof step.upgrade === 'number') upgrade = step.upgrade;
+    if ('count' in step && typeof step.count === 'number') count = step.count;
+    if ('isChronoBoosted' in step && typeof step.isChronoBoosted === 'boolean') isChronoBoosted = step.isChronoBoosted;
+    if ('food' in step && typeof step.food === 'number') food = step.food;
 
-    const targetCount = count; // Assuming count is the same as targetCount
-    /**
-     * @type {Point2D[]}
-     */
-    const candidatePositions = []; // Default to empty array
+    const orderType = 'isUpgrade' in step && step.isUpgrade ? 'Upgrade' : 'UnitType';
+    const targetCount = count;
+    /** @type {Point2D[]} */    
+    const candidatePositions = [];
 
     return {
-      unitType: unitType,
-      upgrade: upgrade,
-      count: count,
-      isChronoBoosted: isChronoBoosted,
-      food: food,
+      unitType,
+      upgrade,
+      count,
+      isChronoBoosted,
+      food,
       supply: supplyValue,
       time: step.time || '00:00',
       action: step.action || 'none',
-      orderType: orderType, // Newly added
-      targetCount: targetCount, // Newly added
-      candidatePositions: candidatePositions // Newly added
+      orderType,
+      targetCount,
+      candidatePositions
     };
   });
 }
@@ -157,8 +122,7 @@ function isEqualStep(stepA, stepB) {
     if (step && step.interpretedAction) {
       if (Array.isArray(step.interpretedAction)) {
         return step.interpretedAction.length > 0 ? step.interpretedAction[0].unitType : null;
-      } else {
-        return step.interpretedAction.unitType;
+      } else {return /** @type {import("../core/globalTypes").InterpretedAction} */ (step.interpretedAction).unitType;
       }
     }
     return null;

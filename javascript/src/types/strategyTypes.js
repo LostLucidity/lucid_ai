@@ -18,7 +18,7 @@
  * @property {string} supply
  * @property {string} time
  * @property {string} action
- * @property {import("../core/globalTypes").InterpretedAction} [interpretedAction] - Optional property for interpreted action details
+ * @property {import("../core/globalTypes").InterpretedAction[]} [interpretedAction] - Optional array of interpreted actions.
  */
 
 /**
