@@ -20,7 +20,7 @@ function setFoundPositions(threeByThreePositions, point, debug = undefined) {
     return;
   }
 
-  BuildingPlacement.threeByThreePositions = threeByThreePositions;
+  BuildingPlacement.naturalThreeByThreePositions = threeByThreePositions;
   BuildingPlacement.pylonPlacement = point;
 
   // Ensure debug is defined before using it
@@ -29,7 +29,7 @@ function setFoundPositions(threeByThreePositions, point, debug = undefined) {
     if (pylonFootprint) {
       debug.setDrawCells('pylon', cellsInFootprint(point, pylonFootprint).map(r => ({ pos: r })), { size: 1, cube: false });
       console.log('pylon placement', point);
-      BuildingPlacement.threeByThreePositions.forEach((position, index) => {
+      BuildingPlacement.naturalThreeByThreePositions.forEach((position, index) => {
         debug.setDrawCells(`wlOfPs${index}`, cellsInFootprint(position, threeByThreeGrid).map(r => ({ pos: r })), { size: 1, cube: false });
       });
     } else {

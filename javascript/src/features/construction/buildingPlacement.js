@@ -50,11 +50,35 @@ class BuildingPlacement {
   /** @type {Point2D[]} */
   static twoByTwoPositions = [];
 
+  /** @type {Point2D[]} */
+  static naturalThreeByThreePositions = [];
+
+  /** @type {Point2D[]} */
+  static rampThreeByThreePositions = [];
+
   /**
    * Private static property to hold the found position.
    * @type {Point2D | null}
    */
   static #foundPosition = null;
+
+  /**
+ * Helper to get closest placeable grids based on criteria.
+ * @param {MapResource} map - The map resource for analyzing placement.
+ * @param {Point2D} centerPoint - The central point to measure proximity.
+ * @param {UnitTypeId} unitType - The type of unit for placement.
+ * @param {number} radius - Radius to search within.
+ * @returns {Point2D[]} - Array of closest placeable grids.
+ */
+  static getClosestPlaceableGrids(map, centerPoint, unitType, radius = 3) {
+    const footprint = getFootprint(unitType);
+    if (!footprint) return [];
+
+    const gridCircle = gridsInCircle(centerPoint, radius);
+    const placeableGrids = gridCircle.filter(grid => map.isPlaceableAt(unitType, grid));
+
+    return getClosestPosition(centerPoint, placeableGrids, gridCircle.length);
+  }
 
   /** @type {false | Point2D | undefined} */
   static get buildingPosition() {
@@ -220,7 +244,7 @@ class BuildingPlacement {
       .flatMap(grid => cellsInFootprint(grid, footprint));
     const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3)
       .filter(grid => !twoByTwoPlacements.some(placement => placement.x === grid.x && placement.y === grid.y));
-    let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle)
+    let closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle, middleOfAdjacentGridCircle.length)
       .filter(grid => intersectionOfPoints(twoByTwoPlacements, getBuildingAndAddonGrids(grid, UnitType.BARRACKS)).length === 0 && isBuildingAndAddonPlaceable(map, UnitType.BARRACKS, grid));
     const [closestRamp] = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle.filter(grid => map.isRamp(grid)));
     if (closestRamp) {
@@ -264,23 +288,23 @@ class BuildingPlacement {
     }
 
     const middleOfAdjacentGrids = avgPoints(getAdjacentToRampGrids());
-    const footprint = getFootprint(UnitType.SUPPLYDEPOT);
-    if (!footprint) return;
-    const twoByTwoPlacements = BuildingPlacement.twoByTwoPositions
-      .flatMap(grid => cellsInFootprint(grid, footprint));
-    const middleOfAdjacentGridCircle = gridsInCircle(middleOfAdjacentGrids, 3)
-      .filter(grid => !twoByTwoPlacements.some(placement => placement.x === grid.x && placement.y === grid.y));
-    const closestPlaceableGrids = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle)
+    const twoByTwoPlacements = BuildingPlacement.twoByTwoPositions.flatMap(grid => {
+      const footprint = getFootprint(UnitType.SUPPLYDEPOT);
+      return footprint ? cellsInFootprint(grid, footprint) : [];
+    });
+
+    const closestPlaceableGrids = BuildingPlacement.getClosestPlaceableGrids(map, middleOfAdjacentGrids, UnitType.ENGINEERINGBAY)
       .filter(grid => {
         const footprint = getFootprint(UnitType.ENGINEERINGBAY);
         if (!footprint) return false;
-        return intersectionOfPoints(twoByTwoPlacements, cellsInFootprint(grid, footprint)).length === 0 && map.isPlaceableAt(UnitType.ENGINEERINGBAY, grid);
+        return intersectionOfPoints(twoByTwoPlacements, cellsInFootprint(grid, footprint)).length === 0;
       });
-    const [closestRamp] = getClosestPosition(middleOfAdjacentGrids, middleOfAdjacentGridCircle.filter(grid => map.isRamp(grid)));
+
+    const closestRamp = getClosestPosition(middleOfAdjacentGrids, closestPlaceableGrids.filter(grid => map.isRamp(grid)), 1)[0];
     if (closestRamp) {
-      const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids);
+      const closestPlaceableToRamp = getClosestPosition(closestRamp, closestPlaceableGrids, 1)[0];
       if (closestPlaceableToRamp) {
-        BuildingPlacement.threeByThreePositions = [closestPlaceableToRamp];
+        BuildingPlacement.rampThreeByThreePositions = [closestPlaceableToRamp];
       }
     }
   }
@@ -296,21 +320,22 @@ class BuildingPlacement {
     }
 
     const placeableGrids = getAdjacentToRampGrids().filter(grid => map.isPlaceable(grid));
-    const cornerGrids = placeableGrids.filter(grid => intersectionOfPoints(gridsInCircle(grid, 1).filter(point => getDistance(point, grid) <= 1), placeableGrids).length === 2);
+    const cornerGrids = placeableGrids.filter(grid =>
+      intersectionOfPoints(gridsInCircle(grid, 1).filter(point => getDistance(point, grid) <= 1), placeableGrids).length === 2
+    );
     cornerGrids.forEach(cornerGrid => {
-      const cornerGridCircle = gridsInCircle(cornerGrid, 3);
-      const closestPlaceableGrids = getClosestPosition(cornerGrid, cornerGridCircle)
-        .filter(grid => map.isPlaceableAt(UnitType.SUPPLYDEPOT, grid));
-      const [closestRamp] = getClosestPosition(cornerGrid, cornerGridCircle.filter(grid => map.isRamp(grid)));
+      const cornerGridCircle = gridsInCircle(cornerGrid, 3); // Radius of 3, adjust if needed
+      const closestRamp = getClosestPosition(cornerGrid, cornerGridCircle.filter(grid => map.isRamp(grid)), 1)[0];
       if (closestRamp) {
-        const [closestPlaceableToRamp] = getClosestPosition(closestRamp, closestPlaceableGrids);
+        const closestPlaceableGrids = BuildingPlacement.getClosestPlaceableGrids(map, cornerGrid, UnitType.SUPPLYDEPOT, 3);
+        const closestPlaceableToRamp = getClosestPosition(closestRamp, closestPlaceableGrids, 1)[0];
         if (closestPlaceableToRamp) {
           BuildingPlacement.twoByTwoPositions.push(closestPlaceableToRamp);
         }
       }
     });
   }
-
+  
   /**
    * Sets wall-off placements on the map.
    * @param {MapResource} map - The map resource to analyze for wall-off placements.
@@ -552,7 +577,7 @@ class BuildingPlacement {
     } else if (addOnTypesMapping.has(unitType)) {
       return BuildingPlacement.addOnPositions;
     } else if (groupTypes.structureTypes.includes(unitType)) {
-      return BuildingPlacement.threeByThreePositions;
+      return BuildingPlacement.rampThreeByThreePositions;
     } else {
       return [];
     }

@@ -116,8 +116,8 @@ function handleThreeByThreePositions(world, unitType, gameMap) {
   const threeByThreeFootprint = getFootprint(UnitType.FORGE);
   if (!threeByThreeFootprint) return [];
 
-  if (BuildingPlacement.threeByThreePositions.length > 0) {
-    const filteredPositions = BuildingPlacement.threeByThreePositions.filter(position => {
+  if (BuildingPlacement.naturalThreeByThreePositions.length > 0) {
+    const filteredPositions = BuildingPlacement.naturalThreeByThreePositions.filter(position => {
       const usedPositions = getFilteredPositions(world);
 
       const footprintCells = getCachedFootprintCells(position, threeByThreeFootprint, false);
@@ -242,7 +242,7 @@ function getWallOffPositions(world, FORGE, filteredPositions) {
   const threeByThreeFootprint = getFootprint(FORGE);
   if (!threeByThreeFootprint) return [];
 
-  return BuildingPlacement.threeByThreePositions.filter(position => {
+  return BuildingPlacement.naturalThreeByThreePositions.filter(position => {
     return !pointsOverlap(
       filteredPositions,
       getCachedFootprintCells(position, threeByThreeFootprint, false)
@@ -395,10 +395,10 @@ function findTerranPlacements(world, unitType) {
     wallOffPositions.push(...supplyCellInFootprints.flat());
   }
 
-  if (BuildingPlacement.threeByThreePositions.length > 0) {
+  if (BuildingPlacement.rampThreeByThreePositions.length > 0) {
     const engineeringBayFootprint = getFootprint(ENGINEERINGBAY);
     if (!engineeringBayFootprint) return [];
-    const engineeringBayCellInFootprints = BuildingPlacement.threeByThreePositions.map(position => getCachedFootprintCells(position, engineeringBayFootprint));
+    const engineeringBayCellInFootprints = BuildingPlacement.rampThreeByThreePositions.map(position => getCachedFootprintCells(position, engineeringBayFootprint));
     wallOffPositions.push(...engineeringBayCellInFootprints.flat());
   }
 
