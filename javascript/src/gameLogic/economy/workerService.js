@@ -29,41 +29,73 @@ const { getDistance } = require("../../utils/spatialCoreUtils");
 const reservedWorkers = new Set();
 const reservedWorkersByPosition = new Map();
 
+const unsupportedAbilitiesLogged = new Set();
+
 /**
- * @param {World} world 
- * @param {AbilityId} abilityId 
+ * Checks and logs unsupported abilities to avoid console spamming.
+ * @param {AbilityId} abilityId
+ */
+function logUnsupportedAbility(abilityId) {
+  if (!unsupportedAbilitiesLogged.has(abilityId)) {
+    console.warn(`No eligible unit found for ability ${abilityId} or ability is currently unsupported.`);
+    unsupportedAbilitiesLogged.add(abilityId);
+  }
+}
+
+/**
+ * Filters units that can perform a specific ability and have no pending orders.
+ * @param {Unit[]} units - Array of units.
+ * @param {AbilityId} abilityId - The ID of the ability to check.
+ * @returns {Unit[]} - Units eligible to perform the ability.
+ */
+function filterEligibleUnits(units, abilityId) {
+  return units.filter(unit =>
+    unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0
+  );
+}
+
+/**
+ * Selects a random available unit that can perform the ability.
+ * @param {World} world
+ * @param {AbilityId} abilityId
+ * @returns {Unit | null} - A random eligible unit or null if none found.
+ */
+function selectAvailableUnit(world, abilityId) {
+  const { data, resources } = world;
+  const { units } = resources.get();
+  const canDoTypes = data.findUnitTypesWithAbility(abilityId);
+  const eligibleUnits = units.getAlive(Alliance.SELF).filter(unit => unit.unitType && canDoTypes.includes(unit.unitType));
+
+  const unitsWithAbilityAvailable = filterEligibleUnits(eligibleUnits, abilityId);
+  return unitsWithAbilityAvailable.length ? getRandom(unitsWithAbilityAvailable) : null;
+}
+
+/**
+ * Main function to issue ability command to eligible units.
+ * @param {World} world
+ * @param {AbilityId} abilityId
  * @param {(data: DataStorage, unit: Unit) => boolean} isIdleOrAlmostIdleFunc - Function to check if a unit is idle or almost idle.
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 function ability(world, abilityId, isIdleOrAlmostIdleFunc) {
-  const { data, resources } = world;
-  const { units } = resources.get();
-
-  /** @type {SC2APIProtocol.ActionRawUnitCommand[]} */
   const collectedActions = [];
-
-  const canDoTypes = data.findUnitTypesWithAbility(abilityId); // Simplified retrieval of unit types with ability
-
-  const unitsCanDo = units.getAlive(Alliance.SELF).filter(unit => unit.unitType !== undefined && canDoTypes.includes(unit.unitType));
-
-  const unitsCanDoWithAbilityAvailable = unitsCanDo.filter(unit =>
-    unit.abilityAvailable(abilityId) && getPendingOrders(unit).length === 0
-  );
-
-  let unitCanDo = getRandom(unitsCanDoWithAbilityAvailable);
+  let unitCanDo = selectAvailableUnit(world, abilityId);
 
   if (!unitCanDo) {
-    const idleOrAlmostIdleUnits = unitsCanDo.filter(unit =>
+    const { data, resources } = world;
+    const { units } = resources.get();
+    const idleOrAlmostIdleUnits = units.getAlive(Alliance.SELF).filter(unit =>
       isIdleOrAlmostIdleFunc(data, unit) && getPendingOrders(unit).length === 0
     );
-
     unitCanDo = getRandom(idleOrAlmostIdleUnits);
   }
 
-  if (unitCanDo) {
+  if (unitCanDo && unitCanDo.abilityAvailable(abilityId)) {
     const unitCommand = createUnitCommand(abilityId, [unitCanDo]);
     setPendingOrders(unitCanDo, unitCommand);
     collectedActions.push(unitCommand);
+  } else {
+    logUnsupportedAbility(abilityId);
   }
 
   return collectedActions;
