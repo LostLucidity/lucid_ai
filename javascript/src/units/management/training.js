@@ -33,8 +33,9 @@ function canTrainUnitType(world, unit, abilityId, threshold) {
 
   const orders = unit.orders || [];
   const pendingOrders = getPendingOrders(unit);
+  const hasReactor = unit.hasReactor();
 
-  if (pendingOrders.length > 0 || orders.length > 1) return false;
+  if (pendingOrders.length > 0 || (orders.length > (hasReactor ? 2 : 1))) return false;
 
   if (orders.length === 0) {
     return unit.abilityAvailable(abilityId);
@@ -52,7 +53,8 @@ function canTrainUnitType(world, unit, abilityId, threshold) {
   if (!unitTypeData || unitTypeData.buildTime === undefined) return false;
 
   const buildTimeLeft = getBuildTimeLeft(unit, unitTypeData.buildTime, firstOrder.progress || 0);
-  return buildTimeLeft <= threshold && pendingOrders.length === 0;
+
+  return (hasReactor && orders.length === 1) || buildTimeLeft <= threshold;
 }
 
 /**

@@ -229,7 +229,11 @@ class GameState {
     [...new Set(this.plan.map(step => step.unitType))].forEach(unitTypeId => {
       this.availableProductionUnits.set(
         unitTypeId,
-        getProductionUnits(world, unitTypeId).some(unit => unit.orders?.length === 0)
+        getProductionUnits(world, unitTypeId).some(unit => {
+          const hasReactor = unit.hasReactor();
+          const maxOrders = hasReactor ? 2 : 1;
+          return (unit.orders?.length || 0) < maxOrders;
+        })
       );
     });
   }
