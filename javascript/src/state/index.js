@@ -719,12 +719,12 @@ class GameState {
   }
 
   /**
-   * Retrieves and counts units of a specific type.
-   * 
-   * @param {World} world - The game world context.
-   * @param {UnitTypeId} unitType - The unit type ID to count.
-   * @returns {number} The count of units of the specified type.
-   */
+     * Retrieves and counts units of a specific type.
+     * 
+     * @param {World} world - The game world context.
+     * @param {UnitTypeId} unitType - The unit type ID to count.
+     * @returns {number} The count of units of the specified type.
+     */
   getUnitTypeCount(world, unitType) {
     const { agent, data, resources } = world;
     const unitResource = resources.get().units;
@@ -768,19 +768,27 @@ class GameState {
       count += unitsToCount.length;
     });
 
+    const unitsInProduction = GameState.countUnitsInProduction(unitArray, abilityIds);
+
+    return count + unitsInProduction;
+  }
+
+  /**
+   * Helper function to count units in production with specific orders.
+   * 
+   * @param {Unit[]} unitArray - Array of all units.
+   * @param {AbilityId[]} abilityIds - Array of ability IDs that signify production orders for the unit type.
+   * @returns {number} - Total count of units in production for the specified unit type.
+   */
+  static countUnitsInProduction(unitArray, abilityIds) {
     const pendingOrders = unitArray.flatMap(u => getPendingOrders(u) || []);
 
-    /**
-     * Gets the count of pending units with a specific order.
-     * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} orderArray - Array of orders to check.
-     * @returns {number} - Count of units with the specified pending order.
-     */
-    const getPendingOrderCount = (orderArray) =>
-      orderArray.reduce((count, order) => count + (order.abilityId === abilityIds[0] ? 1 : 0), 0);
-
-    const pendingUnitsCount = getPendingOrderCount(pendingOrders);
-
-    return count + pendingUnitsCount;
+    return pendingOrders.reduce((count, order) => {
+      if (order.abilityId === abilityIds[0]) {
+        return count + 1;
+      }
+      return count;
+    }, 0);
   }
 
   /**
