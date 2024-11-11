@@ -12,7 +12,7 @@ const { getFootprint } = require("@node-sc2/core/utils/geometry/units");
 const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal dependencies
-const { liftAndLandingTime } = require("./unitConfig");
+const { liftAndLandingTime, flyingTypesMapping } = require("./unitConfig");
 const { setPendingOrders } = require("./unitOrders");
 const { getTimeToTargetTech } = require("../../../data/gameData/gameData");
 const { createUnitCommand } = require("../../core/common");
@@ -25,6 +25,38 @@ const { getPendingOrders } = require("../../services/sharedServices");
 const { GameState } = require('../../state');
 const { productionUnitsCache } = require("../../utils/gameHelpers");
 const { getDistance } = require("../../utils/spatialCoreUtils");
+
+/**
+ * Calculates the time required for a unit to move between two positions.
+ * @param {Unit} unit - The unit to move.
+ * @param {Point2D} startPosition - The start position of the unit.
+ * @param {Point2D} endPosition - The end position of the unit.
+ * @param {number} liftAndLandingTime - Time required for lifting and landing.
+ * @param {DataStorage} data - Game data storage context.
+ * @returns {number} The time required to move between the positions.
+ */
+function calculateMoveTime(unit, startPosition, endPosition, liftAndLandingTime, data) {
+  if (unit.unitType === undefined) {
+    console.warn('unitType is undefined for unit:', unit);
+    return Infinity;
+  }
+
+  let flyingUnitType = unit.unitType;
+  for (const [flying, ground] of flyingTypesMapping.entries()) {
+    if (ground === unit.unitType) {
+      flyingUnitType = flying;
+      break;
+    }
+  }
+
+  const unitData = data.getUnitTypeData(flyingUnitType);
+  const movementSpeed = unitData?.movementSpeed;
+
+  if (!movementSpeed) return Infinity;
+
+  const distance = getDistance(startPosition, endPosition);
+  return distance / (movementSpeed * 1.4) + (2 * liftAndLandingTime);
+}
 
 /**
  * Build supply or train units based on the game world state and strategy step.
@@ -224,6 +256,8 @@ function upgrade(world, upgradeId) {
               });
             });
             if (closestPair.barracks && closestPair.addOnPosition) {
+              const barracksPos = closestPair.barracks.pos;
+              const addOnPos = closestPair.addOnPosition;
               // if barracks is training unit, cancel training.
               if (isTrainingUnit(data, closestPair.barracks)) {
                 if (closestPair.barracks && closestPair.barracks.orders) {
@@ -238,21 +272,21 @@ function upgrade(world, upgradeId) {
               const timeUntilCanAfford = getTimeToTargetCost(world, TECHLAB);
               const timeUntilTechAvailable = getTimeToTargetTech(world, TECHLAB);
               const timeUntilUpgradeCanStart = Math.max(timeUntilCanAfford, timeUntilTechAvailable);
+              if (barracksPos && addOnPos) {
+                const timeToMove = calculateMoveTime(
+                  closestPair.barracks,
+                  barracksPos,
+                  addOnPos,
+                  liftAndLandingTime,
+                  data
+                );
 
-              // Here, handle the undefined movementSpeed
-              const unitTypeData = data.getUnitTypeData(UnitType.BARRACKSFLYING);
-              if (unitTypeData === undefined || unitTypeData.movementSpeed === undefined) {
-                // If movementSpeed is undefined, return empty array or handle it appropriately
-                return [];
-              }
-
-              const movementSpeedPerSecond = unitTypeData.movementSpeed * 1.4;
-              const distance = getDistance(closestPair.barracks.pos, closestPair.addOnPosition);
-              const timeToMove = distance / movementSpeedPerSecond + (liftAndLandingTime * 2);
-
-              if (timeUntilUpgradeCanStart < timeToMove) {
-                const label = 'reposition';
-                closestPair.barracks.labels.set(label, closestPair.addOnPosition);
+                if (timeUntilUpgradeCanStart < timeToMove) {
+                  const label = 'reposition';
+                  closestPair.barracks.labels.set(label, addOnPos);
+                }
+              } else {
+                console.warn('Missing position data for calculateMoveTime:', { barracksPos, addOnPos });
               }
             }
           }
@@ -325,8 +359,7 @@ function upgrade(world, upgradeId) {
             const distance = getDistance(pos1, pos0);
             if (distance > 0) {
               const { movementSpeed } = data.getUnitTypeData(UnitType.BARRACKSFLYING); if (movementSpeed === undefined) return [];
-              const movementSpeedPerSecond = movementSpeed * 1.4;
-              const timeToMove = distance / movementSpeedPerSecond + (64 / 22.4);
+              const timeToMove = calculateMoveTime(closestPair[0], pos0, pos1, liftAndLandingTime, data);
               if (timeUntilUpgradeCanStart < timeToMove) {
                 // Check if the unit is training and has orders before iterating over them
                 if (isTrainingUnit(data, closestPair[0]) && closestPair[0].orders) {
@@ -410,15 +443,7 @@ function upgrade(world, upgradeId) {
             const timeUntilCanAfford = getTimeToTargetCost(world, TECHLAB);
             const timeUntilTechAvailable = getTimeToTargetTech(world, TECHLAB);
             const timeUntilUpgradeCanStart = Math.max(timeUntilCanAfford, timeUntilTechAvailable);
-
-            const distance = getDistance(barracksUnit.pos, techLabUnit.pos);
-            const movementSpeedData = data.getUnitTypeData(UnitType.BARRACKSFLYING);
-
-            // Ensure movementSpeedData and its movementSpeed property are defined
-            if (!movementSpeedData || movementSpeedData.movementSpeed === undefined) return [];
-
-            const movementSpeedPerSecond = movementSpeedData.movementSpeed * 1.4;
-            const timeToMove = distance / movementSpeedPerSecond + (liftAndLandingTime * 2);
+            const timeToMove = calculateMoveTime(barracksUnit, barracksUnit.pos, techLabUnit.pos, liftAndLandingTime, data);
 
             if (timeUntilUpgradeCanStart < timeToMove) {
               // Label the barracks for repositioning
@@ -496,9 +521,7 @@ function upgrade(world, upgradeId) {
           const timeUntilUpgradeCanStart = Math.max(timeUntilCanAfford, timeUntilTechAvailable);
           const distance = getDistance(pos1, pos0);
           if (distance > 0) {
-            const { movementSpeed } = data.getUnitTypeData(UnitType.BARRACKSFLYING); if (movementSpeed === undefined) return [];
-            const movementSpeedPerSecond = movementSpeed * 1.4;
-            const timeToMove = distance / movementSpeedPerSecond + (64 / 22.4);
+            const timeToMove = calculateMoveTime(closestPair[0], pos0, pos1, liftAndLandingTime, data);
             if (timeUntilUpgradeCanStart < timeToMove) {
               if (isTrainingUnit(data, closestPair[0]) && closestPair[0].orders) {
                 for (let i = 0; i < closestPair[0].orders.length; i++) {
@@ -523,6 +546,7 @@ function upgrade(world, upgradeId) {
 }
 
 module.exports = {
+  calculateMoveTime,
   buildSupplyOrTrain,
   manageZergSupply,
   refreshProductionUnitsCache,
