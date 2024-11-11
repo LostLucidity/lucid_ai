@@ -21,6 +21,17 @@ const { getById } = require("../../utils/generalUtils");
 const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require("../../utils/unitUtils");
 
 /**
+ * Helper function to check if a unit can perform a specified ability.
+ * 
+ * @param {Unit} unit - The unit to check.
+ * @param {number} abilityId - The ability ID to verify.
+ * @returns {boolean} - True if the unit can perform the ability, false otherwise.
+ */
+function canPerformAbility(unit, abilityId) {
+  return unit.abilityAvailable(abilityId) && (unit.buildProgress ?? 0) >= 1 && !unit.labels.has('reposition');
+}
+
+/**
  * Checks if a unit can train the specified unit type.
  * @param {World} world The game world context.
  * @param {Unit} unit The unit to check.
@@ -29,7 +40,7 @@ const { haveAvailableProductionUnitsFor, getAffordableFoodDifference } = require
  * @returns {boolean} True if the unit can train the specified unit type, false otherwise.
  */
 function canTrainUnitType(world, unit, abilityId, threshold) {
-  if ((unit.buildProgress ?? 0) < 1 || unit.labels.has('reposition')) return false;
+  if (!canPerformAbility(unit, abilityId)) return false;
 
   const orders = unit.orders || [];
   const pendingOrders = getPendingOrders(unit);
@@ -37,14 +48,8 @@ function canTrainUnitType(world, unit, abilityId, threshold) {
 
   if (pendingOrders.length > 0 || (orders.length > (hasReactor ? 2 : 1))) return false;
 
-  if (orders.length === 0) {
-    return unit.abilityAvailable(abilityId);
-  }
-
   const firstOrder = orders[0];
-  if (firstOrder.abilityId === undefined) return false;
-
-  if (!unit.abilityAvailable(abilityId) || !unit.abilityAvailable(firstOrder.abilityId)) return false;
+  if (firstOrder?.abilityId === undefined || !unit.abilityAvailable(firstOrder.abilityId)) return false;
 
   const unitTypeTraining = unitTypeTrainingAbilities.get(firstOrder.abilityId);
   if (!unitTypeTraining) return false;
