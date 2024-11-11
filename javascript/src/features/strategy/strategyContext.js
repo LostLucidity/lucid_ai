@@ -81,10 +81,16 @@ class StrategyContext {
   }
 
   /**
+   * Sets the current strategy and updates training types based on strategy steps.
    * @param {import("../../types/strategyTypes").Strategy | undefined} strategy
    */
   setCurrentStrategy(strategy) {
     this.currentStrategy = strategy;
+    const types = (strategy?.steps || [])
+      .flatMap(step => (Array.isArray(step.interpretedAction) ? step.interpretedAction : [step.interpretedAction]))
+      .map(action => action?.unitType)
+      .filter(unitType => unitType != null);
+    this.setTrainingTypes(types);
   }
 
   /**

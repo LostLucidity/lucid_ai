@@ -12,6 +12,7 @@ const { missingUnits } = require('../../data/gameData/gameDataStore');
 const cacheManager = require('../core/cache');
 const { defaultResources } = require('../core/gameData');
 const { getPendingOrders } = require('../services/sharedServices');
+const { getProductionUnits } = require('../utils/gameHelpers');
 
 /** 
  * This module manages shared game state resources.
@@ -216,6 +217,21 @@ class GameState {
      * @type {{[key: number]: boolean}}
      */
     this.upgradesInProgress = {}
+  }
+
+  /**
+   * Updates available production units for all relevant unit types.
+   * @param {World} world
+   */
+  updateAvailableProductionUnits(world) {
+    this.availableProductionUnits.clear();
+
+    [...new Set(this.plan.map(step => step.unitType))].forEach(unitTypeId => {
+      this.availableProductionUnits.set(
+        unitTypeId,
+        getProductionUnits(world, unitTypeId).some(unit => unit.orders?.length === 0)
+      );
+    });
   }
 
   /**
@@ -805,6 +821,8 @@ class GameState {
 
     // Ensure framesPerStep is always at least 1
     this.framesPerStep = Math.max(1, this.framesPerStep);
+
+    this.updateAvailableProductionUnits(world);
   }
 
   /**

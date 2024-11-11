@@ -18,8 +18,8 @@ const { getPendingOrders } = require('../../services/sharedServices');
 const { GameState } = require('../../state');
 const { mine } = require('../../units/management/unitCommands');
 const { unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
-const { getProductionUnits } = require('../../units/management/unitManagement');
 const { calculateDistance } = require('../../utils/coreUtils');
+const { getProductionUnits } = require('../../utils/gameHelpers');
 
 // Precompute the gasMineConstructionAbilities Set once if it doesn't change frequently
 const gasMineConstructionAbilities = new Set();

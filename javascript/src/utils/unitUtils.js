@@ -11,9 +11,6 @@ const { haveSupplyForUnit } = require("../units/management/unitCommonUtils.js");
 const { unitTypeTrainingAbilities } = require("../units/management/unitConfig");
 const { unitPendingOrders } = require("../units/management/unitOrders");
 
-/** @type {Map<UnitTypeId, Unit[]>} */
-const productionUnitsCache = new Map();
-
 /** @type {boolean} */
 const unitProductionAvailable = true;
 
@@ -192,7 +189,6 @@ const setRepositionLabel = (unit, position) => {
 
 // Export shared utilities
 module.exports = {
-  productionUnitsCache,
   unitTypeDataCache,
   unitProductionAvailable,
   clearAllPendingOrders,

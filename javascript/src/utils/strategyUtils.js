@@ -2,6 +2,7 @@
 
 const { SupplyUnitRace } = require("@node-sc2/core/constants/race-map");
 
+const { interpretBuildOrderAction } = require("../../data/buildOrders/scripts/buildOrderUtils");
 const StrategyContext = require("../features/strategy/strategyContext");
 /* eslint-disable-next-line no-unused-vars */
 const { GameState } = require('../state');
@@ -13,23 +14,24 @@ const { GameState } = require('../state');
  */
 function convertToPlanSteps(strategySteps) {
   return strategySteps.map(step => {
-    let unitType = 0;
-    let upgrade = 0;
-    let count = 1;
-    let isChronoBoosted = false;
-    let food = 0;
+    const comment = 'comment' in step ? step.comment : '';
+
+    const interpretedActions = interpretBuildOrderAction(step.action, comment);
+
+    const firstAction = interpretedActions[0] || {};
+
+    const unitType = firstAction.unitType || 0;
+    const upgrade = firstAction.upgradeType || 0;
+    const count = firstAction.count || 1;
+    const isChronoBoosted = firstAction.isChronoBoosted || false;
+    const isUpgrade = firstAction.isUpgrade || false;
+    const food = 'food' in step && typeof step.food === 'number' ? step.food : 0;
 
     const supplyValue = typeof step.supply === 'number' ? step.supply : parseInt(step.supply, 10) || 0;
 
-    if ('unitType' in step && typeof step.unitType === 'number') unitType = step.unitType;
-    if ('upgrade' in step && typeof step.upgrade === 'number') upgrade = step.upgrade;
-    if ('count' in step && typeof step.count === 'number') count = step.count;
-    if ('isChronoBoosted' in step && typeof step.isChronoBoosted === 'boolean') isChronoBoosted = step.isChronoBoosted;
-    if ('food' in step && typeof step.food === 'number') food = step.food;
-
-    const orderType = 'isUpgrade' in step && step.isUpgrade ? 'Upgrade' : 'UnitType';
+    const orderType = isUpgrade ? 'Upgrade' : 'UnitType';
     const targetCount = count;
-    /** @type {Point2D[]} */    
+    /** @type {Point2D[]} */
     const candidatePositions = [];
 
     return {

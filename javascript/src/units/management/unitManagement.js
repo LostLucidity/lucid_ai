@@ -23,8 +23,8 @@ const { pointsOverlap, getAddOnBuildingPlacement, landingGrids } = require("../.
 const { handleUnitTraining } = require("../../gameLogic/economy/trainingManagement");
 const { getPendingOrders } = require("../../services/sharedServices");
 const { GameState } = require('../../state');
+const { productionUnitsCache } = require("../../utils/gameHelpers");
 const { getDistance } = require("../../utils/spatialCoreUtils");
-const { productionUnitsCache } = require("../../utils/unitUtils");
 
 /**
  * Build supply or train units based on the game world state and strategy step.
@@ -40,35 +40,6 @@ function buildSupplyOrTrain(world, step) {
   updateFoodUsed(world);
 
   return collectedActions;
-}
-
-/**
- * Retrieves units capable of producing a specific unit type.
- * @param {World} world
- * @param {UnitTypeId} unitTypeId
- * @returns {Unit[]}
- */
-function getProductionUnits(world, unitTypeId) {
-  const { units } = world.resources.get();
-  // Check if the result is in the cache
-  if (productionUnitsCache.has(unitTypeId)) {
-    return productionUnitsCache.get(unitTypeId) || [];
-  }
-
-  const { abilityId } = world.data.getUnitTypeData(unitTypeId); if (abilityId === undefined) return [];
-  let producerUnitTypeIds = world.data.findUnitTypesWithAbility(abilityId);
-
-  if (producerUnitTypeIds.length <= 0) {
-    const alias = world.data.getAbilityData(abilityId).remapsToAbilityId; if (alias === undefined) return [];
-    producerUnitTypeIds = world.data.findUnitTypesWithAbility(alias);
-  }
-
-  const result = units.getByType(producerUnitTypeIds);
-
-  // Store the result in the cache
-  productionUnitsCache.set(unitTypeId, result);
-
-  return result;
 }
 
 /**
@@ -553,7 +524,6 @@ function upgrade(world, upgradeId) {
 
 module.exports = {
   buildSupplyOrTrain,
-  getProductionUnits,
   manageZergSupply,
   refreshProductionUnitsCache,
   upgrade,
