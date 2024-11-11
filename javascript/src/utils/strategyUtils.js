@@ -8,6 +8,21 @@ const StrategyContext = require("../features/strategy/strategyContext");
 const { GameState } = require('../state');
 
 /**
+ * Extracts the unit type from a step, which could be either a BuildOrderStep or a StrategyStep.
+ * @param {import("../features/strategy/strategyData").GeneralStep} step - The step from which to extract the unit type.
+ * @returns {number | null} - The unit type if available, otherwise null.
+ */
+function getUnitType(step) {
+  if (step && step.interpretedAction) {
+    if (Array.isArray(step.interpretedAction)) {
+      return step.interpretedAction.length > 0 ? step.interpretedAction[0].unitType : null;
+    }
+    return /** @type {import("../core/globalTypes").InterpretedAction} */ (step.interpretedAction).unitType;
+  }
+  return null;
+}
+
+/**
  * Converts strategy steps (from BuildOrderStep or StrategyStep format) to PlanStep format.
  * @param {(import("../core/globalTypes").BuildOrderStep[] | import("../types/strategyTypes").StrategyStep[])} strategySteps - Array of strategy steps, either BuildOrderStep or StrategyStep.
  * @returns {import("../types/strategyTypes").PlanStep[]} Array of PlanStep objects.
@@ -115,21 +130,6 @@ function getPlanFoodValue(gameState) {
  * @returns {boolean} True if the steps are considered similar, false otherwise.
  */
 function isEqualStep(stepA, stepB) {
-  /**
-   * Extracts the unit type from a step, which could be either a BuildOrderStep or a StrategyStep.
-   * @param {import("../features/strategy/strategyData").GeneralStep} step - The step from which to extract the unit type.
-   * @returns {number | null} - The unit type if available, otherwise null.
-   */
-  const getUnitType = (step) => {
-    if (step && step.interpretedAction) {
-      if (Array.isArray(step.interpretedAction)) {
-        return step.interpretedAction.length > 0 ? step.interpretedAction[0].unitType : null;
-      } else {return /** @type {import("../core/globalTypes").InterpretedAction} */ (step.interpretedAction).unitType;
-      }
-    }
-    return null;
-  };
-
   // Additional checks for time and supply to better differentiate steps
   return stepA.action === stepB.action &&
     getUnitType(stepA) === getUnitType(stepB) &&
