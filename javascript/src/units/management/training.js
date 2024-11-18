@@ -48,8 +48,14 @@ function canTrainUnitType(world, unit, abilityId, threshold) {
 
   if (pendingOrders.length > 0 || (orders.length > (hasReactor ? 2 : 1))) return false;
 
+  if (orders.length === 0) {
+    return true;
+  }
+
   const firstOrder = orders[0];
-  if (firstOrder?.abilityId === undefined || !unit.abilityAvailable(firstOrder.abilityId)) return false;
+  if (!firstOrder || firstOrder.abilityId === undefined) {
+    return false;
+  }
 
   const unitTypeTraining = unitTypeTrainingAbilities.get(firstOrder.abilityId);
   if (!unitTypeTraining) return false;
@@ -138,8 +144,13 @@ function filterUnitsByTrainingAbility(world, unitList, ability, threshold) {
 function getTrainer(world, unitTypeId, threshold) {
   const { WARPGATE } = UnitType;
   const { data, resources } = world;
+
   const abilityId = data.getUnitTypeData(unitTypeId)?.abilityId;
-  if (abilityId === undefined) return [];
+
+  if (abilityId === undefined) {
+    console.error(`Missing abilityId for unitTypeId: ${unitTypeId}`);
+    return [];
+  }
 
   const unitTypesWithAbility = findUnitTypesWithAbilityCached(data, abilityId);
   const units = resources.get().units;
@@ -341,6 +352,8 @@ function trainWorkers(world) {
 }
 
 module.exports = {
+  canPerformAbility,
+  canTrainUnitType,
   earmarkWorkersForTraining,
   shouldTrainWorkers,
   train,

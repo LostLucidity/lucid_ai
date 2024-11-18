@@ -109,92 +109,111 @@ function interpretBuildOrderAction(action, comment = '') {
     return [];
   }
 
-  /**
-   * Maps specific action strings to corresponding upgrade keys when a direct match is not available.
-   * @param {string} action - The action string.
-   * @returns {string | null} - The upgrade key or null if not found.
-   */
-  function getUpgradeKey(action) {
-    /** @type {Record<string, string>} */
-    const actionToUpgradeKey = {
-      'Warp Gate': 'WARPGATERESEARCH',
-      'Blink': 'BLINKTECH',
-      // Add other mappings as needed
-    };
-    return actionToUpgradeKey[action] || null;
-  }
-
-  /**
-   * @typedef {Object} ActionDetails
-   * @property {string} cleanedAction - The cleaned action string.
-   * @property {number} count - The count of actions.
-   * @property {boolean} isChronoBoosted - Whether the action is chrono boosted.
-   */
-  const actionDetailRegex = /^(.*?)(?:\sx(\d+))?(?:\s\((Chrono Boost)\))?$/;
-  /**
-   * @param {string} actionPart
-   * @returns {ActionDetails}
-   */
-
-  const extractActionDetails = (actionPart) => {
-    const match = actionDetailRegex.exec(actionPart);
-    if (!match) return { cleanedAction: '', count: 0, isChronoBoosted: false };
-
-    const cleanedAction = match[1].trim();
-    const count = match[2] ? parseInt(match[2], 10) : 1;
-    const isChronoBoosted = Boolean(match[3]);
-
-    return { cleanedAction, count, isChronoBoosted };
-  };
-
-  /**
-   * Type guard to check if a key exists in an object.
-   * @param {object} obj - The object to check.
-   * @param {string} key - The key to check.
-   * @returns {boolean} - Whether the key exists in the object.
-   */
-  const isKeyOf = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
-
   const actions = action.split(',');
-  const interpretedActions = [];
 
-  for (const actionPart of actions) {
-    const details = extractActionDetails(actionPart);
-    if (!details.cleanedAction) continue;
+  /** @type {Array<import("src/core/globalTypes").InterpretedAction>} */
+  const interpretedActions = actions.reduce(
+    (result, actionPart) => {
+      const interpretedAction = processAction(actionPart, comment);
 
-    const { cleanedAction, count, isChronoBoosted } = details;
-    const formattedAction = cleanedAction.toUpperCase().replace(/\s+/g, '');
-
-    let unitType = null;
-    let upgradeType = null;
-
-    if (isKeyOf(Upgrade, formattedAction)) {
-      upgradeType = Upgrade[formattedAction];
-    } else {
-      const upgradeKey = getUpgradeKey(cleanedAction);
-      if (upgradeKey && isKeyOf(Upgrade, upgradeKey)) {
-        upgradeType = Upgrade[upgradeKey];
-      } else if (isKeyOf(UnitType, formattedAction)) {
-        unitType = UnitType[formattedAction];
+      if (interpretedAction) {
+        result.push(interpretedAction);
+      } else {
+        console.warn(`Unrecognized action: ${actionPart.trim()}`);
+        result.push({
+          unitType: null,
+          upgradeType: null,
+          count: 1,
+          isUpgrade: false,
+          isChronoBoosted: false,
+          specialAction: null,
+        });
       }
-    }
 
-    const { specialAction, unitType: specialUnitType } = getSpecialAction(comment);
-    if (specialAction) {
-      unitType = specialUnitType;
-    }
-
-    interpretedActions.push({
-      unitType,
-      upgradeType,
-      count,
-      isUpgrade: !!upgradeType,
-      isChronoBoosted,
-      specialAction,
-    });
-  }
+      return result;
+    },
+    /** @type {Array<import("src/core/globalTypes").InterpretedAction>} */([]), // Explicitly type the initial value
+  );
 
   return interpretedActions;
+}
+
+/**
+ * Processes a single action part.
+ * @param {string} actionPart - The action string part to process.
+ * @param {string} [comment] - An optional comment.
+ * @returns {import("src/core/globalTypes").InterpretedAction | null}
+ */
+function processAction(actionPart, comment = '') {
+  const { cleanedAction, count, isChronoBoosted } = extractActionDetails(actionPart);
+  if (!cleanedAction) return null;
+
+  const formattedAction = cleanedAction.toUpperCase().replace(/\s+/g, '');
+
+  let unitType = null;
+  let upgradeType = null;
+
+  if (formattedAction === 'VIKING') {
+    unitType = UnitType.VIKINGFIGHTER;
+  } else if (Upgrade[formattedAction]) {
+    upgradeType = Upgrade[formattedAction];
+  } else {
+    const upgradeKey = getUpgradeKey(cleanedAction);
+    if (upgradeKey && Upgrade[upgradeKey]) {
+      upgradeType = Upgrade[upgradeKey];
+    } else if (UnitType[formattedAction]) {
+      unitType = UnitType[formattedAction];
+    }
+  }
+
+  const { specialAction, unitType: specialUnitType } = getSpecialAction(comment);
+  if (specialAction) unitType = specialUnitType;
+
+  if (!unitType && !upgradeType) {
+    console.warn(`Unrecognized action: ${cleanedAction}`);
+    return null;
+  }
+
+  return {
+    unitType,
+    upgradeType,
+    count,
+    isUpgrade: !!upgradeType,
+    isChronoBoosted,
+    specialAction,
+  };
+}
+
+/**
+ * Extracts details from an action string.
+ * @param {string} actionPart - The action string part.
+ * @returns {{ cleanedAction: string, count: number, isChronoBoosted: boolean }}
+ */
+function extractActionDetails(actionPart) {
+  const actionDetailRegex = /^(.*?)(?:\sx(\d+))?(?:\s\((Chrono Boost)\))?$/;
+  const match = actionDetailRegex.exec(actionPart);
+
+  if (!match) return { cleanedAction: '', count: 0, isChronoBoosted: false };
+
+  const cleanedAction = match[1].trim();
+  const count = match[2] ? parseInt(match[2], 10) : 1;
+  const isChronoBoosted = Boolean(match[3]);
+
+  return { cleanedAction, count, isChronoBoosted };
+}
+
+/**
+ * Maps specific action strings to upgrade keys.
+ * @param {string} action - The action string.
+ * @returns {string | null} - The upgrade key or null if not found.
+ */
+function getUpgradeKey(action) {
+  /** @type {Record<string, string>} */
+  const actionToUpgradeKey = {
+    'Warp Gate': 'WARPGATERESEARCH',
+    'Blink': 'BLINKTECH',
+  };
+  return actionToUpgradeKey[action] || null;
 }
 
 /**
