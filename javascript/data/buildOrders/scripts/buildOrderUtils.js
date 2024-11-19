@@ -17,6 +17,24 @@ const buildOrderCache = {};
 
 const CACHE_EXPIRATION_MS = 5 * 60 * 1000;
 
+/** @type {Record<string, string>} */
+let actionToUpgradeKey = {};
+
+async function loadActionMappings() {
+  try {
+    const filePath = path.join(__dirname, "../../../data/gameData/actionMappings.json");
+    actionToUpgradeKey = JSON.parse(await fs.readFile(filePath, "utf8"));
+    console.log("Action mappings loaded successfully.");
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error("Error loading action mappings, falling back to defaults:", error.message);
+    } else {
+      console.error("Unknown error occurred while loading action mappings.");
+    }
+    actionToUpgradeKey = {};
+  }
+}
+
 /**
  * Determines the directory name based on the race matchup of the build order.
  * @param {string} raceMatchup - The race matchup indicator (e.g., PvZ, TvT, ZvX).
@@ -158,7 +176,7 @@ function processAction(actionPart, comment = '') {
   } else if (Upgrade[formattedAction]) {
     upgradeType = Upgrade[formattedAction];
   } else {
-    const upgradeKey = getUpgradeKey(cleanedAction);
+    const upgradeKey = actionToUpgradeKey[cleanedAction] || null;
     if (upgradeKey && Upgrade[upgradeKey]) {
       upgradeType = Upgrade[upgradeKey];
     } else if (UnitType[formattedAction]) {
@@ -200,20 +218,6 @@ function extractActionDetails(actionPart) {
   const isChronoBoosted = Boolean(match[3]);
 
   return { cleanedAction, count, isChronoBoosted };
-}
-
-/**
- * Maps specific action strings to upgrade keys.
- * @param {string} action - The action string.
- * @returns {string | null} - The upgrade key or null if not found.
- */
-function getUpgradeKey(action) {
-  /** @type {Record<string, string>} */
-  const actionToUpgradeKey = {
-    'Warp Gate': 'WARPGATERESEARCH',
-    'Blink': 'BLINKTECH',
-  };
-  return actionToUpgradeKey[action] || null;
 }
 
 /**
@@ -334,6 +338,7 @@ function sanitizeFileName(title) {
 
 // Export the utility functions
 module.exports = {
+  loadActionMappings,
   interpretBuildOrderAction,
   isStepInProgress,
   generateBuildOrderFiles,

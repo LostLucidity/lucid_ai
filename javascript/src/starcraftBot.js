@@ -28,6 +28,7 @@ const { clearAllPendingOrders } = require('./utils/unitUtils');
 const config = require('../config/config');
 const { createUnitTypeTrainingAbilitiesMap } = require('../config/unitTypeTrainingAbilities');
 const { createUpgradeAbilitiesMap } = require('../config/upgradeAbilities');
+const { loadActionMappings } = require('../data/buildOrders/scripts/buildOrderUtils');
 
 /**
  * @typedef {Object} CacheManager
@@ -916,6 +917,8 @@ const bot = createAgent({
 
   onGameStart: async (world) => {
     try {
+      await loadActionMappings();
+
       const gameInit = new GameInitialization(world);
       await gameInit.enhancedOnGameStart();
 
