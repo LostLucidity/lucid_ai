@@ -70,6 +70,95 @@ function initializeGame(world) {
 }
 
 /**
+ * Update game state and track build orders.
+ * @param {UnitResource} units
+ * @param {World} world
+ */
+function updateGameStateAndOrders(units, world) {
+  updateGameState(units, world);
+  trackBuildOrderProgress(world, gameState.getBuildOrder());
+}
+
+/**
+ * Log the current game state.
+ * @param {FrameResource} frame
+ */
+function logGameState(frame) {
+  logCurrentGameState(frame);
+}
+
+/**
+ * Track worker performance and update gathering metrics.
+ * @param {Array<Unit>} workers
+ * @param {World} world
+ */
+function trackWorkerPerformance(workers, world) {
+  trackGatheringTime(workers, world);
+}
+
+/**
+ * Manage worker tasks, idle probes, and resource assignments.
+ * @param {UnitResource} units
+ * @param {Array<Unit>} allUnits
+ * @param {ResourceManager} resources
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ * @param {World} world
+ */
+function manageGameWorkers(units, allUnits, resources, actionList, world) {
+  manageWorkers(units, allUnits, resources, actionList, world);
+}
+
+/**
+ * Apply CHRONOBOOST dynamically to optimize production.
+ * @param {World} world
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ */
+function applyChronoboost(world, actionList) {
+  useChronoboost(world, actionList);
+}
+
+/**
+ * Process collected actions and handle upgrades.
+ * @param {World} world
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ * @param {Array<Unit>} allUnits
+ */
+function processActionsAndUpgrades(world, actionList, allUnits) {
+  collectAndHandleActions(world, actionList, allUnits);
+}
+
+/**
+ * Handle mid-game transition logic once the build order is complete.
+ * @param {World} world
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ */
+async function handleMidGameTransition(world, actionList) {
+  if (buildOrderState.isBuildOrderCompleted()) {
+    await midGameTransition(world, actionList);
+  }
+}
+
+/**
+ * Monitor and log performance metrics.
+ * @param {FrameResource} frame
+ * @param {GameState} gameState
+ * @param {MapResource} map
+ * @param {World} world
+ */
+function monitorPerformance(frame, gameState, map, world) {
+  trackAndLogPerformance(frame, gameState, map, world);
+}
+
+/**
+ * Execute the gathered actions for the current game step.
+ * @param {World} world
+ * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
+ */
+async function executeGameActions(world, actionList) {
+  await executeActions(world, actionList);
+}
+
+/**
  * Finds the production structure with the longest remaining build or research time
  * that meets the absolute time threshold.
  * @param {Array<Unit>} activeProductionStructures - List of active structures.
@@ -967,35 +1056,15 @@ const bot = createAgent({
       const allUnits = units.getAll();
       const workers = units.getWorkers();
 
-      // 1. Update game state and build order progress
-      updateGameState(units, world);
-
-      // 2. Log current game time and state
-      logCurrentGameState(frame);
-
-      // 3. Track and calculate average gathering time
-      trackGatheringTime(workers, world);
-
-      // 4. Handle worker and mineral management
-      manageWorkers(units, allUnits, resources, actionList, world);
-
-      // 5. Use dynamic CHRONOBOOST
-      useChronoboost(world, actionList);
-
-      // 6. Collect actions and handle upgrades
-      collectAndHandleActions(world, actionList, allUnits);
-
-      // Execute mid-game transition logic if appropriate
-      if (buildOrderState.isBuildOrderCompleted()) {
-        await midGameTransition(world, actionList);
-      }
-
-      // 8. Track performance and log relevant information
-      trackAndLogPerformance(frame, gameState, map, world);
-
-      // 9. Execute the gathered actions
-      executeActions(world, actionList);
-
+      updateGameStateAndOrders(units, world);
+      logGameState(frame);
+      trackWorkerPerformance(workers, world);
+      manageGameWorkers(units, allUnits, resources, actionList, world);
+      applyChronoboost(world, actionList);
+      processActionsAndUpgrades(world, actionList, allUnits);
+      await handleMidGameTransition(world, actionList);
+      monitorPerformance(frame, gameState, map, world);
+      await executeGameActions(world, actionList);
     } catch (error) {
       console.error('Error during game step:', error);
     }
