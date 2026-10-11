@@ -317,20 +317,25 @@ function assignWorkerToField(worker, completedBases, map, units, resources) {
   const closestExpansion = getClosestExpansion(map, basePos);
   if (!closestExpansion) return collectedActions;
 
+  // node-sc2 creates the map resource before its first visibility grid arrives.
+  // Treat that startup state as no visible mineral fields instead of calling
+  // map.isVisible(), which cannot read a null visibility grid.
+  const visibilityReady = Boolean(map._mapState && map._mapState.visibility);
+
   // Filter out mineral fields in the fog of war using the map's visibility function
   const mineralFields = units.getMineralFields().filter(mineralField => {
     // Check if the mineral field is visible and has a valid position
-    if (!mineralField.pos || !map.isVisible(mineralField.pos)) return false;
+    if (!visibilityReady || !mineralField.pos || !map.isVisible(mineralField.pos)) return false;
     const distance = getDistance(basePos, mineralField.pos);
     return distance !== undefined && distance < 14;
   });
 
   const assignedMineralField = worker.labels.get('mineralField');
   if (assignedMineralField && assignedMineralField.tag !== undefined) {
-    const currentMineralField = units.getByTag(assignedMineralField.tag);
+    const currentMineralField = mineralFields.find(field => field.tag === assignedMineralField.tag);
 
-    // Check if the current mineral field is visible and has a valid position
-    if (currentMineralField && currentMineralField.pos && map.isVisible(currentMineralField.pos)) {
+    // The filtered collection contains only alive, visible fields near the base.
+    if (currentMineralField) {
       const neediestMineralField = getNeediestMineralField(units, mineralFields);
       const leastNeediestMineralField = getLeastNeediestMineralField(units, mineralFields);
 
@@ -369,12 +374,6 @@ function assignWorkerToField(worker, completedBases, map, units, resources) {
       worker.labels.set('mineralField', neediestMineralField);
       neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
     }
-  }
-
-  // If no visible mineral fields are available, add fallback logic
-  if (!mineralFields.length) {
-    // You can add idle, scout, or fallback logic here if no mineral fields are visible
-    collectedActions.push({ /* idle or scouting action */ });
   }
 
   return collectedActions;
@@ -431,6 +430,22 @@ function isTownhallNeedy(world, townhall, averageGatheringTime, units) {
 }
 
 /**
+ * Checks whether a worker already has a current or pending gather order for a
+ * specific resource target.
+ * @param {Unit} worker - The worker whose orders should be checked.
+ * @param {string} targetUnitTag - The resource target tag.
+ * @returns {boolean} Whether the gather order is already represented.
+ */
+function hasGatherOrderForTarget(worker, targetUnitTag) {
+  const currentOrders = worker.orders || [];
+  return currentOrders.concat(getPendingOrders(worker)).some(order =>
+    order.targetUnitTag === targetUnitTag &&
+    (order.abilityId === SMART ||
+      (order.abilityId !== undefined && gatheringAbilities.includes(order.abilityId)))
+  );
+}
+
+/**
  * Creates an action for a worker to gather from a specific mineral field or the nearest one if not specified.
  * @param {ResourceManager} resources - The resource manager from the bot.
  * @param {Unit} worker - The worker unit to be assigned.
@@ -464,7 +479,9 @@ function gather(resources, worker, mineralField, queue = false) {
       .sort((a, b) => getTargetedByWorkers(units, a).length - getTargetedByWorkers(units, b).length);
   }
 
-  if (mineralField && mineralField.pos) {
+  if (mineralField && mineralField.pos && mineralField.tag !== undefined) {
+    if (hasGatherOrderForTarget(worker, mineralField.tag)) return collectedActions;
+
     const sendToGather = createUnitCommand(SMART, [worker], queue);
     sendToGather.targetUnitTag = mineralField.tag;
     collectedActions.push(sendToGather);
