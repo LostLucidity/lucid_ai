@@ -1,8 +1,8 @@
 // src/features/shared/timeUtils.js
 
-const { Buff } = require("@node-sc2/core/constants");
 const groupTypes = require("@node-sc2/core/constants/groups");
 
+const { BUFF_IDS } = require("../../core/constants");
 const { unitTypeTrainingAbilities } = require("../../units/management/unitConfig");
 const { getDistance } = require("../../utils/spatialCoreUtils");
 
@@ -27,7 +27,7 @@ function getBuildTimeLeft(unit, buildTime, progress) {
   if (buildTime === undefined) return Number.MAX_SAFE_INTEGER;
 
   const { buffIds } = unit;
-  if (buffIds && buffIds.includes(Buff.CHRONOBOOSTENERGYCOST)) {
+  if (buffIds && buffIds.includes(BUFF_IDS.CHRONOBOOSTENERGYCOST)) {
     buildTime = buildTime * 2 / 3;  // Chrono Boost accelerates construction/training time
   }
 
