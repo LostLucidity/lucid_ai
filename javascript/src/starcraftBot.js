@@ -389,8 +389,18 @@ function manageWorkers(units, allUnits, resources, actionList, world) {
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
  */
 function queueGatherOrdersForProbes(units, allUnits, resources, actionList) {
+  const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator =>
+    assimilator.buildProgress !== undefined &&
+    assimilator.buildProgress < 1 &&
+    assimilator.pos
+  );
+  if (assimilatorsWarpingIn.length === 0) return;
+
   const probesWarpingAssimilators = allUnits.filter(probe =>
-    probe.unitType === PROBE && probe.orders?.some(order => order.abilityId === BUILD_ASSIMILATOR)
+    probe.unitType === PROBE &&
+    probe.pos &&
+    probe.orders?.some(order => order.abilityId === BUILD_ASSIMILATOR) &&
+    assimilatorsWarpingIn.some(assimilator => getDistance(probe.pos, assimilator.pos) < 3)
   );
 
   if (probesWarpingAssimilators.length > 0) {
@@ -1129,3 +1139,4 @@ if (require.main === module) {
 
 module.exports = bot;
 module.exports.run = run;
+module.exports.queueGatherOrdersForProbes = queueGatherOrdersForProbes;
