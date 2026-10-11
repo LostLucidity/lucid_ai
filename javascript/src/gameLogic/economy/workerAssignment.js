@@ -20,6 +20,7 @@ const { getNeediestMineralField, getMineralFieldAssignments } = require("../../u
 const { findEnemyUnitsNear } = require("../../utils/scoutingUtils");
 const { getDistance } = require("../../utils/spatialCoreUtils");
 const { isTownhallInDanger } = require("../../utils/stateManagement");
+const { isAttacking } = require("../../utils/unitCompatibility");
 
 /**
  * Checks if the mineral fields near a townhall are saturated.
@@ -552,7 +553,7 @@ function getWithLabelAvailable(units, unit) {
 
   const isNotConstructing = !unitIsConstructing || (unitIsConstructing && unit.unitType === UnitType.PROBE);
   const probeAndMoving = unit.unitType === UnitType.PROBE && isMoving(unit);
-  return (isNotConstructing && !unit.isAttacking() && !isPendingConstructing(unit)) || probeAndMoving;
+  return (isNotConstructing && !isAttacking(unit) && !isPendingConstructing(unit)) || probeAndMoving;
 }
 
 /**

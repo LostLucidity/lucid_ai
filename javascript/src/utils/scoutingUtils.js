@@ -1,6 +1,7 @@
 // @ts-check
 "use strict";
 
+const { isAttacking } = require("./unitCompatibility");
 const MapResources = require("../../data/mapResources/mapResources");
 const { isMining } = require("../gameLogic/economy/workerService");
 const { getDistance } = require("../utils/spatialCoreUtils");
@@ -106,7 +107,7 @@ function isSuitableForScouting(units, unit) {
     return false;
   }
 
-  if (unit.isAttacking()) {
+  if (isAttacking(unit)) {
     return false;
   }
 

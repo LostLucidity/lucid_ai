@@ -5,6 +5,7 @@ const { WeaponTargetType, Alliance } = require("@node-sc2/core/constants/enums")
 const { getUpgradeBonus } = require("./management/unitConfig");
 const { unitTypeData, saveAndGetUnitTypeData } = require("../../data/gameData/gameData");
 const { GameState } = require("../state");
+const { isHarvesting } = require("../utils/unitCompatibility");
 
 /**
  * Calculates the potential splash damage of a unit against a set of target unit types.
@@ -139,7 +140,7 @@ function getWeaponDPS(world, unitType, alliance, enemyUnitTypes) {
  * @returns {boolean} - True if unit has potential for combat, otherwise false.
  */
 function potentialCombatants(unit) {
-  return unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && !unit.isHarvesting());
+  return unit.isCombatUnit() || unit.unitType === UnitType.QUEEN || (unit.isWorker() && !isHarvesting(unit));
 }
 
 module.exports = {

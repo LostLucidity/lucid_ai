@@ -25,7 +25,9 @@ function checkTechRequirement(resources, techRequirement, unit) {
  * @returns {{ count: number; mineralContents: number | undefined; mineralFieldTag: string | undefined; targetedCount: number; }[]}
  */
 function getMineralFieldAssignments(units, mineralFields) {
-  const harvestingMineralWorkers = units.getWorkers().filter(worker => worker.isHarvesting('minerals'));
+  const harvestingMineralWorkers = units.getWorkers().filter(worker =>
+    worker.isGathering('minerals') || worker.isReturning()
+  );
   return mineralFields.map(mineralField => {
     const targetMineralFieldWorkers = harvestingMineralWorkers.filter(worker => {
       const assignedMineralField = worker.labels.get('mineralField');
