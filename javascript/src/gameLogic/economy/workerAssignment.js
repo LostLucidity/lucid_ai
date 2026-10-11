@@ -15,6 +15,7 @@ const { getClosestUnitFromUnit, getClosestExpansion } = require("../../features/
 const { isPendingConstructing } = require("../../features/shared/workerCommonUtils");
 const { getPendingOrders } = require("../../services/sharedServices");
 const { setPendingOrders } = require("../../units/management/unitOrders");
+const { setActionProvenance } = require("../../utils/actionProvenance");
 const { findClosestMineralField } = require("../../utils/coreUtils");
 const { getNeediestMineralField, getMineralFieldAssignments } = require("../../utils/resourceUtils");
 const { findEnemyUnitsNear } = require("../../utils/scoutingUtils");
@@ -86,7 +87,13 @@ function assignWorkerToMineralField(units, worker, townhall, resources, collecte
   if (mineralFieldTarget) {
     worker.labels.set('mineralField', mineralFieldTarget);
     mineralFieldTarget.labels.set('workerCount', (mineralFieldTarget.labels.get('workerCount') || 0) + 1);
-    const unitCommands = gather(resources, worker, mineralFieldTarget, false);
+    const unitCommands = gather(
+      resources,
+      worker,
+      mineralFieldTarget,
+      false,
+      "workerAssignment.assignWorkerToMineralField"
+    );
     collectedActions.push(...unitCommands);
     unitCommands.forEach(unitCommand => setPendingOrders(worker, unitCommand));
     if (typeof worker.tag === 'number') {
@@ -354,7 +361,13 @@ function assignWorkerToField(worker, completedBases, map, units, resources) {
       const gatheringOrder = findGatheringOrder(units, worker);
       if (gatheringOrder && gatheringOrder.targetUnitTag !== currentMineralField.tag) {
         if (currentMineralField.labels.get('workerCount') < 3) {
-          const unitCommands = gather(resources, worker, currentMineralField, false);
+          const unitCommands = gather(
+            resources,
+            worker,
+            currentMineralField,
+            false,
+            "workerAssignment.assignWorkerToField.currentAssignment"
+          );
           collectedActions.push(...unitCommands);
         } else {
           worker.labels.delete('mineralField');
@@ -369,7 +382,13 @@ function assignWorkerToField(worker, completedBases, map, units, resources) {
     // No previously assigned mineral field or the field is no longer valid
     const neediestMineralField = getNeediestMineralField(units, mineralFields);
     if (neediestMineralField) {
-      const unitCommands = gather(resources, worker, neediestMineralField, false);
+      const unitCommands = gather(
+        resources,
+        worker,
+        neediestMineralField,
+        false,
+        "workerAssignment.assignWorkerToField.neediestField"
+      );
       collectedActions.push(...unitCommands);
       worker.labels.set('mineralField', neediestMineralField);
       neediestMineralField.labels.set('workerCount', neediestMineralField.labels.get('workerCount') + 1);
@@ -451,9 +470,10 @@ function hasGatherOrderForTarget(worker, targetUnitTag) {
  * @param {Unit} worker - The worker unit to be assigned.
  * @param {Unit | null} mineralField - The mineral field to gather from, or null to pick the nearest one.
  * @param {boolean} queue - Whether or not to queue the action.
+ * @param {string} source - Local diagnostic source; never serialized into the SC2 action.
  * @returns {Array<SC2APIProtocol.ActionRawUnitCommand>} An array of actions for gathering.
  */
-function gather(resources, worker, mineralField, queue = false) {
+function gather(resources, worker, mineralField, queue = false, source = "workerAssignment.gather.unattributed") {
   /** @type {Array<SC2APIProtocol.ActionRawUnitCommand>} */
   const collectedActions = [];
   if (!worker.pos) { return collectedActions; }
@@ -484,6 +504,7 @@ function gather(resources, worker, mineralField, queue = false) {
 
     const sendToGather = createUnitCommand(SMART, [worker], queue);
     sendToGather.targetUnitTag = mineralField.tag;
+    setActionProvenance(sendToGather, source);
     collectedActions.push(sendToGather);
     setPendingOrders(worker, sendToGather);
   }
@@ -609,7 +630,13 @@ function reassignIdleWorkers(world) {
     idleWorkers.forEach(worker => {
       const closestMineralField = findClosestMineralField(worker, validMineralFields);
       if (closestMineralField) {
-        const gatherActions = gather(resources, worker, closestMineralField);
+        const gatherActions = gather(
+          resources,
+          worker,
+          closestMineralField,
+          false,
+          "workerAssignment.reassignIdleWorkers"
+        );
         actionsToReturn.push(...gatherActions);
       }
     });

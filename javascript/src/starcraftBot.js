@@ -22,6 +22,7 @@ const { createAgent, createEngine, createPlayer } = require('./runtime/nodeSc2Co
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
 const GameInitialization = require('./state/gameInitialization');
+const { getActionProvenance } = require('./utils/actionProvenance');
 const { findUnitPlacements } = require('./utils/spatial/spatialUtils');
 const { getDistance } = require('./utils/spatialCoreUtils');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
@@ -311,7 +312,13 @@ function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, act
       );
 
       nearbyProbes.forEach(probe => {
-        actionList.push(...gather(resources, probe, null, false));
+        actionList.push(...gather(
+          resources,
+          probe,
+          null,
+          false,
+          "starcraftBot.handleIdleProbesNearWarpingAssimilators"
+        ));
       });
     });
   }
@@ -409,7 +416,13 @@ function queueGatherOrdersForProbes(units, allUnits, resources, actionList) {
       if (probe.pos) { // Ensure probe.pos is defined
         const closestMineralPatch = units.getClosest(probe.pos, mineralFields, 1)[0];
         if (closestMineralPatch) {
-          actionList.push(...gather(resources, probe, closestMineralPatch, true));
+          actionList.push(...gather(
+            resources,
+            probe,
+            closestMineralPatch,
+            true,
+            "starcraftBot.queueGatherOrdersForProbes"
+          ));
         }
       }
     });
@@ -711,6 +724,7 @@ async function executeActions(world, actionCollection) {
             `Action ${index} failed with result: ${actionResultStrings[result]} \n` +
             `Unit: ${unitTypeName} (Tag: ${action.unitTags ? action.unitTags[0] : 'N/A'})\n` +
             `Command: ${abilityName}\n` +
+            `Source: ${getActionProvenance(action)}\n` +
             `Target: ${action.targetUnitTag ? 'Unit ' + action.targetUnitTag : action.targetWorldSpacePos ?
               `Position (${action.targetWorldSpacePos.x}, ${action.targetWorldSpacePos.y})` : 'No target'}`
           );
@@ -1139,4 +1153,5 @@ if (require.main === module) {
 
 module.exports = bot;
 module.exports.run = run;
+module.exports.executeActions = executeActions;
 module.exports.queueGatherOrdersForProbes = queueGatherOrdersForProbes;

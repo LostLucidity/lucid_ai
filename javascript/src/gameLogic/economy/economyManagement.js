@@ -106,7 +106,13 @@ const balanceResources = (world, targetRatio = 16 / 6, buildFunction) => {
     if (gatheringGasWorkers.length > 0) {
       const [donatingWorker] = units.getClosest(gasMine.pos, gatheringGasWorkers);
       if (donatingWorker) {
-        actionsToReturn.push(...gather(resources, donatingWorker, null, false));
+        actionsToReturn.push(...gather(
+          resources,
+          donatingWorker,
+          null,
+          false,
+          "economyManagement.moveWorkerToMinerals"
+        ));
       }
     }
   };
