@@ -1,7 +1,6 @@
 "use strict";
 
 // External library imports
-const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Upgrade, Ability, UnitType } = require('@node-sc2/core/constants');
 const { BUILD_ASSIMILATOR, EFFECT_CALLDOWNMULE, EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
 const { DisplayType } = require('@node-sc2/core/constants/enums');
@@ -19,6 +18,7 @@ const { trackBuildOrderProgress } = require('./gameLogic/buildOrders/buildOrderP
 const { startTrackingWorkerGathering, calculateGatheringTime } = require('./gameLogic/economy/gatheringManagement');
 const { gather, balanceWorkers, assignWorkersToMinerals } = require('./gameLogic/economy/workerAssignment');
 const { releaseWorkerFromBuilding, getWorkerReservedForPosition, getBuildTimeLeft } = require('./gameLogic/economy/workerService');
+const { createAgent, createEngine, createPlayer } = require('./runtime/nodeSc2Core');
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
 const GameInitialization = require('./state/gameInitialization');
@@ -1103,13 +1103,29 @@ const bot = createAgent({
 
 const engine = createEngine();
 
-engine.connect().then(() => {
-  return engine.runGame(config.defaultMap, [
-    createPlayer({ race: config.defaultRace }, bot),
-    createPlayer({ race: config.defaultRace, difficulty: config.defaultDifficulty }),
-  ]);
-}).catch(err => {
-  logger.logError('Error in connecting to the engine or starting the game:', err);
-});
+/**
+ * Connect to StarCraft II and run one local game with the configured map,
+ * race, and opponent difficulty.
+ * @returns {Promise<unknown>}
+ */
+async function run() {
+  try {
+    await engine.connect();
+    return await engine.runGame(config.defaultMap, [
+      createPlayer({ race: config.defaultRace }, bot),
+      createPlayer({ race: config.defaultRace, difficulty: config.defaultDifficulty }),
+    ]);
+  } catch (err) {
+    logger.logError('Error in connecting to the engine or starting the game:', err);
+    throw err;
+  }
+}
+
+if (require.main === module) {
+  run().catch(() => {
+    process.exitCode = 1;
+  });
+}
 
 module.exports = bot;
+module.exports.run = run;

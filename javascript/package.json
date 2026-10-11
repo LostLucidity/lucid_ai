@@ -27,10 +27,14 @@
     "webpack-cli": "^5.1.4"
   },
   "scripts": {
+    "start": "node main.js",
     "build": "pkg ./ --target win-x64 --out-path ./dist",
-    "lint": "eslint src/**/* --ext .js,.jsx",
+    "preflight:sc2-runtime": "node scripts/preflight-sc2-runtime-readiness.js",
+    "lint": "eslint main.js src scripts --ext .js,.jsx",
     "test": "jest",
-    "prepare": "npm run lint && npm test"
+    "smoke:entrypoint": "node scripts/validate-entrypoint.js",
+    "validate:offline": "npm run lint && npm test -- --runInBand && npm run smoke:entrypoint",
+    "prepare": "npm run validate:offline"
   },
   "author": "",
   "license": "ISC"
