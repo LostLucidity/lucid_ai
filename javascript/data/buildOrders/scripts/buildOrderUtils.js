@@ -17,6 +17,13 @@ const buildOrderCache = {};
 
 const CACHE_EXPIRATION_MS = 5 * 60 * 1000;
 const BUILD_ORDER_ROOT = path.join(__dirname, '..');
+const RACE_DIRECTORIES = ['protoss', 'terran', 'zerg'];
+const ACTION_TO_UNIT_KEY = Object.freeze({
+  'Lurker': 'LURKERMP',
+  'Lurker Den': 'LURKERDENMP',
+  'Swarm Host': 'SWARMHOSTMP',
+  'Templar Archives': 'TEMPLARARCHIVE',
+});
 
 /** @type {Record<string, string>} */
 let actionToUpgradeKey = {};
@@ -54,38 +61,64 @@ function determineRaceDirectory(raceMatchup) {
 }
 
 /**
- * Reads the scraped build order data and generates individual files,
- * overwriting existing files with updated content.
+ * Reads the canonical scraped build-order data and generates runtime files.
  * @param {string} dataFilePath - Path to the JSON file containing the scraped build order data.
+ * @param {string} [outputRoot=BUILD_ORDER_ROOT] - Directory that owns the race subdirectories.
+ * @returns {Promise<Record<string, number>>} Generated file counts by race.
  */
-async function generateBuildOrderFiles(dataFilePath) {
-  try {
-    // Parse the build orders from the file
-    /** @type {import("src/core/globalTypes").BuildOrder[]} */
-    const buildOrders = JSON.parse(await fs.readFile(dataFilePath, 'utf8'));
+async function generateBuildOrderFiles(dataFilePath, outputRoot = BUILD_ORDER_ROOT) {
+  await loadActionMappings();
 
-    for (const buildOrder of buildOrders) {
-      // Determine the directory based on the race matchup
-      const directory = determineRaceDirectory(buildOrder.raceMatchup);
+  /** @type {import("src/core/globalTypes").BuildOrder[]} */
+  const buildOrders = JSON.parse(await fs.readFile(dataFilePath, 'utf8'));
+  const resolvedOutputRoot = path.resolve(outputRoot);
+  const generatedFilesByRace = Object.fromEntries(
+    RACE_DIRECTORIES.map(directory => [directory, new Map()])
+  );
 
-      if (directory) {
-        // Construct the file path
-        const filePath = path.join(__dirname, directory, sanitizeFileName(buildOrder.title) + '.js');
+  for (const buildOrder of buildOrders) {
+    if (!buildOrder || typeof buildOrder.title !== 'string' || !Array.isArray(buildOrder.steps)) {
+      throw new Error('Build orders must include a title and steps array.');
+    }
 
-        // Generate the content for the file, ensuring the updated interpretBuildOrderAction is used
-        const fileContent = generateFileContent(buildOrder);
+    const directory = determineRaceDirectory(buildOrder.raceMatchup);
+    if (!directory) {
+      throw new Error(`Unsupported race matchup for build order: ${buildOrder.title}`);
+    }
 
-        // Write (or overwrite) the file with the new content
-        await fs.writeFile(filePath, fileContent);
+    const fileName = sanitizeFileName(buildOrder.title) + '.js';
+    const generatedFiles = generatedFilesByRace[directory];
+    if (generatedFiles.has(fileName)) {
+      throw new Error(`Build-order filename collision: ${directory}/${fileName}`);
+    }
+
+    generatedFiles.set(fileName, generateFileContent(buildOrder));
+  }
+
+  for (const directory of RACE_DIRECTORIES) {
+    const directoryPath = path.resolve(resolvedOutputRoot, directory);
+    if (!directoryPath.startsWith(resolvedOutputRoot + path.sep)) {
+      throw new Error(`Generated build-order path escapes output root: ${directoryPath}`);
+    }
+
+    await fs.mkdir(directoryPath, { recursive: true });
+    const generatedFiles = generatedFilesByRace[directory];
+
+    for (const [fileName, fileContent] of generatedFiles) {
+      await fs.writeFile(path.join(directoryPath, fileName), fileContent, 'utf8');
+    }
+
+    const existingFiles = await fs.readdir(directoryPath, { withFileTypes: true });
+    for (const existingFile of existingFiles) {
+      if (existingFile.isFile() && existingFile.name.endsWith('.js') && !generatedFiles.has(existingFile.name)) {
+        await fs.unlink(path.join(directoryPath, existingFile.name));
       }
     }
-  } catch (error) {
-    if (error instanceof Error) {
-      console.error(`Error generating build order files: ${error.message}`);
-    } else {
-      console.error('Unknown error generating build order files');
-    }
   }
+
+  return Object.fromEntries(
+    RACE_DIRECTORIES.map(directory => [directory, generatedFilesByRace[directory].size])
+  );
 }
 
 /**
@@ -94,10 +127,34 @@ async function generateBuildOrderFiles(dataFilePath) {
  * @returns {string} The string to be written to the file.
  */
 function generateFileContent(buildOrder) {
-  const steps = buildOrder.steps.map(step => ({
-    ...step,
-    interpretedAction: interpretBuildOrderAction(step.action, step.comment)
-  }));
+  const steps = buildOrder.steps.map((step, index) => {
+    if (!step || typeof step.action !== 'string' || !step.action.trim()) {
+      throw new Error(`Build order "${buildOrder.title}" has no action at step ${index}.`);
+    }
+
+    const actionParts = step.action.split(',').map(action => action.trim()).filter(Boolean);
+    const hasCanonicalInterpretation = Object.prototype.hasOwnProperty.call(step, 'interpretedAction');
+    if (hasCanonicalInterpretation && !Array.isArray(step.interpretedAction)) {
+      throw new Error(`Build order "${buildOrder.title}" has an invalid canonical interpretation at step ${index}: ${step.action}`);
+    }
+    const interpretedAction = hasCanonicalInterpretation
+      ? step.interpretedAction
+      : interpretBuildOrderAction(step.action, step.comment);
+    const unresolvedActions = interpretedAction.filter(action =>
+      action.unitType === null && action.upgradeType === null && action.specialAction === null
+    );
+    if (interpretedAction.length !== actionParts.length) {
+      throw new Error(`Build order "${buildOrder.title}" has an invalid canonical interpretation at step ${index}: ${step.action}`);
+    }
+    if (!hasCanonicalInterpretation && unresolvedActions.length > 0) {
+      throw new Error(`Build order "${buildOrder.title}" has an unresolved action at step ${index}: ${step.action}`);
+    }
+
+    return {
+      ...step,
+      interpretedAction,
+    };
+  });
   return `module.exports = ${JSON.stringify({ ...buildOrder, steps }, null, 2)};\n`;
 }
 
@@ -180,8 +237,11 @@ function processAction(actionPart, comment = '') {
     const upgradeKey = actionToUpgradeKey[cleanedAction] || null;
     if (upgradeKey && Upgrade[upgradeKey]) {
       upgradeType = Upgrade[upgradeKey];
-    } else if (UnitType[formattedAction]) {
-      unitType = UnitType[formattedAction];
+    } else {
+      const unitKey = ACTION_TO_UNIT_KEY[cleanedAction] || formattedAction;
+      if (UnitType[unitKey]) {
+        unitType = UnitType[unitKey];
+      }
     }
   }
 
@@ -346,5 +406,7 @@ module.exports = {
   isStepInProgress,
   generateBuildOrderFiles,
   loadBuildOrdersFromDirectory,
-  buildOrderCache
+  buildOrderCache,
+  determineRaceDirectory,
+  sanitizeFileName,
 };
