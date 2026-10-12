@@ -11,13 +11,14 @@ const buildOrderStore = {
 
 /**
  * Loads all build orders.
+ * @param {string} [buildOrderRoot] Optional runtime asset root.
  * @returns {Promise<import('src/core/globalTypes').BuildOrders>}
  */
-async function loadAllBuildOrders() {
+async function loadAllBuildOrders(buildOrderRoot) {
   const [protossBuildOrders, terranBuildOrders, zergBuildOrders] = await Promise.all([
-    loadBuildOrdersFromDirectory('protoss'),
-    loadBuildOrdersFromDirectory('terran'),
-    loadBuildOrdersFromDirectory('zerg')
+    loadBuildOrdersFromDirectory('protoss', buildOrderRoot),
+    loadBuildOrdersFromDirectory('terran', buildOrderRoot),
+    loadBuildOrdersFromDirectory('zerg', buildOrderRoot)
   ]);
 
   buildOrderStore.buildOrders = {

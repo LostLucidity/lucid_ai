@@ -16,6 +16,7 @@ const { getBasicProductionUnits } = require("../../../src/units/management/basic
 const buildOrderCache = {};
 
 const CACHE_EXPIRATION_MS = 5 * 60 * 1000;
+const BUILD_ORDER_ROOT = path.join(__dirname, '..');
 
 /** @type {Record<string, string>} */
 let actionToUpgradeKey = {};
@@ -292,16 +293,18 @@ function isUnitTypeInProgress(world, units, unitType, data) {
 /**
  * Loads build orders from a specified directory with cache invalidation.
  * @param {string} directoryName - Name of the directory (e.g., 'protoss', 'terran', 'zerg').
+ * @param {string} [buildOrderRoot] Optional runtime asset root; caches are isolated by resolved directory.
  * @returns {Promise<import('src/core/globalTypes').RaceBuildOrders>} Build orders loaded from the directory.
  */
-async function loadBuildOrdersFromDirectory(directoryName) {
+async function loadBuildOrdersFromDirectory(directoryName, buildOrderRoot = BUILD_ORDER_ROOT) {
   const now = Date.now();
+  const directoryPath = path.resolve(buildOrderRoot, directoryName);
+  const cacheKey = directoryPath;
 
-  if (buildOrderCache[directoryName] && (now - buildOrderCache[directoryName].timestamp < CACHE_EXPIRATION_MS)) {
-    return buildOrderCache[directoryName].data;
+  if (buildOrderCache[cacheKey] && (now - buildOrderCache[cacheKey].timestamp < CACHE_EXPIRATION_MS)) {
+    return buildOrderCache[cacheKey].data;
   }
 
-  const directoryPath = path.join(__dirname, '..', directoryName);
   const buildOrderFiles = await fs.readdir(directoryPath, { withFileTypes: true });
 
   /** @type {import('src/core/globalTypes').RaceBuildOrders} */
@@ -322,7 +325,7 @@ async function loadBuildOrdersFromDirectory(directoryName) {
     }
   }
 
-  buildOrderCache[directoryName] = { data: buildOrders, timestamp: now };
+  buildOrderCache[cacheKey] = { data: buildOrders, timestamp: now };
 
   return buildOrders;
 }
