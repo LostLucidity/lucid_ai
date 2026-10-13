@@ -24,8 +24,8 @@ test('caps the next step at the boundary and blocks subsequent actions and steps
   f.setLoop(4702);
   await f.client.step({ count: 4 });
   expect(step).toHaveBeenCalledWith({ count: 2 });
-  await f.client.action({ actions: [] });
-  await f.client.step({ count: 4 });
+  await expect(f.client.action({ actions: [] })).rejects.toMatchObject({ code: 'SC2_SMOKE_STOPPED' });
+  await expect(f.client.step({ count: 4 })).rejects.toMatchObject({ code: 'SC2_SMOKE_STOPPED' });
   await f.engine.runLoop();
   expect(action).not.toHaveBeenCalled();
   expect(step).toHaveBeenCalledTimes(1);
@@ -64,7 +64,7 @@ test('passes through permitted operations and restores original methods', async 
   expect(await f.client.action({})).toEqual({ result: [1] });
   expect(await f.engine.runLoop()).toBe('continued');
   expect(control.receipt).toBeNull();
-  control.restore();
+  await control.restore();
   expect(f.client.step).toBe(original.step);
   expect(f.client.action).toBe(original.action);
   expect(f.engine.runLoop).toBe(original.runLoop);

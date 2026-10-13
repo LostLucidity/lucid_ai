@@ -1156,7 +1156,7 @@ async function run() {
     if (smokeController) {
       if (!smokeController.receipt) smokeController.stop('game_ended');
       if (smokeController.receipt.shutdownError || (smokeController.receipt.reason !== 'game_time_limit' && smokeController.receipt.reason !== 'game_ended')) process.exitCode = 1;
-      smokeController.restore();
+      await smokeController.restore();
       smokeController = null;
     }
   }
