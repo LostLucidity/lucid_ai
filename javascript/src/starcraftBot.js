@@ -19,6 +19,7 @@ const { startTrackingWorkerGathering, calculateGatheringTime } = require('./game
 const { gather, balanceWorkers, assignWorkersToMinerals } = require('./gameLogic/economy/workerAssignment');
 const { releaseWorkerFromBuilding, getWorkerReservedForPosition, getBuildTimeLeft } = require('./gameLogic/economy/workerService');
 const { createAgent, createEngine, createPlayer } = require('./runtime/nodeSc2Core');
+const { installSmokeController } = require('./runtime/smokeController');
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
 const GameInitialization = require('./state/gameInitialization');
@@ -30,6 +31,7 @@ const config = require('../config/config');
 const { createUnitTypeTrainingAbilitiesMap } = require('../config/unitTypeTrainingAbilities');
 const { createUpgradeAbilitiesMap } = require('../config/upgradeAbilities');
 const { loadActionMappings } = require('../data/buildOrders/scripts/buildOrderUtils');
+let smokeController = null;
 
 /**
  * @typedef {Object} CacheManager
@@ -737,6 +739,7 @@ async function executeActions(world, actionCollection) {
     clearAllPendingOrders(resources.units.getAll());
   } catch (error) {
     console.error('Error sending actions in onStep:', error);
+    if (smokeController) smokeController.stop('action_error', error.message);
   }
 }
 
@@ -1068,10 +1071,12 @@ const bot = createAgent({
 
     } catch (error) {
       console.error('Error during onGameStart:', error);
+      if (smokeController) smokeController.stop('startup_error', error.message);
     }
   },
 
   onStep: async (world) => {
+    if (smokeController && !smokeController.beforeActions()) return;
     try {
       const { frame, units, map } = world.resources.get();
       const resources = world.resources;
@@ -1091,6 +1096,7 @@ const bot = createAgent({
       await executeGameActions(world, actionList);
     } catch (error) {
       console.error('Error during game step:', error);
+      if (smokeController) smokeController.stop('step_error', error.message);
     }
   },
 
@@ -1133,6 +1139,8 @@ const engine = createEngine();
  * @returns {Promise<unknown>}
  */
 async function run() {
+  const smokeSeconds = process.env.SC2_SMOKE_SECONDS;
+  if (smokeSeconds !== undefined) smokeController = installSmokeController(engine, smokeSeconds);
   try {
     await engine.connect();
     return await engine.runGame(config.defaultMap, [
@@ -1140,8 +1148,17 @@ async function run() {
       createPlayer({ race: config.defaultRace, difficulty: config.defaultDifficulty }),
     ]);
   } catch (err) {
+    if (smokeController && smokeController.receipt) return smokeController.receipt;
+    if (smokeController) smokeController.stop('runtime_error', err.message);
     logger.logError('Error in connecting to the engine or starting the game:', err);
     throw err;
+  } finally {
+    if (smokeController) {
+      if (!smokeController.receipt) smokeController.stop('game_ended');
+      if (smokeController.receipt.shutdownError || (smokeController.receipt.reason !== 'game_time_limit' && smokeController.receipt.reason !== 'game_ended')) process.exitCode = 1;
+      smokeController.restore();
+      smokeController = null;
+    }
   }
 }
 
