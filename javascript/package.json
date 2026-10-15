@@ -39,6 +39,7 @@
     "build-orders:propose-count-semantics": "node scripts/propose-build-order-count-semantics.js",
     "build-orders:propose-multi-action-semantics": "node scripts/propose-build-order-multi-action-semantics.js",
     "build-orders:propose-strategic-semantics": "node scripts/propose-build-order-strategic-semantics.js",
+    "build-orders:semantic-repair-ledger": "node scripts/build-build-order-semantic-repair-ledger.js",
     "build-orders:verify-runtime-assets": "node scripts/verify-runtime-build-order-assets.js",
     "build-orders:verify-runtime-loadability": "node scripts/verify-runtime-build-order-loadability.js",
     "build-orders:verify-runtime-public-loader": "node scripts/verify-runtime-build-order-public-loader.js",
