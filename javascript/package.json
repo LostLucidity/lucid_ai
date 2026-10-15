@@ -35,6 +35,7 @@
     "build-orders:verify-commentary-patches": "node scripts/verify-build-order-commentary-patches.js",
     "build-orders:screen-suffix-semantics": "node scripts/screen-build-order-suffix-semantics.js",
     "build-orders:propose-condition-semantics": "node scripts/propose-build-order-condition-semantics.js",
+    "build-orders:propose-location-semantics": "node scripts/propose-build-order-location-semantics.js",
     "build-orders:verify-runtime-assets": "node scripts/verify-runtime-build-order-assets.js",
     "build-orders:verify-runtime-loadability": "node scripts/verify-runtime-build-order-loadability.js",
     "build-orders:verify-runtime-public-loader": "node scripts/verify-runtime-build-order-public-loader.js",
