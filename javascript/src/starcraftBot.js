@@ -20,6 +20,7 @@ const { gather, balanceWorkers, assignWorkersToMinerals } = require('./gameLogic
 const { releaseWorkerFromBuilding, getWorkerReservedForPosition, getBuildTimeLeft } = require('./gameLogic/economy/workerService');
 const { createAgent, createEngine, createPlayer } = require('./runtime/nodeSc2Core');
 const { installSmokeController } = require('./runtime/smokeController');
+const { createSmokeLaunch } = require('./runtime/smokeLaunch');
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
 const GameInitialization = require('./state/gameInitialization');
@@ -32,6 +33,7 @@ const { createUnitTypeTrainingAbilitiesMap } = require('../config/unitTypeTraini
 const { createUpgradeAbilitiesMap } = require('../config/upgradeAbilities');
 const { loadActionMappings } = require('../data/buildOrders/scripts/buildOrderUtils');
 let smokeController = null;
+let smokeLaunch = null;
 
 /**
  * @typedef {Object} CacheManager
@@ -1131,7 +1133,7 @@ const bot = createAgent({
   }
 });
 
-const engine = createEngine();
+const engine = process.env.SC2_SMOKE_SECONDS === undefined ? createEngine() : createEngine({ launch: false });
 
 /**
  * Connect to StarCraft II and run one local game with the configured map,
@@ -1140,8 +1142,12 @@ const engine = createEngine();
  */
 async function run() {
   const smokeSeconds = process.env.SC2_SMOKE_SECONDS;
-  if (smokeSeconds !== undefined) smokeController = installSmokeController(engine, smokeSeconds);
+  if (smokeSeconds !== undefined) {
+    smokeController = installSmokeController(engine, smokeSeconds);
+    smokeLaunch = createSmokeLaunch(engine);
+  }
   try {
+    if (smokeLaunch) await smokeLaunch.launch();
     await engine.connect();
     return await engine.runGame(config.defaultMap, [
       createPlayer({ race: config.defaultRace }, bot),
@@ -1154,10 +1160,21 @@ async function run() {
     throw err;
   } finally {
     if (smokeController) {
-      if (!smokeController.receipt) smokeController.stop('game_ended');
-      if (smokeController.receipt.shutdownError || (smokeController.receipt.reason !== 'game_time_limit' && smokeController.receipt.reason !== 'game_ended')) process.exitCode = 1;
-      await smokeController.restore();
+      const controller = smokeController;
+      if (!controller.receipt) controller.stop('game_ended');
+      if (controller.receipt.shutdownError || (controller.receipt.reason !== 'game_time_limit' && controller.receipt.reason !== 'game_ended')) process.exitCode = 1;
+      await controller.restore();
       smokeController = null;
+    }
+    if (smokeLaunch) {
+      try {
+        const cleanup = await smokeLaunch.cleanup();
+        if (cleanup) logger.logMessage(`Smoke SC2 child ${cleanup.pid} ${cleanup.disposition}.`, 1);
+      } catch (error) {
+        process.exitCode = 1;
+        logger.logError('Unable to clean up the owned smoke SC2 child:', error);
+      }
+      smokeLaunch = null;
     }
   }
 }

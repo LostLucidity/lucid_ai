@@ -9,6 +9,10 @@ function serializeError(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function readinessExitCode(report, requireReady = false) {
+  return requireReady && !report.summary.ready ? 2 : 0;
+}
+
 async function preflightSc2RuntimeReadiness(
   processFinder = findProcess,
   enginePort = DEFAULT_ENGINE_PORT,
@@ -48,12 +52,16 @@ async function preflightSc2RuntimeReadiness(
 }
 
 if (require.main === module) {
+  const requireReady = process.argv.includes("--require-ready");
   preflightSc2RuntimeReadiness()
-    .then(report => process.stdout.write(`${JSON.stringify(report, null, 2)}\n`))
+    .then(report => {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      process.exitCode = readinessExitCode(report, requireReady);
+    })
     .catch(error => {
       console.error(`SC2 runtime readiness preflight failed: ${serializeError(error)}`);
       process.exitCode = 1;
     });
 }
 
-module.exports = { preflightSc2RuntimeReadiness };
+module.exports = { preflightSc2RuntimeReadiness, readinessExitCode };

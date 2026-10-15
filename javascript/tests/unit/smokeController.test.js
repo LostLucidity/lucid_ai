@@ -9,6 +9,7 @@ function fixture() {
   const engine = {
     getWorld: () => ({ resources: { get: () => ({ frame: { getGameLoop: () => loop }, actions: { _client: client } }) } }),
     shutdown: jest.fn(),
+    launcher: jest.fn(async () => ({ pid: 1234, exitCode: 0, signalCode: null, kill: jest.fn() })),
     runLoop: jest.fn(async () => 'continued'),
   };
   return { client, engine, setLoop: value => { loop = value; } };

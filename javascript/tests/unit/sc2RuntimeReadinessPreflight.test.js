@@ -1,5 +1,6 @@
 const {
   preflightSc2RuntimeReadiness,
+  readinessExitCode,
 } = require("../../scripts/preflight-sc2-runtime-readiness");
 
 describe("SC2 runtime readiness preflight", () => {
@@ -24,6 +25,7 @@ describe("SC2 runtime readiness preflight", () => {
       ["name", "SC2_x64.exe", true],
       ["port", 5000],
     ]);
+    expect(readinessExitCode(report, true)).toBe(0);
   });
 
   it("blocks when SC2 is running or the engine port is occupied", async () => {
@@ -37,6 +39,8 @@ describe("SC2 runtime readiness preflight", () => {
     expect(report.summary.ready).toBe(false);
     expect(report.sc2Processes).toEqual([{ name: "SC2_x64.exe", pid: 1234 }]);
     expect(report.portListeners).toEqual([{ pid: 5678 }]);
+    expect(readinessExitCode(report)).toBe(0);
+    expect(readinessExitCode(report, true)).toBe(2);
   });
 
   it("fails closed when process inspection is unavailable", async () => {
@@ -52,5 +56,6 @@ describe("SC2 runtime readiness preflight", () => {
     expect(report.errors).toEqual([
       { check: "sc2_process", error: "tasklist unavailable" },
     ]);
+    expect(readinessExitCode(report, true)).toBe(2);
   });
 });

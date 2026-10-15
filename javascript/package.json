@@ -32,6 +32,7 @@
     "build-orders:verify-runtime-assets": "node scripts/verify-runtime-build-order-assets.js",
     "build-orders:verify-runtime-public-loader": "node scripts/verify-runtime-build-order-public-loader.js",
     "preflight:sc2-runtime": "node scripts/preflight-sc2-runtime-readiness.js",
+    "preflight:sc2-runtime:require-ready": "node scripts/preflight-sc2-runtime-readiness.js --require-ready",
     "build-orders:generate": "node scripts/generate-build-orders.js",
     "lint": "eslint main.js src scripts --ext .js,.jsx",
     "test": "jest",
