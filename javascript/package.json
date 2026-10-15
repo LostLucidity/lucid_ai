@@ -30,6 +30,7 @@
     "start": "node main.js",
     "build": "pkg ./ --target win-x64 --out-path ./dist",
     "build-orders:audit": "node scripts/audit-build-order-actions.js",
+    "build-orders:propose": "node scripts/propose-build-order-action-repairs.js",
     "build-orders:verify-runtime-assets": "node scripts/verify-runtime-build-order-assets.js",
     "build-orders:verify-runtime-loadability": "node scripts/verify-runtime-build-order-loadability.js",
     "build-orders:verify-runtime-public-loader": "node scripts/verify-runtime-build-order-public-loader.js",
