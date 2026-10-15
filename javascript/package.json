@@ -29,6 +29,7 @@
   "scripts": {
     "start": "node main.js",
     "build": "pkg ./ --target win-x64 --out-path ./dist",
+    "build-orders:audit": "node scripts/audit-build-order-actions.js",
     "build-orders:verify-runtime-assets": "node scripts/verify-runtime-build-order-assets.js",
     "build-orders:verify-runtime-public-loader": "node scripts/verify-runtime-build-order-public-loader.js",
     "preflight:sc2-runtime": "node scripts/preflight-sc2-runtime-readiness.js",
