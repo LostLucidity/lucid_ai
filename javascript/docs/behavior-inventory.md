@@ -2,9 +2,9 @@
 
 ## Evidence scale
 
-- **Offline verified:** exercised by lint, 13 unit tests, or the engine-stubbed real-entrypoint smoke.
+- **Offline verified:** exercised by lint, the current offline suite (36 suites / 154 tests), or the engine-stubbed real-entrypoint smoke.
 - **Static trace:** reachable or inspectable in the active source graph, but not directly exercised by a focused test.
-- **Live unverified:** no SC2 match was launched in this restoration task.
+- **Live unverified:** not established by the bounded SC2 smoke evidence documented in the restoration runbook; no current live retry is authorized.
 
 The categories below intentionally separate ideas from implementation authority. No legacy code has been copied into the learning bot.
 
