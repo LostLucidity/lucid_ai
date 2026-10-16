@@ -50,15 +50,15 @@ describe("build-order suffix semantic-loss screen", () => {
     );
   });
 
-  it("permits only an explicitly narrative-only suffix through the future apply gate", () => {
+  it("withholds a narrative-looking suffix from canonical application", () => {
     expect(classifySemanticLoss({
-      sourceRow: { sourceAction: "Pylon note only" },
-      commentary: { sourceSuffix: "note only" },
+      sourceRow: { sourceAction: "Pylon note do not build" },
+      commentary: { sourceSuffix: "note do not build" },
     })).toEqual({
-      classification: "narrative_only",
+      classification: "unclassified_semantic",
       signals: [],
-      eligibleForCanonicalApply: true,
-      rationale: "Suffix matches the narrowly defined narrative-only allowlist.",
+      eligibleForCanonicalApply: false,
+      rationale: "Suffix carries or may carry runtime semantics; preserve it for manual handling.",
     });
   });
 });

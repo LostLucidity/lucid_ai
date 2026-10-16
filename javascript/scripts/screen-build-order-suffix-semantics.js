@@ -8,7 +8,6 @@ const LOCATION_PATTERN = /\b(?:natural|main|base|enemy|inside)\b/i;
 const COUNT_PATTERN = /\b\d+\b|\bmax\b|\bratio\b/i;
 const CONDITION_PATTERN = /\b(?:if|when|until|after|before|si|cuando|ya)\b/i;
 const STRATEGY_PATTERN = /\b(?:attack|kill|speed|tech|saturar|gases|lings|hydras|mejor|tuneles|rally|spam)\b/i;
-const NARRATIVE_ONLY_PATTERN = /^(?:note|reminder|flavor)\b/i;
 
 function classifySemanticLoss(patch) {
   const suffix = patch.commentary.sourceSuffix;
@@ -32,17 +31,13 @@ function classifySemanticLoss(patch) {
     classification = "condition";
   } else if (signals.includes("strategic_instruction")) {
     classification = "strategic_instruction";
-  } else if (NARRATIVE_ONLY_PATTERN.test(suffix)) {
-    classification = "narrative_only";
   }
 
   return {
     classification,
     signals,
-    eligibleForCanonicalApply: classification === "narrative_only",
-    rationale: classification === "narrative_only"
-      ? "Suffix matches the narrowly defined narrative-only allowlist."
-      : "Suffix carries or may carry runtime semantics; preserve it for manual handling.",
+    eligibleForCanonicalApply: false,
+    rationale: "Suffix carries or may carry runtime semantics; preserve it for manual handling.",
   };
 }
 
