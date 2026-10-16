@@ -39,7 +39,7 @@ The categories below intentionally separate ideas from implementation authority.
 - **Proposed action:** implement an original learning-bot reconciler whose state is `not_started`, `reserved`, `issued`, `observed`, `complete`, or `withheld` for every plan item.
 - **Safety/withholding:** reject malformed build orders; withhold when race data is missing, placement/pathing fails, tech/resources are unavailable, or a matching current/pending order already exists.
 - **Legacy evidence:** `src/features/strategy/strategyManager.js` — `initializeStrategy`, `loadStrategy`, `runPlan`; `src/gameLogic/buildOrders/buildOrderProgress.js` — `trackBuildOrderProgress`; `src/features/construction/buildingPlacement.js` — `BuildingPlacement`; `src/features/construction/buildingService.js` — `build`; `src/features/construction/wallOffPlacementService.js` — `WallOffPlacementService`.
-- **Validation and limitations:** strategy initialization/loading and action interpretation are covered by 10 unit tests across three suites; placement/reconciliation is static-trace and live unverified.
+- **Validation and limitations:** strategy initialization/loading and action interpretation are covered by 11 unit tests across three suites; placement/reconciliation is static-trace and live unverified.
 - **Learning-bot opportunity:** deterministic plan state can bound the learned policy to timing/selection choices while making duplicate-build failures directly measurable.
 
 ### O2 — Worker reservation plus rally handoff (priority P0)
