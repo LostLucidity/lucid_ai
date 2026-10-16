@@ -29,7 +29,6 @@ const mockUnit = {
   isHolding: () => false,
   isGathering: () => false,
   isReturning: () => false,
-  isHarvesting: () => false,
   hasNoLabels: () => true,
   blink: jest.fn(),
   toggle: jest.fn(),
