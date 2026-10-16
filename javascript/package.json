@@ -41,6 +41,7 @@
     "build-orders:propose-strategic-semantics": "node scripts/propose-build-order-strategic-semantics.js",
     "build-orders:semantic-repair-ledger": "node scripts/build-build-order-semantic-repair-ledger.js",
     "build-orders:source-owner-confirmations": "node scripts/build-build-order-source-owner-confirmations.js",
+    "build-orders:propose-condition-field-design": "node scripts/propose-build-order-condition-field-design.js",
     "build-orders:verify-runtime-assets": "node scripts/verify-runtime-build-order-assets.js",
     "build-orders:verify-runtime-loadability": "node scripts/verify-runtime-build-order-loadability.js",
     "build-orders:verify-runtime-public-loader": "node scripts/verify-runtime-build-order-public-loader.js",
