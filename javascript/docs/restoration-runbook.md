@@ -96,6 +96,7 @@ That authorization is consumed by the first invocation. A retry, changed command
 3. Ports 5500/5501 and 5600-5604 remain reserved for the learning-bot workflow; this bot uses the node-sc2 default port 5000 only.
 4. `npm run validate:offline` passes immediately before launch.
 5. `npm run preflight:sc2-runtime:require-ready` passes. It emits the native JSON report and exits nonzero unless `summary.ready === true`.
+   Run this preflight from the user-owned host boundary that can execute `tasklist`; a sandboxed process view may return `Access denied` and must be treated as `indeterminate`, not as a clean readiness result.
 
 ### One-run command
 
