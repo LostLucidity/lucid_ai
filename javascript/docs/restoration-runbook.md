@@ -108,6 +108,7 @@ $env:DEFAULT_RACE = 'PROTOSS'
 $env:DEBUG_BUILD_ORDER_KEY = '2_bases_chargelot_sentry_and_immortal'
 $env:SC2_SMOKE_SECONDS = '210'
 npm run preflight:sc2-runtime:require-ready
+if ($LASTEXITCODE -ne 0) { throw 'SC2 runtime readiness preflight did not pass; smoke launch is blocked.' }
 npm start
 ```
 
