@@ -63,6 +63,11 @@ npm ci
 npm run validate:offline
 ```
 
+`npm ci` runs the package `prepare` lifecycle, which reconstructs the ignored
+Protoss, Terran, and Zerg runtime asset directories from the tracked canonical
+source before offline validation. Run `npm run prepare:runtime-assets` to
+reconstruct and verify those assets without reinstalling dependencies.
+
 `validate:offline` performs:
 
 1. JavaScript lint over the launcher, active `src` tree, and validation scripts.

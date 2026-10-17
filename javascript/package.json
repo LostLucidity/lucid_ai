@@ -48,11 +48,12 @@
     "preflight:sc2-runtime": "node scripts/preflight-sc2-runtime-readiness.js",
     "preflight:sc2-runtime:require-ready": "node scripts/preflight-sc2-runtime-readiness.js --require-ready",
     "build-orders:generate": "node scripts/generate-build-orders.js",
+    "prepare:runtime-assets": "node scripts/prepare-runtime-build-orders.js",
     "lint": "eslint main.js src scripts --ext .js,.jsx",
     "test": "jest",
     "smoke:entrypoint": "node scripts/validate-entrypoint.js",
     "validate:offline": "npm run lint && npm test -- --runInBand && npm run smoke:entrypoint",
-    "prepare": "npm run validate:offline"
+    "prepare": "npm run prepare:runtime-assets && npm run validate:offline"
   },
   "author": "",
   "license": "ISC"
