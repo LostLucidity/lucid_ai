@@ -8,7 +8,7 @@ const { ASSIMILATOR, PROBE, ORBITALCOMMAND, NEXUS } = require('@node-sc2/core/co
 const { performance } = require('perf_hooks');
 
 // Internal module imports
-const { resetNoFreeGeysersLogFlag, lastLoggedUnitType, resetNoValidPositionLogFlag } = require('./core/buildingUtils');
+const { getPowerPlacementDeferrals, getPowerPlacementDeferralsByStep, resetNoFreeGeysersLogFlag, lastLoggedUnitType, resetNoValidPositionLogFlag, resetPowerPlacementDeferrals } = require('./core/buildingUtils');
 const cacheManager = require('./core/cache');
 const logger = require('./core/logger');
 const ActionCollector = require('./features/actions/actionCollector');
@@ -25,7 +25,7 @@ const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
 const GameInitialization = require('./state/gameInitialization');
 const { getActionProvenance } = require('./utils/actionProvenance');
-const { findUnitPlacements } = require('./utils/spatial/spatialUtils');
+const { findUnitPlacements, getPlacementCandidateTelemetry, resetPlacementCandidateTelemetry } = require('./utils/spatial/spatialUtils');
 const { getDistance } = require('./utils/spatialCoreUtils');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
 const config = require('../config/config');
@@ -1143,7 +1143,13 @@ const engine = process.env.SC2_SMOKE_SECONDS === undefined ? createEngine() : cr
 async function run() {
   const smokeSeconds = process.env.SC2_SMOKE_SECONDS;
   if (smokeSeconds !== undefined) {
-    smokeController = installSmokeController(engine, smokeSeconds);
+    resetPowerPlacementDeferrals();
+    resetPlacementCandidateTelemetry();
+    smokeController = installSmokeController(engine, smokeSeconds, console.log, () => ({
+      placementCandidateTelemetry: getPlacementCandidateTelemetry(),
+      powerPlacementDeferrals: getPowerPlacementDeferrals(),
+      powerPlacementDeferralsByStep: getPowerPlacementDeferralsByStep(),
+    }));
     smokeLaunch = createSmokeLaunch(engine);
   }
   try {

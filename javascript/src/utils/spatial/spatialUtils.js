@@ -17,7 +17,7 @@ const { isPlaceableAtGasGeyser } = require("../../core/buildingUtils");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { getCurrentlyEnrouteConstructionGrids } = require("../../features/construction/constructionDataUtils");
 const { getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../../features/pathfinding/pathfinding");
-const { isStructurePowered, requiresPylonPower } = require("../../features/shared/protossUtils");
+const { getProjectedPylonPowerSources, isStructurePowered, requiresPylonPower } = require("../../features/shared/protossUtils");
 const { getTimeInSeconds } = require("../../features/shared/timeUtils");
 const StrategyContext = require("../../features/strategy/strategyContext");
 const { getBuildTimeLeft } = require("../../gameLogic/economy/workerService");
@@ -36,6 +36,35 @@ const { getDistance } = require("../spatialCoreUtils");
  * Cache for cellsInFootprint function
  */
 const footprintCellsCache = new Map();
+let placementCandidateTelemetry = {};
+
+function getPlacementCandidateTelemetry() {
+  return Object.fromEntries(Object.entries(placementCandidateTelemetry).map(([unitType, telemetry]) => [
+    unitType,
+    { ...telemetry, rejections: { ...telemetry.rejections } },
+  ]));
+}
+
+function resetPlacementCandidateTelemetry() {
+  placementCandidateTelemetry = {};
+}
+
+function recordPlacementCandidateTelemetry(unitType, inputCandidates, acceptedCandidates, rejections) {
+  const unitTypeName = Object.keys(UnitType).find(type => UnitType[type] === unitType) || String(unitType);
+  const telemetry = placementCandidateTelemetry[unitTypeName] || {
+    attempts: 0,
+    inputCandidates: 0,
+    acceptedCandidates: 0,
+    rejections: {},
+  };
+  telemetry.attempts += 1;
+  telemetry.inputCandidates += inputCandidates;
+  telemetry.acceptedCandidates += acceptedCandidates;
+  for (const [reason, count] of Object.entries(rejections)) {
+    telemetry.rejections[reason] = (telemetry.rejections[reason] || 0) + count;
+  }
+  placementCandidateTelemetry[unitTypeName] = telemetry;
+}
 
 /**
  * @param {Point2D[]} points
@@ -77,9 +106,15 @@ function getCachedFootprintCells(point, footprint, shouldCache = true) {
  */
 function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTownhall) {
   const { PYLON, FORGE } = UnitType;
-  const { resources } = world;
+  const { agent, resources } = world;
   const { map: gameMap, units } = resources.get();
   const main = gameMap.getExpansions()[0];
+  const plannedPylonPositions = BuildingPlacement.getPlannedPylonPositions();
+  const needsPylonPower = requiresPylonPower(unitType, world);
+  const powerSources = needsPylonPower
+    ? getProjectedPylonPowerSources(agent.powerSources, units.getById(PYLON), plannedPylonPositions)
+    : [];
+  const isPoweredPosition = position => !needsPylonPower || isStructurePowered(unitType, position, powerSources);
 
   const pylonsNearProduction = getPylonsNearProduction(units, PYLON, main.townhallPosition);
 
@@ -89,7 +124,7 @@ function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTown
 
   const filteredPositions = getFilteredPositions(world);
 
-  const threeByThreePlacements = handleThreeByThreePositions(world, unitType, gameMap);
+  const threeByThreePlacements = handleThreeByThreePositions(world, unitType, gameMap, isPoweredPosition);
   if (threeByThreePlacements.length > 0) {
     return threeByThreePlacements; // Return if valid three-by-three placements are found
   }
@@ -101,9 +136,7 @@ function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTown
     return filteredCandidatePositions.slice(0, 20);
   }
 
-  const plannedPylonPositions = BuildingPlacement.getPlannedPylonPositions();
-
-  return finalizePlacements(placements, plannedPylonPositions, pylonsNearProduction, gameMap, wallOffPositions, unitType, isPlaceBlockedByTownhall);
+  return finalizePlacements(placements, plannedPylonPositions, pylonsNearProduction, gameMap, wallOffPositions, unitType, isPlaceBlockedByTownhall, isPoweredPosition);
 }
 
 /**
@@ -111,9 +144,10 @@ function findProtossPlacements(world, unitType, placements, isPlaceBlockedByTown
  * @param {World} world
  * @param {UnitTypeId} unitType
  * @param {MapResource} gameMap
+ * @param {(position: Point2D) => boolean} isPoweredPosition
  * @returns {Point2D[]}
  */
-function handleThreeByThreePositions(world, unitType, gameMap) {
+function handleThreeByThreePositions(world, unitType, gameMap, isPoweredPosition) {
   const threeByThreeFootprint = getFootprint(UnitType.FORGE);
   if (!threeByThreeFootprint) return [];
 
@@ -130,7 +164,10 @@ function handleThreeByThreePositions(world, unitType, gameMap) {
 
     const unitTypeFootprint = getFootprint(unitType);
     if (unitTypeFootprint && unitTypeFootprint.h === threeByThreeFootprint.h && unitTypeFootprint.w === threeByThreeFootprint.w) {
-      const validPosition = getRandom(filteredPositions.filter(pos => gameMap.isPlaceableAt(unitType, pos)));
+      // Reject unpowered wall slots before choosing one, so they cannot hide
+      // another usable wall slot or suppress the general placement fallback.
+      const validPosition = getRandom(filteredPositions.filter(pos =>
+        gameMap.isPlaceableAt(unitType, pos) && isPoweredPosition(pos)));
       if (validPosition) {
         return [validPosition];
       }
@@ -202,34 +239,15 @@ function getFilteredPositions(world) {
   }
 
   const currentPlan = currentStrategy.steps;
-  return [...getCurrentlyEnrouteConstructionGrids(world), ...buildingPositions].reduce(
-    /**
-     * @param {Point2D[]} acc
-     * @param {Point2D | [number, Point2D]} positionEntry - Either a Point2D or a tuple with [step, Point2D]
-     * @param {number} step
-     * @returns {Point2D[]}
-     */  
-    (acc, positionEntry, step) => {
-      if (!currentPlan[step]) {
-        console.error(`No plan found for step ${step}.`);
-        return acc;
-      }
-
-      const currentAction = currentPlan[step].action;
-      const unitType = BuildingPlacement.extractUnitTypeFromAction(currentAction);
-
-      const position = Array.isArray(positionEntry) ? positionEntry[1] : positionEntry;
-      const unitFootprint = getFootprint(unitType);
-
-      if (unitFootprint && position && typeof position === 'object' && !Array.isArray(position)) {
-        const footprintCells = getCachedFootprintCells(position, unitFootprint, false);
-        acc.push(...footprintCells);
-      }
-
-      return acc;
-    },
-    /** @type {Point2D[]} */[]
-  );
+  const occupiedCells = getCurrentlyEnrouteConstructionGrids(world);
+  for (const [step, position] of buildingPositions) {
+    const unitType = BuildingPlacement.getPlacementUnitTypeForStep(currentPlan[step]);
+    const unitFootprint = getFootprint(unitType);
+    if (unitFootprint && position && typeof position === 'object' && !Array.isArray(position)) {
+      occupiedCells.push(...getCachedFootprintCells(position, unitFootprint, false));
+    }
+  }
+  return occupiedCells;
 }
 
 /**
@@ -281,9 +299,10 @@ function filterCandidatePositions(candidatePositions, wallOffPositions, gameMap,
  * @param {Point2D[]} wallOffPositions
  * @param {UnitTypeId} unitType
  * @param {function} isPlaceBlockedByTownhall
+ * @param {(position: Point2D) => boolean} isPoweredPosition
  * @returns {Point2D[]}
  */
-function finalizePlacements(placements, plannedPylonPositions, pylonsNearProduction, gameMap, wallOffPositions, unitType, isPlaceBlockedByTownhall) {
+function finalizePlacements(placements, plannedPylonPositions, pylonsNearProduction, gameMap, wallOffPositions, unitType, isPlaceBlockedByTownhall, isPoweredPosition) {
   const unitTypeFootprint = getFootprint(unitType);
   if (!unitTypeFootprint) return [];
 
@@ -303,7 +322,8 @@ function finalizePlacements(placements, plannedPylonPositions, pylonsNearProduct
     ];
 
     const isNearPylon = pylonsIncludingPlanned.some(pylonPosition => getDistance(pylonPosition, grid) <= 6.5);
-    return isPlaceable && isNearPylon;
+    // Power filtering must precede the random sample and twenty-position cap.
+    return isPlaceable && isNearPylon && isPoweredPosition(grid);
   }).map(pos => ({ pos, rand: Math.random() }))
     .sort((a, b) => a.rand - b.rand)
     .map(a => a.pos)
@@ -466,43 +486,46 @@ function findPosition(world, unitType, candidatePositions) {
   // If the unitType is in flyingTypesMapping, map it to its base unit type
   const baseUnitType = flyingTypesMapping.get(unitType);
   unitType = baseUnitType !== undefined ? baseUnitType : unitType;
+  const inputCandidateCount = candidatePositions.length;
+  const rejectionCounts = {};
+  const reject = reason => {
+    rejectionCounts[reason] = (rejectionCounts[reason] || 0) + 1;
+    return false;
+  };
 
   const needsPylonPower = requiresPylonPower(unitType, world);
   const projectedPowerSources = needsPylonPower
-    ? [
-      ...(agent.powerSources || []),
-      ...units.getById(UnitType.PYLON)
-        .filter(pylon => pylon.pos)
-        .map(pylon => ({ pos: pylon.pos, radius: 6.5 })),
-      ...BuildingPlacement.getPlannedPylonPositions()
-        .map(position => ({ pos: position, radius: 6.5 })),
-    ]
+    ? getProjectedPylonPowerSources(
+      agent.powerSources,
+      units.getById(UnitType.PYLON),
+      BuildingPlacement.getPlannedPylonPositions()
+    )
     : [];
 
   // Filter candidate positions to only include valid ones
   candidatePositions = candidatePositions.filter(position => {
     const footprint = getFootprint(unitType);
-    if (!footprint) return false;
+    if (!footprint) return reject('missingFootprint');
 
     const unitTypeCells = getCachedFootprintCells(position, footprint, false);
 
     // Special handling for gas mine types
     if (gasMineTypes.includes(unitType)) {
-      return isPlaceableAtGasGeyser(map, unitType, position);
+      return isPlaceableAtGasGeyser(map, unitType, position) || reject('invalidGasGeyser');
     }
 
     if (needsPylonPower && !isStructurePowered(unitType, position, projectedPowerSources)) {
-      return false;
+      return reject('insufficientPylonPower');
     }
 
-    // Check if each cell in the unit's footprint is placeable
-    return unitTypeCells.every(cell => {
-      const isPlaceable = map.isPlaceable(cell);
-      const needsCreep = agent.race === Race.ZERG && unitType !== UnitType.HATCHERY;
-      const hasCreep = map.hasCreep(cell);
-      return isPlaceable && (!needsCreep || hasCreep);
-    });
+    if (!unitTypeCells.every(cell => map.isPlaceable(cell))) return reject('unplaceableFootprint');
+    const needsCreep = agent.race === Race.ZERG && unitType !== UnitType.HATCHERY;
+    if (needsCreep && !unitTypeCells.every(cell => map.hasCreep(cell))) return reject('missingCreep');
+    return true;
   });
+
+  if (inputCandidateCount === 0) rejectionCounts.noCandidates = 1;
+  recordPlacementCandidateTelemetry(unitType, inputCandidateCount, candidatePositions.length, rejectionCounts);
 
   // Randomize and limit candidate positions to the top 20
   const randomPositions = candidatePositions
@@ -805,5 +828,7 @@ module.exports = {
   allPointsWithinGrid,
   findPosition,
   findUnitPlacements,
-  getPylonPowerArea
+  getPlacementCandidateTelemetry,
+  getPylonPowerArea,
+  resetPlacementCandidateTelemetry,
 };

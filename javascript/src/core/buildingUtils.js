@@ -7,12 +7,42 @@ const { findUnitTypesWithAbilityCached, positionIsEqual } = require("./common");
 const { logMessageStorage } = require("./logging");
 const BuildingPlacement = require("../features/construction/buildingPlacement");
 const { getAddOnPlacement } = require("../features/pathfinding/pathfinding");
-const { isStructurePowered, requiresPylonPower } = require("../features/shared/protossUtils");
+const { getCurrentPylonPowerSources, getProjectedPylonPowerSources, isStructurePowered, requiresPylonPower } = require("../features/shared/protossUtils");
+const StrategyContext = require("../features/strategy/strategyContext");
 const { canLiftOff } = require("../units/management/unitConfig");
 const { getDistance } = require("../utils/spatialCoreUtils");
 
 /** @type {UnitTypeId | null} */
 let lastLoggedUnitType = null;
+let powerPlacementDeferrals = {};
+let powerPlacementDeferralsByStep = {};
+
+function recordPowerPlacementDeferral(unitType) {
+  const unitTypeName = Object.keys(UnitType).find(type => UnitType[type] === unitType) || String(unitType);
+  powerPlacementDeferrals[unitTypeName] = (powerPlacementDeferrals[unitTypeName] || 0) + 1;
+
+  const currentStep = StrategyContext.getInstance().getCurrentStep();
+  const stepKey = Number.isInteger(currentStep) && currentStep >= 0 ? String(currentStep) : 'unattributed';
+  const stepDeferrals = powerPlacementDeferralsByStep[stepKey] || {};
+  stepDeferrals[unitTypeName] = (stepDeferrals[unitTypeName] || 0) + 1;
+  powerPlacementDeferralsByStep[stepKey] = stepDeferrals;
+}
+
+function getPowerPlacementDeferrals() {
+  return { ...powerPlacementDeferrals };
+}
+
+function getPowerPlacementDeferralsByStep() {
+  return Object.fromEntries(Object.entries(powerPlacementDeferralsByStep).map(([step, deferrals]) => [
+    step,
+    { ...deferrals },
+  ]));
+}
+
+function resetPowerPlacementDeferrals() {
+  powerPlacementDeferrals = {};
+  powerPlacementDeferralsByStep = {};
+}
 
 /**
  * Command to place a building at the specified position.
@@ -50,7 +80,8 @@ function commandPlaceBuilding(world, unitType, position, commandBuilderToConstru
     return collectedActions;
   }
 
-  if (requiresPylonPower(unitType, world) && !isStructurePowered(unitType, position, agent.powerSources || [])) {
+  if (requiresPylonPower(unitType, world) && !isProtossPositionCurrentlyPowered(world, position, unitType)) {
+    recordPowerPlacementDeferral(unitType);
     return premoveBuilderToPosition(world, position, unitType, getBuilder, BuildingPlacement.getMiddleOfStructure, getTimeToTargetCost);
   }
 
@@ -212,19 +243,30 @@ function isPlaceableAtGasGeyser(map, unitType, position) {
 
 /**
  * Checks if the position is valid for Protoss buildings by ensuring it is powered by a Pylon.
- * @param {UnitResource} units - The units resource containing the list of Protoss Pylons.
+ * @param {World} world - The game world used to read all current and projected power sources.
  * @param {Point2D} position - The position to validate.
  * @param {UnitTypeId} unitType - The structure type to validate.
  * @returns {boolean} True if the position is valid, false otherwise.
  */
-function isProtossPositionValid(units, position, unitType) {
-  const pylonPowerSources = units.getById(UnitType.PYLON)
-    .filter(pylon => pylon.pos)
-    .map(pylon => ({ pos: pylon.pos, radius: 6.5 }));
-  const plannedPowerSources = BuildingPlacement.getPlannedPylonPositions()
-    .map(plannedPylonPosition => ({ pos: plannedPylonPosition, radius: 6.5 }));
+function isProtossPositionValid(world, position, unitType) {
+  const { agent, resources } = world;
+  const { units } = resources.get();
+  const pylonPowerSources = units.getById(UnitType.PYLON);
+  return isStructurePowered(unitType, position, getProjectedPylonPowerSources(
+    agent.powerSources,
+    pylonPowerSources,
+    BuildingPlacement.getPlannedPylonPositions()
+  ));
+}
 
-  return isStructurePowered(unitType, position, [...pylonPowerSources, ...plannedPowerSources]);
+/** Require observed power across the full footprint before issuing a build command. */
+function isProtossPositionCurrentlyPowered(world, position, unitType) {
+  const { agent, resources } = world;
+  const { units } = resources.get();
+  return isStructurePowered(unitType, position, getCurrentPylonPowerSources(
+    agent.powerSources,
+    units.getById(UnitType.PYLON)
+  ));
 }
 
 /**
@@ -241,12 +283,10 @@ function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
 
   const resources = world.resources.get();
   const map = resources.map;
-  const units = resources.units;
-
   let isPositionValid = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
 
   if (race === Race.PROTOSS && ![UnitType.PYLON, UnitType.ASSIMILATOR, UnitType.NEXUS].includes(unitType)) {
-    isPositionValid = isPositionValid && isProtossPositionValid(units, position, unitType);
+    isPositionValid = isPositionValid && isProtossPositionValid(world, position, unitType);
   }
 
   return isPositionValid;
@@ -293,14 +333,18 @@ module.exports = {
   commandPlaceBuilding,
   determineBuildingPosition,
   findBestPositionForAddOn,
+  getPowerPlacementDeferrals,
+  getPowerPlacementDeferralsByStep,
   getInTheMain,
   keepPosition,
   hasAddOn,
   isGasCollector,
   isGeyserFree,
   isPlaceableAtGasGeyser,
+  isProtossPositionValid,
   logNoFreeGeysers,
   logNoValidPosition,
   resetNoFreeGeysersLogFlag,
   resetNoValidPositionLogFlag,
+  resetPowerPlacementDeferrals,
 };

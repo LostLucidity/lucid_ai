@@ -47,6 +47,55 @@ test('a swallowed action exception still stops the engine and retains the first 
   expect(f.engine.shutdown).toHaveBeenCalledTimes(1);
 });
 
+test('includes structured smoke telemetry in the terminal receipt', () => {
+  const f = fixture();
+  const control = installSmokeController(
+    f.engine,
+    210,
+    jest.fn(),
+    () => ({
+      reason: 'telemetry-cannot-override-controller',
+      placementCandidateTelemetry: {
+        ROBOTICSFACILITY: { attempts: 3, rejections: { noCandidates: 3 } },
+      },
+      powerPlacementDeferrals: { GATEWAY: 2 },
+      powerPlacementDeferralsByStep: { 14: { GATEWAY: 2 } },
+    })
+  );
+
+  control.stop('game_time_limit');
+
+  expect(control.receipt).toMatchObject({
+    reason: 'game_time_limit',
+    placementCandidateTelemetry: {
+      ROBOTICSFACILITY: { attempts: 3, rejections: { noCandidates: 3 } },
+    },
+    powerPlacementDeferrals: { GATEWAY: 2 },
+    powerPlacementDeferralsByStep: { 14: { GATEWAY: 2 } },
+  });
+});
+
+test('telemetry failure cannot prevent cutoff shutdown or its terminal receipt', () => {
+  const f = fixture();
+  const report = jest.fn();
+  const control = installSmokeController(
+    f.engine,
+    210,
+    report,
+    () => { throw new Error('telemetry failed'); }
+  );
+  f.setLoop(4704);
+
+  expect(control.beforeActions()).toBe(false);
+  expect(control.receipt).toMatchObject({
+    reason: 'game_time_limit',
+    gameLoop: 4704,
+    telemetryError: 'telemetry failed',
+  });
+  expect(f.engine.shutdown).toHaveBeenCalledTimes(1);
+  expect(report).toHaveBeenCalledTimes(1);
+});
+
 test('first rejected action stops even when the callback returns normally', async () => {
   const f = fixture();
   f.client.action.mockResolvedValue({ result: [1, 2] });

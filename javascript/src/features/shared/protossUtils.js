@@ -53,7 +53,45 @@ function isStructurePowered(unitType, position, powerSources) {
   }));
 }
 
+/**
+ * Builds the projected Pylon-power view used while selecting and retaining a
+ * Protoss structure placement. Planned and unfinished Pylons may appear here.
+ *
+ * @param {SC2APIProtocol.PowerSource[]} powerSources Current agent power sources.
+ * @param {Unit[]} pylons Observed Pylon units.
+ * @param {Point2D[]} plannedPylonPositions Reserved Pylon positions.
+ * @returns {SC2APIProtocol.PowerSource[]} Current and projected Pylon power sources.
+ */
+function getProjectedPylonPowerSources(powerSources = [], pylons = [], plannedPylonPositions = []) {
+  return [
+    ...(Array.isArray(powerSources) ? powerSources : []),
+    ...(Array.isArray(pylons) ? pylons : [])
+      .filter(pylon => pylon.pos)
+      .map(pylon => ({ pos: pylon.pos, radius: 6.5 })),
+    ...(Array.isArray(plannedPylonPositions) ? plannedPylonPositions : [])
+      .map(position => ({ pos: position, radius: 6.5 })),
+  ];
+}
+
+/**
+ * Builds the observed power view used immediately before a build command.
+ * Planned and unfinished Pylons cannot supply power yet.
+ * @param {SC2APIProtocol.PowerSource[]} powerSources Active agent power sources.
+ * @param {Unit[]} pylons Observed Pylon units.
+ * @returns {SC2APIProtocol.PowerSource[]} Active power sources.
+ */
+function getCurrentPylonPowerSources(powerSources = [], pylons = []) {
+  return [
+    ...(Array.isArray(powerSources) ? powerSources : []),
+    ...(Array.isArray(pylons) ? pylons : [])
+      .filter(pylon => pylon.pos && pylon.buildProgress >= 1)
+      .map(pylon => ({ pos: pylon.pos, radius: 6.5 })),
+  ];
+}
+
 module.exports = {
+  getCurrentPylonPowerSources,
+  getProjectedPylonPowerSources,
   isStructurePowered,
   requiresPylonPower,
 };

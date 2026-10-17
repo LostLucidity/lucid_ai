@@ -1,7 +1,7 @@
 "use strict";
 
 // Installed only for an explicitly configured smoke run. No process killing.
-function installSmokeController(engine, seconds, report = console.log) {
+function installSmokeController(engine, seconds, report = console.log, getReceiptDetails = () => ({})) {
   const duration = Number(seconds);
   if (!Number.isFinite(duration) || duration <= 0 || !String(seconds).trim()) {
     throw new Error('SC2_SMOKE_SECONDS must be a positive finite number');
@@ -37,7 +37,14 @@ function installSmokeController(engine, seconds, report = console.log) {
   }
   function stop(reason, detail = null) {
     if (receipt) return receipt;
-    receipt = { mode: 'bounded_smoke', reason, gameLoop: frame.getGameLoop(), limit, detail };
+    let receiptDetails = {};
+    try {
+      const details = getReceiptDetails();
+      if (details && typeof details === 'object' && !Array.isArray(details)) receiptDetails = details;
+    } catch (error) {
+      receiptDetails = { telemetryError: error instanceof Error ? error.message : String(error) };
+    }
+    receipt = { ...receiptDetails, mode: 'bounded_smoke', reason, gameLoop: frame.getGameLoop(), limit, detail };
     for (const type of new Set([...pending].map(entry => entry.type))) {
       client._protoApiQueue[type](stoppedError);
     }

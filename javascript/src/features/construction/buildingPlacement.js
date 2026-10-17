@@ -125,7 +125,7 @@ class BuildingPlacement {
       return { unitType: null, position: null };
     }
 
-    const unitType = BuildingPlacement.extractUnitTypeFromAction(currentAction);
+    const unitType = BuildingPlacement.getPlacementUnitTypeForStep(currentPlan[currentStep]);
     const position = BuildingPlacement.buildingPosition || null;
 
     return { unitType, position };
@@ -562,6 +562,28 @@ class BuildingPlacement {
   }
 
   /**
+   * A step-keyed position can belong to one structure. In a mixed step, use
+   * the interpreted structure action rather than the first text segment.
+   * @param {import('../../core/globalTypes').BuildOrderStep | import('../../types/strategyTypes').StrategyStep | undefined} step
+   * @returns {number | null}
+   */
+  static getPlacementUnitTypeForStep(step) {
+    if (!step) return null;
+    const interpretedActions = Array.isArray(step.interpretedAction)
+      ? step.interpretedAction
+      : step.interpretedAction ? [step.interpretedAction] : [];
+    const actionTypes = interpretedActions.length > 0
+      ? interpretedActions.map(action => action?.unitType)
+      : (typeof step.action === 'string'
+        ? step.action.split(',').map(segment => BuildingPlacement.extractUnitTypeFromAction(segment))
+        : []);
+    const structureTypes = actionTypes.filter(unitType => groupTypes.structureTypes.includes(unitType));
+    if (structureTypes.length === 1) return structureTypes[0];
+    if (structureTypes.length > 1) return null;
+    return BuildingPlacement.extractUnitTypeFromAction(step.action);
+  }
+
+  /**
    * Finds placement for wall-off structures based on the unit type.
    * @param {UnitTypeId} unitType
    * @returns {Point2D[]}
@@ -635,7 +657,7 @@ class BuildingPlacement {
     const currentPlan = currentStrategy.steps;
     if (currentPlan.length === 0) return;
 
-    const planUnitType = BuildingPlacement.extractUnitTypeFromAction(currentPlan[currentStep].action);
+    const planUnitType = BuildingPlacement.getPlacementUnitTypeForStep(currentPlan[currentStep]);
     if (planUnitType !== unitType) {
       BuildingPlacement.buildingPosition = BuildingPlacement.buildingPosition || false;
     } else if (!BuildingPlacement.buildingPosition || !position || !deepEqual(BuildingPlacement.buildingPosition, position)) {
@@ -666,8 +688,7 @@ class BuildingPlacement {
        * @returns {Point2D[]} - The updated accumulator with PYLON positions.
        */
       (acc, [step, position]) => {
-        const currentAction = currentPlan[step]?.action;
-        const unitType = BuildingPlacement.extractUnitTypeFromAction(currentAction);
+        const unitType = BuildingPlacement.getPlacementUnitTypeForStep(currentPlan[step]);
 
         if (unitType === UnitType.PYLON) {
           acc.push(position);
