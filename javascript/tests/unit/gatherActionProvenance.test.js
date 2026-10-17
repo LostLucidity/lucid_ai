@@ -3,6 +3,7 @@ const path = require("path");
 const { Ability, UnitType } = require("@node-sc2/core/constants");
 
 const { gather } = require("../../src/gameLogic/economy/workerAssignment");
+const { setPendingOrders, unitPendingOrders } = require("../../src/units/management/unitOrders");
 const { getActionProvenance, setActionProvenance } = require("../../src/utils/actionProvenance");
 const { executeActions } = require("../../src/starcraftBot");
 
@@ -37,16 +38,18 @@ describe("gather action provenance", () => {
     expect(getActionProvenance(action)).toBe("test.gatherCaller");
   });
 
-  it("logs local provenance when SC2 rejects an action", async () => {
+  it("logs local provenance and clears pending orders when SC2 rejects an action", async () => {
     const action = {
       abilityId: Ability.SMART,
       targetUnitTag: "mineral-1",
       unitTags: ["probe-1"],
     };
     setActionProvenance(action, "test.failureCaller");
+    const worker = { unitType: UnitType.PROBE };
+    setPendingOrders(worker, action);
     const units = {
-      getAll: () => [],
-      getByTag: () => ({ unitType: UnitType.PROBE }),
+      getAll: () => [worker],
+      getByTag: () => worker,
     };
     const world = {
       resources: {
@@ -61,6 +64,7 @@ describe("gather action provenance", () => {
     await executeActions(world, [action]);
 
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("Source: test.failureCaller"));
+    expect(unitPendingOrders.has(worker)).toBe(false);
     errorSpy.mockRestore();
   });
 
