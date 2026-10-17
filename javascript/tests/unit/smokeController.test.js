@@ -141,6 +141,7 @@ test.each(['startup_error', 'step_error', 'game_time_limit'])('run wires the con
     jest.isolateModules(() => { bot = require('../../src/starcraftBot'); });
     const receipt = await bot.run();
     expect(receipt.reason).toBe(reason);
+    if (reason === 'startup_error') expect(receipt.detail).toBe('strategy initialization failed');
     expect(f.engine.shutdown).toHaveBeenCalledTimes(1);
     if (reason === 'startup_error' || reason === 'step_error') expect(process.exitCode).toBe(1);
     else expect(errorLog).not.toHaveBeenCalled();
