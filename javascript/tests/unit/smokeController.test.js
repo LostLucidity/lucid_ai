@@ -103,7 +103,7 @@ test('installed engine recursion stops at the exact cutoff without an external p
   control.restore();
 });
 
-test.each(['step_error', 'game_time_limit'])('run wires the controller into real bot callbacks: %s', async reason => {
+test.each(['startup_error', 'step_error', 'game_time_limit'])('run wires the controller into real bot callbacks: %s', async reason => {
   const savedSeconds = process.env.SC2_SMOKE_SECONDS;
   const savedExitCode = process.exitCode;
   const log = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -112,6 +112,10 @@ test.each(['step_error', 'game_time_limit'])('run wires the controller into real
   f.engine.connect = jest.fn(async () => {});
   if (reason === 'game_time_limit') f.setLoop(4704);
   f.engine.runGame = async (_map, players) => {
+    if (reason === 'startup_error') {
+      await players[0].onGameStart({ agent: { race: 3 } });
+      return f.engine.runLoop();
+    }
     // An invalid world would fail inside the real callback unless the cutoff guards it.
     await players[0].onStep({});
     return f.engine.runLoop();
@@ -122,16 +126,28 @@ test.each(['step_error', 'game_time_limit'])('run wires the controller into real
     createAgent: blueprint => blueprint,
     createPlayer: (_settings, agent) => agent,
   }));
+  if (reason === 'startup_error') {
+    jest.doMock('../../src/state/gameStateInitialization', () => ({
+      initializeGameState: jest.fn(),
+    }));
+    jest.doMock('../../src/state/strategySetup.js.js', () => ({
+      setupStrategyAndWorkers: jest.fn(async () => {
+        throw new Error('strategy initialization failed');
+      }),
+    }));
+  }
   try {
     let bot;
     jest.isolateModules(() => { bot = require('../../src/starcraftBot'); });
     const receipt = await bot.run();
     expect(receipt.reason).toBe(reason);
     expect(f.engine.shutdown).toHaveBeenCalledTimes(1);
-    if (reason === 'step_error') expect(process.exitCode).toBe(1);
+    if (reason === 'startup_error' || reason === 'step_error') expect(process.exitCode).toBe(1);
     else expect(errorLog).not.toHaveBeenCalled();
   } finally {
     jest.dontMock('../../src/runtime/nodeSc2Core');
+    jest.dontMock('../../src/state/gameStateInitialization');
+    jest.dontMock('../../src/state/strategySetup.js.js');
     if (savedSeconds === undefined) delete process.env.SC2_SMOKE_SECONDS;
     else process.env.SC2_SMOKE_SECONDS = savedSeconds;
     process.exitCode = savedExitCode;
