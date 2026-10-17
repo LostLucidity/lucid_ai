@@ -1,5 +1,26 @@
 {
+  "Adaptive Talons": "DIGGINGCLAWS",
+  "Adrenal Glands": "ZERGLINGATTACKSPEED",
+  "Centrifugal Hooks": "CENTRIFICALHOOKS",
+  "Cloaking Field": "BANSHEECLOAK",
   "Concussive Shells": "PUNISHERGRENADES",
+  "Drilling Claws": "DRILLCLAWS",
+  "Grooved Spines": "EVOLVEGROOVEDSPINES",
+  "Infernal Pre-Igniter": "INFERNALPREIGNITERS",
+  "Mag-Field Accelerator": "MAGFIELDLAUNCHERS",
+  "Metabolic Boost": "ZERGLINGMOVEMENTSPEED",
+  "Muscular Augments": "EVOLVEMUSCULARAUGMENTS",
+  "Pneumatized Carapace": "OVERLORDSPEED",
+  "Protoss Ground Armor Level 1": "PROTOSSGROUNDARMORSLEVEL1",
+  "Protoss Ground Armor Level 2": "PROTOSSGROUNDARMORSLEVEL2",
+  "Psionic Storm": "PSISTORMTECH",
+  "Resonating Glaives": "ADEPTPIERCINGATTACK",
+  "Seismic Spines": "LURKERRANGE",
+  "Terran Infantry Armor Level 1": "TERRANINFANTRYARMORSLEVEL1",
+  "Terran Infantry Armor Level 2": "TERRANINFANTRYARMORSLEVEL2",
+  "Terran Vehicle And Ship Armor Level 1": "TERRANVEHICLEANDSHIPARMORSLEVEL1",
   "Warp Gate": "WARPGATERESEARCH",
-  "Blink": "BLINKTECH"
+  "Blink": "BLINKTECH",
+  "Zerg Ground Armor Level 1": "ZERGGROUNDARMORSLEVEL1",
+  "Zerg Ground Armor Level 2": "ZERGGROUNDARMORSLEVEL2"
 }

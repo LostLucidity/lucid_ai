@@ -7,9 +7,8 @@ const { findUnitTypesWithAbilityCached, positionIsEqual } = require("./common");
 const { logMessageStorage } = require("./logging");
 const BuildingPlacement = require("../features/construction/buildingPlacement");
 const { getAddOnPlacement } = require("../features/pathfinding/pathfinding");
-const { requiresPylonPower } = require("../features/shared/protossUtils");
+const { isStructurePowered, requiresPylonPower } = require("../features/shared/protossUtils");
 const { canLiftOff } = require("../units/management/unitConfig");
-const { calculateDistance } = require("../utils/coreUtils");
 const { getDistance } = require("../utils/spatialCoreUtils");
 
 /** @type {UnitTypeId | null} */
@@ -51,7 +50,7 @@ function commandPlaceBuilding(world, unitType, position, commandBuilderToConstru
     return collectedActions;
   }
 
-  if (requiresPylonPower(unitType, world) && !isPositionPowered(position, agent.powerSources || [])) {
+  if (requiresPylonPower(unitType, world) && !isStructurePowered(unitType, position, agent.powerSources || [])) {
     return premoveBuilderToPosition(world, position, unitType, getBuilder, BuildingPlacement.getMiddleOfStructure, getTimeToTargetCost);
   }
 
@@ -212,40 +211,20 @@ function isPlaceableAtGasGeyser(map, unitType, position) {
 }
 
 /**
- * Checks if the position is powered by any PowerSource.
- * @param {Point2D} position The position to check.
- * @param {Array<SC2APIProtocol.PowerSource>} powerSources The list of power sources to check against.
- * @returns {boolean} True if the position is powered by any power source, false otherwise.
- */
-function isPositionPowered(position, powerSources) {
-  return powerSources.some(powerSource => {
-    if (!powerSource.pos || powerSource.radius === undefined) return false;
-    const distance = calculateDistance(powerSource.pos, position);
-    return distance <= powerSource.radius;
-  });
-}
-
-/**
  * Checks if the position is valid for Protoss buildings by ensuring it is powered by a Pylon.
  * @param {UnitResource} units - The units resource containing the list of Protoss Pylons.
  * @param {Point2D} position - The position to validate.
+ * @param {UnitTypeId} unitType - The structure type to validate.
  * @returns {boolean} True if the position is valid, false otherwise.
  */
-function isProtossPositionValid(units, position) {
-  const pylons = units.getById(UnitType.PYLON);
+function isProtossPositionValid(units, position, unitType) {
+  const pylonPowerSources = units.getById(UnitType.PYLON)
+    .filter(pylon => pylon.pos)
+    .map(pylon => ({ pos: pylon.pos, radius: 6.5 }));
+  const plannedPowerSources = BuildingPlacement.getPlannedPylonPositions()
+    .map(plannedPylonPosition => ({ pos: plannedPylonPosition, radius: 6.5 }));
 
-  const pylonExists = pylons.some(pylon =>
-    (pylon.isPowered || (pylon.buildProgress !== undefined && pylon.buildProgress < 1) || pylon.buildProgress === 1) &&
-    BuildingPlacement.isPylonUnitInRange(pylon, position)
-  );
-
-  const plannedPylonPositions = BuildingPlacement.getPlannedPylonPositions();
-
-  const plannedPylonExists = plannedPylonPositions.some(plannedPylonPosition =>
-    BuildingPlacement.isPylonPointInRange(plannedPylonPosition, position)
-  );
-
-  return pylonExists || plannedPylonExists;
+  return isStructurePowered(unitType, position, [...pylonPowerSources, ...plannedPowerSources]);
 }
 
 /**
@@ -267,7 +246,7 @@ function keepPosition(world, unitType, position, isPlaceableAtGasGeyser) {
   let isPositionValid = map.isPlaceableAt(unitType, position) || isPlaceableAtGasGeyser(map, unitType, position);
 
   if (race === Race.PROTOSS && ![UnitType.PYLON, UnitType.ASSIMILATOR, UnitType.NEXUS].includes(unitType)) {
-    isPositionValid = isPositionValid && isProtossPositionValid(units, position);
+    isPositionValid = isPositionValid && isProtossPositionValid(units, position, unitType);
   }
 
   return isPositionValid;

@@ -1,8 +1,8 @@
 // src/features/shared/movementUtils.js
 
-const { Buff, UnitType } = require("@node-sc2/core/constants");
+const { UnitType } = require("@node-sc2/core/constants");
 
-const { SPEED_MODIFIERS } = require("../core/constants");
+const { BUFF_IDS, SPEED_MODIFIERS } = require("../core/constants");
 const { getClosestPathablePositionsBetweenPositions } = require("../core/pathfindingCore");
 const { getDistanceByPath } = require("../features/pathfinding/pathfindingCore");
 // eslint-disable-next-line no-unused-vars
@@ -106,7 +106,7 @@ function getMovementSpeed(map, unit, gameState, adjustForRealSeconds = false) {
 
   // Start with a base multiplier and conditionally modify it
   let multiplier = adjustForRealSeconds ? 1.4 : 1;
-  if (unit.buffIds?.includes(Buff.STIMPACK)) {
+  if (unit.buffIds?.includes(BUFF_IDS.STIMPACK)) {
     multiplier *= 1.5;
   }
   if (map.hasCreep(pos) && !NO_CREEP_BONUS_TYPES.has(unitType)) {

@@ -8,7 +8,7 @@ const { parseBooleanEnv, parseNumberEnv } = require('./utils');
 const DEFAULTS = {
   RACE: Race.RANDOM,
   DIFFICULTY: Difficulty.EASY,
-  MAP: maps.MAP_JAGANNATHA_LE,
+  MAP: maps.MAP_ABYSSAL_REEF_AIE,
   LOGGING_LEVEL: 0,  // Set to 0 to capture all logs
   PLAN_MAX: {
     supply: 200,

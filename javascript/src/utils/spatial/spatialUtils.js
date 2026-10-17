@@ -17,6 +17,7 @@ const { isPlaceableAtGasGeyser } = require("../../core/buildingUtils");
 const BuildingPlacement = require("../../features/construction/buildingPlacement");
 const { getCurrentlyEnrouteConstructionGrids } = require("../../features/construction/constructionDataUtils");
 const { getOccupiedExpansions, existsInMap, pointsOverlap, getAddOnPlacement, getAddOnBuildingPlacement, getBuildingFootprintOfOrphanAddons, findZergPlacements } = require("../../features/pathfinding/pathfinding");
+const { isStructurePowered, requiresPylonPower } = require("../../features/shared/protossUtils");
 const { getTimeInSeconds } = require("../../features/shared/timeUtils");
 const StrategyContext = require("../../features/strategy/strategyContext");
 const { getBuildTimeLeft } = require("../../gameLogic/economy/workerService");
@@ -460,11 +461,23 @@ function findPosition(world, unitType, candidatePositions) {
   }
 
   const { agent, resources } = world;
-  const { map } = resources.get();
+  const { map, units } = resources.get();
 
   // If the unitType is in flyingTypesMapping, map it to its base unit type
   const baseUnitType = flyingTypesMapping.get(unitType);
   unitType = baseUnitType !== undefined ? baseUnitType : unitType;
+
+  const needsPylonPower = requiresPylonPower(unitType, world);
+  const projectedPowerSources = needsPylonPower
+    ? [
+      ...(agent.powerSources || []),
+      ...units.getById(UnitType.PYLON)
+        .filter(pylon => pylon.pos)
+        .map(pylon => ({ pos: pylon.pos, radius: 6.5 })),
+      ...BuildingPlacement.getPlannedPylonPositions()
+        .map(position => ({ pos: position, radius: 6.5 })),
+    ]
+    : [];
 
   // Filter candidate positions to only include valid ones
   candidatePositions = candidatePositions.filter(position => {
@@ -476,6 +489,10 @@ function findPosition(world, unitType, candidatePositions) {
     // Special handling for gas mine types
     if (gasMineTypes.includes(unitType)) {
       return isPlaceableAtGasGeyser(map, unitType, position);
+    }
+
+    if (needsPylonPower && !isStructurePowered(unitType, position, projectedPowerSources)) {
+      return false;
     }
 
     // Check if each cell in the unit's footprint is placeable

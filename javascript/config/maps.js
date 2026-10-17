@@ -1,4 +1,5 @@
 module.exports = {
+  MAP_ABYSSAL_REEF_AIE: "AbyssalReefAIE",
   MAP_2000_ATMOSPHERES_AIE: "2000AtmospheresAIE",
   MAP_ANCIENT_CISTERN_AIE: "AncientCisternAIE",
   MAP_BERLINGRAD_AIE: "BerlingradAIE",

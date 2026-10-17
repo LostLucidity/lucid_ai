@@ -9,6 +9,7 @@ const getRandom = require("@node-sc2/core/utils/get-random");
 
 // Internal module imports
 const { createUnitCommand } = require("../../core/common");
+const { RALLY_WORKER_ABILITIES } = require("../../core/constants");
 const { areApproximatelyEqual, getUnitsFromClustering, getOrderTargetPosition } = require("../../features/pathfinding/pathfinding");
 const { getDistanceByPath } = require("../../features/pathfinding/pathfindingCore");
 const { getBuildTimeLeft } = require("../../features/shared/timeUtils");
@@ -295,7 +296,6 @@ function isWorkerReservedForBuilding(worker) {
  * @returns {SC2APIProtocol.ActionRawUnitCommand[]}
  */
 const rallyWorkerToTarget = (world, position, getUnitsFromClustering, mineralTarget = true) => {
-  const { rallyWorkersAbilities } = groupTypes;
   const { data, resources } = world;
   const { units } = resources.get();
   const { DRONE, EGG } = UnitType;
@@ -315,7 +315,7 @@ const rallyWorkerToTarget = (world, position, getUnitsFromClustering, mineralTar
   if (workerSourceByPath.unitType === EGG) {
     rallyAbility = orders?.some(order => order.abilityId === data.getUnitTypeData(DRONE).abilityId) ? Ability.RALLY_BUILDING : null;
   } else {
-    rallyAbility = rallyWorkersAbilities.find(ability => workerSourceByPath.abilityAvailable(ability));
+    rallyAbility = RALLY_WORKER_ABILITIES.find(ability => workerSourceByPath.abilityAvailable(ability));
   }
 
   if (!rallyAbility) return collectedActions;

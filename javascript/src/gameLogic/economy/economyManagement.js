@@ -20,6 +20,7 @@ const { mine } = require('../../units/management/unitCommands');
 const { unitTypeTrainingAbilities } = require('../../units/management/unitConfig');
 const { calculateDistance } = require('../../utils/coreUtils');
 const { getProductionUnits } = require('../../utils/gameHelpers');
+const { isHarvesting } = require('../../utils/unitCompatibility');
 
 // Precompute the gasMineConstructionAbilities Set once if it doesn't change frequently
 const gasMineConstructionAbilities = new Set();
@@ -105,7 +106,13 @@ const balanceResources = (world, targetRatio = 16 / 6, buildFunction) => {
     if (gatheringGasWorkers.length > 0) {
       const [donatingWorker] = units.getClosest(gasMine.pos, gatheringGasWorkers);
       if (donatingWorker) {
-        actionsToReturn.push(...gather(resources, donatingWorker, null, false));
+        actionsToReturn.push(...gather(
+          resources,
+          donatingWorker,
+          null,
+          false,
+          "economyManagement.moveWorkerToMinerals"
+        ));
       }
     }
   };
@@ -274,7 +281,7 @@ function getMinerCount(units) {
 
   const mineralMinerCount = countAssignedHarvesters(units.getBases(readySelfFilter));
 
-  const muleCount = units.getById(UnitType.MULE).filter(mule => mule.isHarvesting()).length;
+  const muleCount = units.getById(UnitType.MULE).filter(isHarvesting).length;
   const adjustedMineralMinerCount = mineralMinerCount + (muleCount * 2.72); // Use precise mining rate for MULEs
 
   const vespeneMinerCount = countAssignedHarvesters(units.getGasMines(readySelfFilter));

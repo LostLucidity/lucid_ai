@@ -3,7 +3,6 @@
 const {
   Upgrade,
   UnitType,
-  Buff,
 } = require("@node-sc2/core/constants");
 const { Race } = require("@node-sc2/core/constants/enums");
 
@@ -17,6 +16,7 @@ const config = require("../../../config/config");
 const buildOrders = require("../../../data/buildOrders");
 const { loadAllBuildOrders } = require("../../../data/buildOrders");
 const { interpretBuildOrderAction } = require("../../../data/buildOrders/scripts/buildOrderUtils");
+const { BUFF_IDS } = require("../../core/constants");
 const EarmarkManager = require("../../core/earmarkManager");
 const { getUnitTypeData } = require("../../core/gameData");
 const ResourceEarmarkManager = require("../../core/resourceEarmarkManager");
@@ -140,7 +140,7 @@ class StrategyManager {
 
     if (!trainingUnit) return false;
 
-    return trainingUnit.buffIds?.includes(Buff.CHRONOBOOSTENERGYCOST) || false;
+    return trainingUnit.buffIds?.includes(BUFF_IDS.CHRONOBOOSTENERGYCOST) || false;
   }
 
   /**
@@ -210,7 +210,7 @@ class StrategyManager {
 
     if (!trainingUnit) return false;
 
-    const hasChronoBoostBuff = trainingUnit.buffIds?.includes(Buff.CHRONOBOOSTENERGYCOST) || false;
+    const hasChronoBoostBuff = trainingUnit.buffIds?.includes(BUFF_IDS.CHRONOBOOSTENERGYCOST) || false;
 
     const appliedThisStep = this.chronoBoostsPerStep.has(stepIndex) &&
       this.chronoBoostsPerStep.get(stepIndex).has(unitType);

@@ -1,7 +1,6 @@
 "use strict";
 
 // External library imports
-const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Upgrade, Ability, UnitType } = require('@node-sc2/core/constants');
 const { BUILD_ASSIMILATOR, EFFECT_CALLDOWNMULE, EFFECT_CHRONOBOOSTENERGYCOST } = require('@node-sc2/core/constants/ability');
 const { DisplayType } = require('@node-sc2/core/constants/enums');
@@ -19,9 +18,13 @@ const { trackBuildOrderProgress } = require('./gameLogic/buildOrders/buildOrderP
 const { startTrackingWorkerGathering, calculateGatheringTime } = require('./gameLogic/economy/gatheringManagement');
 const { gather, balanceWorkers, assignWorkersToMinerals } = require('./gameLogic/economy/workerAssignment');
 const { releaseWorkerFromBuilding, getWorkerReservedForPosition, getBuildTimeLeft } = require('./gameLogic/economy/workerService');
+const { createAgent, createEngine, createPlayer } = require('./runtime/nodeSc2Core');
+const { installSmokeController } = require('./runtime/smokeController');
+const { createSmokeLaunch } = require('./runtime/smokeLaunch');
 const { GameState } = require('./state');
 const buildOrderState = require('./state/buildOrderState');
 const GameInitialization = require('./state/gameInitialization');
+const { getActionProvenance } = require('./utils/actionProvenance');
 const { findUnitPlacements } = require('./utils/spatial/spatialUtils');
 const { getDistance } = require('./utils/spatialCoreUtils');
 const { clearAllPendingOrders } = require('./utils/unitUtils');
@@ -29,6 +32,8 @@ const config = require('../config/config');
 const { createUnitTypeTrainingAbilitiesMap } = require('../config/unitTypeTrainingAbilities');
 const { createUpgradeAbilitiesMap } = require('../config/upgradeAbilities');
 const { loadActionMappings } = require('../data/buildOrders/scripts/buildOrderUtils');
+let smokeController = null;
+let smokeLaunch = null;
 
 /**
  * @typedef {Object} CacheManager
@@ -311,7 +316,13 @@ function handleIdleProbesNearWarpingAssimilators(units, allUnits, resources, act
       );
 
       nearbyProbes.forEach(probe => {
-        actionList.push(...gather(resources, probe, null, false));
+        actionList.push(...gather(
+          resources,
+          probe,
+          null,
+          false,
+          "starcraftBot.handleIdleProbesNearWarpingAssimilators"
+        ));
       });
     });
   }
@@ -389,8 +400,18 @@ function manageWorkers(units, allUnits, resources, actionList, world) {
  * @param {Array<SC2APIProtocol.ActionRawUnitCommand>} actionList
  */
 function queueGatherOrdersForProbes(units, allUnits, resources, actionList) {
+  const assimilatorsWarpingIn = units.getByType(ASSIMILATOR).filter(assimilator =>
+    assimilator.buildProgress !== undefined &&
+    assimilator.buildProgress < 1 &&
+    assimilator.pos
+  );
+  if (assimilatorsWarpingIn.length === 0) return;
+
   const probesWarpingAssimilators = allUnits.filter(probe =>
-    probe.unitType === PROBE && probe.orders?.some(order => order.abilityId === BUILD_ASSIMILATOR)
+    probe.unitType === PROBE &&
+    probe.pos &&
+    probe.orders?.some(order => order.abilityId === BUILD_ASSIMILATOR) &&
+    assimilatorsWarpingIn.some(assimilator => getDistance(probe.pos, assimilator.pos) < 3)
   );
 
   if (probesWarpingAssimilators.length > 0) {
@@ -399,7 +420,13 @@ function queueGatherOrdersForProbes(units, allUnits, resources, actionList) {
       if (probe.pos) { // Ensure probe.pos is defined
         const closestMineralPatch = units.getClosest(probe.pos, mineralFields, 1)[0];
         if (closestMineralPatch) {
-          actionList.push(...gather(resources, probe, closestMineralPatch, true));
+          actionList.push(...gather(
+            resources,
+            probe,
+            closestMineralPatch,
+            true,
+            "starcraftBot.queueGatherOrdersForProbes"
+          ));
         }
       }
     });
@@ -701,6 +728,7 @@ async function executeActions(world, actionCollection) {
             `Action ${index} failed with result: ${actionResultStrings[result]} \n` +
             `Unit: ${unitTypeName} (Tag: ${action.unitTags ? action.unitTags[0] : 'N/A'})\n` +
             `Command: ${abilityName}\n` +
+            `Source: ${getActionProvenance(action)}\n` +
             `Target: ${action.targetUnitTag ? 'Unit ' + action.targetUnitTag : action.targetWorldSpacePos ?
               `Position (${action.targetWorldSpacePos.x}, ${action.targetWorldSpacePos.y})` : 'No target'}`
           );
@@ -713,6 +741,7 @@ async function executeActions(world, actionCollection) {
     clearAllPendingOrders(resources.units.getAll());
   } catch (error) {
     console.error('Error sending actions in onStep:', error);
+    if (smokeController) smokeController.stop('action_error', error.message);
   }
 }
 
@@ -1044,10 +1073,12 @@ const bot = createAgent({
 
     } catch (error) {
       console.error('Error during onGameStart:', error);
+      if (smokeController) smokeController.stop('startup_error', error.message);
     }
   },
 
   onStep: async (world) => {
+    if (smokeController && !smokeController.beforeActions()) return;
     try {
       const { frame, units, map } = world.resources.get();
       const resources = world.resources;
@@ -1067,6 +1098,7 @@ const bot = createAgent({
       await executeGameActions(world, actionList);
     } catch (error) {
       console.error('Error during game step:', error);
+      if (smokeController) smokeController.stop('step_error', error.message);
     }
   },
 
@@ -1101,15 +1133,59 @@ const bot = createAgent({
   }
 });
 
-const engine = createEngine();
+const engine = process.env.SC2_SMOKE_SECONDS === undefined ? createEngine() : createEngine({ launch: false });
 
-engine.connect().then(() => {
-  return engine.runGame(config.defaultMap, [
-    createPlayer({ race: config.defaultRace }, bot),
-    createPlayer({ race: config.defaultRace, difficulty: config.defaultDifficulty }),
-  ]);
-}).catch(err => {
-  logger.logError('Error in connecting to the engine or starting the game:', err);
-});
+/**
+ * Connect to StarCraft II and run one local game with the configured map,
+ * race, and opponent difficulty.
+ * @returns {Promise<unknown>}
+ */
+async function run() {
+  const smokeSeconds = process.env.SC2_SMOKE_SECONDS;
+  if (smokeSeconds !== undefined) {
+    smokeController = installSmokeController(engine, smokeSeconds);
+    smokeLaunch = createSmokeLaunch(engine);
+  }
+  try {
+    if (smokeLaunch) await smokeLaunch.launch();
+    await engine.connect();
+    return await engine.runGame(config.defaultMap, [
+      createPlayer({ race: config.defaultRace }, bot),
+      createPlayer({ race: config.defaultRace, difficulty: config.defaultDifficulty }),
+    ]);
+  } catch (err) {
+    if (smokeController && smokeController.receipt) return smokeController.receipt;
+    if (smokeController) smokeController.stop('runtime_error', err.message);
+    logger.logError('Error in connecting to the engine or starting the game:', err);
+    throw err;
+  } finally {
+    if (smokeController) {
+      const controller = smokeController;
+      if (!controller.receipt) controller.stop('game_ended');
+      if (controller.receipt.shutdownError || (controller.receipt.reason !== 'game_time_limit' && controller.receipt.reason !== 'game_ended')) process.exitCode = 1;
+      await controller.restore();
+      smokeController = null;
+    }
+    if (smokeLaunch) {
+      try {
+        const cleanup = await smokeLaunch.cleanup();
+        if (cleanup) logger.logMessage(`Smoke SC2 child ${cleanup.pid} ${cleanup.disposition}.`, 1);
+      } catch (error) {
+        process.exitCode = 1;
+        logger.logError('Unable to clean up the owned smoke SC2 child:', error);
+      }
+      smokeLaunch = null;
+    }
+  }
+}
+
+if (require.main === module) {
+  run().catch(() => {
+    process.exitCode = 1;
+  });
+}
 
 module.exports = bot;
+module.exports.run = run;
+module.exports.executeActions = executeActions;
+module.exports.queueGatherOrdersForProbes = queueGatherOrdersForProbes;
