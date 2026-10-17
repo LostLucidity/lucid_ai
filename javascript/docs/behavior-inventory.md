@@ -2,7 +2,7 @@
 
 ## Evidence scale
 
-- **Offline verified:** exercised by lint, the current offline suite (36 suites / 154 tests), or the engine-stubbed real-entrypoint smoke.
+- **Offline verified:** exercised by the repository's `npm run validate:offline` contract, including lint, the unit suite, and the engine-stubbed real-entrypoint smoke.
 - **Static trace:** reachable or inspectable in the active source graph, but not directly exercised by a focused test.
 - **Live unverified:** not established by the bounded SC2 smoke evidence documented in the restoration runbook; no current live retry is authorized.
 
