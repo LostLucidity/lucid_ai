@@ -4,7 +4,7 @@ numpy~=1.18.3
 requests==2.23.0
 aiohttp==3.14.3
 scipy==1.4.1
-opencv-python==4.1.1.26
+opencv-python==4.8.1.78
 more-itertools==7.2.0
 mpyq==0.2.5
 
