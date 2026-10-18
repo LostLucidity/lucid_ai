@@ -4,12 +4,12 @@
 version: 'v0.0.3'
 workflows:
     '.github/workflows/codeql.yml':
-        - 'actions/checkout@v5.1.0'
+        - 'actions/checkout@v7.0.1'
         - 'github/codeql-action@v4.39.0'
 dependencies:
-    'actions/checkout@v5.1.0':
-        ref: 'v5.1.0'
-        commit: 'sha1-fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09'
+    'actions/checkout@v7.0.1':
+        ref: 'v7.0.1'
+        commit: 'sha1-3d3c42e5aac5ba805825da76410c181273ba90b1'
         owner_id: 44036562
         repo_id: 197814629
     'github/codeql-action@v4.39.0':
